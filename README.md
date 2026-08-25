@@ -91,12 +91,21 @@ one directory serves every agent.
 ## What the reader gets
 
 <p align="center">
-  <img src="docs/map/figures/system.svg" alt="systemap's own map" width="100%">
+  <img src="docs/map/figures/structure.svg" alt="systemap's own map: the Structure reading, every part in its region, no edges" width="100%">
 </p>
 
 That is systemap's map of itself, drawn by the same command you will run,
-from [`map/model.py`](map/model.py). The page is served from `docs/` by
-GitHub Pages at <https://0xfauzi.github.io/systemap/map/>.
+from [`map/model.py`](map/model.py): the Structure reading, every part in
+its place and not one arrow. Each further reading adds the edges that
+answer one question; this one is Control flow, who drives whom, and the
+live page has them all.
+
+<p align="center">
+  <img src="docs/map/figures/control.svg" alt="systemap's own map: the Control flow reading, only the edges where one part drives another" width="100%">
+</p>
+
+The page is served from `docs/` by GitHub Pages at
+<https://0xfauzi.github.io/systemap/map/>.
 
 - **Readings.** One map, several layers, each answering one question. Four
   are derived from the model with no authoring, and the page opens on the
