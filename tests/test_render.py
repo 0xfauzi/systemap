@@ -113,11 +113,12 @@ def test_light_scheme_derives_from_the_same_palette() -> None:
     layers = all_layers(model, meaning)
     dark = theme_mod.resolve({}, layers)
     light = theme_mod.resolve({"scheme": "light"}, layers)
-    assert dark["bg"] == theme_mod.INK and dark["ink"] == theme_mod.PAPER
-    assert light["bg"] == theme_mod.PAPER and light["ink"] == theme_mod.INK
-    assert dark["accent"] == theme_mod.AMBER
-    assert dark["good"] == theme_mod.TEAL
-    assert dark["layers"]["data"] == theme_mod.TEAL
+    assert dark["bg"] == theme_mod.GRAPHITE and dark["ink"] == theme_mod.INK
+    assert light["bg"] == theme_mod.PAPER and light["ink"] == theme_mod.INK_ON_PAPER
+    assert dark["accent"] == theme_mod.AMBER and dark["reach"] == theme_mod.AMBER
+    assert dark["steel"] == theme_mod.STEEL
+    assert dark["layers"]["data"] == theme_mod.STANDARD_LAYERS_DARK["data"]
+    assert light["layers"]["data"] == theme_mod.STANDARD_LAYERS_LIGHT["data"]
     # The same token names exist in both schemes, so an override written
     # for one applies to the other.
     assert set(dark) == set(light)

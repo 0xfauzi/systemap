@@ -1,19 +1,19 @@
 """The map's look, as one table of tokens.
 
 Everything visual lives here so the scene, the panel and the page cannot
-disagree about a colour. The default is systemap's own palette, the one the
-logo and the README use, so the page and the brand agree:
+disagree about a colour. The palette is cool graphite with one muted amber
+accent and low-chroma layer hues; nothing on the page is saturated:
 
-    ink #0b1020 ...... the ground
-    panel #101a3a .... surfaces
-    slate #4b5578 .... what is present but not lit
-    muted #aab3d1 .... secondary text
-    paper #f4f1ea .... text
-    amber #f5a524 .... the component the reader clicked (accent)
-    teal #2dd4bf ..... what it reaches: lit routes, built parts, reach
+    graphite #121417 .. the ground
+    surface #181b1f ... panels; raised #1f2329 for what sits on a panel
+    ink #e6e4df ....... text; ink_2 #b3b1aa and ink_3 #858a92 quieter
+    amber #e0a458 ..... the component the reader clicked (accent), and reach
+    steel #8fb0c4 ..... measurement
 
-Two schemes share the palette. `dark` puts paper on ink; `light` puts ink
-on paper, with amber and teal darkened to stay legible. A consumer picks one with
+Two schemes share the palette. `dark` puts ink on graphite; `light` puts
+ink #1d2024 on paper #f4f2ee, with every hue that is read as text darkened
+until it clears 4.5:1 on paper (measured, not guessed; the values are
+recorded in the commit that set them). A consumer picks one with
 `scheme = "light"` under `[theme]` and overrides any token from there; the
 result is merged over the scheme's table, so every token name stays the
 same in both.
@@ -54,99 +54,87 @@ SANS = (
 )
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
-INK = "#0b1020"
-PANEL = "#101a3a"
-SLATE = "#4b5578"
-MUTED = "#aab3d1"
-PAPER = "#f4f1ea"
-AMBER = "#f5a524"
-TEAL = "#2dd4bf"
+GRAPHITE = "#121417"
+INK = "#e6e4df"
+AMBER = "#e0a458"
+STEEL = "#8fb0c4"
+PAPER = "#f4f2ee"
+INK_ON_PAPER = "#1d2024"
 
-# The standard layers' hues on the ink ground: the two derived readings,
-# the two standard kinds, and the three agent readings. Each reads apart
-# from the others and stays quieter than the accent.
+# The standard layers' hues on graphite: the two derived readings, the two
+# standard kinds, and the three agent readings. Each reads apart from the
+# others (the agent three were searched for the widest CIE distance from
+# the rest at low chroma) and stays quieter than the accent.
 STANDARD_LAYERS_DARK: dict[str, str] = {
-    "structure": "#D9D2C0",
-    "system": "#82A7BA",
-    "data": TEAL,
-    "control": "#E3B778",
-    "agents": "#B48EC9",
-    "context": "#DD9BBD",
-    "tools": "#B7C27C",
+    "structure": "#d8d3c6",
+    "system": "#8fb0c4",
+    "data": "#8fbfa6",
+    "control": "#c9ae7c",
+    "agents": "#c893ad",
+    "context": "#c186c1",
+    "tools": "#86c189",
 }
 
 # Hues for the model's own layers, taken in order; a map with more custom
 # layers than this wraps around.
-LAYER_PALETTE: list[str] = [
-    "#E39A86",
-    "#8FB8D8",
-    "#C9B47A",
-    "#9BC4A0",
-]
+LAYER_PALETTE: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
 
-# The same on a paper ground. Pure amber and teal read at under 2:1 on
-# paper, so the light scheme darkens both until they clear 4.5:1 as text
-# (measured: #936316 at 4.61, #1a7b6f at 4.53) and keeps their hue.
+# The same hues darkened in HSL until each clears 4.5:1 as text on paper.
 STANDARD_LAYERS_LIGHT: dict[str, str] = {
-    "structure": "#8A7F5C",
-    "system": "#3D7A94",
-    "data": "#1a7b6f",
-    "control": "#B8792E",
-    "agents": "#7B4FA3",
-    "context": "#B0508E",
-    "tools": "#6F7E2A",
+    "structure": "#786e52",
+    "system": "#4a738c",
+    "data": "#45785d",
+    "control": "#866b37",
+    "agents": "#a4547b",
+    "context": "#9f519f",
+    "tools": "#3f7b42",
 }
-LAYER_PALETTE_LIGHT: list[str] = [
-    "#C2543A",
-    "#3A6F94",
-    "#8A6E1E",
-    "#3F7A47",
-]
+LAYER_PALETTE_LIGHT: list[str] = ["#ab5641", "#7660b4", "#67743e", "#3d71aa"]
 
 DARK: dict[str, Any] = {
     "name": "systemap",
     "scheme": "dark",
-    "bg": INK,
-    "surface": PANEL,
-    "raised": "#182452",
-    "line": "#1c2650",
-    "line_2": "#2e3a66",
-    "ink": PAPER,
-    "ink_2": MUTED,
-    "ink_3": "#7f8ab0",
+    "bg": GRAPHITE,
+    "surface": "#181b1f",
+    "raised": "#1f2329",
+    "line": "#262b32",
+    "line_2": "#3a4149",
+    "ink": INK,
+    "ink_2": "#b3b1aa",
+    "ink_3": "#858a92",
     "accent": AMBER,
-    "accent_soft": "#f5a5242E",
-    "steel": MUTED,
-    "good": TEAL,
-    "warn": "#E0B23C",
-    "bad": "#E06C5F",
-    "violet": "#B39DDB",
+    "accent_soft": "#e0a4582e",
+    "steel": STEEL,
+    "good": "#8cbf8a",
+    "warn": "#d6b14a",
+    "bad": "#d97b6c",
+    "violet": "#a99bd0",
     # A card's fill and stroke, then the word the legend prints. There is
     # one state: a card is code that exists today.
     "state": {
-        "built": [PANEL, "#8a95bd", "built"],
+        "built": ["#1f2329", "#6b7380", "built"],
     },
     # What a change map or a reach figure draws for the parts it does not
     # mark: (fill, stroke).
-    "ghost": ["#0d1430", "#1c2650"],
+    "ghost": ["#15181c", "#262b32"],
     # Hard boundaries: (stroke, fill) per tone.
     "container": {
-        "host": ["#2e3a66", "#0d1430"],
-        "client": ["#2e3a66", "#0d1430"],
-        "server": ["#26305a", "#0e1533"],
-        "isolated": ["#6B4F45", "#161426"],
+        "host": ["#3a4149", "#15181c"],
+        "client": ["#3a4149", "#15181c"],
+        "server": ["#2f353d", "#16191d"],
+        "isolated": ["#6b5347", "#1a1715"],
     },
-    "region": "#7f8ab0",
-    "change": "#E06C5F",
-    "reach": TEAL,
-    "flow": SLATE,
+    "region": "#858a92",
+    "change": "#d97b6c",
+    "reach": AMBER,
+    "flow": "#4a515a",
     "layer_palette": LAYER_PALETTE,
     "layers": dict(STANDARD_LAYERS_DARK),
     "marks": dict(KIND_MARKS),
     "delta": {
-        "operations": "#82A7BA",
-        "types": TEAL,
-        "refusals": "#E06C5F",
+        "operations": STEEL,
+        "types": "#8cbf8a",
+        "refusals": "#d97b6c",
         "tests": AMBER,
     },
     "font_ui": SANS,
@@ -157,42 +145,42 @@ LIGHT: dict[str, Any] = {
     "name": "systemap",
     "scheme": "light",
     "bg": PAPER,
-    "surface": "#fbf9f4",
-    "raised": "#ece8dc",
-    "line": "#dcd7c8",
-    "line_2": "#bfb9a8",
-    "ink": INK,
-    "ink_2": "#3a4265",
-    "ink_3": "#6b7394",
-    "accent": "#936316",
-    "accent_soft": "#f5a5242E",
-    "steel": "#6b7394",
-    "good": "#1a7b6f",
-    "warn": "#B07D0A",
-    "bad": "#C0392B",
-    "violet": "#7B4FA3",
+    "surface": "#ffffff",
+    "raised": "#ebe9e4",
+    "line": "#d9d6cf",
+    "line_2": "#b9b5ac",
+    "ink": INK_ON_PAPER,
+    "ink_2": "#55534d",
+    "ink_3": "#6a6f77",
+    "accent": "#a8722a",
+    "accent_soft": "#a8722a2e",
+    "steel": "#4a738c",
+    "good": "#457a43",
+    "warn": "#876b1f",
+    "bad": "#bf4531",
+    "violet": "#7660b4",
     "state": {
-        "built": ["#ffffff", "#6b7394", "built"],
+        "built": ["#ffffff", "#7c838d", "built"],
     },
-    "ghost": ["#f1eee6", "#dcd7c8"],
+    "ghost": ["#efede8", "#d9d6cf"],
     "container": {
-        "host": ["#bfb9a8", "#f7f4ec"],
-        "client": ["#bfb9a8", "#f7f4ec"],
-        "server": ["#c9c3b1", "#f9f6ef"],
-        "isolated": ["#b08a7c", "#f8f1ee"],
+        "host": ["#b9b5ac", "#efede8"],
+        "client": ["#b9b5ac", "#efede8"],
+        "server": ["#c4c0b7", "#f1efea"],
+        "isolated": ["#b08a7c", "#f3ece8"],
     },
-    "region": "#6b7394",
-    "change": "#C0392B",
-    "reach": "#1a7b6f",
-    "flow": "#8b93b3",
+    "region": "#6a6f77",
+    "change": "#bf4531",
+    "reach": "#a8722a",
+    "flow": "#b4b8be",
     "layer_palette": LAYER_PALETTE_LIGHT,
     "layers": dict(STANDARD_LAYERS_LIGHT),
     "marks": dict(KIND_MARKS),
     "delta": {
-        "operations": "#3D7A94",
-        "types": "#1a7b6f",
-        "refusals": "#C0392B",
-        "tests": "#936316",
+        "operations": "#4a738c",
+        "types": "#457a43",
+        "refusals": "#bf4531",
+        "tests": "#a8722a",
     },
     "font_ui": SANS,
     "font_mono": MONO,
@@ -219,9 +207,9 @@ def base_for(tokens: dict[str, Any]) -> dict[str, Any]:
     """The scheme table the consumer's tokens are laid over.
 
     `scheme = "light"` picks the paper scheme; anything else, or nothing,
-    picks the ink scheme. An unknown scheme word is not refused here: the
-    page's `color-scheme` carries it through, and the tokens fall back to
-    the ink scheme, so an older configuration keeps rendering.
+    picks the graphite scheme. An unknown scheme word is not refused here:
+    the page's `color-scheme` carries it through, and the tokens fall back
+    to the graphite scheme, so an older configuration keeps rendering.
     """
     scheme = tokens.get("scheme")
     if isinstance(scheme, str) and scheme in SCHEMES:

@@ -1,5 +1,5 @@
 {
- "built_at_commit": "01def46ec931a0391bee1402d7a424a34f87c337",
+ "built_at_commit": "50e43a1ea4dec77f94f719c06846cfc23f41030c",
  "components": {
   "systemap": {
    "classes": [],
@@ -1677,44 +1677,44 @@
      "value": "'ui-monospace,\"SF Mono\",SFMono-Regular,\"JetBrains Mono\",Menlo,Consolas,monospace"
     },
     {
+     "name": "GRAPHITE",
+     "value": "'#121417'"
+    },
+    {
      "name": "INK",
-     "value": "'#0b1020'"
-    },
-    {
-     "name": "PANEL",
-     "value": "'#101a3a'"
-    },
-    {
-     "name": "SLATE",
-     "value": "'#4b5578'"
-    },
-    {
-     "name": "MUTED",
-     "value": "'#aab3d1'"
-    },
-    {
-     "name": "PAPER",
-     "value": "'#f4f1ea'"
+     "value": "'#e6e4df'"
     },
     {
      "name": "AMBER",
-     "value": "'#f5a524'"
+     "value": "'#e0a458'"
     },
     {
-     "name": "TEAL",
-     "value": "'#2dd4bf'"
+     "name": "STEEL",
+     "value": "'#8fb0c4'"
+    },
+    {
+     "name": "PAPER",
+     "value": "'#f4f2ee'"
+    },
+    {
+     "name": "INK_ON_PAPER",
+     "value": "'#1d2024'"
     },
     {
      "name": "STANDARD_LAYERS_DARK",
-     "value": "{'structure': '#D9D2C0', 'system': '#82A7BA', 'data': TEAL, 'control': '#E3B778'"
+     "value": "{'structure': '#d8d3c6', 'system': '#8fb0c4', 'data': '#8fbfa6', 'control': '#c9"
     },
     {
      "name": "LAYER_PALETTE",
-     "value": "['#E39A86', '#8FB8D8', '#C9B47A', '#9BC4A0']"
+     "value": "['#d39a8c', '#a99bd0', '#a9b87a', '#7fa6d1']"
     },
     {
      "name": "STANDARD_LAYERS_LIGHT",
-     "value": "{'structure': '#8A7F5C', 'system': '#3D7A94', 'data': '#1a7b6f', 'control': '#B8"
+     "value": "{'structure': '#786e52', 'system': '#4a738c', 'data': '#45785d', 'control': '#86"
+    },
+    {
+     "name": "LAYER_PALETTE_LIGHT",
+     "value": "['#ab5641', '#7660b4', '#67743e', '#3d71aa']"
     }
    ],
    "docstring": "The map's look, as one table of tokens.",
@@ -1750,10 +1750,10 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 267,
+   "loc": 255,
    "package": "systemap",
    "plane": "core",
-   "sha": "ff6a79aeaefc",
+   "sha": "08e1283ad52d",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
     "test_agent_kinds_are_cards_that_claim_code",
