@@ -13,7 +13,7 @@ logo and the README use, so the page and the brand agree:
     teal #2dd4bf ..... what it reaches: lit routes, built parts, reach
 
 Two schemes share the palette. `dark` puts paper on ink; `light` puts ink
-on paper, with the same amber and teal. A consumer picks one with
+on paper, with amber and teal darkened to stay legible. A consumer picks one with
 `scheme = "light"` under `[theme]` and overrides any token from there; the
 result is merged over the scheme's table, so every token name stays the
 same in both.

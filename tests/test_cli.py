@@ -25,9 +25,13 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         "map/model.py",
         "docs/map/.gitkeep",
         ".github/workflows/systemap.yml",
+        ".claude/skills/systemap/SKILL.md",
     ):
         assert (tmp_path / rel).is_file(), rel
     assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text()
+    out = capsys.readouterr().out
+    assert "wrote .claude/skills/systemap/SKILL.md" in out
+    assert out.rstrip().endswith("Map this repository with systemap. Follow the systemap skill.")
 
     # Nothing built yet: extract --check and render are stale, with the fix named.
     assert run("--root", str(tmp_path), "extract", "--check") == 1
@@ -53,6 +57,15 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     # Init never overwrites what exists.
     assert run("--root", str(tmp_path), "init") == 0
     assert "kept systemap.toml" in capsys.readouterr().out
+
+
+def test_init_no_ci_skips_the_workflow(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
+    assert not (tmp_path / ".github").exists()
+    assert (tmp_path / "map/model.py").is_file()
+    assert (tmp_path / ".claude/skills/systemap/SKILL.md").is_file()
+    assert "systemap.yml" not in capsys.readouterr().out
 
 
 def test_stale_after_code_change(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -147,6 +160,12 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     default.write_text("edited")
     assert run("--root", str(tmp_path), "skill") == 0
     assert default.read_text() == text
+    # --print writes the same text to stdout and touches nothing.
+    default.write_text("edited")
+    capsys.readouterr()
+    assert run("--root", str(tmp_path), "skill", "--print") == 0
+    assert capsys.readouterr().out == text
+    assert default.read_text() == "edited"
 
 
 def test_extract_on_tiny_package_via_cli(

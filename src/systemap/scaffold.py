@@ -2,8 +2,13 @@
 
 The starter model is the smallest map that passes every check: one
 container, one region inside it, two components and one flow between them,
-one layer, one journey of one step and one invariant. A maintainer replaces
-the words and adds cards from there.
+one layer, one journey of one step and one invariant. An agent following
+the skill (installed by the same command, see skill.py) replaces the words
+and adds cards from there; a person may do the same by hand.
+
+The workflow runs the check on every push and pull request. It is written
+by default and skipped with `--no-ci`, since not every repository runs on
+the one forge the workflow is written for.
 """
 
 from __future__ import annotations
@@ -235,25 +240,33 @@ jobs:
 """
 
 
-def files(name: str, package: str, roots: list[tuple[str, str]]) -> dict[str, str]:
-    """path -> content for every file `systemap init` writes."""
+def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool = True) -> dict[str, str]:
+    """path -> content for every file `systemap init` writes.
+
+    The skill is not in this table: it is package text that is refreshed
+    on every init, where everything here is written once and then kept.
+    """
     if roots:
         lines = ["[package_roots]"] + [f'"{path}" = "{pkg}"' for path, pkg in roots]
         roots_block = "\n".join(lines)
     else:
         roots_block = '# [package_roots]\n# "src/mypackage" = "mypackage"'
-    return {
+    out = {
         "systemap.toml": CONFIG.format(name=name, roots=roots_block, package=package),
         "map/model.py": MODEL.format(name=name, upper=name.upper(), package=package),
         "docs/map/.gitkeep": "",
-        ".github/workflows/systemap.yml": WORKFLOW,
     }
+    if ci:
+        out[".github/workflows/systemap.yml"] = WORKFLOW
+    return out
 
 
-def write(root: Path, name: str, package: str, roots: list[tuple[str, str]]) -> list[str]:
+def write(
+    root: Path, name: str, package: str, roots: list[tuple[str, str]], ci: bool = True
+) -> list[str]:
     """Write every file that does not exist yet; return one line per file."""
     out: list[str] = []
-    for rel, content in files(name, package, roots).items():
+    for rel, content in files(name, package, roots, ci).items():
         path = root / rel
         if path.exists():
             out.append(f"kept {rel} (already exists)")

@@ -1,12 +1,13 @@
-"""The `systemap` command.
+"""The `systemap` command: what the agent runs.
 
-    systemap init                      write a configuration and a starter model
+    systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
     systemap render [--check]          render the page from facts and model
-    systemap check                     check layout, routes, labels and meaning
+    systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
-    systemap skill [--dir PATH]        write the agent skill that drafts the model
+    systemap judgement                 the list the maintainer must confirm
+    systemap skill [--dir PATH|--print] reinstall or print the agent skill
 
 Exit codes: 0 the map is current or the check passed; 1 the map is stale or
 a check failed; 2 the configuration or the model cannot be used. Every
@@ -64,17 +65,18 @@ def _project(args: argparse.Namespace) -> Project:
 # ---- init ------------------------------------------------------------------
 
 
+AGENT_SENTENCE = "Map this repository with systemap. Follow the systemap skill."
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
     roots = config.discover_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or root.name
-    say(*scaffold.write(root, name, package, roots))
-    say(
-        "next: edit map/model.py, then run: systemap refresh",
-        "then open docs/map/index.html",
-        "or: systemap skill, to have a coding agent draft the model for you to review",
-    )
+    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci))
+    skill_path = skill.write(root / skill.DEFAULT_DIR)
+    say(f"wrote {skill_path.relative_to(root)}")
+    say("next: give your coding agent this sentence:", f"  {AGENT_SENTENCE}")
     return OK
 
 
@@ -307,6 +309,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_skill(args: argparse.Namespace) -> int:
+    if args.print:
+        sys.stdout.write(skill.text())
+        return OK
     target = Path(args.dir).resolve() if args.dir else _root(args) / skill.DEFAULT_DIR
     path = skill.write(target)
     say(f"wrote {path}")
@@ -330,8 +335,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
-    s = sub.add_parser("init", help="write systemap.toml, a starter model and a workflow")
+    s = sub.add_parser(
+        "init", help="write systemap.toml, a starter model, the agent skill and a workflow"
+    )
     s.add_argument("--name", default="", help="the page title (default: the directory name)")
+    s.add_argument(
+        "--no-ci", action="store_true", help="do not write .github/workflows/systemap.yml"
+    )
     s.set_defaults(func=cmd_init)
 
     s = sub.add_parser("extract", help="read the facts out of the tree")
@@ -371,13 +381,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_refresh)
 
     s = sub.add_parser(
-        "skill", help="write SKILL.md, the agent skill that drafts the model for a person to review"
+        "skill", help="reinstall SKILL.md, the agent skill init installs, or print it"
     )
     s.add_argument(
         "--dir",
         default="",
         help=f"the directory to write SKILL.md into (default: {skill.DEFAULT_DIR} under the root)",
     )
+    s.add_argument("--print", action="store_true", help="write the skill to stdout instead")
     s.set_defaults(func=cmd_skill)
     return parser
 
