@@ -443,15 +443,27 @@ def edge_in_layer(model: Model, layer_id: str, edge_layer: str, src: str, dst: s
     return edge_layer == layer_id
 
 
+# The kind each derived or agent reading is about: its subject cards carry
+# the reading's colour as their stroke and are never dimmed by it.
+SUBJECT_KIND: dict[str, str] = {
+    "system": "actor",
+    "agents": "agent",
+    "context": "context",
+    "tools": "tool",
+}
+
+
 def subject_of_layer(model: Model, layer_id: str, cid: str) -> bool:
-    """A card the reading is about even when no edge it shows touches it."""
+    """A card the reading is about even when no edge it shows touches it.
+
+    Structure is about every card. System context is about the actors,
+    Agents about the agents, Context about the context cards and Tools
+    about the tools, whether or not an edge of the reading reaches them.
+    """
     if layer_id == "structure":
         return True
-    if layer_id == "system":
-        return model.kind_of(cid) == "actor"
-    if layer_id == "agents":
-        return model.kind_of(cid) == "agent"
-    return False
+    kind = SUBJECT_KIND.get(layer_id)
+    return kind is not None and model.kind_of(cid) == kind
 
 
 def reading(model: Model, meaning: Meaning, layer_id: str) -> tuple[list[int], list[str]]:

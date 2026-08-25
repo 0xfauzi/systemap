@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -33,8 +34,9 @@ from systemap.model import (
     all_layers,
     flow_layers,
     problems,
+    reading,
 )
-from systemap.schematic import kind_rows, layer_rows
+from systemap.schematic import interactive_script, kind_rows, layer_rows
 from systemap.schematic import render as render_schematic
 
 AGENT_TREE: dict[str, str] = {
@@ -316,3 +318,94 @@ def test_agent_kinds_are_cards_that_claim_code(agentic: Sample) -> None:
     )
     lines = check.check_entry(missing, agentic.facts)
     assert lines == ["Shell names entry absent which none of its modules defines (bot.shell)"]
+
+
+# ---- a figure of one agent reading marks its subjects and dims the rest ----------
+
+
+def cards_drawn(svg: str) -> dict[str, tuple[set[str], str]]:
+    """id -> (the node's classes, its box stroke) for every card in an SVG."""
+    found = re.findall(
+        r'<g class="node ([^"]*)" data-id="([^"]+)"[^>]*>\s*<rect class="node__box"[^>]*?stroke="([^"]+)"',
+        svg,
+    )
+    return {cid: (set(classes.split()), stroke) for classes, cid, stroke in found}
+
+
+def with_log(sample: Sample) -> Sample:
+    """The agent model plus a plain card no flow touches, in the act region."""
+    log = Component(
+        "Log",
+        "Writes what happened.",
+        implemented_by=("bot.shell",),
+        entry="run",
+        region="act",
+        x=460,
+        y=250,
+    )
+    model = dataclasses.replace(sample.model, components=(*sample.model.components, log))
+    meaning = dataclasses.replace(sample.meaning, plain={**sample.meaning.plain, "Log": "the log"})
+    return dataclasses.replace(sample, model=model, meaning=meaning)
+
+
+def test_context_and_tool_cards_are_subjects_of_their_readings(agentic: Sample) -> None:
+    for layer, subjects in (
+        ("agents", ["Planner"]),
+        ("context", ["Prompt", "Memory"]),
+        ("tools", ["Shell"]),
+        ("system", ["User"]),
+        ("data", []),
+    ):
+        assert reading(agentic.model, agentic.meaning, layer)[1] == subjects, layer
+
+
+def test_a_layer_figure_colours_its_subjects_and_dims_the_untouched(agentic: Sample) -> None:
+    a = with_log(agentic)
+    hue = a.theme["layers"]
+    built = a.theme["state"]["built"][1]
+
+    def draw(layer: str) -> dict[str, tuple[set[str], str]]:
+        svg, _ = render_schematic(a.model, a.meaning, a.theme, a.facts, layer=layer)
+        return cards_drawn(svg)
+
+    cards = draw("agents")
+    assert cards["Planner"][1] == hue["agents"] and "subject" in cards["Planner"][0]
+    assert "quiet" in cards["Log"][0], "no edge of the reading touches it"
+    for cid in ("User", "Prompt", "Memory", "Shell"):
+        assert "quiet" not in cards[cid][0], cid
+        assert cards[cid][1] != hue["agents"], cid
+    cards = draw("context")
+    for cid in ("Prompt", "Memory"):
+        assert cards[cid][1] == hue["context"] and "subject" in cards[cid][0], cid
+    assert "quiet" not in cards["Planner"][0], "the context edges end at the agent"
+    for cid in ("Shell", "User", "Log"):
+        assert "quiet" in cards[cid][0], cid
+    cards = draw("tools")
+    assert cards["Shell"][1] == hue["tools"] and "subject" in cards["Shell"][0]
+    for cid in ("Prompt", "Memory", "User", "Log"):
+        assert "quiet" in cards[cid][0], cid
+    cards = draw("system")
+    assert cards["User"][1] == hue["system"]
+    assert "quiet" in cards["Log"][0] and "quiet" not in cards["Planner"][0]
+    # Structure is about every card: nothing coloured, nothing dimmed. The
+    # whole map, likewise.
+    for layer in ("structure", ""):
+        svg, _ = render_schematic(a.model, a.meaning, a.theme, a.facts, layer=layer)
+        cards = cards_drawn(svg)
+        assert not any("quiet" in c or "subject" in c for c, _s in cards.values()), layer
+        assert cards["Planner"][1] == built
+    # The mark takes the stroke with it: the agent's ring in the Agents reading.
+    svg, _ = render_schematic(a.model, a.meaning, a.theme, a.facts, layer="agents")
+    ring = re.search(r'class="node__mark" x="465\.0"[^>]*stroke="([^"]+)"', svg)
+    assert ring is not None and ring.group(1) == hue["agents"]
+
+
+def test_the_page_colours_subjects_the_same_way(agentic: Sample) -> None:
+    svg, detail = render_schematic(agentic.model, agentic.meaning, agentic.theme, agentic.facts)
+    assert ".node.subject .node__box{stroke:var(--subject)}" in svg
+    script = interactive_script(agentic.theme, "schematic", "panel", detail)
+    assert "n.style.setProperty('--subject', subject ? LCOL[L] : '')" in script
+    assert "subject:subject" in script
+    meta = json.loads(detail)["_meta"]
+    assert meta["readings"]["context"]["subjects"] == ["Prompt", "Memory"]
+    assert meta["readings"]["tools"]["subjects"] == ["Shell"]

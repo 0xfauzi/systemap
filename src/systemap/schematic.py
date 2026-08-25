@@ -213,6 +213,9 @@ def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
         f"{s} .node{{transition:opacity .18s ease;cursor:pointer}}"
         f"{s} .node.dim{{opacity:.16}}"
         f"{s} .node.quiet{{opacity:.42}}"
+        f"{s} .node.subject .node__box{{stroke:var(--subject)}}"
+        f"{s} .node.subject rect.node__mark{{stroke:var(--subject)}}"
+        f"{s} .node.subject path.node__mark{{fill:var(--subject)}}"
         f"{s} .node.sel .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
         f"{s} .node.meas .node__box{{stroke:{t['steel']};stroke-width:2.2}}"
         f"{s} .node.acts .node__box{{stroke:{t['accent']};stroke-width:2.4}}"
@@ -297,10 +300,14 @@ def render(
     `layer` restricts the drawing to one reading: the edges the page's
     layer switch would show for it (`model.reading`, the same filter),
     painted in the reading's own hue when the reading is derived, and no
-    other edge at all; every card stays. Cards, routes and label seats are
-    the ones the whole map has, so the figure is the page with edges left
-    out, not a second layout. An unknown id is a ValueError; the figure
-    module checks it first and names the known ids.
+    other edge at all; every card stays. The cards the reading is about
+    (`subject_of_layer`: the actors, the agents, the context cards, the
+    tools) take the reading's colour as their stroke, and a card the
+    reading neither is about nor reaches by an edge is dimmed, as the
+    page dims it. Cards, routes and label seats are the ones the whole
+    map has, so the figure is the page with edges left out, not a second
+    layout. An unknown id is a ValueError; the figure module checks it
+    first and names the known ids.
 
     The detail JSON carries one record per component (what the focus panel
     shows) plus a `_meta` key: the layers, every edge with its verbs and its
@@ -331,6 +338,15 @@ def render(
         raise ValueError(f"unknown layer id: {layer}")
     shown: set[int] | None = set(readings[layer][0]) if layer else None
     reading_hue = layer if layer in DERIVED_LAYERS else ""
+    # The cards a reading is about and the cards its edges reach; the rest
+    # are dimmed in a figure of that reading. Structure is about every card
+    # and dims none.
+    subjects: set[str] = set(readings[layer][1]) if layer else set()
+    reached: set[str] = set()
+    if shown is not None:
+        for i in shown:
+            reached.update((model.flows[i].src, model.flows[i].dst))
+    marks_reading = bool(layer) and layer != "structure"
 
     # Text styling is deduplicated into classes: 240 text elements each
     # carrying a full font stack tripled the size of the figure for no
@@ -557,13 +573,18 @@ def render(
             stroke = T["change"]
         elif change_mode and near:
             stroke = T["reach"]
+        subject = marks_reading and cid in subjects
+        quiet = marks_reading and not subject and cid not in reached
+        if subject and layer:
+            stroke = LAYER_COLOUR[layer]
         x, y, w, h = boxes[cid]
         state_class = state if kind != "actor" else "actor"
         plain = meaning.plain.get(cid, "")
 
         g: list[str] = [
             f'<g class="node {state_class}'
-            f'{f" node--{tier}" if change_mode else ""}" '
+            f"{f' node--{tier}' if change_mode else ''}"
+            f'{" subject" if subject else ""}{" quiet" if quiet else ""}" '
             f'data-id="{esc(cid)}" data-kind="{kind}" data-state="{state}" '
             f'data-region="{esc(c.home)}" '
             f'role="button" '
@@ -1254,7 +1275,11 @@ function paint(){
     var id = n.dataset.id;
     var dim = f ? !near[id] : (j ? !jset[id] : false);
     var quiet = !f && !j && L !== 'all' && !inLayer[id] && !subjectOf(id, L);
-    setCls(n, {sel:(id === f), dim:dim, quiet:quiet,
+    // A card the reading is about carries the reading's colour as its
+    // stroke; Structure is about every card and colours none.
+    var subject = L !== 'all' && L !== 'structure' && subjectOf(id, L);
+    n.style.setProperty('--subject', subject ? LCOL[L] : '');
+    setCls(n, {sel:(id === f), dim:dim, quiet:quiet, subject:subject,
       acts:!!(j && (j.acts || []).indexOf(id) >= 0),
       meas:!!(j && (j.measures || []).indexOf(id) >= 0), tagged:false});
   });
