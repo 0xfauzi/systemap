@@ -18,7 +18,10 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     )
     assert len(html.encode("utf-8")) < 300 * 1024
     assert "<script src" not in html
-    assert "<link" not in html
+    # the one <link> is the favicon, inline as a data URI; nothing is fetched
+    assert '<link rel="icon" href="data:image/svg+xml,' in html
+    assert html.count("<link") == 1
+    assert 'href="http' not in html.split("</head>")[0]
     assert "<img" not in html
     assert "@import" not in html
     assert "url(http" not in html
