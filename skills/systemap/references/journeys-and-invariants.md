@@ -27,8 +27,9 @@ knows the entry point has a journey. A console script's `main` and a
 
 Not every entry point matters. A debugging hook, a public function that
 only tests call, a subcommand that prints a version: leave those without
-a journey and answer the judgement line by saying so. An entry point you
-cannot explain is a finding for the maintainer, not a journey to invent.
+a journey and answer the judgement line in `[judgement] answered` saying
+so. An entry point you cannot explain is a finding for the maintainer,
+not a journey to invent.
 
 In an agentic system, one journey per agent's turn is expected: what
 enters the window, what the model returns, what the agent invokes, what it
@@ -39,8 +40,8 @@ writes back.
 An invariant is a rule the repository states about itself. Sources, in
 order of trust:
 
-1. Rules stated in the README and the design documents. Cite the file and
-   the heading: `(README, Principles)`.
+1. Rules stated in the repository's own words: its README, AGENTS.md,
+   CLAUDE.md, docs/. Cite the file and the heading: `(README, Principles)`.
 2. Guard clauses that raise: a function that refuses an input and says
    why. Cite the file and line: `(pkg/ledger.py:42)`.
 3. Assertions in the code, cited the same way.
@@ -50,7 +51,7 @@ order of trust:
 Each `Invariant` carries the rule in the repository's own words where it
 can, the citation in the text, and the ids of the components it directly
 governs. A rule the repository did not state is not an invariant; it is a
-proposal, and belongs in your list for the maintainer.
+proposal, and belongs in your hand-back note to the maintainer.
 
 ## The check, and what it cannot see
 

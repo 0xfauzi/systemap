@@ -58,8 +58,12 @@ needs to show the agents, what enters their windows, and what they can
 do. Three component kinds and two flow kinds exist for that.
 
 - `kind="agent"`: a part that runs a model and acts on its output. Find
-  them by the call: a module that calls a model API or a coding-agent CLI
-  and does something with the reply. Drawn with an inner ring.
+  them by the call: the facts record each module's third-party imports
+  under `external`, and `systemap judgement` prints `model sdk: module X
+  imports <sdk> and its component P is not an agent` for a built-in list
+  of model SDKs and agent frameworks (extend it with `[facts] model_sdks`
+  in `systemap.toml`). A module that calls a coding-agent CLI through a
+  subprocess is found by reading it. Drawn with an inner ring.
 - `kind="context"`: a store whose content enters an agent's window: a
   system prompt, a prompt template, a memory file, retrieved knowledge,
   injected facts, a conversation log. Find them by what is read before or

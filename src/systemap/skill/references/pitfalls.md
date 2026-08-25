@@ -76,3 +76,17 @@ is the finding.
 "The writer should never read the input" is not an invariant unless the
 repository says so. Cite the source in the text. What the repository does
 not state goes in your list for the maintainer.
+
+## Answers that live in a chat
+
+An answer to a judgement line written in a message is gone by the next
+run; the line comes back and is answered again. Answers go in
+`[judgement] answered` in `systemap.toml`, where the next run suppresses
+the line and counts it, and where the maintainer reads them.
+
+## A long list answered one line at a time
+
+Two hundred `single module` lines on a two-hundred-module repository do
+not need two hundred tables. One table with `items = [...]` and one
+reason answers every line the reason covers. Group by reason, not by
+line; a line whose reason differs gets its own table.

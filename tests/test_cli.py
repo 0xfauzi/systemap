@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import http.client
+import threading
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import PKG_IGNORE, TINY_PACKAGE, TWO_CARD_MODEL, init_two_cards, write_tree
 
-from systemap import __version__
+from systemap import __version__, cli
 from systemap.cli import NO_COMPONENTS, main
 
 STARTER_MODULES = {
@@ -260,3 +263,73 @@ def test_extract_on_tiny_package_via_cli(
     out = capsys.readouterr().out
     assert "modules: 3" in out
     assert "written to docs/map/map.json" in out
+
+
+def test_serve_serves_the_output_directory(tmp_path: Path) -> None:
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    init_two_cards(tmp_path, "--no-ci")
+    assert run("--root", str(tmp_path), "refresh") == 0
+    httpd = cli.make_server(tmp_path / "docs/map", 0)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = httpd.server_address[1]
+        for path in ("/", "/index.html", "/figures/structure.svg"):
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            conn.request("GET", path)
+            response = conn.getresponse()
+            body = response.read().decode("utf-8")
+            conn.close()
+            assert response.status == 200, path
+            assert (
+                ("<title>" in body) if path != "/figures/structure.svg" else body.startswith("<svg")
+            )
+        # Nothing outside the output directory is served.
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/../map/model.py")
+        assert conn.getresponse().status in (301, 404)
+        conn.close()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_serve_command_prints_the_url_and_stops_on_interrupt(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    init_two_cards(tmp_path, "--no-ci")
+    # No page yet: the command says what to run instead of serving nothing.
+    assert run("--root", str(tmp_path), "serve") == 1
+    assert "run: systemap refresh" in capsys.readouterr().out
+    assert run("--root", str(tmp_path), "refresh") == 0
+    made: dict[str, Any] = {}
+
+    class Fake:
+        server_address = ("127.0.0.1", 8765)
+
+        def serve_forever(self) -> None:
+            made["served"] = True
+            raise KeyboardInterrupt
+
+        def server_close(self) -> None:
+            made["closed"] = True
+
+    def fake_server(directory: Path, port: int) -> Fake:
+        made["directory"], made["port"] = directory, port
+        return Fake()
+
+    monkeypatch.setattr(cli, "make_server", fake_server)
+    capsys.readouterr()
+    assert run("--root", str(tmp_path), "serve") == 0
+    assert (
+        capsys.readouterr().out == "serving docs/map at http://127.0.0.1:8765/ (Ctrl-C to stop)\n"
+    )
+    assert made == {
+        "directory": tmp_path / "docs/map",
+        "port": 8765,
+        "served": True,
+        "closed": True,
+    }
+    assert run("serve", "--root", str(tmp_path), "--port", "9000") == 0
+    assert made["port"] == 9000

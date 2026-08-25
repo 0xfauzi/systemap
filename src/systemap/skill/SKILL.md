@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and hands the maintainer the judgement answers.
+description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and answers the remaining judgement lines in `[judgement] answered` in systemap.toml for the maintainer.
 license: MIT
 compatibility: Requires Python 3.11+ and the systemap package (uv tool install systemap)
 ---
@@ -18,9 +18,10 @@ draft it; the maintainer reviews every call before it is trusted.
 The model is one Python module, by default `map/model.py`, exporting `MODEL`
 and `MEANING`, built from the dataclasses `systemap` exports. Run every
 command from the repository root: prefixed with `uv run` when systemap is a
-development dependency, bare when it is installed as a tool. `--root DIR`
-names the project when you are not in it. If there is no `systemap.toml`,
-run `systemap init` first.
+development dependency, bare when it is installed as a tool. `--root DIR`,
+before or after the command, names the project when you are not in it. If
+there is no `systemap.toml`, run `systemap init` first; its starter model
+has no components, and the check says so until you write them.
 
 ## The loop
 
@@ -34,23 +35,30 @@ this skill, not a formality after it.
    `docs/map/map.json`): one record per module under `components`, and the
    `entry_points`. Every module in it must end up claimed by one component.
 2. **draft**: write `map/model.py` from the facts and the repository's own
-   words (the README, the design documents). `references/schema.md` has
-   every field; `references/example.md` is a complete small model.
+   words: its README, AGENTS.md, CLAUDE.md, docs/. `references/schema.md`
+   has every field; `references/example.md` is a complete small model.
 3. **check**: `systemap check`. Fix every line it prints; repeat until only
    `stale` remains (the page has not been rendered yet).
-4. **judgement**: `systemap judgement`. Act on every line, or write down why
-   not. Never pass a line over in silence.
-5. **render**: `systemap refresh`. Look at `docs/map/figures/system.svg`, and
-   open `docs/map/index.html` if you can: routes through cards, labels that
-   touch, a region holding one card, a layer that lights nothing.
+4. **judgement**: `systemap judgement`. Act on every line, or answer it in
+   `[judgement] answered` in `systemap.toml`: the exact line as `item` and
+   a `reason`. An answered line is suppressed and counted; an answer whose
+   line is gone is reported as stale. A long list is answered in bulk:
+   `items = [...]` with one reason per group where the reason is the same.
+   Never pass a line over in silence.
+5. **render**: `systemap refresh`. Look at `docs/map/figures/structure.svg`
+   (the parts in their places) and then `docs/map/figures/system.svg`
+   (every edge); run `systemap serve` and open the URL it prints for the
+   page. Look for routes through cards, labels that touch, a region
+   holding one card, a layer that lights nothing.
 6. **second pass**: follow `references/second-pass.md`: walk every crossing
    import, every entry point, every rule the documents state, and look at
    the figure again. Expect to find missed edges and wrong groupings. Go
    to 3.
-7. **stop**: when check is clean, judgement is empty or every remaining line
-   has an answer, and a full second pass changed nothing.
-8. **hand back**: the judgement lines with your answer to each, the
-   coverage line, and the list of edges you inferred rather than read.
+7. **stop**: when check is clean, judgement prints `nothing to confirm`
+   (every remaining line answered in the configuration), and a full second
+   pass changed nothing.
+8. **hand back**: the answers are in `systemap.toml`; add the coverage line
+   and the list of edges you inferred rather than read.
 
 ## What goes in the model
 
@@ -64,7 +72,8 @@ this skill, not a formality after it.
   `data` (an artifact moves) or `control` (one part drives another), the
   agent kinds `context` and `tool`, or one of your own, declared in
   `flow_kinds` and given a layer. The map draws the flows you declare, not
-  every import; `references/layers.md` says how to choose.
+  every import; `references/layers.md` says how to choose, and how the
+  facts' `external` imports and the `model sdk` judgement line find agents.
 - One sentence per flow in `relations`, read from the source side. A plain
   name per component in `plain`: the words a newcomer would use.
 - Journeys: one per entry point that matters, tracing the components it
@@ -81,21 +90,25 @@ this skill, not a formality after it.
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
-| `systemap judgement` | the list to act on or answer; always exit 0 |
-| `systemap refresh` | extract, check, render the page and every configured figure; `already current` when there is nothing to do |
-| `systemap figure --out FILE` | one figure from the same generator: `--mode system`, or `--components A,B` for a plan's reach |
+| `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; always exit 0 |
+| `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
+| `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, or `--components A,B` for a plan's reach |
+| `systemap serve` | serve the output directory over HTTP and print the URL; the page does not run from a file:// address |
 | `systemap skill` | reinstall this directory; `--print` writes SKILL.md to stdout |
 
 ## What to hand back
 
-1. Every `systemap judgement` line, each with what you did or why you left
-   it. The entry point and crossing import lines are read first.
+1. Every `systemap judgement` line you did not act on, answered in
+   `[judgement] answered` in `systemap.toml` with its reason. The answers
+   are the hand-back, and they live in the repository, not in a chat;
+   `systemap judgement` then prints `nothing to confirm, N answered`. The
+   entry point, crossing import and model sdk lines are read first.
 2. The coverage line from `systemap check` (`coverage: N/N modules mapped`)
    and its last line.
 3. The edges you inferred from imports rather than read in the documents,
    and the groupings that could go another way.
-4. The files to commit: `map/model.py`, `systemap.toml` if you changed it,
-   and the output directory (`docs/map/` by default).
+4. The files to commit: `map/model.py`, `systemap.toml`, and the output
+   directory (`docs/map/` by default).
 
 ## Rules
 

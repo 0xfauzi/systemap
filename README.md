@@ -54,11 +54,12 @@ and drifts, because nothing announces that a part moved.
 Until the first PyPI release, install from the repository instead:
 `uv tool install git+https://github.com/0xfauzi/systemap`.
 
-`init` writes `systemap.toml`, a starter `map/model.py`, the agent's skill
-under `.claude/skills/systemap/` (a `SKILL.md` and a `references/`
-directory), and a workflow that runs the check on every push and pull
-request. It never overwrites a file that exists, and it ends by printing
-the sentence to give your agent:
+`init` writes `systemap.toml` (with two figures configured, the Structure
+reading and the whole map, both as `.svg`), a starter `map/model.py` with
+no components yet, the agent's skill under `.claude/skills/systemap/` (a
+`SKILL.md` and a `references/` directory), and a workflow that runs the
+check on every push and pull request. It never overwrites a file that
+exists, and it ends by printing the sentence to give your agent:
 
 > Map this repository with systemap. Follow the systemap skill.
 
@@ -66,10 +67,18 @@ The agent then runs `systemap extract`, writes the model, runs
 `systemap check` until every module is mapped and the layout passes, runs
 `systemap judgement` and acts on every line, renders with
 `systemap refresh`, and goes round again until a full second pass changes
-nothing. It hands you back every judgement line with its answer: groupings
-that could go another way, edges it inferred rather than read, entry points
-it left without a journey and why. You correct what you disagree with,
-commit `docs/map/`, and turn on GitHub Pages from the `docs/` directory.
+nothing. Every judgement line it does not act on it answers in
+`[judgement] answered` in `systemap.toml`, with a reason, so the answers
+live in the repository: groupings that could go another way, edges it
+inferred rather than read, entry points it left without a journey and why.
+You read the answers, correct what you disagree with, commit `docs/map/`,
+and turn on GitHub Pages from the `docs/` directory.
+
+The workflow `init` writes runs systemap from the released package,
+pinned to the version that wrote it (`uvx --from "systemap==0.5.0"`), so
+your project takes no dependency on it. That needs the package on PyPI,
+and systemap is not on PyPI yet: until the first release the workflow
+cannot pass, and the pin is the line to edit when it can.
 
 Any agent that can read a skill directory and run a command works the same
 way. The skill is plain text; there is nothing vendor-specific in it.
@@ -164,10 +173,10 @@ with the fix, and exits 1 if any rule failed.
 | entry | a component naming a module the facts do not have, no module, or an entry none of its modules defines |
 | placement | a card outside its band, two cards overlapping, a flow of a kind neither standard nor declared, a context or tool flow whose agent end is not an agent, a flow or invariant naming something the model does not have |
 | routes | a route through a card it does not connect, or across a band it neither starts nor ends in |
-| labels | a label that touches a card, a route or another label |
+| labels | a label that touches a card, a header or another label (both labels named); a container or region header wider than its box, a `sub` that needs more than two lines, or a header touching a card |
 | type size | any text below 11 px at native scale |
 | meaning | a sentence, verb, override or journey step naming something the model does not have, a flow with no sentence, a custom layer taking a standard id |
-| wheel | a relationship wheel whose labels leave the drawing or touch each other |
+| wheel | a relationship wheel whose labels touch each other or the centre |
 | stale | a facts file, page or figure older than the tree or the model |
 
 Exit codes: `0` current, `1` a check failed, `2` the configuration or the
@@ -185,14 +194,20 @@ either changes the model or writes down why not:
 | line | what it asks |
 |---|---|
 | single module | a component that claims one module: a real part, or an over-split? |
-| possible mis-fold | a module whose name shares no word with its component: folded into the wrong part? |
+| possible mis-fold | a module whose dotted path shares no word with its component's id, `does`, plain word or `interface`, in a component of several modules, and whose package holds none of the others: folded into the wrong part? |
 | no sentence | a flow with no relation sentence |
 | thin layer | a reading that lights fewer than two components, including a standard kind never used |
 | entry point X has no journey | an entry point in the facts (a console script, a subcommand, a main, a public function of the package root) that no journey names |
 | crossing import | module A of component P imports module B of component Q and no flow joins P and Q, in either direction: an edge the code has and the map does not |
+| model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended by `[facts] model_sdks`) and its component is not an agent |
 | ignored | every module the coverage rule leaves unmapped, with its reason |
 
-A report, not a gate: it always exits 0. The maintainer reads the answers.
+A report, not a gate: it always exits 0. The list has memory: a line
+answered under `[judgement] answered` in `systemap.toml` is suppressed and
+counted (`judgement: 3 items for the maintainer to confirm, 21 answered`),
+and an answer whose line no longer appears is reported as stale, so
+answers cannot rot. The answers are what the maintainer reads, and they
+live beside the model.
 
 ## The model in one screen
 
@@ -237,16 +252,18 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 
 | command | what it does |
 |---|---|
-| `systemap init [--no-ci]` | write the config, a starter model, the skill directory, and a workflow; never overwrites; prints the sentence for the agent |
-| `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`, entry points included; `--check` exits 1 when they no longer match the tree |
+| `systemap init [--no-ci]` | write the config, an empty starter model, the skill directory, and a workflow pinned to this version; never overwrites; prints the sentence for the agent |
+| `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names, imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
 | `systemap check` | every rule in the table above; exit 1 with each fix named |
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
 | `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); a `.svg` name writes the bare drawing |
-| `systemap refresh` | extract, check, render, and every configured figure; "already current" when there is nothing to do |
-| `systemap judgement` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, every ignore; always exit 0 |
+| `systemap refresh` | extract, check, render, and every configured figure, then check what it wrote; "already current" when there is nothing to do; exit 1 when the check fails |
+| `systemap judgement` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, model SDK imports outside an agent, every ignore; answered lines suppressed and counted; always exit 0 |
+| `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
 
-`--root DIR` names the project when it is not the current directory.
+`--root DIR`, before or after the command, names the project when it is
+not the current directory.
 
 ## Configuration
 
@@ -255,9 +272,9 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 
 | key | default | meaning |
 |---|---|---|
-| `name` | the directory name | the page title |
-| `[package_roots]` | every top-level package, or `src/<pkg>` | `"path" = "import name"` |
-| `tests_dir` | `tests` | tests that import a module count as its guards |
+| `name` | `[project] name`, then the git repository's directory, then the directory name | the page title |
+| `[package_roots]` | every top-level package or `src/<pkg>`, in the root and in every `[tool.uv.workspace]` member | `"path" = "import name"` |
+| `tests_dir` | every directory named `tests` or `test` | one directory or a list; tests that import a module count as its guards |
 | `model` | `map/model.py` | the module exporting `MODEL` and `MEANING` |
 | `out_dir` | `docs/map` | where the facts, the page and the figures go |
 | `facts_file` | `map.json` | the facts file's name inside `out_dir` |
@@ -265,6 +282,8 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `planes` | none | second-level package names recorded as their own plane in the facts |
 | `outside_label` | `OUTSIDE THE SYSTEM` | the index heading for actors outside every region |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`; an ignore needs a reason |
+| `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]` with one reason for several lines; an answer needs a reason, a stale one is reported |
 | `[theme]` | graphite, dark | colour tokens; `scheme = "light"` picks the paper scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges); an `out` ending in `.svg` is the bare drawing |
 
@@ -301,6 +320,7 @@ line, label and a mark per kind.
     uv run pytest -q
     uv run mypy src --strict
     uv run ruff check .
+    uv run ruff format --check src tests map
     uv run systemap check      # the repository's own map must stay current
 
 The skill has one source of truth: [`src/systemap/skill/`](src/systemap/skill/),

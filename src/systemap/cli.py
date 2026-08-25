@@ -7,6 +7,7 @@
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
     systemap judgement                 the list the maintainer must confirm
+    systemap serve [--port N]          serve the output directory over HTTP, print the URL
     systemap skill [--dir PATH|--print] reinstall the skill directory, or print SKILL.md
 
 Exit codes: 0 the map is current or the check passed; 1 the map is stale or
@@ -19,6 +20,8 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -370,6 +373,41 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     return OK
 
 
+# ---- serve -----------------------------------------------------------------
+
+
+DEFAULT_PORT = 8765
+
+
+def make_server(directory: Path, port: int) -> ThreadingHTTPServer:
+    """An HTTP server over `directory` on 127.0.0.1; port 0 picks a free one."""
+    handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
+    return ThreadingHTTPServer(("127.0.0.1", port), handler)
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Serve the output directory, since the page's script does not run from file://.
+
+    The standard library's server, over the output directory alone, on the
+    loopback address. It runs until interrupted and prints the URL first,
+    so an agent can open it without knowing the port.
+    """
+    cfg = config.load(_root(args))
+    if not cfg.page_path.is_file():
+        say(f"no page at {cfg.rel(cfg.page_path)}", "run: systemap refresh")
+        return STALE
+    httpd = make_server(cfg.out_path, int(args.port))
+    port = httpd.server_address[1]
+    say(f"serving {cfg.rel(cfg.out_path)} at http://127.0.0.1:{port}/ (Ctrl-C to stop)")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()
+    return OK
+
+
 # ---- skill -----------------------------------------------------------------
 
 
@@ -487,6 +525,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_root(s)
     s.set_defaults(func=cmd_judgement)
+
+    s = sub.add_parser(
+        "serve",
+        help="serve the output directory over HTTP on the loopback address and print the "
+        "URL; the page's script does not run from a file:// address",
+    )
+    add_root(s)
+    s.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"default {DEFAULT_PORT}")
+    s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser(
         "skill",
