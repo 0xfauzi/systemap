@@ -33,7 +33,7 @@ diagrams.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -323,18 +323,42 @@ def problems(model: Model, meaning: Meaning) -> list[str]:
     return out
 
 
+def module_matches(pattern: str, module: str) -> bool:
+    """Does one `implemented_by` entry name this module?
+
+    An entry is an exact module name, or a package name followed by `.*`,
+    which names the package module itself and everything beneath it. This
+    is the one place that convention is defined; the build state, the
+    coverage rule, the drift check and the change map all read it from
+    here so they cannot disagree about what a component claims.
+    """
+    if pattern.endswith(".*"):
+        head = pattern[:-2]
+        return module == head or module.startswith(head + ".")
+    return module == pattern
+
+
+def claimed(component: Component, modules: Iterable[str]) -> list[str]:
+    """The modules, among `modules`, that the component's `implemented_by` names."""
+    patterns = component.implemented_by
+    return [m for m in modules if any(module_matches(p, m) for p in patterns)]
+
+
 def build_state(component: Component, facts: Mapping[str, Any]) -> str:
     """built | partial | planned, derived from what the facts actually found.
 
     A component with a `tracker` is a roadmap item: until its entry exists it
     is planned, not "part built", even when the module it will land in
     already exists (a new command on an existing CLI module, for instance).
+    An `implemented_by` entry counts as present when at least one module in
+    the facts matches it, so a `pkg.sub.*` entry is present while the
+    package has any module at all.
     """
-    modules = list(component.implemented_by)
-    if not modules:
+    patterns = list(component.implemented_by)
+    if not patterns:
         return "planned"
     components = facts.get("components", {})
-    present = [m for m in modules if m in components]
+    present = [p for p in patterns if any(module_matches(p, m) for m in components)]
     if not present:
         return "planned"
     entry = component.entry
@@ -344,11 +368,11 @@ def build_state(component: Component, facts: Mapping[str, Any]) -> str:
     found = any(
         entry in [f["name"] for f in components[m]["functions"]]
         or entry in [c["name"] for c in components[m]["classes"]]
-        for m in present
+        for m in claimed(component, components)
     )
     if not found:
         return "planned" if component.tracker else "partial"
-    return "built" if len(present) == len(modules) else "partial"
+    return "built" if len(present) == len(patterns) else "partial"
 
 
 def _inside(inner: Box, outer: Box) -> bool:

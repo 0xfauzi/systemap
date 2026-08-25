@@ -22,6 +22,9 @@ What is checked, in order:
                     every verb override a real edge
     wheel ......... for every component, the relationship wheel's name labels
                     stay inside the drawing and off each other and the centre
+    coverage ...... every module in the facts is claimed by exactly one
+                    component, unless the configuration ignores it with a
+                    reason; an incomplete map fails
 
 The CLI prints one line per problem and exits 1 when any is found.
 """
@@ -31,9 +34,12 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
-from systemap.model import Meaning, Model
+from systemap.config import Ignore
+from systemap.model import Meaning, Model, module_matches
 from systemap.model import problems as model_problems
 from systemap.schematic import TEXT_PX
 from systemap.schematic import render as render_schematic
@@ -219,14 +225,105 @@ def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) ->
     return out
 
 
+# ---- coverage: every module claimed once --------------------------------------
+
+
+@dataclass(frozen=True)
+class Coverage:
+    """What the coverage rule found.
+
+    `checked` is false when there were no facts to check against, which is
+    itself a failure: a map cannot be called complete against nothing.
+    `total` counts the modules the rule applies to (the facts minus the
+    ignored ones) and `mapped` how many of those exactly one component
+    claims.
+    """
+
+    checked: bool
+    mapped: int
+    total: int
+    ignored: int
+    problems: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        return self.checked and not self.problems
+
+
+def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore]) -> Coverage:
+    """Every module in the facts is claimed by exactly one component.
+
+    A module no component claims is a hole in the map: the reader cannot
+    find that code on the page. A module two components claim is a lie in
+    the other direction: the page says one thing does it and another thing
+    also does it. An ignore in the configuration takes a module out of the
+    first rule, with its reason on record; it never excuses the second. An
+    ignore that matches nothing in the facts is reported too, so a stale
+    entry cannot quietly outlive the module it named.
+    """
+    if not facts:
+        return Coverage(False, 0, 0, 0, ("no facts to check coverage against",))
+    modules = sorted(facts.get("components", {}))
+    ignore_list = list(ignores)
+    problems: list[str] = []
+    for ignore in ignore_list:
+        if not any(module_matches(ignore.module, m) for m in modules):
+            problems.append(f"ignore names a module the facts do not have: {ignore.module}")
+    ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
+    mapped = 0
+    for m in modules:
+        owners = [
+            c.id for c in model.components if any(module_matches(p, m) for p in c.implemented_by)
+        ]
+        if len(owners) > 1:
+            times = "twice" if len(owners) == 2 else f"{len(owners)} times"
+            problems.append(f"claimed {times}: {m} ({', '.join(owners)})")
+        elif m in ignored:
+            continue
+        elif not owners:
+            problems.append(f"unmapped: {m} (no component claims it)")
+        else:
+            mapped += 1
+    return Coverage(True, mapped, len(modules) - len(ignored), len(ignored), tuple(problems))
+
+
+# ---- one run -------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Result:
+    """Everything one check run found.
+
+    `problems` are the placement, meaning, route, label, type-size and
+    wheel findings; `coverage` is the module rule; `through` and `across`
+    count edges through a foreign card and across a foreign region.
+    """
+
+    problems: list[str]
+    notes: list[str]
+    through: int
+    across: int
+    coverage: Coverage
+
+    @property
+    def ok(self) -> bool:
+        return not self.problems and self.coverage.ok
+
+
 def run(
-    model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], issue_url: str = ""
-) -> tuple[list[str], list[str], tuple[int, int]]:
-    """(problems, notes, (edges through a foreign card, edges across a foreign region)).
+    model: Model,
+    meaning: Meaning,
+    t: dict[str, Any],
+    facts: dict[str, Any],
+    issue_url: str = "",
+    ignores: Iterable[Ignore] = (),
+) -> Result:
+    """Check the model against the facts.
 
     Placement and meaning are checked first; the drawing is only attempted
     once those are clean, since a model that contradicts itself cannot be
-    drawn honestly.
+    drawn honestly. Coverage is checked regardless, because it reads the
+    facts and the claims only, never the drawing.
     """
     problems = model_problems(model, meaning)
     through = across = 0
@@ -240,19 +337,26 @@ def run(
         problems += check_type_size(svg)
         problems += check_wheels(meta["edges"], model, meaning)
         notes = [n for n in meta.get("notes", []) if "shorter segment" in n]
-    return problems, notes, (through, across)
+    coverage = check_coverage(model, facts, ignores)
+    return Result(problems, notes, through, across, coverage)
 
 
-def report(
-    model: Model, problems: list[str], notes: list[str], counts: tuple[int, int]
-) -> list[str]:
+def report(model: Model, result: Result) -> list[str]:
     """The lines the CLI prints for one check run."""
-    through, across = counts
+    through, across = result.through, result.across
     out = [
         f"map routes: {through} edge{'s' if through != 1 else ''} through a card "
         f"they do not connect, {across} across a region they neither start nor end in"
     ]
-    out += [f"  note: {line}" for line in notes]
+    out += [f"  note: {line}" for line in result.notes]
+    cov = result.coverage
+    if cov.checked:
+        ignored = f", {cov.ignored} ignored" if cov.ignored else ""
+        out.append(f"coverage: {cov.mapped}/{cov.total} modules mapped{ignored}")
+        out += [f"  {line}" for line in cov.problems]
+    else:
+        out.append("coverage: not checked, there are no facts; run: systemap extract")
+    problems = result.problems
     if problems:
         out.append(f"map layout: {len(problems)} problem{'s' if len(problems) != 1 else ''}")
         out += [f"  {line}" for line in problems]

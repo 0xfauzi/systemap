@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap.config import Config
-from systemap.model import Model
+from systemap.model import Model, module_matches
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
 TESTS_KEPT = 25
@@ -442,7 +442,7 @@ def mapping_drift(fresh: dict[str, Any], model: Model, prefixes: set[str]) -> li
         if c.tracker:
             continue
         for m in c.implemented_by:
-            if m.split(".")[0] in prefixes and m not in known:
+            if m.split(".")[0] in prefixes and not any(module_matches(m, k) for k in known):
                 out.append(f"{c.id} claims {m}, which does not exist")
     out.extend(f"layout: {p}" for p in model.layout_problems())
     return out

@@ -10,9 +10,9 @@ goes, how an issue number becomes a link, and the theme.
                    directory that holds an __init__.py
     tests_dir      where test_*.py files live (default "tests")
     model          the module exporting MODEL and MEANING (default
-                   "atlas/model.py")
+                   "map/model.py")
     out_dir        where the facts, the page and the figures are written
-                   (default "docs/atlas")
+                   (default "docs/map")
     facts_file     the facts file's name inside out_dir (default "map.json")
     issue_url      a template with {n}, used for tracker issue numbers
     spec_path      optional document whose ##-headings become spec sections
@@ -22,6 +22,10 @@ goes, how an issue number becomes a link, and the theme.
     [theme]        tokens laid over the default theme
     [[figures]]    figures `systemap refresh` regenerates: out, mode
                    ("system" or "reach"), components, caption, interactive
+    [coverage]     ignore = [{module = "pkg.mod", reason = "..."}]: modules
+                   the coverage rule of `systemap check` may leave unmapped;
+                   every entry needs a reason, since an unexplained hole in
+                   the map is the thing the rule exists to refuse
 
 Unknown keys are a configuration error: a misspelt key that silently did
 nothing would be worse than a refusal.
@@ -54,8 +58,11 @@ KNOWN_KEYS = {
     "outside_label",
     "theme",
     "figures",
+    "coverage",
 }
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id"}
+COVERAGE_KEYS = {"ignore"}
+IGNORE_KEYS = {"module", "reason"}
 
 
 class ConfigError(Exception):
@@ -75,13 +82,25 @@ class Figure:
 
 
 @dataclass(frozen=True)
+class Ignore:
+    """One module the coverage rule may leave unmapped, and why.
+
+    `module` is an exact module name or a package with `.*` for its
+    subtree, the same convention `implemented_by` uses.
+    """
+
+    module: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class Config:
     root: Path
     name: str
     package_roots: tuple[tuple[str, str], ...]
     tests_dir: str = "tests"
-    model: str = "atlas/model.py"
-    out_dir: str = "docs/atlas"
+    model: str = "map/model.py"
+    out_dir: str = "docs/map"
     facts_file: str = "map.json"
     issue_url: str = ""
     spec_path: str = ""
@@ -89,6 +108,7 @@ class Config:
     outside_label: str = "OUTSIDE THE SYSTEM"
     theme: dict[str, Any] = field(default_factory=dict)
     figures: tuple[Figure, ...] = ()
+    coverage_ignore: tuple[Ignore, ...] = ()
     source: str = ""
 
     @property
@@ -250,12 +270,13 @@ def load(root: Path) -> Config:
         raise ConfigError(f"{where}: issue_url must contain {{n}}")
 
     return Config(
+        coverage_ignore=_coverage_ignore(raw, where),
         root=root,
         name=_str(raw, "name", root.name, where),
         package_roots=package_roots,
         tests_dir=_str(raw, "tests_dir", "tests", where),
-        model=_str(raw, "model", "atlas/model.py", where),
-        out_dir=_str(raw, "out_dir", "docs/atlas", where),
+        model=_str(raw, "model", "map/model.py", where),
+        out_dir=_str(raw, "out_dir", "docs/map", where),
         facts_file=_str(raw, "facts_file", "map.json", where),
         issue_url=issue_url,
         spec_path=_str(raw, "spec_path", "", where),
@@ -265,6 +286,39 @@ def load(root: Path) -> Config:
         figures=tuple(figures),
         source=source,
     )
+
+
+def _coverage_ignore(raw: dict[str, Any], where: str) -> tuple[Ignore, ...]:
+    """The `[coverage] ignore` list; an entry without a reason is refused."""
+    coverage = raw.get("coverage", {})
+    if not isinstance(coverage, dict):
+        raise ConfigError(f"{where}: coverage must be a table")
+    bad = sorted(set(coverage) - COVERAGE_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: coverage has unknown key: {', '.join(bad)}")
+    entries = coverage.get("ignore", [])
+    if not isinstance(entries, list):
+        raise ConfigError(f"{where}: coverage.ignore must be a list of tables")
+    out: list[Ignore] = []
+    for k, item in enumerate(entries, start=1):
+        if not isinstance(item, dict):
+            raise ConfigError(
+                f"{where}: coverage.ignore[{k}] must be a table with module and reason"
+            )
+        bad = sorted(set(item) - IGNORE_KEYS)
+        if bad:
+            raise ConfigError(f"{where}: coverage.ignore[{k}] has unknown key: {', '.join(bad)}")
+        module = item.get("module")
+        if not isinstance(module, str) or not module:
+            raise ConfigError(f"{where}: coverage.ignore[{k}] needs a module name")
+        reason = item.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ConfigError(
+                f"{where}: coverage.ignore[{k}] ({module}) needs a reason: "
+                "say why the map may leave this module unmapped"
+            )
+        out.append(Ignore(module=module, reason=reason))
+    return tuple(out)
 
 
 def load_model(path: Path) -> tuple[Model, Meaning]:

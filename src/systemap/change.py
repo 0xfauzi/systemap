@@ -36,7 +36,7 @@ from systemap.extract import (
     parse_surface,
     test_names,
 )
-from systemap.model import Model
+from systemap.model import Model, module_matches
 
 # `gained` carries only the buckets the schematic's segmented bar draws
 # (operations, types, refusals, tests), so its +N badge always equals the sum
@@ -236,11 +236,18 @@ def compute(
         implemented = list(c.implemented_by)
         module_ids = [m for m in implemented if "/" not in m]
         path_prefixes = [m for m in implemented if "/" in m]
-        hit = sorted(set(module_ids) & modules)
+        # The modules this component claims, among the changed ones and the
+        # ones whose tests changed; a `pkg.*` entry claims the subtree.
+        owned = sorted(
+            m
+            for m in modules | set(tests_added) | set(tests_removed)
+            if any(module_matches(p, m) for p in module_ids)
+        )
+        hit = sorted(m for m in owned if m in modules)
         path_hit = any(
             f == prefix or f.startswith(prefix + "/") for prefix in path_prefixes for f in files
         )
-        test_hit = sorted(m for m in module_ids if tests_added.get(m) or tests_removed.get(m))
+        test_hit = sorted(m for m in owned if tests_added.get(m) or tests_removed.get(m))
         if not hit and not path_hit and not test_hit:
             continue
         direct.add(c.id)
@@ -250,10 +257,8 @@ def compute(
         for m in hit:
             for part in ("added", "removed", "changed"):
                 _merge_names(surface[part], deltas[m][part])
-        surface["tests_added"] = sorted({t for m in module_ids for t in tests_added.get(m, set())})
-        surface["tests_removed"] = sorted(
-            {t for m in module_ids for t in tests_removed.get(m, set())}
-        )
+        surface["tests_added"] = sorted({t for m in owned for t in tests_added.get(m, set())})
+        surface["tests_removed"] = sorted({t for m in owned for t in tests_removed.get(m, set())})
         gained = {
             bucket: len(surface["added"][bucket])
             for bucket in ("operations", "types", "refusals")
@@ -292,13 +297,18 @@ def compute(
     }
 
     # Reach: every component with a module that imports a changed module.
-    module_to_cid = {m: c.id for c in model.components for m in c.implemented_by if "/" not in m}
+    def owner_of(module_id: str) -> str:
+        for c in model.components:
+            if any(module_matches(p, module_id) for p in c.implemented_by if "/" not in p):
+                return c.id
+        return ""
+
     adjacent: set[str] = set()
     for module_id, record in fact_components.items():
         if module_id in modules:
             continue
         if modules & set(record.get("uses", {})):
-            cid = module_to_cid.get(module_id)
+            cid = owner_of(module_id)
             if cid:
                 adjacent.add(cid)
     adjacent -= direct

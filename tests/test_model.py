@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 
+from conftest import sample_model
+
 from systemap.model import (
     Component,
     Container,
@@ -14,18 +16,20 @@ from systemap.model import (
     Region,
     Step,
     build_state,
+    claimed,
     meaning_problems,
+    module_matches,
     problems,
 )
 
 
-def test_example_validates(example_model: tuple[Model, Meaning]) -> None:
-    model, meaning = example_model
+def test_sample_validates() -> None:
+    model, meaning = sample_model()
     assert problems(model, meaning) == []
 
 
-def test_example_flow_endpoints_resolve(example_model: tuple[Model, Meaning]) -> None:
-    model, _ = example_model
+def test_sample_flow_endpoints_resolve() -> None:
+    model, _ = sample_model()
     ids = model.ids
     for f in model.flows:
         assert f.src in ids, f
@@ -33,28 +37,19 @@ def test_example_flow_endpoints_resolve(example_model: tuple[Model, Meaning]) ->
         assert f.kind in model.flow_kinds
 
 
-def test_example_every_flow_has_a_relation_and_a_layer(
-    example_model: tuple[Model, Meaning],
-) -> None:
-    model, meaning = example_model
+def test_sample_every_flow_has_a_relation_and_a_layer() -> None:
+    model, meaning = sample_model()
     layer_ids = {layer.id for layer in meaning.layers}
     for f in model.flows:
         assert f.edge in meaning.relations, f
         assert meaning.layer_for(f.edge, f.kind) in layer_ids, f
-    # Nothing was lost in the conversion from kstrl's tables.
-    assert len(model.flows) == 60
-    assert len(meaning.relations) == 60
-    assert len(meaning.layers) == 7
-    assert len(model.components) == 54
-    assert len(model.invariants) == 15
-    assert len(meaning.journeys) == 4
-    assert sum(len(j.steps) for j in meaning.journeys) == 29
-    assert len(meaning.verb_overrides) == 24
-    assert len(meaning.layer_overrides) == 17
+    assert meaning.layer_for(("Ledger", "Parser"), "record") == "memory"
+    assert meaning.verb_for(("User", "Reader"), "work", True) == "types into"
+    assert meaning.verb_for(("Reader", "Parser"), "work", False) == "receives from"
 
 
-def test_example_journeys_resolve(example_model: tuple[Model, Meaning]) -> None:
-    model, meaning = example_model
+def test_sample_journeys_resolve() -> None:
+    model, meaning = sample_model()
     ids = model.ids
     edges = {f.edge for f in model.flows}
     for j in meaning.journeys:
@@ -64,12 +59,12 @@ def test_example_journeys_resolve(example_model: tuple[Model, Meaning]) -> None:
             assert set(step.measures) <= ids
 
 
-def test_example_positions_and_plain_words(example_model: tuple[Model, Meaning]) -> None:
-    model, meaning = example_model
+def test_sample_positions_and_plain_words() -> None:
+    model, meaning = sample_model()
     assert model.layout_problems() == []
     assert set(meaning.plain) == model.ids
-    assert model.component("Pipeline").x == 1264
-    assert model.component("Operator").kind == "actor"
+    assert model.component("User").kind == "actor"
+    assert model.rules_of("Writer") == [1, 2]
 
 
 def small_model() -> tuple[Model, Meaning]:
@@ -143,6 +138,19 @@ def test_meaning_problems_find_gaps() -> None:
     assert "verb_overrides names an unknown flow" in found
 
 
+def test_module_matches_exact_and_subtree() -> None:
+    assert module_matches("p.a", "p.a")
+    assert not module_matches("p.a", "p.ab")
+    assert not module_matches("p.a", "p.a.b")
+    assert module_matches("p.ui.*", "p.ui")
+    assert module_matches("p.ui.*", "p.ui.base")
+    assert module_matches("p.ui.*", "p.ui.screens.home")
+    assert not module_matches("p.ui.*", "p.uix")
+    assert not module_matches("p.ui.*", "p")
+    comp = Component("A", "does a", implemented_by=("p.ui.*", "p.a"))
+    assert claimed(comp, ["p", "p.a", "p.ui", "p.ui.base", "p.b"]) == ["p.a", "p.ui", "p.ui.base"]
+
+
 def test_build_state_is_derived() -> None:
     comp = Component("A", "does a", implemented_by=("p.a", "p.b"), entry="run")
     facts = {
@@ -159,3 +167,19 @@ def test_build_state_is_derived() -> None:
     assert build_state(dataclasses.replace(missing, tracker="R1 #9"), facts) == "planned"
     assert build_state(dataclasses.replace(comp, entry=""), facts) == "partial"
     assert build_state(Component("Actor", "outside", kind="actor"), facts) == "planned"
+
+
+def test_build_state_with_subtree_claim() -> None:
+    facts = {
+        "components": {
+            "p.ui": {"functions": [], "classes": []},
+            "p.ui.app": {"functions": [], "classes": [{"name": "App"}]},
+            "p.other": {"functions": [{"name": "go"}], "classes": []},
+        }
+    }
+    ui = Component("UI", "the screens", implemented_by=("p.ui.*",), entry="App")
+    assert build_state(ui, facts) == "built"
+    assert build_state(dataclasses.replace(ui, entry="Nope"), facts) == "partial"
+    both = Component("Both", "two claims", implemented_by=("p.ui.*", "p.gone"), entry="App")
+    assert build_state(both, facts) == "partial"
+    assert build_state(dataclasses.replace(ui, implemented_by=("p.web.*",)), facts) == "planned"

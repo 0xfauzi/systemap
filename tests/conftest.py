@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from systemap import config
-from systemap.config import Config
-from systemap.model import Meaning, Model
+from systemap import extract
+from systemap import theme as theme_mod
+from systemap.config import Config, Ignore
+from systemap.model import (
+    Component,
+    Container,
+    Flow,
+    Invariant,
+    Journey,
+    Layer,
+    Meaning,
+    Model,
+    Region,
+    Step,
+)
 
-REPO = Path(__file__).resolve().parents[1]
-EXAMPLE = REPO / "examples" / "kstrl"
-
-
-@pytest.fixture(scope="session")
-def example_cfg() -> Config:
-    return config.load(EXAMPLE)
-
-
-@pytest.fixture(scope="session")
-def example_model(example_cfg: Config) -> tuple[Model, Meaning]:
-    return config.load_model(example_cfg.model_path)
+ISSUE_URL = "https://example.invalid/issues/{n}"
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:
@@ -94,3 +97,221 @@ TINY_PACKAGE: dict[str, str] = {
             assert writer
     """,
 }
+
+
+# ---- the sample system: a small pipeline with a store, an actor and a plan ----
+# Rich enough to exercise every drawing rule: two containers, two regions,
+# a store, an actor outside the system, a planned card with a tracker, three
+# layers, a layer override, a verb override, two invariants and a journey.
+
+SAMPLE_TREE: dict[str, str] = {
+    "pkg/__init__.py": '"""The sample system."""\n',
+    "pkg/reader.py": """
+        from __future__ import annotations
+
+
+        class Request:
+            body: str = ""
+
+
+        def read(source: str) -> Request:
+            return Request()
+    """,
+    "pkg/parser.py": """
+        from __future__ import annotations
+
+        from pkg.reader import Request
+
+
+        def parse(request: Request) -> list[str]:
+            return [request.body]
+    """,
+    "pkg/writer.py": """
+        from __future__ import annotations
+
+        from pkg.ledger import Ledger
+
+
+        def write(parts: list[str], ledger: Ledger) -> str:
+            ledger.record(parts)
+            return "".join(parts)
+    """,
+    "pkg/ledger.py": """
+        from __future__ import annotations
+
+
+        class Ledger:
+            def record(self, parts: list[str]) -> None:
+                pass
+
+            def history(self) -> list[list[str]]:
+                return []
+    """,
+    "tests/test_reader.py": """
+        from pkg.reader import read
+
+
+        def test_read() -> None:
+            assert read("x")
+    """,
+    "tests/test_writer.py": """
+        from pkg.ledger import Ledger
+        from pkg.writer import write
+
+
+        def test_write() -> None:
+            assert write(["a"], Ledger()) == "a"
+    """,
+}
+
+COL = {"c1": 270, "c2": 460, "c3": 650}
+ROW = {"r1": 90, "r2": 250}
+
+
+def sample_model() -> tuple[Model, Meaning]:
+    model = Model(
+        canvas=(900, 400),
+        containers=(
+            Container("outside", "OUTSIDE", (16, 16, 186, 368), tone="host"),
+            Container("system", "SYSTEM", (222, 16, 662, 368), sub="one process", tone="server"),
+        ),
+        regions=(
+            Region("work", "WORK", (240, 50, 626, 130), container="system"),
+            Region("keep", "KEEP", (240, 210, 626, 130), container="system"),
+        ),
+        components=(
+            Component("User", "Types the input.", kind="actor", container="outside", x=34, y=96),
+            Component(
+                "Reader",
+                "Reads the input and turns it into a request.",
+                interface="read(source) -> Request",
+                implemented_by=("pkg.reader",),
+                entry="read",
+                region="work",
+                x=COL["c1"],
+                y=ROW["r1"],
+            ),
+            Component(
+                "Parser",
+                "Splits a request into the parts the writer needs.",
+                interface="parse(request) -> list[str]",
+                implemented_by=("pkg.parser",),
+                entry="parse",
+                region="work",
+                x=COL["c2"],
+                y=ROW["r1"],
+            ),
+            Component(
+                "Planner",
+                "Will decide the order parts are written in.",
+                implemented_by=("pkg.planner",),
+                region="work",
+                x=COL["c3"],
+                y=ROW["r1"],
+                tracker="R2 #7",
+            ),
+            Component(
+                "Ledger",
+                "Keeps every record ever written.",
+                interface="Ledger.record / Ledger.history",
+                implemented_by=("pkg.ledger",),
+                entry="Ledger",
+                kind="store",
+                region="keep",
+                x=COL["c2"],
+                y=ROW["r2"],
+            ),
+            Component(
+                "Writer",
+                "Joins the parts and records the result.",
+                interface="write(parts, ledger) -> str",
+                implemented_by=("pkg.writer",),
+                entry="write",
+                region="keep",
+                x=COL["c3"],
+                y=ROW["r2"],
+            ),
+        ),
+        flows=(
+            Flow("User", "Reader", "input", "work"),
+            Flow("Reader", "Parser", "request", "work"),
+            Flow("Parser", "Writer", "parts", "work"),
+            Flow("Parser", "Planner", "parts", "work"),
+            Flow("Writer", "Ledger", "record", "record"),
+            Flow("Ledger", "Parser", "history", "record"),
+        ),
+        flow_kinds=("work", "record"),
+        invariants=(
+            Invariant(1, "The writer never reads the input itself.", governs=("Writer",)),
+            Invariant(2, "Every record is written once.", governs=("Writer", "Ledger")),
+        ),
+    )
+    meaning = Meaning(
+        plain={
+            "User": "the person typing",
+            "Reader": "the part that reads",
+            "Parser": "the part that splits",
+            "Planner": "the part that will order",
+            "Ledger": "the record book",
+            "Writer": "the part that writes",
+        },
+        layers=(
+            Layer("work", "Work", question="How does an input become an output?"),
+            Layer("record", "Record", question="What is written down?"),
+            Layer("memory", "Memory", question="What does the system remember?"),
+        ),
+        layer_of_kind={"work": "work", "record": "record"},
+        layer_overrides={("Ledger", "Parser"): "memory"},
+        relations={
+            ("User", "Reader"): "The user types one input at a time.",
+            ("Reader", "Parser"): "The reader hands the parser one request.",
+            ("Parser", "Writer"): "The parser gives the writer the parts in order.",
+            ("Parser", "Planner"): "The parser will give the planner the parts to order.",
+            ("Writer", "Ledger"): "The writer records every result it produces.",
+            ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
+        },
+        verbs={
+            "work": ("hands to", "receives from"),
+            "record": ("records in", "is written by"),
+            "memory": ("reminds", "remembers through"),
+        },
+        verb_overrides={("User", "Reader"): ("types into", "is typed by")},
+        journeys=(
+            Journey(
+                "input-to-record",
+                "An input becomes a record",
+                steps=(
+                    Step(("User",), (), ("User", "Reader"), "The user types an input."),
+                    Step(("Reader",), (), ("Reader", "Parser"), "The reader makes a request."),
+                    Step(("Parser",), ("Ledger",), ("Parser", "Writer"), "The parser splits it."),
+                    Step(("Writer",), ("Ledger",), ("Writer", "Ledger"), "The writer records it."),
+                ),
+            ),
+        ),
+    )
+    return model, meaning
+
+
+@dataclass(frozen=True)
+class Sample:
+    cfg: Config
+    model: Model
+    meaning: Meaning
+    theme: dict[str, Any]
+    facts: dict[str, Any]
+
+
+@pytest.fixture
+def sample(tmp_path: Path) -> Sample:
+    """The sample system on disk, with facts read out of it by the real extractor."""
+    write_tree(tmp_path, SAMPLE_TREE)
+    cfg = Config(
+        root=tmp_path,
+        name="sample",
+        package_roots=(("pkg", "pkg"),),
+        issue_url=ISSUE_URL,
+        coverage_ignore=(Ignore("pkg", "the package root only marks the directory"),),
+    )
+    model, meaning = sample_model()
+    facts = extract.build(cfg)
+    return Sample(cfg, model, meaning, theme_mod.resolve({}, meaning.layers), facts)

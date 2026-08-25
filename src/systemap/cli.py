@@ -6,6 +6,7 @@
     systemap check                     check layout, routes, labels and meaning
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
+    systemap skill [--dir PATH]        write the agent skill that drafts the model
 
 Exit codes: 0 the map is current or the check passed; 1 the map is stale or
 a check failed; 2 the configuration or the model cannot be used. Every
@@ -20,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import __version__, change, check, config, extract, figure, page, scaffold
+from systemap import __version__, change, check, config, extract, figure, page, scaffold, skill
 from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError
 from systemap.model import Meaning, Model
@@ -70,8 +71,9 @@ def cmd_init(args: argparse.Namespace) -> int:
     name = args.name or root.name
     say(*scaffold.write(root, name, package, roots))
     say(
-        "next: edit atlas/model.py, then run: systemap refresh",
-        "then open docs/atlas/index.html",
+        "next: edit map/model.py, then run: systemap refresh",
+        "then open docs/map/index.html",
+        "or: systemap skill, to have a coding agent draft the model for you to review",
     )
     return OK
 
@@ -170,13 +172,25 @@ def cmd_render(args: argparse.Namespace) -> int:
 # ---- check -----------------------------------------------------------------
 
 
+def _fix_line(p: Project, result: check.Result) -> str:
+    """The one line naming what to do about a failed check."""
+    if result.problems:
+        return f"fix {p.cfg.model}, then run: systemap check"
+    if not result.coverage.checked:
+        return "run: systemap extract"
+    return (
+        f"map every module in {p.cfg.model}, or ignore it with a reason under "
+        "[coverage] in the configuration, then run: systemap check"
+    )
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     p = _project(args)
     facts = extract.read_facts(p.cfg.facts_path)
-    problems, notes, counts = check.run(p.model, p.meaning, p.theme, facts, p.cfg.issue_url)
-    say(*check.report(p.model, problems, notes, counts))
-    if problems:
-        say(f"fix {p.cfg.model}, then run: systemap check")
+    result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.issue_url, p.cfg.coverage_ignore)
+    say(*check.report(p.model, result))
+    if not result.ok:
+        say(_fix_line(p, result))
         return STALE
     return OK
 
@@ -257,10 +271,11 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     note("map: refreshing against the working tree")
     extract.write_facts(p.cfg.facts_path, fresh)
     written = [p.cfg.rel(p.cfg.facts_path)]
-    problems, notes, counts = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.issue_url)
-    if problems:
-        say(*check.report(p.model, problems, notes, counts))
-        say(f"map: layout check failed; fix {p.cfg.model}, then run: systemap refresh")
+    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.issue_url, p.cfg.coverage_ignore)
+    if not result.ok:
+        say(*check.report(p.model, result))
+        fix = _fix_line(p, result).replace("systemap check", "systemap refresh")
+        say(f"map: check failed; {fix}")
         return STALE
     html = _render_page(p, fresh, argparse.Namespace())
     p.cfg.page_path.write_text(html, encoding="utf-8")
@@ -285,6 +300,16 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         written.append(p.cfg.rel(out))
     note(f"map: updated {', '.join(written)}")
     note(f"map: commit {p.cfg.out_dir}/ to record this state of the system")
+    return OK
+
+
+# ---- skill -----------------------------------------------------------------
+
+
+def cmd_skill(args: argparse.Namespace) -> int:
+    target = Path(args.dir).resolve() if args.dir else _root(args) / skill.DEFAULT_DIR
+    path = skill.write(target)
+    say(f"wrote {path}")
     return OK
 
 
@@ -320,7 +345,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pr", default="", help="a pull request number, for the change map title")
     s.set_defaults(func=cmd_render)
 
-    s = sub.add_parser("check", help="check layout, routes, labels and the meaning tables")
+    s = sub.add_parser("check", help="check layout, routes, labels, meaning and module coverage")
     s.set_defaults(func=cmd_check)
 
     s = sub.add_parser("figure", help="draw one figure with the same generator")
@@ -344,6 +369,16 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("refresh", help="extract, check, render, and draw the configured figures")
     s.add_argument("--quiet", action="store_true")
     s.set_defaults(func=cmd_refresh)
+
+    s = sub.add_parser(
+        "skill", help="write SKILL.md, the agent skill that drafts the model for a person to review"
+    )
+    s.add_argument(
+        "--dir",
+        default="",
+        help=f"the directory to write SKILL.md into (default: {skill.DEFAULT_DIR} under the root)",
+    )
+    s.set_defaults(func=cmd_skill)
     return parser
 
 

@@ -17,10 +17,18 @@ name = "{name}"
 # every top-level directory (or src/<dir>) that holds an __init__.py.
 {roots}
 tests_dir = "tests"
-model = "atlas/model.py"
-out_dir = "docs/atlas"
+model = "map/model.py"
+out_dir = "docs/map"
 # issue_url = "https://example.invalid/issues/{{n}}"
 # spec_path = "docs/design.md"
+
+# `systemap check` refuses a map that leaves a module unclaimed. A module
+# that has no place on the map is ignored here, and every ignore needs a
+# reason, so the hole is on record rather than hidden.
+[coverage]
+ignore = [
+    {{ module = "{package}", reason = "the package root only marks the directory as a package" }},
+]
 
 # Figures `systemap refresh` regenerates beside the page. mode is "system"
 # (nothing marked) or "reach" (the named components marked as a plan's reach).
@@ -173,7 +181,7 @@ MEANING = Meaning(
 
 WORKFLOW = """name: systemap
 
-# The system map under docs/atlas is generated from the code and the model
+# The system map under docs/map is generated from the code and the model
 # module. It is committed so the page can be served as-is and so the diff
 # between two commits of the facts file records what changed about the
 # system. This job fails when the committed map no longer matches the tree
@@ -211,10 +219,10 @@ jobs:
             exit 1
           }
 
-      - name: layout and meaning tables are consistent
+      - name: layout, meaning and coverage are consistent
         run: |
           uv run systemap check || {
-            echo "::error title=Map layout::the model module contradicts itself; see the lines above."
+            echo "::error title=Map check::the model contradicts itself or leaves a module unmapped; see the lines above."
             exit 1
           }
 
@@ -235,9 +243,9 @@ def files(name: str, package: str, roots: list[tuple[str, str]]) -> dict[str, st
     else:
         roots_block = '# [package_roots]\n# "src/mypackage" = "mypackage"'
     return {
-        "systemap.toml": CONFIG.format(name=name, roots=roots_block),
-        "atlas/model.py": MODEL.format(name=name, upper=name.upper(), package=package),
-        "docs/atlas/.gitkeep": "",
+        "systemap.toml": CONFIG.format(name=name, roots=roots_block, package=package),
+        "map/model.py": MODEL.format(name=name, upper=name.upper(), package=package),
+        "docs/map/.gitkeep": "",
         ".github/workflows/systemap.yml": WORKFLOW,
     }
 

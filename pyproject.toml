@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "0.1.0"
+version = "0.2.0"
 description = "A generated, interactive system map for any Python project: facts read out of the code, meaning written once by the maintainer."
 readme = "README.md"
 license = "MIT"
@@ -50,14 +50,13 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["examples/kstrl/docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]
 
 [tool.ruff.lint.per-file-ignores]
-"examples/**" = ["E501"]
 "src/systemap/scaffold.py" = ["E501"]
+"src/systemap/skill.py" = ["E501"]
 "tests/**" = ["E501"]
 
 [tool.mypy]

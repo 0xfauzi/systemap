@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from conftest import EXAMPLE, TINY_PACKAGE, write_tree
+from conftest import TINY_PACKAGE, write_tree
 
 from systemap.cli import main
 
@@ -22,8 +22,8 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert run("--root", str(tmp_path), "init", "--name", "demo") == 0
     for rel in (
         "systemap.toml",
-        "atlas/model.py",
-        "docs/atlas/.gitkeep",
+        "map/model.py",
+        "docs/map/.gitkeep",
         ".github/workflows/systemap.yml",
     ):
         assert (tmp_path / rel).is_file(), rel
@@ -36,17 +36,17 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert "run: systemap extract" in capsys.readouterr().out
 
     assert run("--root", str(tmp_path), "extract") == 0
-    assert (tmp_path / "docs/atlas/map.json").is_file()
+    assert (tmp_path / "docs/map/map.json").is_file()
     assert run("--root", str(tmp_path), "extract", "--check") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert run("--root", str(tmp_path), "render") == 0
-    page = (tmp_path / "docs/atlas/index.html").read_text()
+    page = (tmp_path / "docs/map/index.html").read_text()
     assert "<title>demo system map</title>" in page
     assert run("--root", str(tmp_path), "render", "--check") == 0
 
     # The first refresh draws the configured figure; the second has nothing to do.
     assert run("--root", str(tmp_path), "refresh") == 0
-    assert (tmp_path / "docs/atlas/system.html").is_file()
+    assert (tmp_path / "docs/map/system.html").is_file()
     assert "map: updated" in capsys.readouterr().out
     assert run("--root", str(tmp_path), "refresh") == 0
     assert "already current" in capsys.readouterr().out
@@ -78,7 +78,7 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "extract") == 2
     assert "model module not found" in capsys.readouterr().err
 
-    write_tree(tmp_path, {"atlas/model.py": "MODEL = 1\n"})
+    write_tree(tmp_path, {"map/model.py": "MODEL = 1\n"})
     assert run("--root", str(tmp_path), "check") == 2
     assert "MODEL must be a systemap.Model" in capsys.readouterr().err
 
@@ -93,12 +93,12 @@ def test_check_fails_on_overlapping_fixture(
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
-    model = tmp_path / "atlas/model.py"
+    model = tmp_path / "map/model.py"
     model.write_text(model.read_text().replace('x=COL["c2"]', 'x=COL["c1"]'))
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "placement: Reader overlaps Writer" in out
-    assert "fix atlas/model.py" in out
+    assert "fix map/model.py" in out
     assert run("--root", str(tmp_path), "refresh") == 1
 
 
@@ -130,12 +130,23 @@ def test_figure_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert run("--root", str(tmp_path), "figure", "--mode", "change", "--out", str(out)) == 1
 
 
-def test_example_check_and_render(tmp_path: Path) -> None:
-    """The shipped example passes check and renders from its committed facts."""
-    assert run("--root", str(EXAMPLE), "check") == 0
-    assert run("--root", str(tmp_path), "init") == 0  # unrelated root, proves --root isolation
-    # extract cannot run in the example: the kstrl tree is not shipped with it.
-    assert run("--root", str(EXAMPLE), "extract", "--check") == 2
+def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    target = tmp_path / "tmp"
+    assert run("--root", str(tmp_path), "skill", "--dir", str(target)) == 0
+    written = target / "SKILL.md"
+    assert written.is_file()
+    assert f"wrote {written}" in capsys.readouterr().out
+    text = written.read_text()
+    assert text.startswith("---\nname: systemap\n")
+    assert "systemap check" in text
+    assert "systemap extract" in text
+    # The default location is under the root, and rerunning refreshes the text.
+    assert run("--root", str(tmp_path), "skill") == 0
+    default = tmp_path / ".claude/skills/systemap/SKILL.md"
+    assert default.read_text() == text
+    default.write_text("edited")
+    assert run("--root", str(tmp_path), "skill") == 0
+    assert default.read_text() == text
 
 
 def test_extract_on_tiny_package_via_cli(
@@ -146,4 +157,4 @@ def test_extract_on_tiny_package_via_cli(
     assert run("--root", str(tmp_path), "extract") == 0
     out = capsys.readouterr().out
     assert "modules: 3" in out
-    assert "written to docs/atlas/map.json" in out
+    assert "written to docs/map/map.json" in out
