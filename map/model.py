@@ -34,7 +34,7 @@ from systemap import (
 # Column c3 is empty below the first row on purpose: it is the corridor the
 # long routes between the two halves of the map run down.
 COL = {"out": 41, "c1": 300, "c2": 490, "c3": 680, "c4": 870, "c5": 1060}
-ROW = {"r0": 70, "r1": 225, "r2": 380, "r3": 535}
+ROW = {"r0": 78, "r1": 225, "r2": 380, "r3": 535}
 
 CONTAINERS = (
     Container(
@@ -90,7 +90,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        does="The commands the agent runs: init, extract, check, render, figure, refresh, judgement, skill. Every non-zero exit names what to run next.",
+        does="The commands the agent runs: init, extract, check, render, figure, refresh, judgement, serve, skill. Every non-zero exit names what to run next.",
         interface="systemap <command> [--root DIR]; exit 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__"),
         entry="main",
@@ -110,7 +110,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        does="systemap.toml, or [tool.systemap] in pyproject.toml, resolved with defaults. Unknown keys and ignores without a reason are refused.",
+        does="systemap.toml, or [tool.systemap] in pyproject.toml, resolved with defaults: package roots and tests directories discovered, judgement answers kept with their reasons. Unknown keys, ignores and answers without a reason are refused.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING)",
         implemented_by=("systemap.config",),
         entry="load",
@@ -122,7 +122,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        does="Walks the package's syntax tree and writes the facts: every module, its public surface, what it imports, the tests that import it, and where a run can start. Nothing anyone writes changes what it finds.",
+        does="Walks the package's syntax tree and writes the facts: every module, its public surface and every public name, what it imports inside and outside the package, the tests that import it, and where a run can start. Nothing anyone writes changes what it finds.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> what no longer matches",
         implemented_by=("systemap.extract",),
         entry="build",
@@ -185,7 +185,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        does="Wraps the schematic into one self-contained HTML page: the layer switch, journeys, the focus drawer, the index by region, the invariants. No fonts, scripts or images are fetched.",
+        does="Wraps the schematic into one self-contained HTML page: the layer switch, journeys, the focus drawer, the index by region, the invariants. No fonts, scripts or images are fetched; systemap serve serves it over HTTP.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=("systemap.page",),
         entry="build",
@@ -216,7 +216,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, every ignore. A report, never a gate.",
+        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent, every ignore. Answered lines are suppressed and counted. A report, never a gate.",
         interface="run(model, meaning, facts, ignores) -> lines; always exit 0",
         implemented_by=("systemap.judgement",),
         entry="run",
@@ -639,13 +639,13 @@ JOURNEYS = (
                 acts=("Page",),
                 measures=(),
                 edge=("CLI", "Page"),
-                say="systemap refresh renders the page and every configured figure; systemap figure draws one more for a document.",
+                say="systemap refresh renders the page and every configured figure, and systemap serve opens the page; systemap figure draws one more for a document.",
             ),
             Step(
                 acts=("Judgement",),
                 measures=("Maintainer",),
                 edge=("Judgement", "Maintainer"),
-                say="The agent hands the maintainer the judgement lines with an answer to each; the maintainer commits docs/map.",
+                say="The agent answers the remaining judgement lines in systemap.toml, under [judgement] answered; the maintainer reads the answers and commits docs/map.",
             ),
         ),
     ),

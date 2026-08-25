@@ -1,33 +1,48 @@
 {
- "built_at_commit": "4a821af1d5dac09650d2e6af03e72d3c42bc89ad",
+ "built_at_commit": "a2260ed292f4566d43c5d23ca6eb5a587af2a9fb",
  "components": {
   "systemap": {
    "classes": [],
    "constants": [],
    "docstring": "systemap: the map your coding agent draws of your system.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/__init__.py",
    "functions": [],
    "id": "systemap",
    "imported_by": [
-    "systemap.cli"
+    "systemap.cli",
+    "systemap.scaffold"
    ],
    "imports": [
     "systemap.model"
    ],
    "loc": 48,
+   "names": [],
    "package": "systemap",
    "plane": "core",
-   "sha": "fbfd6456baf7",
+   "sha": "2972c66bc721",
    "tests": [
+    "test_check_fails_on_overlapping_fixture",
+    "test_configuration_errors_exit_2",
+    "test_extract_on_tiny_package_via_cli",
+    "test_figure_command",
+    "test_init_no_ci_skips_the_workflow",
+    "test_init_then_refresh_round_trip",
+    "test_init_writes_an_empty_model_and_a_pinned_workflow",
     "test_marketplace_points_at_the_repository_root",
     "test_plugin_manifest_version_is_the_package_version",
     "test_plugin_skill_tree_is_identical_to_the_package_skill_tree",
+    "test_rendered_files_end_with_a_newline",
+    "test_serve_command_prints_the_url_and_stops_on_interrupt",
+    "test_serve_serves_the_output_directory",
+    "test_skill_command_writes_the_skill",
     "test_skill_front_matter_fits_the_plugin_limits",
-    "test_skill_is_a_directory_of_named_references"
+    "test_skill_is_a_directory_of_named_references",
+    "test_stale_after_code_change"
    ],
    "tests_primary": 0,
-   "tests_total": 5,
+   "tests_total": 17,
    "uses": {
     "systemap.model": [
      "AGENT_KINDS",
@@ -53,6 +68,7 @@
    "constants": [],
    "docstring": "",
    "errors": [],
+   "external": [],
    "file": "src/systemap/__main__.py",
    "functions": [],
    "id": "systemap.__main__",
@@ -61,6 +77,7 @@
     "systemap.cli"
    ],
    "loc": 6,
+   "names": [],
    "package": "systemap",
    "plane": "core",
    "sha": "0e1e6e0c4977",
@@ -83,6 +100,7 @@
    ],
    "docstring": "Work out what a branch changes about the system, in logical terms.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/change.py",
    "functions": [
     {
@@ -111,10 +129,28 @@
     "systemap.extract",
     "systemap.model"
    ],
-   "loc": 329,
+   "loc": 328,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "BUCKETS"
+    },
+    {
+     "kind": "function",
+     "name": "pr_meta"
+    },
+    {
+     "kind": "function",
+     "name": "surface_delta"
+    },
+    {
+     "kind": "function",
+     "name": "compute"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "4183d88c7aba",
+   "sha": "72c00f38b1a9",
    "tests": [],
    "tests_primary": 0,
    "tests_total": 0,
@@ -164,10 +200,11 @@
    ],
    "docstring": "Check the map geometry and the meaning tables mechanically.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/check.py",
    "functions": [
     {
-     "doc": "",
+     "doc": "The labels rule: edge labels and header text, from the boxes the drawing reports.",
      "name": "check_labels",
      "signature": "def check_labels(meta: dict[str, Any]) -> list[str]"
     },
@@ -192,7 +229,7 @@
      "signature": "def wheel_boxes(cid: str, edges: list[dict[str, str]], layers: tuple[Layer, ...]) -> tuple[Box, list[tuple[str, Box]]]"
     },
     {
-     "doc": "",
+     "doc": "Name labels on the wheel off the centre and off each other.",
      "name": "check_wheels",
      "signature": "def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) -> list[str]"
     },
@@ -244,27 +281,113 @@
     "systemap.page",
     "systemap.schematic"
    ],
-   "loc": 513,
+   "loc": 522,
+   "names": [
+    {
+     "kind": "object",
+     "name": "Box"
+    },
+    {
+     "kind": "function",
+     "name": "check_labels"
+    },
+    {
+     "kind": "function",
+     "name": "check_routes"
+    },
+    {
+     "kind": "function",
+     "name": "check_type_size"
+    },
+    {
+     "kind": "constant",
+     "name": "MONO_CHAR_W"
+    },
+    {
+     "kind": "constant",
+     "name": "NAME_LINE_H"
+    },
+    {
+     "kind": "function",
+     "name": "wrap_name"
+    },
+    {
+     "kind": "function",
+     "name": "wheel_boxes"
+    },
+    {
+     "kind": "function",
+     "name": "check_wheels"
+    },
+    {
+     "kind": "class",
+     "name": "Coverage"
+    },
+    {
+     "kind": "function",
+     "name": "check_coverage"
+    },
+    {
+     "kind": "function",
+     "name": "check_entry"
+    },
+    {
+     "kind": "function",
+     "name": "stale_facts"
+    },
+    {
+     "kind": "function",
+     "name": "stale"
+    },
+    {
+     "kind": "class",
+     "name": "Result"
+    },
+    {
+     "kind": "function",
+     "name": "run"
+    },
+    {
+     "kind": "function",
+     "name": "with_stale"
+    },
+    {
+     "kind": "function",
+     "name": "report"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "cf5386915041",
+   "sha": "0d8eda12d687",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_label_collision_names_both_labels",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
+    "test_actor_claims_no_code_and_is_not_checked",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_component_with_no_module_fails",
+    "test_context_and_tool_cards_are_subjects_of_their_readings",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
+    "test_entry_the_modules_do_not_define_fails",
+    "test_header_labels_wider_than_the_box_and_headers_on_cards_are_refused",
+    "test_header_overflow_fails_check_and_refresh",
+    "test_header_sub_wraps_to_two_lines_and_is_refused_past_that",
     "test_layer_order_and_first_layer",
     "test_light_scheme_derives_from_the_same_palette",
+    "test_missing_entry_with_modules_present_fails",
+    "test_module_not_in_the_facts_fails",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail",
-    "test_standard_kinds_need_no_declaration"
+    "test_refresh_exits_1_when_the_check_fails_after_writing",
+    "test_root_is_accepted_after_the_subcommand",
+    "test_schematic_reports_layout_and_detail"
    ],
    "tests_primary": 0,
-   "tests_total": 13,
+   "tests_total": 33,
    "uses": {
     "systemap.config": [
      "Config",
@@ -307,10 +430,19 @@
     {
      "name": "AGENT_SENTENCE",
      "value": "'Map this repository with systemap. Follow the systemap skill.'"
+    },
+    {
+     "name": "NO_COMPONENTS",
+     "value": "'the model has no components yet; see the skill'"
+    },
+    {
+     "name": "DEFAULT_PORT",
+     "value": "8765"
     }
    ],
    "docstring": "The `systemap` command: what the agent runs.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/cli.py",
    "functions": [
     {
@@ -359,6 +491,16 @@
      "signature": "def cmd_judgement(args: argparse.Namespace) -> int"
     },
     {
+     "doc": "An HTTP server over `directory` on 127.0.0.1; port 0 picks a free one.",
+     "name": "make_server",
+     "signature": "def make_server(directory: Path, port: int) -> ThreadingHTTPServer"
+    },
+    {
+     "doc": "Serve the output directory, since the page's script does not run from file://.",
+     "name": "cmd_serve",
+     "signature": "def cmd_serve(args: argparse.Namespace) -> int"
+    },
+    {
      "doc": "",
      "name": "cmd_skill",
      "signature": "def cmd_skill(args: argparse.Namespace) -> int"
@@ -392,10 +534,84 @@
     "systemap.skill",
     "systemap.theme"
    ],
-   "loc": 455,
+   "loc": 569,
+   "names": [
+    {
+     "kind": "class",
+     "name": "Project"
+    },
+    {
+     "kind": "function",
+     "name": "say"
+    },
+    {
+     "kind": "function",
+     "name": "warn"
+    },
+    {
+     "kind": "constant",
+     "name": "AGENT_SENTENCE"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_init"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_extract"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_render"
+    },
+    {
+     "kind": "constant",
+     "name": "NO_COMPONENTS"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_check"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_figure"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_refresh"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_judgement"
+    },
+    {
+     "kind": "constant",
+     "name": "DEFAULT_PORT"
+    },
+    {
+     "kind": "function",
+     "name": "make_server"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_serve"
+    },
+    {
+     "kind": "function",
+     "name": "cmd_skill"
+    },
+    {
+     "kind": "function",
+     "name": "build_parser"
+    },
+    {
+     "kind": "function",
+     "name": "main"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "bd24f0d6ddb7",
+   "sha": "2ba49234326c",
    "tests": [
     "test_check_fails_on_overlapping_fixture",
     "test_configuration_errors_exit_2",
@@ -403,28 +619,28 @@
     "test_figure_command",
     "test_init_no_ci_skips_the_workflow",
     "test_init_then_refresh_round_trip",
+    "test_init_writes_an_empty_model_and_a_pinned_workflow",
+    "test_rendered_files_end_with_a_newline",
+    "test_serve_command_prints_the_url_and_stops_on_interrupt",
+    "test_serve_serves_the_output_directory",
     "test_skill_command_writes_the_skill",
     "test_stale_after_code_change",
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_label_collision_names_both_labels",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_a_layer_figure_holds_only_that_layers_edges",
     "test_actor_claims_no_code_and_is_not_checked",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_all_mapped",
+    "test_answers_in_the_configuration",
+    "test_answers_suppress_count_and_go_stale",
     "test_component_with_no_module_fails",
-    "test_configured_layer_figures_are_refreshed_and_checked",
-    "test_context_and_tool_flows_need_an_agent_end",
-    "test_crossing_imports_without_flow",
-    "test_double_claim_fails",
-    "test_entry_points_without_journey",
-    "test_entry_the_modules_do_not_define_fails",
-    "test_ignore_with_reason_passes",
-    "test_ignore_without_reason_is_a_config_error",
-    "test_ignored_lines"
+    "test_configured_layer_figures_are_refreshed_and_checked"
    ],
-   "tests_primary": 8,
-   "tests_total": 56,
+   "tests_primary": 12,
+   "tests_total": 89,
    "uses": {
     "systemap": [
      "__version__"
@@ -480,6 +696,11 @@
      "name": "Ignore"
     },
     {
+     "doc": "One or more judgement lines the maintainer has answered, and why.",
+     "methods": [],
+     "name": "Answer"
+    },
+    {
      "doc": "",
      "methods": [
       "def model_path(self) -> Path",
@@ -488,6 +709,7 @@
       "def page_path(self) -> Path",
       "def roots(self) -> list[tuple[Path, str]]",
       "def prefixes(self) -> set[str]",
+      "def test_dirs(self) -> tuple[str, ...]",
       "def rel(self, path: Path) -> str"
      ],
      "name": "Config"
@@ -503,8 +725,24 @@
      "value": "{'.git', '.venv', 'node_modules', '__pycache__', 'build', 'dist', 'tests', 'docs"
     },
     {
+     "name": "SKIP_WALK",
+     "value": "SKIP_DIRS - {'tests'} | {'venv'}"
+    },
+    {
+     "name": "TEST_DIR_NAMES",
+     "value": "('tests', 'test')"
+    },
+    {
+     "name": "CANDIDATE_DEPTH",
+     "value": "4"
+    },
+    {
      "name": "KNOWN_KEYS",
      "value": "{'name', 'package_roots', 'tests_dir', 'model', 'out_dir', 'facts_file', 'spec_p"
+    },
+    {
+     "name": "FACTS_KEYS",
+     "value": "{'model_sdks'}"
     },
     {
      "name": "FIGURE_KEYS",
@@ -517,6 +755,14 @@
     {
      "name": "IGNORE_KEYS",
      "value": "{'module', 'reason'}"
+    },
+    {
+     "name": "JUDGEMENT_KEYS",
+     "value": "{'answered'}"
+    },
+    {
+     "name": "ANSWER_KEYS",
+     "value": "{'item', 'items', 'reason'}"
     }
    ],
    "docstring": "Project configuration: `systemap.toml` at the repo root, or `[tool.systemap]`.",
@@ -527,6 +773,7 @@
      "name": "ConfigError"
     }
    ],
+   "external": [],
    "file": "src/systemap/config.py",
    "functions": [
     {
@@ -535,9 +782,29 @@
      "signature": "def find_root(start: Path) -> Path | None"
     },
     {
+     "doc": "The directories `[tool.uv.workspace] members` names, by its globs.",
+     "name": "workspace_members",
+     "signature": "def workspace_members(root: Path) -> list[Path]"
+    },
+    {
      "doc": "Every top-level directory holding an __init__.py, plus src/<pkg> layouts.",
      "name": "discover_roots",
      "signature": "def discover_roots(root: Path) -> list[tuple[str, str]]"
+    },
+    {
+     "doc": "Every directory named tests or test under the root, relative, in walk order.",
+     "name": "discover_tests",
+     "signature": "def discover_tests(root: Path) -> list[str]"
+    },
+    {
+     "doc": "Directories holding an __init__.py up to `depth` below the root, relative.",
+     "name": "candidate_packages",
+     "signature": "def candidate_packages(root: Path, depth: int=CANDIDATE_DEPTH) -> list[str]"
+    },
+    {
+     "doc": "`[project] name`, else the git repository's directory, else the root's name.",
+     "name": "default_name",
+     "signature": "def default_name(root: Path) -> str"
     },
     {
      "doc": "The raw table and where it came from: systemap.toml first, then pyproject.",
@@ -568,39 +835,145 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 340,
+   "loc": 565,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "CONFIG_FILE"
+    },
+    {
+     "kind": "constant",
+     "name": "SKIP_DIRS"
+    },
+    {
+     "kind": "constant",
+     "name": "SKIP_WALK"
+    },
+    {
+     "kind": "constant",
+     "name": "TEST_DIR_NAMES"
+    },
+    {
+     "kind": "constant",
+     "name": "CANDIDATE_DEPTH"
+    },
+    {
+     "kind": "constant",
+     "name": "KNOWN_KEYS"
+    },
+    {
+     "kind": "constant",
+     "name": "FACTS_KEYS"
+    },
+    {
+     "kind": "constant",
+     "name": "FIGURE_KEYS"
+    },
+    {
+     "kind": "constant",
+     "name": "COVERAGE_KEYS"
+    },
+    {
+     "kind": "constant",
+     "name": "IGNORE_KEYS"
+    },
+    {
+     "kind": "constant",
+     "name": "JUDGEMENT_KEYS"
+    },
+    {
+     "kind": "constant",
+     "name": "ANSWER_KEYS"
+    },
+    {
+     "kind": "error",
+     "name": "ConfigError"
+    },
+    {
+     "kind": "class",
+     "name": "Figure"
+    },
+    {
+     "kind": "class",
+     "name": "Ignore"
+    },
+    {
+     "kind": "class",
+     "name": "Answer"
+    },
+    {
+     "kind": "class",
+     "name": "Config"
+    },
+    {
+     "kind": "function",
+     "name": "find_root"
+    },
+    {
+     "kind": "function",
+     "name": "workspace_members"
+    },
+    {
+     "kind": "function",
+     "name": "discover_roots"
+    },
+    {
+     "kind": "function",
+     "name": "discover_tests"
+    },
+    {
+     "kind": "function",
+     "name": "candidate_packages"
+    },
+    {
+     "kind": "function",
+     "name": "default_name"
+    },
+    {
+     "kind": "function",
+     "name": "read_raw"
+    },
+    {
+     "kind": "function",
+     "name": "load"
+    },
+    {
+     "kind": "function",
+     "name": "load_model"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "25aa15cddf8a",
+   "sha": "55759ca4c9b8",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
+    "test_answers_in_the_configuration",
+    "test_answers_suppress_count_and_go_stale",
+    "test_context_and_tool_cards_are_subjects_of_their_readings",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_crossing_imports_without_flow",
     "test_drift_reports_changes",
     "test_drift_sees_an_entry_point_change",
+    "test_entry_may_be_any_public_name",
     "test_entry_points_without_journey",
     "test_extract_attributes_tests_to_modules",
     "test_extract_finds_modules_and_public_surface",
     "test_extract_records_entry_points",
+    "test_extract_records_every_public_name_with_its_kind_and_the_external_imports",
+    "test_facts_fields_are_the_documented_ones",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
     "test_layer_order_and_first_layer",
     "test_mentioned_is_a_whole_word",
-    "test_mis_fold_lines",
-    "test_no_sentence_lines",
-    "test_report_wording",
-    "test_run_orders_the_second_pass_before_ignores",
-    "test_single_module_lines",
-    "test_single_module_reads_implemented_by_without_facts",
-    "test_spec_sections_and_planes",
-    "test_standard_kinds_need_no_declaration",
-    "test_thin_layer_lines"
+    "test_mis_fold_count_on_the_workspace_fixture",
+    "test_mis_fold_fires_only_on_a_stranger_in_a_foreign_package"
    ],
    "tests_primary": 0,
-   "tests_total": 26,
+   "tests_total": 42,
    "uses": {
     "systemap.model": [
      "Meaning",
@@ -620,14 +993,41 @@
      "value": "25"
     },
     {
+     "name": "CONSTANTS_KEPT",
+     "value": "14"
+    },
+    {
+     "name": "UPPER_NAME",
+     "value": "re.compile('[A-Z][A-Z0-9_]{2,}')"
+    },
+    {
+     "name": "FIELDS",
+     "value": "(('facts', 'version', 'the facts format; 1'), ('facts', 'built_at_commit', 'the "
+    },
+    {
+     "name": "SCOPE_TITLES",
+     "value": "{'facts': 'The file', 'module': 'Each module, under `components`', 'entry point'"
+    },
+    {
      "name": "WHOLE_MODULE",
      "value": "'*'"
     }
    ],
    "docstring": "Extract the derived tier of the system map from the working tree.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/extract.py",
    "functions": [
+    {
+     "doc": "",
+     "name": "fields_of",
+     "signature": "def fields_of(scope: str) -> set[str]"
+    },
+    {
+     "doc": "The facts section of the skill's schema reference, from `FIELDS`.",
+     "name": "facts_doc",
+     "signature": "def facts_doc() -> str"
+    },
     {
      "doc": "",
      "name": "module_of",
@@ -674,6 +1074,11 @@
      "signature": "def internal_uses(raw: str, prefixes: set[str], known: set[str], module: str='', is_package: bool=False) -> dict[str, set[str]]"
     },
     {
+     "doc": "The third-party modules one source imports, as the dotted names written.",
+     "name": "external_imports",
+     "signature": "def external_imports(raw: str, prefixes: set[str]) -> list[str]"
+    },
+    {
      "doc": "",
      "name": "internal_imports",
      "signature": "def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]"
@@ -686,7 +1091,7 @@
     {
      "doc": "module -> the behaviours asserted by tests that import it.",
      "name": "collect_tests",
-     "signature": "def collect_tests(repo: Path, tests_dir: str, prefixes: set[str], known: set[str]) -> dict[str, list[dict[str, Any]]]"
+     "signature": "def collect_tests(repo: Path, tests_dirs: tuple[str, ...], prefixes: set[str], known: set[str]) -> dict[str, list[dict[str, Any]]]"
     },
     {
      "doc": "",
@@ -755,27 +1160,171 @@
     "systemap.config",
     "systemap.model"
    ],
-   "loc": 600,
+   "loc": 770,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "SKIP_PARTS"
+    },
+    {
+     "kind": "constant",
+     "name": "TESTS_KEPT"
+    },
+    {
+     "kind": "constant",
+     "name": "CONSTANTS_KEPT"
+    },
+    {
+     "kind": "constant",
+     "name": "UPPER_NAME"
+    },
+    {
+     "kind": "constant",
+     "name": "FIELDS"
+    },
+    {
+     "kind": "constant",
+     "name": "SCOPE_TITLES"
+    },
+    {
+     "kind": "function",
+     "name": "fields_of"
+    },
+    {
+     "kind": "function",
+     "name": "facts_doc"
+    },
+    {
+     "kind": "function",
+     "name": "module_of"
+    },
+    {
+     "kind": "function",
+     "name": "plane_of"
+    },
+    {
+     "kind": "function",
+     "name": "signature"
+    },
+    {
+     "kind": "function",
+     "name": "opening"
+    },
+    {
+     "kind": "function",
+     "name": "first_line"
+    },
+    {
+     "kind": "function",
+     "name": "sentence"
+    },
+    {
+     "kind": "function",
+     "name": "parse_surface"
+    },
+    {
+     "kind": "function",
+     "name": "collect_module"
+    },
+    {
+     "kind": "constant",
+     "name": "WHOLE_MODULE"
+    },
+    {
+     "kind": "function",
+     "name": "internal_uses"
+    },
+    {
+     "kind": "function",
+     "name": "external_imports"
+    },
+    {
+     "kind": "function",
+     "name": "internal_imports"
+    },
+    {
+     "kind": "function",
+     "name": "test_names"
+    },
+    {
+     "kind": "function",
+     "name": "collect_tests"
+    },
+    {
+     "kind": "function",
+     "name": "spec_sections"
+    },
+    {
+     "kind": "function",
+     "name": "subcommands"
+    },
+    {
+     "kind": "function",
+     "name": "console_scripts"
+    },
+    {
+     "kind": "function",
+     "name": "entry_points"
+    },
+    {
+     "kind": "function",
+     "name": "entry_label"
+    },
+    {
+     "kind": "function",
+     "name": "build"
+    },
+    {
+     "kind": "function",
+     "name": "drift"
+    },
+    {
+     "kind": "function",
+     "name": "mapping_drift"
+    },
+    {
+     "kind": "function",
+     "name": "read_facts"
+    },
+    {
+     "kind": "function",
+     "name": "write_facts"
+    },
+    {
+     "kind": "function",
+     "name": "summary"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "31bc3a134ba3",
+   "sha": "fd4b00c1916b",
    "tests": [
     "test_drift_reports_changes",
     "test_drift_sees_an_entry_point_change",
+    "test_entry_may_be_any_public_name",
     "test_extract_attributes_tests_to_modules",
     "test_extract_finds_modules_and_public_surface",
     "test_extract_records_entry_points",
+    "test_extract_records_every_public_name_with_its_kind_and_the_external_imports",
+    "test_facts_fields_are_the_documented_ones",
+    "test_name_defaults_to_pyproject_then_the_repository_directory",
+    "test_no_roots_names_the_candidate_directories",
     "test_spec_sections_and_planes",
+    "test_workspace_roots_and_tests_directories_are_discovered",
+    "test_zero_tests_is_said_in_one_line_naming_the_directories",
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
+    "test_context_and_tool_cards_are_subjects_of_their_readings",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_layer_order_and_first_layer",
-    "test_standard_kinds_need_no_declaration"
+    "test_standard_kinds_need_no_declaration",
+    "test_the_page_colours_subjects_the_same_way"
    ],
-   "tests_primary": 6,
-   "tests_total": 13,
+   "tests_primary": 13,
+   "tests_total": 23,
    "uses": {
     "systemap.config": [
      "Config"
@@ -806,6 +1355,7 @@
      "name": "FigureError"
     }
    ],
+   "external": [],
    "file": "src/systemap/figure.py",
    "functions": [
     {
@@ -819,7 +1369,7 @@
      "signature": "def figure(t: dict[str, Any], model: Model, meaning: Meaning, svg: str, caption: str, legend: list[tuple[str, str, str]], svg_id: str, detail_json: str | None, layer: str='') -> str"
     },
     {
-     "doc": "(the figure HTML, the label collisions the drawing reported).",
+     "doc": "(the figure HTML, the label and header problems the drawing reported).",
      "name": "make",
      "signature": "def make(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, mode: str='', components: tuple[str, ...]=(), base: str='', head: str='HEAD', caption: str='', svg_id: str='lessonmap', interactive: bool=False, bare: bool=False, layer: str='') -> tuple[str, list[str]]"
     },
@@ -841,9 +1391,39 @@
     "systemap.schematic"
    ],
    "loc": 342,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "GENERATOR"
+    },
+    {
+     "kind": "error",
+     "name": "FigureError"
+    },
+    {
+     "kind": "function",
+     "name": "bare_svg"
+    },
+    {
+     "kind": "constant",
+     "name": "MARK_STYLE"
+    },
+    {
+     "kind": "function",
+     "name": "figure"
+    },
+    {
+     "kind": "function",
+     "name": "make"
+    },
+    {
+     "kind": "function",
+     "name": "configured"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "6b550c00fddc",
+   "sha": "6167af6ee4a4",
    "tests": [
     "test_a_layer_figure_holds_only_that_layers_edges",
     "test_check_passes_on_sample",
@@ -886,15 +1466,26 @@
    }
   },
   "systemap.judgement": {
-   "classes": [],
+   "classes": [
+    {
+     "doc": "The list once the configuration's answers are applied.",
+     "methods": [],
+     "name": "Answered"
+    }
+   ],
    "constants": [
     {
      "name": "MIN_STEM",
      "value": "4"
+    },
+    {
+     "name": "MODEL_SDKS",
+     "value": "('anthropic', 'openai', 'google.generativeai', 'google.adk', 'litellm', 'langcha"
     }
    ],
    "docstring": "The list a maintainer must confirm before the map is trusted.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/judgement.py",
    "functions": [
     {
@@ -908,14 +1499,29 @@
      "signature": "def shares_a_word(a: str, b: str) -> bool"
     },
     {
+     "doc": "`shares_a_word` over two word sets already split.",
+     "name": "share_a_word",
+     "signature": "def share_a_word(xs: set[str], ys: set[str]) -> bool"
+    },
+    {
      "doc": "",
      "name": "single_module",
      "signature": "def single_module(model: Model, facts: dict[str, Any]) -> list[str]"
     },
     {
-     "doc": "",
+     "doc": "The package a module sits in: its path minus the last segment, or itself.",
+     "name": "package_of",
+     "signature": "def package_of(module: str) -> str"
+    },
+    {
+     "doc": "Do two modules sit in one package, or is one the other's package?",
+     "name": "share_a_package",
+     "signature": "def share_a_package(a: str, b: str) -> bool"
+    },
+    {
+     "doc": "Modules that may be folded into the wrong component.",
      "name": "mis_folds",
-     "signature": "def mis_folds(model: Model, facts: dict[str, Any]) -> list[str]"
+     "signature": "def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]"
     },
     {
      "doc": "",
@@ -943,6 +1549,16 @@
      "signature": "def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]"
     },
     {
+     "doc": "The SDK an imported dotted name belongs to, or empty.",
+     "name": "sdk_of",
+     "signature": "def sdk_of(name: str, sdks: Iterable[str]) -> str"
+    },
+    {
+     "doc": "Every module that imports a model SDK from a component that is not an agent.",
+     "name": "model_sdk_imports",
+     "signature": "def model_sdk_imports(model: Model, facts: dict[str, Any], sdks: Iterable[str]=MODEL_SDKS) -> list[str]"
+    },
+    {
      "doc": "",
      "name": "ignored",
      "signature": "def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]"
@@ -950,12 +1566,17 @@
     {
      "doc": "Every line the maintainer should read, in the order above.",
      "name": "run",
-     "signature": "def run(model: Model, meaning: Meaning, facts: dict[str, Any], ignores: Iterable[Ignore]=()) -> list[str]"
+     "signature": "def run(model: Model, meaning: Meaning, facts: dict[str, Any], ignores: Iterable[Ignore]=(), sdks: Iterable[str]=MODEL_SDKS) -> list[str]"
+    },
+    {
+     "doc": "Suppress every line the configuration answers; report the rest and the stale.",
+     "name": "apply_answers",
+     "signature": "def apply_answers(lines: list[str], answers: Iterable[Answer]) -> Answered"
     },
     {
      "doc": "The lines the CLI prints.",
      "name": "report",
-     "signature": "def report(lines: list[str]) -> list[str]"
+     "signature": "def report(lines: list[str] | Answered) -> list[str]"
     }
    ],
    "id": "systemap.judgement",
@@ -967,17 +1588,109 @@
     "systemap.extract",
     "systemap.model"
    ],
-   "loc": 244,
+   "loc": 389,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "MIN_STEM"
+    },
+    {
+     "kind": "constant",
+     "name": "MODEL_SDKS"
+    },
+    {
+     "kind": "function",
+     "name": "words"
+    },
+    {
+     "kind": "function",
+     "name": "shares_a_word"
+    },
+    {
+     "kind": "function",
+     "name": "share_a_word"
+    },
+    {
+     "kind": "function",
+     "name": "single_module"
+    },
+    {
+     "kind": "function",
+     "name": "package_of"
+    },
+    {
+     "kind": "function",
+     "name": "share_a_package"
+    },
+    {
+     "kind": "function",
+     "name": "mis_folds"
+    },
+    {
+     "kind": "function",
+     "name": "no_sentence"
+    },
+    {
+     "kind": "function",
+     "name": "thin_layers"
+    },
+    {
+     "kind": "function",
+     "name": "mentioned"
+    },
+    {
+     "kind": "function",
+     "name": "entry_points_without_journey"
+    },
+    {
+     "kind": "function",
+     "name": "crossing_imports_without_flow"
+    },
+    {
+     "kind": "function",
+     "name": "sdk_of"
+    },
+    {
+     "kind": "function",
+     "name": "model_sdk_imports"
+    },
+    {
+     "kind": "function",
+     "name": "ignored"
+    },
+    {
+     "kind": "function",
+     "name": "run"
+    },
+    {
+     "kind": "class",
+     "name": "Answered"
+    },
+    {
+     "kind": "function",
+     "name": "apply_answers"
+    },
+    {
+     "kind": "function",
+     "name": "report"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "7e4d474e6076",
+   "sha": "87280ac3be8d",
    "tests": [
+    "test_answers_in_the_configuration",
+    "test_answers_suppress_count_and_go_stale",
     "test_crossing_imports_without_flow",
     "test_entry_points_without_journey",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
     "test_mentioned_is_a_whole_word",
+    "test_mis_fold_count_on_the_workspace_fixture",
+    "test_mis_fold_fires_only_on_a_stranger_in_a_foreign_package",
     "test_mis_fold_lines",
+    "test_model_sdk_lines",
+    "test_model_sdks_configured",
     "test_no_sentence_lines",
     "test_report_wording",
     "test_run_orders_the_second_pass_before_ignores",
@@ -986,10 +1699,11 @@
     "test_thin_layer_lines",
     "test_words_and_shared_words"
    ],
-   "tests_primary": 13,
-   "tests_total": 13,
+   "tests_primary": 19,
+   "tests_total": 19,
    "uses": {
     "systemap.config": [
+     "Answer",
      "Ignore"
     ],
     "systemap.extract": [
@@ -1123,12 +1837,17 @@
      "value": "{'data': ('hands to', 'receives from'), 'control': ('drives', 'is driven by'), '"
     },
     {
+     "name": "SUBJECT_KIND",
+     "value": "{'system': 'actor', 'agents': 'agent', 'context': 'context', 'tools': 'tool'}"
+    },
+    {
      "name": "BUILT",
      "value": "'built'"
     }
    ],
    "docstring": "The schema a system map is written in, and the checks that keep it honest.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/model.py",
    "functions": [
     {
@@ -1177,6 +1896,11 @@
      "signature": "def claimed(component: Component, modules: Iterable[str]) -> list[str]"
     },
     {
+     "doc": "Every public module-level name one facts record declares.",
+     "name": "public_names",
+     "signature": "def public_names(record: Mapping[str, Any]) -> set[str]"
+    },
+    {
      "doc": "Does one of the component's claimed modules define its entry?",
      "name": "defines_entry",
      "signature": "def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool"
@@ -1202,10 +1926,164 @@
     "systemap.theme"
    ],
    "imports": [],
-   "loc": 585,
+   "loc": 612,
+   "names": [
+    {
+     "kind": "object",
+     "name": "Box"
+    },
+    {
+     "kind": "object",
+     "name": "Edge"
+    },
+    {
+     "kind": "constant",
+     "name": "KINDS"
+    },
+    {
+     "kind": "constant",
+     "name": "AGENT_KINDS"
+    },
+    {
+     "kind": "constant",
+     "name": "TONES"
+    },
+    {
+     "kind": "constant",
+     "name": "CARD_W"
+    },
+    {
+     "kind": "constant",
+     "name": "CARD_H"
+    },
+    {
+     "kind": "class",
+     "name": "Container"
+    },
+    {
+     "kind": "class",
+     "name": "Region"
+    },
+    {
+     "kind": "class",
+     "name": "Component"
+    },
+    {
+     "kind": "class",
+     "name": "Flow"
+    },
+    {
+     "kind": "class",
+     "name": "Invariant"
+    },
+    {
+     "kind": "class",
+     "name": "Step"
+    },
+    {
+     "kind": "class",
+     "name": "Journey"
+    },
+    {
+     "kind": "class",
+     "name": "Layer"
+    },
+    {
+     "kind": "constant",
+     "name": "STANDARD_LAYERS"
+    },
+    {
+     "kind": "constant",
+     "name": "AGENT_LAYERS"
+    },
+    {
+     "kind": "constant",
+     "name": "STANDARD_KINDS"
+    },
+    {
+     "kind": "constant",
+     "name": "LAYER_OF_STANDARD_KIND"
+    },
+    {
+     "kind": "constant",
+     "name": "DERIVED_LAYERS"
+    },
+    {
+     "kind": "constant",
+     "name": "RESERVED_LAYER_IDS"
+    },
+    {
+     "kind": "constant",
+     "name": "STANDARD_VERBS"
+    },
+    {
+     "kind": "class",
+     "name": "Model"
+    },
+    {
+     "kind": "class",
+     "name": "Meaning"
+    },
+    {
+     "kind": "function",
+     "name": "all_layers"
+    },
+    {
+     "kind": "function",
+     "name": "flow_layers"
+    },
+    {
+     "kind": "function",
+     "name": "edge_in_layer"
+    },
+    {
+     "kind": "constant",
+     "name": "SUBJECT_KIND"
+    },
+    {
+     "kind": "function",
+     "name": "subject_of_layer"
+    },
+    {
+     "kind": "function",
+     "name": "reading"
+    },
+    {
+     "kind": "function",
+     "name": "meaning_problems"
+    },
+    {
+     "kind": "function",
+     "name": "problems"
+    },
+    {
+     "kind": "function",
+     "name": "module_matches"
+    },
+    {
+     "kind": "function",
+     "name": "claimed"
+    },
+    {
+     "kind": "constant",
+     "name": "BUILT"
+    },
+    {
+     "kind": "function",
+     "name": "public_names"
+    },
+    {
+     "kind": "function",
+     "name": "defines_entry"
+    },
+    {
+     "kind": "function",
+     "name": "build_state"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "e516307e8dea",
+   "sha": "7386d864e5c1",
    "tests": [
     "test_a_custom_layer_may_not_take_a_standard_id",
     "test_build_state_has_one_value",
@@ -1221,20 +2099,20 @@
     "test_sample_validates",
     "test_small_model_is_clean",
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_label_collision_names_both_labels",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_a_layer_figure_holds_only_that_layers_edges",
+    "test_actor_claims_no_code_and_is_not_checked",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
+    "test_answers_in_the_configuration",
+    "test_answers_suppress_count_and_go_stale",
     "test_check_passes_on_sample",
-    "test_configured_layer_figures_are_refreshed_and_checked",
-    "test_context_and_tool_flows_need_an_agent_end",
-    "test_crossing_imports_without_flow",
-    "test_default_theme_colours_every_layer",
-    "test_entry_points_without_journey",
-    "test_ignored_lines"
+    "test_component_with_no_module_fails"
    ],
    "tests_primary": 13,
-   "tests_total": 45,
+   "tests_total": 71,
    "uses": {}
   },
   "systemap.page": {
@@ -1255,6 +2133,7 @@
    ],
    "docstring": "Render the system map as one page that teaches the system in layers.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/page.py",
    "functions": [
     {
@@ -1285,17 +2164,49 @@
     "systemap.theme"
    ],
    "loc": 659,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "STATE_WORD"
+    },
+    {
+     "kind": "constant",
+     "name": "NUMBER_WORDS"
+    },
+    {
+     "kind": "function",
+     "name": "esc"
+    },
+    {
+     "kind": "function",
+     "name": "number_word"
+    },
+    {
+     "kind": "function",
+     "name": "build"
+    },
+    {
+     "kind": "constant",
+     "name": "CSS"
+    },
+    {
+     "kind": "object",
+     "name": "JS"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "c3cb4a1a2d69",
+   "sha": "333b4a8fa45f",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_a_layer_figure_holds_only_that_layers_edges",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
     "test_configured_layer_figures_are_refreshed_and_checked",
+    "test_context_and_tool_cards_are_subjects_of_their_readings",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
     "test_layer_order_and_first_layer",
@@ -1306,11 +2217,12 @@
     "test_standard_kinds_need_no_declaration",
     "test_structure_has_no_edges_and_system_crosses_the_boundary",
     "test_the_legend_and_caption_reduce_to_the_layer",
+    "test_the_page_colours_subjects_the_same_way",
     "test_the_page_reads_the_same_table",
     "test_unknown_layer_exits_2_with_the_fix_named"
    ],
    "tests_primary": 0,
-   "tests_total": 19,
+   "tests_total": 22,
    "uses": {
     "systemap.config": [
      "Config"
@@ -1414,6 +2326,7 @@
    ],
    "docstring": "Route every flow orthogonally through the gutters between cards.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/route.py",
    "functions": [
     {
@@ -1434,7 +2347,7 @@
     {
      "doc": "Seat every label; shortest path first, since it has the fewest places.",
      "name": "place_labels",
-     "signature": "def place_labels(routes: dict[int, Route], widths: dict[int, float], lh: float, obstacles: list[tuple[str, Box]], canvas: tuple[float, float], gap: float=2.0) -> dict[int, Placed]"
+     "signature": "def place_labels(routes: dict[int, Route], widths: dict[int, float], lh: float, obstacles: list[tuple[str, Box]], canvas: tuple[float, float], gap: float=2.0, names: dict[int, str] | None=None) -> dict[int, Placed]"
     }
    ],
    "id": "systemap.route",
@@ -1442,13 +2355,141 @@
     "systemap.schematic"
    ],
    "imports": [],
-   "loc": 592,
+   "loc": 603,
+   "names": [
+    {
+     "kind": "object",
+     "name": "Box"
+    },
+    {
+     "kind": "object",
+     "name": "Point"
+    },
+    {
+     "kind": "constant",
+     "name": "CARD_MARGIN"
+    },
+    {
+     "kind": "constant",
+     "name": "LANE_STEP"
+    },
+    {
+     "kind": "constant",
+     "name": "LANE_EDGE"
+    },
+    {
+     "kind": "constant",
+     "name": "MAX_LANES"
+    },
+    {
+     "kind": "constant",
+     "name": "PORT_DX"
+    },
+    {
+     "kind": "constant",
+     "name": "PORT_DY"
+    },
+    {
+     "kind": "constant",
+     "name": "PORT_SPREAD_COST"
+    },
+    {
+     "kind": "constant",
+     "name": "BEND_COST"
+    },
+    {
+     "kind": "constant",
+     "name": "USED_LANE_FACTOR"
+    },
+    {
+     "kind": "constant",
+     "name": "USED_PORT_COST"
+    },
+    {
+     "kind": "constant",
+     "name": "FOREIGN_REGION_COST"
+    },
+    {
+     "kind": "constant",
+     "name": "SIDES"
+    },
+    {
+     "kind": "class",
+     "name": "Route"
+    },
+    {
+     "kind": "class",
+     "name": "Placed"
+    },
+    {
+     "kind": "class",
+     "name": "Router"
+    },
+    {
+     "kind": "function",
+     "name": "route_all"
+    },
+    {
+     "kind": "function",
+     "name": "path_d"
+    },
+    {
+     "kind": "constant",
+     "name": "CORNER_CLEAR"
+    },
+    {
+     "kind": "constant",
+     "name": "ARROW_CLEAR"
+    },
+    {
+     "kind": "constant",
+     "name": "PORT_CLEAR"
+    },
+    {
+     "kind": "constant",
+     "name": "BESIDE"
+    },
+    {
+     "kind": "constant",
+     "name": "GUTTER_OFFSETS"
+    },
+    {
+     "kind": "constant",
+     "name": "T_ORDER"
+    },
+    {
+     "kind": "function",
+     "name": "label_candidates"
+    },
+    {
+     "kind": "function",
+     "name": "place_labels"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "8ecdd0357a62",
-   "tests": [],
+   "sha": "3cd09ec2ccc4",
+   "tests": [
+    "test_a_label_collision_names_both_labels",
+    "test_actor_claims_no_code_and_is_not_checked",
+    "test_component_with_no_module_fails",
+    "test_entry_the_modules_do_not_define_fails",
+    "test_header_labels_wider_than_the_box_and_headers_on_cards_are_refused",
+    "test_header_overflow_fails_check_and_refresh",
+    "test_header_sub_wraps_to_two_lines_and_is_refused_past_that",
+    "test_missing_entry_with_modules_present_fails",
+    "test_module_not_in_the_facts_fails",
+    "test_refresh_exits_1_when_the_check_fails_after_writing",
+    "test_root_is_accepted_after_the_subcommand",
+    "test_stale_facts_after_a_code_change",
+    "test_stale_figure_when_missing_or_edited",
+    "test_stale_page_after_a_model_change",
+    "test_stale_with_no_facts_names_extract",
+    "test_svg_figure_is_the_bare_drawing_on_its_ground",
+    "test_wheel_labels_may_reach_past_the_old_frame"
+   ],
    "tests_primary": 0,
-   "tests_total": 0,
+   "tests_total": 17,
    "uses": {}
   },
   "systemap.scaffold": {
@@ -1460,7 +2501,7 @@
     },
     {
      "name": "MODEL",
-     "value": "'\"\"\"The system map of {name}: what the parts are and what they are to each other"
+     "value": "'# ruff: noqa: E501\\n# The map is prose held in strings: a sentence per flow, a "
     },
     {
      "name": "WORKFLOW",
@@ -1469,6 +2510,7 @@
    ],
    "docstring": "What `systemap init` writes: a configuration, a starter model, a workflow.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/scaffold.py",
    "functions": [
     {
@@ -1486,15 +2528,43 @@
    "imported_by": [
     "systemap.cli"
    ],
-   "imports": [],
-   "loc": 276,
+   "imports": [
+    "systemap"
+   ],
+   "loc": 279,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "CONFIG"
+    },
+    {
+     "kind": "constant",
+     "name": "MODEL"
+    },
+    {
+     "kind": "constant",
+     "name": "WORKFLOW"
+    },
+    {
+     "kind": "function",
+     "name": "files"
+    },
+    {
+     "kind": "function",
+     "name": "write"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "835a2bbb6394",
+   "sha": "162b7221d37e",
    "tests": [],
    "tests_primary": 0,
    "tests_total": 0,
-   "uses": {}
+   "uses": {
+    "systemap": [
+     "__version__"
+    ]
+   }
   },
   "systemap.schematic": {
    "classes": [],
@@ -1534,10 +2604,23 @@
     {
      "name": "PLAIN_CHARS",
      "value": "26"
+    },
+    {
+     "name": "LABEL_CHAR",
+     "value": "7.6"
+    },
+    {
+     "name": "SUB_CHAR",
+     "value": "5.6"
+    },
+    {
+     "name": "HEADER_LINES",
+     "value": "2"
     }
    ],
    "docstring": "Draw the logical view as a flat figure. One generator for every picture.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/schematic.py",
    "functions": [
     {
@@ -1549,6 +2632,11 @@
      "doc": "Greedy word wrap, truncated at a word boundary rather than overflowing.",
      "name": "wrap_words",
      "signature": "def wrap_words(text: str, width: int, max_lines: int) -> list[str]"
+    },
+    {
+     "doc": "Greedy word wrap with nothing dropped: a word wider than `width` stands alone.",
+     "name": "wrap_all",
+     "signature": "def wrap_all(text: str, width: int) -> list[str]"
     },
     {
      "doc": "a towards b by t.",
@@ -1601,33 +2689,137 @@
     "systemap.model",
     "systemap.route"
    ],
-   "loc": 1504,
+   "loc": 1587,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "CARD_W"
+    },
+    {
+     "kind": "constant",
+     "name": "RADIUS"
+    },
+    {
+     "kind": "constant",
+     "name": "TEXT_PX"
+    },
+    {
+     "kind": "constant",
+     "name": "NAME_PX"
+    },
+    {
+     "kind": "constant",
+     "name": "LABEL_PX"
+    },
+    {
+     "kind": "constant",
+     "name": "LABEL_CHAR_W"
+    },
+    {
+     "kind": "constant",
+     "name": "LABEL_H"
+    },
+    {
+     "kind": "constant",
+     "name": "LABEL_GAP"
+    },
+    {
+     "kind": "constant",
+     "name": "PLAIN_CHARS"
+    },
+    {
+     "kind": "object",
+     "name": "Box"
+    },
+    {
+     "kind": "function",
+     "name": "esc"
+    },
+    {
+     "kind": "function",
+     "name": "wrap_words"
+    },
+    {
+     "kind": "function",
+     "name": "wrap_all"
+    },
+    {
+     "kind": "constant",
+     "name": "LABEL_CHAR"
+    },
+    {
+     "kind": "constant",
+     "name": "SUB_CHAR"
+    },
+    {
+     "kind": "constant",
+     "name": "HEADER_LINES"
+    },
+    {
+     "kind": "function",
+     "name": "mix"
+    },
+    {
+     "kind": "function",
+     "name": "lives_in"
+    },
+    {
+     "kind": "function",
+     "name": "legend_rows"
+    },
+    {
+     "kind": "function",
+     "name": "layer_rows"
+    },
+    {
+     "kind": "function",
+     "name": "kind_rows"
+    },
+    {
+     "kind": "function",
+     "name": "render"
+    },
+    {
+     "kind": "function",
+     "name": "panel_css"
+    },
+    {
+     "kind": "function",
+     "name": "interactive_script"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
-   "sha": "d5b9f78891c9",
+   "sha": "c086b9a8a126",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_label_collision_names_both_labels",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_a_layer_figure_holds_only_that_layers_edges",
+    "test_actor_claims_no_code_and_is_not_checked",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_component_with_no_module_fails",
     "test_configured_layer_figures_are_refreshed_and_checked",
+    "test_context_and_tool_cards_are_subjects_of_their_readings",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
+    "test_entry_the_modules_do_not_define_fails",
+    "test_header_labels_wider_than_the_box_and_headers_on_cards_are_refused",
+    "test_header_overflow_fails_check_and_refresh",
+    "test_header_sub_wraps_to_two_lines_and_is_refused_past_that",
     "test_layer_order_and_first_layer",
     "test_light_scheme_derives_from_the_same_palette",
+    "test_missing_entry_with_modules_present_fails",
+    "test_module_not_in_the_facts_fails",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail",
-    "test_standard_kinds_need_no_declaration",
-    "test_structure_has_no_edges_and_system_crosses_the_boundary",
-    "test_the_legend_and_caption_reduce_to_the_layer",
-    "test_the_page_reads_the_same_table",
-    "test_unknown_layer_exits_2_with_the_fix_named"
+    "test_refresh_exits_1_when_the_check_fails_after_writing"
    ],
    "tests_primary": 0,
-   "tests_total": 19,
+   "tests_total": 39,
    "uses": {
     "systemap.model": [
      "AGENT_KINDS",
@@ -1665,6 +2857,7 @@
    ],
    "docstring": "The agent skill: the procedure a coding agent follows to map a repository.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/skill.py",
    "functions": [
     {
@@ -1689,6 +2882,32 @@
    ],
    "imports": [],
    "loc": 61,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "DEFAULT_DIR"
+    },
+    {
+     "kind": "constant",
+     "name": "FILE_NAME"
+    },
+    {
+     "kind": "constant",
+     "name": "REFERENCES"
+    },
+    {
+     "kind": "function",
+     "name": "files"
+    },
+    {
+     "kind": "function",
+     "name": "text"
+    },
+    {
+     "kind": "function",
+     "name": "write"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
    "sha": "8a4d90be5937",
@@ -1697,14 +2916,27 @@
     "test_skill_front_matter_and_vocabulary",
     "test_worked_example_passes_check",
     "test_write_installs_the_directory_and_removes_a_stale_reference",
+    "test_drift_reports_changes",
+    "test_drift_sees_an_entry_point_change",
+    "test_entry_may_be_any_public_name",
+    "test_extract_attributes_tests_to_modules",
+    "test_extract_finds_modules_and_public_surface",
+    "test_extract_records_entry_points",
+    "test_extract_records_every_public_name_with_its_kind_and_the_external_imports",
+    "test_facts_fields_are_the_documented_ones",
     "test_marketplace_points_at_the_repository_root",
+    "test_name_defaults_to_pyproject_then_the_repository_directory",
+    "test_no_roots_names_the_candidate_directories",
     "test_plugin_manifest_version_is_the_package_version",
     "test_plugin_skill_tree_is_identical_to_the_package_skill_tree",
     "test_skill_front_matter_fits_the_plugin_limits",
-    "test_skill_is_a_directory_of_named_references"
+    "test_skill_is_a_directory_of_named_references",
+    "test_spec_sections_and_planes",
+    "test_workspace_roots_and_tests_directories_are_discovered",
+    "test_zero_tests_is_said_in_one_line_naming_the_directories"
    ],
    "tests_primary": 4,
-   "tests_total": 9,
+   "tests_total": 22,
    "uses": {}
   },
   "systemap.theme": {
@@ -1769,6 +3001,7 @@
    ],
    "docstring": "The map's look, as one table of tokens.",
    "errors": [],
+   "external": [],
    "file": "src/systemap/theme.py",
    "functions": [
     {
@@ -1801,15 +3034,107 @@
     "systemap.model"
    ],
    "loc": 255,
+   "names": [
+    {
+     "kind": "constant",
+     "name": "MARKS"
+    },
+    {
+     "kind": "constant",
+     "name": "KIND_MARKS"
+    },
+    {
+     "kind": "constant",
+     "name": "SANS"
+    },
+    {
+     "kind": "constant",
+     "name": "MONO"
+    },
+    {
+     "kind": "constant",
+     "name": "GRAPHITE"
+    },
+    {
+     "kind": "constant",
+     "name": "INK"
+    },
+    {
+     "kind": "constant",
+     "name": "AMBER"
+    },
+    {
+     "kind": "constant",
+     "name": "STEEL"
+    },
+    {
+     "kind": "constant",
+     "name": "PAPER"
+    },
+    {
+     "kind": "constant",
+     "name": "INK_ON_PAPER"
+    },
+    {
+     "kind": "constant",
+     "name": "STANDARD_LAYERS_DARK"
+    },
+    {
+     "kind": "constant",
+     "name": "LAYER_PALETTE"
+    },
+    {
+     "kind": "constant",
+     "name": "STANDARD_LAYERS_LIGHT"
+    },
+    {
+     "kind": "constant",
+     "name": "LAYER_PALETTE_LIGHT"
+    },
+    {
+     "kind": "constant",
+     "name": "DARK"
+    },
+    {
+     "kind": "constant",
+     "name": "LIGHT"
+    },
+    {
+     "kind": "constant",
+     "name": "SCHEMES"
+    },
+    {
+     "kind": "constant",
+     "name": "DEFAULT"
+    },
+    {
+     "kind": "function",
+     "name": "merge"
+    },
+    {
+     "kind": "function",
+     "name": "base_for"
+    },
+    {
+     "kind": "function",
+     "name": "resolve"
+    },
+    {
+     "kind": "function",
+     "name": "css_vars"
+    }
+   ],
    "package": "systemap",
    "plane": "core",
    "sha": "8bf7cf960a7c",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_context_and_tool_cards_are_subjects_of_their_readings",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
     "test_layer_order_and_first_layer",
@@ -1817,10 +3142,11 @@
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
     "test_schematic_reports_layout_and_detail",
-    "test_standard_kinds_need_no_declaration"
+    "test_standard_kinds_need_no_declaration",
+    "test_the_page_colours_subjects_the_same_way"
    ],
    "tests_primary": 0,
-   "tests_total": 13,
+   "tests_total": 16,
    "uses": {
     "systemap.model": [
      "Layer"
@@ -1892,6 +3218,12 @@
   {
    "kind": "subcommand",
    "module": "systemap.cli",
+   "name": "serve",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
    "name": "skill",
    "target": "systemap"
   }
@@ -1900,5 +3232,8 @@
   "systemap"
  ],
  "spec_sections": [],
+ "tests_dirs": [
+  "tests"
+ ],
  "version": 1
 }

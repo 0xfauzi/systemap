@@ -1,5 +1,103 @@
 # Changelog
 
+## 0.5.0
+
+What a fresh agent found mapping a real repository with only the README:
+twenty-two defects, each fixed here with a test.
+
+Judgement:
+
+- `possible mis-fold` compared the component id with the module's last
+  path segment and fired 112 times on 27 cards. It now compares every
+  word of the dotted path with the component's id, `does`, plain word and
+  `interface`, and fires only in a component of several modules when the
+  module's package holds none of the others and is not one of them. On
+  the anonymised fixture of that map (`tests/fixture_workspace.py`: two
+  packages, 144 modules, 27 cards, four agents): 112 before, 0 after.
+- The list has memory. `[judgement] answered` in `systemap.toml` holds
+  each answered line (`item`, or `items` for one reason over several)
+  with its reason; an answered line is suppressed and counted in the
+  header, an answer whose line is gone is reported as stale, an answer
+  without a reason is a configuration error. The skill's step 4 and
+  "what to hand back" point at it: the answers are the hand-back, and
+  they live in the repository.
+- A new line, `model sdk: module X imports <sdk> and its component P is
+  not an agent`, over a built-in list of model SDKs and agent frameworks
+  extended by `[facts] model_sdks`: the mechanical prompt for the agentic
+  layers.
+- The `note: ... sits on a shorter segment` line on a clean check is
+  gone; it was not a rule.
+
+Facts:
+
+- Each module record carries `external` (third-party imports, as the
+  dotted names written) and `names` (every public module-level name with
+  its kind: function, class, error, constant, object). A component's
+  `entry` may be any public name, so `app` or `root_agent` is accepted.
+- `tests_dir` takes a directory or a list; unset, every directory named
+  `tests` or `test` under the root is read. The facts record
+  `tests_dirs`; when no test imports a module the extract summary says
+  so in one line and names the directories searched.
+- Package roots are discovered under every `[tool.uv.workspace]` member;
+  the error when none is found lists every directory holding an
+  `__init__.py` up to four deep.
+- `name` defaults to `[project] name`, then the git repository's
+  directory (the main checkout, even from a worktree), then the
+  directory's name.
+- `extract.FIELDS` declares every field the extractor writes;
+  `references/schema.md` is rendered from it and a test compares both
+  the reference and what `build` writes with the table.
+
+Check:
+
+- `wheel of X: label Y leaves the drawing` is deleted: the wheel sizes
+  itself to its labels. The wheel rule keeps the centre and the labels
+  off each other.
+- A label collision names both labels by artifact and edge, and a
+  collision inside the 2-unit gap no longer reports an empty list.
+- Container and region header text joins the labels rule: a `sub` wraps
+  to a second line inside its box and is refused past that; a label
+  wider than its box and a header touching a card are refused too.
+- `refresh` checks what it wrote and exits 1 when the check fails.
+- `--root` is accepted after the subcommand as well as before it.
+
+init:
+
+- Configures `figures/structure.svg` and `figures/system.svg` (bare
+  drawings) instead of `system.html`.
+- The starter model has no components; the check says "the model has no
+  components yet; see the skill" as its one line; the starter toml
+  carries no ignore.
+- Reports the skill directory once: "wrote .claude/skills/systemap/
+  (SKILL.md and 6 references)".
+- The workflow runs `uvx --from "systemap==<the version that wrote it>"
+  systemap ...`, so the project needs no dependency on systemap; it
+  needs the package on PyPI, which it is not yet, and the README says so.
+- The starter model opens with `# ruff: noqa: E501` and one comment
+  saying why; every rendered file ends with a newline.
+
+Skill and README:
+
+- The draft reads the repository's own words: its README, AGENTS.md,
+  CLAUDE.md, docs/.
+- `systemap serve [--port 8765]` serves the output directory over HTTP
+  on the loopback address and prints the URL; the page's script does not
+  run from a `file://` address, and the skill says to use it.
+- The second pass answers a long list in bulk, walks the model sdk
+  lines, and looks at `figures/structure.svg` then `figures/system.svg`.
+
+Agentic rendering:
+
+- The Context reading is about the context cards and Tools about the
+  tools, as Agents is about the agents. A figure of one reading gives
+  its subject cards the reading's colour as their stroke and dims every
+  card no edge of the reading touches, as the page does; the page
+  colours the subject strokes the same way.
+
+The self-map is regenerated with the new facts fields, the top row moved
+clear of the region header the new rule caught, and its sixteen
+remaining judgement lines answered in `systemap.toml`.
+
 ## 0.4.1
 
 A figure of one reading, so a document can show one question's answer
