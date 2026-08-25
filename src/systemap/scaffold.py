@@ -1,8 +1,9 @@
 """What `systemap init` writes: a configuration, a starter model, a workflow.
 
 The starter model is the smallest map that passes every check: one
-container, one region inside it, two components and one flow between them,
-one layer, one journey of one step and one invariant. An agent following
+container, one region inside it, two components and one data flow between
+them, no layer of its own (the standard layers are derived), one journey
+of one step and one invariant. An agent following
 the skill (installed by the same command, see skill.py) replaces the words
 and adds cards from there; a person may do the same by hand.
 
@@ -68,7 +69,6 @@ from systemap import (
     Flow,
     Invariant,
     Journey,
-    Layer,
     Meaning,
     Model,
     Region,
@@ -115,10 +115,12 @@ COMPONENTS = (
     ),
 )
 
-# (from, to, the artifact carried, the dataflow kind)
-FLOWS = (Flow("Reader", "Writer", "request", "work"),)
+# (from, to, the artifact carried, the kind). Two kinds are standard and
+# need no declaring: data (an artifact moves) and control (one part drives
+# another). A kind of your own is declared in FLOW_KINDS and given a layer.
+FLOWS = (Flow("Reader", "Writer", "request", "data"),)
 
-FLOW_KINDS = ("work",)
+FLOW_KINDS = ()
 
 INVARIANTS = (
     Invariant(1, "The writer never reads the input itself.", governs=("Writer",)),
@@ -141,22 +143,18 @@ PLAIN = {{
     "Writer": "the part that writes",
 }}
 
-LAYERS = (
-    Layer(
-        id="work",
-        label="Work",
-        question="How does an input become an output?",
-        sub="the forward path",
-    ),
-)
+# The page derives Structure, System context, Data flow and Control flow
+# from the model. A layer of your own goes here, as the question it
+# answers, with its kind mapped to it in LAYER_OF_KIND.
+LAYERS = ()
 
-LAYER_OF_KIND = {{"work": "work"}}
+LAYER_OF_KIND = {{}}
 
 RELATIONS = {{
     ("Reader", "Writer"): "The reader hands the writer one request at a time; the writer never goes back to the source.",
 }}
 
-VERBS = {{"work": ("hands to", "receives from")}}
+VERBS = {{"data": ("hands to", "receives from")}}
 
 JOURNEYS = (
     Journey(

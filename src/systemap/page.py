@@ -26,8 +26,8 @@ from typing import Any
 
 from systemap import theme as theme_mod
 from systemap.config import Config
-from systemap.model import Component, Meaning, Model
-from systemap.schematic import interactive_script, layer_rows, legend_rows, panel_css
+from systemap.model import Component, Meaning, Model, all_layers
+from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
 
 STATE_WORD = {"built": "built", "actor": "outside"}
@@ -86,7 +86,8 @@ def build(
     commit = (facts.get("built_at_commit") or "")[:10]
     n_flows = len(model.flows)
     n_comp = len([c for c in COMPONENTS if c.kind != "actor"])
-    n_layers = number_word(len(meaning.layers))
+    layers = all_layers(model, meaning)
+    n_layers = number_word(len(layers))
 
     o: list[str] = []
     o.append("<!doctype html>")
@@ -137,7 +138,7 @@ def build(
     o.append('<div class="controls">')
     o.append('<div class="ctl"><span class="ctl__k">Layer</span>')
     o.append('<div class="seg" role="group" aria-label="Layer">')
-    for layer in meaning.layers:
+    for layer in layers:
         o.append(
             f'<button type="button" class="seg__b" data-layer-btn="{esc(layer.id)}" '
             f'aria-pressed="false" style="--c:{T["layers"][layer.id]}">'
@@ -200,7 +201,7 @@ def build(
     o.append('<span class="strip__say" id="stripsay"></span>')
     o.append('<span class="strip__meas" id="stripmeas"></span></div>')
     o.append('<div class="legend">')
-    for _lid, colour, label in layer_rows(T, meaning):
+    for _lid, colour, label in layer_rows(T, model, meaning):
         o.append(
             f'<span class="lg"><i class="lg--line" style="background:{colour}"></i>'
             f"{esc(label)}</span>"
@@ -210,6 +211,12 @@ def build(
         o.append(
             f'<span class="lg"><i style="background:{fill};'
             f'border-color:{stroke}"></i>{esc(label)}</span>'
+        )
+    for kind, mark in kind_rows(T, model):
+        fill, stroke, _label = T["state"]["built"]
+        o.append(
+            f'<span class="lg"><i class="lg--mark-{esc(mark)}" style="background:{fill};'
+            f'border-color:{stroke};color:{stroke}"></i>{esc(kind)}</span>'
         )
     o.append(
         f'<span class="lg"><i class="lg--dashed" style="border-color:{T["ink_3"]}"></i>'
@@ -394,6 +401,10 @@ font-family:var(--fm);font-size:11px;color:var(--ink-3)}}
 .lg i.lg--line{{height:3px;border:0;width:16px}}
 .lg i.lg--dashed{{border-style:dashed}}
 .lg i.lg--ring{{background:none;border-width:2px;border-radius:3px}}
+/* the kind marks: an agent's inner ring, a tool's notch, a context's dots */
+.lg i.lg--mark-ring{{box-shadow:inset 0 0 0 1.5px var(--surface),inset 0 0 0 2.5px currentColor}}
+.lg i.lg--mark-notch{{background-image:linear-gradient(135deg,currentColor 0 38%,transparent 38%)}}
+.lg i.lg--mark-dotted{{border-style:dotted}}
 .lg--gap{{width:.6rem}}
 .key{{font-size:12.5px;color:var(--ink-3);max-width:62rem;margin:.2rem 0 0}}
 .ixgrid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:.6rem 1.4rem}}
@@ -461,11 +472,7 @@ JS = r"""
       });
       h += '</span>';
     } else {
-      var l = LAY[L], ids = {}, list = [];
-      A.edges.forEach(function(e){
-        if(e.layer === L){ ids[e.from] = true; ids[e.to] = true; } });
-      Object.keys(A.detail).forEach(function(id){
-        if(id !== '_meta' && ids[id]){ list.push(id); } });
+      var l = LAY[L], list = A.layerIds(L);
       h += '<span class="lstrip__l" style="--c:' + l.colour + '"><i></i>' + esc(l.label)
          + ' layer</span>';
       h += '<span class="lstrip__q">' + esc(l.question) + '</span>';

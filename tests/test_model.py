@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
 from conftest import sample_model
 
 from systemap.model import (
     BUILT,
+    STANDARD_KINDS,
     Component,
     Container,
     Flow,
@@ -16,9 +18,11 @@ from systemap.model import (
     Model,
     Region,
     Step,
+    all_layers,
     build_state,
     claimed,
     defines_entry,
+    flow_layers,
     meaning_problems,
     module_matches,
     problems,
@@ -36,18 +40,59 @@ def test_sample_flow_endpoints_resolve() -> None:
     for f in model.flows:
         assert f.src in ids, f
         assert f.dst in ids, f
-        assert f.kind in model.flow_kinds
+        assert f.kind in STANDARD_KINDS or f.kind in model.flow_kinds
 
 
 def test_sample_every_flow_has_a_relation_and_a_layer() -> None:
     model, meaning = sample_model()
-    layer_ids = {layer.id for layer in meaning.layers}
+    layer_ids = {layer.id for layer in all_layers(model, meaning)}
     for f in model.flows:
         assert f.edge in meaning.relations, f
         assert meaning.layer_for(f.edge, f.kind) in layer_ids, f
+    assert meaning.layer_for(("User", "Reader"), "data") == "data"
+    assert meaning.layer_for(("Reader", "Parser"), "control") == "control"
     assert meaning.layer_for(("Ledger", "Parser"), "record") == "memory"
-    assert meaning.verb_for(("User", "Reader"), "work", True) == "types into"
-    assert meaning.verb_for(("Reader", "Parser"), "work", False) == "receives from"
+    assert meaning.verb_for(("User", "Reader"), "data", True) == "types into"
+    assert meaning.verb_for(("Parser", "Writer"), "data", False) == "receives from"
+    # A standard layer the model gives no verbs has its own.
+    assert meaning.verb_for(("Reader", "Parser"), "control", True) == "drives"
+    assert meaning.verb_for(("Reader", "Parser"), "control", False) == "is driven by"
+
+
+def test_layers_are_standard_then_the_models_own() -> None:
+    model, meaning = sample_model()
+    assert [layer.id for layer in all_layers(model, meaning)] == [
+        "structure",
+        "system",
+        "data",
+        "control",
+        "record",
+        "memory",
+    ]
+    assert all_layers(model, meaning)[0].label == "Structure"
+    assert all_layers(model, meaning)[1].label == "System context"
+    assert [layer.id for layer in flow_layers(model, meaning)] == [
+        "data",
+        "control",
+        "record",
+        "memory",
+    ]
+    # A model with no custom kind needs no layers, no layer_of_kind, no verbs.
+    bare = Meaning(plain=meaning.plain, relations=meaning.relations)
+    assert bare.layer_for(("A", "B"), "data") == "data"
+    assert bare.verb_for(("A", "B"), "tools", True) == "invokes"
+    with pytest.raises(KeyError):
+        bare.layer_for(("A", "B"), "record")
+
+
+def test_a_custom_layer_may_not_take_a_standard_id() -> None:
+    model, meaning = sample_model()
+    clash = dataclasses.replace(
+        meaning, layers=(*meaning.layers, Layer("data", "Data"), Layer("all", "All"))
+    )
+    found = "\n".join(meaning_problems(model, clash))
+    assert "layer data is a standard layer; it is derived, not declared" in found
+    assert "layer all is a standard layer" in found
 
 
 def test_sample_journeys_resolve() -> None:
@@ -116,7 +161,10 @@ def test_layout_problems_find_lies() -> None:
     found = "\n".join(bad.layout_problems())
     assert "A overlaps B" in found
     assert "names an unknown component" in found
-    assert "unknown kind unknown" in found
+    assert (
+        "has kind unknown, which is neither standard (data, control, context, tool) "
+        "nor declared in flow_kinds"
+    ) in found
     assert "region core is not inside sys" in found
 
 

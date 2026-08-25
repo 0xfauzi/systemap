@@ -33,7 +33,7 @@ from typing import Any
 from systemap import change as change_mod
 from systemap.config import Config, ConfigError, Figure
 from systemap.model import Meaning, Model
-from systemap.schematic import interactive_script, layer_rows, legend_rows, panel_css
+from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
 
 GENERATOR = "systemap"
@@ -61,8 +61,16 @@ def bare_svg(svg: str, t: dict[str, Any]) -> str:
     return svg[:end] + ground + svg[end:] + "\n"
 
 
+MARK_STYLE = {
+    "ring": "box-shadow:inset 0 0 0 1.5px {bg},inset 0 0 0 2.5px {ink}",
+    "notch": "background-image:linear-gradient(135deg,{ink} 0 38%,transparent 38%)",
+    "dotted": "border-style:dotted",
+}
+
+
 def figure(
     t: dict[str, Any],
+    model: Model,
     meaning: Meaning,
     svg: str,
     caption: str,
@@ -82,9 +90,18 @@ def figure(
     swatches += "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
+        f'<span style="width:.75em;height:.75em;border-radius:2px;'
+        f"background:{t['state']['built'][0]};border:1px solid {t['state']['built'][1]};"
+        f"{MARK_STYLE[mark].format(bg=t['state']['built'][0], ink=t['state']['built'][1])};"
+        f'display:inline-block"></span>{kind}</span>'
+        for kind, mark in kind_rows(t, model)
+    )
+    swatches += "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:.4em;'
+        f'margin-right:1.1em;white-space:nowrap">'
         f'<span style="width:1em;height:3px;border-radius:2px;background:{colour};'
         f'display:inline-block"></span>{label}</span>'
-        for _lid, colour, label in layer_rows(t, meaning)
+        for _lid, colour, label in layer_rows(t, model, meaning)
     )
     controls = ""
     panel = ""
@@ -246,7 +263,7 @@ def make(
         ]
     else:
         rows = legend_rows(t, legend_mode)
-    out = figure(t, meaning, svg, caption, rows, svg_id, detail if interactive else None)
+    out = figure(t, model, meaning, svg, caption, rows, svg_id, detail if interactive else None)
     return out, collisions
 
 

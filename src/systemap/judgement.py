@@ -16,8 +16,10 @@ thing to look at:
                          component that claims it: it may be folded into
                          the wrong part
     no sentence ........ a flow with no relation sentence, or a blank one
-    thin layer ......... a layer that lights fewer than two components:
-                         it may not be a reading of the map at all
+    thin layer ......... a flow layer (data, control, the agent kinds, or
+                         the model's own) that lights fewer than two
+                         components: it may not be a reading of the map at
+                         all, or a standard kind was never used
     ignored ............ a module the coverage rule leaves unmapped, with
                          the reason the configuration gives
 """
@@ -29,7 +31,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap.config import Ignore
-from systemap.model import Component, Meaning, Model, claimed, module_matches
+from systemap.model import Component, Meaning, Model, claimed, flow_layers, module_matches
 
 MIN_STEM = 4
 
@@ -96,7 +98,8 @@ def no_sentence(model: Model, meaning: Meaning) -> list[str]:
 
 
 def thin_layers(model: Model, meaning: Meaning) -> list[str]:
-    on_layer: dict[str, set[str]] = {layer.id: set() for layer in meaning.layers}
+    layers = flow_layers(model, meaning)
+    on_layer: dict[str, set[str]] = {layer.id: set() for layer in layers}
     for f in model.flows:
         try:
             layer_id = meaning.layer_for(f.edge, f.kind)
@@ -104,7 +107,7 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
             continue
         on_layer.setdefault(layer_id, set()).update((f.src, f.dst))
     out: list[str] = []
-    for layer in meaning.layers:
+    for layer in layers:
         n = len(on_layer.get(layer.id, set()))
         if n < 2:
             noun = "component" if n == 1 else "components"

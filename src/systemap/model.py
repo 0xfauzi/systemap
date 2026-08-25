@@ -24,10 +24,18 @@ draws the same picture, so a change in the drawing is a change in the
 system. `Model.layout_problems()` checks the placement mechanically and
 `meaning_problems()` checks that the meaning names only what the model has.
 
-Three node kinds are drawn differently on purpose. A `component` does work,
-a `store` holds state, an `actor` is outside the system. Drawing a store as
-if it were a processing step is the most common lie in architecture
-diagrams.
+Six node kinds are drawn differently on purpose. A `component` does work, a
+`store` holds state, an `actor` is outside the system. In an agentic system
+an `agent` runs a model and acts on its output, a `tool` is a capability an
+agent invokes, and a `context` is a store whose content enters an agent's
+window. Drawing a store as if it were a processing step is the most common
+lie in architecture diagrams.
+
+Layers are readings of the map. Three are derived from the model with no
+authoring (Structure, System context, and Agents when the model has an
+agent), four belong to the standard flow kinds (data, control, context,
+tool; the last two only when the model has an agent), and the rest are the
+model's own, one per custom kind.
 """
 
 from __future__ import annotations
@@ -39,12 +47,20 @@ from typing import Any
 Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
 
-KINDS = ("component", "store", "actor")
+KINDS = ("component", "store", "actor", "agent", "tool", "context")
+AGENT_KINDS = ("agent", "tool", "context")
 TONES = ("host", "client", "server", "isolated")
 
 # Card geometry the layout check shares with the drawing.
 CARD_W = 150
-CARD_H: dict[str, int] = {"component": 56, "store": 52, "actor": 44}
+CARD_H: dict[str, int] = {
+    "component": 56,
+    "store": 52,
+    "actor": 44,
+    "agent": 56,
+    "tool": 56,
+    "context": 52,
+}
 
 
 @dataclass(frozen=True)
@@ -149,6 +165,82 @@ class Layer:
     sub: str = ""
 
 
+# ---- the standard layers and kinds ---------------------------------------------
+# Two flow kinds every model may use without declaring them, and two more for
+# agentic systems. Each has its own layer. The derived layers have no kind:
+# the renderer computes them from the topology.
+
+STANDARD_LAYERS: tuple[Layer, ...] = (
+    Layer(
+        "structure",
+        "Structure",
+        question="What are the parts, and where does each sit?",
+        sub="every component inside its region and container; no edges",
+    ),
+    Layer(
+        "system",
+        "System context",
+        question="Who and what is outside, and how does it reach in?",
+        sub="the actors, and every edge that crosses the boundary",
+    ),
+    Layer(
+        "data",
+        "Data flow",
+        question="What moves, and where does it go?",
+        sub="an artifact moves: a file, a record, a message, a response",
+    ),
+    Layer(
+        "control",
+        "Control flow",
+        question="Who drives whom?",
+        sub="one part invokes, schedules or drives another: a call, a command, an event",
+    ),
+)
+
+AGENT_LAYERS: tuple[Layer, ...] = (
+    Layer(
+        "agents",
+        "Agents",
+        question="Which parts run a model, and what do they reach?",
+        sub="every agent, and every edge that touches one",
+    ),
+    Layer(
+        "context",
+        "Context",
+        question="What enters each agent's window, and from where?",
+        sub="a prompt, a memory, retrieved knowledge, a log: what an agent reads",
+    ),
+    Layer(
+        "tools",
+        "Tools",
+        question="What can each agent do, and through what?",
+        sub="every capability an agent invokes: a shell, an API, a search, an editor",
+    ),
+)
+
+# The kinds a flow may carry without being declared in `flow_kinds`, and
+# the layer each belongs to.
+STANDARD_KINDS = ("data", "control", "context", "tool")
+LAYER_OF_STANDARD_KIND: dict[str, str] = {
+    "data": "data",
+    "control": "control",
+    "context": "context",
+    "tool": "tools",
+}
+# The layers the renderer derives from the topology rather than from a kind.
+DERIVED_LAYERS = ("structure", "system", "agents")
+# Ids a custom layer may not take: the standard ones and the page's All.
+RESERVED_LAYER_IDS = frozenset(
+    [layer.id for layer in STANDARD_LAYERS + AGENT_LAYERS] + list(LAYER_OF_STANDARD_KIND) + ["all"]
+)
+STANDARD_VERBS: dict[str, tuple[str, str]] = {
+    "data": ("hands to", "receives from"),
+    "control": ("drives", "is driven by"),
+    "context": ("informs", "reads"),
+    "tools": ("invokes", "is invoked by"),
+}
+
+
 @dataclass(frozen=True)
 class Model:
     """The hand-authored topology of one system."""
@@ -164,6 +256,17 @@ class Model:
     @property
     def ids(self) -> set[str]:
         return {c.id for c in self.components}
+
+    @property
+    def agentic(self) -> bool:
+        """Does the model have an agent? The agent layers appear only then."""
+        return any(c.kind == "agent" for c in self.components)
+
+    def kind_of(self, cid: str) -> str:
+        for c in self.components:
+            if c.id == cid:
+                return c.kind
+        return ""
 
     def component(self, cid: str) -> Component:
         for c in self.components:
@@ -181,9 +284,11 @@ class Model:
         Every card must sit inside the region (or container) the model
         assigns it, no two cards may overlap, a region that names a
         container must sit inside it, every flow must name known components
-        and a known kind, and every invariant must govern known components.
-        A card outside its band would draw a topology the model does not
-        claim, which is the one lie a hand-placed layout can tell.
+        and a kind that is standard or declared, a context or tool flow
+        must have an agent at its agent end, and every invariant must
+        govern known components. A card outside its band would draw a
+        topology the model does not claim, which is the one lie a
+        hand-placed layout can tell.
         """
         out: list[str] = []
         regions = {r.id: r.box for r in self.regions}
@@ -225,8 +330,23 @@ class Model:
         for f in self.flows:
             if f.src not in ids or f.dst not in ids:
                 out.append(f"flow {f.src} -> {f.dst} names an unknown component")
-            if f.kind not in self.flow_kinds:
-                out.append(f"flow {f.src} -> {f.dst} has unknown kind {f.kind}")
+            if f.kind not in STANDARD_KINDS and f.kind not in self.flow_kinds:
+                out.append(
+                    f"flow {f.src} -> {f.dst} has kind {f.kind}, which is neither standard "
+                    f"({', '.join(STANDARD_KINDS)}) nor declared in flow_kinds"
+                )
+            if f.kind == "context" and self.kind_of(f.dst) != "agent":
+                out.append(
+                    f"flow {f.src} -> {f.dst} has kind context but {f.dst} is not an agent; "
+                    f"a context flow ends at the agent whose window it enters: set {f.dst}'s "
+                    "kind to agent, or give the flow the kind data"
+                )
+            if f.kind == "tool" and self.kind_of(f.src) != "agent":
+                out.append(
+                    f"flow {f.src} -> {f.dst} has kind tool but {f.src} is not an agent; "
+                    f"a tool flow starts at the agent that invokes it: set {f.src}'s kind "
+                    "to agent, or give the flow the kind control"
+                )
         for inv in self.invariants:
             for cid in inv.governs:
                 if cid not in ids:
@@ -238,32 +358,66 @@ class Model:
 class Meaning:
     """The hand-authored meaning of one system.
 
-    `plain` is the plain word per component id. `layers` is the order the
-    layer switch shows them; the first is on by default. `layer_of_kind`
-    maps a flow kind to a layer and `layer_overrides` moves single edges to
-    another layer. `relations` is one sentence per edge, read from the
-    source side. `verbs` gives (verb when the clicked component is the
-    source, verb when it is the target) per layer; `verb_overrides` does
-    the same per edge.
+    `plain` is the plain word per component id. `layers` are the model's
+    own layers, shown after the standard ones in this order; a model with
+    no custom kind leaves it empty. `layer_of_kind` maps a custom flow kind
+    to a layer (the standard kinds have theirs already) and
+    `layer_overrides` moves single edges to another layer. `relations` is
+    one sentence per edge, read from the source side. `verbs` gives (verb
+    when the clicked component is the source, verb when it is the target)
+    per layer, over the standard verbs; `verb_overrides` does the same per
+    edge.
     """
 
     plain: Mapping[str, str]
-    layers: tuple[Layer, ...]
-    layer_of_kind: Mapping[str, str]
-    relations: Mapping[Edge, str]
+    layers: tuple[Layer, ...] = ()
+    layer_of_kind: Mapping[str, str] = field(default_factory=dict)
+    relations: Mapping[Edge, str] = field(default_factory=dict)
     journeys: tuple[Journey, ...] = ()
     layer_overrides: Mapping[Edge, str] = field(default_factory=dict)
     verbs: Mapping[str, tuple[str, str]] = field(default_factory=dict)
     verb_overrides: Mapping[Edge, tuple[str, str]] = field(default_factory=dict)
 
     def layer_for(self, edge: Edge, kind: str) -> str:
-        """The one layer a flow belongs to: the override if any, else its kind's."""
-        return self.layer_overrides.get(edge) or self.layer_of_kind[kind]
+        """The one layer a flow belongs to.
+
+        The override if any, else the layer the model gives the kind, else
+        the standard kind's own layer. An undeclared custom kind is a
+        KeyError, which the meaning check reports.
+        """
+        layer = (
+            self.layer_overrides.get(edge)
+            or self.layer_of_kind.get(kind)
+            or LAYER_OF_STANDARD_KIND.get(kind)
+        )
+        if layer is None:
+            raise KeyError(kind)
+        return layer
 
     def verb_for(self, edge: Edge, layer: str, from_clicked: bool) -> str:
         """The verb to print on a spoke, read from the clicked component."""
-        pair = self.verb_overrides.get(edge) or self.verbs.get(layer, ("to", "from"))
+        pair = (
+            self.verb_overrides.get(edge)
+            or self.verbs.get(layer)
+            or STANDARD_VERBS.get(layer, ("to", "from"))
+        )
         return pair[0] if from_clicked else pair[1]
+
+
+def all_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]:
+    """Every layer the page shows, in the order it shows them.
+
+    Structure, System context, Data flow, Control flow; then Agents,
+    Context and Tools when the model has an agent; then the model's own.
+    The first is the one the page opens on.
+    """
+    standard = STANDARD_LAYERS + (AGENT_LAYERS if model.agentic else ())
+    return standard + tuple(meaning.layers)
+
+
+def flow_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]:
+    """The layers a flow belongs to by its kind: every layer but the derived ones."""
+    return tuple(layer for layer in all_layers(model, meaning) if layer.id not in DERIVED_LAYERS)
 
 
 def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
@@ -271,9 +425,12 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
     out: list[str] = []
     ids = model.ids
     edges = {f.edge for f in model.flows}
-    layer_ids = {layer.id for layer in meaning.layers}
-    if not meaning.layers:
-        out.append("no layers are defined")
+    # A standard layer is known here whether or not the model has an agent:
+    # a context flow with no agent is the placement rule's finding.
+    layer_ids = {layer.id for layer in STANDARD_LAYERS + AGENT_LAYERS + meaning.layers}
+    for own in meaning.layers:
+        if own.id in RESERVED_LAYER_IDS:
+            out.append(f"layer {own.id} is a standard layer; it is derived, not declared")
     for f in model.flows:
         if f.edge not in meaning.relations:
             out.append(f"flow {f.src} -> {f.dst} has no sentence in relations")

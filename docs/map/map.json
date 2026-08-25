@@ -1,5 +1,5 @@
 {
- "built_at_commit": "64d94e85163fabf6b5ac0ec2c9c38c2fd7f20655",
+ "built_at_commit": "77299ab4972e20e51d8eba6a3561ec694a2931d6",
  "components": {
   "systemap": {
    "classes": [],
@@ -15,10 +15,10 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 40,
+   "loc": 48,
    "package": "systemap",
    "plane": "core",
-   "sha": "4acb63f1834e",
+   "sha": "ca7b257aaf4f",
    "tests": [
     "test_marketplace_points_at_the_repository_root",
     "test_plugin_manifest_version_is_the_package_version",
@@ -29,16 +29,20 @@
    "tests_total": 4,
    "uses": {
     "systemap.model": [
+     "AGENT_KINDS",
      "Component",
      "Container",
      "Flow",
      "Invariant",
      "Journey",
+     "KINDS",
      "Layer",
      "Meaning",
      "Model",
      "Region",
+     "STANDARD_KINDS",
      "Step",
+     "all_layers",
      "build_state"
     ]
    }
@@ -184,7 +188,7 @@
     {
      "doc": "",
      "name": "wheel_boxes",
-     "signature": "def wheel_boxes(cid: str, edges: list[dict[str, str]], meaning: Meaning) -> tuple[Box, list[tuple[str, Box]]]"
+     "signature": "def wheel_boxes(cid: str, edges: list[dict[str, str]], layers: tuple[Layer, ...]) -> tuple[Box, list[tuple[str, Box]]]"
     },
     {
      "doc": "",
@@ -239,20 +243,27 @@
     "systemap.page",
     "systemap.schematic"
    ],
-   "loc": 512,
+   "loc": 513,
    "package": "systemap",
    "plane": "core",
-   "sha": "a8cce40717e0",
+   "sha": "cf5386915041",
    "tests": [
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
+    "test_layer_order_and_first_layer",
     "test_light_scheme_derives_from_the_same_palette",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail"
+    "test_schematic_reports_layout_and_detail",
+    "test_standard_kinds_need_no_declaration"
    ],
    "tests_primary": 0,
-   "tests_total": 6,
+   "tests_total": 13,
    "uses": {
     "systemap.config": [
      "Config",
@@ -265,8 +276,10 @@
      "*"
     ],
     "systemap.model": [
+     "Layer",
      "Meaning",
      "Model",
+     "all_layers",
      "claimed",
      "defines_entry",
      "module_matches",
@@ -381,7 +394,7 @@
    "loc": 443,
    "package": "systemap",
    "plane": "core",
-   "sha": "150a04bd2e92",
+   "sha": "69ba418fc31e",
    "tests": [
     "test_check_fails_on_overlapping_fixture",
     "test_configuration_errors_exit_2",
@@ -391,26 +404,26 @@
     "test_init_then_refresh_round_trip",
     "test_skill_command_writes_the_skill",
     "test_stale_after_code_change",
+    "test_a_flow_of_an_undeclared_kind_fails",
     "test_actor_claims_no_code_and_is_not_checked",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
     "test_all_mapped",
     "test_component_with_no_module_fails",
+    "test_context_and_tool_flows_need_an_agent_end",
     "test_double_claim_fails",
     "test_entry_the_modules_do_not_define_fails",
     "test_ignore_with_reason_passes",
     "test_ignore_without_reason_is_a_config_error",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
+    "test_layer_order_and_first_layer",
     "test_mis_fold_lines",
-    "test_missing_entry_with_modules_present_fails",
-    "test_module_not_in_the_facts_fails",
-    "test_no_facts_fails_closed",
-    "test_no_sentence_lines",
-    "test_one_unmapped_fails",
-    "test_report_wording",
-    "test_single_module_lines"
+    "test_missing_entry_with_modules_present_fails"
    ],
    "tests_primary": 8,
-   "tests_total": 37,
+   "tests_total": 44,
    "uses": {
     "systemap": [
      "__version__"
@@ -436,6 +449,7 @@
     "systemap.model": [
      "Meaning",
      "Model",
+     "all_layers",
      "problems"
     ],
     "systemap.page": [
@@ -558,22 +572,29 @@
    "plane": "core",
    "sha": "cbc9603d217f",
    "tests": [
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
+    "test_context_and_tool_flows_need_an_agent_end",
     "test_drift_reports_changes",
     "test_extract_attributes_tests_to_modules",
     "test_extract_finds_modules_and_public_surface",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
+    "test_layer_order_and_first_layer",
     "test_mis_fold_lines",
     "test_no_sentence_lines",
     "test_report_wording",
     "test_single_module_lines",
     "test_single_module_reads_implemented_by_without_facts",
     "test_spec_sections_and_planes",
+    "test_standard_kinds_need_no_declaration",
     "test_thin_layer_lines",
     "test_words_and_shared_words"
    ],
    "tests_primary": 0,
-   "tests_total": 13,
+   "tests_total": 20,
    "uses": {
     "systemap.model": [
      "Meaning",
@@ -715,10 +736,17 @@
     "test_drift_reports_changes",
     "test_extract_attributes_tests_to_modules",
     "test_extract_finds_modules_and_public_surface",
-    "test_spec_sections_and_planes"
+    "test_spec_sections_and_planes",
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
+    "test_context_and_tool_flows_need_an_agent_end",
+    "test_layer_order_and_first_layer",
+    "test_standard_kinds_need_no_declaration"
    ],
    "tests_primary": 4,
-   "tests_total": 4,
+   "tests_total": 11,
    "uses": {
     "systemap.config": [
      "Config"
@@ -735,6 +763,10 @@
     {
      "name": "GENERATOR",
      "value": "'systemap'"
+    },
+    {
+     "name": "MARK_STYLE",
+     "value": "{'ring': 'box-shadow:inset 0 0 0 1.5px {bg},inset 0 0 0 2.5px {ink}', 'notch': '"
     }
    ],
    "docstring": "Emit a figure of the system for embedding in a lesson or a document.",
@@ -755,7 +787,7 @@
     {
      "doc": "The figure element. A detail JSON makes it interactive.",
      "name": "figure",
-     "signature": "def figure(t: dict[str, Any], meaning: Meaning, svg: str, caption: str, legend: list[tuple[str, str, str]], svg_id: str, detail_json: str | None) -> str"
+     "signature": "def figure(t: dict[str, Any], model: Model, meaning: Meaning, svg: str, caption: str, legend: list[tuple[str, str, str]], svg_id: str, detail_json: str | None) -> str"
     },
     {
      "doc": "(the figure HTML, the label collisions the drawing reported).",
@@ -779,10 +811,10 @@
     "systemap.model",
     "systemap.schematic"
    ],
-   "loc": 279,
+   "loc": 296,
    "package": "systemap",
    "plane": "core",
-   "sha": "36a17e26576f",
+   "sha": "8cdb910ed08e",
    "tests": [
     "test_check_passes_on_sample",
     "test_default_theme_colours_every_layer",
@@ -808,6 +840,7 @@
     ],
     "systemap.schematic": [
      "interactive_script",
+     "kind_rows",
      "layer_rows",
      "legend_rows",
      "panel_css",
@@ -881,10 +914,10 @@
     "systemap.config",
     "systemap.model"
    ],
-   "loc": 145,
+   "loc": 148,
    "package": "systemap",
    "plane": "core",
-   "sha": "6b28b968f19f",
+   "sha": "43cdc972e7d9",
    "tests": [
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
@@ -907,6 +940,7 @@
      "Meaning",
      "Model",
      "claimed",
+     "flow_layers",
      "module_matches"
     ]
    }
@@ -962,6 +996,8 @@
      "doc": "The hand-authored topology of one system.",
      "methods": [
       "def ids(self) -> set[str]",
+      "def agentic(self) -> bool",
+      "def kind_of(self, cid: str) -> str",
       "def component(self, cid: str) -> Component",
       "def rules_of(self, cid: str) -> list[int]",
       "def layout_problems(self) -> list[str]"
@@ -980,7 +1016,11 @@
    "constants": [
     {
      "name": "KINDS",
-     "value": "('component', 'store', 'actor')"
+     "value": "('component', 'store', 'actor', 'agent', 'tool', 'context')"
+    },
+    {
+     "name": "AGENT_KINDS",
+     "value": "('agent', 'tool', 'context')"
     },
     {
      "name": "TONES",
@@ -992,7 +1032,35 @@
     },
     {
      "name": "CARD_H",
-     "value": "{'component': 56, 'store': 52, 'actor': 44}"
+     "value": "{'component': 56, 'store': 52, 'actor': 44, 'agent': 56, 'tool': 56, 'context': "
+    },
+    {
+     "name": "STANDARD_LAYERS",
+     "value": "(Layer('structure', 'Structure', question='What are the parts, and where does ea"
+    },
+    {
+     "name": "AGENT_LAYERS",
+     "value": "(Layer('agents', 'Agents', question='Which parts run a model, and what do they r"
+    },
+    {
+     "name": "STANDARD_KINDS",
+     "value": "('data', 'control', 'context', 'tool')"
+    },
+    {
+     "name": "LAYER_OF_STANDARD_KIND",
+     "value": "{'data': 'data', 'control': 'control', 'context': 'context', 'tool': 'tools'}"
+    },
+    {
+     "name": "DERIVED_LAYERS",
+     "value": "('structure', 'system', 'agents')"
+    },
+    {
+     "name": "RESERVED_LAYER_IDS",
+     "value": "frozenset([layer.id for layer in STANDARD_LAYERS + AGENT_LAYERS] + list(LAYER_OF"
+    },
+    {
+     "name": "STANDARD_VERBS",
+     "value": "{'data': ('hands to', 'receives from'), 'control': ('drives', 'is driven by'), '"
     },
     {
      "name": "BUILT",
@@ -1003,6 +1071,16 @@
    "errors": [],
    "file": "src/systemap/model.py",
    "functions": [
+    {
+     "doc": "Every layer the page shows, in the order it shows them.",
+     "name": "all_layers",
+     "signature": "def all_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]"
+    },
+    {
+     "doc": "The layers a flow belongs to by its kind: every layer but the derived ones.",
+     "name": "flow_layers",
+     "signature": "def flow_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]"
+    },
     {
      "doc": "Ways the meaning names something the model does not have, or misses one.",
      "name": "meaning_problems",
@@ -1049,13 +1127,15 @@
     "systemap.theme"
    ],
    "imports": [],
-   "loc": 384,
+   "loc": 541,
    "package": "systemap",
    "plane": "core",
-   "sha": "7cc4fb63abe3",
+   "sha": "7f0087c7d798",
    "tests": [
+    "test_a_custom_layer_may_not_take_a_standard_id",
     "test_build_state_has_one_value",
     "test_defines_entry_looks_the_name_up_in_the_claimed_modules",
+    "test_layers_are_standard_then_the_models_own",
     "test_layout_problems_find_lies",
     "test_meaning_problems_find_gaps",
     "test_module_matches_exact_and_subtree",
@@ -1065,18 +1145,21 @@
     "test_sample_positions_and_plain_words",
     "test_sample_validates",
     "test_small_model_is_clean",
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
+    "test_check_passes_on_sample",
+    "test_context_and_tool_flows_need_an_agent_end",
+    "test_default_theme_colours_every_layer",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
-    "test_mis_fold_lines",
-    "test_no_sentence_lines",
-    "test_report_wording",
-    "test_single_module_lines",
-    "test_single_module_reads_implemented_by_without_facts",
-    "test_thin_layer_lines",
-    "test_words_and_shared_words"
+    "test_layer_order_and_first_layer",
+    "test_light_scheme_derives_from_the_same_palette",
+    "test_mis_fold_lines"
    ],
-   "tests_primary": 11,
-   "tests_total": 20,
+   "tests_primary": 13,
+   "tests_total": 35,
    "uses": {}
   },
   "systemap.page": {
@@ -1126,20 +1209,27 @@
     "systemap.schematic",
     "systemap.theme"
    ],
-   "loc": 652,
+   "loc": 659,
    "package": "systemap",
    "plane": "core",
-   "sha": "06a2396577bd",
+   "sha": "c3cb4a1a2d69",
    "tests": [
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
+    "test_layer_order_and_first_layer",
     "test_light_scheme_derives_from_the_same_palette",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail"
+    "test_schematic_reports_layout_and_detail",
+    "test_standard_kinds_need_no_declaration"
    ],
    "tests_primary": 0,
-   "tests_total": 6,
+   "tests_total": 13,
    "uses": {
     "systemap.config": [
      "Config"
@@ -1147,10 +1237,12 @@
     "systemap.model": [
      "Component",
      "Meaning",
-     "Model"
+     "Model",
+     "all_layers"
     ],
     "systemap.schematic": [
      "interactive_script",
+     "kind_rows",
      "layer_rows",
      "legend_rows",
      "panel_css",
@@ -1314,10 +1406,10 @@
     "systemap.cli"
    ],
    "imports": [],
-   "loc": 276,
+   "loc": 274,
    "package": "systemap",
    "plane": "core",
-   "sha": "92c17341edf7",
+   "sha": "02515d4af4bf",
    "tests": [],
    "tests_primary": 0,
    "tests_total": 0,
@@ -1329,18 +1421,6 @@
     {
      "name": "CARD_W",
      "value": "150.0"
-    },
-    {
-     "name": "CARD_H",
-     "value": "56.0"
-    },
-    {
-     "name": "STORE_H",
-     "value": "52.0"
-    },
-    {
-     "name": "ACTOR_H",
-     "value": "44.0"
     },
     {
      "name": "RADIUS",
@@ -1405,9 +1485,14 @@
      "signature": "def legend_rows(t: dict[str, Any], mode: str) -> list[tuple[str, str, str]]"
     },
     {
-     "doc": "(id, colour, label) for every layer, in layer order.",
+     "doc": "(id, colour, label) for every layer that draws a line, in layer order.",
      "name": "layer_rows",
-     "signature": "def layer_rows(t: dict[str, Any], meaning: Meaning) -> list[tuple[str, str, str]]"
+     "signature": "def layer_rows(t: dict[str, Any], model: Model, meaning: Meaning) -> list[tuple[str, str, str]]"
+    },
+    {
+     "doc": "(kind, mark) for every agent kind the model draws, in kind order.",
+     "name": "kind_rows",
+     "signature": "def kind_rows(t: dict[str, Any], model: Model) -> list[tuple[str, str]]"
     },
     {
      "doc": "(svg, json detail).",
@@ -1435,25 +1520,35 @@
     "systemap.model",
     "systemap.route"
    ],
-   "loc": 1367,
+   "loc": 1445,
    "package": "systemap",
    "plane": "core",
-   "sha": "3759008b1b42",
+   "sha": "05d12c1aa15a",
    "tests": [
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
+    "test_layer_order_and_first_layer",
     "test_light_scheme_derives_from_the_same_palette",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail"
+    "test_schematic_reports_layout_and_detail",
+    "test_standard_kinds_need_no_declaration"
    ],
    "tests_primary": 0,
-   "tests_total": 6,
+   "tests_total": 13,
    "uses": {
     "systemap.model": [
+     "AGENT_KINDS",
+     "CARD_H",
      "Component",
      "Meaning",
      "Model",
+     "all_layers",
      "build_state"
     ],
     "systemap.route": [
@@ -1515,6 +1610,14 @@
    "classes": [],
    "constants": [
     {
+     "name": "MARKS",
+     "value": "('ring', 'notch', 'dotted')"
+    },
+    {
+     "name": "KIND_MARKS",
+     "value": "{'agent': 'ring', 'tool': 'notch', 'context': 'dotted'}"
+    },
+    {
      "name": "SANS",
      "value": "'ui-sans-serif,system-ui,-apple-system,\"SF Pro Text\",\"Segoe UI\",Roboto,\"Helvetic"
     },
@@ -1551,24 +1654,16 @@
      "value": "'#2dd4bf'"
     },
     {
+     "name": "STANDARD_LAYERS_DARK",
+     "value": "{'structure': '#D9D2C0', 'system': '#82A7BA', 'data': TEAL, 'control': '#E3B778'"
+    },
+    {
      "name": "LAYER_PALETTE",
-     "value": "[TEAL, '#82A7BA', '#E39A86', '#DD9BBD', '#B48EC9', '#D9D2C0', '#B7C27C', '#E3B77"
+     "value": "['#E39A86', '#8FB8D8', '#C9B47A', '#9BC4A0']"
     },
     {
-     "name": "LAYER_PALETTE_LIGHT",
-     "value": "['#1a7b6f', '#3D7A94', '#C2543A', '#B0508E', '#7B4FA3', '#8A7F5C', '#6F7E2A', '#"
-    },
-    {
-     "name": "DARK",
-     "value": "{'name': 'systemap', 'scheme': 'dark', 'bg': INK, 'surface': PANEL, 'raised': '#"
-    },
-    {
-     "name": "LIGHT",
-     "value": "{'name': 'systemap', 'scheme': 'light', 'bg': PAPER, 'surface': '#fbf9f4', 'rais"
-    },
-    {
-     "name": "SCHEMES",
-     "value": "{'dark': DARK, 'light': LIGHT}"
+     "name": "STANDARD_LAYERS_LIGHT",
+     "value": "{'structure': '#8A7F5C', 'system': '#3D7A94', 'data': '#1a7b6f', 'control': '#B8"
     }
    ],
    "docstring": "The map's look, as one table of tokens.",
@@ -1604,20 +1699,27 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 238,
+   "loc": 267,
    "package": "systemap",
    "plane": "core",
-   "sha": "07d7ab2496ba",
+   "sha": "ff6a79aeaefc",
    "tests": [
+    "test_a_flow_of_an_undeclared_kind_fails",
+    "test_agent_kinds_are_cards_that_claim_code",
+    "test_agent_layers_appear_only_with_an_agent",
+    "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
+    "test_layer_order_and_first_layer",
     "test_light_scheme_derives_from_the_same_palette",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail"
+    "test_schematic_reports_layout_and_detail",
+    "test_standard_kinds_need_no_declaration"
    ],
    "tests_primary": 0,
-   "tests_total": 6,
+   "tests_total": 13,
    "uses": {
     "systemap.model": [
      "Layer"

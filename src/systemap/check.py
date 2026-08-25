@@ -51,7 +51,7 @@ from typing import Any
 
 from systemap import extract, figure, page
 from systemap.config import Config, Ignore
-from systemap.model import Meaning, Model, claimed, defines_entry, module_matches
+from systemap.model import Layer, Meaning, Model, all_layers, claimed, defines_entry, module_matches
 from systemap.model import problems as model_problems
 from systemap.schematic import TEXT_PX
 from systemap.schematic import render as render_schematic
@@ -176,9 +176,9 @@ def wrap_name(cid: str) -> list[str]:
 
 
 def wheel_boxes(
-    cid: str, edges: list[dict[str, str]], meaning: Meaning
+    cid: str, edges: list[dict[str, str]], layers: tuple[Layer, ...]
 ) -> tuple[Box, list[tuple[str, Box]]]:
-    order = {layer.id: i for i, layer in enumerate(meaning.layers)}
+    order = {layer.id: i for i, layer in enumerate(layers)}
     idx = sorted(
         (i for i, e in enumerate(edges) if cid in (e["from"], e["to"])),
         key=lambda i: (order[edges[i]["layer"]], i),
@@ -222,9 +222,10 @@ def wheel_boxes(
 
 def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) -> list[str]:
     out: list[str] = []
+    layers = all_layers(model, meaning)
     for c in model.components:
         cid = c.id
-        centre, boxes = wheel_boxes(cid, edges, meaning)
+        centre, boxes = wheel_boxes(cid, edges, layers)
         for k, (name, box) in enumerate(boxes):
             x, y, w, h = box
             if x < 0 or y < 0 or x + w > W or y + h > H:

@@ -24,8 +24,11 @@ Colour carries meaning or is absent:
                   that ACTS in a journey step)
     steel ....... measurement (the node that MEASURES a step)
     layers ...... one hue per layer of the map, printed in the page legend;
-                  taken from `layer_palette` in layer order unless the
-                  `layers` table names a colour for the layer id
+                  the `layers` table names the standard layers' colours,
+                  and the model's own layers take `layer_palette` in order
+    marks ....... how an agent, a tool and a context card are told apart
+                  from a component: a mark per kind (ring, notch, dotted),
+                  never a colour
     good ........ what is there (every card is; the check refuses the rest)
     bad ......... only for "nothing measures this step" and a change map
 
@@ -39,6 +42,11 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap.model import Layer
+
+# The marks a card may carry for its kind. A ring is a second border inside
+# the first; a notch is a filled corner; dotted is the border itself.
+MARKS = ("ring", "notch", "dotted")
+KIND_MARKS: dict[str, str] = {"agent": "ring", "tool": "notch", "context": "dotted"}
 
 SANS = (
     'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,'
@@ -54,32 +62,45 @@ PAPER = "#f4f1ea"
 AMBER = "#f5a524"
 TEAL = "#2dd4bf"
 
-# Eight hues that read apart from each other on the ink ground and stay
-# quieter than the accent. Teal leads, so the first layer's routes are the
-# ones the logo lights. A map with more layers than this wraps around.
+# The standard layers' hues on the ink ground: the two derived readings,
+# the two standard kinds, and the three agent readings. Each reads apart
+# from the others and stays quieter than the accent.
+STANDARD_LAYERS_DARK: dict[str, str] = {
+    "structure": "#D9D2C0",
+    "system": "#82A7BA",
+    "data": TEAL,
+    "control": "#E3B778",
+    "agents": "#B48EC9",
+    "context": "#DD9BBD",
+    "tools": "#B7C27C",
+}
+
+# Hues for the model's own layers, taken in order; a map with more custom
+# layers than this wraps around.
 LAYER_PALETTE: list[str] = [
-    TEAL,
-    "#82A7BA",
     "#E39A86",
-    "#DD9BBD",
-    "#B48EC9",
-    "#D9D2C0",
-    "#B7C27C",
-    "#E3B778",
+    "#8FB8D8",
+    "#C9B47A",
+    "#9BC4A0",
 ]
 
-# The same eight for a paper ground. Pure amber and teal read at under 2:1
-# on paper, so the light scheme darkens both until they clear 4.5:1 as text
+# The same on a paper ground. Pure amber and teal read at under 2:1 on
+# paper, so the light scheme darkens both until they clear 4.5:1 as text
 # (measured: #936316 at 4.61, #1a7b6f at 4.53) and keeps their hue.
+STANDARD_LAYERS_LIGHT: dict[str, str] = {
+    "structure": "#8A7F5C",
+    "system": "#3D7A94",
+    "data": "#1a7b6f",
+    "control": "#B8792E",
+    "agents": "#7B4FA3",
+    "context": "#B0508E",
+    "tools": "#6F7E2A",
+}
 LAYER_PALETTE_LIGHT: list[str] = [
-    "#1a7b6f",
-    "#3D7A94",
     "#C2543A",
-    "#B0508E",
-    "#7B4FA3",
-    "#8A7F5C",
-    "#6F7E2A",
-    "#B8792E",
+    "#3A6F94",
+    "#8A6E1E",
+    "#3F7A47",
 ]
 
 DARK: dict[str, Any] = {
@@ -120,7 +141,8 @@ DARK: dict[str, Any] = {
     "reach": TEAL,
     "flow": SLATE,
     "layer_palette": LAYER_PALETTE,
-    "layers": {},
+    "layers": dict(STANDARD_LAYERS_DARK),
+    "marks": dict(KIND_MARKS),
     "delta": {
         "operations": "#82A7BA",
         "types": TEAL,
@@ -164,7 +186,8 @@ LIGHT: dict[str, Any] = {
     "reach": "#1a7b6f",
     "flow": "#8b93b3",
     "layer_palette": LAYER_PALETTE_LIGHT,
-    "layers": {},
+    "layers": dict(STANDARD_LAYERS_LIGHT),
+    "marks": dict(KIND_MARKS),
     "delta": {
         "operations": "#3D7A94",
         "types": "#1a7b6f",
@@ -209,15 +232,21 @@ def base_for(tokens: dict[str, Any]) -> dict[str, Any]:
 def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
     """The theme with a colour for every layer of the map, in layer order.
 
-    A layer named in the `layers` table keeps its colour; the rest take the
-    palette in order. The result is what the drawing reads.
+    A layer named in the `layers` table keeps its colour (the scheme names
+    every standard layer); the rest, the model's own, take the palette in
+    order. The result is what the drawing reads.
     """
     t = merge(base_for(tokens), tokens)
     named: dict[str, str] = dict(t.get("layers") or {})
     palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE)
     resolved: dict[str, str] = {}
-    for i, layer in enumerate(layers):
-        resolved[layer.id] = named.get(layer.id) or palette[i % len(palette)]
+    unnamed = 0
+    for layer in layers:
+        colour = named.get(layer.id)
+        if not colour:
+            colour = palette[unnamed % len(palette)]
+            unnamed += 1
+        resolved[layer.id] = colour
     t["layers"] = resolved
     return t
 

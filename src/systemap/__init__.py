@@ -1,14 +1,17 @@
 """systemap: the map your coding agent draws of your system.
 
 Facts are read out of the code with `ast`; the meaning is authored by a
-coding agent following the shipped skill and reviewed by a person; build
-state is derived, never declared; the checker refuses an incomplete or
-stale map; and one generator draws every picture so nothing drifts.
+coding agent following the shipped skill and reviewed by a person; the map
+draws what exists today; the checker refuses an incomplete or stale map;
+and one generator draws every picture so nothing drifts.
 """
 
 from __future__ import annotations
 
 from systemap.model import (
+    AGENT_KINDS,
+    KINDS,
+    STANDARD_KINDS,
     Component,
     Container,
     Flow,
@@ -19,12 +22,16 @@ from systemap.model import (
     Model,
     Region,
     Step,
+    all_layers,
     build_state,
 )
 
 __version__ = "0.3.0"
 
 __all__ = [
+    "AGENT_KINDS",
+    "KINDS",
+    "STANDARD_KINDS",
     "Component",
     "Container",
     "Flow",
@@ -36,5 +43,6 @@ __all__ = [
     "Region",
     "Step",
     "__version__",
+    "all_layers",
     "build_state",
 ]

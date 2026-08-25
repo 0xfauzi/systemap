@@ -70,25 +70,37 @@ when you are not in it.
 
 4. **Write the flows.** A `Flow` is one artifact moving from one component
    to another (a request, a record, a signal), with a `kind` that says
-   what sort of movement it is. Read the `uses` and `imported_by` lists in
-   the facts to find candidates, then keep the ones a reader needs: the
-   map draws the flows you declare, not every import. Every kind you use
-   is listed in `flow_kinds` and mapped to a layer in the next step.
+   what sort of movement it is. Two kinds are standard and every model
+   uses them: `data` when an artifact moves (a file, a record, a message,
+   a response) and `control` when one part invokes, schedules or drives
+   another (a call, a command, an event). Read the `uses` and
+   `imported_by` lists in the facts to find candidates, then keep the ones
+   a reader needs: the map draws the flows you declare, not every import.
+   A kind of your own (`measure`, say) is listed in `flow_kinds` and
+   given a layer in the next step. In an agentic system two more standard
+   kinds apply: `context` (content entering an agent's window; its
+   destination is the agent) and `tool` (an agent invoking a tool; its
+   source is the agent), and the agent itself has `kind="agent"`, a tool
+   `kind="tool"`, and a prompt, memory or log `kind="context"`.
 
-5. **Write the layers.** A layer is one reading of the map, best written
-   as the question a reader asks: what does the work, what measures it,
-   what feeds back, where do I stand, what earns trust, what learns, what
-   is recorded. Use the ones the repository's own vocabulary supports; a
-   small system may have two. Map each flow kind to a layer in
-   `layer_of_kind`, and move a single edge with `layer_overrides` when its
-   kind's layer is the wrong reading for it. Then give every component a
-   plain name in `plain`: the words a newcomer would use for it.
+5. **Write the layers.** The page derives four readings from the model
+   with no authoring: Structure (every part in its place, no edges),
+   System context (the actors outside, and every edge that crosses the
+   boundary), Data flow and Control flow. A model with an agent gains
+   Agents, Context and Tools. A layer of your own is one more reading,
+   written as the question a reader asks; add one only when the
+   repository's own vocabulary supports it. Map each custom kind to its
+   layer in `layer_of_kind`, and move a single edge with
+   `layer_overrides` when its kind's layer is the wrong reading for it.
+   Then give every component a plain name in `plain`: the words a
+   newcomer would use for it.
 
 6. **Write one sentence per edge** in `relations`, saying what the source
-   is to the target, read from the source side. Give each layer a verb
-   pair in `verbs`: the verb printed when the reader clicks the source
-   ("hands to") and the one printed when they click the target ("receives
-   from"). Use `verb_overrides` when one edge needs its own pair.
+   is to the target, read from the source side. The standard layers have
+   verbs already; give a layer of your own a verb pair in `verbs`: the
+   verb printed when the reader clicks the source ("hands to") and the
+   one printed when they click the target ("receives from"). Use
+   `verb_overrides` when one edge needs its own pair.
 
 7. **Write journeys**: a few ordered walks through the map that a reader
    can step through one edge at a time. Good ones are a change from spec
@@ -190,7 +202,8 @@ Model(canvas, containers, regions, components, flows, flow_kinds, invariants=())
     regions        tuple[Region, ...]
     components     tuple[Component, ...]
     flows          tuple[Flow, ...]
-    flow_kinds     tuple[str, ...]  every kind a flow may use
+    flow_kinds     tuple[str, ...]  the model's own kinds; data, control,
+                   context and tool are standard and need no declaring
     invariants     tuple[Invariant, ...]
 
 Container(id, label, box, sub="", tone="host")
@@ -205,22 +218,24 @@ Region(id, label, box, container=None)
 Component(id, does, interface="", implemented_by=(), entry="",
           kind="component", region=None, container=None, x=0, y=0,
           note="")
-    kind           "component" | "store" | "actor"
-    region         places a component or store; container places an actor
+    kind           "component" | "store" | "actor" | "agent" | "tool" | "context"
+    region         places anything but an actor; container places an actor
     x, y           top-left corner; cards are 150 wide, 56 / 52 / 44 tall
     note           a caveat the reader sees on the card
 
 Flow(src, dst, artifact, kind)
-    one artifact travelling from src to dst, in one dataflow kind
+    one artifact travelling from src to dst; kind is data, control,
+    context (dst is an agent), tool (src is an agent), or one of flow_kinds
 
 Invariant(n, text, governs=())
     a numbered rule and the component ids it governs
 
-Meaning(plain, layers, layer_of_kind, relations, journeys=(),
+Meaning(plain, layers=(), layer_of_kind={}, relations={}, journeys=(),
         layer_overrides={}, verbs={}, verb_overrides={})
     plain            {component id: plain words}
-    layers           tuple[Layer, ...]; the first is on when the page opens
-    layer_of_kind    {flow kind: layer id}
+    layers           tuple[Layer, ...]: the model's own, after the standard
+                     ones; the page opens on Structure
+    layer_of_kind    {custom flow kind: layer id}
     relations        {(src, dst): one sentence, read from the source side}
     journeys         tuple[Journey, ...]
     layer_overrides  {(src, dst): layer id} moves one edge to another layer
@@ -330,16 +345,17 @@ COMPONENTS = (
     ),
 )
 
-# (from, to, the artifact carried, the dataflow kind)
+# (from, to, the artifact carried, the kind). data and control are
+# standard; record is this model's own kind, declared below.
 FLOWS = (
-    Flow("User", "Reader", "input", "work"),
-    Flow("Reader", "Parser", "request", "work"),
-    Flow("Parser", "Writer", "parts", "work"),
+    Flow("User", "Reader", "input", "data"),
+    Flow("Reader", "Parser", "parse", "control"),
+    Flow("Parser", "Writer", "parts", "data"),
     Flow("Writer", "Ledger", "record", "record"),
     Flow("Ledger", "Parser", "history", "record"),
 )
 
-FLOW_KINDS = ("work", "record")
+FLOW_KINDS = ("record",)
 
 INVARIANTS = (
     # Copied from the repository's own words, with the source named.
@@ -367,21 +383,21 @@ PLAIN = {
     "Writer": "the part that writes",
 }
 
+# The model's own readings, after Structure, System context, Data flow and
+# Control flow, which the page derives. Each is the question it answers.
 LAYERS = (
-    # One reading each, as the question it answers. The first is on at open.
-    Layer("work", "Work", question="How does an input become an output?"),
     Layer("record", "Record", question="What is written down?"),
     Layer("memory", "Memory", question="What does the system remember?"),
 )
 
-# Every flow kind belongs to one layer; one edge is moved to another.
-LAYER_OF_KIND = {"work": "work", "record": "record"}
+# Every custom kind belongs to one layer; one edge is moved to another.
+LAYER_OF_KIND = {"record": "record"}
 LAYER_OVERRIDES = {("Ledger", "Parser"): "memory"}
 
 # One sentence per edge, read from the source side.
 RELATIONS = {
     ("User", "Reader"): "The user types one input at a time.",
-    ("Reader", "Parser"): "The reader hands the parser one request.",
+    ("Reader", "Parser"): "The reader calls the parser on each request.",
     ("Parser", "Writer"): "The parser gives the writer the parts in order.",
     ("Writer", "Ledger"): "The writer records every result it produces.",
     ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
@@ -389,8 +405,9 @@ RELATIONS = {
 
 # The verb on a spoke of the wheel: (when the clicked card is the source,
 # when it is the target), per layer, and per edge where one edge differs.
+# The standard layers have verbs already; data is given better ones here.
 VERBS = {
-    "work": ("hands to", "receives from"),
+    "data": ("hands to", "receives from"),
     "record": ("records in", "is written by"),
     "memory": ("reminds", "remembers through"),
 }
@@ -402,7 +419,7 @@ JOURNEYS = (
         label="An input becomes a record",
         steps=(
             Step(("User",), (), ("User", "Reader"), "The user types an input."),
-            Step(("Reader",), (), ("Reader", "Parser"), "The reader makes a request."),
+            Step(("Reader",), (), ("Reader", "Parser"), "The reader calls the parser."),
             Step(("Parser",), ("Ledger",), ("Parser", "Writer"), "The parser splits it."),
             Step(("Writer",), ("Ledger",), ("Writer", "Ledger"), "The writer records it."),
         ),

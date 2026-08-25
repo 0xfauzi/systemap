@@ -21,6 +21,7 @@ from systemap.model import (
     Model,
     Region,
     Step,
+    all_layers,
 )
 
 
@@ -99,8 +100,9 @@ TINY_PACKAGE: dict[str, str] = {
 
 # ---- the sample system: a small pipeline with a store and an actor ------------
 # Rich enough to exercise every drawing rule: two containers, two regions,
-# a store, an actor outside the system, three layers, a layer override, a
-# verb override, two invariants and a journey.
+# a store, an actor outside the system, both standard kinds and one custom
+# kind, two layers of its own, a layer override, a verb override, two
+# invariants and a journey.
 
 SAMPLE_TREE: dict[str, str] = {
     "pkg/__init__.py": '"""The sample system."""\n',
@@ -222,13 +224,13 @@ def sample_model() -> tuple[Model, Meaning]:
             ),
         ),
         flows=(
-            Flow("User", "Reader", "input", "work"),
-            Flow("Reader", "Parser", "request", "work"),
-            Flow("Parser", "Writer", "parts", "work"),
+            Flow("User", "Reader", "input", "data"),
+            Flow("Reader", "Parser", "parse", "control"),
+            Flow("Parser", "Writer", "parts", "data"),
             Flow("Writer", "Ledger", "record", "record"),
             Flow("Ledger", "Parser", "history", "record"),
         ),
-        flow_kinds=("work", "record"),
+        flow_kinds=("record",),
         invariants=(
             Invariant(1, "The writer never reads the input itself.", governs=("Writer",)),
             Invariant(2, "Every record is written once.", governs=("Writer", "Ledger")),
@@ -243,21 +245,20 @@ def sample_model() -> tuple[Model, Meaning]:
             "Writer": "the part that writes",
         },
         layers=(
-            Layer("work", "Work", question="How does an input become an output?"),
             Layer("record", "Record", question="What is written down?"),
             Layer("memory", "Memory", question="What does the system remember?"),
         ),
-        layer_of_kind={"work": "work", "record": "record"},
+        layer_of_kind={"record": "record"},
         layer_overrides={("Ledger", "Parser"): "memory"},
         relations={
             ("User", "Reader"): "The user types one input at a time.",
-            ("Reader", "Parser"): "The reader hands the parser one request.",
+            ("Reader", "Parser"): "The reader calls the parser on each request.",
             ("Parser", "Writer"): "The parser gives the writer the parts in order.",
             ("Writer", "Ledger"): "The writer records every result it produces.",
             ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
         },
         verbs={
-            "work": ("hands to", "receives from"),
+            "data": ("hands to", "receives from"),
             "record": ("records in", "is written by"),
             "memory": ("reminds", "remembers through"),
         },
@@ -268,7 +269,7 @@ def sample_model() -> tuple[Model, Meaning]:
                 "An input becomes a record",
                 steps=(
                     Step(("User",), (), ("User", "Reader"), "The user types an input."),
-                    Step(("Reader",), (), ("Reader", "Parser"), "The reader makes a request."),
+                    Step(("Reader",), (), ("Reader", "Parser"), "The reader calls the parser."),
                     Step(("Parser",), ("Ledger",), ("Parser", "Writer"), "The parser splits it."),
                     Step(("Writer",), ("Ledger",), ("Writer", "Ledger"), "The writer records it."),
                 ),
@@ -299,4 +300,4 @@ def sample(tmp_path: Path) -> Sample:
     )
     model, meaning = sample_model()
     facts = extract.build(cfg)
-    return Sample(cfg, model, meaning, theme_mod.resolve({}, meaning.layers), facts)
+    return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)

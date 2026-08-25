@@ -42,13 +42,10 @@ import html
 import json
 from typing import Any
 
-from systemap.model import Component, Meaning, Model, build_state
+from systemap.model import AGENT_KINDS, CARD_H, Component, Meaning, Model, all_layers, build_state
 from systemap.route import path_d, place_labels, route_all
 
 CARD_W = 150.0
-CARD_H = 56.0
-STORE_H = 52.0
-ACTOR_H = 44.0
 RADIUS = 4.0
 # The smallest type on the figure. Edge labels, plain words and every note
 # sit at this size; names sit half a point above it.
@@ -151,9 +148,24 @@ def legend_rows(t: dict[str, Any], mode: str) -> list[tuple[str, str, str]]:
     return [(f, s, label) for f, s, label in t["state"].values()]
 
 
-def layer_rows(t: dict[str, Any], meaning: Meaning) -> list[tuple[str, str, str]]:
-    """(id, colour, label) for every layer, in layer order."""
-    return [(layer.id, t["layers"][layer.id], layer.label) for layer in meaning.layers]
+def layer_rows(t: dict[str, Any], model: Model, meaning: Meaning) -> list[tuple[str, str, str]]:
+    """(id, colour, label) for every layer that draws a line, in layer order.
+
+    Structure draws no edges, so its colour would be a swatch of nothing;
+    it is left out of the legend.
+    """
+    return [
+        (layer.id, t["layers"][layer.id], layer.label)
+        for layer in all_layers(model, meaning)
+        if layer.id != "structure"
+    ]
+
+
+def kind_rows(t: dict[str, Any], model: Model) -> list[tuple[str, str]]:
+    """(kind, mark) for every agent kind the model draws, in kind order."""
+    present = {c.kind for c in model.components}
+    marks: dict[str, str] = t.get("marks") or {}
+    return [(kind, marks[kind]) for kind in AGENT_KINDS if kind in present and kind in marks]
 
 
 def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
@@ -264,6 +276,8 @@ def render(
     HALO = T["bg"]
     GHOST_FILL, GHOST_STROKE = T["ghost"]
     LAYER_COLOUR: dict[str, str] = T["layers"]
+    MARKS: dict[str, str] = T.get("marks") or {}
+    LAYERS = all_layers(model, meaning)
 
     # Text styling is deduplicated into classes: 240 text elements each
     # carrying a full font stack tripled the size of the figure for no
@@ -305,8 +319,7 @@ def render(
     states = {c.id: build_state(c, facts) for c in COMPONENTS}
 
     def geom(c: Component) -> Box:
-        h = {"store": STORE_H, "actor": ACTOR_H}.get(c.kind, CARD_H)
-        return float(c.x), float(c.y), CARD_W, h
+        return float(c.x), float(c.y), CARD_W, float(CARD_H[c.kind])
 
     boxes = {c.id: geom(c) for c in COMPONENTS}
 
@@ -467,7 +480,13 @@ def render(
             f'role="button" '
             f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(state_label)}">'
         ]
+        # The kind's mark, from the theme: an actor is dashed (outside the
+        # code); an agent, a tool and a context card carry the mark the
+        # theme's `marks` table gives their kind. Never a colour.
+        mark = MARKS.get(kind, "")
         dashes = ' stroke-dasharray="4 3"' if kind == "actor" else ""
+        if mark == "dotted":
+            dashes = ' stroke-dasharray="1.5 2.5"'
         g.append(
             f'<rect class="node__box" x="{x}" y="{y}" width="{w}" height="{h}" '
             f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" '
@@ -476,17 +495,30 @@ def render(
             f'<rect class="node__ring" x="{x + 3}" y="{y + 3}" width="{w - 6}" '
             f'height="{h - 6}" rx="{RADIUS - 1}"/>'
         )
+        if mark == "ring":
+            g.append(
+                f'<rect class="node__mark" x="{x + 5}" y="{y + 5}" width="{w - 10}" '
+                f'height="{h - 10}" rx="{RADIUS - 2}" fill="none" stroke="{stroke}" '
+                f'stroke-opacity=".7" stroke-width="1"/>'
+            )
+        elif mark == "notch":
+            g.append(
+                f'<path class="node__mark" d="M{x + 3},{y + 3} h9 l-9,9 z" fill="{stroke}" '
+                f'fill-opacity=".85"/>'
+            )
         g.append(L(x + w / 2, y + 17, cid, NAME_PX, INK, "600", True))
         # A store is the same card with a rule under its head: flat convention
-        # for a thing that holds rows rather than does work.
-        if kind == "store":
+        # for a thing that holds rows rather than does work. A context card is
+        # a store too: its rows enter an agent's window.
+        ruled = kind in ("store", "context")
+        if ruled:
             g.append(
                 f'<line x1="{x + 1}" y1="{y + 23}" x2="{x + w - 1}" y2="{y + 23}" '
                 f'stroke="{stroke}" stroke-opacity=".45" stroke-width="1"/>'
             )
         # The plain word under the code name. How many lines fit is derived
         # from the card, never assumed.
-        first = y + (36 if kind == "store" else 32)
+        first = y + (36 if ruled else 32)
         room = int((y + h - 4 - first) // 12) + 1
         plain_lines = wrap_words(plain, PLAIN_CHARS, max(1, room))
         g.append(
@@ -590,7 +622,7 @@ def render(
                     "sub": layer.sub,
                     "colour": LAYER_COLOUR[layer.id],
                 }
-                for layer in meaning.layers
+                for layer in LAYERS
             ],
             "edges": edges_meta,
             "journeys": journeys_meta,
@@ -1029,6 +1061,49 @@ Array.prototype.slice.call(svg.querySelectorAll('[data-zone]')).forEach(function
   z.addEventListener('dblclick', function(e){ e.preventDefault(); frameRegion(z.dataset.zone); });
 });
 
+// ---- the readings ---------------------------------------------------------
+// A kind layer shows the edges of its kind and hides the rest. A derived
+// reading is computed from the endpoints: Structure shows no edge, System
+// context the edges that cross the boundary (an actor at either end), and
+// Agents the edges that touch an agent; the rest are dimmed, not hidden,
+// and the edges shown are painted in the reading's own hue.
+var DERIVED = {structure:true, system:true, agents:true};
+function kindOf(id){ return (DETAIL[id] || {}).kind || ''; }
+function edgeIn(e, L){
+  if(L === 'all'){ return true; }
+  if(L === 'structure'){ return false; }
+  if(L === 'system'){ return kindOf(e.from) === 'actor' || kindOf(e.to) === 'actor'; }
+  if(L === 'agents'){ return kindOf(e.from) === 'agent' || kindOf(e.to) === 'agent'; }
+  return e.layer === L;
+}
+function subjectOf(id, L){
+  // A card the reading is about even when no edge it shows touches it.
+  if(L === 'structure'){ return true; }
+  if(L === 'system'){ return kindOf(id) === 'actor'; }
+  if(L === 'agents'){ return kindOf(id) === 'agent'; }
+  return false;
+}
+function layerIds(L){
+  var ids = {}, out = [];
+  EDGES.forEach(function(e){ if(edgeIn(e, L)){ ids[e.from] = true; ids[e.to] = true; } });
+  Object.keys(DETAIL).forEach(function(id){
+    if(id !== '_meta' && (ids[id] || subjectOf(id, L))){ out.push(id); } });
+  return out;
+}
+flows.forEach(function(p){
+  p.dataset.stroke = p.getAttribute('stroke');
+  p.dataset.marker = p.getAttribute('marker-end');
+});
+function recolour(i, colour){
+  var p = flowOf[i], lbl = labelOf[i];
+  if(!p){ return; }
+  p.setAttribute('stroke', colour || p.dataset.stroke);
+  p.setAttribute('marker-end', colour ? 'url(#' + svg.id + '-m-' + state.layer + ')'
+    : p.dataset.marker);
+  var t = lbl && lbl.querySelector('text');
+  if(t){ t.style.fill = colour || ''; }
+}
+
 function paint(){
   var f = state.focus, j = state.journey, L = state.layer;
   var near = {}, hot = {};
@@ -1043,23 +1118,25 @@ function paint(){
     traced = j.edge;
     if(traced >= 0){ jset[EDGES[traced].from] = true; jset[EDGES[traced].to] = true; }
   }
+  var derived = !!DERIVED[L] && L !== 'structure';
   var inLayer = {};
   EDGES.forEach(function(e){
-    if(L === 'all' || e.layer === L){ inLayer[e.from] = true; inLayer[e.to] = true; } });
+    if(edgeIn(e, L)){ inLayer[e.from] = true; inLayer[e.to] = true; } });
   flows.forEach(function(p){
     var i = +p.dataset.edge, e = EDGES[i];
-    var on = L === 'all' || e.layer === L;
+    var on = edgeIn(e, L);
     var lit = !!hot[i] || i === traced;
-    var vis = on || lit;
-    var dim = vis && !lit && (!!f || !!j);
+    var vis = on || lit || derived;
+    var dim = vis && !lit && (!!f || !!j || (derived && !on));
     var m = {off:!vis, hot:lit, dim:dim, peek:(i === state.peek)};
     setCls(p, m);
     if(labelOf[i]){ setCls(labelOf[i], m); }
+    recolour(i, derived && on ? LCOL[L] : '');
   });
   nodes.forEach(function(n){
     var id = n.dataset.id;
     var dim = f ? !near[id] : (j ? !jset[id] : false);
-    var quiet = !f && !j && L !== 'all' && !inLayer[id];
+    var quiet = !f && !j && L !== 'all' && !inLayer[id] && !subjectOf(id, L);
     setCls(n, {sel:(id === f), dim:dim, quiet:quiet,
       acts:!!(j && (j.acts || []).indexOf(id) >= 0),
       meas:!!(j && (j.measures || []).indexOf(id) >= 0), tagged:false});
@@ -1331,6 +1408,7 @@ svg.systemap = {
   peek: peek,
   state: state,
   setLayer: function(id){ state.layer = id; paint(); },
+  layerIds: layerIds,
   setJourney: function(step){
     // step: {acts:[], measures:[], edge:index, say:''} or null.
     state.focus = '';

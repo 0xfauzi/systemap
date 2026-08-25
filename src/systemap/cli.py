@@ -36,7 +36,7 @@ from systemap import (
 )
 from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError
-from systemap.model import Meaning, Model
+from systemap.model import Meaning, Model, all_layers
 from systemap.model import problems as model_problems
 
 OK, STALE, BAD_CONFIG = 0, 1, 2
@@ -70,7 +70,7 @@ def _root(args: argparse.Namespace) -> Path:
 def _project(args: argparse.Namespace) -> Project:
     cfg = config.load(_root(args))
     model, meaning = config.load_model(cfg.model_path)
-    return Project(cfg, model, meaning, theme_mod.resolve(cfg.theme, meaning.layers))
+    return Project(cfg, model, meaning, theme_mod.resolve(cfg.theme, all_layers(model, meaning)))
 
 
 # ---- init ------------------------------------------------------------------

@@ -61,13 +61,14 @@ def test_no_sentence_lines(sample: Sample) -> None:
     gappy = dataclasses.replace(sample.meaning, relations=relations)
     lines = judgement.no_sentence(sample.model, gappy)
     assert lines == [
-        "no sentence: Reader -> Parser ('request')",
+        "no sentence: Reader -> Parser ('parse')",
         "no sentence: Writer -> Ledger ('record')",
     ]
 
 
 def test_thin_layer_lines(sample: Sample) -> None:
-    # The sample's memory layer carries one edge, so it lights two components.
+    # The sample's memory layer carries one edge, so it lights two components;
+    # its one control flow lights two as well.
     assert judgement.thin_layers(sample.model, sample.meaning) == []
     thin = dataclasses.replace(
         sample.meaning,
@@ -79,18 +80,28 @@ def test_thin_layer_lines(sample: Sample) -> None:
         "thin layer: memory lights 0 components",
         "thin layer: audit lights 0 components",
     ]
+    # A standard kind the model never uses is a thin standard layer: the
+    # line asks whether it was missed. The derived readings are never thin.
+    no_control = dataclasses.replace(
+        sample.model,
+        flows=tuple(f for f in sample.model.flows if f.kind != "control"),
+    )
+    lines = judgement.thin_layers(no_control, sample.meaning)
+    assert lines == ["thin layer: control lights 0 components"]
+    assert not any("structure" in line or "system" in line for line in lines)
     one = dataclasses.replace(
         sample.model,
-        flows=(*sample.model.flows, Flow("Ledger", "Ledger", "self", "record")),
+        flows=(Flow("Ledger", "Ledger", "self", "record"),),
     )
     only_self = Meaning(
         plain=sample.meaning.plain,
         layers=(Layer("self", "Self"),),
-        layer_of_kind={"work": "self", "record": "self"},
+        layer_of_kind={"record": "self"},
         relations={},
         layer_overrides={("Ledger", "Ledger"): "self"},
     )
-    assert judgement.thin_layers(one, only_self) == []
+    lines = judgement.thin_layers(one, only_self)
+    assert "thin layer: self lights 1 component" in lines
     lonely = dataclasses.replace(only_self, layers=(Layer("self", "Self"), Layer("x", "X")))
     assert "thin layer: x lights 0 components" in judgement.thin_layers(one, lonely)
 
@@ -130,9 +141,11 @@ def test_judgement_command_always_exits_0(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 3 items for the maintainer to confirm")
+    assert out.startswith("judgement: 4 items for the maintainer to confirm")
     assert "single module: Reader is only pkg.reader" in out
     assert "single module: Writer is only pkg.writer" in out
+    # The starter has one data flow and no control flow: the standard layer is thin.
+    assert "thin layer: control lights 0 components" in out
     assert "ignored: pkg (the package root only marks the directory as a package)" in out
     # A model that contradicts itself is a configuration error, exit 2.
     (tmp_path / "map/model.py").write_text("MODEL = 1\n")
