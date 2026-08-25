@@ -1,0 +1,1 @@
+../../../src/systemap/skill/SKILL.md

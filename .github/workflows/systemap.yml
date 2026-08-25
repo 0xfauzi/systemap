@@ -1,0 +1,53 @@
+name: systemap
+
+# The system map under docs/map is generated from the code and the model
+# module. It is committed so the page can be served as-is and so the diff
+# between two commits of the facts file records what changed about the
+# system. This job fails when the committed map no longer matches the tree
+# or the renderer; the fix is one command, named in the failure.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  systemap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: Install project
+        run: uv sync --frozen --all-extras --dev
+
+      - name: facts match the tree
+        run: |
+          uv run systemap extract --check || {
+            echo "::error title=Map is stale::the facts no longer describe the tree. Run systemap refresh and commit the output directory."
+            exit 1
+          }
+
+      - name: layout, meaning and coverage are consistent
+        run: |
+          uv run systemap check || {
+            echo "::error title=Map check::the model contradicts itself or leaves a module unmapped; see the lines above."
+            exit 1
+          }
+
+      - name: page matches the renderer
+        run: |
+          uv run systemap render --check || {
+            echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
+            exit 1
+          }

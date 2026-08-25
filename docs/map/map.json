@@ -1,0 +1,1625 @@
+{
+ "built_at_commit": "29d4c560936d868133e99d04c3ab18fd83eed114",
+ "components": {
+  "systemap": {
+   "classes": [],
+   "constants": [],
+   "docstring": "systemap: a generated, interactive map of a Python system.",
+   "errors": [],
+   "file": "src/systemap/__init__.py",
+   "functions": [],
+   "id": "systemap",
+   "imported_by": [
+    "systemap.cli"
+   ],
+   "imports": [
+    "systemap.model"
+   ],
+   "loc": 39,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "2809cbd7ddf9",
+   "tests": [],
+   "tests_primary": 0,
+   "tests_total": 0,
+   "uses": {
+    "systemap.model": [
+     "Component",
+     "Container",
+     "Flow",
+     "Invariant",
+     "Journey",
+     "Layer",
+     "Meaning",
+     "Model",
+     "Region",
+     "Step",
+     "build_state"
+    ]
+   }
+  },
+  "systemap.__main__": {
+   "classes": [],
+   "constants": [],
+   "docstring": "",
+   "errors": [],
+   "file": "src/systemap/__main__.py",
+   "functions": [],
+   "id": "systemap.__main__",
+   "imported_by": [],
+   "imports": [
+    "systemap.cli"
+   ],
+   "loc": 6,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "0e1e6e0c4977",
+   "tests": [],
+   "tests_primary": 0,
+   "tests_total": 0,
+   "uses": {
+    "systemap.cli": [
+     "main"
+    ]
+   }
+  },
+  "systemap.change": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "BUCKETS",
+     "value": "('operations', 'types', 'refusals', 'constants')"
+    }
+   ],
+   "docstring": "Work out what a branch changes about the system, in logical terms.",
+   "errors": [],
+   "file": "src/systemap/change.py",
+   "functions": [
+    {
+     "doc": "Title and counts for a PR, or empty if gh cannot answer.",
+     "name": "pr_meta",
+     "signature": "def pr_meta(repo: Path, pr: str) -> dict[str, Any]"
+    },
+    {
+     "doc": "What one module's public surface gained, lost, and changed.",
+     "name": "surface_delta",
+     "signature": "def surface_delta(base_raw: str, head_raw: str) -> dict[str, Any] | None"
+    },
+    {
+     "doc": "Everything the change view needs, or an empty change if there is none.",
+     "name": "compute",
+     "signature": "def compute(cfg: Config, model: Model, base: str, facts: dict[str, Any], head: str='HEAD', artifact_owner: dict[str, str] | None=None) -> dict[str, Any]"
+    }
+   ],
+   "id": "systemap.change",
+   "imported_by": [
+    "systemap.cli",
+    "systemap.figure"
+   ],
+   "imports": [
+    "systemap.config",
+    "systemap.extract",
+    "systemap.model"
+   ],
+   "loc": 329,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "4183d88c7aba",
+   "tests": [],
+   "tests_primary": 0,
+   "tests_total": 0,
+   "uses": {
+    "systemap.config": [
+     "Config"
+    ],
+    "systemap.extract": [
+     "WHOLE_MODULE",
+     "internal_uses",
+     "module_of",
+     "parse_surface",
+     "test_names"
+    ],
+    "systemap.model": [
+     "Model",
+     "module_matches"
+    ]
+   }
+  },
+  "systemap.check": {
+   "classes": [
+    {
+     "doc": "What the coverage rule found.",
+     "methods": [
+      "def ok(self) -> bool"
+     ],
+     "name": "Coverage"
+    },
+    {
+     "doc": "Everything one check run found.",
+     "methods": [
+      "def ok(self) -> bool"
+     ],
+     "name": "Result"
+    }
+   ],
+   "constants": [
+    {
+     "name": "MONO_CHAR_W",
+     "value": "6.6"
+    },
+    {
+     "name": "NAME_LINE_H",
+     "value": "13.0"
+    }
+   ],
+   "docstring": "Check the map geometry and the meaning tables mechanically.",
+   "errors": [],
+   "file": "src/systemap/check.py",
+   "functions": [
+    {
+     "doc": "",
+     "name": "check_labels",
+     "signature": "def check_labels(meta: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "(problems, edges through a foreign card, edges across a foreign region).",
+     "name": "check_routes",
+     "signature": "def check_routes(meta: dict[str, Any], model: Model) -> tuple[list[str], int, int]"
+    },
+    {
+     "doc": "",
+     "name": "check_type_size",
+     "signature": "def check_type_size(svg: str) -> list[str]"
+    },
+    {
+     "doc": "",
+     "name": "wrap_name",
+     "signature": "def wrap_name(cid: str) -> list[str]"
+    },
+    {
+     "doc": "",
+     "name": "wheel_boxes",
+     "signature": "def wheel_boxes(cid: str, edges: list[dict[str, str]], meaning: Meaning) -> tuple[Box, list[tuple[str, Box]]]"
+    },
+    {
+     "doc": "",
+     "name": "check_wheels",
+     "signature": "def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) -> list[str]"
+    },
+    {
+     "doc": "Every module in the facts is claimed by exactly one component.",
+     "name": "check_coverage",
+     "signature": "def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore]) -> Coverage"
+    },
+    {
+     "doc": "Every component whose modules exist names an entry its modules define.",
+     "name": "check_entry",
+     "signature": "def check_entry(model: Model, facts: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "Every planned component names the tracker item that will build it.",
+     "name": "check_tracker",
+     "signature": "def check_tracker(model: Model, facts: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "Ways the stored facts no longer describe the tree, plus claims of",
+     "name": "stale_facts",
+     "signature": "def stale_facts(fresh: dict[str, Any], stored: dict[str, Any], model: Model, prefixes: set[str]) -> list[str]"
+    },
+    {
+     "doc": "Every output that is older than the tree or the model.",
+     "name": "stale",
+     "signature": "def stale(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], fresh: dict[str, Any] | None=None) -> list[str]"
+    },
+    {
+     "doc": "Check the model against the facts.",
+     "name": "run",
+     "signature": "def run(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], issue_url: str='', ignores: Iterable[Ignore]=()) -> Result"
+    },
+    {
+     "doc": "",
+     "name": "with_stale",
+     "signature": "def with_stale(result: Result, lines: list[str]) -> Result"
+    },
+    {
+     "doc": "The lines the CLI prints for one check run: each failing rule with",
+     "name": "report",
+     "signature": "def report(model: Model, result: Result, model_file: str='the model') -> list[str]"
+    }
+   ],
+   "id": "systemap.check",
+   "imported_by": [
+    "systemap.cli"
+   ],
+   "imports": [
+    "systemap.config",
+    "systemap.extract",
+    "systemap.figure",
+    "systemap.model",
+    "systemap.page",
+    "systemap.schematic"
+   ],
+   "loc": 539,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "b50551244eda",
+   "tests": [
+    "test_check_passes_on_sample",
+    "test_default_theme_colours_every_layer",
+    "test_light_scheme_derives_from_the_same_palette",
+    "test_page_is_small_and_self_contained",
+    "test_reach_figure",
+    "test_schematic_reports_layout_and_detail"
+   ],
+   "tests_primary": 0,
+   "tests_total": 6,
+   "uses": {
+    "systemap.config": [
+     "Config",
+     "Ignore"
+    ],
+    "systemap.extract": [
+     "*"
+    ],
+    "systemap.figure": [
+     "*"
+    ],
+    "systemap.model": [
+     "Meaning",
+     "Model",
+     "build_state",
+     "claimed",
+     "module_matches",
+     "problems"
+    ],
+    "systemap.page": [
+     "*"
+    ],
+    "systemap.schematic": [
+     "TEXT_PX",
+     "render"
+    ]
+   }
+  },
+  "systemap.cli": {
+   "classes": [
+    {
+     "doc": "",
+     "methods": [],
+     "name": "Project"
+    }
+   ],
+   "constants": [
+    {
+     "name": "AGENT_SENTENCE",
+     "value": "'Map this repository with systemap. Follow the systemap skill.'"
+    }
+   ],
+   "docstring": "The `systemap` command: what the agent runs.",
+   "errors": [],
+   "file": "src/systemap/cli.py",
+   "functions": [
+    {
+     "doc": "",
+     "name": "say",
+     "signature": "def say(*lines: str) -> None"
+    },
+    {
+     "doc": "",
+     "name": "warn",
+     "signature": "def warn(*lines: str) -> None"
+    },
+    {
+     "doc": "",
+     "name": "cmd_init",
+     "signature": "def cmd_init(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "cmd_extract",
+     "signature": "def cmd_extract(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "cmd_render",
+     "signature": "def cmd_render(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "cmd_check",
+     "signature": "def cmd_check(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "cmd_figure",
+     "signature": "def cmd_figure(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "cmd_refresh",
+     "signature": "def cmd_refresh(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "The list the maintainer confirms. A report, not a gate: always exit 0.",
+     "name": "cmd_judgement",
+     "signature": "def cmd_judgement(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "cmd_skill",
+     "signature": "def cmd_skill(args: argparse.Namespace) -> int"
+    },
+    {
+     "doc": "",
+     "name": "build_parser",
+     "signature": "def build_parser() -> argparse.ArgumentParser"
+    },
+    {
+     "doc": "",
+     "name": "main",
+     "signature": "def main(argv: list[str] | None=None) -> int"
+    }
+   ],
+   "id": "systemap.cli",
+   "imported_by": [
+    "systemap.__main__"
+   ],
+   "imports": [
+    "systemap",
+    "systemap.change",
+    "systemap.check",
+    "systemap.config",
+    "systemap.extract",
+    "systemap.figure",
+    "systemap.judgement",
+    "systemap.model",
+    "systemap.page",
+    "systemap.scaffold",
+    "systemap.skill",
+    "systemap.theme"
+   ],
+   "loc": 443,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "fd205a6d48f7",
+   "tests": [
+    "test_check_fails_on_overlapping_fixture",
+    "test_configuration_errors_exit_2",
+    "test_extract_on_tiny_package_via_cli",
+    "test_figure_command",
+    "test_init_no_ci_skips_the_workflow",
+    "test_init_then_refresh_round_trip",
+    "test_skill_command_writes_the_skill",
+    "test_stale_after_code_change",
+    "test_actor_is_never_planned",
+    "test_all_mapped",
+    "test_double_claim_fails",
+    "test_entry_the_modules_do_not_define_fails",
+    "test_ignore_with_reason_passes",
+    "test_ignore_without_reason_is_a_config_error",
+    "test_ignored_lines",
+    "test_judgement_command_always_exits_0",
+    "test_mis_fold_lines",
+    "test_missing_entry_with_modules_present_fails",
+    "test_no_facts_fails_closed",
+    "test_no_sentence_lines",
+    "test_one_unmapped_fails",
+    "test_planned_component_with_tracker_passes",
+    "test_planned_component_without_tracker_fails",
+    "test_report_wording",
+    "test_single_module_lines"
+   ],
+   "tests_primary": 8,
+   "tests_total": 37,
+   "uses": {
+    "systemap": [
+     "__version__"
+    ],
+    "systemap.change": [
+     "*"
+    ],
+    "systemap.check": [
+     "*"
+    ],
+    "systemap.config": [
+     "*"
+    ],
+    "systemap.extract": [
+     "*"
+    ],
+    "systemap.figure": [
+     "*"
+    ],
+    "systemap.judgement": [
+     "*"
+    ],
+    "systemap.model": [
+     "Meaning",
+     "Model",
+     "problems"
+    ],
+    "systemap.page": [
+     "*"
+    ],
+    "systemap.scaffold": [
+     "*"
+    ],
+    "systemap.skill": [
+     "*"
+    ],
+    "systemap.theme": [
+     "*"
+    ]
+   }
+  },
+  "systemap.config": {
+   "classes": [
+    {
+     "doc": "One figure `systemap refresh` regenerates beside the page.",
+     "methods": [],
+     "name": "Figure"
+    },
+    {
+     "doc": "One module the coverage rule may leave unmapped, and why.",
+     "methods": [],
+     "name": "Ignore"
+    },
+    {
+     "doc": "",
+     "methods": [
+      "def model_path(self) -> Path",
+      "def out_path(self) -> Path",
+      "def facts_path(self) -> Path",
+      "def page_path(self) -> Path",
+      "def roots(self) -> list[tuple[Path, str]]",
+      "def prefixes(self) -> set[str]",
+      "def rel(self, path: Path) -> str"
+     ],
+     "name": "Config"
+    }
+   ],
+   "constants": [
+    {
+     "name": "CONFIG_FILE",
+     "value": "'systemap.toml'"
+    },
+    {
+     "name": "SKIP_DIRS",
+     "value": "{'.git', '.venv', 'node_modules', '__pycache__', 'build', 'dist', 'tests', 'docs"
+    },
+    {
+     "name": "KNOWN_KEYS",
+     "value": "{'name', 'package_roots', 'tests_dir', 'model', 'out_dir', 'facts_file', 'issue_"
+    },
+    {
+     "name": "FIGURE_KEYS",
+     "value": "{'out', 'mode', 'components', 'caption', 'interactive', 'svg_id'}"
+    },
+    {
+     "name": "COVERAGE_KEYS",
+     "value": "{'ignore'}"
+    },
+    {
+     "name": "IGNORE_KEYS",
+     "value": "{'module', 'reason'}"
+    }
+   ],
+   "docstring": "Project configuration: `systemap.toml` at the repo root, or `[tool.systemap]`.",
+   "errors": [
+    {
+     "doc": "The configuration cannot be used; the message says what to fix.",
+     "methods": [],
+     "name": "ConfigError"
+    }
+   ],
+   "file": "src/systemap/config.py",
+   "functions": [
+    {
+     "doc": "The nearest ancestor (or `start`) holding a configuration or a .git.",
+     "name": "find_root",
+     "signature": "def find_root(start: Path) -> Path | None"
+    },
+    {
+     "doc": "Every top-level directory holding an __init__.py, plus src/<pkg> layouts.",
+     "name": "discover_roots",
+     "signature": "def discover_roots(root: Path) -> list[tuple[str, str]]"
+    },
+    {
+     "doc": "The raw table and where it came from: systemap.toml first, then pyproject.",
+     "name": "read_raw",
+     "signature": "def read_raw(root: Path) -> tuple[dict[str, Any], str]"
+    },
+    {
+     "doc": "The configuration for the project at `root`, defaults filled in.",
+     "name": "load",
+     "signature": "def load(root: Path) -> Config"
+    },
+    {
+     "doc": "Import the model module by path and return its MODEL and MEANING.",
+     "name": "load_model",
+     "signature": "def load_model(path: Path) -> tuple[Model, Meaning]"
+    }
+   ],
+   "id": "systemap.config",
+   "imported_by": [
+    "systemap.change",
+    "systemap.check",
+    "systemap.cli",
+    "systemap.extract",
+    "systemap.figure",
+    "systemap.judgement",
+    "systemap.page"
+   ],
+   "imports": [
+    "systemap.model"
+   ],
+   "loc": 345,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "ad0791476c98",
+   "tests": [
+    "test_drift_reports_changes",
+    "test_extract_attributes_tests_to_modules",
+    "test_extract_finds_modules_and_public_surface",
+    "test_ignored_lines",
+    "test_judgement_command_always_exits_0",
+    "test_mis_fold_lines",
+    "test_no_sentence_lines",
+    "test_report_wording",
+    "test_single_module_lines",
+    "test_single_module_reads_implemented_by_without_facts",
+    "test_spec_sections_and_planes",
+    "test_thin_layer_lines",
+    "test_words_and_shared_words"
+   ],
+   "tests_primary": 0,
+   "tests_total": 13,
+   "uses": {
+    "systemap.model": [
+     "Meaning",
+     "Model"
+    ]
+   }
+  },
+  "systemap.extract": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "SKIP_PARTS",
+     "value": "{'.git', '.venv', 'node_modules', '__pycache__', 'build', 'dist'}"
+    },
+    {
+     "name": "TESTS_KEPT",
+     "value": "25"
+    },
+    {
+     "name": "WHOLE_MODULE",
+     "value": "'*'"
+    }
+   ],
+   "docstring": "Extract the derived tier of the system map from the working tree.",
+   "errors": [],
+   "file": "src/systemap/extract.py",
+   "functions": [
+    {
+     "doc": "",
+     "name": "module_of",
+     "signature": "def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str"
+    },
+    {
+     "doc": "The architectural plane a module belongs to, from its dotted path.",
+     "name": "plane_of",
+     "signature": "def plane_of(module: str, planes: tuple[str, ...]) -> str"
+    },
+    {
+     "doc": "",
+     "name": "signature",
+     "signature": "def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str"
+    },
+    {
+     "doc": "The first paragraph of a docstring, capped.",
+     "name": "opening",
+     "signature": "def opening(text: str | None) -> str"
+    },
+    {
+     "doc": "",
+     "name": "first_line",
+     "signature": "def first_line(text: str | None) -> str"
+    },
+    {
+     "doc": "",
+     "name": "sentence",
+     "signature": "def sentence(test_name: str) -> str"
+    },
+    {
+     "doc": "The public surface of one module's source, or None if it cannot parse.",
+     "name": "parse_surface",
+     "signature": "def parse_surface(raw: str) -> dict[str, Any] | None"
+    },
+    {
+     "doc": "",
+     "name": "collect_module",
+     "signature": "def collect_module(path: Path, repo: Path) -> dict[str, Any] | None"
+    },
+    {
+     "doc": "target module -> the names this source takes from it.",
+     "name": "internal_uses",
+     "signature": "def internal_uses(raw: str, prefixes: set[str], known: set[str], module: str='', is_package: bool=False) -> dict[str, set[str]]"
+    },
+    {
+     "doc": "",
+     "name": "internal_imports",
+     "signature": "def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]"
+    },
+    {
+     "doc": "Test functions in one test file's source, at any nesting depth.",
+     "name": "test_names",
+     "signature": "def test_names(raw: str) -> list[str]"
+    },
+    {
+     "doc": "module -> the behaviours asserted by tests that import it.",
+     "name": "collect_tests",
+     "signature": "def collect_tests(repo: Path, tests_dir: str, prefixes: set[str], known: set[str]) -> dict[str, list[dict[str, Any]]]"
+    },
+    {
+     "doc": "",
+     "name": "spec_sections",
+     "signature": "def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]"
+    },
+    {
+     "doc": "The facts for the tree at `cfg.root`, ready to be written as JSON.",
+     "name": "build",
+     "signature": "def build(cfg: Config) -> dict[str, Any]"
+    },
+    {
+     "doc": "Ways the stored facts no longer describe the tree. Empty means current.",
+     "name": "drift",
+     "signature": "def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "Modules the model claims but the tree does not have.",
+     "name": "mapping_drift",
+     "signature": "def mapping_drift(fresh: dict[str, Any], model: Model, prefixes: set[str]) -> list[str]"
+    },
+    {
+     "doc": "The stored facts, or an empty table when there are none or they do not parse.",
+     "name": "read_facts",
+     "signature": "def read_facts(path: Path) -> dict[str, Any]"
+    },
+    {
+     "doc": "",
+     "name": "write_facts",
+     "signature": "def write_facts(path: Path, facts: dict[str, Any]) -> None"
+    },
+    {
+     "doc": "The counts printed after an extract.",
+     "name": "summary",
+     "signature": "def summary(facts: dict[str, Any]) -> list[str]"
+    }
+   ],
+   "id": "systemap.extract",
+   "imported_by": [
+    "systemap.change",
+    "systemap.check",
+    "systemap.cli"
+   ],
+   "imports": [
+    "systemap.config",
+    "systemap.model"
+   ],
+   "loc": 481,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "bc086fb171f3",
+   "tests": [
+    "test_drift_reports_changes",
+    "test_extract_attributes_tests_to_modules",
+    "test_extract_finds_modules_and_public_surface",
+    "test_spec_sections_and_planes"
+   ],
+   "tests_primary": 4,
+   "tests_total": 4,
+   "uses": {
+    "systemap.config": [
+     "Config"
+    ],
+    "systemap.model": [
+     "Model",
+     "module_matches"
+    ]
+   }
+  },
+  "systemap.figure": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "GENERATOR",
+     "value": "'systemap'"
+    }
+   ],
+   "docstring": "Emit a figure of the system for embedding in a lesson or a document.",
+   "errors": [
+    {
+     "doc": "The figure cannot be drawn as asked; the message says why.",
+     "methods": [],
+     "name": "FigureError"
+    }
+   ],
+   "file": "src/systemap/figure.py",
+   "functions": [
+    {
+     "doc": "The drawing alone, on its ground, for embedding as an image.",
+     "name": "bare_svg",
+     "signature": "def bare_svg(svg: str, t: dict[str, Any]) -> str"
+    },
+    {
+     "doc": "The figure element. A detail JSON makes it interactive.",
+     "name": "figure",
+     "signature": "def figure(t: dict[str, Any], meaning: Meaning, svg: str, caption: str, legend: list[tuple[str, str, str]], svg_id: str, detail_json: str | None) -> str"
+    },
+    {
+     "doc": "(the figure HTML, the label collisions the drawing reported).",
+     "name": "make",
+     "signature": "def make(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, mode: str='', components: tuple[str, ...]=(), base: str='', head: str='HEAD', caption: str='', svg_id: str='lessonmap', interactive: bool=False, bare: bool=False) -> tuple[str, list[str]]"
+    },
+    {
+     "doc": "One figure from the configuration's `[[figures]]` table.",
+     "name": "configured",
+     "signature": "def configured(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], fig: Figure) -> tuple[str, list[str]]"
+    }
+   ],
+   "id": "systemap.figure",
+   "imported_by": [
+    "systemap.check",
+    "systemap.cli"
+   ],
+   "imports": [
+    "systemap.change",
+    "systemap.config",
+    "systemap.model",
+    "systemap.schematic"
+   ],
+   "loc": 286,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "6db7b1367ca4",
+   "tests": [
+    "test_check_passes_on_sample",
+    "test_default_theme_colours_every_layer",
+    "test_light_scheme_derives_from_the_same_palette",
+    "test_page_is_small_and_self_contained",
+    "test_reach_figure",
+    "test_schematic_reports_layout_and_detail"
+   ],
+   "tests_primary": 0,
+   "tests_total": 6,
+   "uses": {
+    "systemap.change": [
+     "*"
+    ],
+    "systemap.config": [
+     "Config",
+     "ConfigError",
+     "Figure"
+    ],
+    "systemap.model": [
+     "Meaning",
+     "Model"
+    ],
+    "systemap.schematic": [
+     "interactive_script",
+     "layer_rows",
+     "legend_rows",
+     "panel_css",
+     "render"
+    ]
+   }
+  },
+  "systemap.judgement": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "MIN_STEM",
+     "value": "4"
+    }
+   ],
+   "docstring": "The list a maintainer must confirm before the map is trusted.",
+   "errors": [],
+   "file": "src/systemap/judgement.py",
+   "functions": [
+    {
+     "doc": "The lower-case words in a CamelCase or snake_case name.",
+     "name": "words",
+     "signature": "def words(name: str) -> set[str]"
+    },
+    {
+     "doc": "Do two names share a word?",
+     "name": "shares_a_word",
+     "signature": "def shares_a_word(a: str, b: str) -> bool"
+    },
+    {
+     "doc": "",
+     "name": "single_module",
+     "signature": "def single_module(model: Model, facts: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "",
+     "name": "mis_folds",
+     "signature": "def mis_folds(model: Model, facts: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "",
+     "name": "no_sentence",
+     "signature": "def no_sentence(model: Model, meaning: Meaning) -> list[str]"
+    },
+    {
+     "doc": "",
+     "name": "thin_layers",
+     "signature": "def thin_layers(model: Model, meaning: Meaning) -> list[str]"
+    },
+    {
+     "doc": "",
+     "name": "ignored",
+     "signature": "def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]"
+    },
+    {
+     "doc": "Every line the maintainer should read, in the order above.",
+     "name": "run",
+     "signature": "def run(model: Model, meaning: Meaning, facts: dict[str, Any], ignores: Iterable[Ignore]=()) -> list[str]"
+    },
+    {
+     "doc": "The lines the CLI prints.",
+     "name": "report",
+     "signature": "def report(lines: list[str]) -> list[str]"
+    }
+   ],
+   "id": "systemap.judgement",
+   "imported_by": [
+    "systemap.cli"
+   ],
+   "imports": [
+    "systemap.config",
+    "systemap.model"
+   ],
+   "loc": 145,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "6b28b968f19f",
+   "tests": [
+    "test_ignored_lines",
+    "test_judgement_command_always_exits_0",
+    "test_mis_fold_lines",
+    "test_no_sentence_lines",
+    "test_report_wording",
+    "test_single_module_lines",
+    "test_single_module_reads_implemented_by_without_facts",
+    "test_thin_layer_lines",
+    "test_words_and_shared_words"
+   ],
+   "tests_primary": 9,
+   "tests_total": 9,
+   "uses": {
+    "systemap.config": [
+     "Ignore"
+    ],
+    "systemap.model": [
+     "Component",
+     "Meaning",
+     "Model",
+     "claimed",
+     "module_matches"
+    ]
+   }
+  },
+  "systemap.model": {
+   "classes": [
+    {
+     "doc": "A hard boundary: a process, a host, a directory the system may not cross.",
+     "methods": [],
+     "name": "Container"
+    },
+    {
+     "doc": "A soft band inside a container: a phase, a concern, a team.",
+     "methods": [],
+     "name": "Region"
+    },
+    {
+     "doc": "One card on the map.",
+     "methods": [
+      "def home(self) -> str",
+      "def box(self) -> Box"
+     ],
+     "name": "Component"
+    },
+    {
+     "doc": "One artifact travelling from `src` to `dst`, in one dataflow `kind`.",
+     "methods": [
+      "def edge(self) -> Edge"
+     ],
+     "name": "Flow"
+    },
+    {
+     "doc": "A load-bearing rule, numbered, and the components it directly governs.",
+     "methods": [],
+     "name": "Invariant"
+    },
+    {
+     "doc": "One step of a journey: who acts, who measures, the edge it traces.",
+     "methods": [],
+     "name": "Step"
+    },
+    {
+     "doc": "",
+     "methods": [],
+     "name": "Journey"
+    },
+    {
+     "doc": "One reading of the map: the question it answers and a sub-line.",
+     "methods": [],
+     "name": "Layer"
+    },
+    {
+     "doc": "The hand-authored topology of one system.",
+     "methods": [
+      "def ids(self) -> set[str]",
+      "def component(self, cid: str) -> Component",
+      "def rules_of(self, cid: str) -> list[int]",
+      "def layout_problems(self) -> list[str]"
+     ],
+     "name": "Model"
+    },
+    {
+     "doc": "The hand-authored meaning of one system.",
+     "methods": [
+      "def layer_for(self, edge: Edge, kind: str) -> str",
+      "def verb_for(self, edge: Edge, layer: str, from_clicked: bool) -> str"
+     ],
+     "name": "Meaning"
+    }
+   ],
+   "constants": [
+    {
+     "name": "KINDS",
+     "value": "('component', 'store', 'actor')"
+    },
+    {
+     "name": "TONES",
+     "value": "('host', 'client', 'server', 'isolated')"
+    },
+    {
+     "name": "CARD_W",
+     "value": "150"
+    },
+    {
+     "name": "CARD_H",
+     "value": "{'component': 56, 'store': 52, 'actor': 44}"
+    }
+   ],
+   "docstring": "The schema a system map is written in, and the checks that keep it honest.",
+   "errors": [],
+   "file": "src/systemap/model.py",
+   "functions": [
+    {
+     "doc": "Ways the meaning names something the model does not have, or misses one.",
+     "name": "meaning_problems",
+     "signature": "def meaning_problems(model: Model, meaning: Meaning) -> list[str]"
+    },
+    {
+     "doc": "Every placement and meaning problem, each prefixed with its kind.",
+     "name": "problems",
+     "signature": "def problems(model: Model, meaning: Meaning) -> list[str]"
+    },
+    {
+     "doc": "Does one `implemented_by` entry name this module?",
+     "name": "module_matches",
+     "signature": "def module_matches(pattern: str, module: str) -> bool"
+    },
+    {
+     "doc": "The modules, among `modules`, that the component's `implemented_by` names.",
+     "name": "claimed",
+     "signature": "def claimed(component: Component, modules: Iterable[str]) -> list[str]"
+    },
+    {
+     "doc": "built | partial | planned, derived from what the facts actually found.",
+     "name": "build_state",
+     "signature": "def build_state(component: Component, facts: Mapping[str, Any]) -> str"
+    }
+   ],
+   "id": "systemap.model",
+   "imported_by": [
+    "systemap",
+    "systemap.change",
+    "systemap.check",
+    "systemap.cli",
+    "systemap.config",
+    "systemap.extract",
+    "systemap.figure",
+    "systemap.judgement",
+    "systemap.page",
+    "systemap.schematic",
+    "systemap.theme"
+   ],
+   "imports": [],
+   "loc": 387,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "b5bc47fc8f41",
+   "tests": [
+    "test_build_state_is_derived",
+    "test_build_state_with_subtree_claim",
+    "test_layout_problems_find_lies",
+    "test_meaning_problems_find_gaps",
+    "test_module_matches_exact_and_subtree",
+    "test_sample_every_flow_has_a_relation_and_a_layer",
+    "test_sample_flow_endpoints_resolve",
+    "test_sample_journeys_resolve",
+    "test_sample_positions_and_plain_words",
+    "test_sample_validates",
+    "test_small_model_is_clean",
+    "test_ignored_lines",
+    "test_judgement_command_always_exits_0",
+    "test_mis_fold_lines",
+    "test_no_sentence_lines",
+    "test_report_wording",
+    "test_single_module_lines",
+    "test_single_module_reads_implemented_by_without_facts",
+    "test_thin_layer_lines",
+    "test_words_and_shared_words"
+   ],
+   "tests_primary": 11,
+   "tests_total": 20,
+   "uses": {}
+  },
+  "systemap.page": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "STATE_WORD",
+     "value": "{'built': 'built', 'partial': 'part built', 'planned': 'planned', 'actor': 'outs"
+    },
+    {
+     "name": "NUMBER_WORDS",
+     "value": "['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', '"
+    },
+    {
+     "name": "CSS",
+     "value": "'\\n{ROOT}\\n*{{box-sizing:border-box}}\\n:focus-visible{{outline:2px solid var(--a"
+    }
+   ],
+   "docstring": "Render the system map as one page that teaches the system in layers.",
+   "errors": [],
+   "file": "src/systemap/page.py",
+   "functions": [
+    {
+     "doc": "",
+     "name": "esc",
+     "signature": "def esc(text: object) -> str"
+    },
+    {
+     "doc": "",
+     "name": "number_word",
+     "signature": "def number_word(n: int) -> str"
+    },
+    {
+     "doc": "The whole page as one string.",
+     "name": "build",
+     "signature": "def build(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], ch: dict[str, Any]) -> str"
+    }
+   ],
+   "id": "systemap.page",
+   "imported_by": [
+    "systemap.check",
+    "systemap.cli"
+   ],
+   "imports": [
+    "systemap.config",
+    "systemap.model",
+    "systemap.schematic",
+    "systemap.theme"
+   ],
+   "loc": 674,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "28e59091704d",
+   "tests": [
+    "test_check_passes_on_sample",
+    "test_default_theme_colours_every_layer",
+    "test_light_scheme_derives_from_the_same_palette",
+    "test_page_is_small_and_self_contained",
+    "test_reach_figure",
+    "test_schematic_reports_layout_and_detail"
+   ],
+   "tests_primary": 0,
+   "tests_total": 6,
+   "uses": {
+    "systemap.config": [
+     "Config"
+    ],
+    "systemap.model": [
+     "Component",
+     "Meaning",
+     "Model"
+    ],
+    "systemap.schematic": [
+     "interactive_script",
+     "layer_rows",
+     "legend_rows",
+     "panel_css",
+     "render"
+    ],
+    "systemap.theme": [
+     "*"
+    ]
+   }
+  },
+  "systemap.route": {
+   "classes": [
+    {
+     "doc": "One routed flow: its polyline from port to port, and how it got there.",
+     "methods": [],
+     "name": "Route"
+    },
+    {
+     "doc": "Where a label ended up and whether that was the rule or a compromise.",
+     "methods": [],
+     "name": "Placed"
+    },
+    {
+     "doc": "The lane grid and the state every routed flow leaves on it.",
+     "methods": [
+      "def route(self, src: str, dst: str) -> Route"
+     ],
+     "name": "Router"
+    }
+   ],
+   "constants": [
+    {
+     "name": "CARD_MARGIN",
+     "value": "4.0"
+    },
+    {
+     "name": "LANE_STEP",
+     "value": "9.0"
+    },
+    {
+     "name": "LANE_EDGE",
+     "value": "11.0"
+    },
+    {
+     "name": "MAX_LANES",
+     "value": "7"
+    },
+    {
+     "name": "PORT_DX",
+     "value": "(0.0, -25.0, 25.0, -50.0, 50.0)"
+    },
+    {
+     "name": "PORT_DY",
+     "value": "(0.0, -8.0, 8.0, -16.0, 16.0)"
+    },
+    {
+     "name": "PORT_SPREAD_COST",
+     "value": "4.0"
+    },
+    {
+     "name": "BEND_COST",
+     "value": "40.0"
+    },
+    {
+     "name": "USED_LANE_FACTOR",
+     "value": "5.0"
+    },
+    {
+     "name": "USED_PORT_COST",
+     "value": "500.0"
+    },
+    {
+     "name": "FOREIGN_REGION_COST",
+     "value": "40.0"
+    },
+    {
+     "name": "SIDES",
+     "value": "('left', 'right', 'top', 'bottom')"
+    },
+    {
+     "name": "CORNER_CLEAR",
+     "value": "12.0"
+    },
+    {
+     "name": "ARROW_CLEAR",
+     "value": "16.0"
+    }
+   ],
+   "docstring": "Route every flow orthogonally through the gutters between cards.",
+   "errors": [],
+   "file": "src/systemap/route.py",
+   "functions": [
+    {
+     "doc": "Route every (src, dst) pair, shortest first. Keyed by edge index.",
+     "name": "route_all",
+     "signature": "def route_all(edges: list[tuple[str, str]], cards: dict[str, Box], actors: set[str], blocks: list[Box], regions: dict[str, Box], region_of: dict[str, str], canvas: tuple[float, float]) -> dict[int, Route]"
+    },
+    {
+     "doc": "The SVG path: straight runs with a quarter-circle at every bend.",
+     "name": "path_d",
+     "signature": "def path_d(points: list[Point], radius: float=6.0) -> str"
+    },
+    {
+     "doc": "Every place this label may sit: (segment, on the longest, box).",
+     "name": "label_candidates",
+     "signature": "def label_candidates(points: list[Point], lw: float, lh: float, canvas: tuple[float, float]) -> list[tuple[int, bool, Box]]"
+    },
+    {
+     "doc": "Seat every label; shortest path first, since it has the fewest places.",
+     "name": "place_labels",
+     "signature": "def place_labels(routes: dict[int, Route], widths: dict[int, float], lh: float, obstacles: list[tuple[str, Box]], canvas: tuple[float, float], gap: float=2.0) -> dict[int, Placed]"
+    }
+   ],
+   "id": "systemap.route",
+   "imported_by": [
+    "systemap.schematic"
+   ],
+   "imports": [],
+   "loc": 592,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "8ecdd0357a62",
+   "tests": [],
+   "tests_primary": 0,
+   "tests_total": 0,
+   "uses": {}
+  },
+  "systemap.scaffold": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "CONFIG",
+     "value": "'# systemap configuration. Every key is optional; these are the defaults\\n# exce"
+    },
+    {
+     "name": "MODEL",
+     "value": "'\"\"\"The system map of {name}: what the parts are and what they are to each other"
+    },
+    {
+     "name": "WORKFLOW",
+     "value": "'name: systemap\\n\\n# The system map under docs/map is generated from the code an"
+    }
+   ],
+   "docstring": "What `systemap init` writes: a configuration, a starter model, a workflow.",
+   "errors": [],
+   "file": "src/systemap/scaffold.py",
+   "functions": [
+    {
+     "doc": "path -> content for every file `systemap init` writes.",
+     "name": "files",
+     "signature": "def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool=True) -> dict[str, str]"
+    },
+    {
+     "doc": "Write every file that does not exist yet; return one line per file.",
+     "name": "write",
+     "signature": "def write(root: Path, name: str, package: str, roots: list[tuple[str, str]], ci: bool=True) -> list[str]"
+    }
+   ],
+   "id": "systemap.scaffold",
+   "imported_by": [
+    "systemap.cli"
+   ],
+   "imports": [],
+   "loc": 277,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "85f6be29d0b8",
+   "tests": [],
+   "tests_primary": 0,
+   "tests_total": 0,
+   "uses": {}
+  },
+  "systemap.schematic": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "CARD_W",
+     "value": "150.0"
+    },
+    {
+     "name": "CARD_H",
+     "value": "56.0"
+    },
+    {
+     "name": "STORE_H",
+     "value": "52.0"
+    },
+    {
+     "name": "ACTOR_H",
+     "value": "44.0"
+    },
+    {
+     "name": "RADIUS",
+     "value": "4.0"
+    },
+    {
+     "name": "TEXT_PX",
+     "value": "11.0"
+    },
+    {
+     "name": "NAME_PX",
+     "value": "11.5"
+    },
+    {
+     "name": "LABEL_PX",
+     "value": "TEXT_PX"
+    },
+    {
+     "name": "LABEL_CHAR_W",
+     "value": "6.1"
+    },
+    {
+     "name": "LABEL_H",
+     "value": "13.0"
+    },
+    {
+     "name": "LABEL_GAP",
+     "value": "2.0"
+    },
+    {
+     "name": "PLAIN_CHARS",
+     "value": "26"
+    }
+   ],
+   "docstring": "Draw the logical view as a flat figure. One generator for every picture.",
+   "errors": [],
+   "file": "src/systemap/schematic.py",
+   "functions": [
+    {
+     "doc": "",
+     "name": "esc",
+     "signature": "def esc(text: object) -> str"
+    },
+    {
+     "doc": "Greedy word wrap, truncated at a word boundary rather than overflowing.",
+     "name": "wrap_words",
+     "signature": "def wrap_words(text: str, width: int, max_lines: int) -> list[str]"
+    },
+    {
+     "doc": "a towards b by t.",
+     "name": "mix",
+     "signature": "def mix(a: str, b: str, t: float) -> str"
+    },
+    {
+     "doc": "One muted line for a contributor: the file, or the package when many.",
+     "name": "lives_in",
+     "signature": "def lives_in(modules: list[str]) -> str"
+    },
+    {
+     "doc": "('R10.7', ['228']) from 'R10.7 #228'; the label loses its numbers.",
+     "name": "tracker_issues",
+     "signature": "def tracker_issues(tracker: str) -> tuple[str, list[str]]"
+    },
+    {
+     "doc": "(fill, stroke, label) for the legend the given mode needs.",
+     "name": "legend_rows",
+     "signature": "def legend_rows(t: dict[str, Any], mode: str) -> list[tuple[str, str, str]]"
+    },
+    {
+     "doc": "(id, colour, label) for every layer, in layer order.",
+     "name": "layer_rows",
+     "signature": "def layer_rows(t: dict[str, Any], meaning: Meaning) -> list[tuple[str, str, str]]"
+    },
+    {
+     "doc": "(svg, json detail).",
+     "name": "render",
+     "signature": "def render(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, issue_url: str='', changed: set[str] | None=None, changed_modules: set[str] | None=None, adjacent: set[str] | None=None, mode: str='system', svg_id: str='schematic', gained: dict[str, dict[str, int]] | None=None, hot_artifacts: set[str] | None=None) -> tuple[str, str]"
+    },
+    {
+     "doc": "Styles for the focus panel the interactive script writes into.",
+     "name": "panel_css",
+     "signature": "def panel_css(t: dict[str, Any]) -> str"
+    },
+    {
+     "doc": "The one script that makes a figure operable. Plain DOM, no libraries.",
+     "name": "interactive_script",
+     "signature": "def interactive_script(t: dict[str, Any], svg_id: str, panel_id: str, detail_json: str) -> str"
+    }
+   ],
+   "id": "systemap.schematic",
+   "imported_by": [
+    "systemap.check",
+    "systemap.figure",
+    "systemap.page"
+   ],
+   "imports": [
+    "systemap.model",
+    "systemap.route"
+   ],
+   "loc": 1401,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "2138d08babfa",
+   "tests": [
+    "test_check_passes_on_sample",
+    "test_default_theme_colours_every_layer",
+    "test_light_scheme_derives_from_the_same_palette",
+    "test_page_is_small_and_self_contained",
+    "test_reach_figure",
+    "test_schematic_reports_layout_and_detail"
+   ],
+   "tests_primary": 0,
+   "tests_total": 6,
+   "uses": {
+    "systemap.model": [
+     "Component",
+     "Meaning",
+     "Model",
+     "build_state"
+    ],
+    "systemap.route": [
+     "path_d",
+     "place_labels",
+     "route_all"
+    ]
+   }
+  },
+  "systemap.skill": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "DEFAULT_DIR",
+     "value": "'.claude/skills/systemap'"
+    },
+    {
+     "name": "FILE_NAME",
+     "value": "'SKILL.md'"
+    }
+   ],
+   "docstring": "The agent skill: the procedure a coding agent follows to map a repository.",
+   "errors": [],
+   "file": "src/systemap/skill.py",
+   "functions": [
+    {
+     "doc": "The skill, as shipped in the package.",
+     "name": "text",
+     "signature": "def text() -> str"
+    },
+    {
+     "doc": "Write SKILL.md into `directory`, creating it, and return the file's path.",
+     "name": "write",
+     "signature": "def write(directory: Path) -> Path"
+    }
+   ],
+   "id": "systemap.skill",
+   "imported_by": [
+    "systemap.cli"
+   ],
+   "imports": [],
+   "loc": 35,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "439c4d99657e",
+   "tests": [
+    "test_skill_front_matter_and_vocabulary",
+    "test_worked_example_passes_check"
+   ],
+   "tests_primary": 2,
+   "tests_total": 2,
+   "uses": {}
+  },
+  "systemap.theme": {
+   "classes": [],
+   "constants": [
+    {
+     "name": "SANS",
+     "value": "'ui-sans-serif,system-ui,-apple-system,\"SF Pro Text\",\"Segoe UI\",Roboto,\"Helvetic"
+    },
+    {
+     "name": "MONO",
+     "value": "'ui-monospace,\"SF Mono\",SFMono-Regular,\"JetBrains Mono\",Menlo,Consolas,monospace"
+    },
+    {
+     "name": "INK",
+     "value": "'#0b1020'"
+    },
+    {
+     "name": "PANEL",
+     "value": "'#101a3a'"
+    },
+    {
+     "name": "SLATE",
+     "value": "'#4b5578'"
+    },
+    {
+     "name": "MUTED",
+     "value": "'#aab3d1'"
+    },
+    {
+     "name": "PAPER",
+     "value": "'#f4f1ea'"
+    },
+    {
+     "name": "AMBER",
+     "value": "'#f5a524'"
+    },
+    {
+     "name": "TEAL",
+     "value": "'#2dd4bf'"
+    },
+    {
+     "name": "LAYER_PALETTE",
+     "value": "[TEAL, '#82A7BA', '#E39A86', '#DD9BBD', '#B48EC9', '#D9D2C0', '#B7C27C', '#E3B77"
+    },
+    {
+     "name": "LAYER_PALETTE_LIGHT",
+     "value": "['#1a7b6f', '#3D7A94', '#C2543A', '#B0508E', '#7B4FA3', '#8A7F5C', '#6F7E2A', '#"
+    },
+    {
+     "name": "DARK",
+     "value": "{'name': 'systemap', 'scheme': 'dark', 'bg': INK, 'surface': PANEL, 'raised': '#"
+    },
+    {
+     "name": "LIGHT",
+     "value": "{'name': 'systemap', 'scheme': 'light', 'bg': PAPER, 'surface': '#fbf9f4', 'rais"
+    },
+    {
+     "name": "SCHEMES",
+     "value": "{'dark': DARK, 'light': LIGHT}"
+    }
+   ],
+   "docstring": "The map's look, as one table of tokens.",
+   "errors": [],
+   "file": "src/systemap/theme.py",
+   "functions": [
+    {
+     "doc": "`override` laid over `base`: tables merge by key, everything else replaces.",
+     "name": "merge",
+     "signature": "def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]"
+    },
+    {
+     "doc": "The scheme table the consumer's tokens are laid over.",
+     "name": "base_for",
+     "signature": "def base_for(tokens: dict[str, Any]) -> dict[str, Any]"
+    },
+    {
+     "doc": "The theme with a colour for every layer of the map, in layer order.",
+     "name": "resolve",
+     "signature": "def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]"
+    },
+    {
+     "doc": "The :root block. One source for both halves of the page.",
+     "name": "css_vars",
+     "signature": "def css_vars(t: dict[str, Any]) -> str"
+    }
+   ],
+   "id": "systemap.theme",
+   "imported_by": [
+    "systemap.cli",
+    "systemap.page"
+   ],
+   "imports": [
+    "systemap.model"
+   ],
+   "loc": 240,
+   "package": "systemap",
+   "plane": "core",
+   "sha": "33849859186b",
+   "tests": [
+    "test_check_passes_on_sample",
+    "test_default_theme_colours_every_layer",
+    "test_light_scheme_derives_from_the_same_palette",
+    "test_page_is_small_and_self_contained",
+    "test_reach_figure",
+    "test_schematic_reports_layout_and_detail"
+   ],
+   "tests_primary": 0,
+   "tests_total": 6,
+   "uses": {
+    "systemap.model": [
+     "Layer"
+    ]
+   }
+  }
+ },
+ "packages": [
+  "systemap"
+ ],
+ "spec_sections": [],
+ "version": 1
+}
