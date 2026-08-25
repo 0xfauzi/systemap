@@ -49,10 +49,11 @@ package and everything beneath it. Every module named must be in the facts,
 and every module in the facts must be claimed by exactly one component (or
 ignored with a reason under `[coverage]` in `systemap.toml`).
 
-`entry` is one public function or class the claimed modules define; copy it
-from the facts file. The check refuses an entry no claimed module defines
-and a component that names no module. An actor is the exception: it claims
-no code.
+`entry` is one public module-level name the claimed modules define: a
+function, a class, or an object such as `app` or `root_agent`; copy it from
+the facts file's `names`. The check refuses an entry no claimed module
+defines and a component that names no module. An actor is the exception:
+it claims no code.
 
 `kind` is `component` (does work), `store` (holds state; drawn with a rule
 under its name), `actor` (a person or a system outside the code; dashed),
@@ -140,9 +141,44 @@ older than the tree or the model.
 
 ## The facts file
 
-`docs/map/map.json` by default. Under `components`, one record per module:
-`functions`, `classes`, `errors`, `constants` (the public surface), `uses`
-(the modules it imports and which names), `imported_by`, `tests` (the tests
-that import it), `docstring`, `file`. Under `entry_points`, one record per
-place a run can start: `kind` (`console_script`, `main_module`,
-`main_function`, `subcommand`, `public_function`), `name`, `module`.
+`docs/map/map.json` by default, written by `systemap extract`. Every field,
+from the extractor's own table (`systemap.extract.FIELDS`):
+
+**The file**
+
+- `version`: the facts format; 1.
+- `built_at_commit`: the commit the tree was at, or empty outside git.
+- `packages`: the import names of the package roots.
+- `tests_dirs`: the directories test files were read from, relative to the root: the configured `tests_dir`, or every directory named `tests` or `test`.
+- `spec_sections`: the `##` headings of `spec_path`, each with `level` and `title`.
+- `entry_points`: where a run can start: one record per point, fields below.
+- `components`: one record per module, keyed by its dotted name, fields below.
+
+**Each module, under `components`**
+
+- `id`: the dotted module name.
+- `file`: the path relative to the root.
+- `package`: the first segment of the name.
+- `plane`: the second segment when `planes` names it, else `core`.
+- `loc`: lines in the file.
+- `sha`: twelve hex digits of the source's SHA-1: the change detector's key.
+- `docstring`: the first paragraph of the module docstring, capped.
+- `functions`: public functions: `name`, `signature`, `doc` (the first docstring line).
+- `classes`: public classes that are not errors: `name`, `doc`, `methods` (public method signatures).
+- `errors`: public classes named or based on Error or Exception, the same fields.
+- `constants`: UPPER_CASE assignments: `name` and `value`, the first 14.
+- `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, such as `app` or `root_agent`); a component's `entry` may name any of them.
+- `uses`: the package's modules this one imports, each with the names taken from it, or `*` for the whole module.
+- `imports`: the keys of `uses`.
+- `imported_by`: the package's modules that import this one.
+- `external`: third-party modules imported, as the dotted names written in the import (`anthropic`, `google.adk`); the standard library and the package's own modules are left out. The judgement's `model sdk` line reads it.
+- `tests_total`: how many test functions import this module.
+- `tests_primary`: how many of those sit in a file named after the module.
+- `tests`: the names of up to 25 of those tests, primary first.
+
+**Each entry point, under `entry_points`**
+
+- `kind`: `console_script`, `main_module`, `main_function`, `subcommand` or `public_function`.
+- `name`: the script name, the `python -m` line, `main`, the subcommand word, or the function name.
+- `module`: the module that defines it.
+- `target`: the function a console script names, or the console script a subcommand belongs to; else empty.

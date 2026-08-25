@@ -83,7 +83,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
     roots = config.discover_roots(root)
     package = roots[0][1] if roots else "mypackage"
-    name = args.name or root.name
+    name = args.name or config.default_name(root)
     say(*scaffold.write(root, name, package, roots, ci=not args.no_ci))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     say(f"wrote {skill_path.relative_to(root)}")
@@ -96,8 +96,15 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def _require_roots(p: Project) -> None:
     if not p.cfg.roots:
+        found = config.candidate_packages(p.cfg.root)
+        where = (
+            "directories holding an __init__.py: " + ", ".join(found)
+            if found
+            else f"no directory holding an __init__.py up to {config.CANDIDATE_DEPTH} deep"
+        )
         raise ConfigError(
-            'no package roots found; set [package_roots] in systemap.toml ("path" = "import name")'
+            "no package roots found; set [package_roots] in systemap.toml "
+            f'("path" = "import name"); {where}'
         )
 
 
@@ -324,7 +331,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")
-    lines = judgement.run(p.model, p.meaning, facts, p.cfg.coverage_ignore)
+    sdks = judgement.MODEL_SDKS + p.cfg.model_sdks
+    lines = judgement.run(p.model, p.meaning, facts, p.cfg.coverage_ignore, sdks)
     say(*judgement.report(judgement.apply_answers(lines, p.cfg.judgement_answered)))
     return OK
 
@@ -363,7 +371,12 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser(
         "init", help="write systemap.toml, a starter model, the agent skill and a workflow"
     )
-    s.add_argument("--name", default="", help="the page title (default: the directory name)")
+    s.add_argument(
+        "--name",
+        default="",
+        help="the page title (default: [project] name in pyproject.toml, then the git "
+        "repository's directory, then the directory name)",
+    )
     s.add_argument(
         "--no-ci", action="store_true", help="do not write .github/workflows/systemap.yml"
     )

@@ -30,6 +30,10 @@ thing to look at:
                          another and no flow joins the two components, in
                          either direction: an edge the code has and the
                          map does not. The main tool of the second pass.
+    model sdk .......... a module imports a model SDK or an agent framework
+                         (a built-in list, extended by `[facts] model_sdks`)
+                         and its component is not an agent: the mechanical
+                         prompt for the agentic layers
     ignored ............ a module the coverage rule leaves unmapped, with
                          the reason the configuration gives
 
@@ -52,6 +56,22 @@ from systemap.extract import entry_label
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, module_matches
 
 MIN_STEM = 4
+# Import names that mark a module as calling a model or running an agent
+# framework. Dotted where the namespace is shared. A cloud SDK that also
+# reaches a model (boto3) is too coarse to list.
+MODEL_SDKS: tuple[str, ...] = (
+    "anthropic",
+    "openai",
+    "google.generativeai",
+    "google.adk",
+    "litellm",
+    "langchain",
+    "langgraph",
+    "llama_index",
+    "mistralai",
+    "cohere",
+    "vertexai",
+)
 
 
 def words(name: str) -> set[str]:
@@ -256,6 +276,41 @@ def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[s
     return out
 
 
+def sdk_of(name: str, sdks: Iterable[str]) -> str:
+    """The SDK an imported dotted name belongs to, or empty."""
+    for sdk in sdks:
+        if name == sdk or name.startswith(sdk + "."):
+            return sdk
+    return ""
+
+
+def model_sdk_imports(
+    model: Model, facts: dict[str, Any], sdks: Iterable[str] = MODEL_SDKS
+) -> list[str]:
+    """Every module that imports a model SDK from a component that is not an agent.
+
+    The facts record each module's third-party imports; the agentic layers
+    exist for the parts that run a model. A module that imports one and
+    sits in a plain component, a store or a tool is either an agent the
+    map does not show or a call the reader should know about.
+    """
+    components = facts.get("components", {})
+    owner = _owner_of(model, facts)
+    kind = {c.id: c.kind for c in model.components}
+    sdk_list = list(sdks)
+    out: list[str] = []
+    for module in sorted(components):
+        p = owner.get(module)
+        if not p or kind.get(p) == "agent":
+            continue
+        hit = sorted({sdk_of(n, sdk_list) for n in components[module].get("external", [])} - {""})
+        for sdk in hit:
+            out.append(
+                f"model sdk: module {module} imports {sdk} and its component {p} is not an agent"
+            )
+    return out
+
+
 def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]:
     modules = sorted(facts.get("components", {}))
     out: list[str] = []
@@ -267,7 +322,11 @@ def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]:
 
 
 def run(
-    model: Model, meaning: Meaning, facts: dict[str, Any], ignores: Iterable[Ignore] = ()
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    ignores: Iterable[Ignore] = (),
+    sdks: Iterable[str] = MODEL_SDKS,
 ) -> list[str]:
     """Every line the maintainer should read, in the order above."""
     return (
@@ -277,6 +336,7 @@ def run(
         + thin_layers(model, meaning)
         + entry_points_without_journey(model, meaning, facts)
         + crossing_imports_without_flow(model, facts)
+        + model_sdk_imports(model, facts, sdks)
         + ignored(facts, ignores)
     )
 

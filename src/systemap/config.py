@@ -5,10 +5,16 @@ itself holds no literal that belongs to one project: where the packages
 are, where the tests are, where the model module is, where the output
 goes, and the theme.
 
-    name           the page title; defaults to the repo directory's name
+    name           the page title; defaults to [project] name in
+                   pyproject.toml, then the name of the directory holding
+                   the git repository (the main checkout, even from a
+                   worktree), then the directory's name
     package_roots  table of path = import name; default: every top-level
-                   directory that holds an __init__.py
-    tests_dir      where test_*.py files live (default "tests")
+                   directory (or src/<dir>) that holds an __init__.py, in
+                   the root and in every [tool.uv.workspace] member
+    tests_dir      where test_*.py files live: one directory or a list;
+                   default: every directory named tests or test under the
+                   root, outside the skipped directories
     model          the module exporting MODEL and MEANING (default
                    "map/model.py")
     out_dir        where the facts, the page and the figures are written
@@ -26,6 +32,10 @@ goes, and the theme.
                    the coverage rule of `systemap check` may leave unmapped;
                    every entry needs a reason, since an unexplained hole in
                    the map is the thing the rule exists to refuse
+    [facts]        model_sdks = [...]: import names, added to the built-in
+                   list, that mark a module as calling a model; the
+                   judgement asks about each in a component that is not
+                   an agent
     [judgement]    answered = [{item = "<a judgement line>", reason = "..."}]:
                    the lines of `systemap judgement` the maintainer has
                    answered, each with why; an answered line is suppressed
@@ -41,6 +51,8 @@ nothing would be worse than a refusal.
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
@@ -51,6 +63,11 @@ from systemap.model import Meaning, Model
 
 CONFIG_FILE = "systemap.toml"
 SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist", "tests", "docs"}
+# What a walk for tests directories or package candidates never enters:
+# the skipped directories minus `tests` itself, plus a plain `venv`.
+SKIP_WALK = (SKIP_DIRS - {"tests"}) | {"venv"}
+TEST_DIR_NAMES = ("tests", "test")
+CANDIDATE_DEPTH = 4
 
 KNOWN_KEYS = {
     "name",
@@ -65,8 +82,10 @@ KNOWN_KEYS = {
     "theme",
     "figures",
     "coverage",
+    "facts",
     "judgement",
 }
+FACTS_KEYS = {"model_sdks"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
@@ -121,7 +140,7 @@ class Config:
     root: Path
     name: str
     package_roots: tuple[tuple[str, str], ...]
-    tests_dir: str = "tests"
+    tests_dirs: tuple[str, ...] = ()
     model: str = "map/model.py"
     out_dir: str = "docs/map"
     facts_file: str = "map.json"
@@ -132,6 +151,7 @@ class Config:
     figures: tuple[Figure, ...] = ()
     coverage_ignore: tuple[Ignore, ...] = ()
     judgement_answered: tuple[Answer, ...] = ()
+    model_sdks: tuple[str, ...] = ()
     source: str = ""
 
     @property
@@ -164,6 +184,11 @@ class Config:
     def prefixes(self) -> set[str]:
         return {name for _, name in self.package_roots}
 
+    @property
+    def test_dirs(self) -> tuple[str, ...]:
+        """The directories test files are read from: configured, else discovered."""
+        return self.tests_dirs or tuple(discover_tests(self.root))
+
     def rel(self, path: Path) -> str:
         """A path shown to the user, relative to the root when it is under it."""
         try:
@@ -185,18 +210,123 @@ def find_root(start: Path) -> Path | None:
     return None
 
 
-def discover_roots(root: Path) -> list[tuple[str, str]]:
-    """Every top-level directory holding an __init__.py, plus src/<pkg> layouts."""
-    found: list[tuple[str, str]] = []
-    for parent in (root, root / "src"):
-        if not parent.is_dir():
+def _pyproject(root: Path) -> dict[str, Any]:
+    path = root / "pyproject.toml"
+    if not path.is_file():
+        return {}
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def workspace_members(root: Path) -> list[Path]:
+    """The directories `[tool.uv.workspace] members` names, by its globs."""
+    workspace = _pyproject(root).get("tool", {}).get("uv", {}).get("workspace", {})
+    members = workspace.get("members", []) if isinstance(workspace, dict) else []
+    out: list[Path] = []
+    for pattern in members:
+        if not isinstance(pattern, str):
             continue
-        for child in sorted(parent.iterdir()):
-            if not child.is_dir() or child.name in SKIP_DIRS or child.name.startswith("."):
+        for path in sorted(root.glob(pattern)):
+            if path.is_dir() and path.resolve() != root.resolve() and path not in out:
+                out.append(path)
+    return out
+
+
+def discover_roots(root: Path) -> list[tuple[str, str]]:
+    """Every top-level directory holding an __init__.py, plus src/<pkg> layouts.
+
+    The root is searched, then every workspace member (`packages/<m>/src/<pkg>`
+    and `packages/<m>/<pkg>`), so a uv workspace needs no configuration.
+    """
+    found: list[tuple[str, str]] = []
+    for base in (root, *workspace_members(root)):
+        for parent in (base, base / "src"):
+            if not parent.is_dir():
                 continue
-            if (child / "__init__.py").is_file():
-                found.append((str(child.relative_to(root)), child.name))
+            for child in sorted(parent.iterdir()):
+                if not child.is_dir() or child.name in SKIP_DIRS or child.name.startswith("."):
+                    continue
+                if (child / "__init__.py").is_file():
+                    entry = (child.relative_to(root).as_posix(), child.name)
+                    if entry not in found:
+                        found.append(entry)
     return found
+
+
+def _walk(root: Path, depth: int | None = None) -> list[Path]:
+    """Every directory under `root`, skipping what a walk never enters."""
+    out: list[Path] = []
+    for dirpath, dirnames, _files in os.walk(root):
+        here = Path(dirpath)
+        level = len(here.relative_to(root).parts)
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_WALK and not d.startswith("."))
+        if depth is not None and level >= depth:
+            dirnames[:] = []
+        if here != root:
+            out.append(here)
+    return out
+
+
+def discover_tests(root: Path) -> list[str]:
+    """Every directory named tests or test under the root, relative, in walk order.
+
+    A found directory is not entered again: its subdirectories are its own.
+    """
+    out: list[str] = []
+    for dirpath, dirnames, _files in os.walk(root):
+        here = Path(dirpath)
+        keep: list[str] = []
+        for d in sorted(dirnames):
+            if d in SKIP_WALK or d.startswith("."):
+                continue
+            if d in TEST_DIR_NAMES:
+                out.append((here / d).relative_to(root).as_posix())
+            else:
+                keep.append(d)
+        dirnames[:] = keep
+    return out
+
+
+def candidate_packages(root: Path, depth: int = CANDIDATE_DEPTH) -> list[str]:
+    """Directories holding an __init__.py up to `depth` below the root, relative.
+
+    Listed when discovery finds no package root, so the fix names what is
+    there rather than asking the reader to search.
+    """
+    return [
+        d.relative_to(root).as_posix() for d in _walk(root, depth) if (d / "__init__.py").is_file()
+    ]
+
+
+def default_name(root: Path) -> str:
+    """`[project] name`, else the git repository's directory, else the root's name.
+
+    The repository's directory is the one holding the common git dir, so
+    a worktree is named after the checkout it belongs to, not after the
+    worktree's own directory.
+    """
+    project = _pyproject(root).get("project", {})
+    name = project.get("name") if isinstance(project, dict) else None
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        proc = None
+    if proc is not None and proc.returncode == 0 and proc.stdout.strip():
+        common = (root / proc.stdout.strip()).resolve()
+        holder = common.parent.name if common.name == ".git" else common.name.removesuffix(".git")
+        if holder:
+            return holder
+    return root.name
 
 
 def read_raw(root: Path) -> tuple[dict[str, Any], str]:
@@ -289,13 +419,22 @@ def load(root: Path) -> Config:
             )
         )
 
+    tests_raw = raw.get("tests_dir", [])
+    if isinstance(tests_raw, str):
+        tests_dirs: tuple[str, ...] = (tests_raw,) if tests_raw else ()
+    elif isinstance(tests_raw, list) and all(isinstance(v, str) for v in tests_raw):
+        tests_dirs = tuple(tests_raw)
+    else:
+        raise ConfigError(f"{where}: tests_dir must be a directory or a list of directories")
+
     return Config(
         coverage_ignore=_coverage_ignore(raw, where),
         judgement_answered=_judgement_answered(raw, where),
+        model_sdks=_facts(raw, where),
         root=root,
-        name=_str(raw, "name", root.name, where),
+        name=_str(raw, "name", "", where) or default_name(root),
         package_roots=package_roots,
-        tests_dir=_str(raw, "tests_dir", "tests", where),
+        tests_dirs=tests_dirs,
         model=_str(raw, "model", "map/model.py", where),
         out_dir=_str(raw, "out_dir", "docs/map", where),
         facts_file=_str(raw, "facts_file", "map.json", where),
@@ -339,6 +478,17 @@ def _coverage_ignore(raw: dict[str, Any], where: str) -> tuple[Ignore, ...]:
             )
         out.append(Ignore(module=module, reason=reason))
     return tuple(out)
+
+
+def _facts(raw: dict[str, Any], where: str) -> tuple[str, ...]:
+    """The `[facts]` table: `model_sdks` extends the judgement's built-in list."""
+    facts = raw.get("facts", {})
+    if not isinstance(facts, dict):
+        raise ConfigError(f"{where}: facts must be a table")
+    bad = sorted(set(facts) - FACTS_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: facts has unknown key: {', '.join(bad)}")
+    return _str_list(facts, "model_sdks", f"{where}: facts")
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:

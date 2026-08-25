@@ -97,11 +97,10 @@ def _path_module(repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | 
     return None
 
 
-def _is_test_file(path: str, tests_dir: str) -> bool:
-    if not tests_dir or not path.endswith(".py"):
+def _is_test_file(path: str, tests_dirs: tuple[str, ...]) -> bool:
+    if not path.endswith(".py") or not path.split("/")[-1].startswith("test_"):
         return False
-    prefix = tests_dir.rstrip("/") + "/"
-    return path.startswith(prefix) and path.split("/")[-1].startswith("test_")
+    return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
 
 
 def _empty_surface() -> dict[str, Any]:
@@ -200,7 +199,7 @@ def compute(
     unparsed: list[str] = []
     for path in files:
         module = _path_module(repo, path, roots)
-        if not module or _is_test_file(path, cfg.tests_dir):
+        if not module or _is_test_file(path, cfg.test_dirs):
             continue
         delta = surface_delta(_show(repo, merge_base, path), _show(repo, head, path))
         if delta is None:
@@ -216,7 +215,7 @@ def compute(
     tests_added: dict[str, set[str]] = {}
     tests_removed: dict[str, set[str]] = {}
     for path in files:
-        if not _is_test_file(path, cfg.tests_dir):
+        if not _is_test_file(path, cfg.test_dirs):
             continue
         base_raw = _show(repo, merge_base, path)
         head_raw = _show(repo, head, path)

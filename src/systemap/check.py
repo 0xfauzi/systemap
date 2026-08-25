@@ -26,7 +26,8 @@ What is checked, in order:
                     component, unless the configuration ignores it with a
                     reason; an incomplete map fails
     entry ......... every module a component names is in the facts, and the
-                    entry it names is defined by one of them; the map draws
+                    entry it names is a public module-level name one of
+                    them defines (a function, a class, an object); the map draws
                     what exists today, so a name the code does not have
                     would draw a part that is not there
     stale ......... the facts file describes the tree, the page is what the
@@ -488,7 +489,8 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
         out += [f"  {line}" for line in result.entry]
         out.append(
             f"  fix: in {model_file}, name only modules the facts have and set entry to "
-            "a public function or class one of them defines; the map draws what exists today"
+            "a public name one of them defines (a function, a class, an object such as "
+            "app); the map draws what exists today"
         )
     problems = result.problems
     if problems:

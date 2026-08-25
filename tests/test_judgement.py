@@ -470,12 +470,69 @@ def test_crossing_imports_without_flow() -> None:
     assert judgement.crossing_imports_without_flow(model, {}) == []
 
 
+def test_model_sdk_lines() -> None:
+    facts = entry_facts()
+    facts["components"]["pkg.reader"]["external"] = ["anthropic.types", "yaml"]
+    facts["components"]["pkg.ledger"]["external"] = ["google.adk", "google.adk.tools"]
+    facts["components"]["pkg.worker"]["external"] = ["openai"]
+    facts["components"]["pkg.cli"]["external"] = ["boto3", "housemodel.client"]
+    model, _ = entry_model()
+    model = dataclasses.replace(
+        model,
+        components=tuple(
+            dataclasses.replace(c, kind="agent") if c.id == "Worker" else c
+            for c in model.components
+        ),
+    )
+    # The worker is an agent: silent. The reader and the ledger are not: one line
+    # per SDK, the dotted namespace collapsed to the SDK it belongs to. boto3 is
+    # not on the list; a house SDK joins it through the configuration.
+    assert judgement.model_sdk_imports(model, facts) == [
+        "model sdk: module pkg.ledger imports google.adk and its component Ledger is not an agent",
+        "model sdk: module pkg.reader imports anthropic and its component Reader is not an agent",
+    ]
+    extended = (*judgement.MODEL_SDKS, "housemodel")
+    assert judgement.model_sdk_imports(model, facts, extended)[0] == (
+        "model sdk: module pkg.cli imports housemodel and its component CLI is not an agent"
+    )
+    assert judgement.sdk_of("google.adk.tools", judgement.MODEL_SDKS) == "google.adk"
+    assert judgement.sdk_of("googles", judgement.MODEL_SDKS) == ""
+    assert "boto3" not in judgement.MODEL_SDKS
+    assert judgement.model_sdk_imports(model, {}) == []
+
+
+def test_model_sdks_configured(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/reader.py": "import housemodel\n\n\ndef read(source: str) -> str:\n    return source\n",
+            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+            "systemap.toml": '[facts]\nmodel_sdks = ["housemodel"]\n',
+        },
+    )
+    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "judgement"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        "model sdk: module pkg.reader imports housemodel and its component Reader is not an agent"
+        in out
+    )
+    (tmp_path / "systemap.toml").write_text("[facts]\nsdks = []\n")
+    assert main(["--root", str(tmp_path), "judgement"]) == 2
+    assert "facts has unknown key: sdks" in capsys.readouterr().err
+
+
 def test_run_orders_the_second_pass_before_ignores(sample: Sample) -> None:
     model, meaning = entry_model()
-    lines = judgement.run(model, meaning, entry_facts(), (Ignore("pkg.gone", "left"),))
+    facts = entry_facts()
+    facts["components"]["pkg.reader"]["external"] = ["openai"]
+    lines = judgement.run(model, meaning, facts, (Ignore("pkg.gone", "left"),))
     order = [
         k
-        for k in ("thin layer", "entry point", "crossing import", "ignored")
+        for k in ("thin layer", "entry point", "crossing import", "model sdk", "ignored")
         if any(line.startswith(k) for line in lines)
     ]
-    assert order == ["thin layer", "entry point", "crossing import", "ignored"]
+    assert order == ["thin layer", "entry point", "crossing import", "model sdk", "ignored"]

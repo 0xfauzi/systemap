@@ -57,8 +57,8 @@ this skill, not a formality after it.
 - A component is something a reader would point at and name. A module is
   not a part; a component usually holds several, and a module that does
   two things belongs with the one it is for. `implemented_by` names its
-  modules and `entry` one public function or class they define; both must
-  be in the facts. Kinds: `component`, `store`, `actor` (a person or system
+  modules and `entry` one public module-level name they define (a
+  function, a class, an object such as `app`); both must be in the facts. Kinds: `component`, `store`, `actor` (a person or system
   outside the code), and for agentic systems `agent`, `tool`, `context`.
 - A flow is one artifact moving from one component to another. Its kind is
   `data` (an artifact moves) or `control` (one part drives another), the

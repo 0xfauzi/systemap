@@ -1,10 +1,15 @@
 """Extract the derived tier of the system map from the working tree.
 
 Everything here is a fact read out of the code: module graph, public surface,
-owned types, refusals, module-level constants, the tests that guard each
-component, and the entry points a run of the system can start from. No
-prose is invented; what the system is MEANT to do lives in the consumer's
-model module, and the page styles the two differently on purpose.
+owned types, refusals, every public module-level name, the third-party
+imports, the tests that guard each component, and the entry points a run of
+the system can start from. No prose is invented; what the system is MEANT
+to do lives in the consumer's model module, and the page styles the two
+differently on purpose.
+
+Every field written is declared once, in `FIELDS`; the skill's schema
+reference is generated from that table and a test compares the two, so
+the facts file cannot carry a field the reader was not told about.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import tomllib
 from collections import defaultdict
 from pathlib import Path
@@ -25,6 +31,113 @@ from systemap.model import Model, module_matches
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
 TESTS_KEPT = 25
+CONSTANTS_KEPT = 14
+UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
+
+# Every field the extractor writes: (scope, field, what it holds). The
+# scopes are the file itself, each module record under `components`, and
+# each record under `entry_points`. `facts_doc` renders this table for the
+# skill's schema reference; the test compares the rendered text with the
+# shipped reference and the table with what `build` actually writes.
+FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("facts", "version", "the facts format; 1"),
+    ("facts", "built_at_commit", "the commit the tree was at, or empty outside git"),
+    ("facts", "packages", "the import names of the package roots"),
+    (
+        "facts",
+        "tests_dirs",
+        "the directories test files were read from, relative to the root: the "
+        "configured `tests_dir`, or every directory named `tests` or `test`",
+    ),
+    ("facts", "spec_sections", "the `##` headings of `spec_path`, each with `level` and `title`"),
+    ("facts", "entry_points", "where a run can start: one record per point, fields below"),
+    ("facts", "components", "one record per module, keyed by its dotted name, fields below"),
+    ("module", "id", "the dotted module name"),
+    ("module", "file", "the path relative to the root"),
+    ("module", "package", "the first segment of the name"),
+    ("module", "plane", "the second segment when `planes` names it, else `core`"),
+    ("module", "loc", "lines in the file"),
+    ("module", "sha", "twelve hex digits of the source's SHA-1: the change detector's key"),
+    ("module", "docstring", "the first paragraph of the module docstring, capped"),
+    (
+        "module",
+        "functions",
+        "public functions: `name`, `signature`, `doc` (the first docstring line)",
+    ),
+    (
+        "module",
+        "classes",
+        "public classes that are not errors: `name`, `doc`, `methods` (public method signatures)",
+    ),
+    ("module", "errors", "public classes named or based on Error or Exception, the same fields"),
+    ("module", "constants", "UPPER_CASE assignments: `name` and `value`, the first 14"),
+    (
+        "module",
+        "names",
+        "every public module-level name in source order, with its `kind`: `function`, "
+        "`class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, "
+        "such as `app` or `root_agent`); a component's `entry` may name any of them",
+    ),
+    (
+        "module",
+        "uses",
+        "the package's modules this one imports, each with the names taken from it, "
+        "or `*` for the whole module",
+    ),
+    ("module", "imports", "the keys of `uses`"),
+    ("module", "imported_by", "the package's modules that import this one"),
+    (
+        "module",
+        "external",
+        "third-party modules imported, as the dotted names written in the import "
+        "(`anthropic`, `google.adk`); the standard library and the package's own "
+        "modules are left out. The judgement's `model sdk` line reads it",
+    ),
+    ("module", "tests_total", "how many test functions import this module"),
+    ("module", "tests_primary", "how many of those sit in a file named after the module"),
+    ("module", "tests", "the names of up to 25 of those tests, primary first"),
+    (
+        "entry point",
+        "kind",
+        "`console_script`, `main_module`, `main_function`, `subcommand` or `public_function`",
+    ),
+    (
+        "entry point",
+        "name",
+        "the script name, the `python -m` line, `main`, the subcommand word, or the function name",
+    ),
+    ("entry point", "module", "the module that defines it"),
+    (
+        "entry point",
+        "target",
+        "the function a console script names, or the console script a subcommand "
+        "belongs to; else empty",
+    ),
+)
+
+SCOPE_TITLES = {
+    "facts": "The file",
+    "module": "Each module, under `components`",
+    "entry point": "Each entry point, under `entry_points`",
+}
+
+
+def fields_of(scope: str) -> set[str]:
+    return {name for sc, name, _ in FIELDS if sc == scope}
+
+
+def facts_doc() -> str:
+    """The facts section of the skill's schema reference, from `FIELDS`."""
+    out = [
+        "## The facts file",
+        "",
+        "`docs/map/map.json` by default, written by `systemap extract`. Every field,",
+        "from the extractor's own table (`systemap.extract.FIELDS`):",
+    ]
+    for scope, title in SCOPE_TITLES.items():
+        out += ["", f"**{title}**", ""]
+        out += [f"- `{name}`: {what}." for sc, name, what in FIELDS if sc == scope]
+    return "\n".join(out) + "\n"
 
 
 def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str:
@@ -100,10 +213,14 @@ def parse_surface(raw: str) -> dict[str, Any] | None:
     classes: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     constants: list[dict[str, str]] = []
+    # Every public module-level name with its kind, so an `entry` can be a
+    # lower-case object (`app`, `root_agent`) as well as a function or class.
+    names: list[dict[str, str]] = []
     for node in tree.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             if node.name.startswith("_"):
                 continue
+            names.append({"name": node.name, "kind": "function"})
             functions.append(
                 {
                     "name": node.name,
@@ -135,28 +252,32 @@ def parse_surface(raw: str) -> dict[str, Any] | None:
                 ],
             }
             (errors if is_error else classes).append(record)
+            names.append({"name": node.name, "kind": "error" if is_error else "class"})
         elif isinstance(node, ast.Assign | ast.AnnAssign):
-            # This repo declares measured caps as `NAME: Final = ...`, which is
-            # an AnnAssign; handling only Assign missed every tuning module.
+            # A measured cap declared as `NAME: Final = ...` is an AnnAssign;
+            # handling only Assign missed every tuning module.
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             for target in targets:
-                if not isinstance(target, ast.Name):
-                    continue
-                if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", target.id):
+                if not isinstance(target, ast.Name) or target.id.startswith("_"):
                     continue
                 if node.value is None:
+                    continue
+                if not UPPER_NAME.fullmatch(target.id):
+                    names.append({"name": target.id, "kind": "object"})
                     continue
                 try:
                     value = ast.unparse(node.value)
                 except (AttributeError, ValueError):
                     value = "?"
                 constants.append({"name": target.id, "value": value[:80]})
+                names.append({"name": target.id, "kind": "constant"})
     return {
         "docstring": opening(ast.get_docstring(tree)),
         "functions": functions,
         "classes": classes,
         "errors": errors,
         "constants": constants,
+        "names": names,
     }
 
 
@@ -176,7 +297,7 @@ def collect_module(path: Path, repo: Path) -> dict[str, Any] | None:
         # stay comparable across the flag.
         "sha": hashlib.sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()[:12],
         **surface,
-        "constants": surface["constants"][:14],
+        "constants": surface["constants"][:CONSTANTS_KEPT],
     }
 
 
@@ -260,6 +381,34 @@ def internal_uses(
     return dict(uses)
 
 
+def external_imports(raw: str, prefixes: set[str]) -> list[str]:
+    """The third-party modules one source imports, as the dotted names written.
+
+    The standard library, `__future__` and the package's own modules are
+    left out; relative imports are the package's own. The names are kept
+    dotted (`google.adk`, not `google`) because that is the level at which
+    a model SDK is told apart from its namespace.
+    """
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError):
+        return []
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            candidates = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+            candidates = [node.module]
+        else:
+            continue
+        for name in candidates:
+            top = name.split(".")[0]
+            if top in prefixes or top in sys.stdlib_module_names or top == "__future__":
+                continue
+            out.add(name)
+    return sorted(out)
+
+
 def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]:
     try:
         raw = path.read_text(encoding="utf-8")
@@ -282,16 +431,25 @@ def test_names(raw: str) -> list[str]:
 
 
 def collect_tests(
-    repo: Path, tests_dir: str, prefixes: set[str], known: set[str]
+    repo: Path, tests_dirs: tuple[str, ...], prefixes: set[str], known: set[str]
 ) -> dict[str, list[dict[str, Any]]]:
-    """module -> the behaviours asserted by tests that import it."""
+    """module -> the behaviours asserted by tests that import it.
+
+    `tests_dirs` are read in order; a file under two of them is read once.
+    """
     guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    test_dir = repo / tests_dir
-    if not tests_dir or not test_dir.is_dir():
-        return guards
-    for path in sorted(test_dir.rglob("test_*.py")):
-        if any(p in SKIP_PARTS for p in path.parts):
+    seen: set[Path] = set()
+    files: list[Path] = []
+    for rel in tests_dirs:
+        test_dir = repo / rel
+        if not rel or not test_dir.is_dir():
             continue
+        for path in sorted(test_dir.rglob("test_*.py")):
+            if path in seen or any(p in SKIP_PARTS for p in path.parts):
+                continue
+            seen.add(path)
+            files.append(path)
+    for path in files:
         try:
             raw = path.read_text(encoding="utf-8")
         except OSError:
@@ -472,6 +630,7 @@ def build(cfg: Config) -> dict[str, Any]:
             target: [WHOLE_MODULE] if WHOLE_MODULE in names else sorted(names)
             for target, names in sorted(uses.items())
         }
+        record["external"] = external_imports(raw, prefixes)
         imports[module] = set(uses)
         components[module] = record
 
@@ -483,7 +642,8 @@ def build(cfg: Config) -> dict[str, Any]:
         record["imports"] = sorted(imports.get(module, set()))
         record["imported_by"] = sorted(importers.get(module, set()))
 
-    guards = collect_tests(repo, cfg.tests_dir, prefixes, known)
+    tests_dirs = cfg.test_dirs
+    guards = collect_tests(repo, tests_dirs, prefixes, known)
     for module, record in components.items():
         seen: set[str] = set()
         unique: list[dict[str, Any]] = []
@@ -505,6 +665,7 @@ def build(cfg: Config) -> dict[str, Any]:
         "version": 1,
         "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
         "packages": sorted(prefixes),
+        "tests_dirs": list(tests_dirs),
         "spec_sections": spec_sections(repo, cfg.spec_path),
         "entry_points": entry_points(repo, prefixes, components, sources),
         "components": components,
@@ -591,10 +752,19 @@ def summary(facts: dict[str, Any]) -> list[str]:
     comps = facts["components"]
     guarded = sum(c["tests_total"] for c in comps.values())
     primary = sum(c["tests_primary"] for c in comps.values())
+    dirs: list[str] = list(facts.get("tests_dirs", []))
+    if guarded:
+        tests = f"{guarded} tests ({primary} primary)"
+    elif dirs:
+        # Zero is a finding, not a count: say where the extractor looked, so
+        # a tests directory it did not find is set in `tests_dir`.
+        tests = f"no tests import a module; searched {', '.join(dirs)}"
+    else:
+        tests = "no tests import a module; no directory named tests or test was found"
     return [
         f"modules: {len(comps)}",
         f"  public functions: {sum(len(c['functions']) for c in comps.values())}",
         f"  types:            {sum(len(c['classes']) for c in comps.values())}",
         f"  refusals:         {sum(len(c['errors']) for c in comps.values())}",
-        f"  guarded by:       {guarded} tests ({primary} primary)",
+        f"  guarded by:       {tests}",
     ]

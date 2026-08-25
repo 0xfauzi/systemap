@@ -14,7 +14,8 @@ A map has two hand-authored halves and one derived one:
                 its public surface, and the tests that import it
 
 The map draws what exists today. Every component names the modules that are
-it and one entry point those modules define; `systemap check` refuses a
+it and one entry point those modules define (any public module-level name:
+a function, a class, an object such as `app`); `systemap check` refuses a
 module or an entry the facts do not have, so a card on the page is always
 code in the tree. Nothing on the map is a plan; nothing is declared done.
 
@@ -546,18 +547,32 @@ def claimed(component: Component, modules: Iterable[str]) -> list[str]:
 BUILT = "built"
 
 
+def public_names(record: Mapping[str, Any]) -> set[str]:
+    """Every public module-level name one facts record declares.
+
+    The `names` list carries them all with their kinds (a function, a
+    class, an error, an UPPER_CASE constant, any other object such as
+    `app` or `root_agent`); a facts file from before it was recorded has
+    only functions and classes to offer.
+    """
+    names = record.get("names")
+    if names is not None:
+        return {n["name"] for n in names}
+    return {f["name"] for f in record.get("functions", [])} | {
+        c["name"] for c in record.get("classes", [])
+    }
+
+
 def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
     """Does one of the component's claimed modules define its entry?
 
     The entry rule of `systemap check` reads this; it is the one place the
     lookup is written, so a rule and a drawing cannot disagree about
-    whether a name exists.
+    whether a name exists. Any public module-level name counts.
     """
     components = facts.get("components", {})
     return any(
-        component.entry in [f["name"] for f in components[m]["functions"]]
-        or component.entry in [c["name"] for c in components[m]["classes"]]
-        for m in claimed(component, components)
+        component.entry in public_names(components[m]) for m in claimed(component, components)
     )
 
 

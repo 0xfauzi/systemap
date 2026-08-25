@@ -98,7 +98,7 @@ def test_entry_the_modules_do_not_define_fails(
     out = capsys.readouterr().out
     assert "entry: 1 problem" in out
     assert "Writer names entry publish which none of its modules defines (pkg.writer)" in out
-    assert "set entry to a public function or class one of them defines" in out
+    assert "set entry to a public name one of them defines" in out
 
 
 def test_missing_entry_with_modules_present_fails(
