@@ -95,3 +95,23 @@ def test_reach_figure(sample: Sample) -> None:
     assert "in the plan's reach" in html
     assert "IN REACH" in html
     assert "svg.systemap" in html
+
+
+def test_light_scheme_derives_from_the_same_palette() -> None:
+    _, meaning = sample_model()
+    dark = theme_mod.resolve({}, meaning.layers)
+    light = theme_mod.resolve({"scheme": "light"}, meaning.layers)
+    assert dark["bg"] == theme_mod.INK and dark["ink"] == theme_mod.PAPER
+    assert light["bg"] == theme_mod.PAPER and light["ink"] == theme_mod.INK
+    assert dark["accent"] == theme_mod.AMBER
+    assert dark["good"] == theme_mod.TEAL
+    assert dark["layers"][meaning.layers[0].id] == theme_mod.TEAL
+    # The same token names exist in both schemes, so an override written
+    # for one applies to the other.
+    assert set(dark) == set(light)
+    assert set(dark["state"]) == set(light["state"])
+    assert set(dark["container"]) == set(light["container"])
+    custom = theme_mod.resolve({"scheme": "light", "accent": "#ABCDEF"}, meaning.layers)
+    assert custom["accent"] == "#ABCDEF"
+    assert custom["bg"] == theme_mod.PAPER
+    assert "color-scheme:light" in theme_mod.css_vars(light)

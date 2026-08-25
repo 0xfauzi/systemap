@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="systemap mark: one lit component and the neighbours it reaches">
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="16" cy="16" r="1.4" fill="#2a3358"/>
+    </pattern>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="tip" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="tip-dim" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4b5578"/>
+    </marker>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0b1020"/>
+  <rect width="512" height="512" rx="96" fill="url(#grid)"/>
+
+  <!-- routes from the lit component to what it reaches -->
+  <g fill="none" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M256,342 H412 V359" stroke="#4b5578" stroke-dasharray="10 12" marker-end="url(#tip-dim)"/>
+    <path d="M256,220 V170 H100 V153" stroke="#2dd4bf" marker-end="url(#tip)"/>
+    <path d="M256,220 V170 H412 V153" stroke="#2dd4bf" marker-end="url(#tip)"/>
+    <path d="M256,292 V342 H100 V359" stroke="#2dd4bf" marker-end="url(#tip)"/>
+  </g>
+
+  <!-- neighbours on this layer -->
+  <g stroke-width="4">
+    <rect x="40" y="80" width="120" height="72" rx="16" fill="#101a3a" stroke="#2dd4bf"/>
+    <rect x="352" y="80" width="120" height="72" rx="16" fill="#101a3a" stroke="#2dd4bf"/>
+    <rect x="40" y="360" width="120" height="72" rx="16" fill="#101a3a" stroke="#2dd4bf"/>
+    <!-- a neighbour on another layer: present, not lit -->
+    <rect x="352" y="360" width="120" height="72" rx="16" fill="#0f1530" stroke="#4b5578"/>
+  </g>
+  <g fill="#2dd4bf">
+    <rect x="66" y="108" width="68" height="8" rx="4"/>
+    <rect x="378" y="108" width="68" height="8" rx="4"/>
+    <rect x="66" y="388" width="68" height="8" rx="4"/>
+  </g>
+  <rect x="378" y="388" width="68" height="8" rx="4" fill="#4b5578"/>
+
+  <!-- the component the reader clicked -->
+  <rect x="196" y="220" width="120" height="72" rx="16" fill="#f5a524" filter="url(#glow)"/>
+  <rect x="196" y="220" width="120" height="72" rx="16" fill="#f5a524" stroke="#ffd58a" stroke-width="4"/>
+  <rect x="222" y="248" width="68" height="10" rx="5" fill="#0b1020"/>
+</svg>

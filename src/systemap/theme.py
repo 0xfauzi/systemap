@@ -1,9 +1,22 @@
 """The map's look, as one table of tokens.
 
 Everything visual lives here so the scene, the panel and the page cannot
-disagree about a colour. The default is a neutral dark scheme with one
-accent; a consumer overrides any token from the `[theme]` table of its
-configuration and the result is merged over this table.
+disagree about a colour. The default is systemap's own palette, the one the
+logo and the README use, so the page and the brand agree:
+
+    ink #0b1020 ...... the ground
+    panel #101a3a .... surfaces
+    slate #4b5578 .... what is present but not lit
+    muted #aab3d1 .... secondary text
+    paper #f4f1ea .... text
+    amber #f5a524 .... the component the reader clicked (accent)
+    teal #2dd4bf ..... what it reaches: lit routes, built parts, reach
+
+Two schemes share the palette. `dark` puts paper on ink; `light` puts ink
+on paper, with the same amber and teal. A consumer picks one with
+`scheme = "light"` under `[theme]` and overrides any token from there; the
+result is merged over the scheme's table, so every token name stays the
+same in both.
 
 Colour carries meaning or is absent:
 
@@ -33,67 +46,141 @@ SANS = (
 )
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
-# Eight hues that read apart from each other on a near-black ground and stay
-# quieter than the accent. A map with more layers than this wraps around.
+INK = "#0b1020"
+PANEL = "#101a3a"
+SLATE = "#4b5578"
+MUTED = "#aab3d1"
+PAPER = "#f4f1ea"
+AMBER = "#f5a524"
+TEAL = "#2dd4bf"
+
+# Eight hues that read apart from each other on the ink ground and stay
+# quieter than the accent. Teal leads, so the first layer's routes are the
+# ones the logo lights. A map with more layers than this wraps around.
 LAYER_PALETTE: list[str] = [
-    "#D9D2C0",
+    TEAL,
     "#82A7BA",
     "#E39A86",
     "#DD9BBD",
     "#B48EC9",
-    "#86C9A9",
+    "#D9D2C0",
     "#B7C27C",
     "#E3B778",
 ]
 
-DEFAULT: dict[str, Any] = {
-    "name": "default",
+# The same eight for a paper ground. Pure amber and teal read at under 2:1
+# on paper, so the light scheme darkens both until they clear 4.5:1 as text
+# (measured: #936316 at 4.61, #1a7b6f at 4.53) and keeps their hue.
+LAYER_PALETTE_LIGHT: list[str] = [
+    "#1a7b6f",
+    "#3D7A94",
+    "#C2543A",
+    "#B0508E",
+    "#7B4FA3",
+    "#8A7F5C",
+    "#6F7E2A",
+    "#B8792E",
+]
+
+DARK: dict[str, Any] = {
+    "name": "systemap",
     "scheme": "dark",
-    "bg": "#131416",
-    "surface": "#1A1C1F",
-    "raised": "#232629",
-    "line": "#2B2F34",
-    "line_2": "#454B53",
-    "ink": "#E8EAED",
-    "ink_2": "#B9BEC6",
-    "ink_3": "#8A9099",
-    "accent": "#5DADE2",
-    "accent_soft": "#5DADE22E",
-    "steel": "#9AA5B1",
-    "good": "#7DC383",
+    "bg": INK,
+    "surface": PANEL,
+    "raised": "#182452",
+    "line": "#1c2650",
+    "line_2": "#2e3a66",
+    "ink": PAPER,
+    "ink_2": MUTED,
+    "ink_3": "#7f8ab0",
+    "accent": AMBER,
+    "accent_soft": "#f5a5242E",
+    "steel": MUTED,
+    "good": TEAL,
     "warn": "#E0B23C",
     "bad": "#E06C5F",
     "violet": "#B39DDB",
     # Build state is one ordinal scale: fill and stroke per step, then the
     # word the legend prints.
     "state": {
-        "built": ["#232629", "#7E858F", "built"],
-        "partial": ["#262620", "#E0B23C", "part built"],
-        "planned": ["#17181A", "#454B53", "planned"],
+        "built": [PANEL, "#8a95bd", "built"],
+        "partial": ["#1a1f36", "#E0B23C", "part built"],
+        "planned": ["#0d1430", SLATE, "planned"],
     },
-    "ghost": ["#17181A", "#2B2F34"],
+    "ghost": ["#0d1430", "#1c2650"],
     # Hard boundaries: (stroke, fill) per tone.
     "container": {
-        "host": ["#454B53", "#17181A"],
-        "client": ["#454B53", "#17181A"],
-        "server": ["#3A3F46", "#181A1D"],
-        "isolated": ["#6B4F45", "#1B1817"],
+        "host": ["#2e3a66", "#0d1430"],
+        "client": ["#2e3a66", "#0d1430"],
+        "server": ["#26305a", "#0e1533"],
+        "isolated": ["#6B4F45", "#161426"],
     },
-    "region": "#8A9099",
+    "region": "#7f8ab0",
     "change": "#E06C5F",
-    "reach": "#5DADE2",
-    "flow": "#5C636B",
+    "reach": TEAL,
+    "flow": SLATE,
     "layer_palette": LAYER_PALETTE,
     "layers": {},
     "delta": {
         "operations": "#82A7BA",
-        "types": "#7DC383",
+        "types": TEAL,
         "refusals": "#E06C5F",
-        "tests": "#5DADE2",
+        "tests": AMBER,
     },
     "font_ui": SANS,
     "font_mono": MONO,
 }
+
+LIGHT: dict[str, Any] = {
+    "name": "systemap",
+    "scheme": "light",
+    "bg": PAPER,
+    "surface": "#fbf9f4",
+    "raised": "#ece8dc",
+    "line": "#dcd7c8",
+    "line_2": "#bfb9a8",
+    "ink": INK,
+    "ink_2": "#3a4265",
+    "ink_3": "#6b7394",
+    "accent": "#936316",
+    "accent_soft": "#f5a5242E",
+    "steel": "#6b7394",
+    "good": "#1a7b6f",
+    "warn": "#B07D0A",
+    "bad": "#C0392B",
+    "violet": "#7B4FA3",
+    "state": {
+        "built": ["#ffffff", "#6b7394", "built"],
+        "partial": ["#fff7e2", "#B07D0A", "part built"],
+        "planned": ["#f1eee6", "#bfb9a8", "planned"],
+    },
+    "ghost": ["#f1eee6", "#dcd7c8"],
+    "container": {
+        "host": ["#bfb9a8", "#f7f4ec"],
+        "client": ["#bfb9a8", "#f7f4ec"],
+        "server": ["#c9c3b1", "#f9f6ef"],
+        "isolated": ["#b08a7c", "#f8f1ee"],
+    },
+    "region": "#6b7394",
+    "change": "#C0392B",
+    "reach": "#1a7b6f",
+    "flow": "#8b93b3",
+    "layer_palette": LAYER_PALETTE_LIGHT,
+    "layers": {},
+    "delta": {
+        "operations": "#3D7A94",
+        "types": "#1a7b6f",
+        "refusals": "#C0392B",
+        "tests": "#936316",
+    },
+    "font_ui": SANS,
+    "font_mono": MONO,
+}
+
+SCHEMES: dict[str, dict[str, Any]] = {"dark": DARK, "light": LIGHT}
+
+# The scheme a consumer gets when it names none.
+DEFAULT: dict[str, Any] = DARK
 
 
 def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -107,13 +194,27 @@ def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def base_for(tokens: dict[str, Any]) -> dict[str, Any]:
+    """The scheme table the consumer's tokens are laid over.
+
+    `scheme = "light"` picks the paper scheme; anything else, or nothing,
+    picks the ink scheme. An unknown scheme word is not refused here: the
+    page's `color-scheme` carries it through, and the tokens fall back to
+    the ink scheme, so an older configuration keeps rendering.
+    """
+    scheme = tokens.get("scheme")
+    if isinstance(scheme, str) and scheme in SCHEMES:
+        return SCHEMES[scheme]
+    return DEFAULT
+
+
 def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
     """The theme with a colour for every layer of the map, in layer order.
 
     A layer named in the `layers` table keeps its colour; the rest take the
     palette in order. The result is what the drawing reads.
     """
-    t = merge(DEFAULT, tokens)
+    t = merge(base_for(tokens), tokens)
     named: dict[str, str] = dict(t.get("layers") or {})
     palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE)
     resolved: dict[str, str] = {}
