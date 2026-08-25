@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import Sample, sample_model, write_tree
+from conftest import PKG_IGNORE, TWO_CARD_MODEL, Sample, sample_model, write_tree
 
 from systemap import check, page
 from systemap import theme as theme_mod
@@ -204,9 +204,13 @@ def test_standard_kinds_need_no_declaration(tmp_path: Path) -> None:
     )
     assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
     text = (tmp_path / "map/model.py").read_text()
-    assert 'Flow("Reader", "Writer", "request", "data")' in text
+    assert "COMPONENTS: tuple[Component, ...] = ()" in text
     assert "FLOW_KINDS = ()" in text
     assert "LAYERS = ()" in text
+    assert 'Flow("Reader", "Writer", "request", "data")' in TWO_CARD_MODEL
+    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
+    toml = tmp_path / "systemap.toml"
+    toml.write_text(toml.read_text() + PKG_IGNORE)
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
     html = (tmp_path / "docs/map/index.html").read_text()

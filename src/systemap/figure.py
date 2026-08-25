@@ -172,7 +172,7 @@ def figure(
         f'<figcaption style="margin-top:.7em;font-size:.82rem;line-height:1.5;'
         f'color:{t["ink_3"]}">{caption}</figcaption>'
         f"{script}"
-        f"</figure>"
+        f"</figure>\n"
     )
 
 

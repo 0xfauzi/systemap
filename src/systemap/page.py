@@ -297,7 +297,7 @@ def build(
         o.append(interactive_script(T, "changemap", "panel", change_detail))
     o.append(f"<script>{JS}</script>")
     o.append("</body></html>")
-    return "\n".join(o)
+    return "\n".join(o) + "\n"
 
 
 CSS = """

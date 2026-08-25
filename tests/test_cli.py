@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from conftest import TINY_PACKAGE, write_tree
+from conftest import PKG_IGNORE, TINY_PACKAGE, TWO_CARD_MODEL, init_two_cards, write_tree
 
-from systemap.cli import main
+from systemap import __version__
+from systemap.cli import NO_COMPONENTS, main
 
 STARTER_MODULES = {
     "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
@@ -26,13 +27,27 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         "docs/map/.gitkeep",
         ".github/workflows/systemap.yml",
         ".claude/skills/systemap/SKILL.md",
+        ".claude/skills/systemap/references/schema.md",
     ):
         assert (tmp_path / rel).is_file(), rel
     assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text()
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/systemap/SKILL.md" in out
+    assert "wrote .claude/skills/systemap/ (SKILL.md and 6 references)" in out
+    assert "SKILL.md\n" not in out.replace("(SKILL.md and 6 references)\n", "")
     assert out.rstrip().endswith("Map this repository with systemap. Follow the systemap skill.")
 
+    # The starter model is empty: the check has one line to say, and says only that.
+    assert run("--root", str(tmp_path), "check") == 1
+    assert capsys.readouterr().out == NO_COMPONENTS + "\n"
+    assert run("--root", str(tmp_path), "refresh") == 1
+    assert capsys.readouterr().out == NO_COMPONENTS + "\n"
+    assert run("--root", str(tmp_path), "judgement") == 0
+    assert capsys.readouterr().out == NO_COMPONENTS + "\n"
+
+    # The agent writes two cards; from here the loop runs.
+    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
+    toml = tmp_path / "systemap.toml"
+    toml.write_text(toml.read_text() + PKG_IGNORE)
     # Nothing built yet: extract --check and render are stale, with the fix named.
     assert run("--root", str(tmp_path), "extract", "--check") == 1
     assert "run: systemap extract" in capsys.readouterr().out
@@ -47,16 +62,18 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     out = capsys.readouterr().out
     assert "map layout: clean" in out
     assert "docs/map/index.html has not been rendered" in out
-    assert "docs/map/system.html has not been rendered" in out
+    assert "docs/map/figures/structure.svg has not been rendered" in out
+    assert "docs/map/figures/system.svg has not been rendered" in out
     assert out.rstrip().endswith("run: systemap refresh")
     assert run("--root", str(tmp_path), "render") == 0
     page = (tmp_path / "docs/map/index.html").read_text()
     assert "<title>demo system map</title>" in page
     assert run("--root", str(tmp_path), "render", "--check") == 0
 
-    # The first refresh draws the configured figure; the second has nothing to do.
+    # The first refresh draws the configured figures; the second has nothing to do.
     assert run("--root", str(tmp_path), "refresh") == 0
-    assert (tmp_path / "docs/map/system.html").is_file()
+    assert (tmp_path / "docs/map/figures/structure.svg").is_file()
+    assert (tmp_path / "docs/map/figures/system.svg").is_file()
     assert "map: updated" in capsys.readouterr().out
     assert run("--root", str(tmp_path), "check") == 0
     assert run("--root", str(tmp_path), "refresh") == 0
@@ -64,6 +81,47 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     # Init never overwrites what exists.
     assert run("--root", str(tmp_path), "init") == 0
     assert "kept systemap.toml" in capsys.readouterr().out
+
+
+def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> None:
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    assert run("--root", str(tmp_path), "init") == 0
+    model = (tmp_path / "map/model.py").read_text()
+    assert model.startswith("# ruff: noqa: E501\n# The map is prose held in strings")
+    assert "COMPONENTS: tuple[Component, ...] = ()" in model
+    assert "FLOWS: tuple[Flow, ...] = ()" in model
+    assert "mypackage" not in model
+    toml = (tmp_path / "systemap.toml").read_text()
+    assert "\nignore = [" not in toml, "the starter carries no ignore"
+    assert '[package_roots]\n"pkg" = "pkg"' in toml
+    assert 'out = "figures/structure.svg"' in toml and 'layer = "structure"' in toml
+    assert 'out = "figures/system.svg"' in toml
+    assert "system.html" not in toml
+    workflow = (tmp_path / ".github/workflows/systemap.yml").read_text()
+    pin = f'uvx --from "systemap=={__version__}" systemap'
+    for command in ("extract --check", "check", "render --check"):
+        assert f"{pin} {command}" in workflow, command
+    assert "uv sync" not in workflow and "uv run" not in workflow
+    assert "needs no dependency on it" in workflow
+
+
+def test_rendered_files_end_with_a_newline(tmp_path: Path) -> None:
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    init_two_cards(tmp_path, "--no-ci")
+    assert run("--root", str(tmp_path), "refresh") == 0
+    for rel in (
+        "docs/map/index.html",
+        "docs/map/figures/structure.svg",
+        "docs/map/figures/system.svg",
+    ):
+        assert (tmp_path / rel).read_text().endswith("\n"), rel
+    out = tmp_path / "fig.html"
+    assert run("--root", str(tmp_path), "figure", "--interactive", "--out", str(out)) == 0
+    assert out.read_text().endswith("</figure>\n")
+    (tmp_path / "docs/map/index.html").write_text(
+        model_free := (tmp_path / "docs/map/index.html").read_text().rstrip("\n")
+    )
+    assert model_free and run("--root", str(tmp_path), "render", "--check") == 1
 
 
 def test_init_no_ci_skips_the_workflow(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -77,7 +135,7 @@ def test_init_no_ci_skips_the_workflow(tmp_path: Path, capsys: pytest.CaptureFix
 
 def test_stale_after_code_change(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init") == 0
+    init_two_cards(tmp_path)
     assert run("--root", str(tmp_path), "refresh") == 0
     (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n")
     assert run("--root", str(tmp_path), "extract", "--check") == 1
@@ -117,7 +175,7 @@ def test_check_fails_on_overlapping_fixture(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init") == 0
+    init_two_cards(tmp_path)
     model = tmp_path / "map/model.py"
     model.write_text(model.read_text().replace('x=COL["c2"]', 'x=COL["c1"]'))
     assert run("--root", str(tmp_path), "check") == 1
@@ -129,7 +187,7 @@ def test_check_fails_on_overlapping_fixture(
 
 def test_figure_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init") == 0
+    init_two_cards(tmp_path)
     assert run("--root", str(tmp_path), "extract") == 0
     out = tmp_path / "fig.html"
     assert run("--root", str(tmp_path), "figure", "--static", "--out", str(out)) == 0

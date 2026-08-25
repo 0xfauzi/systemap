@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import Sample, write_tree
+from conftest import PKG_IGNORE, TWO_CARD_MODEL, Sample, init_two_cards, write_tree
 
 from systemap import check, route
 from systemap.cli import main
@@ -30,7 +30,7 @@ def run(*argv: str) -> int:
 
 def current(root: Path) -> None:
     write_tree(root, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(root), "init", "--no-ci") == 0
+    init_two_cards(root, "--no-ci")
     assert run("--root", str(root), "refresh") == 0
     assert run("--root", str(root), "check") == 0
 
@@ -145,7 +145,8 @@ def test_stale_page_after_a_model_change(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "docs/map/index.html differs from what systemap renders" in out
-    assert "docs/map/system.html differs from what systemap renders" in out
+    assert "docs/map/figures/structure.svg differs from what systemap renders" in out
+    assert "docs/map/figures/system.svg differs from what systemap renders" in out
     assert "facts:" not in out, "the tree did not change, only the model"
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
@@ -156,21 +157,23 @@ def test_stale_figure_when_missing_or_edited(
 ) -> None:
     current(tmp_path)
     capsys.readouterr()
-    fig = tmp_path / "docs/map/system.html"
+    fig = tmp_path / "docs/map/figures/system.svg"
     fig.unlink()
     assert run("--root", str(tmp_path), "check") == 1
-    assert "docs/map/system.html has not been rendered" in capsys.readouterr().out
+    assert "docs/map/figures/system.svg has not been rendered" in capsys.readouterr().out
     assert run("--root", str(tmp_path), "refresh") == 0
     fig.write_text(fig.read_text() + "<!-- by hand -->")
     assert run("--root", str(tmp_path), "check") == 1
-    assert "docs/map/system.html differs from what systemap renders" in capsys.readouterr().out
+    assert "docs/map/figures/system.svg differs from what systemap renders" in (
+        capsys.readouterr().out
+    )
 
 
 def test_stale_with_no_facts_names_extract(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
+    init_two_cards(tmp_path, "--no-ci")
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "no facts have been built yet" in out
@@ -184,14 +187,7 @@ def test_svg_figure_is_the_bare_drawing_on_its_ground(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
-    toml = tmp_path / "systemap.toml"
-    toml.write_text(
-        toml.read_text().replace(
-            'out = "system.html"\nmode = "system"\ninteractive = true',
-            'out = "figures/system.svg"\nmode = "system"\ninteractive = false',
-        )
-    )
+    init_two_cards(tmp_path, "--no-ci")
     assert run("--root", str(tmp_path), "refresh") == 0
     svg = (tmp_path / "docs/map/figures/system.svg").read_text()
     assert svg.startswith('<svg id="lessonmap"')
@@ -358,6 +354,9 @@ def test_root_is_accepted_after_the_subcommand(
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("init", "--root", str(tmp_path), "--no-ci") == 0
     assert (tmp_path / "systemap.toml").is_file()
+    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
+    toml = tmp_path / "systemap.toml"
+    toml.write_text(toml.read_text() + PKG_IGNORE)
     assert run("extract", "--root", str(tmp_path)) == 0
     assert run("refresh", "--root", str(tmp_path)) == 0
     assert run("check", "--root", str(tmp_path)) == 0

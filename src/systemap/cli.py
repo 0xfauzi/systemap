@@ -86,7 +86,11 @@ def cmd_init(args: argparse.Namespace) -> int:
     name = args.name or config.default_name(root)
     say(*scaffold.write(root, name, package, roots, ci=not args.no_ci))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
-    say(f"wrote {skill_path.relative_to(root)}")
+    references = len(skill.files()) - 1
+    say(
+        f"wrote {skill_path.parent.relative_to(root)}/ "
+        f"({skill.FILE_NAME} and {references} references)"
+    )
     say("next: give your coding agent this sentence:", f"  {AGENT_SENTENCE}")
     return OK
 
@@ -189,6 +193,17 @@ def cmd_render(args: argparse.Namespace) -> int:
 # ---- check -----------------------------------------------------------------
 
 
+NO_COMPONENTS = "the model has no components yet; see the skill"
+
+
+def _empty(p: Project) -> bool:
+    """An empty model has one thing to say, and nothing else can be judged."""
+    if p.model.components:
+        return False
+    say(NO_COMPONENTS)
+    return True
+
+
 def _fix_line(p: Project, result: check.Result) -> str:
     """The one line naming what to do first about a failed check.
 
@@ -213,6 +228,8 @@ def _fix_line(p: Project, result: check.Result) -> str:
 def cmd_check(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
+    if _empty(p):
+        return STALE
     facts = extract.read_facts(p.cfg.facts_path)
     result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.coverage_ignore)
     result = check.with_stale(result, check.stale(p.cfg, p.model, p.meaning, p.theme))
@@ -283,6 +300,8 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             say(line)
 
     _require_roots(p)
+    if _empty(p):
+        return STALE
     fresh = extract.build(p.cfg)
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
@@ -340,6 +359,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     stale so it can be removed.
     """
     p = _project(args)
+    if _empty(p):
+        return OK
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")

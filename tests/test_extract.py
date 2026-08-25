@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import TINY_PACKAGE, write_tree
+from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
 from systemap import config, extract, skill
 from systemap.cli import main
@@ -220,7 +220,7 @@ def test_extract_records_every_public_name_with_its_kind_and_the_external_import
 def test_entry_may_be_any_public_name(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """A lower-case module-level object such as `app` is an entry the check accepts."""
     write_tree(tmp_path, NAMES_TREE)
-    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
+    init_two_cards(tmp_path, "--no-ci")
     model = tmp_path / "map/model.py"
     model.write_text(
         model.read_text()

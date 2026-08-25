@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from conftest import write_tree
+from conftest import init_two_cards, write_tree
 
 from systemap.cli import main
 
@@ -27,7 +27,7 @@ def run(*argv: str) -> int:
 def scaffold(root: Path) -> None:
     """init and one refresh, so the map is current before a case breaks it."""
     write_tree(root, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(root), "init") == 0
+    init_two_cards(root)
     assert run("--root", str(root), "refresh") == 0
 
 
@@ -148,7 +148,7 @@ def test_stale_ignore_is_reported(tmp_path: Path, capsys: pytest.CaptureFixture[
 
 def test_no_facts_fails_closed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init") == 0
+    init_two_cards(tmp_path)
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "coverage: not checked, there are no facts; run: systemap extract" in out

@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 import pytest
-from conftest import Sample, write_tree
+from conftest import Sample, init_two_cards, write_tree
 
 from systemap import figure, page
 from systemap.cli import main
@@ -125,7 +125,7 @@ def test_unknown_layer_exits_2_with_the_fix_named(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
+    init_two_cards(tmp_path, "--no-ci")
     assert run("--root", str(tmp_path), "extract") == 0
     out = tmp_path / "fig.svg"
     assert (
@@ -150,12 +150,11 @@ def test_configured_layer_figures_are_refreshed_and_checked(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
-    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
+    init_two_cards(tmp_path, "--no-ci")
     toml = tmp_path / "systemap.toml"
+    # init configures figures/structure.svg already; a data reading joins it.
     toml.write_text(
-        toml.read_text() + '\n[[figures]]\nout = "figures/structure.svg"\nmode = "system"\n'
-        'interactive = false\nlayer = "structure"\n'
-        '\n[[figures]]\nout = "figures/data.svg"\nmode = "system"\n'
+        toml.read_text() + '\n[[figures]]\nout = "figures/data.svg"\nmode = "system"\n'
         'interactive = false\nlayer = "data"\n'
     )
     assert run("--root", str(tmp_path), "refresh") == 0

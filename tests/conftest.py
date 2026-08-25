@@ -9,6 +9,7 @@ import pytest
 
 from systemap import extract
 from systemap import theme as theme_mod
+from systemap.cli import main
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
@@ -301,3 +302,140 @@ def sample(tmp_path: Path) -> Sample:
     model, meaning = sample_model()
     facts = extract.build(cfg)
     return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)
+
+
+# ---- the two-card model: what a first draft of a two-file package looks like ------
+# `systemap init` writes an empty model; the tests that need a map that passes
+# the check write this one over it, with the ignore for the package root.
+
+STARTER_MODULES = {
+    "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
+    "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+}
+
+TWO_CARD_MODEL = '''# ruff: noqa: E501
+"""The system map of pkg."""
+
+from __future__ import annotations
+
+from systemap import (
+    Component,
+    Container,
+    Flow,
+    Invariant,
+    Journey,
+    Meaning,
+    Model,
+    Region,
+    Step,
+)
+
+COL = {"c1": 80, "c2": 370}
+ROW = {"r1": 130}
+
+CONTAINERS = (
+    Container(
+        id="system",
+        label="PKG",
+        sub="one process; replace this line with what the boundary means",
+        box=(16, 16, 568, 268),
+        tone="server",
+    ),
+)
+
+REGIONS = (Region(id="core", label="CORE", box=(40, 60, 520, 200), container="system"),)
+
+COMPONENTS = (
+    Component(
+        id="Reader",
+        region="core",
+        does="Reads the input and turns it into a request.",
+        interface="read(source) -> Request",
+        implemented_by=("pkg.reader",),
+        entry="read",
+        x=COL["c1"],
+        y=ROW["r1"],
+    ),
+    Component(
+        id="Writer",
+        region="core",
+        does="Takes a request and writes the result.",
+        interface="write(request) -> Result",
+        implemented_by=("pkg.writer",),
+        entry="write",
+        x=COL["c2"],
+        y=ROW["r1"],
+    ),
+)
+
+FLOWS = (Flow("Reader", "Writer", "request", "data"),)
+
+FLOW_KINDS = ()
+
+INVARIANTS = (
+    Invariant(1, "The writer never reads the input itself.", governs=("Writer",)),
+)
+
+MODEL = Model(
+    canvas=(600, 300),
+    containers=CONTAINERS,
+    regions=REGIONS,
+    components=COMPONENTS,
+    flows=FLOWS,
+    flow_kinds=FLOW_KINDS,
+    invariants=INVARIANTS,
+)
+
+PLAIN = {
+    "Reader": "the part that reads",
+    "Writer": "the part that writes",
+}
+
+LAYERS = ()
+
+LAYER_OF_KIND = {}
+
+RELATIONS = {
+    ("Reader", "Writer"): "The reader hands the writer one request at a time; the writer never goes back to the source.",
+}
+
+VERBS = {"data": ("hands to", "receives from")}
+
+JOURNEYS = (
+    Journey(
+        id="input-to-output",
+        label="An input becomes an output",
+        steps=(
+            Step(
+                acts=("Reader",),
+                measures=(),
+                edge=("Reader", "Writer"),
+                say="The reader parses the input and hands the writer a request; nothing measures this step yet.",
+            ),
+        ),
+    ),
+)
+
+MEANING = Meaning(
+    plain=PLAIN,
+    layers=LAYERS,
+    layer_of_kind=LAYER_OF_KIND,
+    relations=RELATIONS,
+    journeys=JOURNEYS,
+    verbs=VERBS,
+)
+'''
+
+PKG_IGNORE = (
+    "\n[coverage]\nignore = [\n"
+    '    { module = "pkg", reason = "the package root only marks the directory as a package" },\n'
+    "]\n"
+)
+
+
+def init_two_cards(root: Path, *argv: str) -> None:
+    """init, then the two-card model over the empty starter, and the ignore for pkg."""
+    assert main(["--root", str(root), "init", *argv]) == 0
+    (root / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
+    toml = root / "systemap.toml"
+    toml.write_text(toml.read_text(encoding="utf-8") + PKG_IGNORE, encoding="utf-8")

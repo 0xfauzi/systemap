@@ -1,28 +1,36 @@
 """What `systemap init` writes: a configuration, a starter model, a workflow.
 
-The starter model is the smallest map that passes every check: one
-container, one region inside it, two components and one data flow between
-them, no layer of its own (the standard layers are derived), one journey
-of one step and one invariant. An agent following
-the skill (installed by the same command, see skill.py) replaces the words
-and adds cards from there; a person may do the same by hand.
+The starter model is empty on purpose: one container and one region to
+place cards in, no components, no flows. A placeholder card would be a
+lie the first check had to catch; instead the check says the model has
+no components yet and points at the skill, and the agent following it
+(installed by the same command, see skill.py) writes the real cards from
+the facts.
 
-The workflow runs the check on every push and pull request. It is written
-by default and skipped with `--no-ci`, since not every repository runs on
-the one forge the workflow is written for.
+The workflow runs the check on every push and pull request with the
+released package (`uvx --from "systemap==<this version>"`), so the
+project needs no dependency on systemap; it does need the package on
+PyPI. It is written by default and skipped with `--no-ci`, since not
+every repository runs on the one forge the workflow is written for.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from systemap import __version__
+
 CONFIG = """# systemap configuration. Every key is optional; these are the defaults
-# except name, which defaults to the directory's name.
+# except name, which defaults to [project] name in pyproject.toml, then
+# the git repository's directory, then this directory's name.
 name = "{name}"
 # Where the packages are: "path" = "import name". Leave it out to discover
-# every top-level directory (or src/<dir>) that holds an __init__.py.
+# every top-level directory (or src/<dir>) that holds an __init__.py, in
+# the root and in every [tool.uv.workspace] member.
 {roots}
-tests_dir = "tests"
+# Where test files live: one directory or a list. Leave it out to read every
+# directory named tests or test under the root.
+# tests_dir = ["tests"]
 model = "map/model.py"
 out_dir = "docs/map"
 # spec_path = "docs/design.md"
@@ -30,30 +38,44 @@ out_dir = "docs/map"
 # `systemap check` refuses a map that leaves a module unclaimed. A module
 # that has no place on the map is ignored here, and every ignore needs a
 # reason, so the hole is on record rather than hidden.
-[coverage]
-ignore = [
-    {{ module = "{package}", reason = "the package root only marks the directory as a package" }},
-]
+# [coverage]
+# ignore = [{{ module = "{package}.compat", reason = "a shim with no place on the map" }}]
+
+# `systemap judgement` lines the maintainer has answered, each with why; an
+# answered line is suppressed and counted, a stale one is reported.
+# [judgement]
+# answered = [{{ item = "single module: Reader is only {package}.reader", reason = "a real part" }}]
 
 # Figures `systemap refresh` regenerates beside the page. mode is "system"
 # (nothing marked) or "reach" (the named components marked as a plan's reach);
 # layer = "structure" (or "system", "data", "control", a layer of your own)
-# draws one reading only, with every card and none of the other edges.
+# draws one reading only, with every card and none of the other edges. An
+# out ending in .svg is the bare drawing, for a README or a document.
 [[figures]]
-out = "system.html"
+out = "figures/structure.svg"
 mode = "system"
-interactive = true
+interactive = false
+layer = "structure"
+
+[[figures]]
+out = "figures/system.svg"
+mode = "system"
+interactive = false
 
 # [theme]
 # accent = "#5DADE2"
 """
 
-MODEL = '''"""The system map of {name}: what the parts are and what they are to each other.
+MODEL = '''# ruff: noqa: E501
+# The map is prose held in strings: a sentence per flow, a step per journey,
+# a rule per invariant. A sentence is not wrapped, so the line-length rule
+# does not apply to this file.
+"""The system map of {name}: what the parts are and what they are to each other.
 
-Everything in this file is written by a person on purpose. The facts about
-the code (which modules exist, what they export, which tests import them)
-are read by `systemap extract`; this file says what the system is MEANT to
-be, and the map draws the two together. The map draws what exists today: a
+Everything in this file is written on purpose. The facts about the code
+(which modules exist, what they export, which tests import them) are read
+by `systemap extract`; this file says what the system is MEANT to be, and
+the map draws the two together. The map draws what exists today: a
 component names the modules that are it and one entry they define, and
 `systemap check` refuses a name the code does not have.
 
@@ -61,6 +83,9 @@ Positions are hand-placed on a grid because this is a topology, not a chart:
 a card's place carries meaning. `systemap check` verifies every card sits in
 its band, no two overlap, every flow has a layer and a sentence, and every
 route and label is clean.
+
+This file starts empty: one container and one region to place cards in,
+no components. The skill says how to write the cards from the facts.
 """
 
 from __future__ import annotations
@@ -79,57 +104,49 @@ from systemap import (
 
 # The grid: card columns 190 apart (150 card, 40 gutter), rows 92 apart
 # (56 card, 36 gutter). Cards on the grid leave straight corridors for edges.
-COL = {{"c1": 80, "c2": 370}}
-ROW = {{"r1": 130}}
+COL = {{"c1": 80, "c2": 270, "c3": 460}}
+ROW = {{"r1": 130, "r2": 222}}
 
 CONTAINERS = (
     Container(
         id="system",
         label="{upper}",
-        sub="one process; replace this line with what the boundary means",
-        box=(16, 16, 568, 268),
+        sub="one process; say what the boundary means",
+        box=(16, 16, 660, 360),
         tone="server",
     ),
 )
 
-REGIONS = (Region(id="core", label="CORE", box=(40, 60, 520, 200), container="system"),)
+REGIONS = (Region(id="core", label="CORE", box=(40, 60, 612, 292), container="system"),)
 
-COMPONENTS = (
-    Component(
-        id="Reader",
-        region="core",
-        does="Reads the input and turns it into a request.",
-        interface="read(source) -> Request",
-        implemented_by=("{package}.reader",),
-        entry="read",
-        x=COL["c1"],
-        y=ROW["r1"],
-    ),
-    Component(
-        id="Writer",
-        region="core",
-        does="Takes a request and writes the result.",
-        interface="write(request) -> Result",
-        implemented_by=("{package}.writer",),
-        entry="write",
-        x=COL["c2"],
-        y=ROW["r1"],
-    ),
-)
+# One card per thing a reader would point at and name. `implemented_by`
+# names the modules that are it (from the facts file), `entry` one public
+# name they define. For example:
+#
+#     Component(
+#         id="Reader",
+#         region="core",
+#         does="Reads the input and turns it into a request.",
+#         interface="read(source) -> Request",
+#         implemented_by=("{package}.reader",),
+#         entry="read",
+#         x=COL["c1"],
+#         y=ROW["r1"],
+#     ),
+COMPONENTS: tuple[Component, ...] = ()
 
 # (from, to, the artifact carried, the kind). Two kinds are standard and
 # need no declaring: data (an artifact moves) and control (one part drives
 # another). A kind of your own is declared in FLOW_KINDS and given a layer.
-FLOWS = (Flow("Reader", "Writer", "request", "data"),)
+FLOWS: tuple[Flow, ...] = ()
 
 FLOW_KINDS = ()
 
-INVARIANTS = (
-    Invariant(1, "The writer never reads the input itself.", governs=("Writer",)),
-)
+# Rules the repository states about itself, each citing its source.
+INVARIANTS: tuple[Invariant, ...] = ()
 
 MODEL = Model(
-    canvas=(600, 300),
+    canvas=(700, 400),
     containers=CONTAINERS,
     regions=REGIONS,
     components=COMPONENTS,
@@ -140,10 +157,8 @@ MODEL = Model(
 
 # ---- meaning: the plain words, the layers, one sentence per flow ---------
 
-PLAIN = {{
-    "Reader": "the part that reads",
-    "Writer": "the part that writes",
-}}
+# The plain words a newcomer would use for each card, by id.
+PLAIN: dict[str, str] = {{}}
 
 # The page derives Structure, System context, Data flow and Control flow
 # from the model. A layer of your own goes here, as the question it
@@ -152,26 +167,13 @@ LAYERS = ()
 
 LAYER_OF_KIND = {{}}
 
-RELATIONS = {{
-    ("Reader", "Writer"): "The reader hands the writer one request at a time; the writer never goes back to the source.",
-}}
+# One sentence per flow, read from the source side.
+RELATIONS: dict[tuple[str, str], str] = {{}}
 
 VERBS = {{"data": ("hands to", "receives from")}}
 
-JOURNEYS = (
-    Journey(
-        id="input-to-output",
-        label="An input becomes an output",
-        steps=(
-            Step(
-                acts=("Reader",),
-                measures=(),
-                edge=("Reader", "Writer"),
-                say="The reader parses the input and hands the writer a request; nothing measures this step yet.",
-            ),
-        ),
-    ),
-)
+# One journey per entry point that matters, one Step per edge it traces.
+JOURNEYS: tuple[Journey, ...] = ()
 
 MEANING = Meaning(
     plain=PLAIN,
@@ -190,6 +192,10 @@ WORKFLOW = """name: systemap
 # between two commits of the facts file records what changed about the
 # system. This job fails when the committed map no longer matches the tree
 # or the renderer; the fix is one command, named in the failure.
+#
+# systemap runs from the released package, pinned to the version that
+# wrote this file, so the project needs no dependency on it. Bump the pin
+# when you upgrade.
 
 on:
   push:
@@ -213,26 +219,23 @@ jobs:
           version: latest
           enable-cache: true
 
-      - name: Install project
-        run: uv sync --frozen --all-extras --dev
-
       - name: facts match the tree
         run: |
-          uv run systemap extract --check || {
+          uvx --from "systemap==__VERSION__" systemap extract --check || {
             echo "::error title=Map is stale::the facts no longer describe the tree. Run systemap refresh and commit the output directory."
             exit 1
           }
 
       - name: layout, meaning and coverage are consistent
         run: |
-          uv run systemap check || {
+          uvx --from "systemap==__VERSION__" systemap check || {
             echo "::error title=Map check::the model contradicts itself or leaves a module unmapped; see the lines above."
             exit 1
           }
 
       - name: page matches the renderer
         run: |
-          uv run systemap render --check || {
+          uvx --from "systemap==__VERSION__" systemap render --check || {
             echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
             exit 1
           }
@@ -256,7 +259,7 @@ def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool = True
         "docs/map/.gitkeep": "",
     }
     if ci:
-        out[".github/workflows/systemap.yml"] = WORKFLOW
+        out[".github/workflows/systemap.yml"] = WORKFLOW.replace("__VERSION__", __version__)
     return out
 
 

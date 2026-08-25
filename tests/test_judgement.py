@@ -8,7 +8,7 @@ from typing import Any
 
 import fixture_workspace
 import pytest
-from conftest import Sample, sample_model, write_tree
+from conftest import Sample, init_two_cards, sample_model, write_tree
 
 from systemap import config, judgement
 from systemap.cli import main
@@ -235,7 +235,7 @@ def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixt
             "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
         },
     )
-    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
+    init_two_cards(tmp_path, "--no-ci")
     assert main(["--root", str(tmp_path), "extract"]) == 0
     capsys.readouterr()
     toml = tmp_path / "systemap.toml"
@@ -289,7 +289,7 @@ def test_judgement_command_always_exits_0(
             "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
         },
     )
-    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
+    init_two_cards(tmp_path, "--no-ci")
     capsys.readouterr()
     # Before extract: the model alone, and still exit 0.
     assert main(["--root", str(tmp_path), "judgement"]) == 0
@@ -511,7 +511,7 @@ def test_model_sdks_configured(tmp_path: Path, capsys: pytest.CaptureFixture[str
             "systemap.toml": '[facts]\nmodel_sdks = ["housemodel"]\n',
         },
     )
-    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
+    init_two_cards(tmp_path, "--no-ci")
     assert main(["--root", str(tmp_path), "extract"]) == 0
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
