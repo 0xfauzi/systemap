@@ -16,7 +16,7 @@ A map has two hand-authored halves and one derived one:
 The map draws what exists today. Every component names the modules that are
 it and one entry point those modules define; `systemap check` refuses a
 module or an entry the facts do not have, so a card on the page is always
-code in the tree. Nothing is planned, nothing is declared done.
+code in the tree. Nothing on the map is a plan; nothing is declared done.
 
 Positions are hand-placed because this is a topology, not a chart: a box's
 place carries meaning. A fixed layout also means the same system always

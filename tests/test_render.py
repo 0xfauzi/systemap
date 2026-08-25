@@ -46,7 +46,7 @@ def test_schematic_reports_layout_and_detail(sample: Sample) -> None:
     assert states["Reader"] == "built"
     assert states["Ledger"] == "built"
     assert states["User"] == "actor"
-    assert set(states.values()) == {"built", "actor"}, "what is drawn exists; nothing is planned"
+    assert set(states.values()) == {"built", "actor"}, "what is drawn exists"
     assert "tracker" not in data["Writer"] and "issues" not in data["Writer"]
     assert data["Writer"]["rules"] == [1, 2]
     assert svg.count('class="node ') == len(model.components)

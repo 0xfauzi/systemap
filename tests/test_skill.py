@@ -61,7 +61,7 @@ def test_skill_front_matter_and_vocabulary() -> None:
     ):
         assert part in schema, part
     whole = "\n".join(skill.files().values())
-    assert "—" not in whole, "no em dashes"
+    assert "\u2014" not in whole, "no em dashes"
     assert "claude" not in whole.lower().replace(".claude/skills", "")
     assert "codex" not in whole.lower()
     for word in ("planned", "tracker", "end state"):

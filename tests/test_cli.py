@@ -107,7 +107,7 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "check") == 2
     assert "theme must be a table" in capsys.readouterr().err
 
-    # The tracker's link template left with the tracker; an old key is refused.
+    # The issue link template left with the field it served; an old key is refused.
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "https://x/{n}"\n'})
     assert run("--root", str(tmp_path), "check") == 2
     assert "unknown key: issue_url" in capsys.readouterr().err

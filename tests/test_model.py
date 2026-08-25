@@ -220,7 +220,7 @@ def test_defines_entry_looks_the_name_up_in_the_claimed_modules() -> None:
 
 def test_build_state_has_one_value() -> None:
     # The map draws what exists today; the check refuses everything else, so
-    # nothing is derived and there is no tracker field to declare a plan with.
+    # nothing is derived, and the field that declared a plan is gone.
     comp = Component("A", "does a", implemented_by=("p.a",), entry="run")
     assert build_state(comp, {"components": {}}) == BUILT == "built"
     assert "tracker" not in {f.name for f in dataclasses.fields(Component)}

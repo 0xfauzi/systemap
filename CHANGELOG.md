@@ -1,5 +1,74 @@
 # Changelog
 
+## 0.4.0
+
+The map draws what exists today, reads in standard layers, and is built in
+passes: the second pass is the point.
+
+Breaking removals:
+
+- `Component.tracker` is gone, and with it the `planned` and `partial`
+  build states, the ghost rendering, the Today / End state toggle on the
+  page and the end-state checkbox on figures, the planned legend entry,
+  and the tracker chips and issue links in the panel. `build_state`
+  returns only `built`. A component whose module or entry is not in the
+  facts is a check failure under the `entry` rule ("X names module Y
+  which is not in the facts", "X names entry Z which none of its modules
+  defines", "X names no module"); the `tracker` rule is gone.
+- The `issue_url` configuration key is gone and is refused as unknown.
+- `Meaning.layers` no longer declares the standard readings. The ids
+  `structure`, `system`, `data`, `control`, `agents`, `context`, `tools`
+  and `all` are reserved; a custom layer taking one fails the meaning
+  check. `layers`, `layer_of_kind` and `relations` are optional.
+- A flow whose kind is neither standard nor declared in `flow_kinds`
+  fails the placement check with the kinds named.
+- `theme.resolve`, `schematic.layer_rows`, `check.run` and
+  `schematic.render` changed signatures: the theme is resolved over every
+  layer the page shows (`systemap.all_layers(model, meaning)`),
+  `layer_rows` takes the model, and the `issue_url` arguments are gone.
+- The theme constants are renamed for the new palette (`GRAPHITE`,
+  `INK`, `AMBER`, `STEEL`, `PAPER`, `INK_ON_PAPER`; `TEAL`, `PANEL`,
+  `SLATE`, `MUTED` are gone) and the scheme's `layers` table names every
+  standard layer; a `[theme.layers]` override still applies per id.
+
+Added:
+
+- Layers. Two readings are derived from the model with no authoring:
+  Structure (every component in its place, no edges) and System context
+  (the actors and every edge that crosses the boundary, internal edges
+  dimmed). Two flow kinds are standard and need no declaring: `data`
+  (Data flow) and `control` (Control flow), with verbs of their own. Page
+  order: Structure, System context, Data flow, Control flow, the model's
+  own layers, All; the page opens on Structure.
+- Agentic systems. `Component.kind` gains `agent`, `tool` and `context`;
+  two more standard flow kinds, `context` (into an agent's window) and
+  `tool` (an agent invoking a tool); three readings that appear only when
+  the model has an agent: Agents, Context, Tools. The check refuses a
+  context or tool flow whose agent end is not an agent. The cards carry a
+  mark from the theme's `marks` table (ring, notch, dotted), never a
+  colour, and the legend names them.
+- Entry points in the facts (`entry_points`): console scripts, `__main__`
+  modules, `main` functions, argparse subcommands with a literal name, the
+  public functions of the package root. The facts drift check compares
+  them.
+- `systemap judgement` gains two second-pass prompts: "entry point X has
+  no journey" and "crossing import: module A (component P) imports module
+  B (component Q) and no flow joins P and Q"; the thin-layer line covers
+  the standard kind layers.
+- The look: cool graphite, one muted amber, low-chroma layer hues; a light
+  scheme measured to clear 4.5:1 for every text hue (the given accent
+  `#a8722a` measures 3.68:1 and is flagged in the commit that set it).
+- The skill is a directory: `SKILL.md` (129 lines: when to use, the loop,
+  what goes in the model, the commands, what to hand back, the rules, the
+  index of references) and `references/` (`schema.md`, `example.md`,
+  `layers.md`, `journeys-and-invariants.md`, `second-pass.md`,
+  `pitfalls.md`). `systemap skill` and `systemap init` install the whole
+  directory and remove a reference the package no longer ships; the
+  plugin copy mirrors it and a test compares the trees.
+- The self-map uses the standard kinds, a journey per entry point, and
+  invariants that cite the README, a guard clause and a test; every
+  judgement line is answered in its commit.
+
 ## 0.3.0
 
 systemap is a tool for coding agents: the agent draws the map, the checker
