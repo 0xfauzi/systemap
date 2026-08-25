@@ -1,5 +1,5 @@
 {
- "built_at_commit": "7c995aa545b2cd5ac4fa25bc18bc8bfdfffe009b",
+ "built_at_commit": "0fc70913aa737b308743ad769d33540393f9ebfb",
  "components": {
   "systemap": {
    "classes": [],
@@ -1766,7 +1766,7 @@
    "loc": 255,
    "package": "systemap",
    "plane": "core",
-   "sha": "08e1283ad52d",
+   "sha": "8bf7cf960a7c",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
     "test_agent_kinds_are_cards_that_claim_code",
