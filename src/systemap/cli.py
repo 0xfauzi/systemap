@@ -7,7 +7,7 @@
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
     systemap judgement                 the list the maintainer must confirm
-    systemap skill [--dir PATH|--print] reinstall or print the agent skill
+    systemap skill [--dir PATH|--print] reinstall the skill directory, or print SKILL.md
 
 Exit codes: 0 the map is current or the check passed; 1 the map is stale or
 a check failed; 2 the configuration or the model cannot be used. Every
@@ -331,7 +331,8 @@ def cmd_skill(args: argparse.Namespace) -> int:
         return OK
     target = Path(args.dir).resolve() if args.dir else _root(args) / skill.DEFAULT_DIR
     path = skill.write(target)
-    say(f"wrote {path}")
+    references = len(skill.files()) - 1
+    say(f"wrote {path}", f"wrote {target / skill.REFERENCES}/ ({references} files)")
     return OK
 
 
@@ -414,14 +415,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(
-        "skill", help="reinstall SKILL.md, the agent skill init installs, or print it"
+        "skill",
+        help="reinstall the agent skill directory (SKILL.md and references/) init installs, "
+        "or print SKILL.md",
     )
     s.add_argument(
         "--dir",
         default="",
-        help=f"the directory to write SKILL.md into (default: {skill.DEFAULT_DIR} under the root)",
+        help=f"the directory to write the skill into (default: {skill.DEFAULT_DIR} under the root)",
     )
-    s.add_argument("--print", action="store_true", help="write the skill to stdout instead")
+    s.add_argument("--print", action="store_true", help="write SKILL.md to stdout instead")
     s.set_defaults(func=cmd_skill)
     return parser
 

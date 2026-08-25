@@ -160,15 +160,28 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     assert run("--root", str(tmp_path), "skill", "--dir", str(target)) == 0
     written = target / "SKILL.md"
     assert written.is_file()
-    assert f"wrote {written}" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert f"wrote {written}" in out
+    assert "references/ (6 files)" in out
     text = written.read_text()
     assert text.startswith("---\nname: systemap\n")
     assert "systemap check" in text
     assert "systemap extract" in text
+    # The directory comes with it: every reference SKILL.md names.
+    for ref in (
+        "schema",
+        "example",
+        "layers",
+        "journeys-and-invariants",
+        "second-pass",
+        "pitfalls",
+    ):
+        assert (target / "references" / f"{ref}.md").is_file(), ref
     # The default location is under the root, and rerunning refreshes the text.
     assert run("--root", str(tmp_path), "skill") == 0
     default = tmp_path / ".claude/skills/systemap/SKILL.md"
     assert default.read_text() == text
+    assert (tmp_path / ".claude/skills/systemap/references/schema.md").is_file()
     default.write_text("edited")
     assert run("--root", str(tmp_path), "skill") == 0
     assert default.read_text() == text
