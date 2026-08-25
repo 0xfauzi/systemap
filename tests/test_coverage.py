@@ -118,15 +118,20 @@ def test_subtree_claim_covers_the_package(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     scaffold(tmp_path)
+    # A subpackage appears; the reader claims it whole with one `.*` entry.
+    write_tree(
+        tmp_path,
+        {"pkg/sub/__init__.py": "", "pkg/sub/deep.py": "def deep() -> None:\n    pass\n"},
+    )
     model = tmp_path / "map/model.py"
     text = model.read_text()
-    text = text.replace('implemented_by=("pkg.reader",)', 'implemented_by=("pkg.*",)')
-    # The writer no longer claims code, so it is planned and must name a tracker.
-    text = text.replace('implemented_by=("pkg.writer",)', 'implemented_by=(), tracker="#1"')
+    text = text.replace(
+        'implemented_by=("pkg.reader",)', 'implemented_by=("pkg.reader", "pkg.sub.*")'
+    )
     model.write_text(text)
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
-    assert "coverage: 2/2 modules mapped, 1 ignored" in capsys.readouterr().out
+    assert "coverage: 4/4 modules mapped, 1 ignored" in capsys.readouterr().out
 
 
 def test_stale_ignore_is_reported(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

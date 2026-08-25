@@ -2,9 +2,9 @@
 
 systemap maps itself. This file was drafted by following the shipped skill
 (src/systemap/skill/SKILL.md) against the facts `systemap extract` read out
-of this package, and reviewed by the maintainer. Build state is derived: a
-component is built when the entry named in `entry` exists in the modules
-named in `implemented_by`, so nothing here says "done".
+of this package, and reviewed by the maintainer. Every card is code in the tree: a
+component names modules the facts have and an entry they define, and the
+check refuses anything else, so nothing here is a plan and nothing says "done".
 
 The map has three actors outside the code (the agent that authors, the
 maintainer who reviews, the CI that refuses) and five bands inside it:
@@ -204,7 +204,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        does="Every rule that refuses a lie: coverage, entry, tracker, placement, routes, labels, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
+        does="Every rule that refuses a lie: coverage, entry, placement, routes, labels, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
         interface="run(model, meaning, theme, facts, ...) -> Result; stale(cfg, ...) -> lines",
         implemented_by=("systemap.check",),
         entry="run",
@@ -288,7 +288,7 @@ INVARIANTS = (
     ),
     Invariant(
         5,
-        "A planned part names the tracker item that will build it (README, Principles).",
+        "The map draws what exists today: every module a component names is in the facts, and nothing on the map is a plan (README, Principles).",
         governs=("Model", "Check"),
     ),
     Invariant(
@@ -585,36 +585,6 @@ JOURNEYS = (
                 measures=("Maintainer",),
                 edge=("Page", "Maintainer"),
                 say="The maintainer reads the page: the moved part is where the code now says it is.",
-            ),
-        ),
-    ),
-    Journey(
-        id="planned-ships",
-        label="A planned component ships",
-        steps=(
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "Model"),
-                say="The agent adds a card with a tracker and no entry; the map draws it as a ghost.",
-            ),
-            Step(
-                acts=("Model",),
-                measures=("Check",),
-                edge=("Model", "Check"),
-                say="The check accepts the ghost because it names the item that will build it.",
-            ),
-            Step(
-                acts=("FactsExtractor",),
-                measures=(),
-                edge=("FactsExtractor", "Schematic"),
-                say="The code lands and the entry symbol appears in the facts.",
-            ),
-            Step(
-                acts=("Schematic",),
-                measures=(),
-                edge=("Schematic", "Page"),
-                say="The card draws built. Nobody declared it; the code did.",
             ),
         ),
     ),

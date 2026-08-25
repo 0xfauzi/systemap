@@ -54,7 +54,6 @@ def test_worked_example_passes_check(tmp_path: Path, capsys: pytest.CaptureFixtu
         {
             "map/model.py": worked_example(),
             "systemap.toml": (
-                'issue_url = "https://example.invalid/issues/{n}"\n'
                 "[coverage]\n"
                 'ignore = [{ module = "pkg", reason = "the package root only marks the directory" }]\n'
             ),
@@ -67,5 +66,7 @@ def test_worked_example_passes_check(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert "map layout: clean" in out
     assert "stale" not in out
     page = (tmp_path / "docs/map/index.html").read_text()
-    for cid in ("User", "Reader", "Parser", "Planner", "Ledger", "Writer"):
+    for cid in ("User", "Reader", "Parser", "Ledger", "Writer"):
         assert f'"{cid}"' in page, cid
+    for word in ("planned", "tracker", "end state"):
+        assert word not in skill.text(), f"the skill no longer speaks of {word}"

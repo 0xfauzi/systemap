@@ -60,9 +60,9 @@ when you are not in it.
      claim the package and everything beneath it. Each module belongs to
      one component only.
    - `entry`: one real public function or class from those modules. The
-     build state (built, partial, planned) is derived by looking that name
-     up in the facts, so it must exist in the code; copy it from the facts
-     file, do not guess it.
+     check looks that name up in the facts and refuses one that is not
+     there; copy it from the facts file, do not guess it. The map draws
+     what exists today: every module named must be in the facts.
    - `kind`: `component` for a thing that does work, `store` for a thing
      that holds state, `actor` for a person or a system outside the code.
      An actor claims no modules and sits in a container, not a region.
@@ -102,38 +102,31 @@ when you are not in it.
    did not state is not an invariant; it is a proposal, and belongs in
    your list for the maintainer.
 
-9. **Mark planned components.** A component whose code has not landed
-   carries the tracker item that will build it in `tracker` (an issue
-   number, a roadmap id; `#12` becomes a link when `issue_url` is
-   configured) and no invented `entry`. Leave `entry` empty until the code
-   exists; the map draws the card as a ghost until then, and
-   `systemap check` refuses a planned component with no tracker.
+9. **Place the cards and run the check.** Positions are hand-placed: `x`
+   and `y` are the card's top-left corner on the canvas, and cards are
+   150 wide (56 tall for a component, 52 for a store, 44 for an actor).
+   Put cards on a grid, columns 190 apart and rows 92 apart, so the
+   gutters between them are straight corridors for the edges. Run
+   `systemap check` and fix what it names until it prints
+   `coverage: N/N modules mapped` and `map layout: clean`. It refuses a
+   card outside its band, two cards overlapping, an edge through a card
+   it does not connect or across a band it neither starts nor ends in, a
+   label touching anything, a sentence naming something the model does
+   not have, a module the facts do not have, an entry its modules do not
+   define, and any module no component claims. Move cards until the
+   routes are clean. If a module genuinely has no place on the map (a
+   `__main__` shim, a vendored file), add it to `[coverage] ignore` in
+   `systemap.toml` with a reason, and list it for the maintainer. One
+   line is expected to remain until the next step: `stale`, saying the
+   page or a figure has not been rendered. Every other line must go.
 
-10. **Place the cards and run the check.** Positions are hand-placed: `x`
-    and `y` are the card's top-left corner on the canvas, and cards are
-    150 wide (56 tall for a component, 52 for a store, 44 for an actor).
-    Put cards on a grid, columns 190 apart and rows 92 apart, so the
-    gutters between them are straight corridors for the edges. Run
-    `systemap check` and fix what it names until it prints
-    `coverage: N/N modules mapped` and `map layout: clean`. It refuses a
-    card outside its band, two cards overlapping, an edge through a card
-    it does not connect or across a band it neither starts nor ends in, a
-    label touching anything, a sentence naming something the model does
-    not have, an entry its modules do not define, a planned card with no
-    tracker, and any module no component claims. Move cards until the
-    routes are clean. If a module genuinely has no place on the map (a
-    `__main__` shim, a vendored file), add it to `[coverage] ignore` in
-    `systemap.toml` with a reason, and list it for the maintainer. One
-    line is expected to remain until the next step: `stale`, saying the
-    page or a figure has not been rendered. Every other line must go.
-
-11. **Render.** Run `systemap refresh`. It extracts, checks, renders the
+10. **Render.** Run `systemap refresh`. It extracts, checks, renders the
     page (`docs/map/index.html`) and every figure the configuration lists,
     or says `already current` when there is nothing to do. Open the page
     if you can and click through the layers once: every layer should
     answer its question with the parts and routes it lights.
 
-12. **Hand back.** Run `systemap judgement` and give the maintainer what
+11. **Hand back.** Run `systemap judgement` and give the maintainer what
     the last section of this file lists. A person confirms each call
     before the map is trusted.
 
@@ -144,11 +137,11 @@ when you are not in it.
 | start | `systemap init` | writes `systemap.toml`, a starter `map/model.py`, this skill, and a workflow that runs the check on every pull request; never overwrites; `--no-ci` skips the workflow |
 | 1 | `systemap extract` | reads the facts out of the tree into the facts file |
 | 1 | `systemap extract --check` | exit 1 when the facts no longer match the tree |
-| 10 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
-| 11 | `systemap render` | the page from the facts and the model; `--check` exits 1 when the committed page is stale |
-| 11 | `systemap refresh` | extract, check, render and every configured figure; after it, `systemap check` exits 0 |
-| 11 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, or `--components A,B` for a plan's reach |
-| 12 | `systemap judgement` | the list the maintainer must confirm; exit 0 always |
+| 9 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
+| 10 | `systemap render` | the page from the facts and the model; `--check` exits 1 when the committed page is stale |
+| 10 | `systemap refresh` | extract, check, render and every configured figure; after it, `systemap check` exits 0 |
+| 10 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, or `--components A,B` for a plan's reach |
+| 11 | `systemap judgement` | the list the maintainer must confirm; exit 0 always |
 | any | `systemap skill` | reinstall this file; `--print` writes it to stdout |
 
 ## What to hand back
@@ -175,15 +168,15 @@ Give the maintainer, in this order:
   not how much code it has.
 - The map explains the system, not the code: a reader should understand
   what happens without opening a file.
-- Every planned item names its tracker.
+- The map draws what exists today. Every module a component names is in
+  the facts; nothing on the map is a plan.
 - Prose is for emphasis only. The relationships live on the edges: one
   sentence per flow, one verb per direction. If something matters, it is
   an edge, not a paragraph.
 - Positions are hand-placed and the layout check decides. Run
   `systemap check` after every move.
-- Nothing is declared done. Build state is derived from an entry symbol
-  that exists or does not; never write an `entry` you did not find in
-  the facts.
+- Nothing is declared done. A card is code in the tree; never write an
+  `entry` you did not find in the facts.
 
 ## The schema
 
@@ -211,11 +204,10 @@ Region(id, label, box, container=None)
 
 Component(id, does, interface="", implemented_by=(), entry="",
           kind="component", region=None, container=None, x=0, y=0,
-          tracker="", note="")
+          note="")
     kind           "component" | "store" | "actor"
     region         places a component or store; container places an actor
     x, y           top-left corner; cards are 150 wide, 56 / 52 / 44 tall
-    tracker        the roadmap item that will build it ("#12" links)
     note           a caveat the reader sees on the card
 
 Flow(src, dst, artifact, kind)
@@ -244,20 +236,16 @@ Step(acts, measures, edge, say)
     say            one sentence
 ```
 
-Build state, derived by the page from the facts: `built` when every module
-in `implemented_by` exists and one of them defines `entry`; `partial` when
-modules exist but the entry is missing or some are gone; `planned` when no
-module exists, or the component carries a `tracker` and its entry has not
-landed.
+Every component is code in the tree: the check refuses a module the
+facts do not have and an entry none of the modules defines.
 
 ## A worked example of every part
 
 A small pipeline: a person types input, a reader turns it into a request,
 a parser splits it, a writer joins the parts and records the result in a
-ledger, and a planner that does not exist yet will decide the order. The
-modules are `pkg.reader`, `pkg.parser`, `pkg.writer` and `pkg.ledger`;
-`pkg.planner` is the planned one. This model passes `systemap check`
-against those modules as written.
+ledger. The modules are `pkg.reader`, `pkg.parser`, `pkg.writer` and
+`pkg.ledger`. This model passes `systemap check` against those modules as
+written.
 
 ```python
 """The system map of pkg: what the parts are and what they are to each other."""
@@ -318,18 +306,6 @@ COMPONENTS = (
         x=COL["c2"],
         y=ROW["r1"],
     ),
-    # A planned component: the module does not exist yet, so it names the
-    # tracker item that will build it and no entry. It draws as a ghost.
-    Component(
-        id="Planner",
-        does="Will decide the order parts are written in.",
-        implemented_by=("pkg.planner",),
-        region="work",
-        x=COL["c3"],
-        y=ROW["r1"],
-        tracker="R2 #7",
-        note="lands with the ordering work",
-    ),
     # A store: it holds state. Its entry is a class.
     Component(
         id="Ledger",
@@ -359,7 +335,6 @@ FLOWS = (
     Flow("User", "Reader", "input", "work"),
     Flow("Reader", "Parser", "request", "work"),
     Flow("Parser", "Writer", "parts", "work"),
-    Flow("Parser", "Planner", "parts", "work"),
     Flow("Writer", "Ledger", "record", "record"),
     Flow("Ledger", "Parser", "history", "record"),
 )
@@ -388,7 +363,6 @@ PLAIN = {
     "User": "the person typing",
     "Reader": "the part that reads",
     "Parser": "the part that splits",
-    "Planner": "the part that will order",
     "Ledger": "the record book",
     "Writer": "the part that writes",
 }
@@ -409,7 +383,6 @@ RELATIONS = {
     ("User", "Reader"): "The user types one input at a time.",
     ("Reader", "Parser"): "The reader hands the parser one request.",
     ("Parser", "Writer"): "The parser gives the writer the parts in order.",
-    ("Parser", "Planner"): "The parser will give the planner the parts to order.",
     ("Writer", "Ledger"): "The writer records every result it produces.",
     ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
 }
@@ -449,10 +422,8 @@ MEANING = Meaning(
 ```
 
 The configuration beside it, `systemap.toml`, needs nothing for this
-model to check; two keys are worth knowing. `issue_url =
-"https://example.invalid/issues/{n}"` turns the `#7` in a tracker into a
-link, and a package root module that only marks the directory is ignored
-with a reason:
+model to check; one key is worth knowing. A package root module that only
+marks the directory is ignored with a reason:
 
 ```toml
 [coverage]

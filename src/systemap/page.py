@@ -4,12 +4,12 @@ The page is the map, at full width. It opens at Fit (the whole map across
 the column) and the reader zooms with the wheel, a pinch, or the Fit / 100%
 / + / - controls, and pans by dragging; selecting a component frames it and
 its neighbours, and Escape returns the view. Above it, a layer switch (one
-map, several readings), a today/end-state toggle, the journeys a reader can
-step through, and a slim strip carrying the active layer's question and its
-components. Click a component and the focus panel opens as a drawer over the
-map, docked on the side away from the component: it leads with the plain
-word, draws the relationship wheel, and reads the sentence for whichever
-spoke the reader touches. Below the map, a one-line index of every component
+map, several readings), the journeys a reader can step through, and a slim
+strip carrying the active layer's question and its components. Click a
+component and the focus panel opens as a drawer over the map, docked on the
+side away from the component: it leads with the plain word, draws the
+relationship wheel, and reads the sentence for whichever spoke the reader
+touches. Below the map, a one-line index of every component
 by region and the invariants. Nothing about the code is shown beyond the
 single "lives in" line; the counts stay in the facts file for the change
 detector.
@@ -30,7 +30,7 @@ from systemap.model import Component, Meaning, Model
 from systemap.schematic import interactive_script, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
 
-STATE_WORD = {"built": "built", "partial": "part built", "planned": "planned", "actor": "outside"}
+STATE_WORD = {"built": "built", "actor": "outside"}
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
 
@@ -64,9 +64,7 @@ def build(
     """The whole page as one string."""
     T = t
     COMPONENTS = model.components
-    system_svg, detail = render_schematic(
-        model, meaning, T, facts, issue_url=cfg.issue_url, svg_id="schematic"
-    )
+    system_svg, detail = render_schematic(model, meaning, T, facts, svg_id="schematic")
     states = {cid: rec["state"] for cid, rec in json.loads(detail).items() if cid != "_meta"}
     change_svg, change_detail = "", ""
     if ch.get("has_change"):
@@ -76,7 +74,6 @@ def build(
             meaning,
             T,
             facts,
-            issue_url=cfg.issue_url,
             changed=ch["direct"],
             changed_modules=ch["modules"],
             adjacent=ch["adjacent"],
@@ -152,14 +149,6 @@ def build(
     )
     o.append("</div></div>")
     o.append('<div class="ctl ctl--row">')
-    o.append('<div class="ctl"><span class="ctl__k">Show</span>')
-    o.append('<div class="seg" role="group" aria-label="Build state">')
-    o.append(
-        '<button type="button" class="seg__b" data-endstate="0" aria-pressed="true">'
-        "Today</button>"
-        '<button type="button" class="seg__b" data-endstate="1" aria-pressed="false">'
-        "End state</button></div></div>"
-    )
     o.append('<div class="ctl"><span class="ctl__k">Zoom</span>')
     o.append('<div class="seg" role="group" aria-label="Zoom">')
     o.append(
@@ -218,11 +207,14 @@ def build(
         )
     o.append('<span class="lg lg--gap"></span>')
     for fill, stroke, label in legend_rows(T, "system"):
-        dashed = " lg--dashed" if label == "planned" else ""
         o.append(
-            f'<span class="lg"><i class="{dashed}" style="background:{fill};'
+            f'<span class="lg"><i style="background:{fill};'
             f'border-color:{stroke}"></i>{esc(label)}</span>'
         )
+    o.append(
+        f'<span class="lg"><i class="lg--dashed" style="border-color:{T["ink_3"]}"></i>'
+        "outside</span>"
+    )
     o.append(
         f'<span class="lg"><i class="lg--ring" style="border-color:{T["accent"]}"></i>'
         f'acts</span><span class="lg"><i class="lg--ring" style="border-color:{T["steel"]}">'
@@ -230,12 +222,12 @@ def build(
     )
     o.append("</div>")
     o.append(
-        '<p class="key">Fill is build state, derived: a component is built when the entry '
-        "named in the model exists in the modules named. Every line carries what it moves "
-        "and is coloured by the layer it belongs to. Click a component; press Escape to "
-        "clear it and return the view; arrow keys step a journey; double-click a region's "
-        "name to frame the region. Text is drawn at 11px and never smaller: at Fit it "
-        "is scaled down, and zoom brings it back.</p>"
+        '<p class="key">Every card is code in the tree today: the check refuses a component '
+        "whose modules or entry are not in the facts. A dashed card is an actor outside the "
+        "code. Every line carries what it moves and is coloured by the layer it belongs to. "
+        "Click a component; press Escape to clear it and return the view; arrow keys step a "
+        "journey; double-click a region's name to frame the region. Text is drawn at 11px "
+        "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"
     )
     o.append("</section>")
 
@@ -420,9 +412,7 @@ background:none;border:0;border-radius:5px;text-align:left;cursor:pointer;font-s
 border-radius:3px;background:var(--raised);color:var(--ink-3);white-space:nowrap;
 border:1px solid transparent}}
 .chip--built{{color:var(--good)}}
-.chip--partial{{color:var(--warn)}}
-.chip--planned,.chip--actor{{background:none;border-color:var(--line-2)}}
-.chip--planned{{border-style:dashed}}
+.chip--actor{{background:none;border-color:var(--line-2)}}
 .rules{{padding-left:1.8rem;font-size:13px;color:var(--ink-2);max-width:70rem;margin:0}}
 .rules li{{margin:0 0 .45rem;padding-left:.3rem}}
 .rules li::marker{{font-family:var(--fm);color:var(--violet)}}
@@ -505,18 +495,6 @@ JS = r"""
   }
   layerBtns.forEach(function(b){
     b.addEventListener('click', function(){ setLayer(b.dataset.layerBtn); }); });
-
-  // ---- today / end state -----------------------------------------------
-  var stateBtns = all('[data-endstate]');
-  stateBtns.forEach(function(b){
-    b.addEventListener('click', function(){
-      var on = b.dataset.endstate === '1';
-      A.setEndstate(on);
-      stateBtns.forEach(function(x){
-        var mine = (x.dataset.endstate === '1') === on;
-        x.setAttribute('aria-pressed', mine ? 'true' : 'false'); });
-    });
-  });
 
   // ---- the drawer: opens on selection, docks away from the node ---------
   function openDrawer(id, instant){

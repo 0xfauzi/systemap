@@ -198,7 +198,7 @@ def _fix_line(p: Project, result: check.Result) -> str:
             f"map every module in {p.cfg.model}, or ignore it with a reason under "
             "[coverage] in the configuration, then run: systemap check"
         )
-    if result.entry or result.tracker:
+    if result.entry:
         return f"fix {p.cfg.model}, then run: systemap check"
     return "run: systemap refresh"
 
@@ -207,7 +207,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
     facts = extract.read_facts(p.cfg.facts_path)
-    result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.issue_url, p.cfg.coverage_ignore)
+    result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.coverage_ignore)
     result = check.with_stale(result, check.stale(p.cfg, p.model, p.meaning, p.theme))
     say(*check.report(p.model, result, p.cfg.model))
     if not result.ok:
@@ -280,7 +280,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.
     stale_lines = check.stale(p.cfg, p.model, p.meaning, p.theme, fresh)
-    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.issue_url, p.cfg.coverage_ignore)
+    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore)
     if not stale_lines and result.ok:
         note("map: already current")
         return OK
@@ -375,7 +375,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser(
         "check",
         help="every rule: placement, routes, labels, type size, meaning, wheels, coverage, "
-        "entry, tracker, stale outputs; exit 1 with each fix named",
+        "entry, stale outputs; exit 1 with each fix named",
     )
     s.set_defaults(func=cmd_check)
 

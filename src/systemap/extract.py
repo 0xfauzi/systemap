@@ -430,20 +430,17 @@ def mapping_drift(fresh: dict[str, Any], model: Model, prefixes: set[str]) -> li
     """Modules the model claims but the tree does not have.
 
     The component-to-module mapping is the one hand-authored input the facts
-    have. Left unchecked, a rename would silently downgrade a built component
-    to "not built" instead of failing loudly. A component that carries a
-    `tracker` is a roadmap item whose module is allowed to be missing; the
-    layout itself is checked too, since a card drawn outside its band is the
-    same kind of quiet lie.
+    have. Left unchecked, a rename would quietly leave a card on the page
+    for code that is gone instead of failing loudly. The layout itself is
+    checked too, since a card drawn outside its band is the same kind of
+    quiet lie.
     """
     known = set(fresh["components"])
     out: list[str] = []
     for c in model.components:
-        if c.tracker:
-            continue
         for m in c.implemented_by:
             if m.split(".")[0] in prefixes and not any(module_matches(m, k) for k in known):
-                out.append(f"{c.id} claims {m}, which does not exist")
+                out.append(f"{c.id} names module {m} which is not in the facts")
     out.extend(f"layout: {p}" for p in model.layout_problems())
     return out
 

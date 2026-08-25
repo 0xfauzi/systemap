@@ -102,10 +102,15 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "check") == 2
     assert "MODEL must be a systemap.Model" in capsys.readouterr().err
 
-    write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "no-placeholder"\n'})
+    write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\ntheme = "dark"\n'})
     (tmp_path / "systemap.toml").unlink()
     assert run("--root", str(tmp_path), "check") == 2
-    assert "issue_url must contain {n}" in capsys.readouterr().err
+    assert "theme must be a table" in capsys.readouterr().err
+
+    # The tracker's link template left with the tracker; an old key is refused.
+    write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "https://x/{n}"\n'})
+    assert run("--root", str(tmp_path), "check") == 2
+    assert "unknown key: issue_url" in capsys.readouterr().err
 
 
 def test_check_fails_on_overlapping_fixture(

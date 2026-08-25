@@ -6,7 +6,6 @@ name = "systemap"
 tests_dir = "tests"
 model = "map/model.py"
 out_dir = "docs/map"
-issue_url = "https://github.com/0xfauzi/systemap/issues/{n}"
 
 # Every module is claimed by a component; the package root is claimed by
 # the Model card, since it re-exports the schema. Nothing is ignored.

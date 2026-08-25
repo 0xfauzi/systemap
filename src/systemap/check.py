@@ -25,12 +25,10 @@ What is checked, in order:
     coverage ...... every module in the facts is claimed by exactly one
                     component, unless the configuration ignores it with a
                     reason; an incomplete map fails
-    entry ......... a component whose modules exist names an entry, and one
-                    of those modules defines it; the build state is derived
-                    from that name, so a name the code does not have would
-                    draw a part as built or part built on a lie
-    tracker ....... a planned component (none of its modules exist) names
-                    the tracker item that will build it
+    entry ......... every module a component names is in the facts, and the
+                    entry it names is defined by one of them; the map draws
+                    what exists today, so a name the code does not have
+                    would draw a part that is not there
     stale ......... the facts file describes the tree, the page is what the
                     renderer draws from the facts and the model, and every
                     configured figure is what the generator draws; the
@@ -53,7 +51,7 @@ from typing import Any
 
 from systemap import extract, figure, page
 from systemap.config import Config, Ignore
-from systemap.model import Meaning, Model, build_state, claimed, module_matches
+from systemap.model import Meaning, Model, claimed, defines_entry, module_matches
 from systemap.model import problems as model_problems
 from systemap.schematic import TEXT_PX
 from systemap.schematic import render as render_schematic
@@ -301,53 +299,41 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     return Coverage(True, mapped, len(modules) - len(ignored), len(ignored), tuple(problems))
 
 
-# ---- entry and tracker: build state cannot rest on a name that is not there ----
+# ---- entry: a card is code that exists today ----------------------------------
 
 
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
-    """Every component whose modules exist names an entry its modules define.
+    """Every component names modules the facts have and an entry they define.
 
-    Build state is derived by looking `entry` up in the claimed modules. A
-    name that is not there would leave the card at "part built" for ever,
-    and an empty name would do the same, so both are refused. A component
-    with a tracker is exempt: it is planned until the entry lands, and the
-    ghost says so. Actors claim no code and are never checked.
+    The map draws what exists. A module the facts do not have, an empty
+    entry, or an entry none of the claimed modules define would each draw
+    a part that is not in the tree, so all three are refused. Actors claim
+    no code and are never checked.
     """
     components = facts.get("components", {})
     if not components:
         return []
     out: list[str] = []
     for c in model.components:
-        if c.kind == "actor" or c.tracker:
+        if c.kind == "actor":
             continue
+        for pattern in c.implemented_by:
+            if not any(module_matches(pattern, m) for m in components):
+                out.append(f"{c.id} names module {pattern} which is not in the facts")
         modules = claimed(c, components)
         if not modules:
+            if not c.implemented_by:
+                out.append(f"{c.id} names no module; a component is code in the tree")
             continue
         if not c.entry:
             out.append(f"{c.id} names no entry; its modules are {', '.join(modules)}")
             continue
-        defined = any(
-            c.entry in [f["name"] for f in components[m]["functions"]]
-            or c.entry in [k["name"] for k in components[m]["classes"]]
-            for m in modules
-        )
-        if not defined:
+        if not defines_entry(c, facts):
             out.append(
-                f"{c.id} names entry {c.entry}, which none of its modules define "
+                f"{c.id} names entry {c.entry} which none of its modules defines "
                 f"({', '.join(modules)})"
             )
     return out
-
-
-def check_tracker(model: Model, facts: dict[str, Any]) -> list[str]:
-    """Every planned component names the tracker item that will build it."""
-    if not facts.get("components"):
-        return []
-    return [
-        f"{c.id} is planned (none of its modules exist) and names no tracker"
-        for c in model.components
-        if c.kind != "actor" and not c.tracker and build_state(c, facts) == "planned"
-    ]
 
 
 # ---- stale: the outputs are what the tree and the model say ----------------------
@@ -384,7 +370,10 @@ def stale(
     stored = extract.read_facts(cfg.facts_path)
     if not stored:
         return ["no facts have been built yet"]
-    out = [f"facts: {line}" for line in stale_facts(fresh, stored, model, cfg.prefixes)]
+    # Only the drift is stale here: a claim of a module the tree does not
+    # have is the entry rule's finding, and a placement problem is the
+    # placement rule's, so neither is reported twice.
+    out = [f"facts: {line}" for line in extract.drift(fresh, stored)]
     if model_problems(model, meaning):
         return out
     out += _stale_file(
@@ -413,10 +402,10 @@ class Result:
     """Everything one check run found.
 
     `problems` are the placement, meaning, route, label, type-size and
-    wheel findings; `coverage` is the module rule; `entry` and `tracker`
-    are the build-state rules; `stale` is filled in by the CLI, which has
-    the configuration the comparison needs; `through` and `across` count
-    edges through a foreign card and across a foreign region.
+    wheel findings; `coverage` is the module rule; `entry` is the rule that
+    every card is code in the tree; `stale` is filled in by the CLI, which
+    has the configuration the comparison needs; `through` and `across`
+    count edges through a foreign card and across a foreign region.
     """
 
     problems: list[str]
@@ -425,18 +414,11 @@ class Result:
     across: int
     coverage: Coverage
     entry: list[str] = field(default_factory=list)
-    tracker: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return (
-            not self.problems
-            and self.coverage.ok
-            and not self.entry
-            and not self.tracker
-            and not self.stale
-        )
+        return not self.problems and self.coverage.ok and not self.entry and not self.stale
 
 
 def run(
@@ -444,7 +426,6 @@ def run(
     meaning: Meaning,
     t: dict[str, Any],
     facts: dict[str, Any],
-    issue_url: str = "",
     ignores: Iterable[Ignore] = (),
 ) -> Result:
     """Check the model against the facts.
@@ -458,7 +439,7 @@ def run(
     through = across = 0
     notes: list[str] = []
     if not problems:
-        svg, detail = render_schematic(model, meaning, t, facts, issue_url=issue_url)
+        svg, detail = render_schematic(model, meaning, t, facts)
         meta = json.loads(detail)["_meta"]
         route_problems, through, across = check_routes(meta, model)
         problems += route_problems
@@ -474,7 +455,6 @@ def run(
         across,
         coverage,
         entry=check_entry(model, facts),
-        tracker=check_tracker(model, facts),
     )
 
 
@@ -511,15 +491,8 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
         out.append(f"entry: {_plural(len(result.entry), 'problem')}")
         out += [f"  {line}" for line in result.entry]
         out.append(
-            f"  fix: in {model_file}, set entry to a public function or class the "
-            "component's modules define, or give the component a tracker"
-        )
-    if result.tracker:
-        out.append(f"tracker: {_plural(len(result.tracker), 'problem')}")
-        out += [f"  {line}" for line in result.tracker]
-        out.append(
-            f"  fix: in {model_file}, set tracker to the item that will build it, "
-            "or name the modules that are it"
+            f"  fix: in {model_file}, name only modules the facts have and set entry to "
+            "a public function or class one of them defines; the map draws what exists today"
         )
     problems = result.problems
     if problems:

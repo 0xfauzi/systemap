@@ -105,10 +105,6 @@ def figure(
             f'aria-label="Zoom in">+</button>'
             f'<button type="button" data-zoom="out" data-for="{svg_id}" {btn} '
             f'aria-label="Zoom out">-</button></span>'
-            f'<label style="display:inline-flex;align-items:center;gap:.4em;'
-            f'margin-left:1em;white-space:nowrap;cursor:pointer;min-height:24px">'
-            f'<input type="checkbox" data-endstate="{svg_id}"> end state: planned '
-            f"components at full strength</label>"
         )
         hint = (
             f'<p style="margin:.4em 0 0;font-size:.76rem;color:{t["ink_3"]}">Scroll to zoom, '
@@ -122,10 +118,8 @@ def figure(
             f"<style>{panel_css(t)}</style>"
             + interactive_script(t, svg_id, panel_id, detail_json)
             + "<script>(function(){"
-            f"var box = document.querySelector('[data-endstate=\"{svg_id}\"]');"
             f'var svg = document.getElementById("{svg_id}");'
-            "if(!box || !svg || !svg.systemap){ return; }"
-            "box.addEventListener('change', function(){ svg.systemap.setEndstate(box.checked); });"
+            "if(!svg || !svg.systemap){ return; }"
             f"Array.prototype.slice.call(document.querySelectorAll('[data-for=\"{svg_id}\"]'))"
             ".forEach(function(b){ b.addEventListener('click', function(){"
             "var z = b.dataset.zoom, v = svg.systemap.view;"
@@ -223,8 +217,8 @@ def make(
     else:
         caption = caption or (
             f"The system as the map describes it. Drawn by <code>{GENERATOR}</code> "
-            f"from <code>{facts_url}</code>; planned components are the "
-            f"dashed ghosts. Click a component to read what it is to its neighbours."
+            f"from <code>{facts_url}</code>; every card is code in the tree today. "
+            f"Click a component to read what it is to its neighbours."
         )
 
     svg, detail = render_schematic(
@@ -232,7 +226,6 @@ def make(
         meaning,
         t,
         facts,
-        issue_url=cfg.issue_url,
         changed=changed,
         changed_modules=changed_modules,
         adjacent=adjacent,

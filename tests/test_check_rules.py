@@ -1,4 +1,4 @@
-"""The entry, tracker and stale rules of `systemap check`, and the bare figure.
+"""The entry and stale rules of `systemap check`, and the bare figure.
 
 Every case starts from what `systemap init` writes and refreshes once, so
 the map is current, and then breaks exactly one thing.
@@ -37,45 +37,40 @@ def edit_model(root: Path, old: str, new: str) -> None:
     model.write_text(text.replace(old, new))
 
 
-# ---- tracker -------------------------------------------------------------------
+# ---- entry: every card is code that exists today --------------------------------
 
 
-def test_planned_component_without_tracker_fails(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_module_not_in_the_facts_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     current(tmp_path)
     capsys.readouterr()
-    # The writer's module is renamed away in the model: no module of its own exists.
+    # The writer's module is renamed away in the model: it names code that is not there.
     edit_model(tmp_path, 'implemented_by=("pkg.writer",)', 'implemented_by=("pkg.planner",)')
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "tracker: 1 problem" in out
-    assert "Writer is planned (none of its modules exist) and names no tracker" in out
-    assert "fix: in map/model.py, set tracker to the item that will build it" in out
+    assert "entry: 1 problem" in out
+    assert "Writer names module pkg.planner which is not in the facts" in out
+    assert "fix: in map/model.py, name only modules the facts have" in out
+    assert "the map draws what exists today" in out
     # coverage also reports the now unclaimed module, and it outranks the
-    # tracker in the closing line: an unclaimed module is fixed first.
+    # entry rule in the closing line: an unclaimed module is fixed first.
     assert "unmapped: pkg.writer" in out
     assert out.rstrip().endswith("then run: systemap check")
+    # The same finding is not reported a second time under stale.
+    assert out.count("pkg.planner") == 1
 
 
-def test_planned_component_with_tracker_passes(
+def test_component_with_no_module_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    current(tmp_path)
+    capsys.readouterr()
+    edit_model(tmp_path, 'implemented_by=("pkg.writer",)', "implemented_by=()")
+    assert run("--root", str(tmp_path), "check") == 1
+    out = capsys.readouterr().out
+    assert "Writer names no module; a component is code in the tree" in out
+
+
+def test_actor_claims_no_code_and_is_not_checked(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    current(tmp_path)
-    edit_model(
-        tmp_path,
-        'implemented_by=("pkg.writer",)',
-        'implemented_by=("pkg.writer", "pkg.planner"), tracker="R2 #7"',
-    )
-    edit_model(tmp_path, 'entry="write",', "")
-    assert run("--root", str(tmp_path), "refresh") == 0
-    assert run("--root", str(tmp_path), "check") == 0
-    out = capsys.readouterr().out
-    assert "tracker:" not in out
-    assert "entry:" not in out
-
-
-def test_actor_is_never_planned(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     current(tmp_path)
     edit_model(
         tmp_path,
@@ -90,10 +85,7 @@ def test_actor_is_never_planned(tmp_path: Path, capsys: pytest.CaptureFixture[st
     )
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
-    assert "tracker:" not in capsys.readouterr().out
-
-
-# ---- entry ---------------------------------------------------------------------
+    assert "entry:" not in capsys.readouterr().out
 
 
 def test_entry_the_modules_do_not_define_fails(
@@ -105,8 +97,8 @@ def test_entry_the_modules_do_not_define_fails(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "entry: 1 problem" in out
-    assert "Writer names entry publish, which none of its modules define (pkg.writer)" in out
-    assert "fix: in map/model.py, set entry to a public function or class" in out
+    assert "Writer names entry publish which none of its modules defines (pkg.writer)" in out
+    assert "set entry to a public function or class one of them defines" in out
 
 
 def test_missing_entry_with_modules_present_fails(

@@ -24,7 +24,6 @@ name = "{name}"
 tests_dir = "tests"
 model = "map/model.py"
 out_dir = "docs/map"
-# issue_url = "https://example.invalid/issues/{{n}}"
 # spec_path = "docs/design.md"
 
 # `systemap check` refuses a map that leaves a module unclaimed. A module
@@ -51,9 +50,9 @@ MODEL = '''"""The system map of {name}: what the parts are and what they are to 
 Everything in this file is written by a person on purpose. The facts about
 the code (which modules exist, what they export, which tests import them)
 are read by `systemap extract`; this file says what the system is MEANT to
-be, and the map draws the two together. Build state is derived: a component
-is built when the entry named in `entry` exists in the modules named in
-`implemented_by`.
+be, and the map draws the two together. The map draws what exists today: a
+component names the modules that are it and one entry they define, and
+`systemap check` refuses a name the code does not have.
 
 Positions are hand-placed on a grid because this is a topology, not a chart:
 a card's place carries meaning. `systemap check` verifies every card sits in

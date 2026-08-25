@@ -3,7 +3,7 @@
 Everything project-specific the engine needs lives here, so the engine
 itself holds no literal that belongs to one project: where the packages
 are, where the tests are, where the model module is, where the output
-goes, how an issue number becomes a link, and the theme.
+goes, and the theme.
 
     name           the page title; defaults to the repo directory's name
     package_roots  table of path = import name; default: every top-level
@@ -14,7 +14,6 @@ goes, how an issue number becomes a link, and the theme.
     out_dir        where the facts, the page and the figures are written
                    (default "docs/map")
     facts_file     the facts file's name inside out_dir (default "map.json")
-    issue_url      a template with {n}, used for tracker issue numbers
     spec_path      optional document whose ##-headings become spec sections
     planes         optional list of second-level package names that count as
                    their own architectural plane in the facts
@@ -52,7 +51,6 @@ KNOWN_KEYS = {
     "model",
     "out_dir",
     "facts_file",
-    "issue_url",
     "spec_path",
     "planes",
     "outside_label",
@@ -102,7 +100,6 @@ class Config:
     model: str = "map/model.py"
     out_dir: str = "docs/map"
     facts_file: str = "map.json"
-    issue_url: str = ""
     spec_path: str = ""
     planes: tuple[str, ...] = ()
     outside_label: str = "OUTSIDE THE SYSTEM"
@@ -265,10 +262,6 @@ def load(root: Path) -> Config:
             )
         )
 
-    issue_url = _str(raw, "issue_url", "", where)
-    if issue_url and "{n}" not in issue_url:
-        raise ConfigError(f"{where}: issue_url must contain {{n}}")
-
     return Config(
         coverage_ignore=_coverage_ignore(raw, where),
         root=root,
@@ -278,7 +271,6 @@ def load(root: Path) -> Config:
         model=_str(raw, "model", "map/model.py", where),
         out_dir=_str(raw, "out_dir", "docs/map", where),
         facts_file=_str(raw, "facts_file", "map.json", where),
-        issue_url=issue_url,
         spec_path=_str(raw, "spec_path", "", where),
         planes=_str_list(raw, "planes", where),
         outside_label=_str(raw, "outside_label", "OUTSIDE THE SYSTEM", where),

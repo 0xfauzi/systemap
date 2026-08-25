@@ -1,5 +1,5 @@
 {
- "built_at_commit": "53119cbd0136981f2970470c20f85440e94f1ed5",
+ "built_at_commit": "64d94e85163fabf6b5ac0ec2c9c38c2fd7f20655",
  "components": {
   "systemap": {
    "classes": [],
@@ -197,14 +197,9 @@
      "signature": "def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore]) -> Coverage"
     },
     {
-     "doc": "Every component whose modules exist names an entry its modules define.",
+     "doc": "Every component names modules the facts have and an entry they define.",
      "name": "check_entry",
      "signature": "def check_entry(model: Model, facts: dict[str, Any]) -> list[str]"
-    },
-    {
-     "doc": "Every planned component names the tracker item that will build it.",
-     "name": "check_tracker",
-     "signature": "def check_tracker(model: Model, facts: dict[str, Any]) -> list[str]"
     },
     {
      "doc": "Ways the stored facts no longer describe the tree, plus claims of",
@@ -219,7 +214,7 @@
     {
      "doc": "Check the model against the facts.",
      "name": "run",
-     "signature": "def run(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], issue_url: str='', ignores: Iterable[Ignore]=()) -> Result"
+     "signature": "def run(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], ignores: Iterable[Ignore]=()) -> Result"
     },
     {
      "doc": "",
@@ -244,10 +239,10 @@
     "systemap.page",
     "systemap.schematic"
    ],
-   "loc": 539,
+   "loc": 512,
    "package": "systemap",
    "plane": "core",
-   "sha": "b50551244eda",
+   "sha": "a8cce40717e0",
    "tests": [
     "test_check_passes_on_sample",
     "test_default_theme_colours_every_layer",
@@ -272,8 +267,8 @@
     "systemap.model": [
      "Meaning",
      "Model",
-     "build_state",
      "claimed",
+     "defines_entry",
      "module_matches",
      "problems"
     ],
@@ -386,7 +381,7 @@
    "loc": 443,
    "package": "systemap",
    "plane": "core",
-   "sha": "fd205a6d48f7",
+   "sha": "150a04bd2e92",
    "tests": [
     "test_check_fails_on_overlapping_fixture",
     "test_configuration_errors_exit_2",
@@ -396,8 +391,9 @@
     "test_init_then_refresh_round_trip",
     "test_skill_command_writes_the_skill",
     "test_stale_after_code_change",
-    "test_actor_is_never_planned",
+    "test_actor_claims_no_code_and_is_not_checked",
     "test_all_mapped",
+    "test_component_with_no_module_fails",
     "test_double_claim_fails",
     "test_entry_the_modules_do_not_define_fails",
     "test_ignore_with_reason_passes",
@@ -406,11 +402,10 @@
     "test_judgement_command_always_exits_0",
     "test_mis_fold_lines",
     "test_missing_entry_with_modules_present_fails",
+    "test_module_not_in_the_facts_fails",
     "test_no_facts_fails_closed",
     "test_no_sentence_lines",
     "test_one_unmapped_fails",
-    "test_planned_component_with_tracker_passes",
-    "test_planned_component_without_tracker_fails",
     "test_report_wording",
     "test_single_module_lines"
    ],
@@ -494,7 +489,7 @@
     },
     {
      "name": "KNOWN_KEYS",
-     "value": "{'name', 'package_roots', 'tests_dir', 'model', 'out_dir', 'facts_file', 'issue_"
+     "value": "{'name', 'package_roots', 'tests_dir', 'model', 'out_dir', 'facts_file', 'spec_p"
     },
     {
      "name": "FIGURE_KEYS",
@@ -558,10 +553,10 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 345,
+   "loc": 337,
    "package": "systemap",
    "plane": "core",
-   "sha": "ad0791476c98",
+   "sha": "cbc9603d217f",
    "tests": [
     "test_drift_reports_changes",
     "test_extract_attributes_tests_to_modules",
@@ -712,10 +707,10 @@
     "systemap.config",
     "systemap.model"
    ],
-   "loc": 481,
+   "loc": 478,
    "package": "systemap",
    "plane": "core",
-   "sha": "bc086fb171f3",
+   "sha": "bbf375acc428",
    "tests": [
     "test_drift_reports_changes",
     "test_extract_attributes_tests_to_modules",
@@ -784,10 +779,10 @@
     "systemap.model",
     "systemap.schematic"
    ],
-   "loc": 286,
+   "loc": 279,
    "package": "systemap",
    "plane": "core",
-   "sha": "6db7b1367ca4",
+   "sha": "36a17e26576f",
    "tests": [
     "test_check_passes_on_sample",
     "test_default_theme_colours_every_layer",
@@ -998,6 +993,10 @@
     {
      "name": "CARD_H",
      "value": "{'component': 56, 'store': 52, 'actor': 44}"
+    },
+    {
+     "name": "BUILT",
+     "value": "'built'"
     }
    ],
    "docstring": "The schema a system map is written in, and the checks that keep it honest.",
@@ -1025,7 +1024,12 @@
      "signature": "def claimed(component: Component, modules: Iterable[str]) -> list[str]"
     },
     {
-     "doc": "built | partial | planned, derived from what the facts actually found.",
+     "doc": "Does one of the component's claimed modules define its entry?",
+     "name": "defines_entry",
+     "signature": "def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool"
+    },
+    {
+     "doc": "The one build state a drawn component has: `built`.",
      "name": "build_state",
      "signature": "def build_state(component: Component, facts: Mapping[str, Any]) -> str"
     }
@@ -1045,13 +1049,13 @@
     "systemap.theme"
    ],
    "imports": [],
-   "loc": 387,
+   "loc": 384,
    "package": "systemap",
    "plane": "core",
-   "sha": "b5bc47fc8f41",
+   "sha": "7cc4fb63abe3",
    "tests": [
-    "test_build_state_is_derived",
-    "test_build_state_with_subtree_claim",
+    "test_build_state_has_one_value",
+    "test_defines_entry_looks_the_name_up_in_the_claimed_modules",
     "test_layout_problems_find_lies",
     "test_meaning_problems_find_gaps",
     "test_module_matches_exact_and_subtree",
@@ -1080,7 +1084,7 @@
    "constants": [
     {
      "name": "STATE_WORD",
-     "value": "{'built': 'built', 'partial': 'part built', 'planned': 'planned', 'actor': 'outs"
+     "value": "{'built': 'built', 'actor': 'outside'}"
     },
     {
      "name": "NUMBER_WORDS",
@@ -1122,10 +1126,10 @@
     "systemap.schematic",
     "systemap.theme"
    ],
-   "loc": 674,
+   "loc": 652,
    "package": "systemap",
    "plane": "core",
-   "sha": "28e59091704d",
+   "sha": "06a2396577bd",
    "tests": [
     "test_check_passes_on_sample",
     "test_default_theme_colours_every_layer",
@@ -1310,10 +1314,10 @@
     "systemap.cli"
    ],
    "imports": [],
-   "loc": 277,
+   "loc": 276,
    "package": "systemap",
    "plane": "core",
-   "sha": "85f6be29d0b8",
+   "sha": "92c17341edf7",
    "tests": [],
    "tests_primary": 0,
    "tests_total": 0,
@@ -1396,11 +1400,6 @@
      "signature": "def lives_in(modules: list[str]) -> str"
     },
     {
-     "doc": "('R10.7', ['228']) from 'R10.7 #228'; the label loses its numbers.",
-     "name": "tracker_issues",
-     "signature": "def tracker_issues(tracker: str) -> tuple[str, list[str]]"
-    },
-    {
      "doc": "(fill, stroke, label) for the legend the given mode needs.",
      "name": "legend_rows",
      "signature": "def legend_rows(t: dict[str, Any], mode: str) -> list[tuple[str, str, str]]"
@@ -1413,7 +1412,7 @@
     {
      "doc": "(svg, json detail).",
      "name": "render",
-     "signature": "def render(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, issue_url: str='', changed: set[str] | None=None, changed_modules: set[str] | None=None, adjacent: set[str] | None=None, mode: str='system', svg_id: str='schematic', gained: dict[str, dict[str, int]] | None=None, hot_artifacts: set[str] | None=None) -> tuple[str, str]"
+     "signature": "def render(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, changed: set[str] | None=None, changed_modules: set[str] | None=None, adjacent: set[str] | None=None, mode: str='system', svg_id: str='schematic', gained: dict[str, dict[str, int]] | None=None, hot_artifacts: set[str] | None=None) -> tuple[str, str]"
     },
     {
      "doc": "Styles for the focus panel the interactive script writes into.",
@@ -1436,10 +1435,10 @@
     "systemap.model",
     "systemap.route"
    ],
-   "loc": 1401,
+   "loc": 1367,
    "package": "systemap",
    "plane": "core",
-   "sha": "2138d08babfa",
+   "sha": "3759008b1b42",
    "tests": [
     "test_check_passes_on_sample",
     "test_default_theme_colours_every_layer",
@@ -1605,10 +1604,10 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 240,
+   "loc": 238,
    "package": "systemap",
    "plane": "core",
-   "sha": "33849859186b",
+   "sha": "07d7ab2496ba",
    "tests": [
     "test_check_passes_on_sample",
     "test_default_theme_colours_every_layer",

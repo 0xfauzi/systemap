@@ -30,16 +30,14 @@ def test_single_module_lines(sample: Sample) -> None:
     lines = judgement.single_module(sample.model, sample.facts)
     assert "single module: Reader is only pkg.reader" in lines
     assert "single module: Ledger is only pkg.ledger" in lines
-    # The actor claims nothing and is never listed; the planned card's
-    # module does not exist in the facts, so it is not "one module" either.
+    # The actor claims nothing and is never listed.
     assert not any("User" in line for line in lines)
-    assert not any("Planner" in line for line in lines)
 
 
 def test_single_module_reads_implemented_by_without_facts() -> None:
     model, _ = sample_model()
     lines = judgement.single_module(model, {})
-    assert "single module: Planner is only pkg.planner" in lines
+    assert "single module: Ledger is only pkg.ledger" in lines
 
 
 def test_mis_fold_lines(sample: Sample) -> None:

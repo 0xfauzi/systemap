@@ -26,7 +26,7 @@ Colour carries meaning or is absent:
     layers ...... one hue per layer of the map, printed in the page legend;
                   taken from `layer_palette` in layer order unless the
                   `layers` table names a colour for the layer id
-    good ........ built; warn: part built; muted, dashed: planned
+    good ........ what is there (every card is; the check refuses the rest)
     bad ......... only for "nothing measures this step" and a change map
 
 Nothing else on the page is coloured.
@@ -100,13 +100,13 @@ DARK: dict[str, Any] = {
     "warn": "#E0B23C",
     "bad": "#E06C5F",
     "violet": "#B39DDB",
-    # Build state is one ordinal scale: fill and stroke per step, then the
-    # word the legend prints.
+    # A card's fill and stroke, then the word the legend prints. There is
+    # one state: a card is code that exists today.
     "state": {
         "built": [PANEL, "#8a95bd", "built"],
-        "partial": ["#1a1f36", "#E0B23C", "part built"],
-        "planned": ["#0d1430", SLATE, "planned"],
     },
+    # What a change map or a reach figure draws for the parts it does not
+    # mark: (fill, stroke).
     "ghost": ["#0d1430", "#1c2650"],
     # Hard boundaries: (stroke, fill) per tone.
     "container": {
@@ -151,8 +151,6 @@ LIGHT: dict[str, Any] = {
     "violet": "#7B4FA3",
     "state": {
         "built": ["#ffffff", "#6b7394", "built"],
-        "partial": ["#fff7e2", "#B07D0A", "part built"],
-        "planned": ["#f1eee6", "#bfb9a8", "planned"],
     },
     "ghost": ["#f1eee6", "#dcd7c8"],
     "container": {

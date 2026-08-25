@@ -23,8 +23,6 @@ from systemap.model import (
     Step,
 )
 
-ISSUE_URL = "https://example.invalid/issues/{n}"
-
 
 def write_tree(root: Path, files: dict[str, str]) -> None:
     """Write a dict of relative path -> content under root."""
@@ -99,10 +97,10 @@ TINY_PACKAGE: dict[str, str] = {
 }
 
 
-# ---- the sample system: a small pipeline with a store, an actor and a plan ----
+# ---- the sample system: a small pipeline with a store and an actor ------------
 # Rich enough to exercise every drawing rule: two containers, two regions,
-# a store, an actor outside the system, a planned card with a tracker, three
-# layers, a layer override, a verb override, two invariants and a journey.
+# a store, an actor outside the system, three layers, a layer override, a
+# verb override, two invariants and a journey.
 
 SAMPLE_TREE: dict[str, str] = {
     "pkg/__init__.py": '"""The sample system."""\n',
@@ -202,15 +200,6 @@ def sample_model() -> tuple[Model, Meaning]:
                 y=ROW["r1"],
             ),
             Component(
-                "Planner",
-                "Will decide the order parts are written in.",
-                implemented_by=("pkg.planner",),
-                region="work",
-                x=COL["c3"],
-                y=ROW["r1"],
-                tracker="R2 #7",
-            ),
-            Component(
                 "Ledger",
                 "Keeps every record ever written.",
                 interface="Ledger.record / Ledger.history",
@@ -236,7 +225,6 @@ def sample_model() -> tuple[Model, Meaning]:
             Flow("User", "Reader", "input", "work"),
             Flow("Reader", "Parser", "request", "work"),
             Flow("Parser", "Writer", "parts", "work"),
-            Flow("Parser", "Planner", "parts", "work"),
             Flow("Writer", "Ledger", "record", "record"),
             Flow("Ledger", "Parser", "history", "record"),
         ),
@@ -251,7 +239,6 @@ def sample_model() -> tuple[Model, Meaning]:
             "User": "the person typing",
             "Reader": "the part that reads",
             "Parser": "the part that splits",
-            "Planner": "the part that will order",
             "Ledger": "the record book",
             "Writer": "the part that writes",
         },
@@ -266,7 +253,6 @@ def sample_model() -> tuple[Model, Meaning]:
             ("User", "Reader"): "The user types one input at a time.",
             ("Reader", "Parser"): "The reader hands the parser one request.",
             ("Parser", "Writer"): "The parser gives the writer the parts in order.",
-            ("Parser", "Planner"): "The parser will give the planner the parts to order.",
             ("Writer", "Ledger"): "The writer records every result it produces.",
             ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
         },
@@ -309,7 +295,6 @@ def sample(tmp_path: Path) -> Sample:
         root=tmp_path,
         name="sample",
         package_roots=(("pkg", "pkg"),),
-        issue_url=ISSUE_URL,
         coverage_ignore=(Ignore("pkg", "the package root only marks the directory"),),
     )
     model, meaning = sample_model()

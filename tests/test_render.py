@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 
-from conftest import ISSUE_URL, Sample, sample_model
+from conftest import Sample, sample_model
 
 from systemap import check, figure, page
 from systemap import theme as theme_mod
@@ -22,9 +22,9 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     assert "@import" not in html
     assert "url(http" not in html
     assert "fetch(" not in html
-    # The only URLs on the page are the SVG namespace and the tracker links.
+    # The only URL on the page is the SVG namespace.
     for url in set(re.findall(r"https?://[^\s\"'<)]+", html)):
-        assert url.startswith(("http://www.w3.org/", ISSUE_URL.split("{")[0])), url
+        assert url.startswith("http://www.w3.org/"), url
     assert "<title>sample system map</title>" in html
     assert "OUTSIDE THE SYSTEM" in html
     assert 'id="schematic"' in html
@@ -32,7 +32,7 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
 
 def test_schematic_reports_layout_and_detail(sample: Sample) -> None:
     model, meaning = sample.model, sample.meaning
-    svg, detail = render_schematic(model, meaning, sample.theme, sample.facts, issue_url=ISSUE_URL)
+    svg, detail = render_schematic(model, meaning, sample.theme, sample.facts)
     data = json.loads(detail)
     meta = data["_meta"]
     assert meta["collisions"] == []
@@ -42,11 +42,11 @@ def test_schematic_reports_layout_and_detail(sample: Sample) -> None:
     assert states["Reader"] == "built"
     assert states["Ledger"] == "built"
     assert states["User"] == "actor"
-    assert states["Planner"] == "planned", "a roadmap item with no code yet draws as a ghost"
-    assert data["Planner"]["tracker"] == "R2"
-    assert data["Planner"]["issues"] == [{"n": "7", "url": ISSUE_URL.format(n="7")}]
+    assert set(states.values()) == {"built", "actor"}, "what is drawn exists; nothing is planned"
+    assert "tracker" not in data["Writer"] and "issues" not in data["Writer"]
     assert data["Writer"]["rules"] == [1, 2]
     assert svg.count('class="node ') == len(model.components)
+    assert "planned" not in svg and "endstate" not in svg
     assert "font-size:10" not in svg
 
 
@@ -56,7 +56,6 @@ def test_check_passes_on_sample(sample: Sample) -> None:
         sample.meaning,
         sample.theme,
         sample.facts,
-        sample.cfg.issue_url,
         sample.cfg.coverage_ignore,
     )
     assert result.problems == []
@@ -95,6 +94,7 @@ def test_reach_figure(sample: Sample) -> None:
     assert "in the plan's reach" in html
     assert "IN REACH" in html
     assert "svg.systemap" in html
+    assert "endstate" not in html and "planned" not in html
 
 
 def test_light_scheme_derives_from_the_same_palette() -> None:

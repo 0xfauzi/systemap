@@ -13,11 +13,10 @@ A map has two hand-authored halves and one derived one:
     facts ..... read out of the code by `systemap extract`: every module,
                 its public surface, and the tests that import it
 
-Build state is DERIVED, never declared: a component is built when the modules
-named in `implemented_by` exist in the facts and carry the entry point named
-in `entry`. A component that carries a `tracker` (a roadmap item) is planned
-until that entry appears, so the map cannot claim something is finished
-before the code lands, and cannot keep calling it planned after it does.
+The map draws what exists today. Every component names the modules that are
+it and one entry point those modules define; `systemap check` refuses a
+module or an entry the facts do not have, so a card on the page is always
+code in the tree. Nothing is planned, nothing is declared done.
 
 Positions are hand-placed because this is a topology, not a chart: a box's
 place carries meaning. A fixed layout also means the same system always
@@ -74,9 +73,9 @@ class Component:
     """One card on the map.
 
     `region` places a component or store; `container` places an actor. `x`
-    and `y` are the card's top-left corner in canvas units. `tracker` marks
-    a roadmap item whose code has not landed; `note` is a caveat the reader
-    should see; `interface` is the one-line signature the reader is told.
+    and `y` are the card's top-left corner in canvas units. `note` is a
+    caveat the reader should see; `interface` is the one-line signature the
+    reader is told.
     """
 
     id: str
@@ -89,7 +88,6 @@ class Component:
     container: str | None = None
     x: int = 0
     y: int = 0
-    tracker: str = ""
     note: str = ""
 
     @property
@@ -344,35 +342,34 @@ def claimed(component: Component, modules: Iterable[str]) -> list[str]:
     return [m for m in modules if any(module_matches(p, m) for p in patterns)]
 
 
-def build_state(component: Component, facts: Mapping[str, Any]) -> str:
-    """built | partial | planned, derived from what the facts actually found.
+BUILT = "built"
 
-    A component with a `tracker` is a roadmap item: until its entry exists it
-    is planned, not "part built", even when the module it will land in
-    already exists (a new command on an existing CLI module, for instance).
-    An `implemented_by` entry counts as present when at least one module in
-    the facts matches it, so a `pkg.sub.*` entry is present while the
-    package has any module at all.
+
+def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
+    """Does one of the component's claimed modules define its entry?
+
+    The entry rule of `systemap check` reads this; it is the one place the
+    lookup is written, so a rule and a drawing cannot disagree about
+    whether a name exists.
     """
-    patterns = list(component.implemented_by)
-    if not patterns:
-        return "planned"
     components = facts.get("components", {})
-    present = [p for p in patterns if any(module_matches(p, m) for m in components)]
-    if not present:
-        return "planned"
-    entry = component.entry
-    if not entry:
-        # The parts exist but nothing named assembles them.
-        return "partial"
-    found = any(
-        entry in [f["name"] for f in components[m]["functions"]]
-        or entry in [c["name"] for c in components[m]["classes"]]
+    return any(
+        component.entry in [f["name"] for f in components[m]["functions"]]
+        or component.entry in [c["name"] for c in components[m]["classes"]]
         for m in claimed(component, components)
     )
-    if not found:
-        return "planned" if component.tracker else "partial"
-    return "built" if len(present) == len(patterns) else "partial"
+
+
+def build_state(component: Component, facts: Mapping[str, Any]) -> str:
+    """The one build state a drawn component has: `built`.
+
+    There is nothing to derive. A component whose modules or entry are not
+    in the facts never reaches the drawing, because the entry rule of
+    `systemap check` refuses it; what is drawn exists. The function stays
+    so the word is defined in one place and read from it.
+    """
+    del component, facts
+    return BUILT
 
 
 def _inside(inner: Box, outer: Box) -> bool:

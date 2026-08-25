@@ -5,6 +5,7 @@ import dataclasses
 from conftest import sample_model
 
 from systemap.model import (
+    BUILT,
     Component,
     Container,
     Flow,
@@ -17,6 +18,7 @@ from systemap.model import (
     Step,
     build_state,
     claimed,
+    defines_entry,
     meaning_problems,
     module_matches,
     problems,
@@ -151,25 +153,7 @@ def test_module_matches_exact_and_subtree() -> None:
     assert claimed(comp, ["p", "p.a", "p.ui", "p.ui.base", "p.b"]) == ["p.a", "p.ui", "p.ui.base"]
 
 
-def test_build_state_is_derived() -> None:
-    comp = Component("A", "does a", implemented_by=("p.a", "p.b"), entry="run")
-    facts = {
-        "components": {
-            "p.a": {"functions": [{"name": "run"}], "classes": []},
-            "p.b": {"functions": [], "classes": []},
-        }
-    }
-    assert build_state(comp, facts) == "built"
-    assert build_state(comp, {"components": {"p.a": facts["components"]["p.a"]}}) == "partial"
-    assert build_state(comp, {"components": {}}) == "planned"
-    missing = dataclasses.replace(comp, entry="absent")
-    assert build_state(missing, facts) == "partial"
-    assert build_state(dataclasses.replace(missing, tracker="R1 #9"), facts) == "planned"
-    assert build_state(dataclasses.replace(comp, entry=""), facts) == "partial"
-    assert build_state(Component("Actor", "outside", kind="actor"), facts) == "planned"
-
-
-def test_build_state_with_subtree_claim() -> None:
+def test_defines_entry_looks_the_name_up_in_the_claimed_modules() -> None:
     facts = {
         "components": {
             "p.ui": {"functions": [], "classes": []},
@@ -178,8 +162,17 @@ def test_build_state_with_subtree_claim() -> None:
         }
     }
     ui = Component("UI", "the screens", implemented_by=("p.ui.*",), entry="App")
-    assert build_state(ui, facts) == "built"
-    assert build_state(dataclasses.replace(ui, entry="Nope"), facts) == "partial"
-    both = Component("Both", "two claims", implemented_by=("p.ui.*", "p.gone"), entry="App")
-    assert build_state(both, facts) == "partial"
-    assert build_state(dataclasses.replace(ui, implemented_by=("p.web.*",)), facts) == "planned"
+    assert defines_entry(ui, facts)
+    assert not defines_entry(dataclasses.replace(ui, entry="Nope"), facts)
+    # A name another component's module defines does not count.
+    assert not defines_entry(dataclasses.replace(ui, entry="go"), facts)
+    assert not defines_entry(dataclasses.replace(ui, entry=""), facts)
+    assert not defines_entry(dataclasses.replace(ui, implemented_by=("p.web.*",)), facts)
+
+
+def test_build_state_has_one_value() -> None:
+    # The map draws what exists today; the check refuses everything else, so
+    # nothing is derived and there is no tracker field to declare a plan with.
+    comp = Component("A", "does a", implemented_by=("p.a",), entry="run")
+    assert build_state(comp, {"components": {}}) == BUILT == "built"
+    assert "tracker" not in {f.name for f in dataclasses.fields(Component)}

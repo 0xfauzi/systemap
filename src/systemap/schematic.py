@@ -5,7 +5,8 @@ visual channel so that no channel says two things at once:
 
     what exists ....... a card, inside the boundary it belongs to, carrying
                         its code name and its plain word
-    how finished ...... the card's FILL, derived from entry points found
+    what is outside ... an actor's dashed edge: a person or a system the
+                        code does not contain
     how work travels .. lines between cards, each labelled with what it
                         carries and coloured by the LAYER it belongs to
     what it means ..... the focus interaction: click a card and its
@@ -14,11 +15,10 @@ visual channel so that no channel says two things at once:
                         verb that relates it, and the panel draws the
                         relationship wheel
 
-Planned components are drawn as ghosts (dashed, muted) in their own region, so
-"today" and "end state" are the same drawing with one CSS class flipped on the
-root (`endstate`) rather than two drawings that could disagree. Every node
-carries `data-id` and a class for its build state; every edge carries its
-artifact as visible text and its layer as `data-layer`.
+Every card is code that exists today; the check refuses a component whose
+modules or entry are not in the facts, so the drawing never has to hedge.
+Every node carries `data-id` and its kind; every edge carries its artifact
+as visible text and its layer as `data-layer`.
 
 Edges are Manhattan paths routed by route.py through the gutters between
 cards: never through a card they do not connect, never through a region they
@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import html
 import json
-import re
 from typing import Any
 
 from systemap.model import Component, Meaning, Model, build_state
@@ -136,13 +135,6 @@ def lives_in(modules: list[str]) -> str:
     return "/".join(common) + f"/ ({len(modules)} modules)"
 
 
-def tracker_issues(tracker: str) -> tuple[str, list[str]]:
-    """('R10.7', ['228']) from 'R10.7 #228'; the label loses its numbers."""
-    numbers = re.findall(r"#(\d+)", tracker)
-    label = re.sub(r"\s*#\d+", "", tracker).strip(" ,")
-    return label, numbers
-
-
 def legend_rows(t: dict[str, Any], mode: str) -> list[tuple[str, str, str]]:
     """(fill, stroke, label) for the legend the given mode needs."""
     if mode == "change":
@@ -172,10 +164,6 @@ def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
         f"{s} .node{{transition:opacity .18s ease;cursor:pointer}}"
         f"{s} .node.dim{{opacity:.16}}"
         f"{s} .node.quiet{{opacity:.42}}"
-        f"{s} .node.planned{{opacity:.5}}"
-        f"{s}.endstate .node.planned{{opacity:1}}"
-        f"{s}.endstate .node.planned.quiet{{opacity:.42}}"
-        f"{s}.endstate .node.planned.dim{{opacity:.16}}"
         f"{s} .node.sel .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
         f"{s} .node.meas .node__box{{stroke:{t['steel']};stroke-width:2.2}}"
         f"{s} .node.acts .node__box{{stroke:{t['accent']};stroke-width:2.4}}"
@@ -185,16 +173,12 @@ def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
         f"{s} .node:focus-visible{{outline:none}}"
         f"{s} .node:focus-visible .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
         f"{s} .flow{{transition:opacity .18s ease}}"
-        f"{s} .flow.planned{{opacity:.35}}"
-        f"{s}.endstate .flow.planned{{opacity:1}}"
         f"{s} .flow.off,{s} .flowlbl.off{{display:none}}"
         f"{s} .flow.dim{{opacity:.07}}"
         f"{s} .flow.hot{{opacity:1;stroke-opacity:1;stroke-width:2.6;"
         "stroke-dasharray:8 6;animation:systemapflow 1.1s linear infinite}"
         f"{s} .flow.peek{{stroke-width:3.4}}"
         f"{s} .flowlbl{{transition:opacity .15s ease;pointer-events:none}}"
-        f"{s} .flowlbl.planned{{opacity:.5}}"
-        f"{s}.endstate .flowlbl.planned{{opacity:1}}"
         f"{s} .flowlbl.dim{{opacity:.08}}"
         f"{s} .flowlbl.hot{{opacity:1}}"
         f"{s} .vtag rect{{stroke-width:1}}"
@@ -244,7 +228,6 @@ def render(
     t: dict[str, Any],
     facts: dict[str, Any],
     *,
-    issue_url: str = "",
     changed: set[str] | None = None,
     changed_modules: set[str] | None = None,
     adjacent: set[str] | None = None,
@@ -277,7 +260,7 @@ def render(
     COMPONENTS = model.components
     FLOWS = [(f.src, f.dst, f.artifact, f.kind) for f in model.flows]
     CANVAS = model.canvas
-    INK, INK_2, INK_3 = T["ink"], T["ink_2"], T["ink_3"]
+    INK, INK_3 = T["ink"], T["ink_3"]
     HALO = T["bg"]
     GHOST_FILL, GHOST_STROKE = T["ghost"]
     LAYER_COLOUR: dict[str, str] = T["layers"]
@@ -422,16 +405,13 @@ def render(
         colour, marker = LAYER_COLOUR[layer], layer
         if art_hot:
             colour, marker = T["change"], "change"
-        ghost = states[src] == "planned" or states[dst] == "planned"
-        classes = f"flow {kind}" + (" planned" if ghost else "")
-        dash = ' stroke-dasharray="4 3"' if ghost else ""
         fid = f"{svg_id}-f{i}"
         flow_parts.append(
-            f'<path id="{fid}" class="{classes}" data-edge="{i}" data-from="{esc(src)}" '
+            f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
             f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
             f'data-kind="{esc(kind)}" data-layer="{layer}" d="{path_d(route.points)}" '
             f'fill="none" stroke="{colour}" stroke-opacity="{0.95 if art_hot else 0.82}" '
-            f'stroke-width="{1.8 if art_hot else 1.2}"{dash} stroke-linecap="round" '
+            f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round" '
             f'marker-end="url(#{svg_id}-m-{marker})"/>'
         )
         seat = seats[i]
@@ -451,7 +431,7 @@ def render(
         )
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
-            f'<g class="flowlbl {kind}{" planned" if ghost else ""}" data-edge="{i}" '
+            f'<g class="flowlbl {kind}" data-edge="{i}" '
             f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{layer}">'
             + L(lx, ly, artifact, LABEL_PX, colour, "500", False, "middle", "", True)
             + "</g>"
@@ -487,7 +467,7 @@ def render(
             f'role="button" '
             f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(state_label)}">'
         ]
-        dashes = ' stroke-dasharray="4 3"' if state == "planned" or kind == "actor" else ""
+        dashes = ' stroke-dasharray="4 3"' if kind == "actor" else ""
         g.append(
             f'<rect class="node__box" x="{x}" y="{y}" width="{w}" height="{h}" '
             f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" '
@@ -496,8 +476,7 @@ def render(
             f'<rect class="node__ring" x="{x + 3}" y="{y + 3}" width="{w - 6}" '
             f'height="{h - 6}" rx="{RADIUS - 1}"/>'
         )
-        name_ink = INK if state != "planned" else INK_2
-        g.append(L(x + w / 2, y + 17, cid, NAME_PX, name_ink, "600", True))
+        g.append(L(x + w / 2, y + 17, cid, NAME_PX, INK, "600", True))
         # A store is the same card with a rule under its head: flat convention
         # for a thing that holds rows rather than does work.
         if kind == "store":
@@ -554,7 +533,6 @@ def render(
         g.append("</g>")
         cards.append("".join(g))
 
-        tracker_label, issues = tracker_issues(c.tracker)
         detail[cid] = {
             "id": cid,
             "kind": kind,
@@ -563,8 +541,6 @@ def render(
             "does": c.does,
             "state": state if kind != "actor" else "actor",
             "state_label": state_label if kind != "actor" else "outside",
-            "tracker": tracker_label,
-            "issues": [{"n": n, "url": issue_url.format(n=n) if issue_url else ""} for n in issues],
             "lives": lives_in(list(c.implemented_by)),
             "moved": moved,
             "rules": model.rules_of(cid),
@@ -704,9 +680,6 @@ def panel_css(t: dict[str, Any]) -> str:
         f"letter-spacing:.04em;background:{t['raised']};color:{t['ink_3']};"
         f"border:1px solid {t['line']}}}"
         f".systemap-chip--built{{color:{t['good']};border-color:transparent}}"
-        f".systemap-chip--partial{{color:{t['warn']};border-color:transparent}}"
-        f".systemap-chip--planned{{color:{t['ink_3']};background:none;"
-        f"border:1px dashed {t['line_2']}}}"
         f".systemap-chip--actor{{color:{t['ink_3']};background:none;"
         f"border:1px dashed {t['line_2']}}}"
         f".systemap-chip a{{color:{t['accent']};text-decoration:none}}"
@@ -817,7 +790,7 @@ nodes.forEach(function(n){ nodeOf[n.dataset.id] = n; });
 labels.forEach(function(l){ labelOf[l.dataset.edge] = l; });
 flows.forEach(function(p){ flowOf[p.dataset.edge] = p; });
 var tags = svg.querySelector('[data-layer="tags"]');
-var state = {focus:'', layer:'all', journey:null, endstate:false, peek:-1};
+var state = {focus:'', layer:'all', journey:null, peek:-1};
 
 function setCls(el, map){
   for(var k in map){ if(map.hasOwnProperty(k)){ el.classList.toggle(k, !!map[k]); } }
@@ -1091,7 +1064,6 @@ function paint(){
       acts:!!(j && (j.acts || []).indexOf(id) >= 0),
       meas:!!(j && (j.measures || []).indexOf(id) >= 0), tagged:false});
   });
-  svg.classList.toggle('endstate', state.endstate);
   svg.classList.toggle('focused', !!f);
   drawTags();
 }
@@ -1267,13 +1239,8 @@ function describe(d){
   var say = (d.edges && d.edges.length) ? SAY_HINT : 'Nothing flows to or from this yet.';
   h += '<p class="systemap-f__say muted" data-say>' + esc(say) + '</p>';
   h += '<div class="systemap-f__chips">';
-  h += '<span class="systemap-chip systemap-chip--' + esc(d.state) + '">' + esc(d.state_label);
-  if(d.tracker){ h += ' <span>' + esc(d.tracker) + '</span>'; }
-  (d.issues || []).forEach(function(x){
-    h += x.url
-      ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">#' + esc(x.n) + '</a>'
-      : ' <span>#' + esc(x.n) + '</span>'; });
-  h += '</span>';
+  h += '<span class="systemap-chip systemap-chip--' + esc(d.state) + '">' + esc(d.state_label)
+     + '</span>';
   (d.rules || []).forEach(function(n){
     h += '<span class="systemap-chip systemap-chip--rule" title="' + esc(RULES[n] || '')
        + '" tabindex="0">' + n + '</span>';
@@ -1364,7 +1331,6 @@ svg.systemap = {
   peek: peek,
   state: state,
   setLayer: function(id){ state.layer = id; paint(); },
-  setEndstate: function(on){ state.endstate = !!on; paint(); },
   setJourney: function(step){
     // step: {acts:[], measures:[], edge:index, say:''} or null.
     state.focus = '';
