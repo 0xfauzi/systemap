@@ -42,7 +42,7 @@ def test_skill_front_matter_and_vocabulary() -> None:
         "Step(",
     ):
         assert part in text, part
-    assert "—" not in text, "no em dashes"
+    assert "\u2014" not in text, "no em dashes"
     assert "claude" not in text.lower().replace(".claude/skills", "")
     assert "codex" not in text.lower()
 
