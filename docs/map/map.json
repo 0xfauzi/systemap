@@ -1,5 +1,5 @@
 {
- "built_at_commit": "0b27a00440aeb98a0fbe1c92ad5b3a01a3ae8e4e",
+ "built_at_commit": "53119cbd0136981f2970470c20f85440e94f1ed5",
  "components": {
   "systemap": {
    "classes": [],
@@ -19,9 +19,14 @@
    "package": "systemap",
    "plane": "core",
    "sha": "4acb63f1834e",
-   "tests": [],
+   "tests": [
+    "test_marketplace_points_at_the_repository_root",
+    "test_plugin_manifest_version_is_the_package_version",
+    "test_plugin_skill_is_byte_identical_to_the_package_skill",
+    "test_skill_front_matter_fits_the_plugin_limits"
+   ],
    "tests_primary": 0,
-   "tests_total": 0,
+   "tests_total": 4,
    "uses": {
     "systemap.model": [
      "Component",
@@ -1497,10 +1502,14 @@
    "sha": "439c4d99657e",
    "tests": [
     "test_skill_front_matter_and_vocabulary",
-    "test_worked_example_passes_check"
+    "test_worked_example_passes_check",
+    "test_marketplace_points_at_the_repository_root",
+    "test_plugin_manifest_version_is_the_package_version",
+    "test_plugin_skill_is_byte_identical_to_the_package_skill",
+    "test_skill_front_matter_fits_the_plugin_limits"
    ],
    "tests_primary": 2,
-   "tests_total": 2,
+   "tests_total": 6,
    "uses": {}
   },
   "systemap.theme": {

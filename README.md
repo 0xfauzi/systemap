@@ -68,6 +68,19 @@ the `docs/` directory.
 Any agent that can read a skill file and run a command works the same way.
 The skill is plain text; there is nothing vendor-specific in it.
 
+### Install as a Claude Code plugin
+
+The repository is also a plugin and its own marketplace, so the skill can
+be installed without `init`:
+
+    /plugin marketplace add 0xfauzi/systemap
+    /plugin install systemap@systemap
+
+For any other agent, copy [`skills/systemap/`](skills/systemap/) into the
+agent's skills directory, or run `systemap skill` in the repository you are
+mapping. The skill file is in the Agent Skills format (front matter with a
+name and a description, then the procedure), so one file serves every agent.
+
 ## What the reader gets
 
 <p align="center">
@@ -224,6 +237,13 @@ beyond card, line and label.
     uv run mypy src --strict
     uv run ruff check .
     uv run systemap check      # the repository's own map must stay current
+
+The skill has one source of truth: [`src/systemap/skill/SKILL.md`](src/systemap/skill/SKILL.md),
+the file the package ships and `systemap init` installs. The plugin's copy
+at `skills/systemap/SKILL.md` is kept byte-identical by a test; after
+editing the source, run `cp src/systemap/skill/SKILL.md skills/systemap/SKILL.md`.
+The plugin manifest's version is tested against the package version, so
+the two are bumped together.
 
 ## Licence
 

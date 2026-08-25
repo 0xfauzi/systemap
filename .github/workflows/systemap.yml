@@ -51,3 +51,28 @@ jobs:
             echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
             exit 1
           }
+
+  plugin:
+    # The repository is also a Claude Code plugin and its own marketplace.
+    # Both manifests, and the skill under skills/, are validated in strict
+    # mode so an unrecognised field or a missing description fails here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: plugin manifest
+        run: claude plugin validate .claude-plugin/plugin.json --strict
+
+      - name: marketplace manifest
+        run: claude plugin validate .claude-plugin/marketplace.json --strict
+
+      - name: skills
+        run: claude plugin validate skills --strict

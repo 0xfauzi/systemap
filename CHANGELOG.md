@@ -36,6 +36,15 @@ refuses an incomplete or stale one, the person reviews the judgement.
 - README rewritten around the agent: the hero, why an agent and not a
   script, the quick start, the check rules as a table, the model in one
   screen, commands and configuration.
+- The repository is a Claude Code plugin and its own marketplace:
+  `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the
+  skill at `skills/systemap/SKILL.md` (a copy of the package file, kept
+  byte-identical by a test; the manifest's version is tested against the
+  package's). Install with `/plugin marketplace add 0xfauzi/systemap` then
+  `/plugin install systemap@systemap`. The skill's front matter carries
+  `license` and `compatibility`, and its description names the phrases
+  that should trigger it. The workflow validates both manifests and the
+  skill in strict mode.
 
 ## 0.2.0
 

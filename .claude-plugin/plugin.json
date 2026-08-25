@@ -1,0 +1,13 @@
+{
+  "name": "systemap",
+  "version": "0.3.0",
+  "description": "The map your coding agent draws of your system: the systemap skill, which extracts the facts, drafts the model, checks it until every module is mapped, renders the page and hands back the judgement list.",
+  "author": {
+    "name": "0xfauzi",
+    "email": "wumpini.hussein@gmail.com"
+  },
+  "homepage": "https://github.com/0xfauzi/systemap",
+  "repository": "https://github.com/0xfauzi/systemap",
+  "license": "MIT",
+  "keywords": ["architecture", "system map", "documentation", "coding agents"]
+}
