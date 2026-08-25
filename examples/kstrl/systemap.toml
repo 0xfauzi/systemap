@@ -1,0 +1,91 @@
+# systemap configuration for kstrl. The package lives at the repo root as
+# kstrl/; the tests import it from tests/; the map is published from
+# docs/atlas/ and keeps its facts in atlas.json so the committed history of
+# that file stays continuous.
+name = "kstrl"
+tests_dir = "tests"
+model = "atlas/model.py"
+out_dir = "docs/atlas"
+facts_file = "atlas.json"
+issue_url = "https://github.com/0xfauzi/kstrl/issues/{n}"
+spec_path = "docs/control-loop-design.md"
+planes = ["agents", "tui", "ui"]
+outside_label = "OUTSIDE THE FACTORY"
+
+[package_roots]
+"kstrl" = "kstrl"
+
+# The two figures the control-loop design cites: the plain system, and the
+# reach of the R10 control-loop plan.
+[[figures]]
+out = "system.html"
+mode = "system"
+interactive = true
+
+[[figures]]
+out = "r10-reach.html"
+mode = "reach"
+interactive = true
+components = [
+    "ServeDaemon", "GitHubIntake", "FlowControl", "Steering", "PRD", "RetryContext",
+    "EngineerLoop", "OperatorContext", "Reviewer", "Calibration", "Sense", "Pipeline",
+    "Dampener", "AutonomyLadder", "SafeMode", "HealthTrending",
+]
+caption = "The system, with the components the R10 control-loop plan reaches as the figure. Drawn by systemap from docs/atlas/atlas.json."
+
+# kstrl's own tokens, from its DESIGN.md: warm near-black ground, one amber
+# accent, so the map reads as the same instrument as the terminal UI it
+# describes. Measurement is steel; trust is the dashboard's violet; work,
+# the forward path, is a warm ivory so the default view reads as ink on the
+# ground and the coloured layers read as readings over it.
+[theme]
+name = "kstrl"
+scheme = "dark"
+bg = "#161310"
+surface = "#1E1A15"
+raised = "#27221A"
+line = "#2E2820"
+line_2 = "#4A4237"
+ink = "#ECE5D8"
+ink_2 = "#C4B9A4"
+ink_3 = "#A2967F"
+accent = "#E5A84F"
+accent_soft = "#E5A84F2E"
+steel = "#82A7BA"
+good = "#8FC470"
+warn = "#D9B036"
+bad = "#E26D5A"
+violet = "#B48EC9"
+ghost = ["#1A1713", "#2E2820"]
+region = "#A2967F"
+change = "#E26D5A"
+reach = "#E5A84F"
+flow = "#5E5548"
+
+[theme.state]
+built = ["#27221A", "#8A7D63", "built"]
+partial = ["#2A2519", "#D9B036", "part built"]
+planned = ["#1A1713", "#4A4237", "planned"]
+
+# Hard boundaries: [stroke, fill]. Isolated things (the agent's process,
+# its worktree, the control directory) carry a warm red-brown edge.
+[theme.container]
+host = ["#4A4237", "#1A1713"]
+client = ["#4A4237", "#1A1713"]
+server = ["#3B3428", "#1B1814"]
+isolated = ["#6B4A3D", "#1D1613"]
+
+[theme.layers]
+work = "#D9CDB2"
+measure = "#82A7BA"
+feedback = "#E39A86"
+operator = "#DD9BBD"
+trust = "#B48EC9"
+learn = "#86C9A9"
+record = "#B7C27C"
+
+[theme.delta]
+operations = "#82A7BA"
+types = "#8FC470"
+refusals = "#E26D5A"
+tests = "#E5A84F"
