@@ -20,7 +20,8 @@ goes, and the theme.
     outside_label  the index heading for actors outside every region
     [theme]        tokens laid over the default theme
     [[figures]]    figures `systemap refresh` regenerates: out, mode
-                   ("system" or "reach"), components, caption, interactive
+                   ("system" or "reach"), components, caption, interactive,
+                   layer (one reading's id: only that layer's edges)
     [coverage]     ignore = [{module = "pkg.mod", reason = "..."}]: modules
                    the coverage rule of `systemap check` may leave unmapped;
                    every entry needs a reason, since an unexplained hole in
@@ -58,7 +59,7 @@ KNOWN_KEYS = {
     "figures",
     "coverage",
 }
-FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id"}
+FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
 
@@ -77,6 +78,7 @@ class Figure:
     caption: str = ""
     interactive: bool = True
     svg_id: str = "lessonmap"
+    layer: str = ""
 
 
 @dataclass(frozen=True)
@@ -259,6 +261,7 @@ def load(root: Path) -> Config:
                 caption=_str(item, "caption", "", where),
                 interactive=interactive,
                 svg_id=_str(item, "svg_id", "lessonmap", where),
+                layer=_str(item, "layer", "", where),
             )
         )
 

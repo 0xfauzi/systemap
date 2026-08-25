@@ -420,6 +420,50 @@ def flow_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]:
     return tuple(layer for layer in all_layers(model, meaning) if layer.id not in DERIVED_LAYERS)
 
 
+def edge_in_layer(model: Model, layer_id: str, edge_layer: str, src: str, dst: str) -> bool:
+    """The one per-layer filter: does a flow belong to the reading `layer_id`?
+
+    A kind layer holds the flows of its kind; `edge_layer` is the layer
+    `Meaning.layer_for` gave the flow. A derived reading is computed from
+    the endpoints instead: Structure shows no edge, System context the
+    edges that cross the boundary (an actor at either end), Agents the
+    edges that touch an agent. The page reads this function's result out
+    of the detail JSON rather than deciding again in the browser, so a
+    figure of one layer and the page's layer switch cannot disagree.
+    """
+    if layer_id == "all":
+        return True
+    if layer_id == "structure":
+        return False
+    if layer_id == "system":
+        return model.kind_of(src) == "actor" or model.kind_of(dst) == "actor"
+    if layer_id == "agents":
+        return model.kind_of(src) == "agent" or model.kind_of(dst) == "agent"
+    return edge_layer == layer_id
+
+
+def subject_of_layer(model: Model, layer_id: str, cid: str) -> bool:
+    """A card the reading is about even when no edge it shows touches it."""
+    if layer_id == "structure":
+        return True
+    if layer_id == "system":
+        return model.kind_of(cid) == "actor"
+    if layer_id == "agents":
+        return model.kind_of(cid) == "agent"
+    return False
+
+
+def reading(model: Model, meaning: Meaning, layer_id: str) -> tuple[list[int], list[str]]:
+    """(the flows the reading shows, by index; the cards it is about, by id)."""
+    edges = [
+        i
+        for i, f in enumerate(model.flows)
+        if edge_in_layer(model, layer_id, meaning.layer_for(f.edge, f.kind), f.src, f.dst)
+    ]
+    subjects = [c.id for c in model.components if subject_of_layer(model, layer_id, c.id)]
+    return edges, subjects
+
+
 def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
     """Ways the meaning names something the model does not have, or misses one."""
     out: list[str] = []

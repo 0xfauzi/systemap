@@ -36,7 +36,9 @@ ignore = [
 ]
 
 # Figures `systemap refresh` regenerates beside the page. mode is "system"
-# (nothing marked) or "reach" (the named components marked as a plan's reach).
+# (nothing marked) or "reach" (the named components marked as a plan's reach);
+# layer = "structure" (or "system", "data", "control", a layer of your own)
+# draws one reading only, with every card and none of the other edges.
 [[figures]]
 out = "system.html"
 mode = "system"

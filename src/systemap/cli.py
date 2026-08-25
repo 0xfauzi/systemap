@@ -247,6 +247,7 @@ def cmd_figure(args: argparse.Namespace) -> int:
         svg_id=args.svg_id,
         interactive=bool(args.interactive),
         bare=bool(args.out) and args.out.endswith(".svg"),
+        layer=args.layer or "",
     )
     for line in collisions:
         warn(f"label collision: {line}")
@@ -393,6 +394,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--mode", choices=["system", "change"], default="")
     s.add_argument("--base", default="", help="the ref a change figure compares against")
     s.add_argument("--head", default="HEAD")
+    s.add_argument(
+        "--layer",
+        default="",
+        metavar="ID",
+        help="one reading only: that layer's edges, every card, the legend reduced to it "
+        "(structure, system, data, control, or a layer of the model's own)",
+    )
     s.add_argument("--caption", default="")
     s.add_argument("--svg-id", dest="svg_id", default="lessonmap")
     s.add_argument(

@@ -232,7 +232,7 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`, entry points included; `--check` exits 1 when they no longer match the tree |
 | `systemap check` | every rule in the table above; exit 1 with each fix named |
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
-| `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); a `.svg` name writes the bare drawing |
+| `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); a `.svg` name writes the bare drawing |
 | `systemap refresh` | extract, check, render, and every configured figure; "already current" when there is nothing to do |
 | `systemap judgement` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, every ignore; always exit 0 |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
@@ -257,7 +257,7 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `outside_label` | `OUTSIDE THE SYSTEM` | the index heading for actors outside every region |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`; an ignore needs a reason |
 | `[theme]` | graphite, dark | colour tokens; `scheme = "light"` picks the paper scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
-| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`; an `out` ending in `.svg` is the bare drawing |
+| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges); an `out` ending in `.svg` is the bare drawing |
 
 ## Principles
 

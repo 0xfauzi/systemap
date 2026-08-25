@@ -15,6 +15,13 @@ Three sources for what is marked:
     component ids         what a plan reaches, no git consulted (mode change)
     mode system           nothing marked: the plain system figure
 
+And one reading or all of them: `layer` draws only the edges the page's
+layer switch shows for that layer (its own filter, `model.reading`), with
+every card, the legend reduced to that layer and the layer's question as
+the title. Structure has no edges at all; the whole map with every layer
+at once is too many arrows for a document, and a reading is the page's
+own answer to that.
+
 An interactive figure carries the map's focus interaction as a
 self-contained fragment: clicking a component dims the rest, thickens its
 edges in their layer colours with their labels, tags each neighbour with the
@@ -32,7 +39,7 @@ from typing import Any
 
 from systemap import change as change_mod
 from systemap.config import Config, ConfigError, Figure
-from systemap.model import Meaning, Model
+from systemap.model import Layer, Meaning, Model, all_layers
 from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
 
@@ -77,8 +84,10 @@ def figure(
     legend: list[tuple[str, str, str]],
     svg_id: str,
     detail_json: str | None,
+    layer: str = "",
 ) -> str:
-    """The figure element. A detail JSON makes it interactive."""
+    """The figure element. A detail JSON makes it interactive; a layer id
+    reduces the line legend to that one reading."""
     swatches = "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
@@ -101,7 +110,8 @@ def figure(
         f'margin-right:1.1em;white-space:nowrap">'
         f'<span style="width:1em;height:3px;border-radius:2px;background:{colour};'
         f'display:inline-block"></span>{label}</span>'
-        for _lid, colour, label in layer_rows(t, model, meaning)
+        for lid, colour, label in layer_rows(t, model, meaning)
+        if not layer or lid == layer
     )
     controls = ""
     panel = ""
@@ -181,18 +191,22 @@ def make(
     svg_id: str = "lessonmap",
     interactive: bool = False,
     bare: bool = False,
+    layer: str = "",
 ) -> tuple[str, list[str]]:
     """(the figure HTML, the label collisions the drawing reported).
 
     `mode` is "system" or "change"; empty picks "change" when a base ref or
     component ids are given and "system" otherwise. Unknown component ids
     are a ConfigError; an empty git range is a FigureError. `bare` returns
-    the SVG alone, on its ground, instead of the figure element.
+    the SVG alone, on its ground, instead of the figure element. `layer`
+    is one reading's id; an id the page does not have is a ConfigError
+    naming the ones it does.
     """
     page_url = f"{cfg.out_dir}/index.html"
     facts_url = f"{cfg.out_dir}/{cfg.facts_file}"
     mode = mode or ("change" if (base or components) else "system")
     known = model.ids
+    reading = _reading(model, meaning, layer)
 
     changed: set[str] = set()
     changed_modules: set[str] = set()
@@ -231,6 +245,14 @@ def make(
             f"<code>{GENERATOR}</code>, the same generator the map uses, so "
             f"this cannot disagree with <code>{page_url}</code>."
         )
+    elif reading is not None:
+        sub = reading.sub[:1].upper() + reading.sub[1:] if reading.sub else ""
+        caption = caption or (
+            f"{reading.label}: {reading.question} {sub + '. ' if sub else ''}"
+            f"One reading of the system; the page at <code>{page_url}</code> has them "
+            f"all. Drawn by <code>{GENERATOR}</code> from <code>{facts_url}</code>; "
+            f"every card is code in the tree today."
+        )
     else:
         caption = caption or (
             f"The system as the map describes it. Drawn by <code>{GENERATOR}</code> "
@@ -250,6 +272,7 @@ def make(
         svg_id=svg_id,
         gained=gained,
         hot_artifacts=hot,
+        layer=layer,
     )
     meta = json.loads(detail).get("_meta", {})
     collisions: list[str] = list(meta.get("collisions", []))
@@ -263,8 +286,30 @@ def make(
         ]
     else:
         rows = legend_rows(t, legend_mode)
-    out = figure(t, model, meaning, svg, caption, rows, svg_id, detail if interactive else None)
+    out = figure(
+        t, model, meaning, svg, caption, rows, svg_id, detail if interactive else None, layer
+    )
     return out, collisions
+
+
+def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
+    """The layer a figure is restricted to, or None for the whole map.
+
+    The ids are the page's: the standard readings, the agent readings when
+    the model has an agent, then the model's own. A wrong id is refused
+    with the right ones named, since a figure of a reading that is not on
+    the page would be a picture the page cannot back.
+    """
+    if not layer:
+        return None
+    layers = all_layers(model, meaning)
+    for lay in layers:
+        if lay.id == layer:
+            return lay
+    raise ConfigError(
+        f"unknown layer id: {layer}; the readings the page has are "
+        f"{', '.join(lay.id for lay in layers)}"
+    )
 
 
 def configured(
@@ -293,4 +338,5 @@ def configured(
         svg_id=fig.svg_id,
         interactive=fig.interactive,
         bare=fig.out.endswith(".svg"),
+        layer=fig.layer,
     )

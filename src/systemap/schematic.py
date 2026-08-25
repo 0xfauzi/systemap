@@ -42,7 +42,17 @@ import html
 import json
 from typing import Any
 
-from systemap.model import AGENT_KINDS, CARD_H, Component, Meaning, Model, all_layers, build_state
+from systemap.model import (
+    AGENT_KINDS,
+    CARD_H,
+    DERIVED_LAYERS,
+    Component,
+    Meaning,
+    Model,
+    all_layers,
+    build_state,
+    reading,
+)
 from systemap.route import path_d, place_labels, route_all
 
 CARD_W = 150.0
@@ -247,6 +257,7 @@ def render(
     svg_id: str = "schematic",
     gained: dict[str, dict[str, int]] | None = None,
     hot_artifacts: set[str] | None = None,
+    layer: str = "",
 ) -> tuple[str, str]:
     """(svg, json detail).
 
@@ -255,6 +266,14 @@ def render(
     the flow labels whose owning module redefined part of its surface; the
     change detector is the one place that computes it, so this only draws
     what it is told.
+
+    `layer` restricts the drawing to one reading: the edges the page's
+    layer switch would show for it (`model.reading`, the same filter),
+    painted in the reading's own hue when the reading is derived, and no
+    other edge at all; every card stays. Cards, routes and label seats are
+    the ones the whole map has, so the figure is the page with edges left
+    out, not a second layout. An unknown id is a ValueError; the figure
+    module checks it first and names the known ids.
 
     The detail JSON carries one record per component (what the focus panel
     shows) plus a `_meta` key: the layers, every edge with its verbs and its
@@ -278,6 +297,13 @@ def render(
     LAYER_COLOUR: dict[str, str] = T["layers"]
     MARKS: dict[str, str] = T.get("marks") or {}
     LAYERS = all_layers(model, meaning)
+    # Which edges and which cards each reading shows, decided once here and
+    # read by the page's script out of the detail JSON.
+    readings = {lay.id: reading(model, meaning, lay.id) for lay in LAYERS}
+    if layer and layer not in readings:
+        raise ValueError(f"unknown layer id: {layer}")
+    shown: set[int] | None = set(readings[layer][0]) if layer else None
+    reading_hue = layer if layer in DERIVED_LAYERS else ""
 
     # Text styling is deduplicated into classes: 240 text elements each
     # carrying a full font stack tripled the size of the figure for no
@@ -408,30 +434,11 @@ def render(
     layers_of: dict[int, str] = {}
     paths: dict[int, list[list[float]]] = {}
     for i, (src, dst, artifact, kind) in enumerate(FLOWS):
-        layer = meaning.layer_for((src, dst), kind)
-        layers_of[i] = layer
+        own = meaning.layer_for((src, dst), kind)
+        layers_of[i] = own
         route = routes[i]
         paths[i] = [[round(x, 1), round(y, 1)] for x, y in route.points]
-        if route.fallback:
-            notes.append(f"{src} -> {dst}: {route.fallback}")
-        art_hot = artifact in hot_artifacts
-        colour, marker = LAYER_COLOUR[layer], layer
-        if art_hot:
-            colour, marker = T["change"], "change"
-        fid = f"{svg_id}-f{i}"
-        flow_parts.append(
-            f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
-            f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
-            f'data-kind="{esc(kind)}" data-layer="{layer}" d="{path_d(route.points)}" '
-            f'fill="none" stroke="{colour}" stroke-opacity="{0.95 if art_hot else 0.82}" '
-            f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round" '
-            f'marker-end="url(#{svg_id}-m-{marker})"/>'
-        )
         seat = seats[i]
-        if seat.cost > 0:
-            collisions.append(f"'{artifact}' ({src} -> {dst}) overlaps {', '.join(seat.hits[:3])}")
-        if not seat.on_longest:
-            notes.append(f"'{artifact}' ({src} -> {dst}) sits on a shorter segment")
         lbox = seat.box
         label_boxes.append(
             {
@@ -442,10 +449,35 @@ def render(
                 "segment": seat.segment,
             }
         )
+        # An edge outside the reading is left out whole: no path, no label,
+        # and nothing reported about a seat nobody sees.
+        if shown is not None and i not in shown:
+            continue
+        if route.fallback:
+            notes.append(f"{src} -> {dst}: {route.fallback}")
+        art_hot = artifact in hot_artifacts
+        colour, marker = LAYER_COLOUR[own], own
+        if reading_hue:
+            colour, marker = LAYER_COLOUR[reading_hue], reading_hue
+        if art_hot:
+            colour, marker = T["change"], "change"
+        fid = f"{svg_id}-f{i}"
+        flow_parts.append(
+            f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
+            f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
+            f'data-kind="{esc(kind)}" data-layer="{own}" d="{path_d(route.points)}" '
+            f'fill="none" stroke="{colour}" stroke-opacity="{0.95 if art_hot else 0.82}" '
+            f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round" '
+            f'marker-end="url(#{svg_id}-m-{marker})"/>'
+        )
+        if seat.cost > 0:
+            collisions.append(f"'{artifact}' ({src} -> {dst}) overlaps {', '.join(seat.hits[:3])}")
+        if not seat.on_longest:
+            notes.append(f"'{artifact}' ({src} -> {dst}) sits on a shorter segment")
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
             f'<g class="flowlbl {kind}" data-edge="{i}" '
-            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{layer}">'
+            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}">'
             + L(lx, ly, artifact, LABEL_PX, colour, "500", False, "middle", "", True)
             + "</g>"
         )
@@ -576,21 +608,25 @@ def render(
             "lives": lives_in(list(c.implemented_by)),
             "moved": moved,
             "rules": model.rules_of(cid),
-            "edges": [i for i, (a, b, _art, _k) in enumerate(FLOWS) if cid in (a, b)],
+            "edges": [
+                i
+                for i, (a, b, _art, _k) in enumerate(FLOWS)
+                if cid in (a, b) and (shown is None or i in shown)
+            ],
         }
 
     edges_meta = []
     for i, (src, dst, artifact, kind) in enumerate(FLOWS):
-        layer = layers_of[i]
+        own = layers_of[i]
         edges_meta.append(
             {
                 "from": src,
                 "to": dst,
                 "art": artifact,
                 "kind": kind,
-                "layer": layer,
-                "out": meaning.verb_for((src, dst), layer, True),
-                "in": meaning.verb_for((src, dst), layer, False),
+                "layer": own,
+                "out": meaning.verb_for((src, dst), own, True),
+                "in": meaning.verb_for((src, dst), own, False),
                 "say": meaning.relations.get((src, dst), ""),
             }
         )
@@ -616,14 +652,20 @@ def render(
         "_meta": {
             "layers": [
                 {
-                    "id": layer.id,
-                    "label": layer.label,
-                    "question": layer.question,
-                    "sub": layer.sub,
-                    "colour": LAYER_COLOUR[layer.id],
+                    "id": lay.id,
+                    "label": lay.label,
+                    "question": lay.question,
+                    "sub": lay.sub,
+                    "colour": LAYER_COLOUR[lay.id],
+                    "derived": lay.id in DERIVED_LAYERS,
                 }
-                for layer in LAYERS
+                for lay in LAYERS
             ],
+            "readings": {
+                lid: {"edges": edges, "subjects": subjects}
+                for lid, (edges, subjects) in readings.items()
+            },
+            "reading": layer,
             "edges": edges_meta,
             "journeys": journeys_meta,
             "regions": [
@@ -651,12 +693,27 @@ def render(
 
     pad = 26
     width, height = CANVAS
+    # The drawing's title is the reading's question when it draws one
+    # reading, so an image of the control flow says what it answers.
+    if layer:
+        lay = next(lay for lay in LAYERS if lay.id == layer)
+        title = f"{lay.label}: {lay.question}" if lay.question else lay.label
+        what = (
+            f"{title} Every card, and only the edges of the {lay.label} reading, "
+            "each labelled with what it carries."
+        )
+    else:
+        title = "System map"
+        what = (
+            "System map. Fill is build state; every line is labelled with "
+            "what it carries and coloured by its layer."
+        )
     p: list[str] = [
         f'<svg id="{svg_id}" class="scene" xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="{-pad} {-pad} {width + pad * 2} {height + pad * 2}" '
         f'preserveAspectRatio="xMidYMid meet" tabindex="0" role="application" '
-        f'aria-label="System map. Fill is build state; every line is labelled with '
-        f'what it carries and coloured by its layer.">',
+        f'aria-label="{esc(what)}">'
+        f"<title>{esc(title)}</title>",
         _defs(svg_id, T),
         _svg_style(svg_id, T),
     ]
@@ -796,8 +853,18 @@ var LAYERS = META.layers || [];
 var EDGES = META.edges || [];
 var RULES = {};
 (META.rules || []).forEach(function(r){ RULES[r.n] = r.text; });
-var LCOL = {}, LORD = {};
-LAYERS.forEach(function(l, i){ LCOL[l.id] = l.colour; LORD[l.id] = i; });
+var LCOL = {}, LORD = {}, LAYER_AT = {};
+LAYERS.forEach(function(l, i){ LCOL[l.id] = l.colour; LORD[l.id] = i; LAYER_AT[l.id] = l; });
+// Which edges and which cards each reading shows, decided in Python
+// (systemap.model.reading) and carried in the detail, so the page's layer
+// switch and a figure of one layer read the same table.
+var READINGS = META.readings || {};
+var IN_READING = {}, SUBJECT_OF = {};
+Object.keys(READINGS).forEach(function(L){
+  IN_READING[L] = {}; SUBJECT_OF[L] = {};
+  (READINGS[L].edges || []).forEach(function(i){ IN_READING[L][i] = true; });
+  (READINGS[L].subjects || []).forEach(function(id){ SUBJECT_OF[L][id] = true; });
+});
 var EDGE_AT = {};
 EDGES.forEach(function(e, i){ EDGE_AT[e.from + '>' + e.to] = i; });
 var NS = 'http://www.w3.org/2000/svg';
@@ -1063,29 +1130,21 @@ Array.prototype.slice.call(svg.querySelectorAll('[data-zone]')).forEach(function
 
 // ---- the readings ---------------------------------------------------------
 // A kind layer shows the edges of its kind and hides the rest. A derived
-// reading is computed from the endpoints: Structure shows no edge, System
-// context the edges that cross the boundary (an actor at either end), and
-// Agents the edges that touch an agent; the rest are dimmed, not hidden,
-// and the edges shown are painted in the reading's own hue.
-var DERIVED = {structure:true, system:true, agents:true};
-function kindOf(id){ return (DETAIL[id] || {}).kind || ''; }
-function edgeIn(e, L){
+// reading (Structure, System context, Agents) is computed from the
+// endpoints, in Python, and read from the table above; on the page the
+// rest are dimmed, not hidden, and the edges shown are painted in the
+// reading's own hue.
+function edgeIn(i, L){
   if(L === 'all'){ return true; }
-  if(L === 'structure'){ return false; }
-  if(L === 'system'){ return kindOf(e.from) === 'actor' || kindOf(e.to) === 'actor'; }
-  if(L === 'agents'){ return kindOf(e.from) === 'agent' || kindOf(e.to) === 'agent'; }
-  return e.layer === L;
+  return !!(IN_READING[L] && IN_READING[L][i]);
 }
 function subjectOf(id, L){
   // A card the reading is about even when no edge it shows touches it.
-  if(L === 'structure'){ return true; }
-  if(L === 'system'){ return kindOf(id) === 'actor'; }
-  if(L === 'agents'){ return kindOf(id) === 'agent'; }
-  return false;
+  return !!(SUBJECT_OF[L] && SUBJECT_OF[L][id]);
 }
 function layerIds(L){
   var ids = {}, out = [];
-  EDGES.forEach(function(e){ if(edgeIn(e, L)){ ids[e.from] = true; ids[e.to] = true; } });
+  EDGES.forEach(function(e, i){ if(edgeIn(i, L)){ ids[e.from] = true; ids[e.to] = true; } });
   Object.keys(DETAIL).forEach(function(id){
     if(id !== '_meta' && (ids[id] || subjectOf(id, L))){ out.push(id); } });
   return out;
@@ -1118,13 +1177,13 @@ function paint(){
     traced = j.edge;
     if(traced >= 0){ jset[EDGES[traced].from] = true; jset[EDGES[traced].to] = true; }
   }
-  var derived = !!DERIVED[L] && L !== 'structure';
+  var derived = !!(LAYER_AT[L] && LAYER_AT[L].derived) && L !== 'structure';
   var inLayer = {};
-  EDGES.forEach(function(e){
-    if(edgeIn(e, L)){ inLayer[e.from] = true; inLayer[e.to] = true; } });
+  EDGES.forEach(function(e, i){
+    if(edgeIn(i, L)){ inLayer[e.from] = true; inLayer[e.to] = true; } });
   flows.forEach(function(p){
-    var i = +p.dataset.edge, e = EDGES[i];
-    var on = edgeIn(e, L);
+    var i = +p.dataset.edge;
+    var on = edgeIn(i, L);
     var lit = !!hot[i] || i === traced;
     var vis = on || lit || derived;
     var dim = vis && !lit && (!!f || !!j || (derived && !on));

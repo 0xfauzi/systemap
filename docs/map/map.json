@@ -1,5 +1,5 @@
 {
- "built_at_commit": "0fc70913aa737b308743ad769d33540393f9ebfb",
+ "built_at_commit": "93abbfc83f043fe24a668f28ec53cfadc26ddc55",
  "components": {
   "systemap": {
    "classes": [],
@@ -392,10 +392,10 @@
     "systemap.skill",
     "systemap.theme"
    ],
-   "loc": 447,
+   "loc": 455,
    "package": "systemap",
    "plane": "core",
-   "sha": "150f653e5f2f",
+   "sha": "bd24f0d6ddb7",
    "tests": [
     "test_check_fails_on_overlapping_fixture",
     "test_configuration_errors_exit_2",
@@ -406,12 +406,14 @@
     "test_skill_command_writes_the_skill",
     "test_stale_after_code_change",
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_holds_only_that_layers_edges",
     "test_actor_claims_no_code_and_is_not_checked",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_all_mapped",
     "test_component_with_no_module_fails",
+    "test_configured_layer_figures_are_refreshed_and_checked",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_crossing_imports_without_flow",
     "test_double_claim_fails",
@@ -419,12 +421,10 @@
     "test_entry_the_modules_do_not_define_fails",
     "test_ignore_with_reason_passes",
     "test_ignore_without_reason_is_a_config_error",
-    "test_ignored_lines",
-    "test_judgement_command_always_exits_0",
-    "test_layer_order_and_first_layer"
+    "test_ignored_lines"
    ],
    "tests_primary": 8,
-   "tests_total": 50,
+   "tests_total": 56,
    "uses": {
     "systemap": [
      "__version__"
@@ -508,7 +508,7 @@
     },
     {
      "name": "FIGURE_KEYS",
-     "value": "{'out', 'mode', 'components', 'caption', 'interactive', 'svg_id'}"
+     "value": "{'out', 'mode', 'components', 'caption', 'interactive', 'svg_id', 'layer'}"
     },
     {
      "name": "COVERAGE_KEYS",
@@ -568,10 +568,10 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 337,
+   "loc": 340,
    "package": "systemap",
    "plane": "core",
-   "sha": "cbc9603d217f",
+   "sha": "25aa15cddf8a",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
     "test_agent_kinds_are_cards_that_claim_code",
@@ -814,14 +814,14 @@
      "signature": "def bare_svg(svg: str, t: dict[str, Any]) -> str"
     },
     {
-     "doc": "The figure element. A detail JSON makes it interactive.",
+     "doc": "The figure element. A detail JSON makes it interactive; a layer id",
      "name": "figure",
-     "signature": "def figure(t: dict[str, Any], model: Model, meaning: Meaning, svg: str, caption: str, legend: list[tuple[str, str, str]], svg_id: str, detail_json: str | None) -> str"
+     "signature": "def figure(t: dict[str, Any], model: Model, meaning: Meaning, svg: str, caption: str, legend: list[tuple[str, str, str]], svg_id: str, detail_json: str | None, layer: str='') -> str"
     },
     {
      "doc": "(the figure HTML, the label collisions the drawing reported).",
      "name": "make",
-     "signature": "def make(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, mode: str='', components: tuple[str, ...]=(), base: str='', head: str='HEAD', caption: str='', svg_id: str='lessonmap', interactive: bool=False, bare: bool=False) -> tuple[str, list[str]]"
+     "signature": "def make(cfg: Config, model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, mode: str='', components: tuple[str, ...]=(), base: str='', head: str='HEAD', caption: str='', svg_id: str='lessonmap', interactive: bool=False, bare: bool=False, layer: str='') -> tuple[str, list[str]]"
     },
     {
      "doc": "One figure from the configuration's `[[figures]]` table.",
@@ -840,20 +840,26 @@
     "systemap.model",
     "systemap.schematic"
    ],
-   "loc": 296,
+   "loc": 342,
    "package": "systemap",
    "plane": "core",
-   "sha": "8cdb910ed08e",
+   "sha": "6b550c00fddc",
    "tests": [
+    "test_a_layer_figure_holds_only_that_layers_edges",
     "test_check_passes_on_sample",
+    "test_configured_layer_figures_are_refreshed_and_checked",
     "test_default_theme_colours_every_layer",
     "test_light_scheme_derives_from_the_same_palette",
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
-    "test_schematic_reports_layout_and_detail"
+    "test_schematic_reports_layout_and_detail",
+    "test_structure_has_no_edges_and_system_crosses_the_boundary",
+    "test_the_legend_and_caption_reduce_to_the_layer",
+    "test_the_page_reads_the_same_table",
+    "test_unknown_layer_exits_2_with_the_fix_named"
    ],
    "tests_primary": 0,
-   "tests_total": 6,
+   "tests_total": 12,
    "uses": {
     "systemap.change": [
      "*"
@@ -864,8 +870,10 @@
      "Figure"
     ],
     "systemap.model": [
+     "Layer",
      "Meaning",
-     "Model"
+     "Model",
+     "all_layers"
     ],
     "systemap.schematic": [
      "interactive_script",
@@ -1134,6 +1142,21 @@
      "signature": "def flow_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]"
     },
     {
+     "doc": "The one per-layer filter: does a flow belong to the reading `layer_id`?",
+     "name": "edge_in_layer",
+     "signature": "def edge_in_layer(model: Model, layer_id: str, edge_layer: str, src: str, dst: str) -> bool"
+    },
+    {
+     "doc": "A card the reading is about even when no edge it shows touches it.",
+     "name": "subject_of_layer",
+     "signature": "def subject_of_layer(model: Model, layer_id: str, cid: str) -> bool"
+    },
+    {
+     "doc": "(the flows the reading shows, by index; the cards it is about, by id).",
+     "name": "reading",
+     "signature": "def reading(model: Model, meaning: Meaning, layer_id: str) -> tuple[list[int], list[str]]"
+    },
+    {
      "doc": "Ways the meaning names something the model does not have, or misses one.",
      "name": "meaning_problems",
      "signature": "def meaning_problems(model: Model, meaning: Meaning) -> list[str]"
@@ -1179,10 +1202,10 @@
     "systemap.theme"
    ],
    "imports": [],
-   "loc": 541,
+   "loc": 585,
    "package": "systemap",
    "plane": "core",
-   "sha": "42db25d99311",
+   "sha": "e516307e8dea",
    "tests": [
     "test_a_custom_layer_may_not_take_a_standard_id",
     "test_build_state_has_one_value",
@@ -1198,20 +1221,20 @@
     "test_sample_validates",
     "test_small_model_is_clean",
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_holds_only_that_layers_edges",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_configured_layer_figures_are_refreshed_and_checked",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_crossing_imports_without_flow",
     "test_default_theme_colours_every_layer",
     "test_entry_points_without_journey",
-    "test_ignored_lines",
-    "test_judgement_command_always_exits_0",
-    "test_layer_order_and_first_layer"
+    "test_ignored_lines"
    ],
    "tests_primary": 13,
-   "tests_total": 39,
+   "tests_total": 45,
    "uses": {}
   },
   "systemap.page": {
@@ -1267,10 +1290,12 @@
    "sha": "c3cb4a1a2d69",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_holds_only_that_layers_edges",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_configured_layer_figures_are_refreshed_and_checked",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
     "test_layer_order_and_first_layer",
@@ -1278,10 +1303,14 @@
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
     "test_schematic_reports_layout_and_detail",
-    "test_standard_kinds_need_no_declaration"
+    "test_standard_kinds_need_no_declaration",
+    "test_structure_has_no_edges_and_system_crosses_the_boundary",
+    "test_the_legend_and_caption_reduce_to_the_layer",
+    "test_the_page_reads_the_same_table",
+    "test_unknown_layer_exits_2_with_the_fix_named"
    ],
    "tests_primary": 0,
-   "tests_total": 13,
+   "tests_total": 19,
    "uses": {
     "systemap.config": [
      "Config"
@@ -1458,10 +1487,10 @@
     "systemap.cli"
    ],
    "imports": [],
-   "loc": 274,
+   "loc": 276,
    "package": "systemap",
    "plane": "core",
-   "sha": "02515d4af4bf",
+   "sha": "835a2bbb6394",
    "tests": [],
    "tests_primary": 0,
    "tests_total": 0,
@@ -1549,7 +1578,7 @@
     {
      "doc": "(svg, json detail).",
      "name": "render",
-     "signature": "def render(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, changed: set[str] | None=None, changed_modules: set[str] | None=None, adjacent: set[str] | None=None, mode: str='system', svg_id: str='schematic', gained: dict[str, dict[str, int]] | None=None, hot_artifacts: set[str] | None=None) -> tuple[str, str]"
+     "signature": "def render(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any], *, changed: set[str] | None=None, changed_modules: set[str] | None=None, adjacent: set[str] | None=None, mode: str='system', svg_id: str='schematic', gained: dict[str, dict[str, int]] | None=None, hot_artifacts: set[str] | None=None, layer: str='') -> tuple[str, str]"
     },
     {
      "doc": "Styles for the focus panel the interactive script writes into.",
@@ -1572,16 +1601,18 @@
     "systemap.model",
     "systemap.route"
    ],
-   "loc": 1445,
+   "loc": 1504,
    "package": "systemap",
    "plane": "core",
-   "sha": "05d12c1aa15a",
+   "sha": "d5b9f78891c9",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
+    "test_a_layer_figure_holds_only_that_layers_edges",
     "test_agent_kinds_are_cards_that_claim_code",
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
+    "test_configured_layer_figures_are_refreshed_and_checked",
     "test_context_and_tool_flows_need_an_agent_end",
     "test_default_theme_colours_every_layer",
     "test_layer_order_and_first_layer",
@@ -1589,19 +1620,25 @@
     "test_page_is_small_and_self_contained",
     "test_reach_figure",
     "test_schematic_reports_layout_and_detail",
-    "test_standard_kinds_need_no_declaration"
+    "test_standard_kinds_need_no_declaration",
+    "test_structure_has_no_edges_and_system_crosses_the_boundary",
+    "test_the_legend_and_caption_reduce_to_the_layer",
+    "test_the_page_reads_the_same_table",
+    "test_unknown_layer_exits_2_with_the_fix_named"
    ],
    "tests_primary": 0,
-   "tests_total": 13,
+   "tests_total": 19,
    "uses": {
     "systemap.model": [
      "AGENT_KINDS",
      "CARD_H",
      "Component",
+     "DERIVED_LAYERS",
      "Meaning",
      "Model",
      "all_layers",
-     "build_state"
+     "build_state",
+     "reading"
     ],
     "systemap.route": [
      "path_d",
