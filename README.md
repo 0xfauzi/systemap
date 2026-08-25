@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/hero.svg" alt="systemap: the map your coding agent draws of your system" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/hero.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
+    <img src="assets/hero.svg" alt="systemap: the map your coding agent draws of your system" width="100%">
+  </picture>
 </p>
 
 <p align="center">
@@ -315,6 +319,8 @@ there is one diagram, one hand-placed layout, and no notation beyond card,
 line, label and a mark per kind.
 
 ## Development
+
+Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`, which builds `dist/` and uploads with the PyPI token held in the maintainer's macOS Keychain (`--dry-run` builds and stops).
 
     uv sync
     uv run pytest -q

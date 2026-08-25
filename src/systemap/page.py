@@ -33,6 +33,9 @@ from systemap.schematic import render as render_schematic
 STATE_WORD = {"built": "built", "actor": "outside"}
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
+# The mark, inline, so the tab shows it with nothing fetched.
+FAVICON = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='112'%20fill='%23121417'/%3E%3Cpath%20d='M380,132%20H172%20V256%20H340%20V380%20H132'%20fill='none'%20stroke='%23e6e4df'%20stroke-width='40'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3Ccircle%20cx='380'%20cy='132'%20r='40'%20fill='%23e0a458'/%3E%3Ccircle%20cx='132'%20cy='380'%20r='40'%20fill='%23e0a458'/%3E%3C/svg%3E"
+
 
 def esc(text: object) -> str:
     return html.escape(str(text), quote=True)
@@ -94,6 +97,7 @@ def build(
     o.append('<html lang="en"><head><meta charset="utf-8">')
     o.append('<meta name="viewport" content="width=device-width,initial-scale=1">')
     o.append(f"<title>{esc(cfg.name)} system map</title>")
+    o.append(f'<link rel="icon" href="{FAVICON}">')
     o.append(f"<style>{CSS.format(ROOT=':root{' + theme_mod.css_vars(T) + '}')}")
     o.append(f"{panel_css(T)}</style></head><body>")
 

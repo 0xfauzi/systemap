@@ -1,5 +1,5 @@
 {
- "built_at_commit": "a2260ed292f4566d43c5d23ca6eb5a587af2a9fb",
+ "built_at_commit": "1e6b8453b77abd8fb6505cdf0459991bc8adc2c6",
  "components": {
   "systemap": {
    "classes": [],
@@ -2127,6 +2127,10 @@
      "value": "['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', '"
     },
     {
+     "name": "FAVICON",
+     "value": "\"data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200"
+    },
+    {
      "name": "CSS",
      "value": "'\\n{ROOT}\\n*{{box-sizing:border-box}}\\n:focus-visible{{outline:2px solid var(--a"
     }
@@ -2163,7 +2167,7 @@
     "systemap.schematic",
     "systemap.theme"
    ],
-   "loc": 659,
+   "loc": 663,
    "names": [
     {
      "kind": "constant",
@@ -2172,6 +2176,10 @@
     {
      "kind": "constant",
      "name": "NUMBER_WORDS"
+    },
+    {
+     "kind": "constant",
+     "name": "FAVICON"
     },
     {
      "kind": "function",
@@ -2196,7 +2204,7 @@
    ],
    "package": "systemap",
    "plane": "core",
-   "sha": "333b4a8fa45f",
+   "sha": "df5959f9e894",
    "tests": [
     "test_a_flow_of_an_undeclared_kind_fails",
     "test_a_layer_figure_colours_its_subjects_and_dims_the_untouched",

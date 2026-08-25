@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400" role="img" aria-label="systemap: the map your coding agent draws of your system">
+  <rect width="1200" height="400" rx="24" fill="#f4f2ee"/>
+  <g transform="translate(96,80) scale(0.47)">
+    <rect width="512" height="512" rx="112" fill="#1d2024"/>
+    <path d="M380,132 H172 V256 H340 V380 H132" fill="none" stroke="#f4f2ee" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="380" cy="132" r="40" fill="#e0a458"/>
+    <circle cx="132" cy="380" r="40" fill="#e0a458"/>
+  </g>
+  <g font-family="-apple-system, 'SF Pro Display', Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+    <text x="400" y="212" font-size="112" font-weight="600" letter-spacing="-5" fill="#1d2024">systemap</text>
+    <text x="404" y="268" font-size="30" font-weight="400" fill="#55534d">The map your coding agent draws of your system.</text>
+  </g>
+</svg>
