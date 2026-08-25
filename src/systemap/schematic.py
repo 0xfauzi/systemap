@@ -25,8 +25,9 @@ cards: never through a card they do not connect, never through a region they
 neither start nor end in. Each label sits on the longest segment of its own
 path, or in the gutter beside a run too short to hold it. What could not be
 placed cleanly is reported in the detail JSON under `_meta.collisions`, and
-any route that had to break a rule under `_meta.notes`, so a crowded layout
-fails loudly instead of quietly drawing text over text.
+any route that had to break a rule under `_meta.notes` with the router's
+reason, so a crowded layout fails loudly instead of quietly drawing text
+over text.
 
 Positions come from the model, so the same system always draws the same
 figure and a moved card means the architecture moved. Meaning (layers, the
@@ -472,8 +473,6 @@ def render(
         )
         if seat.cost > 0:
             collisions.append(f"'{artifact}' ({src} -> {dst}) overlaps {', '.join(seat.hits[:3])}")
-        if not seat.on_longest:
-            notes.append(f"'{artifact}' ({src} -> {dst}) sits on a shorter segment")
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
             f'<g class="flowlbl {kind}" data-edge="{i}" '

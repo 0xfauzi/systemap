@@ -70,6 +70,10 @@ def test_check_passes_on_sample(sample: Sample) -> None:
     lines = check.report(sample.model, result)
     assert "coverage: 4/4 modules mapped, 1 ignored" in lines
     assert any(line.startswith("map layout: clean") for line in lines)
+    # A label on a shorter segment was once a note on a clean check; it is
+    # not a rule, so it is not printed.
+    assert not any("note:" in line for line in lines)
+    assert not hasattr(result, "notes")
 
 
 def test_default_theme_colours_every_layer() -> None:

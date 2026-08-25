@@ -12,9 +12,11 @@ thing to look at:
 
     single module ...... a component that claims exactly one module: it
                          may be a real part, or an over-split
-    possible mis-fold .. a module whose name shares no word with the
-                         component that claims it: it may be folded into
-                         the wrong part
+    possible mis-fold .. a module whose dotted path shares no word with
+                         the component's id, does, plain word or interface,
+                         in a component of several modules, and whose
+                         package holds none of the component's other
+                         modules: it may be folded into the wrong part
     no sentence ........ a flow with no relation sentence, or a blank one
     thin layer ......... a flow layer (data, control, the agent kinds, or
                          the model's own) that lights fewer than two
@@ -30,15 +32,22 @@ thing to look at:
                          map does not. The main tool of the second pass.
     ignored ............ a module the coverage rule leaves unmapped, with
                          the reason the configuration gives
+
+The list has memory. A line the maintainer has answered lives in the
+configuration, under `[judgement] answered`, with its reason; it is
+suppressed here and counted, so the same line does not come back every
+run and the answer is in the repository, not in a chat. An answer whose
+line no longer appears is reported as stale, so answers cannot rot.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
-from systemap.config import Ignore
+from systemap.config import Answer, Ignore
 from systemap.extract import entry_label
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, module_matches
 
@@ -60,8 +69,13 @@ def shares_a_word(a: str, b: str) -> bool:
     miss synonyms ("Ledger" and "store") and it will accept a coincidence;
     the line it produces is a thing to look at, not a verdict.
     """
-    for x in words(a):
-        for y in words(b):
+    return share_a_word(words(a), words(b))
+
+
+def share_a_word(xs: set[str], ys: set[str]) -> bool:
+    """`shares_a_word` over two word sets already split."""
+    for x in xs:
+        for y in ys:
             if x == y:
                 return True
             short, long = (x, y) if len(x) <= len(y) else (y, x)
@@ -88,13 +102,46 @@ def single_module(model: Model, facts: dict[str, Any]) -> list[str]:
     return out
 
 
-def mis_folds(model: Model, facts: dict[str, Any]) -> list[str]:
+def package_of(module: str) -> str:
+    """The package a module sits in: its path minus the last segment, or itself."""
+    head, _, _ = module.rpartition(".")
+    return head or module
+
+
+def share_a_package(a: str, b: str) -> bool:
+    """Do two modules sit in one package, or is one the other's package?"""
+    return package_of(a) == package_of(b) or a == package_of(b) or b == package_of(a)
+
+
+def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+    """Modules that may be folded into the wrong component.
+
+    The line fires only when three things hold at once. Every word of the
+    module's dotted path is a stranger to the component: none is shared
+    with its id, its `does`, its plain word or its `interface`. The
+    component claims more than one module (one module is the `single
+    module` line's business). And the module's package holds none of the
+    component's other modules and is not itself one of them, so it is not
+    merely a differently named file among its neighbours. Comparing the
+    id with the last path segment alone fired on most of a real map's
+    modules; a component's prose names what it holds far more often than
+    its id does.
+    """
     out: list[str] = []
     for c in model.components:
-        for module in _modules_of(c, facts):
-            leaf = module.rsplit(".", 1)[-1]
-            if not shares_a_word(c.id, leaf):
-                out.append(f"possible mis-fold: {c.id} claims {module} (no shared word)")
+        modules = _modules_of(c, facts)
+        if len(modules) < 2:
+            continue
+        own = words(c.id) | words(c.does) | words(meaning.plain.get(c.id, "")) | words(c.interface)
+        for module in modules:
+            if share_a_word(words(module), own):
+                continue
+            if any(share_a_package(module, m) for m in modules if m != module):
+                continue
+            out.append(
+                f"possible mis-fold: {c.id} claims {module} (no word shared with the "
+                f"component, and no other module of it in {package_of(module)})"
+            )
     return out
 
 
@@ -225,7 +272,7 @@ def run(
     """Every line the maintainer should read, in the order above."""
     return (
         single_module(model, facts)
-        + mis_folds(model, facts)
+        + mis_folds(model, meaning, facts)
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
         + entry_points_without_journey(model, meaning, facts)
@@ -234,11 +281,49 @@ def run(
     )
 
 
-def report(lines: list[str]) -> list[str]:
+@dataclass(frozen=True)
+class Answered:
+    """The list once the configuration's answers are applied.
+
+    `open` is what is still to confirm, `answered` how many lines an
+    answer suppressed, and `stale` every answered item no line matches:
+    the model or the code moved on and the answer should go.
+    """
+
+    open: list[str]
+    answered: int
+    stale: list[str]
+
+
+def apply_answers(lines: list[str], answers: Iterable[Answer]) -> Answered:
+    """Suppress every line the configuration answers; report the rest and the stale."""
+    answered_items = [item for a in answers for item in a.items]
+    present = set(lines)
+    known = set(answered_items)
+    return Answered(
+        open=[line for line in lines if line not in known],
+        answered=sum(1 for line in lines if line in known),
+        stale=[item for item in answered_items if item not in present],
+    )
+
+
+def report(lines: list[str] | Answered) -> list[str]:
     """The lines the CLI prints."""
-    if not lines:
-        return ["judgement: nothing to confirm"]
-    noun = "item" if len(lines) == 1 else "items"
-    return [f"judgement: {len(lines)} {noun} for the maintainer to confirm"] + [
-        f"  {line}" for line in lines
+    result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
+    open_lines = result.open
+    tail = ""
+    if result.answered:
+        tail += f", {result.answered} answered"
+    if result.stale:
+        tail += f", {len(result.stale)} stale"
+    if not open_lines:
+        head = f"judgement: nothing to confirm{tail}"
+    else:
+        noun = "item" if len(open_lines) == 1 else "items"
+        head = f"judgement: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
+    out = [head] + [f"  {line}" for line in open_lines]
+    out += [
+        f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
+        for item in result.stale
     ]
+    return out

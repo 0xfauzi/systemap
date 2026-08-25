@@ -26,6 +26,13 @@ goes, and the theme.
                    the coverage rule of `systemap check` may leave unmapped;
                    every entry needs a reason, since an unexplained hole in
                    the map is the thing the rule exists to refuse
+    [judgement]    answered = [{item = "<a judgement line>", reason = "..."}]:
+                   the lines of `systemap judgement` the maintainer has
+                   answered, each with why; an answered line is suppressed
+                   and counted, an answer whose line no longer appears is
+                   reported as stale, and an answer without a reason is an
+                   error. `items = [...]` answers several lines with one
+                   reason
 
 Unknown keys are a configuration error: a misspelt key that silently did
 nothing would be worse than a refusal.
@@ -58,10 +65,13 @@ KNOWN_KEYS = {
     "theme",
     "figures",
     "coverage",
+    "judgement",
 }
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
+JUDGEMENT_KEYS = {"answered"}
+ANSWER_KEYS = {"item", "items", "reason"}
 
 
 class ConfigError(Exception):
@@ -94,6 +104,19 @@ class Ignore:
 
 
 @dataclass(frozen=True)
+class Answer:
+    """One or more judgement lines the maintainer has answered, and why.
+
+    `items` are the lines exactly as `systemap judgement` prints them
+    (without the two-space indent). The answer is the hand-back: it lives
+    in the repository beside the model, not in a conversation.
+    """
+
+    items: tuple[str, ...]
+    reason: str
+
+
+@dataclass(frozen=True)
 class Config:
     root: Path
     name: str
@@ -108,6 +131,7 @@ class Config:
     theme: dict[str, Any] = field(default_factory=dict)
     figures: tuple[Figure, ...] = ()
     coverage_ignore: tuple[Ignore, ...] = ()
+    judgement_answered: tuple[Answer, ...] = ()
     source: str = ""
 
     @property
@@ -267,6 +291,7 @@ def load(root: Path) -> Config:
 
     return Config(
         coverage_ignore=_coverage_ignore(raw, where),
+        judgement_answered=_judgement_answered(raw, where),
         root=root,
         name=_str(raw, "name", root.name, where),
         package_roots=package_roots,
@@ -313,6 +338,56 @@ def _coverage_ignore(raw: dict[str, Any], where: str) -> tuple[Ignore, ...]:
                 "say why the map may leave this module unmapped"
             )
         out.append(Ignore(module=module, reason=reason))
+    return tuple(out)
+
+
+def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
+    """The `[judgement] answered` list; an entry without a reason is refused."""
+    judgement = raw.get("judgement", {})
+    if not isinstance(judgement, dict):
+        raise ConfigError(f"{where}: judgement must be a table")
+    bad = sorted(set(judgement) - JUDGEMENT_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: judgement has unknown key: {', '.join(bad)}")
+    entries = judgement.get("answered", [])
+    if not isinstance(entries, list):
+        raise ConfigError(f"{where}: judgement.answered must be a list of tables")
+    out: list[Answer] = []
+    for k, entry in enumerate(entries, start=1):
+        if not isinstance(entry, dict):
+            raise ConfigError(
+                f"{where}: judgement.answered[{k}] must be a table with item (or items) and reason"
+            )
+        bad = sorted(set(entry) - ANSWER_KEYS)
+        if bad:
+            raise ConfigError(f"{where}: judgement.answered[{k}] has unknown key: {', '.join(bad)}")
+        item, items = entry.get("item"), entry.get("items")
+        if (item is None) == (items is None):
+            raise ConfigError(
+                f"{where}: judgement.answered[{k}] needs item (one line) or items (a list), "
+                "not both and not neither"
+            )
+        if item is not None:
+            if not isinstance(item, str) or not item.strip():
+                raise ConfigError(f"{where}: judgement.answered[{k}] item must be a line")
+            lines: tuple[str, ...] = (item.strip(),)
+        else:
+            if (
+                not isinstance(items, list)
+                or not items
+                or not all(isinstance(v, str) and v.strip() for v in items)
+            ):
+                raise ConfigError(
+                    f"{where}: judgement.answered[{k}] items must be a non-empty list of lines"
+                )
+            lines = tuple(v.strip() for v in items)
+        reason = entry.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ConfigError(
+                f"{where}: judgement.answered[{k}] ({lines[0]}) needs a reason: "
+                "say why the line is answered rather than acted on"
+            )
+        out.append(Answer(items=lines, reason=reason))
     return tuple(out)
 
 

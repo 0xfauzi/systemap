@@ -314,12 +314,18 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_judgement(args: argparse.Namespace) -> int:
-    """The list the maintainer confirms. A report, not a gate: always exit 0."""
+    """The list the maintainer confirms. A report, not a gate: always exit 0.
+
+    Lines answered under `[judgement] answered` in the configuration are
+    suppressed and counted; an answer whose line is gone is reported as
+    stale so it can be removed.
+    """
     p = _project(args)
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")
-    say(*judgement.report(judgement.run(p.model, p.meaning, facts, p.cfg.coverage_ignore)))
+    lines = judgement.run(p.model, p.meaning, facts, p.cfg.coverage_ignore)
+    say(*judgement.report(judgement.apply_answers(lines, p.cfg.judgement_answered)))
     return OK
 
 
@@ -418,7 +424,8 @@ def build_parser() -> argparse.ArgumentParser:
         "judgement",
         help="print the list the maintainer must confirm: thin components, odd folds, "
         "flows without a sentence, thin layers, entry points without a journey, imports "
-        "across a boundary with no flow, ignored modules; always exit 0",
+        "across a boundary with no flow, ignored modules; lines answered under "
+        "[judgement] in the configuration are suppressed and counted; always exit 0",
     )
     s.set_defaults(func=cmd_judgement)
 

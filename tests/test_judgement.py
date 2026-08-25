@@ -6,12 +6,13 @@ import dataclasses
 from pathlib import Path
 from typing import Any
 
+import fixture_workspace
 import pytest
 from conftest import Sample, sample_model, write_tree
 
-from systemap import judgement
+from systemap import config, judgement
 from systemap.cli import main
-from systemap.config import Ignore
+from systemap.config import Answer, Ignore
 from systemap.model import Component, Flow, Journey, Layer, Meaning, Model, Region, Step
 
 
@@ -42,7 +43,8 @@ def test_single_module_reads_implemented_by_without_facts() -> None:
 
 
 def test_mis_fold_lines(sample: Sample) -> None:
-    assert judgement.mis_folds(sample.model, sample.facts) == []
+    assert judgement.mis_folds(sample.model, sample.meaning, sample.facts) == []
+    # A component of one module is the single-module line's business, never a mis-fold.
     odd = dataclasses.replace(
         sample.model,
         components=tuple(
@@ -50,8 +52,92 @@ def test_mis_fold_lines(sample: Sample) -> None:
             for c in sample.model.components
         ),
     )
-    lines = judgement.mis_folds(odd, sample.facts)
-    assert lines == ["possible mis-fold: Keeper claims pkg.ledger (no shared word)"]
+    plain = {**sample.meaning.plain, "Keeper": "the record book"}
+    meaning = dataclasses.replace(sample.meaning, plain=plain)
+    assert judgement.mis_folds(odd, meaning, sample.facts) == []
+
+
+def _claims(*modules: str, does: str = "Keeps every record ever written.") -> Model:
+    return Model(
+        canvas=(600, 200),
+        containers=(),
+        regions=(Region("all", "ALL", (0, 0, 600, 200)),),
+        components=(
+            Component(
+                "Keeper",
+                does,
+                interface="Ledger.record / Ledger.history",
+                implemented_by=modules,
+                entry="Ledger",
+                region="all",
+                x=20,
+                y=20,
+            ),
+        ),
+        flows=(),
+        flow_kinds=(),
+    )
+
+
+def _facts(*modules: str) -> dict[str, Any]:
+    return {"components": {m: {"functions": [], "classes": [], "uses": {}} for m in modules}}
+
+
+def test_mis_fold_fires_only_on_a_stranger_in_a_foreign_package() -> None:
+    meaning = Meaning(plain={"Keeper": "the record book"})
+    modules = ("pkg.ledger", "pkg.util.retry")
+    # pkg.util.retry: no word in common with Keeper, its does, its plain word or its
+    # interface, and pkg.util holds no other module of Keeper's.
+    assert judgement.mis_folds(_claims(*modules), meaning, _facts(*modules)) == [
+        "possible mis-fold: Keeper claims pkg.util.retry (no word shared with the "
+        "component, and no other module of it in pkg.util)"
+    ]
+    # A word in the full path clears it: the package segment counts.
+    modules = ("pkg.ledger", "pkg.ledgers.retry")
+    assert judgement.mis_folds(_claims(*modules), meaning, _facts(*modules)) == []
+    # A word in does clears it.
+    modules = ("pkg.ledger", "pkg.util.retry")
+    model = _claims(*modules, does="Keeps every record; a retry covers a failed write.")
+    assert judgement.mis_folds(model, meaning, _facts(*modules)) == []
+    # A word in plain clears it.
+    plain = Meaning(plain={"Keeper": "the book with a retry"})
+    assert judgement.mis_folds(_claims(*modules), plain, _facts(*modules)) == []
+    # A neighbour in the same package clears it: two strangers side by side are a
+    # differently named pair of files, not a fold.
+    modules = ("pkg.ledger", "pkg.util.retry", "pkg.util.backoff")
+    assert judgement.mis_folds(_claims(*modules), meaning, _facts(*modules)) == []
+    # A subpackage's own root, claimed beside its children, sits with them.
+    modules = ("pkg.util", "pkg.util.retry")
+    assert judgement.mis_folds(_claims(*modules), meaning, _facts(*modules)) == []
+    assert judgement.package_of("pkg") == "pkg"
+    assert judgement.package_of("pkg.util.retry") == "pkg.util"
+    assert judgement.share_a_package("pkg.util", "pkg.util.retry")
+    assert judgement.share_a_package("pkg.a", "pkg.b")
+    assert not judgement.share_a_package("pkg.a.x", "pkg.b.y")
+
+
+def test_mis_fold_count_on_the_workspace_fixture() -> None:
+    """The anonymised map a fresh run produced: 112 lines under the last-segment rule."""
+    facts = fixture_workspace.facts()
+    assert len(facts["components"]) == 144
+    assert len(fixture_workspace.MODEL.components) == 27
+    lines = judgement.mis_folds(fixture_workspace.MODEL, fixture_workspace.MEANING, facts)
+    assert lines == []
+    # The rule still fires here when a module is a stranger to its component:
+    # move one style module into the config card and the line names it.
+    moved = dataclasses.replace(
+        fixture_workspace.MODEL,
+        components=tuple(
+            dataclasses.replace(c, implemented_by=(*c.implemented_by, "wharf_server.style.walker"))
+            if c.id == "Config"
+            else c
+            for c in fixture_workspace.MODEL.components
+        ),
+    )
+    assert judgement.mis_folds(moved, fixture_workspace.MEANING, facts) == [
+        "possible mis-fold: Config claims wharf_server.style.walker (no word shared with the "
+        "component, and no other module of it in wharf_server.style)"
+    ]
 
 
 def test_no_sentence_lines(sample: Sample) -> None:
@@ -118,6 +204,78 @@ def test_ignored_lines(sample: Sample) -> None:
 def test_report_wording() -> None:
     assert judgement.report([]) == ["judgement: nothing to confirm"]
     assert judgement.report(["a"]) == ["judgement: 1 item for the maintainer to confirm", "  a"]
+
+
+def test_answers_suppress_count_and_go_stale() -> None:
+    lines = ["single module: A is only p.a", "thin layer: control lights 0 components", "x"]
+    answers = (
+        Answer(("single module: A is only p.a",), "a real part; the module is the part"),
+        Answer(("thin layer: control lights 0 components", "gone: y"), "no control flow yet"),
+    )
+    result = judgement.apply_answers(lines, answers)
+    assert result.open == ["x"]
+    assert result.answered == 2
+    assert result.stale == ["gone: y"]
+    assert judgement.report(result) == [
+        "judgement: 1 item for the maintainer to confirm, 2 answered, 1 stale",
+        "  x",
+        "  stale answer: 'gone: y' no longer appears; remove it from [judgement] answered",
+    ]
+    everything = judgement.apply_answers(lines[:2], answers[:2])
+    assert judgement.report(everything)[0] == "judgement: nothing to confirm, 2 answered, 1 stale"
+    assert judgement.apply_answers([], ()) == judgement.Answered([], 0, [])
+
+
+def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
+            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+        },
+    )
+    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    toml = tmp_path / "systemap.toml"
+    toml.write_text(
+        toml.read_text()
+        + """
+[judgement]
+answered = [
+    { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
+    { item = "thin layer: control lights 0 components", reason = "nothing drives anything yet" },
+    { item = "single module: Gone is only pkg.gone", reason = "answered before the card was removed" },
+]
+"""
+    )
+    assert main(["--root", str(tmp_path), "judgement"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("judgement: 1 item for the maintainer to confirm, 3 answered, 1 stale")
+    assert "single module: Reader" not in out.replace("stale answer", "")
+    assert "ignored: pkg (" in out
+    assert (
+        "stale answer: 'single module: Gone is only pkg.gone' no longer appears; "
+        "remove it from [judgement] answered"
+    ) in out
+    # An answer without a reason, with both forms, or with neither, is a configuration error.
+    for bad, message in (
+        ('{ item = "x" }', "needs a reason"),
+        ('{ item = "x", items = ["y"], reason = "r" }', "not both and not neither"),
+        ('{ reason = "r" }', "not both and not neither"),
+        ('{ items = [], reason = "r" }', "non-empty list of lines"),
+        ('{ item = "x", reason = "r", why = "w" }', "unknown key: why"),
+    ):
+        toml.write_text(f"[judgement]\nanswered = [{bad}]\n")
+        assert main(["--root", str(tmp_path), "judgement"]) == 2
+        assert message in capsys.readouterr().err
+    toml.write_text("[judgement]\nreplied = []\n")
+    assert main(["--root", str(tmp_path), "judgement"]) == 2
+    assert "judgement has unknown key: replied" in capsys.readouterr().err
+    toml.write_text('[judgement]\nanswered = [{ item = "  x  ", reason = "r" }]\n')
+    cfg = config.load(tmp_path)
+    assert cfg.judgement_answered == (Answer(("x",), "r"),)
 
 
 def test_judgement_command_always_exits_0(

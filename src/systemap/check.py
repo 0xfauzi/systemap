@@ -410,7 +410,6 @@ class Result:
     """
 
     problems: list[str]
-    notes: list[str]
     through: int
     across: int
     coverage: Coverage
@@ -438,7 +437,6 @@ def run(
     """
     problems = model_problems(model, meaning)
     through = across = 0
-    notes: list[str] = []
     if not problems:
         svg, detail = render_schematic(model, meaning, t, facts)
         meta = json.loads(detail)["_meta"]
@@ -447,11 +445,9 @@ def run(
         problems += check_labels(meta)
         problems += check_type_size(svg)
         problems += check_wheels(meta["edges"], model, meaning)
-        notes = [n for n in meta.get("notes", []) if "shorter segment" in n]
     coverage = check_coverage(model, facts, ignores)
     return Result(
         problems,
-        notes,
         through,
         across,
         coverage,
@@ -475,7 +471,6 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
         f"map routes: {through} edge{'s' if through != 1 else ''} through a card "
         f"they do not connect, {across} across a region they neither start nor end in"
     ]
-    out += [f"  note: {line}" for line in result.notes]
     cov = result.coverage
     if cov.checked:
         ignored = f", {cov.ignored} ignored" if cov.ignored else ""
