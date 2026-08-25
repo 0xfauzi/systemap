@@ -1,5 +1,5 @@
 {
- "built_at_commit": "6d708d8564e96e93978db5ecdcccacaa906c3f7d",
+ "built_at_commit": "4a821af1d5dac09650d2e6af03e72d3c42bc89ad",
  "components": {
   "systemap": {
    "classes": [],
@@ -18,7 +18,7 @@
    "loc": 48,
    "package": "systemap",
    "plane": "core",
-   "sha": "8ceab2f35de2",
+   "sha": "fbfd6456baf7",
    "tests": [
     "test_marketplace_points_at_the_repository_root",
     "test_plugin_manifest_version_is_the_package_version",

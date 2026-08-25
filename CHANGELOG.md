@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.1
+
+A figure of one reading, so a document can show one question's answer
+instead of every arrow at once.
+
+- `systemap figure --layer ID` draws one reading: a kind layer's flows,
+  or for a derived layer the edges the page shows for it (`structure`:
+  none; `system`: those crossing the boundary, painted in the reading's
+  hue), with every other edge left out entirely, every card present, the
+  line legend reduced to that layer, and the layer's question as the
+  drawing's title and caption. An id the page does not have exits 2
+  naming the readings it does.
+- `[[figures]]` gains an optional `layer` key; `refresh` writes and
+  `check` compares a layer figure like any other.
+- Which edges a reading shows is decided once, in `systemap.model.reading`
+  (`edge_in_layer`, `subject_of_layer`), and the page's script reads that
+  table out of the detail JSON (`_meta.readings`, and `derived` per layer)
+  instead of deciding again in the browser, so the figure and the page
+  cannot disagree. Every SVG the generator draws now carries a `<title>`.
+- The self-map ships `figures/structure.svg` and `figures/control.svg`
+  beside `figures/system.svg`, and the README leads with the Structure
+  figure and then the Control flow reading; the whole map, every layer at
+  once, is no longer embedded there.
+
 ## 0.4.0
 
 The map draws what exists today, reads in standard layers, and is built in
