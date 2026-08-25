@@ -1,9 +1,10 @@
 """Extract the derived tier of the system map from the working tree.
 
 Everything here is a fact read out of the code: module graph, public surface,
-owned types, refusals, module-level constants, and the tests that guard each
-component. No prose is invented; what the system is MEANT to do lives in the
-consumer's model module, and the page styles the two differently on purpose.
+owned types, refusals, module-level constants, the tests that guard each
+component, and the entry points a run of the system can start from. No
+prose is invented; what the system is MEANT to do lives in the consumer's
+model module, and the page styles the two differently on purpose.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import hashlib
 import json
 import re
 import subprocess
+import tomllib
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -325,6 +327,115 @@ def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]:
     return out
 
 
+# ---- entry points: where a run of the system starts ----------------------------
+
+
+def subcommands(raw: str) -> list[str]:
+    """The argparse subcommand names one module's source adds, where detectable.
+
+    A call `<anything>.add_parser("name", ...)` with a literal first
+    argument is a subcommand. A name built from a variable is not
+    detected; the judgement can only ask about what the tree states.
+    """
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError):
+        return []
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "add_parser"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            out.append(node.args[0].value)
+    return out
+
+
+def console_scripts(repo: Path) -> dict[str, tuple[str, str]]:
+    """name -> (module, function) from `[project.scripts]` in pyproject.toml."""
+    path = repo / "pyproject.toml"
+    if not path.is_file():
+        return {}
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    scripts = data.get("project", {}).get("scripts", {})
+    out: dict[str, tuple[str, str]] = {}
+    if isinstance(scripts, dict):
+        for name, target in scripts.items():
+            if isinstance(target, str) and ":" in target:
+                module, func = target.split(":", 1)
+                out[str(name)] = (module.strip(), func.strip())
+    return out
+
+
+def entry_points(
+    repo: Path, prefixes: set[str], components: dict[str, Any], sources: dict[str, str]
+) -> list[dict[str, str]]:
+    """Where a run of the system can start, read out of the tree.
+
+    Console scripts in pyproject.toml, `__main__` modules, `main`
+    functions, argparse subcommands where detectable, and the public
+    functions of each package root. Every one is a walk a reader may
+    need; `systemap judgement` asks about each that has no journey.
+    A subcommand carries the console script that reaches its module, so
+    the judgement can name it the way a person types it.
+    """
+    scripts = {
+        name: (module, func)
+        for name, (module, func) in sorted(console_scripts(repo).items())
+        if module in components
+    }
+    script_of_module = {module: name for name, (module, _f) in scripts.items()}
+    out: list[dict[str, str]] = []
+    for name, (module, func) in scripts.items():
+        out.append({"kind": "console_script", "name": name, "module": module, "target": func})
+    for module, record in sorted(components.items()):
+        if module.endswith(".__main__"):
+            pkg = module[: -len(".__main__")]
+            out.append(
+                {"kind": "main_module", "name": f"python -m {pkg}", "module": module, "target": ""}
+            )
+        if any(f["name"] == "main" for f in record["functions"]):
+            out.append(
+                {"kind": "main_function", "name": "main", "module": module, "target": "main"}
+            )
+        for sub in subcommands(sources.get(module, "")):
+            out.append(
+                {
+                    "kind": "subcommand",
+                    "name": sub,
+                    "module": module,
+                    "target": script_of_module.get(module, ""),
+                }
+            )
+        if module in prefixes:
+            for f in record["functions"]:
+                out.append(
+                    {"kind": "public_function", "name": f["name"], "module": module, "target": ""}
+                )
+    return out
+
+
+def entry_label(point: dict[str, str]) -> str:
+    """The entry point the way a person would name it."""
+    kind, name, module, target = point["kind"], point["name"], point["module"], point["target"]
+    if kind == "console_script":
+        return f"{name} (console script)"
+    if kind == "main_module":
+        return name
+    if kind == "main_function":
+        return f"main() in {module}"
+    if kind == "subcommand":
+        return f"{target} {name} (subcommand)" if target else f"{name} (subcommand in {module})"
+    return f"{name}() in {module}"
+
+
 def build(cfg: Config) -> dict[str, Any]:
     """The facts for the tree at `cfg.root`, ready to be written as JSON."""
     repo = cfg.root
@@ -340,6 +451,7 @@ def build(cfg: Config) -> dict[str, Any]:
 
     components: dict[str, Any] = {}
     imports: dict[str, set[str]] = {}
+    sources: dict[str, str] = {}
     for module, path in sorted(paths.items()):
         record = collect_module(path, repo)
         if record is None:
@@ -351,6 +463,7 @@ def build(cfg: Config) -> dict[str, Any]:
             raw = path.read_text(encoding="utf-8")
         except OSError:
             raw = ""
+        sources[module] = raw
         uses = internal_uses(
             raw, prefixes, known, module=module, is_package=path.name == "__init__.py"
         )
@@ -393,6 +506,7 @@ def build(cfg: Config) -> dict[str, Any]:
         "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
         "packages": sorted(prefixes),
         "spec_sections": spec_sections(repo, cfg.spec_path),
+        "entry_points": entry_points(repo, prefixes, components, sources),
         "components": components,
     }
 
@@ -401,6 +515,14 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
     """Ways the stored facts no longer describe the tree. Empty means current."""
     out: list[str] = []
     new_c, old_c = fresh["components"], (stored or {}).get("components", {})
+    # Entry points come partly from pyproject.toml, which no module hash
+    # covers, so they are compared on their own.
+    new_e = {entry_label(e) for e in fresh.get("entry_points", [])}
+    old_e = {entry_label(e) for e in (stored or {}).get("entry_points", [])}
+    for label in sorted(new_e - old_e):
+        out.append(f"entry point not in the map: {label}")
+    for label in sorted(old_e - new_e):
+        out.append(f"entry point in the map but gone from the tree: {label}")
     added = sorted(set(new_c) - set(old_c))
     gone = sorted(set(old_c) - set(new_c))
     moved = sorted(m for m in set(new_c) & set(old_c) if new_c[m]["sha"] != old_c[m]["sha"])

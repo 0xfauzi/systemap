@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import Sample, sample_model, write_tree
@@ -11,7 +12,7 @@ from conftest import Sample, sample_model, write_tree
 from systemap import judgement
 from systemap.cli import main
 from systemap.config import Ignore
-from systemap.model import Flow, Layer, Meaning
+from systemap.model import Component, Flow, Journey, Layer, Meaning, Model, Region, Step
 
 
 def test_words_and_shared_words() -> None:
@@ -150,3 +151,173 @@ def test_judgement_command_always_exits_0(
     # A model that contradicts itself is a configuration error, exit 2.
     (tmp_path / "map/model.py").write_text("MODEL = 1\n")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
+
+
+# ---- the second pass: entry points and crossing imports ------------------------
+
+
+def entry_facts() -> dict[str, Any]:
+    """Facts for a package with a CLI of three subcommands, a worker and a root function."""
+    return {
+        "components": {
+            "pkg": {"functions": [{"name": "open_thing"}], "classes": [], "uses": {}},
+            "pkg.__main__": {"functions": [], "classes": [], "uses": {"pkg.cli": ["*"]}},
+            "pkg.cli": {
+                "functions": [{"name": "main"}],
+                "classes": [],
+                "uses": {"pkg.reader": ["read"], "pkg.ledger": ["Ledger"]},
+            },
+            "pkg.reader": {"functions": [{"name": "read"}], "classes": [], "uses": {}},
+            "pkg.ledger": {"functions": [], "classes": [{"name": "Ledger"}], "uses": {}},
+            "pkg.worker": {"functions": [{"name": "main"}], "classes": [], "uses": {}},
+        },
+        "entry_points": [
+            {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"},
+            {"kind": "public_function", "name": "open_thing", "module": "pkg", "target": ""},
+            {
+                "kind": "main_module",
+                "name": "python -m pkg",
+                "module": "pkg.__main__",
+                "target": "",
+            },
+            {"kind": "main_function", "name": "main", "module": "pkg.cli", "target": "main"},
+            {"kind": "subcommand", "name": "init", "module": "pkg.cli", "target": "pkg"},
+            {"kind": "subcommand", "name": "check", "module": "pkg.cli", "target": "pkg"},
+            {"kind": "subcommand", "name": "render", "module": "pkg.cli", "target": "pkg"},
+            {"kind": "main_function", "name": "main", "module": "pkg.worker", "target": "main"},
+        ],
+    }
+
+
+def entry_model() -> tuple[Model, Meaning]:
+    model = Model(
+        canvas=(900, 300),
+        containers=(),
+        regions=(Region("all", "ALL", (16, 16, 868, 268)),),
+        components=(
+            Component(
+                "CLI",
+                "the commands",
+                implemented_by=("pkg.cli", "pkg.__main__"),
+                entry="main",
+                region="all",
+                x=40,
+                y=100,
+            ),
+            Component(
+                "Reader",
+                "reads",
+                implemented_by=("pkg.reader", "pkg"),
+                entry="read",
+                region="all",
+                x=300,
+                y=100,
+            ),
+            Component(
+                "Ledger",
+                "keeps",
+                implemented_by=("pkg.ledger",),
+                entry="Ledger",
+                kind="store",
+                region="all",
+                x=560,
+                y=100,
+            ),
+            Component(
+                "Worker",
+                "works",
+                implemented_by=("pkg.worker",),
+                entry="main",
+                region="all",
+                x=560,
+                y=200,
+            ),
+        ),
+        flows=(Flow("CLI", "Reader", "source", "control"),),
+        flow_kinds=(),
+    )
+    meaning = Meaning(
+        plain={
+            "CLI": "the commands",
+            "Reader": "the reader",
+            "Ledger": "the ledger",
+            "Worker": "the worker",
+        },
+        relations={("CLI", "Reader"): "init and check read the source."},
+        journeys=(
+            Journey(
+                "first-run",
+                "The first run: pkg init, then a verification",
+                steps=(
+                    Step(
+                        ("CLI",),
+                        (),
+                        ("CLI", "Reader"),
+                        "The person runs the checker; INIT wrote the config.",
+                    ),
+                ),
+            ),
+        ),
+    )
+    return model, meaning
+
+
+def test_entry_points_without_journey() -> None:
+    model, meaning = entry_model()
+    lines = judgement.entry_points_without_journey(model, meaning, entry_facts())
+    # "pkg" and "init" are mentioned (the label; the step, case blind); "check"
+    # is not, "checker" is a different word. main() in pkg.cli is the console
+    # script's twin and python -m pkg imports it; both are asked once, as pkg.
+    # The worker's main and the root's public function have no journey.
+    assert lines == [
+        "entry point open_thing() in pkg has no journey (component Reader)",
+        "entry point pkg check (subcommand) has no journey (component CLI)",
+        "entry point pkg render (subcommand) has no journey (component CLI)",
+        "entry point main() in pkg.worker has no journey (component Worker)",
+    ]
+    # A journey that names them clears the lines.
+    covered = dataclasses.replace(
+        meaning,
+        journeys=(
+            *meaning.journeys,
+            Journey("more", "check, render, open_thing and the worker's main", ()),
+        ),
+    )
+    assert judgement.entry_points_without_journey(model, covered, entry_facts()) == []
+    assert judgement.entry_points_without_journey(model, meaning, {}) == []
+
+
+def test_mentioned_is_a_whole_word() -> None:
+    assert judgement.mentioned("check", "the person runs pkg check first")
+    assert judgement.mentioned("check", "Check the map.")
+    assert not judgement.mentioned("check", "the checker runs")
+    assert not judgement.mentioned("init", "the initial draft")
+    assert not judgement.mentioned("pkg", "pkg-worker starts")
+    assert judgement.mentioned("python -m pkg", "run python -m pkg to start")
+
+
+def test_crossing_imports_without_flow() -> None:
+    model, _ = entry_model()
+    lines = judgement.crossing_imports_without_flow(model, entry_facts())
+    # pkg.cli imports pkg.reader (a flow joins CLI and Reader: silent) and
+    # pkg.ledger (no flow joins CLI and Ledger: asked). pkg.__main__ imports
+    # pkg.cli inside the same component: silent.
+    assert lines == [
+        "crossing import: module pkg.cli (component CLI) imports module pkg.ledger "
+        "(component Ledger) and no flow joins CLI and Ledger"
+    ]
+    # A flow in the other direction is enough: the rule is about the pair.
+    joined = dataclasses.replace(model, flows=(*model.flows, Flow("Ledger", "CLI", "rows", "data")))
+    assert judgement.crossing_imports_without_flow(joined, entry_facts()) == []
+    assert judgement.crossing_imports_without_flow(model, {}) == []
+
+
+def test_run_orders_the_second_pass_before_ignores(sample: Sample) -> None:
+    model, meaning = entry_model()
+    lines = judgement.run(model, meaning, entry_facts(), (Ignore("pkg.gone", "left"),))
+    order = [
+        k
+        for k in ("thin layer", "entry point", "crossing import", "ignored")
+        if any(line.startswith(k) for line in lines)
+    ]
+    assert order == ["thin layer", "entry point", "crossing import", "ignored"]

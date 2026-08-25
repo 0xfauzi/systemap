@@ -60,6 +60,78 @@ def test_drift_reports_changes(tmp_path: Path) -> None:
     assert "code changed since the map was built: pkg.reader" in lines
 
 
+ENTRY_TREE: dict[str, str] = {
+    "pyproject.toml": '[project]\nname = "pkg"\nversion = "0"\n\n[project.scripts]\npkg = "pkg.cli:main"\nother = "elsewhere.run:main"\n',
+    "pkg/__init__.py": "def open_thing(path: str) -> str:\n    return path\n\n\ndef _hidden() -> None:\n    pass\n",
+    "pkg/__main__.py": "from pkg.cli import main\n\nraise SystemExit(main())\n",
+    "pkg/cli.py": """
+        import argparse
+
+
+        def main(argv: list[str] | None = None) -> int:
+            parser = argparse.ArgumentParser()
+            sub = parser.add_subparsers()
+            sub.add_parser("init", help="start")
+            s = sub.add_parser("check")
+            s.set_defaults(x=1)
+            name = "dynamic"
+            sub.add_parser(name)
+            return 0
+    """,
+    "pkg/worker.py": "def main() -> None:\n    pass\n",
+}
+
+
+def test_extract_records_entry_points(tmp_path: Path) -> None:
+    write_tree(tmp_path, ENTRY_TREE)
+    facts = extract.build(config.load(tmp_path))
+    assert facts["entry_points"] == [
+        {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"},
+        {"kind": "public_function", "name": "open_thing", "module": "pkg", "target": ""},
+        {"kind": "main_module", "name": "python -m pkg", "module": "pkg.__main__", "target": ""},
+        {"kind": "main_function", "name": "main", "module": "pkg.cli", "target": "main"},
+        {"kind": "subcommand", "name": "init", "module": "pkg.cli", "target": "pkg"},
+        {"kind": "subcommand", "name": "check", "module": "pkg.cli", "target": "pkg"},
+        {"kind": "main_function", "name": "main", "module": "pkg.worker", "target": "main"},
+    ]
+    # A script pointing outside the package is not this package's entry
+    # point; a subcommand built from a variable is not detected.
+    labels = [extract.entry_label(e) for e in facts["entry_points"]]
+    assert labels == [
+        "pkg (console script)",
+        "open_thing() in pkg",
+        "python -m pkg",
+        "main() in pkg.cli",
+        "pkg init (subcommand)",
+        "pkg check (subcommand)",
+        "main() in pkg.worker",
+    ]
+    assert (
+        extract.entry_label({"kind": "subcommand", "name": "go", "module": "p.m", "target": ""})
+        == "go (subcommand in p.m)"
+    )
+
+
+def test_drift_sees_an_entry_point_change(tmp_path: Path) -> None:
+    write_tree(tmp_path, ENTRY_TREE)
+    cfg = config.load(tmp_path)
+    before = extract.build(cfg)
+    assert extract.drift(before, before) == []
+    # A new console script is a change to the tree no module hash covers.
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(pyproject.read_text() + 'pkg-worker = "pkg.worker:main"\n')
+    after = extract.build(cfg)
+    assert extract.drift(after, before) == [
+        "entry point not in the map: pkg-worker (console script)"
+    ]
+    assert extract.drift(before, after) == [
+        "entry point in the map but gone from the tree: pkg-worker (console script)"
+    ]
+    # Old facts with no entry points at all read as empty, not as an error.
+    legacy = {k: v for k, v in before.items() if k != "entry_points"}
+    assert all("entry point not in the map" in line for line in extract.drift(before, legacy))
+
+
 def test_spec_sections_and_planes(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     write_tree(

@@ -408,7 +408,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser(
         "judgement",
         help="print the list the maintainer must confirm: thin components, odd folds, "
-        "flows without a sentence, thin layers, ignored modules; always exit 0",
+        "flows without a sentence, thin layers, entry points without a journey, imports "
+        "across a boundary with no flow, ignored modules; always exit 0",
     )
     s.set_defaults(func=cmd_judgement)
 

@@ -20,6 +20,14 @@ thing to look at:
                          the model's own) that lights fewer than two
                          components: it may not be a reading of the map at
                          all, or a standard kind was never used
+    entry point ........ an entry point in the facts (a console script, a
+                         subcommand, a main, a public function of the
+                         package root) that no journey mentions: a walk
+                         the reader may need and the map does not have
+    crossing import .... a module of one component imports a module of
+                         another and no flow joins the two components, in
+                         either direction: an edge the code has and the
+                         map does not. The main tool of the second pass.
     ignored ............ a module the coverage rule leaves unmapped, with
                          the reason the configuration gives
 """
@@ -31,6 +39,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap.config import Ignore
+from systemap.extract import entry_label
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, module_matches
 
 MIN_STEM = 4
@@ -115,6 +124,91 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
     return out
 
 
+def _owner_of(model: Model, facts: dict[str, Any]) -> dict[str, str]:
+    """module -> the id of the component that claims it, for every claimed module."""
+    components = facts.get("components", {})
+    out: dict[str, str] = {}
+    for c in model.components:
+        for module in claimed(c, components):
+            out.setdefault(module, c.id)
+    return out
+
+
+def _journey_text(meaning: Meaning) -> str:
+    """Every word the journeys say: ids, labels and step sentences, in one string."""
+    parts: list[str] = []
+    for j in meaning.journeys:
+        parts.extend([j.id, j.label])
+        parts.extend(step.say for step in j.steps)
+    return "\n".join(parts).lower()
+
+
+def mentioned(name: str, text: str) -> bool:
+    """Is `name` in `text` as a whole word, case blind?"""
+    return re.search(rf"(?<![\w-]){re.escape(name.lower())}(?![\w-])", text.lower()) is not None
+
+
+def entry_points_without_journey(
+    model: Model, meaning: Meaning, facts: dict[str, Any]
+) -> list[str]:
+    """Every entry point in the facts that no journey mentions.
+
+    An entry point is covered when a journey's id, label or a step
+    sentence names it as a whole word: the console script by its name,
+    a subcommand by its word, a function by its name. A `main` function
+    a console script targets, and a `__main__` module that imports a
+    console script's module, are that script under another name and
+    are not asked about twice.
+    """
+    points: list[dict[str, str]] = facts.get("entry_points", [])
+    text = _journey_text(meaning)
+    scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
+    components = facts.get("components", {})
+    owner = _owner_of(model, facts)
+    out: list[str] = []
+    for p in points:
+        module = p["module"]
+        if p["kind"] == "main_function" and scripts.get(module, {}).get("target") == "main":
+            continue
+        if p["kind"] == "main_module":
+            imported = set(components.get(module, {}).get("uses", {}))
+            if any(m in scripts for m in imported):
+                continue
+        if mentioned(p["name"], text):
+            continue
+        who = owner.get(module)
+        where = f" (component {who})" if who else ""
+        out.append(f"entry point {entry_label(p)} has no journey{where}")
+    return out
+
+
+def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
+    """Every import across a component boundary with no flow between the two.
+
+    The facts record what each module imports. When a module of P imports
+    a module of Q and the model has no flow P -> Q or Q -> P, the code has
+    an edge the map does not. It may be one the reader needs, or one the
+    map leaves out on purpose; either way it is looked at, not guessed.
+    """
+    components = facts.get("components", {})
+    owner = _owner_of(model, facts)
+    joined = {frozenset(f.edge) for f in model.flows}
+    out: list[str] = []
+    for module in sorted(components):
+        p = owner.get(module)
+        if not p:
+            continue
+        for target in sorted(components[module].get("uses", {})):
+            q = owner.get(target)
+            if not q or q == p or frozenset((p, q)) in joined:
+                continue
+            out.append(
+                f"crossing import: module {module} (component {p}) imports module {target} "
+                f"(component {q}) and no flow joins {p} and {q}"
+            )
+    return out
+
+
 def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]:
     modules = sorted(facts.get("components", {}))
     out: list[str] = []
@@ -134,6 +228,8 @@ def run(
         + mis_folds(model, facts)
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
+        + entry_points_without_journey(model, meaning, facts)
+        + crossing_imports_without_flow(model, facts)
         + ignored(facts, ignores)
     )
 

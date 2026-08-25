@@ -1,5 +1,5 @@
 {
- "built_at_commit": "77299ab4972e20e51d8eba6a3561ec694a2931d6",
+ "built_at_commit": "01def46ec931a0391bee1402d7a424a34f87c337",
  "components": {
   "systemap": {
    "classes": [],
@@ -391,10 +391,10 @@
     "systemap.skill",
     "systemap.theme"
    ],
-   "loc": 443,
+   "loc": 444,
    "package": "systemap",
    "plane": "core",
-   "sha": "69ba418fc31e",
+   "sha": "1685fa1a7c94",
    "tests": [
     "test_check_fails_on_overlapping_fixture",
     "test_configuration_errors_exit_2",
@@ -412,18 +412,18 @@
     "test_all_mapped",
     "test_component_with_no_module_fails",
     "test_context_and_tool_flows_need_an_agent_end",
+    "test_crossing_imports_without_flow",
     "test_double_claim_fails",
+    "test_entry_points_without_journey",
     "test_entry_the_modules_do_not_define_fails",
     "test_ignore_with_reason_passes",
     "test_ignore_without_reason_is_a_config_error",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
-    "test_layer_order_and_first_layer",
-    "test_mis_fold_lines",
-    "test_missing_entry_with_modules_present_fails"
+    "test_layer_order_and_first_layer"
    ],
    "tests_primary": 8,
-   "tests_total": 44,
+   "tests_total": 48,
    "uses": {
     "systemap": [
      "__version__"
@@ -577,24 +577,29 @@
     "test_agent_layers_appear_only_with_an_agent",
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_context_and_tool_flows_need_an_agent_end",
+    "test_crossing_imports_without_flow",
     "test_drift_reports_changes",
+    "test_drift_sees_an_entry_point_change",
+    "test_entry_points_without_journey",
     "test_extract_attributes_tests_to_modules",
     "test_extract_finds_modules_and_public_surface",
+    "test_extract_records_entry_points",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
     "test_layer_order_and_first_layer",
+    "test_mentioned_is_a_whole_word",
     "test_mis_fold_lines",
     "test_no_sentence_lines",
     "test_report_wording",
+    "test_run_orders_the_second_pass_before_ignores",
     "test_single_module_lines",
     "test_single_module_reads_implemented_by_without_facts",
     "test_spec_sections_and_planes",
     "test_standard_kinds_need_no_declaration",
-    "test_thin_layer_lines",
-    "test_words_and_shared_words"
+    "test_thin_layer_lines"
    ],
    "tests_primary": 0,
-   "tests_total": 20,
+   "tests_total": 26,
    "uses": {
     "systemap.model": [
      "Meaning",
@@ -688,6 +693,26 @@
      "signature": "def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]"
     },
     {
+     "doc": "The argparse subcommand names one module's source adds, where detectable.",
+     "name": "subcommands",
+     "signature": "def subcommands(raw: str) -> list[str]"
+    },
+    {
+     "doc": "name -> (module, function) from `[project.scripts]` in pyproject.toml.",
+     "name": "console_scripts",
+     "signature": "def console_scripts(repo: Path) -> dict[str, tuple[str, str]]"
+    },
+    {
+     "doc": "Where a run of the system can start, read out of the tree.",
+     "name": "entry_points",
+     "signature": "def entry_points(repo: Path, prefixes: set[str], components: dict[str, Any], sources: dict[str, str]) -> list[dict[str, str]]"
+    },
+    {
+     "doc": "The entry point the way a person would name it.",
+     "name": "entry_label",
+     "signature": "def entry_label(point: dict[str, str]) -> str"
+    },
+    {
      "doc": "The facts for the tree at `cfg.root`, ready to be written as JSON.",
      "name": "build",
      "signature": "def build(cfg: Config) -> dict[str, Any]"
@@ -722,20 +747,23 @@
    "imported_by": [
     "systemap.change",
     "systemap.check",
-    "systemap.cli"
+    "systemap.cli",
+    "systemap.judgement"
    ],
    "imports": [
     "systemap.config",
     "systemap.model"
    ],
-   "loc": 478,
+   "loc": 600,
    "package": "systemap",
    "plane": "core",
-   "sha": "bbf375acc428",
+   "sha": "31bc3a134ba3",
    "tests": [
     "test_drift_reports_changes",
+    "test_drift_sees_an_entry_point_change",
     "test_extract_attributes_tests_to_modules",
     "test_extract_finds_modules_and_public_surface",
+    "test_extract_records_entry_points",
     "test_spec_sections_and_planes",
     "test_a_flow_of_an_undeclared_kind_fails",
     "test_agent_kinds_are_cards_that_claim_code",
@@ -745,8 +773,8 @@
     "test_layer_order_and_first_layer",
     "test_standard_kinds_need_no_declaration"
    ],
-   "tests_primary": 4,
-   "tests_total": 11,
+   "tests_primary": 6,
+   "tests_total": 13,
    "uses": {
     "systemap.config": [
      "Config"
@@ -891,6 +919,21 @@
      "signature": "def thin_layers(model: Model, meaning: Meaning) -> list[str]"
     },
     {
+     "doc": "Is `name` in `text` as a whole word, case blind?",
+     "name": "mentioned",
+     "signature": "def mentioned(name: str, text: str) -> bool"
+    },
+    {
+     "doc": "Every entry point in the facts that no journey mentions.",
+     "name": "entry_points_without_journey",
+     "signature": "def entry_points_without_journey(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]"
+    },
+    {
+     "doc": "Every import across a component boundary with no flow between the two.",
+     "name": "crossing_imports_without_flow",
+     "signature": "def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]"
+    },
+    {
      "doc": "",
      "name": "ignored",
      "signature": "def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]"
@@ -912,28 +955,36 @@
    ],
    "imports": [
     "systemap.config",
+    "systemap.extract",
     "systemap.model"
    ],
-   "loc": 148,
+   "loc": 244,
    "package": "systemap",
    "plane": "core",
-   "sha": "43cdc972e7d9",
+   "sha": "7e4d474e6076",
    "tests": [
+    "test_crossing_imports_without_flow",
+    "test_entry_points_without_journey",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
+    "test_mentioned_is_a_whole_word",
     "test_mis_fold_lines",
     "test_no_sentence_lines",
     "test_report_wording",
+    "test_run_orders_the_second_pass_before_ignores",
     "test_single_module_lines",
     "test_single_module_reads_implemented_by_without_facts",
     "test_thin_layer_lines",
     "test_words_and_shared_words"
    ],
-   "tests_primary": 9,
-   "tests_total": 9,
+   "tests_primary": 13,
+   "tests_total": 13,
    "uses": {
     "systemap.config": [
      "Ignore"
+    ],
+    "systemap.extract": [
+     "entry_label"
     ],
     "systemap.model": [
      "Component",
@@ -1151,15 +1202,15 @@
     "test_agent_model_checks_clean_and_draws_the_marks",
     "test_check_passes_on_sample",
     "test_context_and_tool_flows_need_an_agent_end",
+    "test_crossing_imports_without_flow",
     "test_default_theme_colours_every_layer",
+    "test_entry_points_without_journey",
     "test_ignored_lines",
     "test_judgement_command_always_exits_0",
-    "test_layer_order_and_first_layer",
-    "test_light_scheme_derives_from_the_same_palette",
-    "test_mis_fold_lines"
+    "test_layer_order_and_first_layer"
    ],
    "tests_primary": 13,
-   "tests_total": 35,
+   "tests_total": 39,
    "uses": {}
   },
   "systemap.page": {
@@ -1727,6 +1778,74 @@
    }
   }
  },
+ "entry_points": [
+  {
+   "kind": "console_script",
+   "module": "systemap.cli",
+   "name": "systemap",
+   "target": "main"
+  },
+  {
+   "kind": "main_module",
+   "module": "systemap.__main__",
+   "name": "python -m systemap",
+   "target": ""
+  },
+  {
+   "kind": "main_function",
+   "module": "systemap.cli",
+   "name": "main",
+   "target": "main"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "init",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "extract",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "render",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "check",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "figure",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "refresh",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "judgement",
+   "target": "systemap"
+  },
+  {
+   "kind": "subcommand",
+   "module": "systemap.cli",
+   "name": "skill",
+   "target": "systemap"
+  }
+ ],
  "packages": [
   "systemap"
  ],
