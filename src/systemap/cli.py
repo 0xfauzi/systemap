@@ -22,7 +22,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import __version__, change, check, config, extract, figure, page, scaffold, skill
+from systemap import (
+    __version__,
+    change,
+    check,
+    config,
+    extract,
+    figure,
+    judgement,
+    page,
+    scaffold,
+    skill,
+)
 from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError
 from systemap.model import Meaning, Model
@@ -305,6 +316,19 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     return OK
 
 
+# ---- judgement -------------------------------------------------------------
+
+
+def cmd_judgement(args: argparse.Namespace) -> int:
+    """The list the maintainer confirms. A report, not a gate: always exit 0."""
+    p = _project(args)
+    facts = extract.read_facts(p.cfg.facts_path)
+    if not facts:
+        say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")
+    say(*judgement.report(judgement.run(p.model, p.meaning, facts, p.cfg.coverage_ignore)))
+    return OK
+
+
 # ---- skill -----------------------------------------------------------------
 
 
@@ -379,6 +403,13 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("refresh", help="extract, check, render, and draw the configured figures")
     s.add_argument("--quiet", action="store_true")
     s.set_defaults(func=cmd_refresh)
+
+    s = sub.add_parser(
+        "judgement",
+        help="print the list the maintainer must confirm: thin components, odd folds, "
+        "flows without a sentence, thin layers, ignored modules; always exit 0",
+    )
+    s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(
         "skill", help="reinstall SKILL.md, the agent skill init installs, or print it"
