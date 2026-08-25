@@ -12,7 +12,22 @@ out_dir = "docs/map"
 [coverage]
 ignore = []
 
-# The figure the README embeds: the bare drawing on its ground, as an image.
+# The figures the README embeds, each the bare drawing on its ground, as an
+# image. Structure is the calm picture (regions and parts, no arrows) and
+# Control flow one reading; the whole map, every layer at once, is kept
+# for documents that cite it.
+[[figures]]
+out = "figures/structure.svg"
+mode = "system"
+interactive = false
+layer = "structure"
+
+[[figures]]
+out = "figures/control.svg"
+mode = "system"
+interactive = false
+layer = "control"
+
 [[figures]]
 out = "figures/system.svg"
 mode = "system"
