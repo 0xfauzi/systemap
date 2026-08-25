@@ -1,10 +1,12 @@
 """The system map of systemap: what the parts are and what they are to each other.
 
 systemap maps itself. This file was drafted by following the shipped skill
-(src/systemap/skill/SKILL.md) against the facts `systemap extract` read out
-of this package, and reviewed by the maintainer. Every card is code in the tree: a
+(src/systemap/skill/) against the facts `systemap extract` read out of
+this package, taken through the second pass until a full pass changed
+nothing, and reviewed by the maintainer. Every card is code in the tree: a
 component names modules the facts have and an entry they define, and the
-check refuses anything else, so nothing here is a plan and nothing says "done".
+check refuses anything else, so nothing here is a plan and nothing says
+"done".
 
 The map has three actors outside the code (the agent that authors, the
 maintainer who reviews, the CI that refuses) and five bands inside it:
@@ -63,7 +65,7 @@ COMPONENTS = (
     # ---- outside: the agent authors, the maintainer reviews, CI refuses ----
     Component(
         id="Agent",
-        does="Reads the skill, runs the commands, writes the model, and fixes what the check names.",
+        does="Reads the skill, runs the commands, writes the model, fixes what the check names, and answers what the judgement asks.",
         kind="actor",
         container="outside",
         x=COL["out"],
@@ -79,7 +81,7 @@ COMPONENTS = (
     ),
     Component(
         id="Maintainer",
-        does="Reads the judgement list, corrects the model where it disagrees, and commits the map.",
+        does="Reads the judgement answers, corrects the model where it disagrees, and commits the map.",
         kind="actor",
         container="outside",
         x=COL["out"],
@@ -120,7 +122,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        does="Walks the package's syntax tree and writes the facts: every module, its public surface, what it imports, the tests that import it. Nothing anyone writes changes what it finds.",
+        does="Walks the package's syntax tree and writes the facts: every module, its public surface, what it imports, the tests that import it, and where a run can start. Nothing anyone writes changes what it finds.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> what no longer matches",
         implemented_by=("systemap.extract",),
         entry="build",
@@ -141,10 +143,10 @@ COMPONENTS = (
     # ---- mean: the judgement ----
     Component(
         id="Skill",
-        does="The procedure the agent follows: extract, read the repository's words, group, write flows and layers and sentences, check until complete, hand back the judgement calls. Plain text, shipped in the package.",
-        interface="text() -> the skill; write(dir) -> the installed file",
+        does="The procedure the agent follows: extract, draft, check, judgement, render, the second pass, the stop condition, what to hand back. A directory of plain text with references, shipped in the package.",
+        interface="files() -> the skill directory; write(dir) -> the installed SKILL.md",
         implemented_by=("systemap.skill",),
-        entry="text",
+        entry="write",
         region="mean",
         x=COL["c4"],
         y=ROW["r1"],
@@ -173,7 +175,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        does="Draws the SVG: cards filled by build state, routes coloured by layer, and the interaction script that lights a clicked component's neighbours, switches layers, steps journeys, pans and zooms. The theme is one table of tokens.",
+        does="Draws the SVG: cards marked by kind, routes coloured by layer, and the interaction script that lights a clicked component's neighbours, switches readings, steps journeys, pans and zooms. The theme is one table of tokens.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=("systemap.schematic", "systemap.theme"),
         entry="render",
@@ -183,7 +185,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        does="Wraps the schematic into one self-contained HTML page: layer switch, journeys, the focus drawer, the index by region, the invariants. No fonts, scripts or images are fetched.",
+        does="Wraps the schematic into one self-contained HTML page: the layer switch, journeys, the focus drawer, the index by region, the invariants. No fonts, scripts or images are fetched.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=("systemap.page",),
         entry="build",
@@ -214,7 +216,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        does="The list a maintainer must confirm: components with a single module, modules folded under a name they share no word with, flows without a sentence, layers that light almost nothing, every ignore. A report, never a gate.",
+        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, every ignore. A report, never a gate.",
         interface="run(model, meaning, facts, ignores) -> lines; always exit 0",
         implemented_by=("systemap.judgement",),
         entry="run",
@@ -224,47 +226,62 @@ COMPONENTS = (
     ),
 )
 
-# (from, to, the artifact carried, the dataflow kind)
+# (from, to, the artifact carried, the kind). control: one part drives
+# another; data: an artifact moves; judge: this model's own kind, the loop
+# in which the meaning is authored and confirmed.
 FLOWS = (
-    # where you stand: how the thing is driven
-    Flow("Agent", "CLI", "commands", "stand"),
-    Flow("CI", "CLI", "check", "stand"),
-    Flow("Config", "CLI", "settings", "stand"),
-    Flow("CLI", "Scaffold", "init", "stand"),
-    Flow("Scaffold", "Model", "starter", "stand"),
-    Flow("CLI", "FactsExtractor", "extract", "stand"),
-    Flow("CLI", "Check", "check", "stand"),
-    Flow("CLI", "Page", "render", "stand"),
-    Flow("CLI", "Judgement", "judgement", "stand"),
-    # what judges: the meaning, authored and reviewed
+    # control: who drives whom
+    Flow("Agent", "CLI", "commands", "control"),
+    Flow("CI", "CLI", "check", "control"),
+    Flow("CLI", "Scaffold", "init", "control"),
+    Flow("CLI", "Skill", "init, skill", "control"),
+    Flow("CLI", "FactsExtractor", "extract", "control"),
+    Flow("CLI", "ChangeDetector", "--base", "control"),
+    Flow("CLI", "Check", "check", "control"),
+    Flow("CLI", "Page", "render", "control"),
+    Flow("CLI", "Figures", "figure", "control"),
+    Flow("CLI", "Judgement", "judgement", "control"),
+    Flow("Check", "Page", "render to compare", "control"),
+    Flow("Check", "Figures", "render to compare", "control"),
+    # data: what moves, and where it goes
+    Flow("Config", "CLI", "settings", "data"),
+    Flow("Config", "FactsExtractor", "package roots", "data"),
+    Flow("Config", "ChangeDetector", "roots, tests dir", "data"),
+    Flow("Config", "Page", "name, paths", "data"),
+    Flow("Config", "Figures", "figures table", "data"),
+    Flow("Config", "Check", "ignores", "data"),
+    Flow("Config", "Judgement", "ignores", "data"),
+    Flow("Scaffold", "Model", "starter", "data"),
+    Flow("FactsExtractor", "Check", "map.json", "data"),
+    Flow("FactsExtractor", "Schematic", "map.json", "data"),
+    Flow("FactsExtractor", "Judgement", "entry points", "data"),
+    Flow("FactsExtractor", "ChangeDetector", "surfaces", "data"),
+    Flow("ChangeDetector", "Page", "change map", "data"),
+    Flow("ChangeDetector", "Figures", "reach", "data"),
+    Flow("Model", "FactsExtractor", "claims", "data"),
+    Flow("Model", "ChangeDetector", "claims", "data"),
+    Flow("Model", "Schematic", "topology, meaning", "data"),
+    Flow("Model", "Check", "model", "data"),
+    Flow("Router", "Schematic", "routes, labels", "data"),
+    Flow("Schematic", "Page", "svg, detail", "data"),
+    Flow("Schematic", "Figures", "svg", "data"),
+    Flow("Schematic", "Check", "geometry", "data"),
+    Flow("Page", "Maintainer", "the page", "data"),
+    Flow("Check", "Agent", "the fix", "data"),
+    Flow("Check", "CI", "verdict", "data"),
+    # judge: where the meaning comes from, and who confirms it
     Flow("Skill", "Agent", "procedure", "judge"),
     Flow("Agent", "Model", "map/model.py", "judge"),
     Flow("Maintainer", "Model", "corrections", "judge"),
     Flow("Model", "Judgement", "model", "judge"),
-    Flow("Judgement", "Maintainer", "judgement list", "judge"),
-    # what gathers: the facts
-    Flow("FactsExtractor", "Check", "map.json", "gather"),
-    Flow("FactsExtractor", "Schematic", "map.json", "gather"),
-    Flow("ChangeDetector", "Page", "change map", "gather"),
-    Flow("ChangeDetector", "Figures", "reach", "gather"),
-    # what draws
-    Flow("Model", "Schematic", "topology, meaning", "draw"),
-    Flow("Router", "Schematic", "routes, labels", "draw"),
-    Flow("Schematic", "Page", "svg, detail", "draw"),
-    Flow("Schematic", "Figures", "svg", "draw"),
-    Flow("Page", "Maintainer", "the page", "draw"),
-    # what refuses
-    Flow("Model", "Check", "model", "refuse"),
-    Flow("Schematic", "Check", "geometry", "refuse"),
-    Flow("Config", "Check", "ignores", "refuse"),
-    Flow("Check", "Agent", "the fix", "refuse"),
-    Flow("Check", "CI", "verdict", "refuse"),
+    Flow("Judgement", "Agent", "second-pass list", "judge"),
+    Flow("Judgement", "Maintainer", "judgement answers", "judge"),
 )
 
-FLOW_KINDS = ("stand", "judge", "gather", "draw", "refuse")
+FLOW_KINDS = ("judge",)
 
-# Copied from the README's Principles, which is where the project states
-# its own rules; each names the components it binds.
+# The rules the repository states about itself, each with its source: the
+# README's Principles, a guard clause, and a test whose name encodes a rule.
 INVARIANTS = (
     Invariant(
         1,
@@ -283,28 +300,38 @@ INVARIANTS = (
     ),
     Invariant(
         4,
-        "Nothing is declared done: build state is derived from an entry symbol that exists or does not (README, Principles).",
-        governs=("FactsExtractor", "Schematic", "Check"),
+        "The map draws what exists today: every module a component names is in the facts, and nothing on the map is a plan (README, Principles).",
+        governs=("Model", "Check", "FactsExtractor"),
     ),
     Invariant(
         5,
-        "The map draws what exists today: every module a component names is in the facts, and nothing on the map is a plan (README, Principles).",
-        governs=("Model", "Check"),
-    ),
-    Invariant(
-        6,
         "Positions are placed by hand and the checker decides, so the same system always draws the same picture (README, Principles).",
         governs=("Model", "Router", "Check"),
     ),
     Invariant(
-        7,
+        6,
         "The agent authors, the checker refuses, the person reviews (README, Principles).",
         governs=("Agent", "Check", "Maintainer", "Judgement"),
+    ),
+    Invariant(
+        7,
+        "The map is built in passes; the second pass is the point (README, Principles).",
+        governs=("Skill", "Judgement", "Agent"),
     ),
     Invariant(
         8,
         "The page fetches nothing and depends on nothing (README, opening).",
         governs=("Page",),
+    ),
+    Invariant(
+        9,
+        "An unknown configuration key is refused, never ignored (src/systemap/config.py, load: 'unknown key').",
+        governs=("Config",),
+    ),
+    Invariant(
+        10,
+        "Every ignored module needs a reason (tests/test_coverage.py: test_ignore_without_reason_is_a_config_error).",
+        governs=("Config", "Check"),
     ),
 )
 
@@ -336,49 +363,22 @@ PLAIN = {
     "Page": "the page you open",
     "Figures": "a picture for a document",
     "Check": "what refuses",
-    "Judgement": "what asks a person",
+    "Judgement": "what asks",
 }
 
+# The page derives Structure, System context, Data flow and Control flow.
+# This model has one reading of its own: the loop in which the meaning is
+# authored, questioned and confirmed.
 LAYERS = (
-    Layer(
-        id="stand",
-        label="Where you stand",
-        question="How is the thing driven, and by whom?",
-        sub="the commands, the configuration, what init writes",
-    ),
     Layer(
         id="judge",
         label="What judges",
         question="Where does the meaning come from, and who confirms it?",
-        sub="the skill, the agent, the model, the maintainer",
-    ),
-    Layer(
-        id="gather",
-        label="What gathers",
-        question="Where do the facts come from?",
-        sub="the syntax tree, the git range",
-    ),
-    Layer(
-        id="draw",
-        label="What draws",
-        question="How do the facts and the model become one picture?",
-        sub="one generator for the page and every figure",
-    ),
-    Layer(
-        id="refuse",
-        label="What refuses",
-        question="What stops the map from lying?",
-        sub="every rule, and who hears the verdict",
+        sub="the skill, the agent, the model, the judgement, the maintainer",
     ),
 )
 
-LAYER_OF_KIND = {
-    "stand": "stand",
-    "judge": "judge",
-    "gather": "gather",
-    "draw": "draw",
-    "refuse": "refuse",
-}
+LAYER_OF_KIND = {"judge": "judge"}
 
 RELATIONS = {
     (
@@ -387,21 +387,21 @@ RELATIONS = {
     ): "The agent drives everything through the commands; it never imports the package.",
     ("CI", "CLI"): "The workflow init writes runs the check on every push and pull request.",
     (
-        "Config",
-        "CLI",
-    ): "The configuration tells the commands where the packages, the model and the output are.",
-    (
         "CLI",
         "Scaffold",
     ): "init hands the scaffold the project's name and package roots; the scaffold writes what does not exist yet.",
     (
-        "Scaffold",
-        "Model",
-    ): "The starter model is the smallest map that passes every check; the agent replaces its words.",
+        "CLI",
+        "Skill",
+    ): "init installs the skill directory beside the project, and skill reinstalls it; an upgrade of the package refreshes it.",
     (
         "CLI",
         "FactsExtractor",
     ): "extract, and the first step of refresh, run the extractor over the configured package roots.",
+    (
+        "CLI",
+        "ChangeDetector",
+    ): "render --base and figure --base ask the change detector what a git range moved.",
     (
         "CLI",
         "Check",
@@ -409,28 +409,49 @@ RELATIONS = {
     ("CLI", "Page"): "render, and refresh, build the page from the facts and the model.",
     (
         "CLI",
+        "Figures",
+    ): "figure draws one figure to a file; refresh draws every figure the configuration lists.",
+    ("CLI", "Judgement"): "judgement prints the list to act on or answer, and always exits 0.",
+    (
+        "Check",
+        "Page",
+    ): "The stale rule renders the page from the stored facts and compares it with the committed one.",
+    (
+        "Check",
+        "Figures",
+    ): "The stale rule renders every configured figure and compares it with the committed one.",
+    (
+        "Config",
+        "CLI",
+    ): "The configuration tells the commands where the packages, the model and the output are.",
+    (
+        "Config",
+        "FactsExtractor",
+    ): "The package roots and the tests directory say what the extractor walks.",
+    (
+        "Config",
+        "ChangeDetector",
+    ): "The package roots and the tests directory say which changed files are modules and which are tests.",
+    (
+        "Config",
+        "Page",
+    ): "The page takes its title, its footer paths and the label for actors outside every region from the configuration.",
+    (
+        "Config",
+        "Figures",
+    ): "The [[figures]] table says which figures refresh regenerates, in which mode, to which file.",
+    (
+        "Config",
+        "Check",
+    ): "An ignore with a reason takes a module out of the coverage rule, on record.",
+    (
+        "Config",
         "Judgement",
-    ): "judgement prints the list the maintainer must confirm and always exits 0.",
+    ): "Every ignore is listed with its reason, so a hole in the map stays visible.",
     (
-        "Skill",
-        "Agent",
-    ): "The skill gives the agent the order of the work, the schema, a worked example, and what to hand back.",
-    (
-        "Agent",
+        "Scaffold",
         "Model",
-    ): "The agent writes map/model.py: the groupings, the flows, the layers, the sentences, the journeys, the invariants.",
-    (
-        "Maintainer",
-        "Model",
-    ): "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
-    (
-        "Model",
-        "Judgement",
-    ): "Judgement reads the model for the calls that could have gone another way.",
-    (
-        "Judgement",
-        "Maintainer",
-    ): "The list is short and mechanical to produce, so the review cannot be skipped.",
+    ): "The starter model is the smallest map that passes every check; the agent replaces its words.",
     (
         "FactsExtractor",
         "Check",
@@ -438,7 +459,15 @@ RELATIONS = {
     (
         "FactsExtractor",
         "Schematic",
-    ): "Build state is derived from the facts: the entry symbol is looked up in the claimed modules.",
+    ): "The facts say which modules each card stands for, for the line the panel prints.",
+    (
+        "FactsExtractor",
+        "Judgement",
+    ): "The entry points in the facts are what the judgement asks journeys for; the imports are what it walks for crossing edges.",
+    (
+        "FactsExtractor",
+        "ChangeDetector",
+    ): "The change detector reads a module's public surface with the extractor's parser, on both sides of the diff, so the two cannot disagree about what a module exports.",
     (
         "ChangeDetector",
         "Page",
@@ -449,8 +478,20 @@ RELATIONS = {
     ): "A change figure marks what a git range changed; a reach figure marks what a plan will.",
     (
         "Model",
+        "FactsExtractor",
+    ): "The extractor reads the model's claims to warn about a module the tree no longer has.",
+    (
+        "Model",
+        "ChangeDetector",
+    ): "The change detector attributes changed modules to the components that claim them.",
+    (
+        "Model",
         "Schematic",
     ): "The model is the topology the schematic draws and the meaning it prints on the wheel.",
+    (
+        "Model",
+        "Check",
+    ): "The check reads the model's own contradictions first; nothing else is judged until they are gone.",
     (
         "Router",
         "Schematic",
@@ -460,32 +501,49 @@ RELATIONS = {
         "Page",
     ): "The page embeds the SVG and the detail JSON the interaction script reads.",
     ("Schematic", "Figures"): "A figure is the same SVG in a figure element, or bare for an image.",
-    ("Page", "Maintainer"): "The maintainer opens the page: layers, click, journeys, pan and zoom.",
-    (
-        "Model",
-        "Check",
-    ): "The check reads the model's own contradictions first; nothing else is judged until they are gone.",
     (
         "Schematic",
         "Check",
     ): "The check renders once and reads the geometry back: routes, labels, type size, wheels.",
     (
-        "Config",
-        "Check",
-    ): "An ignore with a reason takes a module out of the coverage rule, on record.",
+        "Page",
+        "Maintainer",
+    ): "The maintainer opens the page: readings, click, journeys, pan and zoom.",
     (
         "Check",
         "Agent",
     ): "Every failure names its fix; the agent edits until coverage is complete and the layout is clean.",
     ("Check", "CI"): "Exit 1 fails the pull request; the message says what to run.",
+    (
+        "Skill",
+        "Agent",
+    ): "The skill gives the agent the loop, the schema, a worked example, the second pass, and what to hand back.",
+    (
+        "Agent",
+        "Model",
+    ): "The agent writes map/model.py: the groupings, the flows, the sentences, the journeys, the invariants.",
+    (
+        "Maintainer",
+        "Model",
+    ): "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
+    (
+        "Model",
+        "Judgement",
+    ): "The judgement reads the model for the calls that could have gone another way.",
+    (
+        "Judgement",
+        "Agent",
+    ): "In the second pass the agent walks every crossing import and every entry point without a journey, and changes the model or answers the line.",
+    (
+        "Judgement",
+        "Maintainer",
+    ): "The maintainer reads the agent's answers, line by line; the list is mechanical to produce, so the review cannot be skipped.",
 }
 
 VERBS = {
-    "stand": ("runs", "is run by"),
+    "control": ("runs", "is run by"),
+    "data": ("feeds", "reads from"),
     "judge": ("informs", "reads"),
-    "gather": ("feeds", "reads from"),
-    "draw": ("supplies", "draws from"),
-    "refuse": ("is checked by", "checks"),
 }
 
 VERB_OVERRIDES = {
@@ -494,43 +552,52 @@ VERB_OVERRIDES = {
     ("Skill", "Agent"): ("guides", "follows"),
     ("Agent", "Model"): ("writes", "is written by"),
     ("Maintainer", "Model"): ("corrects", "is corrected by"),
-    ("Judgement", "Maintainer"): ("asks", "answers"),
+    ("Judgement", "Agent"): ("asks", "answers"),
+    ("Judgement", "Maintainer"): ("reports to", "confirms"),
     ("Schematic", "Page"): ("fills", "wraps"),
     ("Schematic", "Figures"): ("fills", "wraps"),
     ("Page", "Maintainer"): ("is read by", "reads"),
     ("Config", "Check"): ("excuses modules to", "takes ignores from"),
     ("Check", "Agent"): ("refuses", "is refused by"),
     ("Check", "CI"): ("answers", "asks"),
+    ("Check", "Page"): ("compares", "is compared by"),
+    ("Check", "Figures"): ("compares", "is compared by"),
 }
 
 JOURNEYS = (
     Journey(
         id="first-map",
-        label="The first map of a repository",
+        label="The first map: systemap init, extract, a draft, check",
         steps=(
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap init: configuration, starter model, the skill, the workflow.",
+                say="The agent runs systemap init: configuration, starter model, the workflow.",
+            ),
+            Step(
+                acts=("CLI",),
+                measures=(),
+                edge=("CLI", "Skill"),
+                say="init installs the skill directory beside the project; systemap skill reinstalls it later.",
             ),
             Step(
                 acts=("Skill",),
                 measures=(),
                 edge=("Skill", "Agent"),
-                say="The skill gives the agent the order of the work and the schema.",
+                say="The skill gives the agent the loop: extract, draft, check, judgement, render, second pass.",
             ),
             Step(
                 acts=("FactsExtractor",),
                 measures=(),
                 edge=("CLI", "FactsExtractor"),
-                say="systemap extract reads every module, its surface and its tests out of the tree.",
+                say="systemap extract reads every module, its surface, its imports and the entry points out of the tree.",
             ),
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "Model"),
-                say="The agent writes map/model.py: components, flows, layers, one sentence per edge.",
+                say="The agent writes map/model.py: components, flows, one sentence per edge, a journey per entry point.",
             ),
             Step(
                 acts=("Check",),
@@ -538,17 +605,47 @@ JOURNEYS = (
                 edge=("Check", "Agent"),
                 say="systemap check names each failure and its fix; the agent edits until coverage is N/N and the layout is clean.",
             ),
+        ),
+    ),
+    Journey(
+        id="second-pass",
+        label="The second pass: judgement, then refresh",
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The agent runs systemap judgement.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=(),
+                edge=("FactsExtractor", "Judgement"),
+                say="The judgement walks the imports in the facts for edges the model lacks, and the entry points for journeys it lacks.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=("Judgement",),
+                edge=("Judgement", "Agent"),
+                say="One line per crossing import, per entry point without a journey, per thin layer: the agent changes the model or answers the line.",
+            ),
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "Model"),
+                say="The agent adds the missed edges, regroups what was grouped by directory, and reruns check; a full pass that changes nothing is the stop.",
+            ),
             Step(
                 acts=("Page",),
                 measures=(),
                 edge=("CLI", "Page"),
-                say="systemap refresh renders the page and every configured figure.",
+                say="systemap refresh renders the page and every configured figure; systemap figure draws one more for a document.",
             ),
             Step(
                 acts=("Judgement",),
                 measures=("Maintainer",),
                 edge=("Judgement", "Maintainer"),
-                say="systemap judgement hands the maintainer the calls to confirm; the maintainer commits docs/map.",
+                say="The agent hands the maintainer the judgement lines with an answer to each; the maintainer commits docs/map.",
             ),
         ),
     ),
@@ -560,7 +657,7 @@ JOURNEYS = (
                 acts=("CI",),
                 measures=(),
                 edge=("CI", "CLI"),
-                say="A pull request moves a module; the workflow runs systemap check.",
+                say="A pull request moves a module; the workflow runs systemap extract --check, check, and render --check.",
             ),
             Step(
                 acts=("FactsExtractor",),
