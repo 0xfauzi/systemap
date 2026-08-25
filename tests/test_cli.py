@@ -42,7 +42,13 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert run("--root", str(tmp_path), "extract") == 0
     assert (tmp_path / "docs/map/map.json").is_file()
     assert run("--root", str(tmp_path), "extract", "--check") == 0
-    assert run("--root", str(tmp_path), "check") == 0
+    # Facts but no page yet: every rule is clean except stale, and the fix is refresh.
+    assert run("--root", str(tmp_path), "check") == 1
+    out = capsys.readouterr().out
+    assert "map layout: clean" in out
+    assert "docs/map/index.html has not been rendered" in out
+    assert "docs/map/system.html has not been rendered" in out
+    assert out.rstrip().endswith("run: systemap refresh")
     assert run("--root", str(tmp_path), "render") == 0
     page = (tmp_path / "docs/map/index.html").read_text()
     assert "<title>demo system map</title>" in page
@@ -52,6 +58,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert run("--root", str(tmp_path), "refresh") == 0
     assert (tmp_path / "docs/map/system.html").is_file()
     assert "map: updated" in capsys.readouterr().out
+    assert run("--root", str(tmp_path), "check") == 0
     assert run("--root", str(tmp_path), "refresh") == 0
     assert "already current" in capsys.readouterr().out
     # Init never overwrites what exists.

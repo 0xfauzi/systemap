@@ -25,8 +25,20 @@ What is checked, in order:
     coverage ...... every module in the facts is claimed by exactly one
                     component, unless the configuration ignores it with a
                     reason; an incomplete map fails
+    entry ......... a component whose modules exist names an entry, and one
+                    of those modules defines it; the build state is derived
+                    from that name, so a name the code does not have would
+                    draw a part as built or part built on a lie
+    tracker ....... a planned component (none of its modules exist) names
+                    the tracker item that will build it
+    stale ......... the facts file describes the tree, the page is what the
+                    renderer draws from the facts and the model, and every
+                    configured figure is what the generator draws; the
+                    same comparisons `extract --check` and `render --check`
+                    make, run in one place
 
-The CLI prints one line per problem and exits 1 when any is found.
+The CLI prints one line per problem, the fix under each group, and exits
+1 when any is found.
 """
 
 from __future__ import annotations
@@ -35,11 +47,13 @@ import json
 import math
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
-from systemap.config import Ignore
-from systemap.model import Meaning, Model, module_matches
+from systemap import extract, figure, page
+from systemap.config import Config, Ignore
+from systemap.model import Meaning, Model, build_state, claimed, module_matches
 from systemap.model import problems as model_problems
 from systemap.schematic import TEXT_PX
 from systemap.schematic import render as render_schematic
@@ -287,6 +301,110 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     return Coverage(True, mapped, len(modules) - len(ignored), len(ignored), tuple(problems))
 
 
+# ---- entry and tracker: build state cannot rest on a name that is not there ----
+
+
+def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
+    """Every component whose modules exist names an entry its modules define.
+
+    Build state is derived by looking `entry` up in the claimed modules. A
+    name that is not there would leave the card at "part built" for ever,
+    and an empty name would do the same, so both are refused. A component
+    with a tracker is exempt: it is planned until the entry lands, and the
+    ghost says so. Actors claim no code and are never checked.
+    """
+    components = facts.get("components", {})
+    if not components:
+        return []
+    out: list[str] = []
+    for c in model.components:
+        if c.kind == "actor" or c.tracker:
+            continue
+        modules = claimed(c, components)
+        if not modules:
+            continue
+        if not c.entry:
+            out.append(f"{c.id} names no entry; its modules are {', '.join(modules)}")
+            continue
+        defined = any(
+            c.entry in [f["name"] for f in components[m]["functions"]]
+            or c.entry in [k["name"] for k in components[m]["classes"]]
+            for m in modules
+        )
+        if not defined:
+            out.append(
+                f"{c.id} names entry {c.entry}, which none of its modules define "
+                f"({', '.join(modules)})"
+            )
+    return out
+
+
+def check_tracker(model: Model, facts: dict[str, Any]) -> list[str]:
+    """Every planned component names the tracker item that will build it."""
+    if not facts.get("components"):
+        return []
+    return [
+        f"{c.id} is planned (none of its modules exist) and names no tracker"
+        for c in model.components
+        if c.kind != "actor" and not c.tracker and build_state(c, facts) == "planned"
+    ]
+
+
+# ---- stale: the outputs are what the tree and the model say ----------------------
+
+
+def stale_facts(
+    fresh: dict[str, Any], stored: dict[str, Any], model: Model, prefixes: set[str]
+) -> list[str]:
+    """Ways the stored facts no longer describe the tree, plus claims of
+    modules the tree does not have. The rule `extract --check` runs."""
+    problems = extract.drift(fresh, stored) + extract.mapping_drift(fresh, model, prefixes)
+    if not stored:
+        problems.insert(0, "no facts have been built yet")
+    return problems
+
+
+def stale(
+    cfg: Config,
+    model: Model,
+    meaning: Meaning,
+    t: dict[str, Any],
+    fresh: dict[str, Any] | None = None,
+) -> list[str]:
+    """Every output that is older than the tree or the model.
+
+    The facts are compared against a fresh extraction, the page against a
+    fresh render from the stored facts (the committed page must match the
+    committed facts, whatever the tree has since done), and each configured
+    figure against the generator. A model that contradicts itself cannot
+    be rendered honestly, so only the facts are compared then; the
+    placement and meaning rules report the rest.
+    """
+    fresh = fresh if fresh is not None else extract.build(cfg)
+    stored = extract.read_facts(cfg.facts_path)
+    if not stored:
+        return ["no facts have been built yet"]
+    out = [f"facts: {line}" for line in stale_facts(fresh, stored, model, cfg.prefixes)]
+    if model_problems(model, meaning):
+        return out
+    out += _stale_file(
+        cfg, cfg.page_path, page.build(cfg, model, meaning, t, stored, {"has_change": False})
+    )
+    for fig in cfg.figures:
+        html, _collisions = figure.configured(cfg, model, meaning, t, stored, fig)
+        out += _stale_file(cfg, cfg.out_path / fig.out, html)
+    return out
+
+
+def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
+    rel = cfg.rel(path)
+    if not path.is_file():
+        return [f"{rel} has not been rendered"]
+    if path.read_text(encoding="utf-8") != expected:
+        return [f"{rel} differs from what systemap renders"]
+    return []
+
+
 # ---- one run -------------------------------------------------------------------
 
 
@@ -295,8 +413,10 @@ class Result:
     """Everything one check run found.
 
     `problems` are the placement, meaning, route, label, type-size and
-    wheel findings; `coverage` is the module rule; `through` and `across`
-    count edges through a foreign card and across a foreign region.
+    wheel findings; `coverage` is the module rule; `entry` and `tracker`
+    are the build-state rules; `stale` is filled in by the CLI, which has
+    the configuration the comparison needs; `through` and `across` count
+    edges through a foreign card and across a foreign region.
     """
 
     problems: list[str]
@@ -304,10 +424,19 @@ class Result:
     through: int
     across: int
     coverage: Coverage
+    entry: list[str] = field(default_factory=list)
+    tracker: list[str] = field(default_factory=list)
+    stale: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return not self.problems and self.coverage.ok
+        return (
+            not self.problems
+            and self.coverage.ok
+            and not self.entry
+            and not self.tracker
+            and not self.stale
+        )
 
 
 def run(
@@ -338,11 +467,28 @@ def run(
         problems += check_wheels(meta["edges"], model, meaning)
         notes = [n for n in meta.get("notes", []) if "shorter segment" in n]
     coverage = check_coverage(model, facts, ignores)
-    return Result(problems, notes, through, across, coverage)
+    return Result(
+        problems,
+        notes,
+        through,
+        across,
+        coverage,
+        entry=check_entry(model, facts),
+        tracker=check_tracker(model, facts),
+    )
 
 
-def report(model: Model, result: Result) -> list[str]:
-    """The lines the CLI prints for one check run."""
+def with_stale(result: Result, lines: list[str]) -> Result:
+    return replace(result, stale=lines)
+
+
+def _plural(n: int, noun: str) -> str:
+    return f"{n} {noun}{'s' if n != 1 else ''}"
+
+
+def report(model: Model, result: Result, model_file: str = "the model") -> list[str]:
+    """The lines the CLI prints for one check run: each failing rule with
+    its findings and the fix under them."""
     through, across = result.through, result.across
     out = [
         f"map routes: {through} edge{'s' if through != 1 else ''} through a card "
@@ -354,16 +500,40 @@ def report(model: Model, result: Result) -> list[str]:
         ignored = f", {cov.ignored} ignored" if cov.ignored else ""
         out.append(f"coverage: {cov.mapped}/{cov.total} modules mapped{ignored}")
         out += [f"  {line}" for line in cov.problems]
+        if cov.problems:
+            out.append(
+                f"  fix: map every module in {model_file}, or ignore it with a reason "
+                "under [coverage] in the configuration"
+            )
     else:
         out.append("coverage: not checked, there are no facts; run: systemap extract")
+    if result.entry:
+        out.append(f"entry: {_plural(len(result.entry), 'problem')}")
+        out += [f"  {line}" for line in result.entry]
+        out.append(
+            f"  fix: in {model_file}, set entry to a public function or class the "
+            "component's modules define, or give the component a tracker"
+        )
+    if result.tracker:
+        out.append(f"tracker: {_plural(len(result.tracker), 'problem')}")
+        out += [f"  {line}" for line in result.tracker]
+        out.append(
+            f"  fix: in {model_file}, set tracker to the item that will build it, "
+            "or name the modules that are it"
+        )
     problems = result.problems
     if problems:
-        out.append(f"map layout: {len(problems)} problem{'s' if len(problems) != 1 else ''}")
+        out.append(f"map layout: {_plural(len(problems), 'problem')}")
         out += [f"  {line}" for line in problems]
-        return out
-    n = len(model.components)
-    out.append(
-        f"map layout: clean ({n} cards, {len(model.flows)} orthogonal labelled "
-        f"edges, {n} wheels, nothing below {TEXT_PX:g}px)"
-    )
+        out.append(f"  fix: edit {model_file}, then run: systemap check")
+    else:
+        n = len(model.components)
+        out.append(
+            f"map layout: clean ({n} cards, {len(model.flows)} orthogonal labelled "
+            f"edges, {n} wheels, nothing below {TEXT_PX:g}px)"
+        )
+    if result.stale:
+        out.append(f"stale: {_plural(len(result.stale), 'problem')}")
+        out += [f"  {line}" for line in result.stale]
+        out.append("  fix: run: systemap refresh, then commit the output directory")
     return out

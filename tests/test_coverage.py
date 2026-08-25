@@ -25,9 +25,10 @@ def run(*argv: str) -> int:
 
 
 def scaffold(root: Path) -> None:
+    """init and one refresh, so the map is current before a case breaks it."""
     write_tree(root, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(root), "init") == 0
-    assert run("--root", str(root), "extract") == 0
+    assert run("--root", str(root), "refresh") == 0
 
 
 def test_all_mapped(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -64,6 +65,7 @@ def test_ignore_with_reason_passes(tmp_path: Path, capsys: pytest.CaptureFixture
             'ignore = [\n    { module = "pkg.extra", reason = "a scratch file with no place on the map" },\n',
         )
     )
+    assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert "coverage: 2/2 modules mapped, 2 ignored" in capsys.readouterr().out
 
@@ -119,8 +121,10 @@ def test_subtree_claim_covers_the_package(
     model = tmp_path / "map/model.py"
     text = model.read_text()
     text = text.replace('implemented_by=("pkg.reader",)', 'implemented_by=("pkg.*",)')
-    text = text.replace('implemented_by=("pkg.writer",)', "implemented_by=()")
+    # The writer no longer claims code, so it is planned and must name a tracker.
+    text = text.replace('implemented_by=("pkg.writer",)', 'implemented_by=(), tracker="#1"')
     model.write_text(text)
+    assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert "coverage: 2/2 modules mapped, 1 ignored" in capsys.readouterr().out
 

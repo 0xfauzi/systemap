@@ -94,23 +94,20 @@ def cmd_init(args: argparse.Namespace) -> int:
 # ---- extract ---------------------------------------------------------------
 
 
-def _extract_problems(p: Project, fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
-    problems = extract.drift(fresh, stored) + extract.mapping_drift(fresh, p.model, p.cfg.prefixes)
-    if not stored:
-        problems.insert(0, "no facts have been built yet")
-    return problems
-
-
-def cmd_extract(args: argparse.Namespace) -> int:
-    p = _project(args)
+def _require_roots(p: Project) -> None:
     if not p.cfg.roots:
         raise ConfigError(
             'no package roots found; set [package_roots] in systemap.toml ("path" = "import name")'
         )
+
+
+def cmd_extract(args: argparse.Namespace) -> int:
+    p = _project(args)
+    _require_roots(p)
     fresh = extract.build(p.cfg)
     stored = extract.read_facts(p.cfg.facts_path)
     if args.check:
-        problems = _extract_problems(p, fresh, stored)
+        problems = check.stale_facts(fresh, stored, p.model, p.cfg.prefixes)
         if problems:
             noun = "problem" if len(problems) == 1 else "problems"
             say(f"map is out of date ({len(problems)} {noun}):")
@@ -186,22 +183,33 @@ def cmd_render(args: argparse.Namespace) -> int:
 
 
 def _fix_line(p: Project, result: check.Result) -> str:
-    """The one line naming what to do about a failed check."""
+    """The one line naming what to do first about a failed check.
+
+    The model's own contradictions come first, since nothing else can be
+    judged until they are gone; then the facts; then the rules that read
+    the two together; then the outputs, which refresh regenerates.
+    """
     if result.problems:
         return f"fix {p.cfg.model}, then run: systemap check"
     if not result.coverage.checked:
         return "run: systemap extract"
-    return (
-        f"map every module in {p.cfg.model}, or ignore it with a reason under "
-        "[coverage] in the configuration, then run: systemap check"
-    )
+    if result.coverage.problems:
+        return (
+            f"map every module in {p.cfg.model}, or ignore it with a reason under "
+            "[coverage] in the configuration, then run: systemap check"
+        )
+    if result.entry or result.tracker:
+        return f"fix {p.cfg.model}, then run: systemap check"
+    return "run: systemap refresh"
 
 
 def cmd_check(args: argparse.Namespace) -> int:
     p = _project(args)
+    _require_roots(p)
     facts = extract.read_facts(p.cfg.facts_path)
     result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.issue_url, p.cfg.coverage_ignore)
-    say(*check.report(p.model, result))
+    result = check.with_stale(result, check.stale(p.cfg, p.model, p.meaning, p.theme))
+    say(*check.report(p.model, result, p.cfg.model))
     if not result.ok:
         say(_fix_line(p, result))
         return STALE
@@ -238,6 +246,7 @@ def cmd_figure(args: argparse.Namespace) -> int:
         caption=args.caption or "",
         svg_id=args.svg_id,
         interactive=bool(args.interactive),
+        bare=bool(args.out) and args.out.endswith(".svg"),
     )
     for line in collisions:
         warn(f"label collision: {line}")
@@ -265,28 +274,22 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         if not quiet:
             say(line)
 
-    if not p.cfg.roots:
-        raise ConfigError(
-            'no package roots found; set [package_roots] in systemap.toml ("path" = "import name")'
-        )
+    _require_roots(p)
     fresh = extract.build(p.cfg)
-    stored = extract.read_facts(p.cfg.facts_path)
-    facts_ok = not _extract_problems(p, fresh, stored)
-    page_ok = False
-    if facts_ok and not model_problems(p.model, p.meaning):
-        current = p.cfg.page_path.read_text(encoding="utf-8") if p.cfg.page_path.is_file() else ""
-        page_ok = current == _render_page(p, stored, argparse.Namespace())
-    figures_ok = all((p.cfg.out_path / f.out).is_file() for f in p.cfg.figures)
-    if facts_ok and page_ok and figures_ok:
+    # Current means two things at once: nothing on disk is older than the
+    # tree or the model, and the check passes. A stale-free map that fails
+    # coverage is not current; it is incomplete.
+    stale_lines = check.stale(p.cfg, p.model, p.meaning, p.theme, fresh)
+    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.issue_url, p.cfg.coverage_ignore)
+    if not stale_lines and result.ok:
         note("map: already current")
         return OK
 
     note("map: refreshing against the working tree")
     extract.write_facts(p.cfg.facts_path, fresh)
     written = [p.cfg.rel(p.cfg.facts_path)]
-    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.issue_url, p.cfg.coverage_ignore)
     if not result.ok:
-        say(*check.report(p.model, result))
+        say(*check.report(p.model, result, p.cfg.model))
         fix = _fix_line(p, result).replace("systemap check", "systemap refresh")
         say(f"map: check failed; {fix}")
         return STALE
@@ -294,21 +297,11 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     p.cfg.page_path.write_text(html, encoding="utf-8")
     written.append(p.cfg.rel(p.cfg.page_path))
     for fig in p.cfg.figures:
-        html, collisions = figure.make(
-            p.cfg,
-            p.model,
-            p.meaning,
-            p.theme,
-            fresh,
-            mode="change" if fig.mode == "reach" else "system",
-            components=fig.components,
-            caption=fig.caption,
-            svg_id=fig.svg_id,
-            interactive=fig.interactive,
-        )
+        html, collisions = figure.configured(p.cfg, p.model, p.meaning, p.theme, fresh, fig)
         for line in collisions:
             warn(f"label collision: {line}")
         out = p.cfg.out_path / fig.out
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
         written.append(p.cfg.rel(out))
     note(f"map: updated {', '.join(written)}")
@@ -379,7 +372,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pr", default="", help="a pull request number, for the change map title")
     s.set_defaults(func=cmd_render)
 
-    s = sub.add_parser("check", help="check layout, routes, labels, meaning and module coverage")
+    s = sub.add_parser(
+        "check",
+        help="every rule: placement, routes, labels, type size, meaning, wheels, coverage, "
+        "entry, tracker, stale outputs; exit 1 with each fix named",
+    )
     s.set_defaults(func=cmd_check)
 
     s = sub.add_parser("figure", help="draw one figure with the same generator")
@@ -397,7 +394,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--head", default="HEAD")
     s.add_argument("--caption", default="")
     s.add_argument("--svg-id", dest="svg_id", default="lessonmap")
-    s.add_argument("--out", default="", help="the file to write (default: stdout)")
+    s.add_argument(
+        "--out",
+        default="",
+        help="the file to write (default: stdout); a .svg name writes the drawing alone",
+    )
     s.set_defaults(func=cmd_figure)
 
     s = sub.add_parser("refresh", help="extract, check, render, and draw the configured figures")

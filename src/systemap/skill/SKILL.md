@@ -121,7 +121,9 @@ when you are not in it.
     tracker, and any module no component claims. Move cards until the
     routes are clean. If a module genuinely has no place on the map (a
     `__main__` shim, a vendored file), add it to `[coverage] ignore` in
-    `systemap.toml` with a reason, and list it for the maintainer.
+    `systemap.toml` with a reason, and list it for the maintainer. One
+    line is expected to remain until the next step: `stale`, saying the
+    page or a figure has not been rendered. Every other line must go.
 
 11. **Render.** Run `systemap refresh`. It extracts, checks, renders the
     page (`docs/map/index.html`) and every figure the configuration lists,
@@ -142,7 +144,7 @@ when you are not in it.
 | 1 | `systemap extract --check` | exit 1 when the facts no longer match the tree |
 | 10 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | 11 | `systemap render` | the page from the facts and the model; `--check` exits 1 when the committed page is stale |
-| 11 | `systemap refresh` | extract, check, render and every configured figure |
+| 11 | `systemap refresh` | extract, check, render and every configured figure; after it, `systemap check` exits 0 |
 | 11 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, or `--components A,B` for a plan's reach |
 | 12 | `systemap judgement` | the list the maintainer must confirm; exit 0 always |
 | any | `systemap skill` | reinstall this file; `--print` writes it to stdout |

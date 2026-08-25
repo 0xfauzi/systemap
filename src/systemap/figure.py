@@ -27,10 +27,11 @@ and pans and zooms like the map page (wheel, pinch, drag, Fit / 100% / +
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from systemap import change as change_mod
-from systemap.config import Config, ConfigError
+from systemap.config import Config, ConfigError, Figure
 from systemap.model import Meaning, Model
 from systemap.schematic import interactive_script, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
@@ -40,6 +41,24 @@ GENERATOR = "systemap"
 
 class FigureError(Exception):
     """The figure cannot be drawn as asked; the message says why."""
+
+
+def bare_svg(svg: str, t: dict[str, Any]) -> str:
+    """The drawing alone, on its ground, for embedding as an image.
+
+    The scene draws no background of its own because the figure element
+    and the page supply one. An `<img>` on someone else's page supplies
+    nothing, so a ground rectangle the size of the viewBox is put behind
+    the drawing. Nothing else changes: the same element, the same style,
+    the same text at the same size.
+    """
+    match = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
+    if match is None:
+        return svg
+    x, y, w, h = match.groups()
+    end = svg.index(">") + 1
+    ground = f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{t["bg"]}"/>'
+    return svg[:end] + ground + svg[end:] + "\n"
 
 
 def figure(
@@ -150,12 +169,14 @@ def make(
     caption: str = "",
     svg_id: str = "lessonmap",
     interactive: bool = False,
+    bare: bool = False,
 ) -> tuple[str, list[str]]:
     """(the figure HTML, the label collisions the drawing reported).
 
     `mode` is "system" or "change"; empty picks "change" when a base ref or
     component ids are given and "system" otherwise. Unknown component ids
-    are a ConfigError; an empty git range is a FigureError.
+    are a ConfigError; an empty git range is a FigureError. `bare` returns
+    the SVG alone, on its ground, instead of the figure element.
     """
     page_url = f"{cfg.out_dir}/index.html"
     facts_url = f"{cfg.out_dir}/{cfg.facts_file}"
@@ -222,6 +243,8 @@ def make(
     )
     meta = json.loads(detail).get("_meta", {})
     collisions: list[str] = list(meta.get("collisions", []))
+    if bare:
+        return bare_svg(svg, t), collisions
 
     if legend_mode == "reach":
         rows = [
@@ -232,3 +255,32 @@ def make(
         rows = legend_rows(t, legend_mode)
     out = figure(t, meaning, svg, caption, rows, svg_id, detail if interactive else None)
     return out, collisions
+
+
+def configured(
+    cfg: Config,
+    model: Model,
+    meaning: Meaning,
+    t: dict[str, Any],
+    facts: dict[str, Any],
+    fig: Figure,
+) -> tuple[str, list[str]]:
+    """One figure from the configuration's `[[figures]]` table.
+
+    `systemap refresh` writes it and `systemap check` compares it, through
+    this one function, so the two cannot disagree about what the file
+    should hold. An `out` ending in `.svg` is the bare drawing.
+    """
+    return make(
+        cfg,
+        model,
+        meaning,
+        t,
+        facts,
+        mode="change" if fig.mode == "reach" else "system",
+        components=fig.components,
+        caption=fig.caption,
+        svg_id=fig.svg_id,
+        interactive=fig.interactive,
+        bare=fig.out.endswith(".svg"),
+    )
