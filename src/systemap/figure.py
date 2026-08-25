@@ -193,7 +193,7 @@ def make(
     bare: bool = False,
     layer: str = "",
 ) -> tuple[str, list[str]]:
-    """(the figure HTML, the label collisions the drawing reported).
+    """(the figure HTML, the label and header problems the drawing reported).
 
     `mode` is "system" or "change"; empty picks "change" when a base ref or
     component ids are given and "system" otherwise. Unknown component ids

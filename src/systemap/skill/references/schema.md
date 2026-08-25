@@ -130,11 +130,13 @@ its container, a flow naming an unknown component or a kind that is neither
 standard nor declared, a context or tool flow whose agent end is not an
 agent, an invariant governing an unknown id. Routes: an edge through a card
 it does not connect or across a band it neither starts nor ends in. Labels:
-a label touching a card, a header or another label. Type size: anything
-below 11px. Meaning: a flow with no sentence or no layer, a component with
-no plain word, a journey step naming an unknown id or edge, an override
-naming an unknown edge, a custom layer taking a standard id. Wheel: a
-relationship wheel whose labels leave the drawing or touch. Coverage: a
+a label touching a card, a header or another label (both labels named), a
+container or region header wider than its box or a `sub` that needs more
+than two lines, a header touching a card. Type size: anything below 11px.
+Meaning: a flow with no sentence or no layer, a component with no plain
+word, a journey step naming an unknown id or edge, an override naming an
+unknown edge, a custom layer taking a standard id. Wheel: a relationship
+wheel whose labels touch each other or the centre. Coverage: a
 module claimed by nobody or by two. Entry: a module not in the facts, an
 entry not defined, a component with no module. Stale: facts, page or figure
 older than the tree or the model.

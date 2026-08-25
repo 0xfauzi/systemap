@@ -511,8 +511,14 @@ def place_labels(
     obstacles: list[tuple[str, Box]],
     canvas: tuple[float, float],
     gap: float = 2.0,
+    names: dict[int, str] | None = None,
 ) -> dict[int, Placed]:
-    """Seat every label; shortest path first, since it has the fewest places."""
+    """Seat every label; shortest path first, since it has the fewest places.
+
+    `names` gives each label the name a collision report calls it by; a
+    label without one is `label <index>`.
+    """
+    names = names or {}
 
     def pad(b: Box) -> Box:
         return (b[0] - gap, b[1] - gap, b[2] + 2 * gap, b[3] + 2 * gap)
@@ -585,8 +591,13 @@ def place_labels(
             box = (mx - widths[k] / 2, my - lh / 2, widths[k], lh)
             best = Placed(box=box, segment=0, on_longest=True, cost=1.0)
         if best.cost > 0:
+            # What the seat touches, measured the way the cost was: with the
+            # gap around the label, so a collision inside the gap names its
+            # neighbour rather than reporting an empty list.
             named = list(obstacles)
-            named += [(f"label {j}", other.box) for j, other in placed.items() if j != k]
-            best.hits = [n for n, ob in named if _overlap_area(best.box, ob)]
+            named += [
+                (names.get(j, f"label {j}"), other.box) for j, other in placed.items() if j != k
+            ]
+            best.hits = [n for n, ob in named if _overlap_area(pad(best.box), ob)]
         placed[k] = best
     return placed

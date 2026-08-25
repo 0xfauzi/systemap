@@ -23,8 +23,11 @@ as visible text and its layer as `data-layer`.
 Edges are Manhattan paths routed by route.py through the gutters between
 cards: never through a card they do not connect, never through a region they
 neither start nor end in. Each label sits on the longest segment of its own
-path, or in the gutter beside a run too short to hold it. What could not be
-placed cleanly is reported in the detail JSON under `_meta.collisions`, and
+path, or in the gutter beside a run too short to hold it. A container's or
+a region's header text must fit its box: a sub wraps to a second line and
+is refused past that. What could not be placed cleanly, label or header,
+is reported in the detail JSON under `_meta.collisions`, each line worded
+for the check, and
 any route that had to break a rule under `_meta.notes` with the router's
 reason, so a crowded layout fails loudly instead of quietly drawing text
 over text.
@@ -103,6 +106,29 @@ def wrap_words(text: str, width: int, max_lines: int) -> list[str]:
             tail = spaced or cut
         lines[-1] = tail + "..."
     return lines
+
+
+def wrap_all(text: str, width: int) -> list[str]:
+    """Greedy word wrap with nothing dropped: a word wider than `width` stands alone."""
+    lines: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= width or not current:
+            current = candidate
+            continue
+        lines.append(current)
+        current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+# The header text estimates the router and the check share: a mono label at
+# 11px with .13em tracking, a sans sub-line at 11px.
+LABEL_CHAR = 7.6
+SUB_CHAR = 5.6
+HEADER_LINES = 2
 
 
 def _rgb(colour: str) -> tuple[int, int, int]:
@@ -364,6 +390,12 @@ def render(
     # container that holds neither a card nor a region (a directory the
     # system writes to, a tree it may not enter).
     blocks: list[Box] = []
+    # Every header's box, for the labels rule, and every header the box
+    # cannot hold: a label wider than the box, a sub that needs more than
+    # two lines. The text is drawn as far as it fits and the check refuses
+    # the map, so a header never quietly runs into a card.
+    headers: list[dict[str, Any]] = []
+    collisions: list[str] = []
     occupied = {c.container for c in COMPONENTS if c.container}
     occupied |= {r.container for r in model.regions if r.container}
     for box in model.containers:
@@ -371,7 +403,16 @@ def render(
         stroke, fill = T["container"][box.tone]
         if change_mode:
             stroke, fill = T["line"], T["bg"]
-        sub_lines = wrap_words(box.sub, max(12, int((w - 26) / 5.6)), 2)
+        chars = max(12, int((w - 26) / SUB_CHAR))
+        all_lines = wrap_all(box.sub, chars)
+        sub_lines = all_lines[:HEADER_LINES]
+        if len(all_lines) > HEADER_LINES or any(len(line) > chars for line in all_lines):
+            collisions.append(
+                f"header of container {box.id}: sub does not fit its box "
+                f"({len(box.sub)} characters; {HEADER_LINES} lines of {chars} fit)"
+            )
+        if 13 + len(box.label) * LABEL_CHAR + 8 > w:
+            collisions.append(f"header of container {box.id}: label is wider than its box")
         floor.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
             f'fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>'
@@ -384,10 +425,13 @@ def render(
         # The header obstacle is the text, not the whole top edge of the box:
         # the factory's spans the canvas, and a wall that wide would close
         # the corridor every long edge runs along.
-        text_w = max([len(box.label) * 7.6] + [len(line) * 5.6 for line in sub_lines]) + 8
+        text_w = (
+            max([len(box.label) * LABEL_CHAR] + [len(line) * SUB_CHAR for line in sub_lines]) + 8
+        )
         header: Box = (x + 8, y + 6, min(w - 16, text_w), 30 + 12 * len(sub_lines))
         obstacles.append((f"{box.id} header", header))
         blocks.append(header)
+        headers.append({"id": box.id, "kind": "container", "box": [round(v, 1) for v in header]})
         if box.id not in occupied:
             blocks.append((float(x), float(y), float(w), float(h)))
             obstacles.append((box.id, (float(x), float(y), float(w), float(h))))
@@ -406,8 +450,15 @@ def render(
             + L(x + 31, y + 20, region.label, TEXT_PX, T["region"], "600", True, "start", ".13em")
             + "</g>"
         )
-        obstacles.append((f"{region.id} header", (x + 6, y + 5, 150, 24)))
-        blocks.append((x + 6, y + 5, 150, 24))
+        label_w = 31 - 6 + len(region.label) * LABEL_CHAR + 8
+        if 31 + len(region.label) * LABEL_CHAR + 8 > w:
+            collisions.append(f"header of region {region.id}: label is wider than its box")
+        region_header: Box = (x + 6, y + 5, max(150.0, label_w), 24)
+        obstacles.append((f"{region.id} header", region_header))
+        blocks.append(region_header)
+        headers.append(
+            {"id": region.id, "kind": "region", "box": [round(v, 1) for v in region_header]}
+        )
     for cid, (x, y, w, h) in boxes.items():
         obstacles.append((cid, (x - 3, y - 3, w + 6, h + 6)))
 
@@ -425,11 +476,15 @@ def render(
     edges = [(src, dst) for src, dst, _art, _k in FLOWS]
     routes = route_all(edges, boxes, actor_ids, blocks, region_boxes, region_of, CANVAS)
     widths = {i: len(FLOWS[i][2]) * LABEL_CHAR_W + 6 for i in routes}
-    seats = place_labels(routes, widths, LABEL_H, obstacles, CANVAS)
+    # A collision names both labels: the one that could not be seated and
+    # the one it landed on, each by its artifact and its edge.
+    label_names = {
+        i: f"label '{art}' ({src} -> {dst})" for i, (src, dst, art, _k) in enumerate(FLOWS)
+    }
+    seats = place_labels(routes, widths, LABEL_H, obstacles, CANVAS, names=label_names)
 
     flow_parts: list[str] = []
     label_parts: dict[int, str] = {}
-    collisions: list[str] = []
     notes: list[str] = []
     label_boxes: list[dict[str, Any]] = []
     layers_of: dict[int, str] = {}
@@ -472,7 +527,10 @@ def render(
             f'marker-end="url(#{svg_id}-m-{marker})"/>'
         )
         if seat.cost > 0:
-            collisions.append(f"'{artifact}' ({src} -> {dst}) overlaps {', '.join(seat.hits[:3])}")
+            collisions.append(
+                f"label collision: '{artifact}' ({src} -> {dst}) overlaps "
+                f"{', '.join(seat.hits[:3])}"
+            )
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
             f'<g class="flowlbl {kind}" data-edge="{i}" '
@@ -685,6 +743,7 @@ def render(
             "collisions": collisions,
             "notes": notes,
             "labels": label_boxes,
+            "headers": headers,
             "cards": {cid: list(box) for cid, box in boxes.items()},
             "paths": paths,
         }

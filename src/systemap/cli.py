@@ -257,7 +257,7 @@ def cmd_figure(args: argparse.Namespace) -> int:
         layer=args.layer or "",
     )
     for line in collisions:
-        warn(f"label collision: {line}")
+        warn(line)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -307,11 +307,23 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     for fig in p.cfg.figures:
         html, collisions = figure.configured(p.cfg, p.model, p.meaning, p.theme, fresh, fig)
         for line in collisions:
-            warn(f"label collision: {line}")
+            warn(line)
         out = p.cfg.out_path / fig.out
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
         written.append(p.cfg.rel(out))
+    # What was written is checked as `systemap check` would check it. A
+    # refresh that leaves the check failing is not a refresh, whatever it
+    # wrote; the exit code says so.
+    after = check.with_stale(
+        check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore),
+        check.stale(p.cfg, p.model, p.meaning, p.theme, fresh),
+    )
+    if not after.ok:
+        say(*check.report(p.model, after, p.cfg.model))
+        fix = _fix_line(p, after).replace("systemap check", "systemap refresh")
+        say(f"map: check failed after the refresh; {fix}")
+        return STALE
     note(f"map: updated {', '.join(written)}")
     note(f"map: commit {p.cfg.out_dir}/ to record this state of the system")
     return OK
@@ -364,13 +376,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--root",
         default="",
         help="project root (default: the nearest directory with systemap.toml, "
-        "[tool.systemap] in pyproject.toml, or .git)",
+        "[tool.systemap] in pyproject.toml, or .git); accepted before or after the command",
     )
     sub = parser.add_subparsers(dest="command", required=True, metavar="command")
+
+    def add_root(s: argparse.ArgumentParser) -> None:
+        # The global --root, accepted after the subcommand as well. The
+        # subparser's default is suppressed so it never overwrites a --root
+        # given before the subcommand.
+        s.add_argument("--root", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
 
     s = sub.add_parser(
         "init", help="write systemap.toml, a starter model, the agent skill and a workflow"
     )
+    add_root(s)
     s.add_argument(
         "--name",
         default="",
@@ -383,10 +402,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_init)
 
     s = sub.add_parser("extract", help="read the facts out of the tree")
+    add_root(s)
     s.add_argument("--check", action="store_true", help="exit 1 if the stored facts are stale")
     s.set_defaults(func=cmd_extract)
 
     s = sub.add_parser("render", help="render the page from the facts and the model")
+    add_root(s)
     s.add_argument("--check", action="store_true", help="exit 1 if the page is stale")
     s.add_argument("--base", default="", help="also draw a change map of HEAD against this ref")
     s.add_argument("--head", default="HEAD")
@@ -398,9 +419,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="every rule: placement, routes, labels, type size, meaning, wheels, coverage, "
         "entry, stale outputs; exit 1 with each fix named",
     )
+    add_root(s)
     s.set_defaults(func=cmd_check)
 
     s = sub.add_parser("figure", help="draw one figure with the same generator")
+    add_root(s)
     kind = s.add_mutually_exclusive_group()
     kind.add_argument("--interactive", action="store_true", help="carry the focus interaction")
     kind.add_argument("--static", action="store_true", help="a plain figure (default)")
@@ -430,6 +453,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_figure)
 
     s = sub.add_parser("refresh", help="extract, check, render, and draw the configured figures")
+    add_root(s)
     s.add_argument("--quiet", action="store_true")
     s.set_defaults(func=cmd_refresh)
 
@@ -440,6 +464,7 @@ def build_parser() -> argparse.ArgumentParser:
         "across a boundary with no flow, ignored modules; lines answered under "
         "[judgement] in the configuration are suppressed and counted; always exit 0",
     )
+    add_root(s)
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(
@@ -447,6 +472,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="reinstall the agent skill directory (SKILL.md and references/) init installs, "
         "or print SKILL.md",
     )
+    add_root(s)
     s.add_argument(
         "--dir",
         default="",

@@ -15,13 +15,17 @@ What is checked, in order:
                     listed with the router's reason)
     labels ........ every edge label seated without touching a card, a
                     header or another label (the schematic's collision pass,
-                    re-verified from the boxes it reports)
+                    re-verified from the boxes it reports), and every
+                    container and region header inside its box and off
+                    every card: a sub wraps to a second line and is
+                    refused past that
     type size ..... nothing in the figure set below 11px
     meaning ....... every flow has a layer and a sentence, every component a
                     plain word, every journey step a real edge and real ids,
                     every verb override a real edge
     wheel ......... for every component, the relationship wheel's name labels
-                    stay inside the drawing and off each other and the centre
+                    stay off each other and off the centre (the wheel sizes
+                    itself to its labels, so nothing can leave the drawing)
     coverage ...... every module in the facts is claimed by exactly one
                     component, unless the configuration ignores it with a
                     reason; an incomplete map fails
@@ -71,9 +75,15 @@ def _box(values: list[float]) -> Box:
 
 
 def check_labels(meta: dict[str, Any]) -> list[str]:
-    out = [f"label collision: {line}" for line in meta.get("collisions", [])]
+    """The labels rule: edge labels and header text, from the boxes the drawing reports."""
+    out = list(meta.get("collisions", []))
     labels: list[dict[str, Any]] = meta.get("labels", [])
     cards: dict[str, list[float]] = meta.get("cards", {})
+    for header in meta.get("headers", []):
+        hb = _box(header["box"])
+        for cid, cb in cards.items():
+            if _overlap(hb, _box(cb)):
+                out.append(f"header of {header['kind']} {header['id']} touches card {cid}")
     for k, lab in enumerate(labels):
         lb = _box(lab["box"])
         for cid, cb in cards.items():
@@ -156,7 +166,7 @@ def check_type_size(svg: str) -> list[str]:
 # Python so the label geometry can be checked without one. Keep the two in
 # step: a change to one is a change to both.
 
-W, H, CX, CY, R = 400.0, 400.0, 200.0, 200.0, 118.0
+CX, CY, R = 200.0, 200.0, 118.0
 MONO_CHAR_W = 6.6
 NAME_LINE_H = 13.0
 
@@ -222,15 +232,17 @@ def wheel_boxes(
 
 
 def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) -> list[str]:
+    """Name labels on the wheel off the centre and off each other.
+
+    The page fits the wheel's viewBox to its labels (`wheelExtent`), so a
+    label cannot leave the drawing and no rule says so.
+    """
     out: list[str] = []
     layers = all_layers(model, meaning)
     for c in model.components:
         cid = c.id
         centre, boxes = wheel_boxes(cid, edges, layers)
         for k, (name, box) in enumerate(boxes):
-            x, y, w, h = box
-            if x < 0 or y < 0 or x + w > W or y + h > H:
-                out.append(f"wheel of {cid}: label {name} leaves the drawing")
             if _overlap(box, centre):
                 out.append(f"wheel of {cid}: label {name} touches the centre")
             for other, ob in boxes[k + 1 :]:
