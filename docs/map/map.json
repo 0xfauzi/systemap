@@ -1,10 +1,10 @@
 {
- "built_at_commit": "29d4c560936d868133e99d04c3ab18fd83eed114",
+ "built_at_commit": "0b27a00440aeb98a0fbe1c92ad5b3a01a3ae8e4e",
  "components": {
   "systemap": {
    "classes": [],
    "constants": [],
-   "docstring": "systemap: a generated, interactive map of a Python system.",
+   "docstring": "systemap: the map your coding agent draws of your system.",
    "errors": [],
    "file": "src/systemap/__init__.py",
    "functions": [],
@@ -15,10 +15,10 @@
    "imports": [
     "systemap.model"
    ],
-   "loc": 39,
+   "loc": 40,
    "package": "systemap",
    "plane": "core",
-   "sha": "2809cbd7ddf9",
+   "sha": "4acb63f1834e",
    "tests": [],
    "tests_primary": 0,
    "tests_total": 0,

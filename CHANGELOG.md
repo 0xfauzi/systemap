@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.3.0
+
+systemap is a tool for coding agents: the agent draws the map, the checker
+refuses an incomplete or stale one, the person reviews the judgement.
+
+- Identity: a logo mark and a hero image under `assets/`, and the default
+  theme is the same palette (ink ground, panel surfaces, paper text, amber
+  for the clicked component, teal for what it reaches). A light scheme is
+  derived from it and picked with `scheme = "light"` under `[theme]`;
+  every token name is unchanged, so existing overrides still apply.
+- The skill is the primary document. It ships in the package as
+  `systemap/skill/SKILL.md`, and `systemap init` installs it by default
+  (`systemap skill` reinstalls it; `--print` writes it to stdout). It now
+  carries the full model schema, a worked example of every part, the
+  command to run at each step, and the what-to-hand-back section; a test
+  runs the real check on the example. `init` takes `--no-ci` to skip the
+  workflow and ends with the sentence to give the agent.
+- `systemap judgement`: the list a maintainer must confirm, printed from
+  the model and the facts: components with a single module, modules whose
+  name shares no word with the component that claims them, flows without a
+  sentence, layers that light fewer than two components, every ignored
+  module with its reason. A report, not a gate: exit 0 always.
+- Check rules: `entry` (a component whose modules exist names an entry one
+  of them defines), `tracker` (a planned component names the item that
+  will build it), `stale` (the facts against a fresh extraction, the page
+  against a fresh render, every configured figure against the generator,
+  in one command). Each failure prints its fix under its rule.
+  `refresh` no longer says "already current" while the check fails.
+- Figures: an `out` ending in `.svg` writes the bare drawing on its ground,
+  for embedding as an image.
+- systemap maps itself: `map/model.py`, `docs/map/` with the page and the
+  README figure, `docs/index.html` and `docs/.nojekyll` for GitHub Pages,
+  and the workflow `init` writes running on the repository.
+- README rewritten around the agent: the hero, why an agent and not a
+  script, the quick start, the check rules as a table, the model in one
+  screen, commands and configuration.
+
 ## 0.2.0
 
 - Breaking: the package's noun is "map". The defaults are now

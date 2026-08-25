@@ -381,33 +381,102 @@ LAYER_OF_KIND = {
 }
 
 RELATIONS = {
-    ("Agent", "CLI"): "The agent drives everything through the commands; it never imports the package.",
+    (
+        "Agent",
+        "CLI",
+    ): "The agent drives everything through the commands; it never imports the package.",
     ("CI", "CLI"): "The workflow init writes runs the check on every push and pull request.",
-    ("Config", "CLI"): "The configuration tells the commands where the packages, the model and the output are.",
-    ("CLI", "Scaffold"): "init hands the scaffold the project's name and package roots; the scaffold writes what does not exist yet.",
-    ("Scaffold", "Model"): "The starter model is the smallest map that passes every check; the agent replaces its words.",
-    ("CLI", "FactsExtractor"): "extract, and the first step of refresh, run the extractor over the configured package roots.",
-    ("CLI", "Check"): "check runs every rule and prints each failure with its fix; refresh runs the same rules before it renders.",
+    (
+        "Config",
+        "CLI",
+    ): "The configuration tells the commands where the packages, the model and the output are.",
+    (
+        "CLI",
+        "Scaffold",
+    ): "init hands the scaffold the project's name and package roots; the scaffold writes what does not exist yet.",
+    (
+        "Scaffold",
+        "Model",
+    ): "The starter model is the smallest map that passes every check; the agent replaces its words.",
+    (
+        "CLI",
+        "FactsExtractor",
+    ): "extract, and the first step of refresh, run the extractor over the configured package roots.",
+    (
+        "CLI",
+        "Check",
+    ): "check runs every rule and prints each failure with its fix; refresh runs the same rules before it renders.",
     ("CLI", "Page"): "render, and refresh, build the page from the facts and the model.",
-    ("CLI", "Judgement"): "judgement prints the list the maintainer must confirm and always exits 0.",
-    ("Skill", "Agent"): "The skill gives the agent the order of the work, the schema, a worked example, and what to hand back.",
-    ("Agent", "Model"): "The agent writes map/model.py: the groupings, the flows, the layers, the sentences, the journeys, the invariants.",
-    ("Maintainer", "Model"): "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
-    ("Model", "Judgement"): "Judgement reads the model for the calls that could have gone another way.",
-    ("Judgement", "Maintainer"): "The list is short and mechanical to produce, so the review cannot be skipped.",
-    ("FactsExtractor", "Check"): "The facts are what the check judges coverage, entry and staleness against.",
-    ("FactsExtractor", "Schematic"): "Build state is derived from the facts: the entry symbol is looked up in the claimed modules.",
-    ("ChangeDetector", "Page"): "With --base, the page carries a change map: what moved, what it reached.",
-    ("ChangeDetector", "Figures"): "A change figure marks what a git range changed; a reach figure marks what a plan will.",
-    ("Model", "Schematic"): "The model is the topology the schematic draws and the meaning it prints on the wheel.",
-    ("Router", "Schematic"): "The router hands back the routes and the seated labels, and reports what could not be placed cleanly.",
-    ("Schematic", "Page"): "The page embeds the SVG and the detail JSON the interaction script reads.",
+    (
+        "CLI",
+        "Judgement",
+    ): "judgement prints the list the maintainer must confirm and always exits 0.",
+    (
+        "Skill",
+        "Agent",
+    ): "The skill gives the agent the order of the work, the schema, a worked example, and what to hand back.",
+    (
+        "Agent",
+        "Model",
+    ): "The agent writes map/model.py: the groupings, the flows, the layers, the sentences, the journeys, the invariants.",
+    (
+        "Maintainer",
+        "Model",
+    ): "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
+    (
+        "Model",
+        "Judgement",
+    ): "Judgement reads the model for the calls that could have gone another way.",
+    (
+        "Judgement",
+        "Maintainer",
+    ): "The list is short and mechanical to produce, so the review cannot be skipped.",
+    (
+        "FactsExtractor",
+        "Check",
+    ): "The facts are what the check judges coverage, entry and staleness against.",
+    (
+        "FactsExtractor",
+        "Schematic",
+    ): "Build state is derived from the facts: the entry symbol is looked up in the claimed modules.",
+    (
+        "ChangeDetector",
+        "Page",
+    ): "With --base, the page carries a change map: what moved, what it reached.",
+    (
+        "ChangeDetector",
+        "Figures",
+    ): "A change figure marks what a git range changed; a reach figure marks what a plan will.",
+    (
+        "Model",
+        "Schematic",
+    ): "The model is the topology the schematic draws and the meaning it prints on the wheel.",
+    (
+        "Router",
+        "Schematic",
+    ): "The router hands back the routes and the seated labels, and reports what could not be placed cleanly.",
+    (
+        "Schematic",
+        "Page",
+    ): "The page embeds the SVG and the detail JSON the interaction script reads.",
     ("Schematic", "Figures"): "A figure is the same SVG in a figure element, or bare for an image.",
     ("Page", "Maintainer"): "The maintainer opens the page: layers, click, journeys, pan and zoom.",
-    ("Model", "Check"): "The check reads the model's own contradictions first; nothing else is judged until they are gone.",
-    ("Schematic", "Check"): "The check renders once and reads the geometry back: routes, labels, type size, wheels.",
-    ("Config", "Check"): "An ignore with a reason takes a module out of the coverage rule, on record.",
-    ("Check", "Agent"): "Every failure names its fix; the agent edits until coverage is complete and the layout is clean.",
+    (
+        "Model",
+        "Check",
+    ): "The check reads the model's own contradictions first; nothing else is judged until they are gone.",
+    (
+        "Schematic",
+        "Check",
+    ): "The check renders once and reads the geometry back: routes, labels, type size, wheels.",
+    (
+        "Config",
+        "Check",
+    ): "An ignore with a reason takes a module out of the coverage rule, on record.",
+    (
+        "Check",
+        "Agent",
+    ): "Every failure names its fix; the agent edits until coverage is complete and the layout is clean.",
     ("Check", "CI"): "Exit 1 fails the pull request; the message says what to run.",
 }
 

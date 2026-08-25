@@ -1,8 +1,9 @@
-"""systemap: a generated, interactive map of a Python system.
+"""systemap: the map your coding agent draws of your system.
 
-Facts are read out of the code with `ast`; the meaning is written once by
-the maintainer in a model module; build state is derived, never declared;
-and one generator draws every picture so nothing drifts.
+Facts are read out of the code with `ast`; the meaning is authored by a
+coding agent following the shipped skill and reviewed by a person; build
+state is derived, never declared; the checker refuses an incomplete or
+stale map; and one generator draws every picture so nothing drifts.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from systemap.model import (
     build_state,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "Component",
