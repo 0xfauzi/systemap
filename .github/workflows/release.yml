@@ -7,8 +7,9 @@
 # secret, or on anybody's laptop.
 #
 # It works once, on PyPI, someone adds a trusted publisher for this project:
-# owner 0xfauzi, repository systemap, workflow release.yml. Until then the
-# upload step fails and the build step still proves the artifacts are sound.
+# owner 0xfauzi, repository systemap, workflow release.yml, environment left
+# blank. Until then the upload step fails and the build step still proves the
+# artifacts are sound.
 name: release
 
 on:
@@ -25,7 +26,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    environment: pypi
+    # No environment: the identity GitHub signs then names the repository,
+    # the workflow and the tag alone, which is what the trusted publisher on
+    # PyPI is registered against. Adding one here means adding the same name
+    # there, or the claims stop matching.
     permissions:
       contents: read
       # What signs the identity PyPI checks. It is the whole mechanism.
