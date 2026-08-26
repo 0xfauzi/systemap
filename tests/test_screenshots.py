@@ -132,9 +132,7 @@ def test_the_readme_names_every_image_absolutely() -> None:
     """
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     relative = [
-        url
-        for url in re.findall(r'(?:src|srcset)="([^"]+)"', readme)
-        if not url.startswith("http")
+        url for url in re.findall(r'(?:src|srcset)="([^"]+)"', readme) if not url.startswith("http")
     ]
     assert not relative, relative
     raw = "https://raw.githubusercontent.com/0xfauzi/systemap/main/"

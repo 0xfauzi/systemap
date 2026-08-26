@@ -13,8 +13,11 @@ name: release
 
 on:
   push:
+    # Every tag that starts with v. The job checks the tag against the
+    # package's own version, which is the rule that matters, and a filter
+    # pattern is the wrong place to enforce it.
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v*"
 
 permissions:
   contents: read
