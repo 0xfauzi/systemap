@@ -1,14 +1,17 @@
 """The page as a reader sees it: one screenshot per scheme, and the tour.
 
-Renders systemap's own page twice from the committed facts and model, once
-in each scheme, serves the two over the loopback address (the page's script
+Renders systemap's own page once from the committed facts and model,
+writes a copy per scheme with the browser's storage seeded to that scheme
+(the page's own head script then stamps the root, the path a returning
+reader takes), serves them over the loopback address (the page's script
 does not run from a file address), and photographs each with headless
-Chrome at 1600 by 900. Then the tour: the dark page at a sequence of states
-(each reading, a card clicked, a spoke read, a journey stepped), each state
-driven by a short script appended to a copy of the page and photographed at
-1600 by 1520 so the whole map is in the frame, then stitched by ffmpeg into
-one GIF of thirty seconds under four megabytes. Nothing here is a test: the
-screenshots are looked at, and the README embeds them.
+Chrome at 1600 by 900. Then the tour: the warm page at a sequence of
+states (each reading, a card clicked, a spoke read, a journey stepped),
+each state driven by a short script appended to a copy of the page and
+photographed at 1600 by 1520 so the whole map is in the frame, then
+stitched by ffmpeg into one GIF of thirty seconds under four megabytes.
+Nothing here is a test: the screenshots are looked at, and the README
+embeds them.
 
     uv run python scripts/screenshots.py            # writes docs/screenshots/
     uv run python scripts/screenshots.py --keep     # keeps the scratch pages
@@ -20,6 +23,7 @@ after fifteen seconds and the file is taken if it exists.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import tempfile
@@ -28,7 +32,6 @@ from pathlib import Path
 
 from systemap import cli, config, extract, nest, page
 from systemap import theme as theme_mod
-from systemap.model import all_layers
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
@@ -75,26 +78,33 @@ function next(){{ document.getElementById('jnext').click(); }}
 """
 
 
-def render(root: Path, scheme: str) -> str:
-    """The top map's page from the committed facts, in one scheme."""
+def render(root: Path) -> str:
+    """The top map's page from the committed facts, as refresh writes it."""
     cfg = config.load(root)
     tree = nest.load(cfg)
     m = tree.top
     facts = extract.read_facts(cfg.facts_path)
     if not facts:
         raise SystemExit("no facts; run systemap refresh first")
-    tokens = dict(cfg.theme)
-    tokens["scheme"] = scheme
-    theme = theme_mod.resolve(tokens, all_layers(m.model, m.meaning))
     return page.build(
         cfg,
         m.model,
         m.meaning,
-        theme,
+        m.theme,
         facts,
         {"has_change": False},
         page.nesting_of(cfg, tree, m, facts),
     )
+
+
+def seeded(html: str, scheme: str) -> str:
+    """The page with the browser's storage seeded to one scheme, ahead of
+    the page's own head script, which reads it back and stamps the root."""
+    seed = (
+        "<script>try{localStorage.setItem("
+        f"{json.dumps(page.SCHEME_KEY)},{json.dumps(scheme)})}}catch(e){{}}</script>"
+    )
+    return html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + seed, 1)
 
 
 def shoot(chrome: str, url: str, out: Path, profile: Path, window: str = WINDOW) -> None:
@@ -167,10 +177,10 @@ def main(argv: list[str] | None = None) -> int:
     scratch = Path(tempfile.mkdtemp(prefix="systemap-shots-"))
     site = scratch / "site"
     site.mkdir()
-    dark = render(root, "dark")
-    (site / "dark.html").write_text(dark, encoding="utf-8")
-    (site / "light.html").write_text(render(root, "light"), encoding="utf-8")
-    head, tail = dark.rsplit("</body>", 1)
+    html = render(root)
+    for scheme in theme_mod.SCHEMES:
+        (site / f"{scheme}.html").write_text(seeded(html, scheme), encoding="utf-8")
+    head, tail = seeded(html, theme_mod.DEFAULT_SCHEME).rsplit("</body>", 1)
     for k, (_name, actions) in enumerate(TOUR, start=1):
         driven = head + DRIVER.format(actions=actions) + "</body>" + tail
         (site / f"tour-{k:02d}.html").write_text(driven, encoding="utf-8")
@@ -182,8 +192,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         base = f"http://127.0.0.1:{port}"
         profile = scratch / "profile"
-        shoot(args.chrome, f"{base}/dark.html", out / "dark.png", profile)
-        shoot(args.chrome, f"{base}/light.html", out / "light.png", profile)
+        for scheme in theme_mod.SCHEMES:
+            shoot(args.chrome, f"{base}/{scheme}.html", out / f"{scheme}.png", profile)
         frames = scratch / "frames"
         frames.mkdir()
         for k, (name, _actions) in enumerate(TOUR, start=1):

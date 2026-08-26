@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.12.0
+
+Three schemes and a picker. The page was one dark table with a light
+one reachable only from the configuration; now it carries three, the
+reader picks in the header, and the page draws through tokens alone so
+the pick is a restamp of the root, not a redraw.
+
+- Warm is the new default: ink `#ece5d8` on a warm dark ground
+  `#161310`, an amber accent `#e5a84f`, low-chroma layer hues. Graphite
+  is the 0.11 dark table, unchanged; paper the 0.11 light table,
+  unchanged. Each is a full table of the same tokens, and every text
+  token of each clears 4.5:1 on its ground (WCAG 2, measured;
+  `tests/test_theme.py` holds the numbers, the commits record them).
+- The picker: a Scheme select in the header. The page carries all three
+  tables as `:root[data-theme="..."]` blocks beside the default's, a
+  head script stamps the root before the first paint (the pick this
+  browser kept, else paper when the system prefers light, else the
+  configured default), and a pick restamps the root, is kept in
+  `localStorage` when the browser allows (a refused store changes
+  nothing), and follows into the map inside a card. The favicon and the
+  logo are not themed. The Node driver has a `theme` scenario with
+  `--light`, `--stored NAME` and `--no-storage`, and the tests drive the
+  page nine ways on load.
+- The page draws through variables. Every colour the map's SVG, the
+  panel, the legend, the controls and the scripts take from the theme is
+  `var(--token)`; the values live in the root blocks alone, and
+  `theme.Palette` answers one table two ways, tokens for the page and
+  literals for a figure that leaves it (`systemap figure`, the README
+  images, which came out byte-identical). Before, the page carried 135
+  literal hex values in its SVG and 14 in the legend. A card's preview
+  of the map inside it draws through the tokens too, being part of the
+  page.
+- `[theme]` overrides per scheme: `scheme` names the default (`warm`,
+  `graphite` or `paper`; `dark` and `light`, the 0.11 names, still pick
+  graphite and paper), a bare key applies to the default, and
+  `[theme.paper]` lays tokens over one scheme. A word that is no scheme
+  is refused with the three named, where before it fell back quietly.
+- `docs/screenshots/` holds `warm.png`, `graphite.png` and `paper.png`
+  at 1600 by 900, written by `scripts/screenshots.py` through the page's
+  own load path (storage seeded per scheme); the tour is in warm. The
+  workflow can be run by hand (`workflow_dispatch`).
+
 ## 0.11.2
 
 The page, from four reports on the maps it draws: the framing on click,

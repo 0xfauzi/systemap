@@ -2,8 +2,8 @@
 and the tour is what the script says it is.
 
 `scripts/screenshots.py` is run by hand (it needs Chrome and ffmpeg); this
-test holds what it wrote to its claims: two PNGs of 1600 by 900, one per
-scheme; a GIF under four megabytes; a tour whose every state names a
+test holds what it wrote to its claims: three PNGs of 1600 by 900, one
+per scheme; a GIF under four megabytes; a tour whose every state names a
 reading or a card the model has, so a renamed card cannot leave the tour
 showing nothing.
 """
@@ -18,6 +18,7 @@ from pathlib import Path
 from types import ModuleType
 
 from systemap import config, nest
+from systemap import theme as theme_mod
 from systemap.model import all_layers
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -42,9 +43,12 @@ def png_size(path: Path) -> tuple[int, int]:
     return width, height
 
 
-def test_both_schemes_are_photographed_at_the_stated_size() -> None:
-    for name in ("dark", "light"):
+def test_every_scheme_is_photographed_at_the_stated_size() -> None:
+    assert list(theme_mod.SCHEMES) == ["warm", "graphite", "paper"]
+    for name in theme_mod.SCHEMES:
         assert png_size(SHOTS / f"{name}.png") == (1600, 900), name
+    for old in ("dark", "light"):
+        assert not (SHOTS / f"{old}.png").exists(), "the 0.11 names are gone"
 
 
 def test_the_tour_is_a_gif_under_the_limit() -> None:
@@ -88,8 +92,9 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for rel in (
         "docs/screenshots/tour.gif",
-        "docs/screenshots/dark.png",
-        "docs/screenshots/light.png",
+        "docs/screenshots/warm.png",
+        "docs/screenshots/graphite.png",
+        "docs/screenshots/paper.png",
     ):
         assert rel in readme, rel
         assert (ROOT / rel).is_file(), rel

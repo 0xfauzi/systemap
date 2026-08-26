@@ -88,7 +88,7 @@ why. You read the answers, correct what you disagree with, commit
 
 The workflow `init` writes runs systemap from the released package,
 pinned to the tag of the version that wrote it (`uvx --from
-"git+https://github.com/0xfauzi/systemap@v0.11.2"`), so your project
+"git+https://github.com/0xfauzi/systemap@v0.12.0"`), so your project
 takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
 no token, so a workflow linter passes it as written. Its second job runs
@@ -139,12 +139,15 @@ reading, a card, a spoke, a journey stepped:
   <img src="docs/screenshots/tour.gif" alt="The page in thirty seconds: each reading in turn, a card clicked and its wheel read, a journey stepped three edges" width="100%">
 </p>
 
-The page in both schemes, as headless Chrome renders it at 1600 by 900
-(`scripts/screenshots.py` writes both, and the tour):
+Three schemes, and a picker in the header: warm (the default), graphite
+and paper. Your choice is remembered in the browser, and a system set to
+light opens on paper the first time. Each, as headless Chrome renders it
+at 1600 by 900 (`scripts/screenshots.py` writes all three, and the tour):
 
 <p align="center">
-  <a href="docs/screenshots/dark.png"><img src="docs/screenshots/dark.png" alt="The page in the graphite scheme" width="49%"></a>
-  <a href="docs/screenshots/light.png"><img src="docs/screenshots/light.png" alt="The page in the paper scheme, scheme = light" width="49%"></a>
+  <a href="docs/screenshots/warm.png"><img src="docs/screenshots/warm.png" alt="The page in the warm scheme, the default" width="32%"></a>
+  <a href="docs/screenshots/graphite.png"><img src="docs/screenshots/graphite.png" alt="The page in the graphite scheme" width="32%"></a>
+  <a href="docs/screenshots/paper.png"><img src="docs/screenshots/paper.png" alt="The page in the paper scheme" width="32%"></a>
 </p>
 
 - **Readings.** One map, several layers, each answering one question. Four
@@ -185,6 +188,13 @@ The page in both schemes, as headless Chrome renders it at 1600 by 900
   does. A declared edge is dashed, and the panel says so.
 - **Pan and zoom.** The map is as large as the system; the page is not
   squeezed to fit a screen.
+- **Schemes.** Three, each a full table of the same tokens: warm, the
+  default; graphite, the cool dark; paper, the light. A picker in the
+  header switches, the choice is remembered in the browser, and a system
+  set to light opens on paper. The page draws through the tokens alone,
+  so switching is a restamp of the root, not a redraw; every text token
+  clears 4.5:1 on its scheme's ground. `[theme]` in `systemap.toml`
+  overrides any token, per scheme.
 - **Keyboard.** Tab moves across the cards in reading order, Enter opens
   the focused card's wheel, Escape closes it and hands the focus back, the
   left and right arrows switch readings, or step the journey while one is
@@ -451,7 +461,7 @@ not the current directory.
 | `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads; a leading `-` removes a built-in name (`"-google.adk"`) |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: the mechanisms other than an import that join the repository's parts; a flow whose sentence or artifact names one is observed by it rather than declared |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported |
-| `[theme]` | graphite, dark | colour tokens; `scheme = "light"` picks the paper scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
+| `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |
 
 ## Principles
@@ -520,7 +530,7 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run systemap describe
     uv run systemap facts --modules
     uv run systemap suggest
-    uv run python scripts/screenshots.py   # docs/screenshots/: both schemes and the tour (Chrome, ffmpeg)
+    uv run python scripts/screenshots.py   # docs/screenshots/: the three schemes and the tour (Chrome, ffmpeg)
 
 The workflow runs the suite, the type check and the linter on Linux,
 macOS and Windows with Python 3.11 and 3.13; installs the built wheel

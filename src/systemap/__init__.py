@@ -26,7 +26,7 @@ from systemap.model import (
     build_state,
 )
 
-__version__ = "0.11.2"
+__version__ = "0.12.0"
 
 __all__ = [
     "AGENT_KINDS",

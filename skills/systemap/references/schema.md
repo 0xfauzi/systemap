@@ -220,6 +220,22 @@ question it answers. Only the model's own layers are declared here; the
 standard layers are derived and their ids (`structure`, `system`, `data`,
 `control`, `agents`, `context`, `tools`) and `all` may not be reused.
 
+A layer's colour comes from the theme, not the model: each scheme names
+the standard layers and the model's own take the scheme's palette in
+turn. The page offers three schemes (`warm`, the default; `graphite`;
+`paper`, the light one) and the reader picks in the header. `[theme]` in
+`systemap.toml` overrides any token: `scheme` names the default, a bare
+key applies to it, and `[theme.<scheme>]` lays tokens over one scheme:
+
+```toml
+[theme]
+scheme = "warm"
+[theme.layers]
+record = "#e3b778"
+[theme.paper]
+accent = "#8a5a1a"
+```
+
 ## Meaning
 
 `Meaning(plain, layers=(), layer_of_kind={}, relations={}, journeys=(), layer_overrides={}, verbs={}, verb_overrides={})`
