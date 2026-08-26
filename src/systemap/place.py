@@ -704,7 +704,7 @@ def write(path: Path, placement: Placement) -> str:
     now says rather than trusted.
     """
     source = path.read_text(encoding="utf-8")
-    path.write_text(written(source, placement), encoding="utf-8")
+    path.write_text(written(source, placement), encoding="utf-8", newline="\n")
     return source
 
 

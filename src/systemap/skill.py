@@ -54,7 +54,7 @@ def write(directory: Path) -> Path:
     for rel, content in shipped.items():
         path = directory / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        path.write_text(content, encoding="utf-8", newline="\n")
     for stale in (directory / REFERENCES).glob("*.md"):
         if f"{REFERENCES}/{stale.name}" not in shipped:
             stale.unlink()

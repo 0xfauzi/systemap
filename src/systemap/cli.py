@@ -123,7 +123,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
-        f"wrote {skill_path.parent.relative_to(root)}/ "
+        f"wrote {skill_path.parent.relative_to(root).as_posix()}/ "
         f"({skill.FILE_NAME} and {references} references)"
     )
     say(*scaffold.TOOLING_NOTE)
@@ -271,7 +271,7 @@ def cmd_render(args: argparse.Namespace) -> int:
                 say(f"{p.cfg.rel(out)} is current")
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8")
+        out.write_text(html, encoding="utf-8", newline="\n")
         say(f"wrote {p.cfg.rel(out)} ({out.stat().st_size / 1024:.0f} KB)")
     if code == STALE:
         say("run: systemap refresh")
@@ -397,7 +397,7 @@ def cmd_figure(args: argparse.Namespace) -> int:
         if not out.is_absolute():
             out = p.cfg.out_path / out
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8")
+        out.write_text(html, encoding="utf-8", newline="\n")
         say(f"wrote {p.cfg.rel(out)} ({len(html) / 1024:.0f} KB)")
     else:
         sys.stdout.write(html)
@@ -447,7 +447,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         html = _render_page(p, m, fresh, argparse.Namespace())
         out = m.page_path(p.cfg)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8")
+        out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))
     for fig in p.cfg.figures:
         html, collisions = figure.configured(p.cfg, p.tree, _map(p, fig.map), fresh, fig)
@@ -455,7 +455,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             warn(line)
         out = p.cfg.out_path / fig.out
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8")
+        out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))
     # What was written is checked as `systemap check` would check it. A
     # refresh that leaves the check failing is not a refresh, whatever it
@@ -623,7 +623,7 @@ def cmd_place(args: argparse.Namespace) -> int:
         reloaded, _meaning = config.load_model(m.path, m.rel)
         wrong = place.unwritten(reloaded, placement)
         if wrong:
-            m.path.write_text(source, encoding="utf-8")
+            m.path.write_text(source, encoding="utf-8", newline="\n")
             raise place.PlaceError(
                 f"could not write a position for {', '.join(wrong)} into {m.rel}: the card "
                 "is not a Component(id=...) call the file spells out; add x and y by hand from "
