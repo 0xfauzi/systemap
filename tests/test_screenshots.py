@@ -11,6 +11,7 @@ showing nothing.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import struct
 import sys
@@ -98,8 +99,25 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     ):
         assert rel in readme, rel
         assert (ROOT / rel).is_file(), rel
-    assert "The table is the number" in readme
     assert "[docs/benchmarks.md](docs/benchmarks.md)" in readme
-    # The first paragraph says Python and only Python.
-    first = readme.split("\n\n")[2]
-    assert "Python and only Python" in first, first
+    # Python, and only Python, is said before a reader has scrolled.
+    assert "Python" in readme[:1200] and "only Python" in readme
+    # Every cost the README quotes is a cost bench/results.jsonl holds, so the
+    # sales line and the measurements cannot drift apart. The maintenance runs
+    # are quoted one by one and the first maps as a range.
+    rows = [
+        json.loads(line)
+        for line in (ROOT / "bench" / "results.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    quoted = re.search(
+        r"that path cost ([\d., and]+) dollars, against\s+between (\d+) and (\d+) dollars",
+        readme.replace("\n", " "),
+    )
+    assert quoted, "the README no longer quotes the measured costs in the form the test reads"
+    said = {float(v) for v in re.findall(r"\d+\.\d+", quoted.group(1))}
+    measured = {round(r["dollars"], 2) for r in rows if r["mode"].startswith("maintenance")}
+    assert said == measured, (said, measured)
+    firsts = [r["dollars"] for r in rows if r["mode"] == "first-map"]
+    low, high = int(quoted.group(2)), int(quoted.group(3))
+    assert low <= min(firsts) and max(firsts) <= high, (low, high, min(firsts), max(firsts))
