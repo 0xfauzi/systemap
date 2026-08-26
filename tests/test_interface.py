@@ -206,6 +206,7 @@ FIXTURE_HEADS: dict[str, tuple[str, str]] = {
     "StyleCompiler": ("extract", ""),
     "StyleCompleter": ("complete", ""),
     "ComponentGallery": ("build_gallery", ""),
+    "CropPicker": ("pick_crops", ""),
     "TextMeasurer": ("measure_text", ""),
     "LayoutEngine": ("solve", ""),
     "Sandbox": ("SandboxRunner", "run"),
@@ -217,8 +218,9 @@ FIXTURE_HEADS: dict[str, tuple[str, str]] = {
 
 
 def first_module(component: Component) -> str:
-    """The first concrete module a component claims, a `.*` claim resolved."""
-    pattern = component.implemented_by[0]
+    """The first concrete module a component claims: a `.*` claim resolved, a
+    symbol claim's module."""
+    pattern = component.implemented_by[0].partition(":")[0]
     if pattern.endswith(".*"):
         head = pattern[:-2]
         return next(m for m in fixture_workspace.MODULES if m == head or m.startswith(head + "."))

@@ -27,11 +27,13 @@ The rules are the ones references/layout.md gives a person:
                    its own beside the regions, level with the cards it
                    talks to
 
-A card with `x` and `y` is pinned: it is never moved, and while any card
-is pinned the region and container boxes and the canvas are kept as
-written and the unpinned cards take the free slots inside their own
-boxes. A model with no pinned card is laid out whole: boxes and canvas
-included. Either way the positions are written into the model module in
+`systemap place` keeps every card that has `x` and `y` and places the
+rest; `systemap place --all` lays every card out again and keeps only the
+cards marked `pinned=True`, the ones a person placed on purpose. Either
+way, while any card is kept the region and container boxes and the
+canvas stay as written and the other cards take the free slots inside
+their own boxes; a model with no kept card is laid out whole, boxes and
+canvas included. The positions are written into the model module in
 place, editing only the `x=` and `y=` values, the `box=` tuples and the
 canvas, and the rest of the file is kept byte for byte. `--print` prints
 them instead.
@@ -82,18 +84,21 @@ class PlaceError(Exception):
 class Placement:
     """What `systemap place` computed.
 
-    `positions` holds the placed cards only, by id; the pinned cards are
-    listed in `pinned` and never appear here. `regions`, `containers` and
-    `canvas` are every box and the canvas as they should now be written:
-    recomputed when nothing was pinned, as the model has them otherwise.
+    `positions` holds the placed cards only, by id; the cards kept where
+    they were are listed in `kept` and never appear here. `regions`,
+    `containers` and `canvas` are every box and the canvas as they should
+    now be written: recomputed when nothing was kept, as the model has
+    them otherwise. `all_cards` says which run computed it: `place --all`
+    keeps the pinned cards only, `place` every card with a position.
     """
 
     positions: dict[str, tuple[int, int]]
     regions: dict[str, Box]
     containers: dict[str, Box]
     canvas: tuple[int, int]
-    pinned: tuple[str, ...] = ()
+    kept: tuple[str, ...] = ()
     fresh: bool = False
+    all_cards: bool = False
 
     @property
     def placed(self) -> tuple[str, ...]:
@@ -386,7 +391,7 @@ def _first_layout(model: Model) -> Placement:
         container_boxes[cid] = (cx, cy, cw, max(ch, low + CONTAINER_PAD - cy))
         bottom = max(bottom, cy + container_boxes[cid][3])
     canvas = (x - CONTAINER_GAP + CANVAS_MARGIN, bottom + CANVAS_MARGIN)
-    return Placement(pos, region_boxes, container_boxes, canvas, pinned=(), fresh=True)
+    return Placement(pos, region_boxes, container_boxes, canvas, kept=(), fresh=True)
 
 
 # ---- filling the holes: some cards pinned ----------------------------------------
@@ -402,12 +407,12 @@ def _overlaps(slot: _Slot, h: int, box: Box, pad_x: int, pad_y: int) -> bool:
     )
 
 
-def _fill_layout(model: Model) -> Placement:
-    """The free slots of the boxes as written, for the cards without a position."""
+def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
+    """The free slots of the boxes as written, for every card not in `keep`."""
     regions = {r.id: r.box for r in model.regions}
     containers = {b.id: b.box for b in model.containers}
-    pinned = [c for c in model.components if c.pinned]
-    unplaced = [c for c in model.components if not c.pinned]
+    pinned = [c for c in model.components if c.id in keep]
+    unplaced = [c for c in model.components if c.id not in keep]
     pos: dict[str, tuple[int, int]] = {c.id: (c.x, c.y) for c in pinned}  # type: ignore[misc]
     free: dict[str, list[str]] = {}
     for c in unplaced:
@@ -437,11 +442,15 @@ def _fill_layout(model: Model) -> Placement:
             and not any(_overlaps(s, tallest, t, COL_GUTTER - 1, ROW_GUTTER - 1) for t in taken)
         ]
         if len(room) < len(ids):
+            fix = (
+                "unpin a card (drop pinned=True), widen or heighten its box, or move a pinned card"
+                if all_cards
+                else "run: systemap place --all, which lays every card out again and keeps "
+                "only the cards marked pinned=True; or widen or heighten its box"
+            )
             raise PlaceError(
                 f"{home} has {len(room)} free slot{'s' if len(room) != 1 else ''} for "
-                f"{len(ids)} card{'s' if len(ids) != 1 else ''} ({', '.join(ids)}): widen or "
-                "heighten its box, move a pinned card, or strip every position and run "
-                "place again"
+                f"{len(ids)} card{'s' if len(ids) != 1 else ''} ({', '.join(ids)}): {fix}"
             )
         slots[home] = room
         for k, cid in enumerate(ids):
@@ -449,22 +458,41 @@ def _fill_layout(model: Model) -> Placement:
     for _ in range(SWEEPS):
         pos = _sweep(model, pos, free, slots, columns)
     placed = {cid: pos[cid] for c in unplaced for cid in [c.id]}
-    return Placement(placed, regions, containers, model.canvas, pinned=tuple(c.id for c in pinned))
+    return Placement(
+        placed,
+        regions,
+        containers,
+        model.canvas,
+        kept=tuple(c.id for c in pinned),
+        all_cards=all_cards,
+    )
 
 
-def compute(model: Model) -> Placement:
-    """The placement for a model: whole when nothing is pinned, the holes otherwise."""
-    if all(c.pinned for c in model.components):
+def kept_by(model: Model, all_cards: bool) -> tuple[str, ...]:
+    """The cards a run leaves where they are: the positioned ones, or with
+    `all_cards` only the positioned ones marked pinned."""
+    return tuple(c.id for c in model.components if c.positioned and (c.pinned or not all_cards))
+
+
+def compute(model: Model, all_cards: bool = False) -> Placement:
+    """The placement for a model: whole when nothing is kept, the holes otherwise.
+
+    `all_cards` is `systemap place --all`: every card is laid out again
+    but the pinned ones. Without it every card with a position is kept.
+    """
+    keep = kept_by(model, all_cards)
+    if len(keep) == len(model.components):
         return Placement(
             {},
             {r.id: r.box for r in model.regions},
             {b.id: b.box for b in model.containers},
             model.canvas,
-            pinned=tuple(c.id for c in model.components),
+            kept=keep,
+            all_cards=all_cards,
         )
-    if any(c.pinned for c in model.components):
-        return _fill_layout(model)
-    return _first_layout(model)
+    if keep:
+        return _fill_layout(model, set(keep), all_cards)
+    return replace(_first_layout(model), all_cards=all_cards)
 
 
 def apply(model: Model, placement: Placement) -> Model:
@@ -488,13 +516,29 @@ def apply(model: Model, placement: Placement) -> Model:
     )
 
 
+def head(placement: Placement) -> str:
+    """`N cards placed, M kept`: what every place line starts with."""
+    n, m = len(placement.positions), len(placement.kept)
+    what = "pinned" if placement.all_cards else "already positioned"
+    kept = f"{m} kept ({what})" if m else "0 kept"
+    return f"{n} card{'s' if n != 1 else ''} placed, {kept}"
+
+
+NOTHING_TO_PLACE = (
+    "nothing to place: every card has a position; systemap place --all lays every card "
+    "out again and keeps only the cards marked pinned=True"
+)
+EVERY_CARD_PINNED = "nothing to place: every card is pinned"
+
+
 def lines(placement: Placement) -> list[str]:
     """What `systemap place --print` prints: one line per placed card, box and the canvas."""
-    n, m = len(placement.positions), len(placement.pinned)
-    head = f"place: {n} card{'s' if n != 1 else ''} placed, {m} pinned"
+    first = f"place: {head(placement)}"
     if not placement.positions:
-        return [head + ": nothing to place" if m else head]
-    out = [head + (", every box and the canvas laid out" if placement.fresh else "")]
+        if not placement.kept:
+            return [first]
+        return [f"{first}: {EVERY_CARD_PINNED if placement.all_cards else NOTHING_TO_PLACE}"]
+    out = [first + (", every box and the canvas laid out" if placement.fresh else "")]
     out += [f"  {cid}: x={x}, y={y}" for cid, (x, y) in placement.positions.items()]
     if placement.fresh:
         out += [f"  region {rid}: box={box}" for rid, box in placement.regions.items()]

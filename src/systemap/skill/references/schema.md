@@ -109,8 +109,10 @@ actor; `container` places an actor. `x` and `y` are the card's top-left
 corner; cards are 150 wide, and 56 tall (52 for a store or a context card,
 44 for an actor). Leave them out: `systemap place` writes them, on the
 grid inside the card's region, and the check refuses a card that has
-none until it does. A card with both is pinned, and `place` never moves
-it (`references/layout.md`).
+none until it does. `place` keeps a card that has them; `place --all`
+lays every card out again. `pinned` (default `False`) says a person
+chose the position: `place --all` keeps a pinned card where it is and
+lays the rest out around it (`references/layout.md`).
 
 The card has a text budget, and the check refuses what does not fit rather
 than cutting it: the `id` fits about 20 characters on one line (a

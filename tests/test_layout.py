@@ -357,7 +357,7 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     assert run("--root", str(tmp_path), "describe") == 0
     out = capsys.readouterr().out
     assert re.match(r"canvas \d+ x \d+: 4 cards, 6 edges, 4 regions, 4 readings\n", out)
-    assert "positions: 4 pinned\n" in out
+    assert "positions: 0 pinned, 4 placed\n" in out
     assert "  a: 1 card (A)\n" in out and "  d: 1 card (D)\n" in out
     assert "gutters: seats used" in out and "readings: the cards and edges each lights" in out
     # A model that contradicts itself cannot be drawn: the same refusal as check.
@@ -386,7 +386,8 @@ def test_layout_reference_says_what_place_does_and_what_the_agent_decides() -> N
         "**Which region a card is in.**",
         "**The order of the regions.**",
         "**When to pin a card.**",
-        "remove every `x` and `y` and run `place` once more",
+        "`place --all` keeps it\n  where it is",
+        "`systemap place --all` lays every card out\nagain and keeps only the cards marked `pinned=True`",
         "one to three\n  words",
         "raise the row\n  pitch of region X",
         "systemap describe",

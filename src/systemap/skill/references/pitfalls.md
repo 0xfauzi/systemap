@@ -55,7 +55,9 @@ A third of a first map's turns once went on positions: a card off the
 grid closing a corridor, regions tiling their container, a route that
 snakes. Leave `x` and `y` out and run `systemap place`; it lays the
 regions out with the corridors and puts every card on the grid, the
-parts that talk together. Pin a card (give it `x` and `y`) only when the
+parts that talk together; after adding or removing a card, run `systemap
+place --all`, which lays every card out again and keeps only the pinned
+ones. Pin a card (`pinned=True`, with its `x` and `y`) only when the
 check names a fix that is a card moved. `references/layout.md` says what
 is still yours to decide; `systemap describe` says what the picture looks
 like. `map routes: 0 edges through a card` is the line to reach.

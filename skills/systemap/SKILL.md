@@ -44,9 +44,10 @@ contradictions, not omissions; the second pass is the point of this skill.
    components and the flows with no `x` and `y`, then run `systemap
    place`: it lays the regions out with the corridors the edges need,
    puts every card on the grid, and writes the positions into the file;
-   a card given `x` and `y` is pinned and never moved. `references/schema.md`
-   has every field; `references/example.md` is a complete small model;
-   `references/layout.md` says what is still yours to decide.
+   after adding or removing a card, `systemap place --all` lays every
+   card out again, keeping only the cards marked `pinned=True`.
+   `references/schema.md` has every field; `references/example.md` is a
+   complete small model; `references/layout.md`, what you still decide.
 3. **check**: `systemap check && systemap judgement --strict`, together,
    every round. Fix every line the check prints and act on or answer every
    judgement line; repeat until only `stale` remains (the page has not
@@ -151,11 +152,12 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 - Positions: leave `x` and `y` out and run `systemap place`. It lays the
   regions out on a two-column grid with corridors between them (an edge
   may not cross a region it does not belong to) and puts every card on
-  the grid inside its region, the parts that talk together. A card with
-  `x` and `y` is pinned and never moved; you decide which region a card
-  is in, the order of the regions, and when to pin (`references/layout.md`).
-  An artifact label is a noun phrase of one to three words, never a
-  sentence. The check decides.
+  the grid inside its region, the parts that talk together; after adding
+  or removing a card, `systemap place --all` lays every card out again,
+  keeping only the cards marked `pinned=True`. You decide which region a
+  card is in, the order of the regions, and which cards to pin
+  (`references/layout.md`). An artifact label is a noun phrase of
+  one to three words, never a sentence. The check decides.
 - A card whose modules exceed ten, or any card once a map is past forty
   cards, may open a map of its own: `map="gateway.py"` names a second
   model module beside this one whose cards claim exactly the card's
@@ -169,7 +171,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | the facts read back: `--modules`, `--module NAME`, `--entry-points`, `--external`, `--imports NAME`; never open the JSON |
-| `systemap place` | a first position for every card without one, written into the model; a card with `x` and `y` is pinned; with no card pinned the regions, containers and canvas are laid out too; `--print` prints instead |
+| `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too; `--print` prints instead |
 | `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |

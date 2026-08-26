@@ -7,9 +7,10 @@ gutter under the second row is full, the Control reading lights almost
 nothing) is read here out of the same geometry the drawing has, and
 printed as numbers:
 
-    positions ... how many cards are pinned (x and y in the model) and how
-                  many `systemap place` placed for this look, not yet
-                  written
+    positions ... how many cards are pinned (marked `pinned=True`, a
+                  position a person chose), how many `systemap place`
+                  placed and wrote, and how many it placed for this look
+                  only, not yet written
     regions ..... how many cards each holds, and which
     edges ....... bends and length, worst first, and where each label sits
     evidence .... how many edges are observed, external and declared
@@ -112,7 +113,8 @@ def lines(
     """The description, from the drawing's own `_meta` (cards, paths, labels).
 
     `placed` names the cards `systemap place` positioned for this look
-    because the model has none for them; the rest are pinned.
+    because the model has none for them; the rest have a written
+    position, and the ones marked `pinned` are counted as pinned.
     """
     cards: dict[str, list[float]] = meta["cards"]
     paths: dict[str, list[list[float]]] = meta["paths"]
@@ -125,11 +127,12 @@ def lines(
         f"{_plural(len(layers), 'reading')}"
     ]
     placed_ids = list(placed)
-    pinned = len(model.components) - len(placed_ids)
-    line = f"positions: {pinned} pinned"
+    pinned = sum(1 for c in model.components if c.pinned and c.id not in placed_ids)
+    written = len(model.components) - pinned - len(placed_ids)
+    line = f"positions: {pinned} pinned, {written} placed"
     if placed_ids:
         line += (
-            f", {len(placed_ids)} placed by systemap place and not yet written "
+            f", {len(placed_ids)} placed for this look and not yet written "
             f"({', '.join(placed_ids)}); run: systemap place"
         )
     out.append(line)

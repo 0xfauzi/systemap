@@ -120,7 +120,7 @@ def test_mis_fold_count_on_the_workspace_fixture() -> None:
     """The anonymised map a fresh run produced: 112 lines under the last-segment rule."""
     facts = fixture_workspace.facts()
     assert len(facts["components"]) == 144
-    assert len(fixture_workspace.MODEL.components) == 27
+    assert len(fixture_workspace.MODEL.components) == 28
     lines = judgement.mis_folds(fixture_workspace.MODEL, fixture_workspace.MEANING, facts)
     assert lines == []
     # The rule still fires here when a module is a stranger to its component:

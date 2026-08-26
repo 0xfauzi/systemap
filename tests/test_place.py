@@ -1,12 +1,15 @@
-"""`systemap place`: a first position for every card without one.
+"""`systemap place`: a position for every card without one, and `--all`.
 
 The acceptance lines of ROADMAP.md, gap 1, each as a test: the anonymised
 144-module fixture with every position stripped is placed and the
 geometry check is clean with no manual move, in under ten seconds; a
-pinned card stays where it was; a second run changes nothing; the
-self-map with its positions stripped is clean after `place`. Then the
-edit in place: only the `x=` and `y=` values, the boxes and the canvas
-move, byte for byte, and the file reloads to the positions computed.
+card with a position is kept where it was; a second run changes nothing;
+the self-map with its positions stripped is clean after `place`. Then
+the edit in place: only the `x=` and `y=` values, the boxes and the
+canvas move, byte for byte, and the file reloads to the positions
+computed. Then `place --all`: every card laid out again but the ones
+marked `pinned=True`, which stay, and the refusal for a full box names
+it.
 
 "Clean" here is the geometry the placement decides: placement, routes,
 labels, type size and wheels (`check.Result.problems`, `through` and
@@ -60,14 +63,17 @@ def assert_clean(model: Model, meaning: Meaning, facts: dict[str, Any]) -> None:
 
 def test_fixture_stripped_is_clean_after_place_in_under_ten_seconds() -> None:
     model, meaning = stripped(fixture_workspace.MODEL), fixture_workspace.MEANING
-    assert not any(c.pinned for c in model.components)
+    assert not any(c.positioned for c in model.components)
+    # The fixture's pinned card is stripped too: a pinned card with no
+    # position is placed like any other, in both modes.
+    assert [c.id for c in model.components if c.pinned] == ["CropPicker"]
     t0 = time.perf_counter()
     placement = place.compute(model)
     placed = place.apply(model, placement)
     elapsed = time.perf_counter() - t0
     assert elapsed < 10.0, f"place took {elapsed:.2f}s"
-    assert placement.fresh and placement.pinned == ()
-    assert len(placement.positions) == len(model.components) == 27
+    assert placement.fresh and placement.kept == ()
+    assert len(placement.positions) == len(model.components) == 28
     assert_clean(placed, meaning, fixture_workspace.facts())
     # Every card is on its region's grid: 20 in from the left, 40 below the
     # top, columns 190 apart, rows 92 apart.
@@ -93,14 +99,16 @@ def test_fixture_stripped_is_clean_after_place_in_under_ten_seconds() -> None:
         cx, cy, cw, ch = placement.containers[r.container]
         assert r.box[0] >= cx and r.box[1] >= cy
         assert r.box[0] + r.box[2] <= cx + cw and r.box[1] + r.box[3] <= cy + ch
-    # A second computation is the same computation.
+    # A second computation is the same computation, and --all on a model
+    # with no position is the same layout: nothing is kept either way.
     assert place.compute(model) == placement
+    assert place.compute(model, all_cards=True) == dataclasses.replace(placement, all_cards=True)
 
 
-# ---- (b) a pinned card stays where it was ---------------------------------------------
+# ---- (b) a card with a position stays where it was --------------------------------
 
 
-def test_a_pinned_card_stays_where_it_was() -> None:
+def test_a_positioned_card_stays_where_it_was() -> None:
     meaning = fixture_workspace.MEANING
     fresh = place.apply(
         stripped(fixture_workspace.MODEL), place.compute(stripped(fixture_workspace.MODEL))
@@ -117,9 +125,9 @@ def test_a_pinned_card_stays_where_it_was() -> None:
     )
     placement = place.compute(partly)
     assert not placement.fresh
-    assert placement.pinned == ("Gateway",)
+    assert placement.kept == ("Gateway",)
     assert "Gateway" not in placement.positions
-    assert len(placement.positions) == 26
+    assert len(placement.positions) == 27
     assert placement.regions == {r.id: r.box for r in fresh.regions}
     assert placement.canvas == fresh.canvas
     placed = place.apply(partly, placement)
@@ -144,6 +152,54 @@ def test_a_pinned_card_stays_where_it_was() -> None:
     assert not [p for p in placed.layout_problems() if "overlaps" in p]
 
 
+def test_place_all_lays_every_card_out_again_and_keeps_the_pinned_ones() -> None:
+    """`place --all` on a placed model: the pinned card stays, every other
+    card is laid out again inside the boxes as written, and the result is
+    clean; on a model with no pinned card it is the whole layout again."""
+    meaning = fixture_workspace.MEANING
+    fresh = place.apply(
+        stripped(fixture_workspace.MODEL), place.compute(stripped(fixture_workspace.MODEL))
+    )
+    assert all(c.positioned for c in fresh.components)
+    picker = fresh.component("CropPicker")
+    assert picker.pinned
+    # Without --all there is nothing to do: every card has a position.
+    nothing = place.compute(fresh)
+    assert nothing.positions == {} and len(nothing.kept) == 28 and not nothing.all_cards
+    assert place.lines(nothing) == [
+        f"place: 0 cards placed, 28 kept (already positioned): {place.NOTHING_TO_PLACE}"
+    ]
+    # With --all the pinned card is the one kept; the boxes stay as written.
+    placement = place.compute(fresh, all_cards=True)
+    assert placement.all_cards and not placement.fresh
+    assert placement.kept == ("CropPicker",)
+    assert "CropPicker" not in placement.positions and len(placement.positions) == 27
+    assert placement.regions == {r.id: r.box for r in fresh.regions}
+    assert placement.canvas == fresh.canvas
+    again = place.apply(fresh, placement)
+    assert (again.component("CropPicker").x, again.component("CropPicker").y) == (
+        picker.x,
+        picker.y,
+    )
+    assert_clean(again, meaning, fixture_workspace.facts())
+    assert place.lines(placement)[0] == "place: 27 cards placed, 1 kept (pinned)"
+    # Deterministic: --all on its own result computes the same placement.
+    assert place.compute(again, all_cards=True) == placement
+    # Every card pinned: nothing to lay out again, and the line says so.
+    pinned = dataclasses.replace(
+        fresh, components=tuple(dataclasses.replace(c, pinned=True) for c in fresh.components)
+    )
+    assert place.lines(place.compute(pinned, all_cards=True)) == [
+        f"place: 0 cards placed, 28 kept (pinned): {place.EVERY_CARD_PINNED}"
+    ]
+    # No card pinned: --all is the whole layout again, boxes and canvas included.
+    unpinned = dataclasses.replace(
+        fresh, components=tuple(dataclasses.replace(c, pinned=False) for c in fresh.components)
+    )
+    whole = place.compute(unpinned, all_cards=True)
+    assert whole.fresh and whole.kept == () and len(whole.positions) == 28
+
+
 def test_fill_puts_the_card_that_talks_next_to_its_neighbour_and_refuses_a_full_box() -> None:
     def model(*ids: str, flows: tuple[Flow, ...] = ()) -> Model:
         return Model(
@@ -160,10 +216,31 @@ def test_fill_puts_the_card_that_talks_next_to_its_neighbour_and_refuses_a_full_
 
     # Three slots, A pinned in the first; C talks to A and takes the slot beside it.
     placement = place.compute(model("B", "C", flows=(Flow("A", "C", "x", "data"),)))
-    assert placement.pinned == ("A",)
+    assert placement.kept == ("A",)
     assert placement.positions == {"C": (210, 40), "B": (400, 40)}
-    with pytest.raises(place.PlaceError, match=r"r has 2 free slots for 3 cards \(B, C, D\)"):
+    # A full box: the refusal names place --all, which lays every card out
+    # again; under --all, with the pinned cards filling the box, it names
+    # the pin instead.
+    with pytest.raises(
+        place.PlaceError,
+        match=r"r has 2 free slots for 3 cards \(B, C, D\): run: systemap place --all, which lays "
+        r"every card out again and keeps only the cards marked pinned=True; or widen",
+    ):
         place.compute(model("B", "C", "D"))
+    full = model("B", "C", "D")
+    full = dataclasses.replace(
+        full,
+        components=(
+            dataclasses.replace(full.components[0], pinned=True),
+            *(dataclasses.replace(c, x=k, y=40) for k, c in enumerate(full.components[1:])),
+        ),
+    )
+    with pytest.raises(
+        place.PlaceError,
+        match=r"r has 2 free slots for 3 cards \(B, C, D\): unpin a card \(drop pinned=True\), "
+        r"widen or heighten its box, or move a pinned card",
+    ):
+        place.compute(full, all_cards=True)
     # A card pinned off the grid blocks the slots it comes near.
     near = Model(
         canvas=(600, 200),
@@ -198,9 +275,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     before = model_path.read_text(encoding="utf-8")
     assert main(["--root", str(tmp_path), "place", "--print"]) == 0
     printed = capsys.readouterr().out
-    assert printed.startswith(
-        "place: 27 cards placed, 0 pinned, every box and the canvas laid out\n"
-    )
+    assert printed.startswith("place: 28 cards placed, 0 kept, every box and the canvas laid out\n")
     assert "  Gateway: x=" in printed and "  region gateway: box=(" in printed
     assert "  container server: box=(" in printed and "  canvas: (" in printed
     assert model_path.read_text(encoding="utf-8") == before, "--print writes nothing"
@@ -208,7 +283,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     assert main(["--root", str(tmp_path), "place"]) == 0
     out = capsys.readouterr().out
     assert out == (
-        "place: wrote map/model.py: 27 cards placed, 0 pinned; every box and the canvas "
+        "place: wrote map/model.py: 28 cards placed, 0 kept; every box and the canvas "
         "laid out\nrun: systemap check\n"
     )
     after = model_path.read_text(encoding="utf-8")
@@ -228,7 +303,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     assert re.sub(r"\d+", "N", inserted) == re.sub(r"\d+", "N", before)
     assert inserted != after, "the x and y lines were inserted"
     model, meaning = config.load_model(model_path)
-    assert all(c.pinned for c in model.components)
+    assert all(c.positioned for c in model.components)
     expected = place.apply(
         *(lambda m: (m, place.compute(m)))(config.load_model(tmp_path / "map/model.py")[0])
     )
@@ -237,8 +312,24 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
 
     # Idempotent: a second run has nothing to place and changes nothing.
     assert main(["--root", str(tmp_path), "place"]) == 0
-    assert capsys.readouterr().out == "place: 0 cards placed, 27 pinned: nothing to place\n"
+    assert capsys.readouterr().out == (
+        f"place: 0 cards placed, 28 kept (already positioned): {place.NOTHING_TO_PLACE}\n"
+    )
     assert model_path.read_text(encoding="utf-8") == after
+
+    # --all lays every card out again but the pinned one, writes the file,
+    # and a second --all changes nothing more; the result is clean.
+    assert main(["--root", str(tmp_path), "place", "--all"]) == 0
+    assert capsys.readouterr().out == (
+        "place: wrote map/model.py: 27 cards placed, 1 kept (pinned)\nrun: systemap check\n"
+    )
+    relaid = model_path.read_text(encoding="utf-8")
+    assert re.sub(r"\d+", "N", relaid) == re.sub(r"\d+", "N", after)
+    model, meaning = config.load_model(model_path)
+    assert model.component("CropPicker").pinned
+    assert_clean(model, meaning, fixture_workspace.facts())
+    assert main(["--root", str(tmp_path), "place", "--all"]) == 0
+    assert model_path.read_text(encoding="utf-8") == relaid
 
 
 def test_place_inserts_in_the_call_style_the_file_uses(tmp_path: Path) -> None:
@@ -314,7 +405,8 @@ def test_check_refuses_a_card_without_a_position() -> None:
     assert not [p for p in partial.layout_problems() if "overlaps" in p or "outside" in p]
     with pytest.raises(ValueError, match="Parser has no position"):
         _ = partial.component("Parser").box
-    assert Component("X", "x").pinned is False and Component("X", "x", x=0, y=0).pinned
+    assert Component("X", "x").positioned is False and Component("X", "x", x=0, y=0).positioned
+    assert Component("X", "x", x=0, y=0).pinned is False
 
 
 def test_describe_reports_placed_and_pinned(
@@ -328,7 +420,7 @@ def test_describe_reports_placed_and_pinned(
         .replace(
             "COMPONENTS: tuple[Component, ...] = ()\n",
             "COMPONENTS: tuple[Component, ...] = (\n"
-            '    Component(id="Reader", region="a", does="Reads.", implemented_by=("pkg.reader",), entry="read", x=60, y=100),\n'
+            '    Component(id="Reader", region="a", does="Reads.", implemented_by=("pkg.reader",), entry="read", x=60, y=100, pinned=True),\n'
             '    Component(id="Writer", region="a", does="Writes.", implemented_by=("pkg.writer",), entry="write"),\n'
             ")\n",
         )
@@ -342,8 +434,10 @@ def test_describe_reports_placed_and_pinned(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "describe"]) == 0
     out = capsys.readouterr().out
+    # Pinned is the flag, not a position: Reader is pinned, Writer is placed
+    # for this look only.
     assert (
-        "positions: 1 pinned, 1 placed by systemap place and not yet written (Writer); "
+        "positions: 1 pinned, 0 placed, 1 placed for this look and not yet written (Writer); "
         "run: systemap place\n"
     ) in out
     assert "evidence: " in out

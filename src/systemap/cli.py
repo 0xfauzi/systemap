@@ -3,7 +3,7 @@
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
     systemap facts [--modules ...]     read the facts back, one view at a time
-    systemap place [--print]           a first position for every card without one
+    systemap place [--all] [--print]   a position for every card without one; --all for every card
     systemap render [--check]          render the page from facts and model
     systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator; --map ID for a sub-map
@@ -593,20 +593,21 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
 
 def cmd_place(args: argparse.Namespace) -> int:
-    """A first position for every card without one, written into the model.
+    """A position for every card without one, written into the model.
 
-    A card with `x` and `y` is pinned and never moved. With no card
-    pinned the regions, the containers and the canvas are laid out too;
-    with any pinned, the boxes stay as written and the unpinned cards
-    take the free slots inside them. `--print` prints the positions
-    instead of writing them. The check decides, as before: run it next.
+    A card with `x` and `y` is kept where it is; `--all` lays every card
+    out again and keeps only the cards marked `pinned=True`. With no card
+    kept the regions, the containers and the canvas are laid out too;
+    with any kept, the boxes stay as written and the other cards take
+    the free slots inside them. `--print` prints the positions instead
+    of writing them. The check decides, as before: run it next.
     """
     p = _project(args)
     if _empty(p):
         return STALE
     wrote = False
     for m in p.tree.maps:
-        placement = place.compute(m.model)
+        placement = place.compute(m.model, all_cards=bool(args.all))
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))
             continue
@@ -622,10 +623,8 @@ def cmd_place(args: argparse.Namespace) -> int:
                 "is not a Component(id=...) call the file spells out; add x and y by hand from "
                 "systemap place --print"
             )
-        n, k = len(placement.positions), len(placement.pinned)
         laid = "; every box and the canvas laid out" if placement.fresh else ""
-        cards = f"{n} card{'s' if n != 1 else ''}"
-        say(f"{m.prefix}place: wrote {m.rel}: {cards} placed, {k} pinned{laid}")
+        say(f"{m.prefix}place: wrote {m.rel}: {place.head(placement)}{laid}")
         wrote = True
     if wrote:
         say("run: systemap check")
@@ -759,11 +758,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "place",
-        help="write a first position into the model for every card without one (a card "
-        "with x and y is pinned and never moved); with no card pinned, the regions, "
-        "containers and canvas are laid out too; --print prints instead of writing",
+        help="write a position into the model for every card without one, keeping every "
+        "card that has one; --all lays every card out again and keeps only the cards "
+        "marked pinned=True (run it after adding or removing a card); with no card kept, "
+        "the regions, containers and canvas are laid out too; --print prints instead of "
+        "writing",
     )
     add_root(s)
+    s.add_argument(
+        "--all",
+        action="store_true",
+        help="lay every card out again, keeping only the cards marked pinned=True",
+    )
     s.add_argument("--print", action="store_true", help="print the positions; write nothing")
     s.set_defaults(func=cmd_place)
 

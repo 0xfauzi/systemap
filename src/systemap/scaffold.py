@@ -88,8 +88,9 @@ component names the modules that are it and one entry they define, and
 Positions are fixed in this file because this is a topology, not a chart:
 a card's place carries meaning. A card written without `x` and `y` is
 placed by `systemap place`, which lays the regions out on a grid with
-corridors between them and puts every such card on the grid; a card with
-`x` and `y` is pinned and never moved. `systemap check` verifies every
+corridors between them and puts every such card on the grid; `systemap
+place --all` lays every card out again after one is added or removed,
+keeping the cards marked `pinned=True`. `systemap check` verifies every
 card sits in its band, no two overlap, every flow has a layer and a
 sentence, and every route and label is clean.
 
@@ -146,7 +147,8 @@ REGIONS = (
 # One card per thing a reader would point at and name. `implemented_by`
 # names the modules that are it (from the facts file), `entry` one public
 # name they define. Write no x or y: `systemap place` writes them, on the
-# grid, and a card that has them is pinned where they say. For example:
+# grid, and `systemap place --all` writes them again after a card is added
+# or removed; `pinned=True` marks a card whose place you chose. For example:
 #
 #     Component(
 #         id="Reader",

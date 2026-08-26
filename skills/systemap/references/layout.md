@@ -1,8 +1,11 @@
 # Layout: what is still yours to decide
 
-`systemap place` places every card that has no `x` and `y`. Write the
-components and the flows without positions, run it, then run the check.
-What it does, so that you do not do it by hand:
+`systemap place` places every card that has no `x` and `y` and keeps
+every card that has them; `systemap place --all` lays every card out
+again and keeps only the cards marked `pinned=True`. Write the components
+and the flows without positions, run `place`, then run the check; after
+adding or removing a card, run `place --all`. What it does, so that you
+do not do it by hand:
 
 - Regions go on a two-column grid inside their container, in the order
   the model lists them, with the corridors the router needs already
@@ -21,7 +24,9 @@ What it does, so that you do not do it by hand:
   the file changes. `systemap place --print` prints them instead.
 
 The check decides, as before. `place` is deterministic: the same model
-always gets the same positions, and a second run changes nothing.
+always gets the same positions, and a second run changes nothing. When
+`place` says a region has no free slot for a new card, run `place
+--all`: the boxes were sized for the cards the region had.
 
 ## What you decide
 
@@ -33,13 +38,14 @@ always gets the same positions, and a second run changes nothing.
   two regions per row, left to right and then down. List the regions in
   the order a reader would walk them, and put regions that talk most
   side by side or one above the other.
-- **When to pin a card.** A card with `x` and `y` is pinned: `place`
-  never moves it. While any card is pinned, the region and container
-  boxes and the canvas stay as written and `place` puts the unpinned
-  cards in the free slots inside their own boxes; to lay the whole map
-  out again, remove every `x` and `y` and run `place` once more. Pin a
-  card when the check names a route through it and moving it is the
-  fix, or when its place must say something the grid does not.
+- **When to pin a card.** A card marked `pinned=True` (with its `x`
+  and `y`) is one a person placed on purpose: `place --all` keeps it
+  where it is and lays the other cards out around it, in the free
+  slots of the boxes as written; with no pinned card, `place --all`
+  lays the boxes and the canvas out again too. Pin a card when the
+  check names a route through it and moving it is the fix, or when its
+  place must say something the grid does not. A position without the
+  flag is `place`'s own: `place` keeps it, `place --all` may move it.
 - **The artifact labels.** A label is a noun phrase of one to three
   words (`facts`, `the fix`, `package roots`), never a sentence. When a
   label cannot be seated the check says which fix applies, from the
@@ -80,7 +86,8 @@ same way; its id is `Gateway/Routes`.
 ## Reading the picture without opening it
 
 `systemap describe` prints what a look at the page would tell you: how
-many cards are pinned and how many `place` positioned for the look; the
+many cards are pinned (the flag), how many `place` wrote, and how many
+it positioned for the look only; the
 cards each region holds; every edge with its bends and length, worst
 first, and the gutter its label sits in; every gutter, named by the cards
 on either side of it and its coordinates (`between the row of A, B and

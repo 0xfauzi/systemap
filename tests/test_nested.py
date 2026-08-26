@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import nest, suggest
+from systemap import nest, place, suggest
 from systemap.cli import main
 from systemap.model import Component, Meaning, Model, Region
 
@@ -466,13 +466,13 @@ def test_place_writes_into_a_sub_maps_file(
     capsys.readouterr()
     assert run("--root", str(nested), "place", "--print") == 0
     out = capsys.readouterr().out
-    assert "place: 0 cards placed, 5 pinned: nothing to place" in out
-    assert "Style: place: 4 cards placed, 0 pinned, every box and the canvas laid out" in out
+    assert f"place: 0 cards placed, 5 kept (already positioned): {place.NOTHING_TO_PLACE}" in out
+    assert "Style: place: 4 cards placed, 0 kept, every box and the canvas laid out" in out
     assert "Style:   Cache: x=" in out
     assert run("--root", str(nested), "place") == 0
     out = capsys.readouterr().out
     assert (
-        "Style: place: wrote map/style.py: 4 cards placed, 0 pinned; every box and the canvas laid out"
+        "Style: place: wrote map/style.py: 4 cards placed, 0 kept; every box and the canvas laid out"
         in out
     )
     assert "Gateway: place: wrote" not in out
@@ -511,7 +511,7 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
     assert out.startswith("canvas ")
     assert "\nGateway: canvas " in out and "\nStyle: canvas " in out
     assert "Gateway: regions: the cards each holds\nGateway:   serve: 3 cards (" in out
-    assert "Style: positions: 4 pinned" in out
+    assert "Style: positions: 0 pinned, 4 placed" in out
 
 
 def git(root: Path, *args: str) -> str:

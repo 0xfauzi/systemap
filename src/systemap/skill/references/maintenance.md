@@ -15,9 +15,10 @@ on the change alone.
    Exit 0 when nothing needs a person; exit 1 while a line does.
 2. Act only on the lines under `needs a person`, in `map/model.py` and
    `systemap.toml`. Do not redraw the map, regroup cards the lines do not
-   name, or move a card that has a position; `x` and `y` stay as they
-   are, and a card added for a new module is placed by `systemap place`
-   into a free slot of its region.
+   name, or move a card by hand; a card added for a new module is
+   placed by `systemap place` into a free slot of its region, and when
+   the region has none, `systemap place --all` lays every card out
+   again, keeping the ones marked `pinned=True`.
 3. `systemap refresh`, then `systemap check && systemap judgement --strict`.
    The refresh brings the facts, the page and the figures up to date; the
    check refuses what is still wrong; the judgement asks about the edges

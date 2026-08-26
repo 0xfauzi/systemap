@@ -23,9 +23,11 @@ Positions are fixed in the model because this is a topology, not a chart:
 a box's place carries meaning. A fixed layout also means the same system
 always draws the same picture, so a change in the drawing is a change in
 the system. `systemap place` writes a first placement for every card
-without one and never moves a card that has one; `Model.layout_problems()`
-checks the placement mechanically and `meaning_problems()` checks that the
-meaning names only what the model has.
+without one and keeps every card that has one; `systemap place --all`
+lays every card out again except the ones marked `pinned`, which a
+person placed on purpose. `Model.layout_problems()` checks the placement
+mechanically and `meaning_problems()` checks that the meaning names only
+what the model has.
 
 Six node kinds are drawn differently on purpose. A `component` does work, a
 `store` holds state, an `actor` is outside the system. In an agentic system
@@ -95,9 +97,11 @@ class Component:
 
     `region` places a component or store; `container` places an actor. `x`
     and `y` are the card's top-left corner in canvas units; a card with
-    both is pinned and `systemap place` never moves it, a card with
     neither is placed by `systemap place` and refused by the check until
-    it is. `note` is a
+    it is, a card with both is kept by `systemap place` and laid out again
+    by `systemap place --all`. `pinned` says a person chose the position:
+    `place --all` keeps a pinned card where it is and lays the rest out
+    around it. `note` is a
     caveat the reader should see; `interface` is the one-line signature the
     reader is told. `entry` is required for every kind but `store` and
     `context`, which may be a namespace with no way in. `calls_model` marks
@@ -123,6 +127,7 @@ class Component:
     note: str = ""
     calls_model: bool = False
     map: str | None = None
+    pinned: bool = False
 
     @property
     def opens(self) -> bool:
@@ -130,8 +135,8 @@ class Component:
         return bool(self.map)
 
     @property
-    def pinned(self) -> bool:
-        """Has the card a position of its own? Both `x` and `y` given."""
+    def positioned(self) -> bool:
+        """Has the card a position? Both `x` and `y` given."""
         return self.x is not None and self.y is not None
 
     @property
@@ -377,11 +382,11 @@ class Model:
                 out.append(f"{c.id} names no region or container")
             elif outer is None:
                 out.append(f"{c.id} names unknown region or container {c.home}")
-            elif not c.pinned:
+            elif not c.positioned:
                 out.append(f"{c.id} has no position (x, y); run: systemap place")
             elif not _inside(c.box, outer):
                 out.append(f"{c.id} is drawn outside {c.home}")
-        drawable = [c for c in self.components if c.kind in CARD_H and c.pinned]
+        drawable = [c for c in self.components if c.kind in CARD_H and c.positioned]
         for i, a in enumerate(drawable):
             for b in drawable[i + 1 :]:
                 if _overlap(a.box, b.box):

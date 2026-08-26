@@ -180,7 +180,9 @@ def facts() -> dict[str, Any]:
 
     A module that has submodules is a package `__init__`, and its `file`
     says so; with no names and no imports recorded, every one is an empty
-    package marker, as the real tree's mostly were.
+    package marker, as the real tree's mostly were. The completer's module
+    records the one name the CropPicker card claims by symbol, so the
+    symbol rule and the shared-module evidence have something to read.
     """
     packages = {m.rpartition(".")[0] for m in MODULES}
 
@@ -188,7 +190,7 @@ def facts() -> dict[str, Any]:
         path = module.replace(".", "/")
         return f"{path}/__init__.py" if module in packages else f"{path}.py"
 
-    return {
+    out: dict[str, Any] = {
         "packages": ["wharf_contracts", "wharf_server"],
         "entry_points": [],
         "components": {
@@ -203,6 +205,11 @@ def facts() -> dict[str, Any]:
             for m in MODULES
         },
     }
+    out["components"]["wharf_server.style.completer"]["names"] = [
+        {"name": "complete", "kind": "function"},
+        {"name": "pick_crops", "kind": "function"},
+    ]
+    return out
 
 
 # The grid: card columns 190 apart (150 card, 40 gutter), rows 92 apart
@@ -551,6 +558,19 @@ COMPONENTS = (
         y=ROW["r3"],
     ),
     Component(
+        id="CropPicker",
+        region="style",
+        does="Picks the gallery crops the completer asks for; the function lives beside "
+        "the completer in its own module, so the card claims the symbol.",
+        interface="pick_crops(gallery, member) -> list[Crop]",
+        implemented_by=("wharf_server.style.completer:pick_crops",),
+        entry="pick_crops",
+        kind="tool",
+        x=COL["c6"],
+        y=ROW["r2"],
+        pinned=True,
+    ),
+    Component(
         id="ComponentGallery",
         region="style",
         does="Which of a reference folio's components are interesting, rendered and cropped "
@@ -692,6 +712,7 @@ FLOWS = (
     Flow("StyleCompleter", "GuideCache", "CompletedGuide", "data"),
     Flow("StyleCompiler", "ComponentGallery", "walk observations", "data"),
     Flow("ComponentGallery", "StyleCompleter", "gallery crops", "context"),
+    Flow("StyleCompleter", "CropPicker", "crop query", "tool"),
     Flow("ComponentGallery", "Renderer", "render job", "control"),
     Flow("Renderer", "ComponentGallery", "PNG pages", "data"),
     Flow("Renderer", "OfficeSuite", "conversion", "control"),
@@ -814,6 +835,7 @@ PLAIN = {
     "StyleCompiler": "the part that reads a reference folio's style",
     "StyleCompleter": "the part that fills what reading left open",
     "ComponentGallery": "the pictures of a reference folio's parts",
+    "CropPicker": "the completer's crop tool",
     "TextMeasurer": "the ruler for text",
     "LayoutEngine": "the part that places things on the page",
     "Sandbox": "the locked room where generated code runs",
@@ -950,6 +972,10 @@ RELATIONS = {
         "ComponentGallery",
         "StyleCompleter",
     ): "The gallery's crops and exemplar pages are the images in the completer's window.",
+    (
+        "StyleCompleter",
+        "CropPicker",
+    ): "The completer asks the picker for the crops one member needs; the picker is a function beside it in the completer's module.",
     (
         "ComponentGallery",
         "Renderer",
