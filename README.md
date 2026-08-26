@@ -86,7 +86,7 @@ why. You read the answers, correct what you disagree with, commit
 
 The workflow `init` writes runs systemap from the released package,
 pinned to the tag of the version that wrote it (`uvx --from
-"git+https://github.com/0xfauzi/systemap@v0.9.0"`), so your project
+"git+https://github.com/0xfauzi/systemap@v0.10.0"`), so your project
 takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
 no token, so a workflow linter passes it as written. Its second job runs
@@ -169,6 +169,11 @@ The page is served from `docs/` by GitHub Pages at
   does. A declared edge is dashed, and the panel says so.
 - **Pan and zoom.** The map is as large as the system; the page is not
   squeezed to fit a screen.
+- **Maps inside cards.** A card may open a map of its own: it stands on
+  a second card, its panel reads `opens: Gateway (5 cards)` with a link,
+  and the page inside links back. One canvas holds about forty cards;
+  a large repository is a top map of at most that many, with a map
+  inside the cards that hold the most.
 
 ### Agentic systems
 
@@ -204,13 +209,14 @@ with the fix, and exits 1 if any rule failed.
 | coverage | a module in the facts that no component claims, or that two claim; an ignore that names nothing, or only empty package markers (an `__init__` with no public names and no imports, which the rule leaves out on its own) |
 | entry | a component naming a module the facts do not have, no module, or an entry none of its modules defines (a store or a context card may leave `entry` empty); a symbol claim (`"pkg.mod:name"`) of a module the facts do not have, of a name the module does not define, or of a module nobody claims |
 | interface | an `interface` line whose leading identifier (the token before `(`, `.`, `->` or whitespace; both parts of `Class.method`) is not a name the component's modules define, a re-export included; refused with the closest defined name |
+| nesting | the map inside a card claiming a module the card does not, leaving one of the card's modules unclaimed, claiming one twice, or naming an actor that is not a card of the map above; an actor that opens a map |
 | placement | a card outside its band, two cards overlapping, a flow of a kind neither standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an agent nor `calls_model`, a flow or invariant naming something the model does not have, two invariants with one number |
 | routes | a route through a card it does not connect, or across a band it neither starts nor ends in |
 | labels | a label that touches a card, a header or another label (both labels named, and the fix that applies: the gutter is full, named by its neighbours and the region to open up, or the label is wider than its seat); a container or region header wider than its box, a `sub` that needs more than two lines, or a header touching a card; a card whose name or plain word does not fit its budget, stated in the refusal (nothing on the map is elided) |
 | type size | any text below 11 px at native scale |
 | meaning | a sentence, verb, override or journey step naming something the model does not have, a flow with no sentence, a custom layer taking a standard id |
 | wheel | a relationship wheel whose labels touch each other or the centre |
-| stale | a facts file, page or figure older than the tree or the model |
+| stale | a facts file, a page (one per map) or a figure older than the tree or the model |
 
 Exit codes: `0` current, `1` a check failed, `2` the configuration or the
 model cannot be used. A module that genuinely has no place on the map is
@@ -301,6 +307,40 @@ so the comment shows the committed figure and names the command that
 draws the change map. The workflow `init` writes posts that comment on
 every pull request.
 
+## Past forty cards
+
+One canvas cannot hold a large repository legibly, and past about forty
+cards the readings stop being readings. A component may carry
+`map="gateway.py"`, a path relative to its model file naming a second
+model module that exports `MODEL` and `MEANING` like any model. The map
+inside draws that one card: its cards claim exactly the modules the
+card claims, no more and no fewer, each once (symbol claims allowed,
+empty package markers left out), and its actors are cards of the map
+above, the ones around the card, so its edges to the outside have
+somewhere to land. The card claims the modules once for coverage; the
+check's nesting rule holds the map inside to them and refuses any
+difference with the modules named, and a sub-map's actor that is not a
+card above.
+
+Every command walks the tree. `check` runs every rule on every map, a
+sub-map's lines prefixed by its id (`Gateway: map layout: clean ...`);
+`refresh` and `render` write one page per map, the top at
+`docs/map/index.html` and the map inside a card at
+`docs/map/Gateway/index.html`, each linking to the other; `figure --map
+Gateway` draws one (and a `[[figures]]` entry takes `map`); `place`
+writes positions into every map's file; `describe` and `judgement`
+prefix their lines the same way, and an `item` answer quotes the line
+as printed while a bulk form covers every map; `delta` compares each
+map over the modules its card claims, so a moved module names its card
+and its map's file; `suggest` says when a map is past forty cards and
+names the cards with the most modules as the candidates to open. A map
+inside a map is `Gateway/Routes`.
+
+systemap's own map is not nested: 18 cards is below the threshold. The
+worked example is the fixture in
+[`tests/test_nested.py`](tests/test_nested.py): one top map of five
+cards, two of which open a map.
+
 ## The model in one screen
 
 The agent writes one Python module. Everything in it is a frozen dataclass.
@@ -348,14 +388,14 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap init [--no-ci]` | write the config, an empty starter model, the skill directory, and a workflow pinned to this version; never overwrites; prints the sentence for the agent |
 | `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names (a package `__init__` lists what it re-exports), imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | read the facts back one view at a time, so nobody opens the JSON: `--modules` (one line per module: name, public names, imports, tests), `--module NAME` (its record), `--entry-points`, `--external` (every third-party import and who imports it), `--imports NAME` (what it imports and what imports it) |
-| `systemap place [--print]` | a first position for every card without one, written into the model in place (only the `x=` and `y=` values, the boxes and the canvas move): regions on a two-column grid with the corridors the router needs, cards on the grid inside, ordered by barycentre sweeps over the flows; a card with `x` and `y` is pinned and never moved; deterministic, stdlib only; `--print` prints instead |
-| `systemap check` | every rule in the table above; exit 1 with each fix named |
+| `systemap place [--print]` | a first position for every card without one, written into the model in place (only the `x=` and `y=` values, the boxes and the canvas move), on every map of the tree: regions on a two-column grid with the corridors the router needs, cards on the grid inside, ordered by barycentre sweeps over the flows; a card with `x` and `y` is pinned and never moved; deterministic, stdlib only; `--print` prints instead |
+| `systemap check` | every rule in the table above, on every map of the tree; exit 1 with each fix named |
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
-| `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); a `.svg` name writes the bare drawing |
-| `systemap refresh` | extract, check, render, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
-| `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone |
+| `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); `--map ID` draws the map inside a card; a `.svg` name writes the bare drawing |
+| `systemap refresh` | extract, check, render one page per map, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
+| `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone; with a model, when a map is past forty cards and which cards hold the most modules, the candidates to open a map inside |
 | `systemap judgement [--strict]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; exit 0, or 1 with `--strict` while a line is open |
-| `systemap delta --base REF [--head REF] [--format markdown]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to, a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a person, 1 when something does; `--format markdown` is the pull-request comment |
+| `systemap delta --base REF [--head REF] [--format markdown]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a person, 1 when something does; `--format markdown` is the pull-request comment |
 | `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned and how many `place` positioned for the look, cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
 | `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
@@ -384,7 +424,7 @@ not the current directory.
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: the mechanisms other than an import that join the repository's parts; a flow whose sentence or artifact names one is observed by it rather than declared |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported |
 | `[theme]` | graphite, dark | colour tokens; `scheme = "light"` picks the paper scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
-| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges); an `out` ending in `.svg` is the bare drawing |
+| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |
 
 ## Principles
 
@@ -446,7 +486,7 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run ruff format --check src tests map bench
     uv run systemap check      # the repository's own map must stay current
     uv run systemap judgement --strict
-    uv run systemap delta --base v0.8.0    # what the last release did to the map
+    uv run systemap delta --base v0.9.0    # what the last release did to the map
     python3 bench/table.py --check         # docs/benchmarks.md is what the script renders
     uv run systemap place --print
     uv run systemap describe

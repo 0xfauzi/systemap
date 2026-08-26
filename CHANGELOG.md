@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.10.0
+
+Gap 5 of ROADMAP.md: past sixty cards the single map stopped working,
+and the check's rules assumed one canvas.
+
+Nested maps:
+
+- `Component.map`: a path, relative to the model file, naming a second
+  model module that exports `MODEL` and `MEANING` like any model. The
+  map inside a card draws that card alone: its cards claim exactly the
+  modules the card claims, no more and no fewer, each once (symbol
+  claims allowed, empty package markers left out as the coverage rule
+  leaves them out); its actors are cards of the map it is inside, the
+  ones around the card, so its edges to the outside have somewhere to
+  land. The card claims the modules once for coverage. An actor cannot
+  open a map; a map that opens a file above it, or one that does not
+  exist, is refused with exit 2. A map inside a map is `Gateway/Routes`.
+- `systemap.nest` loads the tree (the top map, then each sub-map depth
+  first in the parent's card order) and every command that reads the
+  model walks it.
+- `check`: every rule on every map, and a nesting rule between them
+  that names each module the sub-map claims and the card does not,
+  each it leaves unclaimed, each it claims twice, and each actor that
+  is not a card above; coverage runs on the top map alone. A sub-map's
+  lines carry its id in front (`Gateway: map layout: clean ...`), the
+  fix line names the sub-map's file, and the stale group covers every
+  page.
+- `refresh` and `render` write one page per map: the top at
+  `index.html`, the map inside a card at `<card>/index.html` under the
+  output directory. A card that opens a map stands on a second card
+  (the mark, on the page and in every figure, with a legend row) and
+  its panel reads `opens: Gateway (5 cards)` with a link; the header
+  lists the maps inside. A sub-map's page names the card it is inside,
+  links back to the map above, and lists its own readings and journeys.
+- `figure --map ID` draws the map inside a card, and a `[[figures]]`
+  entry takes `map`. `place` writes positions into every map's file.
+  `describe` prefixes a sub-map's lines with its id.
+- `judgement` runs on every map with the prefix on a sub-map's lines;
+  an `item` answer quotes the line as printed and a bulk form covers
+  every map. An entry point, or a model sdk import, is asked about once,
+  on the deepest map whose card claims its module, against the journeys
+  of every map.
+- `delta` compares each sub-map over the modules its card claims at
+  each commit, so a moved or removed module names the card on every map
+  it is drawn on and that map's file, and a new module inside a card
+  that no sub-card claims says the map inside claims exactly what the
+  card claims.
+- `suggest` reads the tree when a model has cards: when a map is past
+  forty cards it says so and names the cards with the most modules as
+  the candidates to open; a card past ten modules is named on any map.
+- The skill: `schema.md` documents `map`, `layout.md` says when to open
+  a map inside a card and how, `pitfalls.md` gains the poster of sixty
+  cards, `second-pass.md` says the pass runs on every map; the loop is
+  unchanged.
+- Tests: a fixture of one top map with two maps inside it, covering the
+  exact-claim rule, the actor rule, coverage counted once, the pages
+  and their links, `figure --map`, `place` on a sub-map, the judgement
+  and describe prefixes, `delta` naming the card and the map, and the
+  suggest line. systemap's own map is not nested: 18 cards is below the
+  threshold.
+
 ## 0.9.0
 
 Gaps 3 and 4 of ROADMAP.md, closed together because the maintenance

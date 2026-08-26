@@ -160,6 +160,16 @@ Acceptance: a 300-plus-module repository mapped as one top map of at most
 forty cards plus at least two sub-maps, every check clean, and the
 benchmark row for it inside the first-map cost target.
 
+Landed in 0.10.0: `Component.map`, the tree of maps every command walks
+(`systemap.nest`), the nesting rule of the check (exact claims, actors
+that are cards above), one page per map with the links up and down, the
+"has a map" mark and the `opens:` panel line, `figure --map`, the
+prefixed check, judgement, describe and place lines, `delta` on every
+map, `suggest`'s past-forty line, and the skill's guidance on when to
+open a map inside a card. Not measured: no 300-plus-module repository
+has been mapped this way yet; the fixture in tests/test_nested.py is
+ten modules, and the acceptance line waits on gap 6's external runs.
+
 ### 6. It has been run on one repository, ours
 
 What is wrong: n equals one, and we wrote it.
