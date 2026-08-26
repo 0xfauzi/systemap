@@ -3,8 +3,9 @@ and the tour is what the script says it is.
 
 `scripts/screenshots.py` is run by hand (it needs Chrome and ffmpeg); this
 test holds what it wrote to its claims: two PNGs of 1600 by 900, one per
-scheme; a tour whose every state names a reading or a card the model has,
-so a renamed card cannot leave the tour showing nothing.
+scheme; a GIF under four megabytes; a tour whose every state names a
+reading or a card the model has, so a renamed card cannot leave the tour
+showing nothing.
 """
 
 from __future__ import annotations
@@ -46,6 +47,23 @@ def test_both_schemes_are_photographed_at_the_stated_size() -> None:
         assert png_size(SHOTS / f"{name}.png") == (1600, 900), name
 
 
+def test_the_tour_is_a_gif_under_the_limit() -> None:
+    gif = SHOTS / "tour.gif"
+    raw = gif.read_bytes()
+    assert raw[:6] == b"GIF89a"
+    assert len(raw) <= 4 * 1024 * 1024, f"tour.gif is {len(raw) / 1024 / 1024:.2f} MB"
+    # Every frame is one state, on screen for the stated seconds: the
+    # graphic control extension carries the delay in hundredths.
+    delays = [
+        d
+        for (d,) in struct.iter_unpack("<H", b"".join(re.findall(rb"\x21\xf9\x04.(..)", raw, re.S)))
+    ]
+    script = load_script()
+    assert len(delays) == len(script.TOUR), "one frame per state"
+    assert sum(delays) / 100 == len(script.TOUR) * script.SECONDS_PER_STATE
+    assert 28 <= sum(delays) / 100 <= 32, "thirty seconds"
+
+
 def test_every_tour_state_names_a_reading_or_a_card_the_model_has() -> None:
     script = load_script()
     cfg = config.load(ROOT)
@@ -68,6 +86,15 @@ def test_every_tour_state_names_a_reading_or_a_card_the_model_has() -> None:
 
 def test_the_readme_embeds_what_the_script_writes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for rel in ("docs/screenshots/dark.png", "docs/screenshots/light.png"):
+    for rel in (
+        "docs/screenshots/tour.gif",
+        "docs/screenshots/dark.png",
+        "docs/screenshots/light.png",
+    ):
         assert rel in readme, rel
         assert (ROOT / rel).is_file(), rel
+    assert "The table is the number" in readme
+    assert "[docs/benchmarks.md](docs/benchmarks.md)" in readme
+    # The first paragraph says Python and only Python.
+    first = readme.split("\n\n")[2]
+    assert "Python and only Python" in first, first

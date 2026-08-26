@@ -13,8 +13,9 @@
   <img alt="no dependencies" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
-systemap gives a coding agent the tools to draw a map of your system and the
-checker that refuses to let that map be incomplete or stale. You install it,
+systemap gives a coding agent the tools to draw a map of your Python system
+and the checker that refuses to let that map be incomplete or stale. It
+reads Python and only Python; no other language is planned. You install it,
 run `systemap init`, and tell your agent to map the repository. The agent
 reads the facts out of the code, writes down what the parts are and what
 they are to each other, checks it, and then makes a second pass over every
@@ -130,9 +131,15 @@ live page has them all.
 </p>
 
 The page is served from `docs/` by GitHub Pages at
-<https://0xfauzi.github.io/systemap/map/>. The page in both schemes, as
-headless Chrome renders it at 1600 by 900 (`scripts/screenshots.py`
-writes both):
+<https://0xfauzi.github.io/systemap/map/>. Thirty seconds of it, each
+reading, a card, a spoke, a journey stepped:
+
+<p align="center">
+  <img src="docs/screenshots/tour.gif" alt="The page in thirty seconds: each reading in turn, a card clicked and its wheel read, a journey stepped three edges" width="100%">
+</p>
+
+The page in both schemes, as headless Chrome renders it at 1600 by 900
+(`scripts/screenshots.py` writes both, and the tour):
 
 <p align="center">
   <a href="docs/screenshots/dark.png"><img src="docs/screenshots/dark.png" alt="The page in the graphite scheme" width="49%"></a>
@@ -474,14 +481,14 @@ line, label and a mark per kind.
 
 ## Cost
 
-The number is the table in [docs/benchmarks.md](docs/benchmarks.md), and
-nothing else: one row per repository per mode (a first map; a maintenance
-run on a small, a medium and a large pull request), with the model named,
-the systemap version, the turns, the minutes and the dollars the session's
-own result event reported, and whether `systemap check` and `systemap
-judgement --strict` passed afterwards. The table is empty until a
-repository is measured. The targets in ROADMAP.md are targets, and this
-file does not quote them as results.
+The table is the number: [docs/benchmarks.md](docs/benchmarks.md), one row
+per repository per mode (a first map; a maintenance run on a small, a
+medium and a large pull request), with the model named, the systemap
+version, the turns, the minutes and the dollars the session's own result
+event reported, and whether `systemap check` and `systemap judgement
+--strict` passed afterwards. This file does not copy a row from it, so the
+two cannot disagree; the targets in ROADMAP.md are targets, and neither
+file quotes them as results.
 
 Each row is written by `bench/run.sh`, the documented headless recipe as a
 script: a worktree or a clone under a scratch directory, systemap
@@ -509,7 +516,7 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run systemap describe
     uv run systemap facts --modules
     uv run systemap suggest
-    uv run python scripts/screenshots.py   # docs/screenshots/: both schemes (Chrome)
+    uv run python scripts/screenshots.py   # docs/screenshots/: both schemes and the tour (Chrome, ffmpeg)
 
 The workflow runs the suite, the type check and the linter on Linux,
 macOS and Windows with Python 3.11 and 3.13, and installs the built wheel
