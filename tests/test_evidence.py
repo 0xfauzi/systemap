@@ -1,6 +1,6 @@
 """Evidence on every flow: observed, external or declared, from the facts.
 
-ROADMAP.md, gap 2: a fixture asserting the three states plus observed by
+A fixture asserting the three states plus observed by
 a mechanism; the drawing dashes a declared edge and the panel says so;
 the judgement prints one line per declared edge; `[flows] observed_by`
 names the mechanisms and the answer forms cover the line kind.

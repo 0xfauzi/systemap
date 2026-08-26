@@ -11,11 +11,10 @@ rule needs and puts every card on it. The four regions are there to be
 renamed and to show the shape.
 
 The workflow runs the check on every push and pull request with the
-released package, pinned to the tag of the version that wrote it (`uvx
---from "git+https://github.com/0xfauzi/systemap@v<this version>"`), so
-the project needs no dependency on systemap. The pin moves to PyPI at
-1.0. It is written by default and skipped with `--no-ci`, since not every
-repository runs on the one forge the workflow is written for.
+released package, pinned to the version that wrote it (`uvx --from
+"systemap==<this version>"`), so the project needs no dependency on
+systemap. It is written by default and skipped with `--no-ci`, since not
+every repository runs on the one forge the workflow is written for.
 """
 
 from __future__ import annotations
@@ -228,9 +227,9 @@ WORKFLOW = """name: systemap
 # system. This job fails when the committed map no longer matches the tree
 # or the renderer; the fix is one command, named in the failure.
 #
-# systemap runs from the released package, pinned to the tag of the
-# version that wrote this file, so the project needs no dependency on it;
-# the pin moves to PyPI at 1.0. Bump the pin when you upgrade. Every
+# systemap runs from the released package, pinned to the version that
+# wrote this file, so the project needs no dependency on it. Bump the pin
+# when you upgrade. Every
 # action is pinned to a commit, with the version beside it; the jobs read
 # the tree and nothing else, the checkout keeps no token, and the one job
 # that writes (the delta comment on a pull request) says so beside its
@@ -266,28 +265,28 @@ jobs:
 
       - name: facts match the tree
         run: |
-          uvx --from "git+https://github.com/0xfauzi/systemap@v__VERSION__" systemap extract --check || {
+          uvx --from "systemap==__VERSION__" systemap extract --check || {
             echo "::error title=Map is stale::the facts no longer describe the tree. Run systemap refresh and commit the output directory."
             exit 1
           }
 
       - name: layout, meaning and coverage are consistent
         run: |
-          uvx --from "git+https://github.com/0xfauzi/systemap@v__VERSION__" systemap check || {
+          uvx --from "systemap==__VERSION__" systemap check || {
             echo "::error title=Map check::the model contradicts itself or leaves a module unmapped; see the lines above."
             exit 1
           }
 
       - name: every judgement line is answered
         run: |
-          uvx --from "git+https://github.com/0xfauzi/systemap@v__VERSION__" systemap judgement --strict || {
+          uvx --from "systemap==__VERSION__" systemap judgement --strict || {
             echo "::error title=Judgement::a judgement line is unanswered. Act on it, or answer it under [judgement] answered in systemap.toml."
             exit 1
           }
 
       - name: page matches the renderer
         run: |
-          uvx --from "git+https://github.com/0xfauzi/systemap@v__VERSION__" systemap render --check || {
+          uvx --from "systemap==__VERSION__" systemap render --check || {
             echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
             exit 1
           }
@@ -322,7 +321,7 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           code=0
-          uvx --from "git+https://github.com/0xfauzi/systemap@v__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
+          uvx --from "systemap==__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
           echo "$code" > delta.code
           if [ ! -s delta.md ]; then
             printf '<!-- systemap delta -->\\n## What this change does to the map\\n\\nsystemap delta could not run (exit %s); see the workflow log.\\n' "$code" > delta.md

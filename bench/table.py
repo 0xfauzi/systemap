@@ -52,9 +52,15 @@ judgement --strict` run after the session; `run` says whether the session
 finished on its own or was cut off; `skill first` whether its first tool
 call was the systemap skill, as the recipe requires.
 
-ROADMAP.md states the targets (a first map at most 0.15 dollars per
-module; maintenance at most 2 dollars on a medium pull request). This
-table is the measurement; the README quotes it, not the targets.
+Before any of it was built, two numbers were set to be failed against: a
+first map at most 0.15 dollars per module, and a maintenance run at most
+15 turns and 2 dollars on a medium pull request. The rows below are what
+happened. Four of the six first maps came in under 0.15 and two did
+not (0.159 and 0.177). The maintenance runs came in at 2.31, 4.39 and
+2.50 dollars, over the 2 dollar line, and at 51, 63 and 46 turns, well
+over the 15 the target named, because the maintenance path runs delta,
+refresh, check and judgement rather than the two steps that number
+assumed. Neither target was moved after the fact.
 """
 
 EMPTY = "No run recorded yet: the table is empty until a repository is measured."

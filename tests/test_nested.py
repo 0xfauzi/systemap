@@ -1,4 +1,4 @@
-"""Nested maps: a card that opens a map of its own (ROADMAP.md, gap 5).
+"""Nested maps: a card that opens a map of its own.
 
 A package with two subpackages is mapped as one top map of five cards,
 two of which open a map: the Gateway card opens map/gateway.py and the

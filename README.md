@@ -63,9 +63,6 @@ you back a short list of the calls it had to make, each with its answer.
     uv tool install systemap        # or: uv add --dev systemap
     systemap init                   # --no-ci to skip the workflow
 
-Until the first PyPI release, install from the repository instead:
-`uv tool install git+https://github.com/0xfauzi/systemap`.
-
 `init` writes the configuration, an empty starter model, the agent's skill
 under `.claude/skills/systemap/`, and a CI workflow. Then it prints the one
 sentence you give your agent:
@@ -224,12 +221,6 @@ the skill's two copies are kept identical.
 Releases: tag `v<version>` on the release commit, then run
 `scripts/publish.sh`, which builds `dist/` and uploads with the PyPI token in
 the maintainer's macOS Keychain (`--dry-run` builds and stops).
-
-## Where it is going
-
-[ROADMAP.md](ROADMAP.md) names every gap between this release and 1.0, with a
-mechanism and an acceptance number for each, and records which of those numbers
-have been met and which were missed.
 
 MIT licensed.
 

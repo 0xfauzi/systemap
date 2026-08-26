@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.0
+
+Everything the roadmap named as a gap is built and has been run on
+repositories nobody here wrote, so the roadmap is deleted rather than
+carried as a list of things already done. What it was holding that is
+still true, the two numbers set before the work and what was measured
+against them, moved to docs/benchmarks.md beside the rows.
+
+- Six repositories mapped end to end by a coding agent following the
+  skill, four of them written by somebody else, each finishing unattended
+  with `systemap check` and `systemap judgement --strict` clean.
+- Two targets were missed and neither was moved: four of six first maps
+  came in under 0.15 dollars per module and two did not (0.159, 0.177),
+  and the three maintenance runs cost 2.31, 4.39 and 2.50 dollars at 51,
+  63 and 46 turns against a target of 15 turns and 2 dollars.
+- Published to PyPI, so `uv tool install systemap` works and the workflow
+  `init` writes can pin a released version.
+
 ## 0.12.1
 
 - The paper scheme reads on every surface it draws on. Its text colours were

@@ -112,7 +112,7 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     assert "system.html" not in toml
     workflow = (tmp_path / ".github/workflows/systemap.yml").read_text()
     # Nothing is on PyPI yet: the pin is the release tag, and moves to PyPI at 1.0.
-    pin = f'uvx --from "git+https://github.com/0xfauzi/systemap@v{__version__}" systemap'
+    pin = f'uvx --from "systemap=={__version__}" systemap'
     for command in ("extract --check", "check", "judgement --strict", "render --check"):
         assert f"{pin} {command}" in workflow, command
     assert workflow.index("systemap check") < workflow.index("judgement --strict")
@@ -151,7 +151,7 @@ def test_init_workflow_posts_the_delta_on_a_pull_request(tmp_path: Path) -> None
     assert "persist-credentials: false" in job and "fetch-depth: 0" in job
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in job
     assert "HEAD: ${{ github.event.pull_request.head.sha }}" in job
-    pin = f'uvx --from "git+https://github.com/0xfauzi/systemap@v{__version__}" systemap'
+    pin = f'uvx --from "systemap=={__version__}" systemap'
     assert f'{pin} delta --base "$BASE" --head "$HEAD" --format markdown > delta.md' in job
     # One comment: found by the marker delta prints first, then edited in place.
     assert f'startswith("{delta.MARKER}")' in job

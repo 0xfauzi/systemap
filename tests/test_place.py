@@ -1,6 +1,6 @@
 """`systemap place`: a position for every card without one, and `--all`.
 
-The acceptance lines of ROADMAP.md, gap 1, each as a test: the anonymised
+What `place` is held to, each as a test: the anonymised
 144-module fixture with every position stripped is placed and the
 geometry check is clean with no manual move, in under ten seconds; a
 card with a position is kept where it was; a second run changes nothing;
