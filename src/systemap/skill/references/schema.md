@@ -49,9 +49,19 @@ package and everything beneath it. Every module named must be in the facts,
 and every module in the facts must be claimed by exactly one component (or
 ignored with a reason under `[coverage]` in `systemap.toml`).
 
+A third form claims one public name inside a module another card owns:
+`"pkg.mod:name"`, a symbol claim, for a part that lives in its neighbour's
+file (a tool defined beside the agent that invokes it; see
+`references/layers.md`). A symbol claim counts for no module in the
+coverage rule and conflicts with no claim: the module's owner is whoever
+claims the module. The check refuses a symbol claim of a module the facts
+do not have, of a name the module does not define, or of a module nobody
+claims.
+
 `entry` is one public module-level name the claimed modules define: a
 function, a class, or an object such as `app` or `root_agent`; copy it from
-the facts file's `names`. The check refuses an entry no claimed module
+the facts file's `names`. For a card that claims only symbols, the entry is
+one of them. The check refuses an entry no claimed module or symbol
 defines and a component that names no module. An actor is the exception:
 it claims no code.
 

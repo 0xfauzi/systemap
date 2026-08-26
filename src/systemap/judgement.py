@@ -59,7 +59,7 @@ from typing import Any
 
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.extract import entry_label
-from systemap.model import Component, Meaning, Model, claimed, flow_layers
+from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
 
 MIN_STEM = 4
 # Import names that mark a module as calling a model or running an agent
@@ -116,7 +116,7 @@ def _modules_of(component: Component, facts: dict[str, Any]) -> list[str]:
     """The modules a component claims: from the facts when there are any."""
     if facts.get("components"):
         return claimed(component, facts["components"])
-    return [m for m in component.implemented_by if not m.endswith(".*")]
+    return [m for m in component.implemented_by if not m.endswith(".*") and not is_symbol(m)]
 
 
 def single_module(model: Model, facts: dict[str, Any]) -> list[str]:

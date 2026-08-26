@@ -98,3 +98,43 @@ genuinely outside the package (a remote service the agent calls) is an
 actor, and the flow to it is still a tool flow. Write one journey per
 agent's turn: what enters the window, what the model returns, what the
 agent invokes, what it writes back.
+
+## A tool that lives inside its agent's module
+
+Some frameworks put the agent and its tools in one file: a module
+`app.agent` defines `root_agent` and, beside it, the functions the agent
+is given as tools. A module is claimed by one card, so the tool card
+cannot claim `app.agent` too. It claims the symbol instead:
+
+```python
+(
+    Component(
+        id="Assistant",
+        does="Runs the model on the request and calls its tools.",
+        implemented_by=("app.agent",),
+        entry="root_agent",
+        kind="agent",
+        region="serve",
+        x=COL["c1"],
+        y=ROW["r1"],
+    ),
+)
+(
+    Component(
+        id="Search",
+        does="Looks a term up for the assistant.",
+        implemented_by=("app.agent:search",),
+        entry="search",
+        kind="tool",
+        region="serve",
+        x=COL["c2"],
+        y=ROW["r1"],
+    ),
+)
+```
+
+`Assistant` owns the module and counts for coverage; `Search` claims the
+public name `search` inside it, conflicts with nothing, and the check
+verifies that `app.agent` defines `search`. A symbol claim on a module no
+card claims is refused: claim the module first. The flow between them is
+`Flow("Assistant", "Search", "query", "tool")`, as for any tool.

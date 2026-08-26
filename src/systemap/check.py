@@ -56,7 +56,18 @@ from typing import Any
 
 from systemap import extract, figure, page
 from systemap.config import Config, Ignore
-from systemap.model import Layer, Meaning, Model, all_layers, claimed, defines_entry, module_matches
+from systemap.model import (
+    Layer,
+    Meaning,
+    Model,
+    all_layers,
+    claimed,
+    defines_entry,
+    is_symbol,
+    module_matches,
+    public_names,
+    symbol_claims,
+)
 from systemap.model import problems as model_problems
 from systemap.schematic import TEXT_PX
 from systemap.schematic import render as render_schematic
@@ -321,32 +332,53 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 
     The map draws what exists. A module the facts do not have, an empty
     entry, or an entry none of the claimed modules define would each draw
-    a part that is not in the tree, so all three are refused. Actors claim
+    a part that is not in the tree, so all three are refused. A symbol
+    claim (`pkg.mod:name`) must name a module the facts have, a public
+    name that module defines, and a module some component claims: the
+    symbol's card is a part inside that component's module, and a symbol
+    of a module nobody owns would be a card with no place. Actors claim
     no code and are never checked.
     """
     components = facts.get("components", {})
     if not components:
         return []
+    owned = {m for c in model.components for m in claimed(c, components)}
     out: list[str] = []
     for c in model.components:
         if c.kind == "actor":
             continue
         for pattern in c.implemented_by:
+            if is_symbol(pattern):
+                continue
             if not any(module_matches(pattern, m) for m in components):
                 out.append(f"{c.id} names module {pattern} which is not in the facts")
+        symbols: list[str] = []
+        for module, name in symbol_claims(c):
+            symbol = f"{module}:{name}"
+            if module not in components:
+                out.append(f"{c.id} claims symbol {symbol} of a module not in the facts")
+                continue
+            if name not in public_names(components[module]):
+                out.append(f"{c.id} claims symbol {symbol} which {module} does not define")
+                continue
+            if module not in owned:
+                out.append(
+                    f"{c.id} claims symbol {symbol} of a module nobody claims; a symbol "
+                    "claim needs the module's owner on the map"
+                )
+                continue
+            symbols.append(symbol)
         modules = claimed(c, components)
-        if not modules:
+        if not modules and not symbols:
             if not c.implemented_by:
                 out.append(f"{c.id} names no module; a component is code in the tree")
             continue
+        held = ", ".join(modules + symbols)
         if not c.entry:
-            out.append(f"{c.id} names no entry; its modules are {', '.join(modules)}")
+            out.append(f"{c.id} names no entry; its modules are {held}")
             continue
         if not defines_entry(c, facts):
-            out.append(
-                f"{c.id} names entry {c.entry} which none of its modules defines "
-                f"({', '.join(modules)})"
-            )
+            out.append(f"{c.id} names entry {c.entry} which none of its modules defines ({held})")
     return out
 
 

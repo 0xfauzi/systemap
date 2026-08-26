@@ -146,18 +146,26 @@ def mix(a: str, b: str, t: float) -> str:
     return f"#{r:02X}{g:02X}{bl:02X}"
 
 
+def _file_of(claim: str) -> str:
+    """The file one claim names, and the symbol after a colon for a symbol claim."""
+    module, _, name = claim.partition(":")
+    path = module.replace(".", "/") + ".py"
+    return f"{path}:{name}" if name else path
+
+
 def lives_in(modules: list[str]) -> str:
     """One muted line for a contributor: the file, or the package when many.
 
-    Three or fewer modules are named as files. More than that is a package,
-    named by its common directory with a count, so a component spread over a
-    subpackage does not turn the panel into a listing.
+    Three or fewer claims are named as files (a symbol claim as
+    `file.py:name`). More than that is a package, named by its common
+    directory with a count, so a component spread over a subpackage does
+    not turn the panel into a listing.
     """
     if not modules:
         return ""
     if len(modules) <= 3:
-        return ", ".join(m.replace(".", "/") + ".py" for m in modules)
-    parts = [m.split(".") for m in modules]
+        return ", ".join(_file_of(m) for m in modules)
+    parts = [m.partition(":")[0].split(".") for m in modules]
     common: list[str] = []
     for column in zip(*parts, strict=False):
         if len(set(column)) == 1:

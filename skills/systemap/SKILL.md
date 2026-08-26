@@ -69,9 +69,11 @@ this skill, not a formality after it.
 - A component is something a reader would point at and name. A module is
   not a part; a component usually holds several, and a module that does
   two things belongs with the one it is for. `implemented_by` names its
-  modules and `entry` one public module-level name they define (a
-  function, a class, an object such as `app`); both must be in the facts. Kinds: `component`, `store`, `actor` (a person or system
-  outside the code), and for agentic systems `agent`, `tool`, `context`.
+  modules, or a symbol `pkg.mod:name` for a part that lives inside another
+  card's module; `entry` is one public name they define (a function, a
+  class, an object such as `app`); both must be in the facts. Kinds:
+  `component`, `store`, `actor` (a person or system outside the code),
+  and for agentic systems `agent`, `tool`, `context`.
 - A flow is one artifact moving from one component to another. Its kind is
   `data` (an artifact moves) or `control` (one part drives another), the
   agent kinds `context` and `tool`, or one of your own, declared in
@@ -121,11 +123,9 @@ this skill, not a formality after it.
   not how much code it has.
 - The map draws what exists today. Every module a component names is in
   the facts; nothing on the map is a plan.
-- Prose is for emphasis. The relationships live on the edges: one sentence
-  per flow, one verb per direction. If it matters, it is an edge.
-- Never write an `entry` you did not find in the facts.
-- Run `systemap check` after every move; a card outside its band or a
-  route through a card is refused, not warned about.
+- Prose is for emphasis; the relationships live on the edges. If it
+  matters, it is an edge.
+- Run `systemap check` after every move; it refuses, it does not warn.
 
 ## References
 

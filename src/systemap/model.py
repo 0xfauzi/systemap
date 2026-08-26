@@ -535,15 +535,35 @@ def problems(model: Model, meaning: Meaning) -> list[str]:
     return out
 
 
+def is_symbol(pattern: str) -> bool:
+    """Is one `implemented_by` entry a symbol claim, `pkg.mod:name`?"""
+    return ":" in pattern
+
+
+def symbol_claims(component: Component) -> list[tuple[str, str]]:
+    """The (module, name) pairs a component claims by symbol."""
+    out: list[tuple[str, str]] = []
+    for pattern in component.implemented_by:
+        if is_symbol(pattern):
+            module, _, name = pattern.partition(":")
+            out.append((module, name))
+    return out
+
+
 def module_matches(pattern: str, module: str) -> bool:
     """Does one `implemented_by` entry name this module?
 
     An entry is an exact module name, or a package name followed by `.*`,
-    which names the package module itself and everything beneath it. This
-    is the one place that convention is defined; the build state, the
-    coverage rule, the drift check and the change map all read it from
-    here so they cannot disagree about what a component claims.
+    which names the package module itself and everything beneath it. A
+    symbol claim (`pkg.mod:name`) names one public name inside a module
+    and never the module: the module's owner is whoever claims the
+    module, so a symbol claim counts for no module and conflicts with no
+    claim. This is the one place the convention is defined; the build
+    state, the coverage rule, the drift check and the change map all read
+    it from here so they cannot disagree about what a component claims.
     """
+    if is_symbol(pattern):
+        return False
     if pattern.endswith(".*"):
         head = pattern[:-2]
         return module == head or module.startswith(head + ".")
@@ -580,12 +600,14 @@ def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
 
     The entry rule of `systemap check` reads this; it is the one place the
     lookup is written, so a rule and a drawing cannot disagree about
-    whether a name exists. Any public module-level name counts.
+    whether a name exists. Any public module-level name counts, in a
+    claimed module or claimed by symbol (then the symbol rule checks that
+    the module defines it).
     """
     components = facts.get("components", {})
-    return any(
-        component.entry in public_names(components[m]) for m in claimed(component, components)
-    )
+    if any(component.entry in public_names(components[m]) for m in claimed(component, components)):
+        return True
+    return any(name == component.entry for _module, name in symbol_claims(component))
 
 
 def build_state(component: Component, facts: Mapping[str, Any]) -> str:
