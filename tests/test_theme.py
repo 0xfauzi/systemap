@@ -218,7 +218,7 @@ def test_the_schemes_are_three_full_tables_and_the_default_is_warm() -> None:
         "#b7c27c",
     ]
     assert warm["layer_palette"][0] == "#e3b778"
-    assert theme_mod.PAPER["accent"] == "#99621c"
+    assert theme_mod.PAPER["accent"] == "#905c1a"
 
 
 def test_overrides_apply_per_scheme_and_bare_keys_to_the_default(sample: Sample) -> None:
@@ -361,3 +361,48 @@ def test_the_self_map_page_stamps_warm_and_switches() -> None:
     assert report["onLoad"] == "warm"
     assert [s["attr"] for s in report["switches"]] == ["warm", "graphite", "paper"]
     assert drive_theme(SELF_MAP, "--light")["onLoad"] == "paper"
+
+
+def _relative_luminance(value: str) -> float:
+    """The WCAG relative luminance of a #rrggbb colour."""
+    digits = value.lstrip("#")[:6]
+    channels = [int(digits[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+
+    def linear(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (linear(c) for c in channels)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast(one: str, other: str) -> float:
+    """The WCAG contrast ratio between two colours, lighter over darker."""
+    a, b = _relative_luminance(one), _relative_luminance(other)
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+
+# Colours that are never text or a mark a reader must read: the two rules,
+# the unlit edge, the tint behind a selection, and a change map's ghost.
+NOT_READ = frozenset({"bg", "surface", "raised", "accent_soft", "line", "line_2", "flow", "ghost"})
+# Every surface a token can be drawn on, so a token tuned to the ground
+# alone cannot fall below the floor on a panel or a chip.
+GROUNDS = ("bg", "surface", "raised")
+FLOOR = 4.5
+
+
+def test_every_scheme_clears_the_text_floor_on_every_surface() -> None:
+    for name, scheme in theme_mod.SCHEMES.items():
+        grounds = [scheme[key] for key in GROUNDS]
+        tokens = {
+            key: value
+            for key, value in scheme.items()
+            if isinstance(value, str) and value.startswith("#") and key not in NOT_READ
+        }
+        tokens.update({f"layer {k}": v for k, v in scheme["layers"].items()})
+        tokens.update({f"palette {i}": v for i, v in enumerate(scheme["layer_palette"])})
+        for key, value in tokens.items():
+            worst = min(_contrast(value, ground) for ground in grounds)
+            assert worst >= FLOOR, (
+                f"{name}: {key} ({value}) reads at {worst:.2f} to 1 on the surface "
+                f"it contrasts least with; the floor is {FLOOR} to 1"
+            )

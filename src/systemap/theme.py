@@ -75,7 +75,7 @@ GRAPHITE_INK = "#e6e4df"
 GRAPHITE_AMBER = "#e0a458"
 PAPER_GROUND = "#f4f2ee"
 PAPER_INK = "#1d2024"
-PAPER_AMBER = "#99621c"
+PAPER_AMBER = "#905c1a"
 
 # The standard layers' hues per scheme: the two derived readings, the two
 # standard kinds, and the three agent readings. Each reads apart from the
@@ -108,15 +108,15 @@ LAYER_PALETTE_GRAPHITE: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
 
 # Graphite's hues darkened in HSL until each clears 4.5:1 as text on paper.
 STANDARD_LAYERS_PAPER: dict[str, str] = {
-    "structure": "#786e52",
-    "system": "#4a738c",
-    "data": "#45785d",
-    "control": "#866b37",
-    "agents": "#a4547b",
-    "context": "#9f519f",
-    "tools": "#3f7b42",
+    "structure": "#71674d",
+    "system": "#466c84",
+    "data": "#417158",
+    "control": "#7e6434",
+    "agents": "#9a4f74",
+    "context": "#954c95",
+    "tools": "#3c743f",
 }
-LAYER_PALETTE_PAPER: list[str] = ["#ab5641", "#7660b4", "#67743e", "#3d71aa"]
+LAYER_PALETTE_PAPER: list[str] = ["#a1513d", "#7059b1", "#616d3b", "#396aa0"]
 
 # Each table: `scheme` is its name, `color_scheme` what the browser is told
 # (its form controls and scrollbars follow). A card's `state` is its fill,
@@ -227,14 +227,14 @@ PAPER: dict[str, Any] = {
     "line_2": "#b9b5ac",
     "ink": PAPER_INK,
     "ink_2": "#55534d",
-    "ink_3": "#6a6f77",
+    "ink_3": "#646870",
     "accent": PAPER_AMBER,
-    "accent_soft": "#99621c2e",
-    "steel": "#4a738c",
-    "good": "#457a43",
-    "warn": "#876b1f",
-    "bad": "#bf4531",
-    "violet": "#7660b4",
+    "accent_soft": "#905c1a2e",
+    "steel": "#466c84",
+    "good": "#41733f",
+    "warn": "#7f641d",
+    "bad": "#b5412f",
+    "violet": "#7059b1",
     "state": {
         "built": ["#ffffff", "#7c838d", "built"],
     },
@@ -245,17 +245,17 @@ PAPER: dict[str, Any] = {
         "server": ["#c4c0b7", "#f1efea"],
         "isolated": ["#b08a7c", "#f3ece8"],
     },
-    "region": "#6a6f77",
-    "change": "#bf4531",
+    "region": "#646870",
+    "change": "#b5412f",
     "reach": PAPER_AMBER,
     "flow": "#b4b8be",
     "layer_palette": LAYER_PALETTE_PAPER,
     "layers": dict(STANDARD_LAYERS_PAPER),
     "marks": dict(KIND_MARKS),
     "delta": {
-        "operations": "#4a738c",
-        "types": "#457a43",
-        "refusals": "#bf4531",
+        "operations": "#466c84",
+        "types": "#41733f",
+        "refusals": "#b5412f",
         "tests": PAPER_AMBER,
     },
     "font_ui": SANS,
