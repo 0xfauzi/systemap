@@ -1,76 +1,67 @@
-# Layout: where the regions go, so the edges have somewhere to run
+# Layout: what is still yours to decide
 
-Placing the cards is the part of the draft that takes longest, and the
-rule that governs it is not visible from the schema. It is this: an edge
-may not cross a region it does not belong to. The router runs every flow
-through the gutters between cards, and it treats a region the flow
-neither starts nor ends in as a wall. When no corridor avoids every
-foreign region, the route is drawn anyway and `systemap check` refuses
-it (`route: A -> B crosses region X`). So the regions must leave
-corridors, and the corridors must reach every pair of regions.
+`systemap place` places every card that has no `x` and `y`. Write the
+components and the flows without positions, run it, then run the check.
+What it does, so that you do not do it by hand:
 
-## The shapes that work
+- Regions go on a two-column grid inside their container, in the order
+  the model lists them, with the corridors the router needs already
+  there: 48 units between the region columns, 36 between the region
+  rows. An edge may not cross a region it does not belong to, and on
+  this grid every pair of regions is joined by a corridor.
+- Cards go on the grid inside their region, columns 190 apart and rows
+  92 apart, three deep before the region takes a second column. A
+  region's box follows its card count and a container's box its
+  regions. An actor, or any card in a container and no region, stands
+  in a column beside the regions, level with the cards it talks to.
+- The cards of a region are ordered by a few barycentre sweeps over the
+  flows, so the parts that talk sit together.
+- The positions are written into `map/model.py` in place, as the values
+  of `x` and `y`, and the boxes and the canvas with them; nothing else in
+  the file changes. `systemap place --print` prints them instead.
 
-- **Regions never tile a container.** Leave a gap between every two
-  regions: 48 units between region columns, 36 between region rows. The
-  gap is where the edges between the regions run.
-- **A 2xN grid of regions works for every pair.** With two region
-  columns and any number of region rows, the vertical gap between the
-  columns and the horizontal gaps between the rows form a cross (or a
-  ladder): from any region, an edge can reach the corridor beside it and
-  run along the corridors to any other region without entering a third.
-  The starter model `init` writes is a 2x2 grid with these gaps already
-  in place; rename the regions and keep the gaps.
-- **More than two full-width bands does not.** Three regions stacked as
-  full-width bands leave no corridor between the top band and the bottom
-  one: every route between them must cross the middle band, and the check
-  refuses it. Either narrow the middle band so a corridor runs past it,
-  or turn the stack into two columns.
-- **A container holding one region needs no gap**: the region is the
-  container's inside. A container holding several needs the same gaps
-  between them as the map does.
+The check decides, as before. `place` is deterministic: the same model
+always gets the same positions, and a second run changes nothing.
 
-## Placing the cards
+## What you decide
 
-- Put the cards on the grid: columns 190 apart (150 card, 40 gutter),
-  rows 92 apart (56 card, 36 gutter). A card off the grid closes the
-  corridor beside it.
-- The pitch is a starting value, not a rule. A dense region, one whose
-  row gutters carry more labels than they have seats, raises its own row
-  pitch (110, 130) and grows its box; the regions in one grid row need
-  not share a height, and the corridors between regions stay where they
-  were. When the check says `raise the row pitch of region X`, that is
-  the region to open up; the rest keep the grid.
-- Put the parts that talk most in adjacent regions, and within a region
-  next to each other. An edge between neighbours is short and straight;
-  an edge across the map bends around everything between.
-- Leave one empty card column where the long routes run: a column of no
-  cards down the middle of a region, or beside it, is the corridor the
-  edges between the far ends of the map take. The check names every
-  route through a card and every route across a foreign region; the fix
-  is a card moved, never an edge dropped.
-- Artifact labels sit on their edges. A label is a noun phrase of
-  one to three words (`facts`, `the fix`, `package roots`), never a
-  sentence. When a label cannot be seated the check says which fix
-  applies, from the router's own seat counts: `gutter between the row of
-  Orchestrator, Telemetry and the row of RosterClient (y 160 to 226)
-  holds 3 of 3 seats: move a card or raise the row pitch of region
-  orchestration` (the room across the gutter is used up; the gutter is
-  named by the cards on either side and its coordinates, and the fix by
-  the region it runs through) or `label is 41 units wider than its seat:
-  shorten the artifact` (no run of the path is long enough for the
-  words).
+- **Which region a card is in.** A region is a phase, a concern or a
+  team; the parts that talk most belong in one region or in adjacent
+  ones. This is the placement decision that carries meaning, and
+  `place` never makes it.
+- **The order of the regions.** The model's order is the grid's order,
+  two regions per row, left to right and then down. List the regions in
+  the order a reader would walk them, and put regions that talk most
+  side by side or one above the other.
+- **When to pin a card.** A card with `x` and `y` is pinned: `place`
+  never moves it. While any card is pinned, the region and container
+  boxes and the canvas stay as written and `place` puts the unpinned
+  cards in the free slots inside their own boxes; to lay the whole map
+  out again, remove every `x` and `y` and run `place` once more. Pin a
+  card when the check names a route through it and moving it is the
+  fix, or when its place must say something the grid does not.
+- **The artifact labels.** A label is a noun phrase of one to three
+  words (`facts`, `the fix`, `package roots`), never a sentence. When a
+  label cannot be seated the check says which fix applies, from the
+  router's own seat counts: `gutter between the row of A, B and the row
+  of C (y 160 to 226) holds 3 of 3 seats: move a card or raise the row
+  pitch of region X` (the room across the gutter is used up: pin a card
+  elsewhere, or give that region's cards positions 110 or 130 apart and
+  grow its box), or `label is 41 units wider than its seat: shorten the
+  artifact` (no run of the path is long enough for the words).
 
 ## Reading the picture without opening it
 
-`systemap describe` prints what a look at the page would tell you: the
+`systemap describe` prints what a look at the page would tell you: how
+many cards are pinned and how many `place` positioned for the look; the
 cards each region holds; every edge with its bends and length, worst
 first, and the gutter its label sits in; every gutter, named by the cards
 on either side of it and its coordinates (`between the row of A, B and
 the row of C (y 160 to 226)`), with the seats used at its fullest point
 of the seats it has (a seat is one label across the gutter, 13 units
-with a 2-unit gap and 3 units clear of the cards); and
-the cards and edges each reading lights. Run it after every check, and
-open the page (`systemap serve`) only if you can. A gutter at its seat
-count, an edge with five bends, a reading that lights two cards: each is
-a thing to fix in the placement before the second pass.
+with a 2-unit gap and 3 units clear of the cards); how many edges are
+observed, external and declared; and the cards and edges each reading
+lights. Run it after every check, and open the page (`systemap serve`)
+only if you can. A gutter at its seat count, an edge with five bends, a
+reading that lights two cards: each is a thing to fix (a card in another
+region, the regions reordered, a card pinned) before the second pass.

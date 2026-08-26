@@ -49,17 +49,27 @@ serve different parts. Group by what a reader would name; then a crossing
 import line in the judgement tells you where the directory and the purpose
 disagree.
 
-## Positions that make routes cross
+## Placing the cards by hand
 
-The check refuses a route through a card and across a foreign band, and
-the router does its best in the gutters. Cards off the grid close the
-corridors; regions that tile their container leave none. Put every card
-on the grid (columns 190 apart, rows 92 apart), keep the gaps between
-regions the starter has, put the parts that talk most next to each other,
-leave one empty column where the long routes run, and move a card rather
-than accept a route that snakes. `references/layout.md` has the rule and
-the shapes that work; `systemap describe` says what the picture looks
+A third of a first map's turns once went on positions: a card off the
+grid closing a corridor, regions tiling their container, a route that
+snakes. Leave `x` and `y` out and run `systemap place`; it lays the
+regions out with the corridors and puts every card on the grid, the
+parts that talk together. Pin a card (give it `x` and `y`) only when the
+check names a fix that is a card moved. `references/layout.md` says what
+is still yours to decide; `systemap describe` says what the picture looks
 like. `map routes: 0 edges through a card` is the line to reach.
+
+## A flow the code does not back
+
+An edge inferred from a document, or from what the parts ought to do, is
+a claim the facts do not make. Every flow carries an evidence state, and
+a flow no import joins is `declared`: it draws dashed and the judgement
+lists it. Find the import (often a module in the wrong card), name the
+mechanism in the sentence when the parts are joined by a subprocess, a
+queue or a file and list it under `[flows] observed_by`, or remove the
+edge. A map where a quarter of the edges are dashed was drawn from the
+README, not from the tree.
 
 ## Inventing an entry
 

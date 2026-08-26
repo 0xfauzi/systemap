@@ -3,7 +3,8 @@
 The first draft is wrong in ways the checker cannot see. The check refuses
 contradictions: a card outside its band, a sentence naming a flow the model
 lacks, a module claimed by nobody. It cannot refuse an omission: an edge
-the code has and the map does not, a grouping by directory rather than by
+the code has and the map does not, an edge the map has and the code does
+not, a grouping by directory rather than by
 purpose, an entry point with no walk through it, a rule the README states
 and the model does not carry. The second pass finds those. Expect it to
 change the model; a second pass that changes nothing on the first try is
@@ -31,8 +32,10 @@ the exception.
        { crossing_into = "Model", reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
        # every crossing import out of one component, whatever it imports
        { crossing_from = "CLI", reason = "the commands import every part they run; the control edges are the ones the map draws" },
+       # a declared flow that is real and joined by nothing in the tree
+       { item = "declared flow: Gateway -> Renderer (render job): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the job crosses to the render container as an HTTP request; the client is generated at build time and is not in the tree" },
        # every line of one kind: single module, possible mis-fold, no sentence,
-       # thin layer, entry point, crossing import, model sdk
+       # thin layer, entry point, crossing import, declared flow, model sdk
        { kind = "single module", reason = "a small package with one module per part; each card is a thing a reader would name" },
        # every model sdk line for one import
        { module_sdk = "google.adk", reason = "the framework's tool and session modules import it too; the agents are the cards of kind agent" },
@@ -50,11 +53,30 @@ the exception.
    - a grouping error: A and B belong in the same component, or A is in
      the wrong one; regroup. This is the most common finding.
 
-3. Walk every entry point. The line reads: `entry point X has no journey`.
+3. Walk every declared flow. The line reads: `declared flow: P -> Q
+   (artifact): no import joins them`. The map claims an edge the facts
+   do not back: no module of P imports a module of Q or the other way
+   round, and neither the sentence nor the artifact names a mechanism
+   listed under `[flows] observed_by`. Four outcomes:
+   - the import is there and the claims are wrong: a module of P or Q
+     belongs to another card; regroup, and the edge is observed;
+   - the parts are joined by something other than an import (a
+     subprocess, a queue, a file on disk, an HTTP call): name it in the
+     sentence, and list the word under `[flows] observed_by` in
+     `systemap.toml` so every flow that names it is observed by it (the
+     panel then says `observed by: queue`);
+   - the edge was inferred and is not there: remove the flow and its
+     sentence;
+   - the edge is real and nothing in the tree joins the two (the other
+     end is generated, or reached through a path the facts cannot see):
+     answer the line in the configuration, saying what joins them.
+   A declared flow draws dashed until one of these is done.
+
+4. Walk every entry point. The line reads: `entry point X has no journey`.
    Either write the journey (references/journeys-and-invariants.md) or
    answer why this entry point does not matter to a reader.
 
-4. Walk every model sdk line: `module X imports <sdk> and its component P
+5. Walk every model sdk line: `module X imports <sdk> and its component P
    is not an agent`. Five outcomes: P runs a model and is an agent
    (change its kind, and give it context and tool flows); P calls a model
    once and is deliberately not an agent, by the repository's own rule
@@ -69,7 +91,7 @@ the exception.
    `[facts] model_sdks = ["-google.adk"]` removes the entry, and
    `module_sdk = "google.adk"` answers every line it raised.
 
-5. Walk every rule the documents state. One pass, with the invariant
+6. Walk every rule the documents state. One pass, with the invariant
    list beside you, over the documents the repository points a newcomer
    at: the README, AGENTS.md, CLAUDE.md, and a docs index or the first
    level of docs/. Not the whole docs tree: stop when the rules still
@@ -78,19 +100,20 @@ the exception.
    Each rule found is an invariant with a citation, or a note in your
    hand-back saying why not.
 
-6. Look at the rendered figures, `docs/map/figures/structure.svg` (the
+7. Look at the rendered figures, `docs/map/figures/structure.svg` (the
    parts in their places) and then `docs/map/figures/system.svg` (every
    edge), and the page: `systemap serve` prints its URL. Look for: a
    route that passes close to a card it does not connect; a label sitting
    in the wrong gutter; a region holding one card (is it a region?); a
    component whose plain words repeat its id; a layer that lights almost
    nothing (is it a reading?); a journey that jumps across the map
-   between steps (a missing step?).
+   between steps (a missing step?); a dashed edge (a declared flow the
+   list above has not settled).
 
-7. Reread every sentence in `relations` from the source side. A sentence
+8. Reread every sentence in `relations` from the source side. A sentence
    that could be said of any edge ("A uses B") is not a sentence yet.
 
-8. Run `systemap check && systemap judgement --strict`, then `systemap
+9. Run `systemap check && systemap judgement --strict`, then `systemap
    refresh`. Together every round: a layout fix that drops an edge
    reopens the crossing-import lines the edge answered, and the judgement
    in the same round is what sees it. Go to 1.
@@ -104,7 +127,7 @@ Stop when all three hold:
 - `systemap judgement --strict` exits 0: every remaining line is answered
   in `[judgement] answered`, and no answer is stale. The workflow `init`
   writes runs it after `check`.
-- A full pass through steps 1 to 7 changed nothing in `map/model.py`.
+- A full pass through steps 1 to 8 changed nothing in `map/model.py`.
 
 Then hand back (SKILL.md, "What to hand back"): the answers are already in
 `systemap.toml`.

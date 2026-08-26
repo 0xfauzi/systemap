@@ -20,6 +20,12 @@ modules or entry are not in the facts, so the drawing never has to hedge.
 Every node carries `data-id` and its kind; every edge carries its artifact
 as visible text and its layer as `data-layer`.
 
+Every edge carries its evidence state (evidence.py): `observed` when an
+import joins its two ends or a configured mechanism is named, `external`
+when an actor is at either end, `declared` when the facts have nothing.
+A declared edge is drawn dashed, here and in every figure, and the panel
+says so beside its sentence.
+
 Edges are Manhattan paths routed by route.py through the gutters between
 cards: never through a card they do not connect, never through a region they
 neither start nor end in. Each label sits on the longest segment of its own
@@ -45,8 +51,10 @@ from __future__ import annotations
 import html
 import json
 import re
+from collections.abc import Iterable
 from typing import Any
 
+from systemap import evidence
 from systemap.model import (
     AGENT_KINDS,
     CARD_H,
@@ -338,6 +346,7 @@ def render(
     gained: dict[str, dict[str, int]] | None = None,
     hot_artifacts: set[str] | None = None,
     layer: str = "",
+    observed_by: Iterable[str] = (),
 ) -> tuple[str, str]:
     """(svg, json detail).
 
@@ -358,6 +367,9 @@ def render(
     map has, so the figure is the page with edges left out, not a second
     layout. An unknown id is a ValueError; the figure module checks it
     first and names the known ids.
+
+    `observed_by` is the repository's `[flows] observed_by` list: the
+    mechanisms other than an import that make a flow observed.
 
     The detail JSON carries one record per component (what the focus panel
     shows) plus a `_meta` key: the layers, every edge with its verbs and its
@@ -436,9 +448,11 @@ def render(
         return "<style>" + "".join(rules) + "</style>"
 
     states = {c.id: build_state(c, facts) for c in COMPONENTS}
+    backed = evidence.of_model(model, meaning, facts, observed_by)
 
     def geom(c: Component) -> Box:
-        return float(c.x), float(c.y), CARD_W, float(CARD_H[c.kind])
+        x, y, _w, h = c.box
+        return float(x), float(y), CARD_W, float(h)
 
     boxes = {c.id: geom(c) for c in COMPONENTS}
 
@@ -593,12 +607,16 @@ def render(
         if art_hot:
             colour, marker = T["change"], "change"
         fid = f"{svg_id}-f{i}"
+        ev = backed[(src, dst)]
+        # A declared edge is dashed: the map says so and the code does not.
+        dashed = ' stroke-dasharray="7 5"' if ev.state == evidence.DECLARED else ""
         flow_parts.append(
             f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
             f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
-            f'data-kind="{esc(kind)}" data-layer="{own}" d="{path_d(route.points)}" '
+            f'data-kind="{esc(kind)}" data-layer="{own}" data-evidence="{ev.state}" '
+            f'd="{path_d(route.points)}" '
             f'fill="none" stroke="{colour}" stroke-opacity="{0.95 if art_hot else 0.82}" '
-            f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round" '
+            f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round"{dashed} '
             f'marker-end="url(#{svg_id}-m-{marker})"/>'
         )
         if seat.cost > 0:
@@ -778,6 +796,7 @@ def render(
     edges_meta = []
     for i, (src, dst, artifact, kind) in enumerate(FLOWS):
         own = layers_of[i]
+        ev = backed[(src, dst)]
         edges_meta.append(
             {
                 "from": src,
@@ -788,6 +807,11 @@ def render(
                 "out": meaning.verb_for((src, dst), own, True),
                 "in": meaning.verb_for((src, dst), own, False),
                 "say": meaning.relations.get((src, dst), ""),
+                # The evidence state and the line the panel prints for it,
+                # worded here so the page and a figure say the same thing.
+                "evidence": ev.state,
+                "mechanism": ev.mechanism,
+                "evidence_says": ev.says,
             }
         )
     edge_index = {(a, b): i for i, (a, b, _art, _k) in enumerate(FLOWS)}
@@ -843,6 +867,10 @@ def render(
             ],
             "kinds": list(model.flow_kinds),
             "states": {s: sum(1 for v in states.values() if v == s) for s in states.values()},
+            "evidence": {
+                state: sum(1 for ev in backed.values() if ev.state == state)
+                for state in evidence.STATES
+            },
             "collisions": collisions,
             "notes": notes,
             "labels": label_boxes,
@@ -930,6 +958,10 @@ def panel_css(t: dict[str, Any]) -> str:
         f"line-height:1.45;color:{t['ink']};border-left:3px solid {t['accent']};"
         f"background:{t['raised']};border-radius:0 6px 6px 0;min-height:2.6rem}}"
         f".systemap-f__say.muted{{color:{t['ink_3']};border-left-color:{t['line_2']}}}"
+        # The evidence line under the sentence: what the facts say about the edge.
+        f".systemap-f__evidence{{margin:-.3rem 0 .6rem;font-family:{t['font_mono']};"
+        f"font-size:11px;color:{t['ink_3']};min-height:1em}}"
+        f".systemap-f__evidence.declared{{color:{t['warn']}}}"
         ".systemap-f__chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}"
         f".systemap-chip{{display:inline-flex;align-items:center;gap:.35em;min-height:24px;"
         f"padding:0 .55em;border-radius:4px;font-family:{t['font_mono']};font-size:11px;"
@@ -1510,7 +1542,10 @@ function wheelSvg(cid){
        + '" tabindex="0" role="button" aria-label="'
        + esc(cid + ' ' + s.verb + ' ' + s.other) + '">';
     h += '<line class="systemap-w__hit"' + ends + '/>';
-    h += '<line class="systemap-w__line"' + ends + ' stroke="' + s.colour + '"' + marker + '/>';
+    // A declared edge is dashed on the wheel as it is on the map.
+    var dash = s.e.evidence === 'declared' ? ' stroke-dasharray="6 4"' : '';
+    h += '<line class="systemap-w__line"' + ends + ' stroke="' + s.colour + '"' + marker + dash
+       + '/>';
     h += '<text class="systemap-w__verb" x="' + mx.toFixed(1) + '" y="' + (my + 4).toFixed(1)
        + '" fill="' + s.colour + '" transform="rotate(' + rot.toFixed(1) + ' ' + mx.toFixed(1)
        + ' ' + my.toFixed(1) + ')">' + esc(s.verb) + '</text>';
@@ -1552,6 +1587,8 @@ function describe(d){
   h += '<div class="systemap-f__wheel">' + wheelSvg(d.id) + '</div>';
   var say = (d.edges && d.edges.length) ? SAY_HINT : 'Nothing flows to or from this yet.';
   h += '<p class="systemap-f__say muted" data-say>' + esc(say) + '</p>';
+  // What the facts say about the peeked edge: observed, external or declared.
+  h += '<p class="systemap-f__evidence" data-evidence></p>';
   h += '<div class="systemap-f__chips">';
   h += '<span class="systemap-chip systemap-chip--' + esc(d.state) + '">' + esc(d.state_label)
      + '</span>';
@@ -1580,6 +1617,11 @@ function peek(i, sticky){
     if(say && e){
       say.textContent = e.say || (e.from + ' -> ' + e.to + ': ' + e.art);
       say.classList.remove('muted');
+    }
+    var ev = panel.querySelector('[data-evidence]');
+    if(ev && e){
+      ev.textContent = e.evidence_says || '';
+      ev.classList.toggle('declared', e.evidence === 'declared');
     }
     Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
       s.classList.toggle('peek', +s.dataset.edge === i); });

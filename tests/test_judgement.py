@@ -231,7 +231,7 @@ def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixt
         {
             "pkg/__init__.py": "",
             "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
-            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+            "pkg/writer.py": "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request)\n",
         },
     )
     init_two_cards(tmp_path, "--no-ci")
@@ -293,7 +293,7 @@ def test_judgement_command_always_exits_0(
         {
             "pkg/__init__.py": "",
             "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
-            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+            "pkg/writer.py": "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request)\n",
         },
     )
     init_two_cards(tmp_path, "--no-ci")
@@ -701,7 +701,7 @@ def test_bulk_answers_in_the_configuration(
         {
             "pkg/__init__.py": "",
             "pkg/reader.py": "import housemodel\n\n\ndef read(source: str) -> str:\n    return source\n",
-            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+            "pkg/writer.py": "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request)\n",
         },
     )
     init_two_cards(tmp_path, "--no-ci")
@@ -741,7 +741,7 @@ def test_strict_exits_1_while_a_line_is_open(
         {
             "pkg/__init__.py": "",
             "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
-            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+            "pkg/writer.py": "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request)\n",
         },
     )
     init_two_cards(tmp_path, "--no-ci")

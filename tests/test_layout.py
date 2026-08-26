@@ -2,9 +2,10 @@
 
 The rule the router enforces (an edge may not cross a region it does not
 belong to) is stated in references/layout.md, built into the starter
-model `init` writes (a 2x2 grid of regions with corridors between), named
-in a label collision (the gutter is full, or the label is too wide), and
-read back in numbers by `systemap describe`.
+model `init` writes (a 2x2 grid of regions with corridors between, which
+`systemap place` lays out again from the cards), named in a label
+collision (the gutter is full, or the label is too wide), and read back
+in numbers by `systemap describe`.
 """
 
 from __future__ import annotations
@@ -31,19 +32,14 @@ def run(*argv: str) -> int:
 
 
 def fill_starter(model: Path, both_ways: bool) -> None:
-    """One card in each of the starter's four regions, at the far corners, and a
-    flow between every pair: the routes must run along the corridors."""
+    """One card in each of the starter's four regions, written without a
+    position and placed by `systemap place`, and a flow between every pair:
+    the routes must run along the corridors."""
     text = model.read_text()
     cards = "".join(
         f'    Component(id="{cid}", does="{cid}", region="{cid.lower()}", '
-        f'implemented_by=("pkg.{cid.lower()}",), entry="run_{cid.lower()}", '
-        f'x=COL["{col}"], y=ROW["{row}"]),\n'
-        for cid, col, row in (
-            ("A", "l1", "t1"),
-            ("B", "r2", "t1"),
-            ("C", "l1", "b2"),
-            ("D", "r2", "b2"),
-        )
+        f'implemented_by=("pkg.{cid.lower()}",), entry="run_{cid.lower()}"),\n'
+        for cid in "ABCD"
     )
     pairs = [(a, b) for a in "ABCD" for b in "ABCD" if (a != b if both_ways else a < b)]
     flows = "".join(
@@ -68,6 +64,7 @@ def fill_starter(model: Path, both_ways: bool) -> None:
         assert old in text, old
         text = text.replace(old, new)
     model.write_text(text)
+    assert run("--root", str(model.parent.parent), "place") == 0
 
 
 # ---- the starter: a 2x2 grid whose corridors reach every pair -----------------------
@@ -356,36 +353,48 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     assert run("--root", str(tmp_path), "describe") == 1
     assert capsys.readouterr().out == "the model has no components yet; see the skill\n"
     fill_starter(tmp_path / "map/model.py", False)
+    capsys.readouterr()
     assert run("--root", str(tmp_path), "describe") == 0
     out = capsys.readouterr().out
-    assert out.startswith("canvas 910 x 570: 4 cards, 6 edges, 4 regions, 4 readings\n")
+    assert re.match(r"canvas \d+ x \d+: 4 cards, 6 edges, 4 regions, 4 readings\n", out)
+    assert "positions: 4 pinned\n" in out
     assert "  a: 1 card (A)\n" in out and "  d: 1 card (D)\n" in out
     assert "gutters: seats used" in out and "readings: the cards and edges each lights" in out
     # A model that contradicts itself cannot be drawn: the same refusal as check.
     model = tmp_path / "map/model.py"
-    model.write_text(
-        model.read_text().replace('x=COL["r2"], y=ROW["t1"]', 'x=COL["l1"], y=ROW["t1"]')
-    )
+    text = model.read_text()
+    a = re.search(r'id="A".*?(x=\d+, y=\d+)', text, re.S)
+    b = re.search(r'id="B".*?(x=\d+, y=\d+)', text, re.S)
+    assert a and b
+    model.write_text(text.replace(b.group(1), a.group(1)))
     assert run("--root", str(tmp_path), "describe") == 1
     assert "placement: A overlaps B" in capsys.readouterr().out
 
 
-def test_layout_reference_states_the_corridor_rule() -> None:
+def test_layout_reference_says_what_place_does_and_what_the_agent_decides() -> None:
     layout = skill.files()["references/layout.md"]
     for phrase in (
+        "what is still yours to decide",
+        "`systemap place` places every card that has no `x` and `y`",
         "may not cross a region it does not belong to",
-        "never tile a container",
-        "2xN grid",
-        "48 units between region columns, 36 between region rows",
-        "More than two full-width bands does not",
-        "one empty card column",
-        "one to three words",
+        "two-column grid",
+        "48 units between the region columns, 36 between the region\n  rows",
+        "columns 190 apart and rows\n  92 apart",
+        "barycentre sweeps",
+        "`systemap place --print`",
+        "a second run changes nothing",
+        "**Which region a card is in.**",
+        "**The order of the regions.**",
+        "**When to pin a card.**",
+        "remove every `x` and `y` and run `place` once more",
+        "one to three\n  words",
+        "raise the row\n  pitch of region X",
         "systemap describe",
-        # The pitch is a starting value; a dense region has its own.
-        "The pitch is a starting value, not a rule",
-        "raises its own row\n  pitch",
-        "need\n  not share a height",
-        "raise the row pitch of region X",
+        "how\nmany cards are pinned",
         "between the row of A, B and\nthe row of C (y 160 to 226)",
+        "observed, external and declared",
     ):
         assert phrase in layout, phrase
+    # What place does is no longer the agent's to do by hand.
+    for gone in ("Put the cards on the grid", "never tile a container", "Leave one empty"):
+        assert gone not in layout, gone

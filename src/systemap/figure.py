@@ -113,6 +113,13 @@ def figure(
         for lid, colour, label in layer_rows(t, model, meaning)
         if not layer or lid == layer
     )
+    if layer != "structure":
+        swatches += (
+            f'<span style="display:inline-flex;align-items:center;gap:.4em;'
+            f'margin-right:1.1em;white-space:nowrap">'
+            f'<span style="width:1em;height:0;border-top:2px dashed {t["ink_3"]};'
+            f'display:inline-block"></span>declared</span>'
+        )
     controls = ""
     panel = ""
     script = ""
@@ -273,6 +280,7 @@ def make(
         gained=gained,
         hot_artifacts=hot,
         layer=layer,
+        observed_by=cfg.observed_by,
     )
     meta = json.loads(detail).get("_meta", {})
     collisions: list[str] = list(meta.get("collisions", []))

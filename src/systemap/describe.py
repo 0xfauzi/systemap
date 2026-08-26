@@ -7,8 +7,12 @@ gutter under the second row is full, the Control reading lights almost
 nothing) is read here out of the same geometry the drawing has, and
 printed as numbers:
 
+    positions ... how many cards are pinned (x and y in the model) and how
+                  many `systemap place` placed for this look, not yet
+                  written
     regions ..... how many cards each holds, and which
     edges ....... bends and length, worst first, and where each label sits
+    evidence .... how many edges are observed, external and declared
     gutters ..... the bands between card rows and columns: how many label
                   seats each has and how many are used at its fullest
     readings .... how many cards and edges each layer lights
@@ -21,8 +25,10 @@ be seated, and then the check says so with the fix.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from typing import Any
 
+from systemap.evidence import STATES
 from systemap.model import Meaning, Model, all_layers, reading
 from systemap.route import Gutter, gutters, locate, seats
 from systemap.schematic import LABEL_H
@@ -100,8 +106,14 @@ def gutter_lines(
     return out
 
 
-def lines(model: Model, meaning: Meaning, meta: dict[str, Any]) -> list[str]:
-    """The description, from the drawing's own `_meta` (cards, paths, labels)."""
+def lines(
+    model: Model, meaning: Meaning, meta: dict[str, Any], placed: Iterable[str] = ()
+) -> list[str]:
+    """The description, from the drawing's own `_meta` (cards, paths, labels).
+
+    `placed` names the cards `systemap place` positioned for this look
+    because the model has none for them; the rest are pinned.
+    """
     cards: dict[str, list[float]] = meta["cards"]
     paths: dict[str, list[list[float]]] = meta["paths"]
     labels: list[dict[str, Any]] = meta["labels"]
@@ -112,6 +124,15 @@ def lines(model: Model, meaning: Meaning, meta: dict[str, Any]) -> list[str]:
         f"{_plural(len(model.flows), 'edge')}, {_plural(len(model.regions), 'region')}, "
         f"{_plural(len(layers), 'reading')}"
     ]
+    placed_ids = list(placed)
+    pinned = len(model.components) - len(placed_ids)
+    line = f"positions: {pinned} pinned"
+    if placed_ids:
+        line += (
+            f", {len(placed_ids)} placed by systemap place and not yet written "
+            f"({', '.join(placed_ids)}); run: systemap place"
+        )
+    out.append(line)
 
     out.append("regions: the cards each holds")
     for r in model.regions:
@@ -151,6 +172,13 @@ def lines(model: Model, meaning: Meaning, meta: dict[str, Any]) -> list[str]:
     out += gutter_lines(labels, paths, rows, True)
     out += gutter_lines(labels, paths, cols, False)
 
+    counts: dict[str, int] = meta.get("evidence", {})
+    out.append(
+        "evidence: "
+        + ", ".join(f"{counts.get(state, 0)} {state}" for state in STATES)
+        + " (an import joins the ends, an actor is at one end, or nothing in the facts does)"
+    )
+
     out.append("readings: the cards and edges each lights")
     for lay in layers:
         edges, subjects = reading(model, meaning, lay.id)
@@ -169,8 +197,15 @@ def lines(model: Model, meaning: Meaning, meta: dict[str, Any]) -> list[str]:
     return out
 
 
-def run(model: Model, meaning: Meaning, t: dict[str, Any], facts: dict[str, Any]) -> list[str]:
+def run(
+    model: Model,
+    meaning: Meaning,
+    t: dict[str, Any],
+    facts: dict[str, Any],
+    observed_by: Iterable[str] = (),
+    placed: Iterable[str] = (),
+) -> list[str]:
     """Draw once, the way the page does, and describe what was drawn."""
-    _svg, detail = render_schematic(model, meaning, t, facts)
+    _svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
     meta = json.loads(detail)["_meta"]
-    return lines(model, meaning, meta)
+    return lines(model, meaning, meta, placed)

@@ -11,9 +11,10 @@ check refuses anything else, so nothing here is a plan and nothing says
 The map has three actors outside the code (the agent that authors, the
 maintainer who reviews, the CI that refuses) and five bands inside it:
 what you operate, what gathers, what means, what draws, what keeps the map
-true. Positions are hand-placed on a grid; `systemap check` decides
-whether the placement is clean, and `systemap describe` says what the
-picture shows.
+true. Positions are fixed in this file, and pinned: `systemap place`
+writes a first position for a card without one and never moves a pinned
+card; `systemap check` decides whether the placement is clean, and
+`systemap describe` says what the picture shows.
 """
 
 from __future__ import annotations
@@ -31,35 +32,33 @@ from systemap import (
     Step,
 )
 
-# The grid: card columns 190 apart (150 card, 40 gutter), rows 155 apart.
-# Column c3 is empty below the first row on purpose: it is the corridor the
-# long routes between the two halves of the map run down.
-COL = {"out": 41, "c1": 300, "c2": 490, "c3": 680, "c4": 870, "c5": 1060}
-ROW = {"r0": 78, "r1": 225, "r2": 380, "r3": 535}
+# Every position, box and the canvas below were written by `systemap place`
+# and are pinned: a card keeps its x and y until the maintainer moves it,
+# and a card written without them is placed into a free slot of its region.
 
 CONTAINERS = (
     Container(
         id="outside",
         label="OUTSIDE THE PACKAGE",
         sub="the people and the runner that use it",
-        box=(16, 16, 200, 668),
+        box=(16, 16, 190, 644),
         tone="host",
     ),
     Container(
         id="systemap",
         label="SYSTEMAP",
         sub="one command-line process; nothing is fetched, nothing is served",
-        box=(240, 16, 1024, 668),
+        box=(230, 16, 848, 860),
         tone="server",
     ),
 )
 
 REGIONS = (
-    Region("operate", "OPERATE", (264, 44, 976, 106), container="systemap"),
-    Region("gather", "GATHER", (280, 190, 380, 125), container="systemap"),
-    Region("mean", "MEAN", (850, 190, 380, 125), container="systemap"),
-    Region("draw", "DRAW", (280, 350, 380, 290), container="systemap"),
-    Region("keep", "KEEP TRUE", (850, 350, 380, 290), container="systemap"),
+    Region("operate", "OPERATE", (250, 80, 380, 204), container="systemap"),
+    Region("gather", "GATHER", (678, 80, 190, 204), container="systemap"),
+    Region("mean", "MEAN", (250, 320, 190, 204), container="systemap"),
+    Region("draw", "DRAW", (678, 320, 380, 204), container="systemap"),
+    Region("keep", "KEEP TRUE", (250, 560, 190, 296), container="systemap"),
 )
 
 COMPONENTS = (
@@ -69,24 +68,24 @@ COMPONENTS = (
         does="Reads the skill, runs the commands, writes the model, fixes what the check names, and answers what the judgement asks.",
         kind="actor",
         container="outside",
-        x=COL["out"],
-        y=120,
+        x=36,
+        y=596,
     ),
     Component(
         id="CI",
         does="Runs the check on every pull request and fails the ones that leave the map behind.",
         kind="actor",
         container="outside",
-        x=COL["out"],
-        y=340,
+        x=36,
+        y=412,
     ),
     Component(
         id="Maintainer",
         does="Reads the judgement answers, corrects the model where it disagrees, and commits the map.",
         kind="actor",
         container="outside",
-        x=COL["out"],
-        y=540,
+        x=36,
+        y=504,
     ),
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
@@ -96,8 +95,8 @@ COMPONENTS = (
         implemented_by=("systemap.cli", "systemap.__main__"),
         entry="main",
         region="operate",
-        x=COL["c1"],
-        y=ROW["r0"],
+        x=460,
+        y=120,
     ),
     Component(
         id="Scaffold",
@@ -107,8 +106,8 @@ COMPONENTS = (
         entry="write",
         note="never overwrites a file that exists: an upgrade of systemap edits nothing init wrote, so a pinned workflow is bumped by hand",
         region="operate",
-        x=COL["c2"],
-        y=ROW["r0"],
+        x=270,
+        y=212,
     ),
     Component(
         id="Config",
@@ -118,8 +117,8 @@ COMPONENTS = (
         entry="load",
         kind="store",
         region="operate",
-        x=COL["c3"],
-        y=ROW["r0"],
+        x=460,
+        y=212,
     ),
     # ---- gather: the mechanical truth ----
     Component(
@@ -129,8 +128,8 @@ COMPONENTS = (
         implemented_by=("systemap.extract", "systemap.facts"),
         entry="build",
         region="gather",
-        x=COL["c1"],
-        y=ROW["r1"],
+        x=698,
+        y=120,
     ),
     Component(
         id="ChangeDetector",
@@ -139,8 +138,18 @@ COMPONENTS = (
         implemented_by=("systemap.change",),
         entry="compute",
         region="gather",
-        x=COL["c2"],
-        y=ROW["r1"],
+        x=698,
+        y=212,
+    ),
+    Component(
+        id="Placer",
+        does="A first position for every card without one: regions on a two-column grid with corridors between them, cards on the grid inside, ordered by barycentre sweeps over the flows. Writes the positions into map/model.py in place and never moves a pinned card.",
+        interface="compute(model) -> Placement; write(path, model, placement)",
+        implemented_by=("systemap.place",),
+        entry="compute",
+        region="operate",
+        x=270,
+        y=120,
     ),
     # ---- mean: the judgement ----
     Component(
@@ -150,19 +159,19 @@ COMPONENTS = (
         implemented_by=("systemap.skill",),
         entry="write",
         region="mean",
-        x=COL["c4"],
-        y=ROW["r1"],
+        x=270,
+        y=360,
     ),
     Component(
         id="Model",
-        does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has.",
+        does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has, and reads from the facts whether an import backs each flow: observed, external or declared.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
-        implemented_by=("systemap.model", "systemap"),
+        implemented_by=("systemap.model", "systemap", "systemap.evidence"),
         entry="Model",
         kind="store",
         region="mean",
-        x=COL["c5"],
-        y=ROW["r1"],
+        x=270,
+        y=452,
     ),
     # ---- draw: one generator for every picture ----
     Component(
@@ -172,8 +181,8 @@ COMPONENTS = (
         implemented_by=("systemap.route",),
         entry="route_all",
         region="draw",
-        x=COL["c1"],
-        y=ROW["r2"],
+        x=698,
+        y=452,
     ),
     Component(
         id="Schematic",
@@ -182,8 +191,8 @@ COMPONENTS = (
         implemented_by=("systemap.schematic", "systemap.theme"),
         entry="render",
         region="draw",
-        x=COL["c2"],
-        y=ROW["r2"],
+        x=888,
+        y=452,
     ),
     Component(
         id="Page",
@@ -192,8 +201,8 @@ COMPONENTS = (
         implemented_by=("systemap.page",),
         entry="build",
         region="draw",
-        x=COL["c1"],
-        y=ROW["r3"],
+        x=888,
+        y=360,
     ),
     Component(
         id="Figures",
@@ -202,8 +211,8 @@ COMPONENTS = (
         implemented_by=("systemap.figure",),
         entry="make",
         region="draw",
-        x=COL["c2"],
-        y=ROW["r3"],
+        x=698,
+        y=360,
     ),
     # ---- keep true: what refuses, and what asks a person ----
     Component(
@@ -213,8 +222,8 @@ COMPONENTS = (
         implemented_by=("systemap.check",),
         entry="run",
         region="keep",
-        x=COL["c4"],
-        y=ROW["r2"],
+        x=270,
+        y=692,
     ),
     Component(
         id="Judgement",
@@ -223,8 +232,8 @@ COMPONENTS = (
         implemented_by=("systemap.judgement", "systemap.suggest"),
         entry="run",
         region="keep",
-        x=COL["c5"],
-        y=ROW["r2"],
+        x=270,
+        y=600,
     ),
     Component(
         id="Describe",
@@ -233,8 +242,8 @@ COMPONENTS = (
         implemented_by=("systemap.describe",),
         entry="run",
         region="keep",
-        x=COL["c4"],
-        y=ROW["r3"],
+        x=270,
+        y=784,
     ),
 )
 
@@ -246,6 +255,7 @@ FLOWS = (
     Flow("Agent", "CLI", "commands", "control"),
     Flow("CI", "CLI", "check", "control"),
     Flow("CLI", "Scaffold", "init", "control"),
+    Flow("CLI", "Placer", "place", "control"),
     Flow("CLI", "Skill", "init, skill", "control"),
     Flow("CLI", "FactsExtractor", "extract", "control"),
     Flow("CLI", "ChangeDetector", "--base", "control"),
@@ -271,6 +281,8 @@ FLOWS = (
     Flow("FactsExtractor", "ChangeDetector", "surfaces", "data"),
     Flow("ChangeDetector", "Page", "change map", "data"),
     Flow("ChangeDetector", "Figures", "reach", "data"),
+    Flow("Model", "Placer", "cards, flows", "data"),
+    Flow("Placer", "Model", "positions", "data"),
     Flow("Model", "FactsExtractor", "claims", "data"),
     Flow("Model", "ChangeDetector", "claims", "data"),
     Flow("Model", "Schematic", "topology, meaning", "data"),
@@ -321,8 +333,8 @@ INVARIANTS = (
     ),
     Invariant(
         5,
-        "Positions are placed by hand and the checker decides, so the same system always draws the same picture (README, Principles).",
-        governs=("Model", "Router", "Check"),
+        "Positions are fixed in the model, written once by systemap place or by hand, and the checker decides, so the same system always draws the same picture (README, Principles).",
+        governs=("Model", "Placer", "Router", "Check"),
     ),
     Invariant(
         6,
@@ -352,7 +364,7 @@ INVARIANTS = (
 )
 
 MODEL = Model(
-    canvas=(1280, 700),
+    canvas=(1094, 892),
     containers=CONTAINERS,
     regions=REGIONS,
     components=COMPONENTS,
@@ -369,6 +381,7 @@ PLAIN = {
     "Maintainer": "the person who confirms",
     "CLI": "the commands",
     "Scaffold": "what init writes",
+    "Placer": "what places the cards",
     "Config": "the configuration",
     "FactsExtractor": "what reads the code",
     "ChangeDetector": "what a branch changed",
@@ -411,6 +424,10 @@ RELATIONS = {
         "CLI",
         "Skill",
     ): "init installs the skill directory beside the project, and skill reinstalls it; an upgrade of the package refreshes it.",
+    (
+        "CLI",
+        "Placer",
+    ): "place computes a position for every card without one and writes it into the model; describe places them for one look without writing.",
     (
         "CLI",
         "FactsExtractor",
@@ -483,7 +500,7 @@ RELATIONS = {
     (
         "FactsExtractor",
         "Schematic",
-    ): "The facts say which modules each card stands for, for the line the panel prints.",
+    ): "The facts file, written by extract and read back by every command, says which modules each card stands for and which flows an import backs.",
     (
         "FactsExtractor",
         "Judgement",
@@ -500,6 +517,14 @@ RELATIONS = {
         "ChangeDetector",
         "Figures",
     ): "A change figure marks what a git range changed; a reach figure marks what a plan will.",
+    (
+        "Model",
+        "Placer",
+    ): "The placer reads the cards, their regions and the flows between them; a card with x and y is pinned and left alone.",
+    (
+        "Placer",
+        "Model",
+    ): "The placer writes the positions, the boxes and the canvas into map/model.py in place; the rest of the file is kept byte for byte.",
     (
         "Model",
         "FactsExtractor",
@@ -585,6 +610,7 @@ VERBS = {
 VERB_OVERRIDES = {
     ("Config", "CLI"): ("configures", "is configured by"),
     ("Scaffold", "Model"): ("writes the first", "starts as"),
+    ("Placer", "Model"): ("places", "is placed by"),
     ("Skill", "Agent"): ("guides", "follows"),
     ("Agent", "Model"): ("writes", "is written by"),
     ("Maintainer", "Model"): ("corrects", "is corrected by"),
@@ -634,7 +660,13 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "Model"),
-                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, a journey per entry point.",
+                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, a journey per entry point, and no positions.",
+            ),
+            Step(
+                acts=("Placer",),
+                measures=(),
+                edge=("Placer", "Model"),
+                say="systemap place lays the regions out on a grid with corridors between them, puts every card on it, and writes the positions into the file.",
             ),
             Step(
                 acts=("Check",),

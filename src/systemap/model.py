@@ -19,11 +19,13 @@ a function, a class, an object such as `app`); `systemap check` refuses a
 module or an entry the facts do not have, so a card on the page is always
 code in the tree. Nothing on the map is a plan; nothing is declared done.
 
-Positions are hand-placed because this is a topology, not a chart: a box's
-place carries meaning. A fixed layout also means the same system always
-draws the same picture, so a change in the drawing is a change in the
-system. `Model.layout_problems()` checks the placement mechanically and
-`meaning_problems()` checks that the meaning names only what the model has.
+Positions are fixed in the model because this is a topology, not a chart:
+a box's place carries meaning. A fixed layout also means the same system
+always draws the same picture, so a change in the drawing is a change in
+the system. `systemap place` writes a first placement for every card
+without one and never moves a card that has one; `Model.layout_problems()`
+checks the placement mechanically and `meaning_problems()` checks that the
+meaning names only what the model has.
 
 Six node kinds are drawn differently on purpose. A `component` does work, a
 `store` holds state, an `actor` is outside the system. In an agentic system
@@ -92,7 +94,10 @@ class Component:
     """One card on the map.
 
     `region` places a component or store; `container` places an actor. `x`
-    and `y` are the card's top-left corner in canvas units. `note` is a
+    and `y` are the card's top-left corner in canvas units; a card with
+    both is pinned and `systemap place` never moves it, a card with
+    neither is placed by `systemap place` and refused by the check until
+    it is. `note` is a
     caveat the reader should see; `interface` is the one-line signature the
     reader is told. `entry` is required for every kind but `store` and
     `context`, which may be a namespace with no way in. `calls_model` marks
@@ -109,10 +114,15 @@ class Component:
     kind: str = "component"
     region: str | None = None
     container: str | None = None
-    x: int = 0
-    y: int = 0
+    x: int | None = None
+    y: int | None = None
     note: str = ""
     calls_model: bool = False
+
+    @property
+    def pinned(self) -> bool:
+        """Has the card a position of its own? Both `x` and `y` given."""
+        return self.x is not None and self.y is not None
 
     @property
     def model_end(self) -> bool:
@@ -128,6 +138,8 @@ class Component:
 
     @property
     def box(self) -> Box:
+        if self.x is None or self.y is None:
+            raise ValueError(f"{self.id} has no position; run: systemap place")
         return self.x, self.y, CARD_W, CARD_H[self.kind]
 
 
@@ -302,17 +314,18 @@ class Model:
         return [inv.n for inv in sorted(self.invariants, key=lambda i: i.n) if cid in inv.governs]
 
     def layout_problems(self) -> list[str]:
-        """Ways the hand-placed topology contradicts itself. Empty means clean.
+        """Ways the placed topology contradicts itself. Empty means clean.
 
-        Every card must sit inside the region (or container) the model
-        assigns it, no two cards may overlap, a region that names a
+        Every card must have a position and sit inside the region (or
+        container) the model assigns it, no two cards may overlap, a region
+        that names a
         container must sit inside it, every flow must name known components
         and a kind that is standard or declared, no ordered pair may carry
         two flows, a context or tool flow
         must have an agent or a `calls_model` component at its agent end, and every invariant must
         carry its own number and govern known components. A card outside its band would draw a
         topology the model does not claim, which is the one lie a
-        hand-placed layout can tell.
+        fixed layout can tell.
         """
         out: list[str] = []
         regions = {r.id: r.box for r in self.regions}
@@ -344,9 +357,11 @@ class Model:
                 out.append(f"{c.id} names no region or container")
             elif outer is None:
                 out.append(f"{c.id} names unknown region or container {c.home}")
+            elif not c.pinned:
+                out.append(f"{c.id} has no position (x, y); run: systemap place")
             elif not _inside(c.box, outer):
                 out.append(f"{c.id} is drawn outside {c.home}")
-        drawable = [c for c in self.components if c.kind in CARD_H]
+        drawable = [c for c in self.components if c.kind in CARD_H and c.pinned]
         for i, a in enumerate(drawable):
             for b in drawable[i + 1 :]:
                 if _overlap(a.box, b.box):

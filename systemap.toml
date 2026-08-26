@@ -12,6 +12,12 @@ out_dir = "docs/map"
 [coverage]
 ignore = []
 
+# The mechanisms other than an import that join this package's parts. The
+# facts file is written by extract and read back by every command, so a
+# flow whose sentence names it is observed by it, not declared.
+[flows]
+observed_by = ["facts file"]
+
 # The figures the README embeds, each the bare drawing on its ground, as an
 # image. Structure is the calm picture (regions and parts, no arrows) and
 # Control flow one reading; the whole map, every layer at once, is kept
@@ -49,4 +55,6 @@ answered = [
         "crossing import: module systemap.page (component Page) imports module systemap.model (component Model) and no flow joins Page and Model",
     ], reason = "the drawers import the schema for type names and the layer order; the model itself reaches them through the Schematic (topology, meaning), which the map draws" },
     { crossing = ["Describe", "Model"], reason = "describe imports the schema for the layer table and the readings it counts; the model reaches it as the Schematic's geometry, which the map draws" },
+    { crossing = ["Placer", "Schematic"], reason = "the placer reads the drawing's header measurements (the label and sub widths) so a box it lays out holds its header; nothing travels between them at run time" },
+    { item = "declared flow: ChangeDetector -> Page (change map): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the change map is computed by the detector and handed to the page by the CLI (render --base); the page never imports the detector, and the hand-over is the CLI's control edge to each" },
 ]

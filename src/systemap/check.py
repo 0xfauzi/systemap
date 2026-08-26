@@ -1,8 +1,9 @@
 """Check the map geometry and the meaning tables mechanically.
 
-The map is hand-placed (positions) and hand-authored (relations), so two
-kinds of quiet lie are possible: a card drawn where the model does not claim
-it, or a sentence that names a flow the model no longer has. Both fail here
+The map's positions are fixed in the model (written by `systemap place`
+or by hand) and its relations are hand-authored, so two kinds of quiet
+lie are possible: a card drawn where the model does not claim it, or a
+sentence that names a flow the model no longer has. Both fail here
 instead of shipping.
 
 What is checked, in order:
@@ -624,18 +625,21 @@ def run(
     t: dict[str, Any],
     facts: dict[str, Any],
     ignores: Iterable[Ignore] = (),
+    observed_by: Iterable[str] = (),
 ) -> Result:
     """Check the model against the facts.
 
     Placement and meaning are checked first; the drawing is only attempted
     once those are clean, since a model that contradicts itself cannot be
     drawn honestly. Coverage is checked regardless, because it reads the
-    facts and the claims only, never the drawing.
+    facts and the claims only, never the drawing. `observed_by` is the
+    repository's list of non-import mechanisms; it changes what the
+    drawing says of an edge, never what the check refuses.
     """
     problems = model_problems(model, meaning)
     through = across = 0
     if not problems:
-        svg, detail = render_schematic(model, meaning, t, facts)
+        svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
         meta = json.loads(detail)["_meta"]
         route_problems, through, across = check_routes(meta, model)
         problems += route_problems

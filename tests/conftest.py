@@ -307,7 +307,7 @@ def sample(tmp_path: Path) -> Sample:
 
 STARTER_MODULES = {
     "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
-    "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+    "pkg/writer.py": "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request)\n",
 }
 
 TWO_CARD_MODEL = '''# ruff: noqa: E501

@@ -4,7 +4,9 @@ A small pipeline: a person types input, a reader turns it into a request,
 a parser splits it, a writer joins the parts and records the result in a
 ledger. The modules are `pkg.reader`, `pkg.parser`, `pkg.writer` and
 `pkg.ledger`. This model passes `systemap check` against those modules as
-written; the test suite runs it.
+written; the test suite runs it. Its positions are pinned so the example
+is the whole file; a first draft leaves `x` and `y` out and runs
+`systemap place`, which writes them.
 
 ```python
 """The system map of pkg: what the parts are and what they are to each other."""

@@ -67,7 +67,9 @@ def build(
     """The whole page as one string."""
     T = t
     COMPONENTS = model.components
-    system_svg, detail = render_schematic(model, meaning, T, facts, svg_id="schematic")
+    system_svg, detail = render_schematic(
+        model, meaning, T, facts, svg_id="schematic", observed_by=cfg.observed_by
+    )
     states = {cid: rec["state"] for cid, rec in json.loads(detail).items() if cid != "_meta"}
     change_svg, change_detail = "", ""
     if ch.get("has_change"):
@@ -84,6 +86,7 @@ def build(
             svg_id="changemap",
             gained=gained,
             hot_artifacts=ch["flow_artifacts"],
+            observed_by=cfg.observed_by,
         )
 
     commit = (facts.get("built_at_commit") or "")[:10]
@@ -210,6 +213,10 @@ def build(
             f'<span class="lg"><i class="lg--line" style="background:{colour}"></i>'
             f"{esc(label)}</span>"
         )
+    o.append(
+        f'<span class="lg"><i class="lg--dashline" style="border-color:{T["ink_3"]}"></i>'
+        "declared</span>"
+    )
     o.append('<span class="lg lg--gap"></span>')
     for fill, stroke, label in legend_rows(T, "system"):
         o.append(
@@ -236,7 +243,9 @@ def build(
         '<p class="key">Every card is code in the tree today: the check refuses a component '
         "whose modules or entry are not in the facts. A dashed card is an actor outside the "
         "code. A dot in a card's top corner marks a note; the panel shows it. Every line "
-        "carries what it moves and is coloured by the layer it belongs to. "
+        "carries what it moves and is coloured by the layer it belongs to. A dashed line "
+        "is a declared flow: no import in the facts joins its two ends; the panel says "
+        "of every flow whether it is observed, external or declared. "
         "Click a component; press Escape to clear it and return the view; arrow keys step a "
         "journey; double-click a region's name to frame the region. Text is drawn at 11px "
         "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"
@@ -404,6 +413,8 @@ font-family:var(--fm);font-size:11px;color:var(--ink-3)}}
 .lg{{display:inline-flex;align-items:center;gap:.4rem}}
 .lg i{{width:13px;height:9px;border:1px solid;border-radius:2px;display:inline-block}}
 .lg i.lg--line{{height:3px;border:0;width:16px}}
+.lg i.lg--dashline{{height:0;width:16px;border:0;border-top:2px dashed;border-radius:0;
+background:none}}
 .lg i.lg--dashed{{border-style:dashed}}
 .lg i.lg--ring{{background:none;border-width:2px;border-radius:3px}}
 /* the kind marks: an agent's inner ring, a tool's notch, a context's dots */

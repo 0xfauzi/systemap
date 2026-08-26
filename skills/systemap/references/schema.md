@@ -36,7 +36,7 @@ in a region.
 
 ## Component
 
-`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=0, y=0, note="", calls_model=False)`
+`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False)`
 
 One card on the map. `id` is a code name in CamelCase, unique on the map.
 `does` says what it is for in plain words, one or two sentences, with no
@@ -107,7 +107,10 @@ capability an agent invokes; notched corner) or `context` (a store whose
 content enters an agent's window; dotted). `region` places anything but an
 actor; `container` places an actor. `x` and `y` are the card's top-left
 corner; cards are 150 wide, and 56 tall (52 for a store or a context card,
-44 for an actor).
+44 for an actor). Leave them out: `systemap place` writes them, on the
+grid inside the card's region, and the check refuses a card that has
+none until it does. A card with both is pinned, and `place` never moves
+it (`references/layout.md`).
 
 The card has a text budget, and the check refuses what does not fit rather
 than cutting it: the `id` fits about 20 characters on one line (a
@@ -144,6 +147,21 @@ verb and the spoke on the wheel, so the check refuses a second flow from
 A to B. When two things travel the same way, pick the artifact that
 matters to the reader; when something travels back, draw the other
 direction as its own flow with its own sentence.
+
+Every flow has an evidence state, read from the facts at render and at
+check time and never written: `observed` when a module of `src` imports
+a module of `dst` or the other way round, or when the sentence or the
+artifact names a mechanism listed under `[flows] observed_by` in
+`systemap.toml` (then the panel says `observed by: queue`); `external`
+when either end is an actor; `declared` when nothing in the facts joins
+the two. A declared flow draws dashed on the page and in every figure,
+the panel says `declared: no import behind it`, and `systemap judgement`
+prints one `declared flow` line for it.
+
+```toml
+[flows]
+observed_by = ["subprocess", "queue", "facts file"]
+```
 
 ## Invariant
 
@@ -197,7 +215,8 @@ when the reader clicks the source and the verb when they click the target
 
 ## What the check refuses
 
-Placement: a card outside its band, two cards overlapping, a region outside
+Placement: a card with no position, a card outside its band, two cards
+overlapping, a region outside
 its container, a flow naming an unknown component or a kind that is neither
 standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an
 agent nor a `calls_model` component, an invariant governing an unknown id, two invariants with one

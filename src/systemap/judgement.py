@@ -30,6 +30,12 @@ thing to look at:
                          another and no flow joins the two components, in
                          either direction: an edge the code has and the
                          map does not. The main tool of the second pass.
+    declared flow ...... a flow no import backs, in either direction, and
+                         whose sentence and artifact name none of the
+                         mechanisms `[flows] observed_by` lists: an edge
+                         the map has and the code does not. The agent
+                         finds the evidence, names the mechanism in the
+                         sentence, or removes the edge
     model sdk .......... a module imports a model SDK or an agent framework
                          (a built-in list, extended or reduced by `[facts]
                          model_sdks`) and its component is neither an agent
@@ -48,7 +54,8 @@ the exact line (`item`, or `items` for several), or a whole family with
 one reason: every crossing-import line between any two of some
 components in either direction (`crossing`), every one into a component
 (`crossing_into`) or out of it (`crossing_from`), every line of one kind
-(`kind`), every model-sdk line for one import (`module_sdk`). An answer
+(`kind`, `declared flow` included), every model-sdk line for one import
+(`module_sdk`). An answer
 that matches no line is
 reported as stale, so answers cannot rot. `--strict` makes the CLI exit
 1 while any line is open, for a workflow.
@@ -61,9 +68,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
+from systemap import evidence
 from systemap.config import LINE_KINDS, Answer, ConfigError
+from systemap.evidence import mentioned, owners
 from systemap.extract import entry_label
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
+
+__all__ = ["mentioned"]
 
 MIN_STEM = 4
 # Import names that mark a module as calling a model or running an agent
@@ -203,14 +214,9 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
     return out
 
 
-def _owner_of(model: Model, facts: dict[str, Any]) -> dict[str, str]:
-    """module -> the id of the component that claims it, for every claimed module."""
-    components = facts.get("components", {})
-    out: dict[str, str] = {}
-    for c in model.components:
-        for module in claimed(c, components):
-            out.setdefault(module, c.id)
-    return out
+# module -> the id of the component that claims it; the one definition is
+# the evidence module's, which the declared-flow line reads too.
+_owner_of = owners
 
 
 def _journey_text(meaning: Meaning) -> str:
@@ -220,11 +226,6 @@ def _journey_text(meaning: Meaning) -> str:
         parts.extend([j.id, j.label])
         parts.extend(step.say for step in j.steps)
     return "\n".join(parts).lower()
-
-
-def mentioned(name: str, text: str) -> bool:
-    """Is `name` in `text` as a whole word, case blind?"""
-    return re.search(rf"(?<![\w-]){re.escape(name.lower())}(?![\w-])", text.lower()) is not None
 
 
 def entry_points_without_journey(
@@ -286,6 +287,29 @@ def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[s
                 f"(component {q}) and no flow joins {p} and {q}"
             )
     return out
+
+
+def declared_flows(
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    observed_by: Iterable[str] = (),
+) -> list[str]:
+    """Every flow the facts do not back: one line each, with the three ways out.
+
+    The dual of the crossing-import line. A flow between two components
+    neither of whose modules imports the other's, and whose sentence and
+    artifact name no mechanism from `[flows] observed_by`, is a claim the
+    code does not make. With no facts nothing can be observed, so nothing
+    is listed; the CLI says the list reads the model alone.
+    """
+    if not facts.get("components"):
+        return []
+    return [
+        f"declared flow: {f.src} -> {f.dst} ({f.artifact}): no import joins them; find the "
+        "evidence, name the mechanism in the sentence, or remove it"
+        for f in evidence.declared(model, meaning, facts, observed_by)
+    ]
 
 
 def sdk_of(name: str, sdks: Iterable[str]) -> str:
@@ -352,6 +376,7 @@ def run(
     meaning: Meaning,
     facts: dict[str, Any],
     sdks: Iterable[str] = MODEL_SDKS,
+    observed_by: Iterable[str] = (),
 ) -> list[str]:
     """Every line the maintainer should read, in the order above."""
     return (
@@ -361,6 +386,7 @@ def run(
         + thin_layers(model, meaning)
         + entry_points_without_journey(model, meaning, facts)
         + crossing_imports_without_flow(model, facts)
+        + declared_flows(model, meaning, facts, observed_by)
         + model_sdk_imports(model, facts, sdks)
     )
 

@@ -3,6 +3,7 @@
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
     systemap facts [--modules ...]     read the facts back, one view at a time
+    systemap place [--print]           a first position for every card without one
     systemap render [--check]          render the page from facts and model
     systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator
@@ -38,6 +39,7 @@ from systemap import (
     figure,
     judgement,
     page,
+    place,
     scaffold,
     skill,
 )
@@ -274,7 +276,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if _empty(p):
         return STALE
     facts = extract.read_facts(p.cfg.facts_path)
-    result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.coverage_ignore)
+    result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.coverage_ignore, p.cfg.observed_by)
     result = check.with_stale(result, check.stale(p.cfg, p.model, p.meaning, p.theme))
     say(*check.report(p.model, result, p.cfg.model))
     if not result.ok:
@@ -358,7 +360,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.
     stale_lines = check.stale(p.cfg, p.model, p.meaning, p.theme, fresh)
-    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore)
+    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore, p.cfg.observed_by)
     if not stale_lines and result.ok:
         note(ALREADY_CURRENT)
         return OK
@@ -386,7 +388,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # refresh that leaves the check failing is not a refresh, whatever it
     # wrote; the exit code says so.
     after = check.with_stale(
-        check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore),
+        check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore, p.cfg.observed_by),
         check.stale(p.cfg, p.model, p.meaning, p.theme, fresh),
     )
     if not after.ok:
@@ -417,7 +419,13 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")
-    lines = judgement.run(p.model, p.meaning, facts, judgement.sdk_list(p.cfg.model_sdks))
+    lines = judgement.run(
+        p.model,
+        p.meaning,
+        facts,
+        judgement.sdk_list(p.cfg.model_sdks),
+        p.cfg.observed_by,
+    )
     result = judgement.apply_answers(lines, p.cfg.judgement_answered)
     say(*judgement.report(result))
     if args.strict and result.open:
@@ -454,10 +462,55 @@ def cmd_describe(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
+    # A card without a position is placed for this look, as `systemap
+    # place` would place it, and the positions line says which.
+    placement = place.compute(p.model)
+    if placement.positions:
+        p = Project(p.cfg, place.apply(p.model, placement), p.meaning, p.theme)
     if not _model_ok(p):
         return STALE
     facts = extract.read_facts(p.cfg.facts_path)
-    say(*describe.run(p.model, p.meaning, p.theme, facts))
+    say(*describe.run(p.model, p.meaning, p.theme, facts, p.cfg.observed_by, placement.placed))
+    return OK
+
+
+# ---- place -----------------------------------------------------------------
+
+
+def cmd_place(args: argparse.Namespace) -> int:
+    """A first position for every card without one, written into the model.
+
+    A card with `x` and `y` is pinned and never moved. With no card
+    pinned the regions, the containers and the canvas are laid out too;
+    with any pinned, the boxes stay as written and the unpinned cards
+    take the free slots inside them. `--print` prints the positions
+    instead of writing them. The check decides, as before: run it next.
+    """
+    p = _project(args)
+    if _empty(p):
+        return STALE
+    placement = place.compute(p.model)
+    if args.print or not placement.positions:
+        say(*place.lines(placement))
+        return OK
+    source = place.write(p.cfg.model_path, placement)
+    # The file is read back and compared with what was computed, so a card
+    # the edit could not reach is reported, never assumed written.
+    reloaded, _meaning = config.load_model(p.cfg.model_path, p.cfg.model)
+    wrong = place.unwritten(reloaded, placement)
+    if wrong:
+        p.cfg.model_path.write_text(source, encoding="utf-8")
+        raise place.PlaceError(
+            f"could not write a position for {', '.join(wrong)} into {p.cfg.model}: the card "
+            "is not a Component(id=...) call the file spells out; add x and y by hand from "
+            "systemap place --print"
+        )
+    n, m = len(placement.positions), len(placement.pinned)
+    laid = "; every box and the canvas laid out" if placement.fresh else ""
+    say(
+        f"place: wrote {p.cfg.model}: {n} card{'s' if n != 1 else ''} placed, {m} pinned{laid}",
+        "run: systemap check",
+    )
     return OK
 
 
@@ -586,6 +639,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.set_defaults(func=cmd_facts)
 
+    s = sub.add_parser(
+        "place",
+        help="write a first position into the model for every card without one (a card "
+        "with x and y is pinned and never moved); with no card pinned, the regions, "
+        "containers and canvas are laid out too; --print prints instead of writing",
+    )
+    add_root(s)
+    s.add_argument("--print", action="store_true", help="print the positions; write nothing")
+    s.set_defaults(func=cmd_place)
+
     s = sub.add_parser("render", help="render the page from the facts and the model")
     add_root(s)
     s.add_argument("--check", action="store_true", help="exit 1 if the page is stale")
@@ -642,7 +705,8 @@ def build_parser() -> argparse.ArgumentParser:
         "judgement",
         help="print the list the maintainer must confirm: thin components, odd folds, "
         "flows without a sentence, thin layers, entry points without a journey, imports "
-        "across a boundary with no flow, model sdk imports outside an agent; lines "
+        "across a boundary with no flow, flows no import backs, model sdk imports outside "
+        "an agent; lines "
         "answered under [judgement] in the configuration are suppressed and counted; "
         "exit 0, or 1 with --strict while any line is open",
     )
@@ -704,6 +768,9 @@ def main(argv: list[str] | None = None) -> int:
         warn(f"systemap: {exc}", "fix systemap.toml or the model module, then run again")
         return BAD_CONFIG
     except figure.FigureError as exc:
+        warn(f"systemap: {exc}")
+        return STALE
+    except place.PlaceError as exc:
         warn(f"systemap: {exc}")
         return STALE
     return int(code)

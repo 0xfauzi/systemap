@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and answers the remaining judgement lines in `[judgement] answered` in systemap.toml for the maintainer.
+description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), places the cards with `systemap place`, runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and answers the remaining judgement lines in `[judgement] answered` in systemap.toml for the maintainer.
 license: MIT
 compatibility: Requires Python 3.11+ and the systemap package (uv tool install systemap)
 ---
@@ -17,19 +17,16 @@ draft it; the maintainer reviews every call before it is trusted.
 
 The model is one Python module, by default `map/model.py`, exporting `MODEL`
 and `MEANING`, built from the dataclasses `systemap` exports. Run every
-command from the repository root. Both `systemap` and `uv run systemap`
-resolve when the tool is installed; use whichever `systemap --version`
-answers to. `--root DIR` names the project when you are not in it. If
-there is no `systemap.toml`, run `systemap init` first; its starter model
-has no components yet.
+command from the repository root (`--root DIR` names another project);
+`systemap` and `uv run systemap` both resolve when the tool is installed.
+If there is no `systemap.toml`, run `systemap init` first.
 
 ## The loop
 
 The first draft will be wrong in ways the checker cannot see: an edge the
 code has and the map does not, a grouping by directory rather than by
 purpose, an entry point with no walk through it. The check catches
-contradictions; it cannot catch omissions. The second pass is the point of
-this skill, not a formality after it.
+contradictions, not omissions; the second pass is the point of this skill.
 
 1. **extract**: `systemap extract`, also when `systemap.toml` exists but
    the facts file does not. Then read the facts through `systemap facts`,
@@ -43,10 +40,13 @@ this skill, not a formality after it.
    alone, one proposal per package with two or more modules and the
    imports between proposals: a starting point to argue with, never the
    answer. Then write `map/model.py` from the facts and the repository's
-   own words: its README, AGENTS.md, CLAUDE.md, docs/. `references/schema.md`
+   own words: its README, AGENTS.md, CLAUDE.md, docs/. Write the
+   components and the flows with no `x` and `y`, then run `systemap
+   place`: it lays the regions out with the corridors the edges need,
+   puts every card on the grid, and writes the positions into the file;
+   a card given `x` and `y` is pinned and never moved. `references/schema.md`
    has every field; `references/example.md` is a complete small model;
-   `references/layout.md` says where the regions go so the edges have
-   corridors to run along. Keep the starter's grid of regions.
+   `references/layout.md` says what is still yours to decide.
 3. **check**: `systemap check && systemap judgement --strict`, together,
    every round. Fix every line the check prints and act on or answer every
    judgement line; repeat until only `stale` remains (the page has not
@@ -68,7 +68,7 @@ this skill, not a formality after it.
 
    An answered line is suppressed and counted; an answer that matches no
    line is reported as stale, so remove it. Never pass a line over in
-   silence. The seven kinds of line:
+   silence. The eight kinds of line:
 
    | kind | what it says | what to do |
    |---|---|---|
@@ -78,6 +78,7 @@ this skill, not a formality after it.
    | `thin layer` | a reading lights fewer than two cards; a standard kind never used counts | add the flows the reading is for, or answer that the system has none |
    | `entry point` | an entry point in the facts that no journey names | write the journey, or answer why it does not matter to a reader |
    | `crossing import` | a module of one card imports a module of another and no flow joins the two | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
+   | `declared flow` | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by` | find the import and fix the claims; name the mechanism in the sentence and list it under `[flows] observed_by`; or remove the flow. Answer only an edge that is real and joined by nothing in the tree |
    | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |
 5. **render**: `systemap refresh`, then `systemap describe`: the picture in
    numbers (cards per region, bends per edge worst first, seats per gutter,
@@ -87,7 +88,8 @@ this skill, not a formality after it.
    snaking edge, a full gutter, a region holding one card, a reading that
    lights nothing.
 6. **second pass**: follow `references/second-pass.md`: walk every crossing
-   import, every entry point, every rule the documents state, and look at
+   import, every declared flow, every entry point, every rule the
+   documents state, and look at
    the figure again. The document reread is one pass over what the
    repository points a newcomer at (README, AGENTS.md, CLAUDE.md, a docs
    index or the first level of docs/), and it stops when the rules still
@@ -98,7 +100,7 @@ this skill, not a formality after it.
    changed nothing, and the documents left unread govern nothing in the
    tree.
 8. **hand back**: the answers are in `systemap.toml`; add the coverage line
-   and the list of edges you inferred rather than read.
+   and the groupings that could go another way.
 
 ## What goes in the model
 
@@ -107,29 +109,35 @@ this skill, not a formality after it.
   N modules usually lands between N/10 and N/3 cards: the `single module`
   line pushes from below, `possible mis-fold` and `crossing import` from
   above. A module that does two things belongs with the one it is for.
-  `implemented_by` names its
-  modules, or a symbol `pkg.mod:name` for a part that lives inside another
-  card's module; `entry` is one public name they define (a function, a
-  class, an object such as `app`); both must be in the facts. Kinds:
-  `component`, `store`, `actor` (a person or system outside the code),
-  and for agentic systems `agent`, `tool`, `context`.
+  `implemented_by` names its modules, or a symbol `pkg.mod:name` for a
+  part that lives inside another card's module; `entry` is one public name
+  they define (a function, a class, an object such as `app`); both must be
+  in the facts. Kinds: `component`, `store`, `actor` (a person or system
+  outside the code), and for agentic systems `agent`, `tool`, `context`.
 - A flow is one artifact moving from one component to another. Its kind is
   `data` (an artifact moves) or `control` (one part drives another), the
   agent kinds `context` and `tool`, or one of your own, declared in
   `flow_kinds` and given a layer. The map draws the flows you declare, not
   every import; `references/layers.md` says how to choose, and how the
   facts' `external` imports and the `model sdk` judgement line find agents.
+- Every flow carries an evidence state read from the facts, never from
+  you: `observed` when an import joins its two ends either way or its
+  sentence or artifact names a mechanism listed under `[flows] observed_by`
+  (a subprocess, a queue, a file); `external` when an actor is at either
+  end; `declared` otherwise. A declared flow draws dashed and is asked about.
 - One sentence per flow in `relations`, read from the source side. A plain
   name per component in `plain`: the words a newcomer would use.
 - Journeys: one per entry point that matters, tracing the components it
   passes through. Invariants: rules the repository states about itself,
   each citing its source. `references/journeys-and-invariants.md`.
-- Positions are hand-placed on a grid: columns 190 apart, rows 92 apart,
-  cards 150 wide (56 tall; 52 for a store or context; 44 for an actor).
-  The gutters are the corridors the edges run along; an edge may not
-  cross a region it does not belong to, so regions leave gaps between
-  them (`references/layout.md`). An artifact label is a noun phrase of
-  one to three words, never a sentence. The check decides.
+- Positions: leave `x` and `y` out and run `systemap place`. It lays the
+  regions out on a two-column grid with corridors between them (an edge
+  may not cross a region it does not belong to) and puts every card on
+  the grid inside its region, the parts that talk together. A card with
+  `x` and `y` is pinned and never moved; you decide which region a card
+  is in, the order of the regions, and when to pin (`references/layout.md`).
+  An artifact label is a noun phrase of one to three words, never a
+  sentence. The check decides.
 
 ## Commands
 
@@ -138,6 +146,7 @@ this skill, not a formality after it.
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | the facts read back: `--modules`, `--module NAME`, `--entry-points`, `--external`, `--imports NAME`; never open the JSON |
+| `systemap place` | a first position for every card without one, written into the model; a card with `x` and `y` is pinned; with no card pinned the regions, containers and canvas are laid out too; `--print` prints instead |
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |
@@ -150,22 +159,20 @@ this skill, not a formality after it.
 ## What to hand back
 
 1. Every `systemap judgement` line you did not act on, answered in
-   `[judgement] answered` in `systemap.toml` with its reason: the answers
-   live in the repository, not in a chat, and `systemap judgement` then
-   prints `nothing to confirm, N answered`.
+   `[judgement] answered` in `systemap.toml` with its reason (in the
+   repository, not in a chat); `judgement` then prints `nothing to confirm`.
 2. The coverage line from `systemap check` and its last line.
-3. The edges you inferred from imports rather than read in the documents,
-   and the groupings that could go another way.
+3. The groupings that could go another way. The edges the facts do not
+   back are the `declared flow` lines: fixed, answered, or removed.
 4. The files to commit: `map/model.py`, `systemap.toml`, `docs/map/`.
 
 ## Rules
 
 - No code or test counts anywhere: the map says what, never how much.
-- The map draws what exists today. Every module a component names is in
+- The map draws what exists today: every module a component names is in
   the facts; nothing on the map is a plan.
-- Prose is for emphasis; the relationships live on the edges. If it
-  matters, it is an edge.
-- Run `systemap check && systemap judgement --strict` after every move;
+- Prose is for emphasis; the relationships live on the edges.
+- Run `systemap check && systemap judgement --strict` after every move:
   the check refuses, it does not warn, and the judgement sees what a
   layout fix reopened.
 
@@ -177,9 +184,10 @@ Read each when the loop reaches it:
   and the rules the check applies. Read before the draft.
 - `references/example.md`: one complete worked model that passes the
   check, with the configuration beside it. Read with the schema.
-- `references/layout.md`: the corridor rule, the region shapes that work
-  and the one that does not, and how to read `systemap describe`. Read
-  before placing anything, and again when the check names a route.
+- `references/layout.md`: what `systemap place` does, what is still yours
+  to decide (a card's region, the regions' order, when to pin), and how
+  to read `systemap describe`. Read before the draft, and again when the
+  check names a route or a label.
 - `references/layers.md`: the derived layers, the standard kinds, adding a
   kind of your own, and agentic systems. Read when choosing a flow's kind
   or a component's kind.

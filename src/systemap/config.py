@@ -37,6 +37,11 @@ goes, and the theme.
                    judgement asks about each in a component that is not
                    an agent. A leading `-` removes a built-in name
                    ("-google.adk")
+    [flows]        observed_by = [...]: the mechanisms other than an
+                   import that join this repository's parts (a
+                   subprocess, a queue, a file); a flow whose sentence or
+                   artifact names one is observed by it rather than
+                   declared
     [judgement]    answered = [{item = "<a judgement line>", reason = "..."}]:
                    the lines of `systemap judgement` the maintainer has
                    answered, each with why; an answered line is suppressed
@@ -91,8 +96,10 @@ KNOWN_KEYS = {
     "coverage",
     "facts",
     "judgement",
+    "flows",
 }
 FACTS_KEYS = {"model_sdks"}
+FLOWS_KEYS = {"observed_by"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
@@ -107,6 +114,7 @@ LINE_KINDS = (
     "thin layer",
     "entry point",
     "crossing import",
+    "declared flow",
     "model sdk",
 )
 
@@ -196,6 +204,7 @@ class Config:
     coverage_ignore: tuple[Ignore, ...] = ()
     judgement_answered: tuple[Answer, ...] = ()
     model_sdks: tuple[str, ...] = ()
+    observed_by: tuple[str, ...] = ()
     source: str = ""
 
     @property
@@ -475,6 +484,7 @@ def load(root: Path) -> Config:
         coverage_ignore=_coverage_ignore(raw, where),
         judgement_answered=_judgement_answered(raw, where),
         model_sdks=_facts(raw, where),
+        observed_by=_flows(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
         package_roots=package_roots,
@@ -533,6 +543,20 @@ def _facts(raw: dict[str, Any], where: str) -> tuple[str, ...]:
     if bad:
         raise ConfigError(f"{where}: facts has unknown key: {', '.join(bad)}")
     return _str_list(facts, "model_sdks", f"{where}: facts")
+
+
+def _flows(raw: dict[str, Any], where: str) -> tuple[str, ...]:
+    """The `[flows]` table: `observed_by` names the non-import mechanisms."""
+    flows = raw.get("flows", {})
+    if not isinstance(flows, dict):
+        raise ConfigError(f"{where}: flows must be a table")
+    bad = sorted(set(flows) - FLOWS_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: flows has unknown key: {', '.join(bad)}")
+    names = _str_list(flows, "observed_by", f"{where}: flows")
+    if any(not name.strip() for name in names):
+        raise ConfigError(f"{where}: flows.observed_by must name each mechanism with a word")
+    return tuple(name.strip() for name in names)
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
