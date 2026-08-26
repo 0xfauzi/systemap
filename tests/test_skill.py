@@ -43,6 +43,12 @@ def test_skill_front_matter_and_vocabulary() -> None:
     assert "[judgement] answered" in text and "items = [...]" in text
     assert text.index("figures/structure.svg") < text.index("figures/system.svg")
     assert "open `docs/map/index.html`" not in text
+    # Layout is the hard part and the skill says so: the draft step names the
+    # layout reference, the render step runs describe before opening anything.
+    assert text.index("references/layout.md") < text.index("**check**")
+    assert "systemap describe" in text
+    assert text.index("systemap describe") < text.index("systemap serve")
+    assert "one to three words" in text
     second = skill.files()["references/second-pass.md"]
     assert "[judgement] answered" in second and "items = [...]" in second
     assert "systemap serve" in second

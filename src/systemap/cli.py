@@ -6,7 +6,8 @@
     systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
-    systemap judgement                 the list the maintainer must confirm
+    systemap judgement [--strict]      the list the maintainer must confirm
+    systemap describe                  what a look at the picture would tell you, in numbers
     systemap serve [--port N]          serve the output directory over HTTP, print the URL
     systemap skill [--dir PATH|--print] reinstall the skill directory, or print SKILL.md
 
@@ -30,6 +31,7 @@ from systemap import (
     change,
     check,
     config,
+    describe,
     extract,
     figure,
     judgement,
@@ -373,6 +375,27 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     return OK
 
 
+# ---- describe --------------------------------------------------------------
+
+
+def cmd_describe(args: argparse.Namespace) -> int:
+    """The picture in numbers, for an agent that cannot open the page.
+
+    The drawing is made the way the page makes it and read back: cards
+    per region, bends and length per edge (worst first), seats per
+    gutter, cards and edges per reading. A model that contradicts itself
+    cannot be drawn, so that is reported instead, as `check` reports it.
+    """
+    p = _project(args)
+    if _empty(p):
+        return STALE
+    if not _model_ok(p):
+        return STALE
+    facts = extract.read_facts(p.cfg.facts_path)
+    say(*describe.run(p.model, p.meaning, p.theme, facts))
+    return OK
+
+
 # ---- serve -----------------------------------------------------------------
 
 
@@ -525,6 +548,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_root(s)
     s.set_defaults(func=cmd_judgement)
+
+    s = sub.add_parser(
+        "describe",
+        help="what a look at the picture would tell you, in numbers: cards per region, "
+        "bends and length per edge (worst first), seats per gutter, cards and edges per "
+        "reading; for an agent that cannot open the page",
+    )
+    add_root(s)
+    s.set_defaults(func=cmd_describe)
 
     s = sub.add_parser(
         "serve",

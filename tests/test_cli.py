@@ -35,8 +35,8 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         assert (tmp_path / rel).is_file(), rel
     assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text()
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/systemap/ (SKILL.md and 6 references)" in out
-    assert "SKILL.md\n" not in out.replace("(SKILL.md and 6 references)\n", "")
+    assert "wrote .claude/skills/systemap/ (SKILL.md and 7 references)" in out
+    assert "SKILL.md\n" not in out.replace("(SKILL.md and 7 references)\n", "")
     assert out.rstrip().endswith("Map this repository with systemap. Follow the systemap skill.")
 
     # The starter model is empty: the check has one line to say, and says only that.
@@ -90,7 +90,7 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
     model = (tmp_path / "map/model.py").read_text()
-    assert model.startswith("# ruff: noqa: E501\n# The map is prose held in strings")
+    assert model.startswith("# ruff: noqa: E501, F401\n# The map is prose held in strings")
     assert "COMPONENTS: tuple[Component, ...] = ()" in model
     assert "FLOWS: tuple[Flow, ...] = ()" in model
     assert "mypackage" not in model
@@ -223,7 +223,7 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     assert written.is_file()
     out = capsys.readouterr().out
     assert f"wrote {written}" in out
-    assert "references/ (6 files)" in out
+    assert "references/ (7 files)" in out
     text = written.read_text()
     assert text.startswith("---\nname: systemap\n")
     assert "systemap check" in text
@@ -232,6 +232,7 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     for ref in (
         "schema",
         "example",
+        "layout",
         "layers",
         "journeys-and-invariants",
         "second-pass",

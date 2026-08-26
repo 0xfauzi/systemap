@@ -1,11 +1,14 @@
 """What `systemap init` writes: a configuration, a starter model, a workflow.
 
-The starter model is empty on purpose: one container and one region to
-place cards in, no components, no flows. A placeholder card would be a
-lie the first check had to catch; instead the check says the model has
-no components yet and points at the skill, and the agent following it
-(installed by the same command, see skill.py) writes the real cards from
-the facts.
+The starter model is empty on purpose: one container holding four regions
+in a two-by-two grid, with the corridors between them already there, and
+no components, no flows. A placeholder card would be a lie the first
+check had to catch; instead the check says the model has no components
+yet and points at the skill, and the agent following it (installed by the
+same command, see skill.py) writes the real cards from the facts. The
+regions come laid out so the first draft inherits a drawable shape: with
+more than two full-width bands stacked there is no corridor for an edge
+between the outer two, and the check refuses the route.
 
 The workflow runs the check on every push and pull request with the
 released package (`uvx --from "systemap==<this version>"`), so the
@@ -66,10 +69,11 @@ interactive = false
 # accent = "#5DADE2"
 """
 
-MODEL = '''# ruff: noqa: E501
+MODEL = '''# ruff: noqa: E501, F401
 # The map is prose held in strings: a sentence per flow, a step per journey,
 # a rule per invariant. A sentence is not wrapped, so the line-length rule
-# does not apply to this file.
+# does not apply to this file; and the schema is imported whole, so a card
+# written later finds every name.
 """The system map of {name}: what the parts are and what they are to each other.
 
 Everything in this file is written on purpose. The facts about the code
@@ -84,8 +88,9 @@ a card's place carries meaning. `systemap check` verifies every card sits in
 its band, no two overlap, every flow has a layer and a sentence, and every
 route and label is clean.
 
-This file starts empty: one container and one region to place cards in,
-no components. The skill says how to write the cards from the facts.
+This file starts empty: one container holding four regions in a two-by-two
+grid, and no components. The skill says how to write the cards from the
+facts; references/layout.md says why the regions sit where they do.
 """
 
 from __future__ import annotations
@@ -96,6 +101,7 @@ from systemap import (
     Flow,
     Invariant,
     Journey,
+    Layer,
     Meaning,
     Model,
     Region,
@@ -104,20 +110,34 @@ from systemap import (
 
 # The grid: card columns 190 apart (150 card, 40 gutter), rows 92 apart
 # (56 card, 36 gutter). Cards on the grid leave straight corridors for edges.
-COL = {{"c1": 80, "c2": 270, "c3": 460}}
-ROW = {{"r1": 130, "r2": 222}}
+# Two card columns per region column (l1, l2 on the left; r1, r2 on the
+# right) and two card rows per region row (t1, t2 at the top; b1, b2 at
+# the bottom).
+COL = {{"l1": 64, "l2": 254, "r1": 502, "r2": 692}}
+ROW = {{"t1": 104, "t2": 196, "b1": 356, "b2": 448}}
 
 CONTAINERS = (
     Container(
         id="system",
         label="{upper}",
         sub="one process; say what the boundary means",
-        box=(16, 16, 660, 360),
+        box=(16, 16, 876, 536),
         tone="server",
     ),
 )
 
-REGIONS = (Region(id="core", label="CORE", box=(40, 60, 612, 292), container="system"),)
+# Four regions in a two-by-two grid. The 48 units between the region
+# columns and the 36 between the region rows are corridors: an edge may not
+# cross a region it neither starts nor ends in, and the corridors form a
+# cross, so from any region there is a route to any other. Rename the
+# regions after the phases, concerns or teams the parts fall into; drop one
+# you do not need; keep the gaps.
+REGIONS = (
+    Region(id="a", label="REGION A", box=(40, 60, 390, 216), container="system"),
+    Region(id="b", label="REGION B", box=(478, 60, 390, 216), container="system"),
+    Region(id="c", label="REGION C", box=(40, 312, 390, 216), container="system"),
+    Region(id="d", label="REGION D", box=(478, 312, 390, 216), container="system"),
+)
 
 # One card per thing a reader would point at and name. `implemented_by`
 # names the modules that are it (from the facts file), `entry` one public
@@ -125,28 +145,29 @@ REGIONS = (Region(id="core", label="CORE", box=(40, 60, 612, 292), container="sy
 #
 #     Component(
 #         id="Reader",
-#         region="core",
+#         region="a",
 #         does="Reads the input and turns it into a request.",
 #         interface="read(source) -> Request",
 #         implemented_by=("{package}.reader",),
 #         entry="read",
-#         x=COL["c1"],
-#         y=ROW["r1"],
+#         x=COL["l1"],
+#         y=ROW["t1"],
 #     ),
 COMPONENTS: tuple[Component, ...] = ()
 
 # (from, to, the artifact carried, the kind). Two kinds are standard and
 # need no declaring: data (an artifact moves) and control (one part drives
 # another). A kind of your own is declared in FLOW_KINDS and given a layer.
+# The artifact is a noun phrase of one to three words, never a sentence.
 FLOWS: tuple[Flow, ...] = ()
 
-FLOW_KINDS = ()
+FLOW_KINDS: tuple[str, ...] = ()
 
 # Rules the repository states about itself, each citing its source.
 INVARIANTS: tuple[Invariant, ...] = ()
 
 MODEL = Model(
-    canvas=(700, 400),
+    canvas=(910, 570),
     containers=CONTAINERS,
     regions=REGIONS,
     components=COMPONENTS,
@@ -163,14 +184,14 @@ PLAIN: dict[str, str] = {{}}
 # The page derives Structure, System context, Data flow and Control flow
 # from the model. A layer of your own goes here, as the question it
 # answers, with its kind mapped to it in LAYER_OF_KIND.
-LAYERS = ()
+LAYERS: tuple[Layer, ...] = ()
 
-LAYER_OF_KIND = {{}}
+LAYER_OF_KIND: dict[str, str] = {{}}
 
 # One sentence per flow, read from the source side.
 RELATIONS: dict[tuple[str, str], str] = {{}}
 
-VERBS = {{"data": ("hands to", "receives from")}}
+VERBS: dict[str, tuple[str, str]] = {{"data": ("hands to", "receives from")}}
 
 # One journey per entry point that matters, one Step per edge it traces.
 JOURNEYS: tuple[Journey, ...] = ()

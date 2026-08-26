@@ -30,7 +30,9 @@ from __future__ import annotations
 import bisect
 import heapq
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 
 Box = tuple[float, float, float, float]
 Point = tuple[float, float]
@@ -65,13 +67,110 @@ class Route:
 
 @dataclass
 class Placed:
-    """Where a label ended up and whether that was the rule or a compromise."""
+    """Where a label ended up and whether that was the rule or a compromise.
+
+    `hits` names what a compromised seat touches; `fix` says which of the
+    fixes applies, from the router's own seat counts: the gutter is full
+    (every seat off a card is taken by another label) or the label is
+    wider than any run of its path can hold.
+    """
 
     box: Box
     segment: int
     on_longest: bool
     cost: float
     hits: list[str] = field(default_factory=list)
+    fix: str = ""
+
+
+# ---- gutters: the room between the card rows and the card columns ----------------
+# A card's obstacle box is padded by CARD_CLEAR on every side when labels are
+# seated (schematic.render), so a seat closer than that touches the card.
+CARD_CLEAR = 3.0
+SEAT_GAP = 2.0
+
+
+@dataclass(frozen=True)
+class Gutter:
+    """One free band between two card rows or two card columns, or a margin."""
+
+    lo: float
+    hi: float
+    name: str
+
+    @property
+    def size(self) -> float:
+        return self.hi - self.lo
+
+    def holds(self, centre: float) -> bool:
+        return self.lo <= centre <= self.hi
+
+
+def _merge(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """The spans joined wherever they touch or overlap, in order."""
+    out: list[tuple[float, float]] = []
+    for a, b in sorted(spans):
+        if out and a <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
+
+
+def _bands(spans: list[tuple[float, float]], hi: float, word: str) -> list[Gutter]:
+    if not spans:
+        return []
+    before, after = ("above", "below") if word == "row" else ("left of", "right of")
+    out: list[Gutter] = []
+    if spans[0][0] > 0:
+        out.append(Gutter(0.0, spans[0][0], f"{before} {word} 1"))
+    for i in range(len(spans) - 1):
+        out.append(Gutter(spans[i][1], spans[i + 1][0], f"between {word}s {i + 1} and {i + 2}"))
+    if spans[-1][1] < hi:
+        out.append(Gutter(spans[-1][1], hi, f"{after} {word} {len(spans)}"))
+    return out
+
+
+def gutters(
+    cards: dict[str, Box], canvas: tuple[float, float]
+) -> tuple[list[Gutter], list[Gutter]]:
+    """(row gutters, column gutters), named the way a person reads the grid.
+
+    A card row is a run of cards whose vertical spans touch or overlap; a
+    column likewise. The gutters are the bands between consecutive rows
+    (columns), plus the margin above the first and below the last (left
+    of the first, right of the last), so every label seat lies in one.
+    """
+    w, h = canvas
+    boxes = list(cards.values())
+    rows = _merge([(y, y + ch) for _x, y, _w, ch in boxes])
+    cols = _merge([(x, x + cw) for x, _y, cw, _h in boxes])
+    return _bands(rows, h, "row"), _bands(cols, w, "column")
+
+
+def seats(size: float, across: float) -> int:
+    """How many labels `across` units deep stack in a gutter `size` units wide,
+    each SEAT_GAP from the next and CARD_CLEAR from the cards on either side."""
+    return max(0, int((size - 2 * CARD_CLEAR + SEAT_GAP) // (across + SEAT_GAP)))
+
+
+def find_gutter(bands: list[Gutter], centre: float) -> Gutter | None:
+    return next((g for g in bands if g.holds(centre)), None)
+
+
+def locate(box: Box, horizontal: bool, rows: list[Gutter], cols: list[Gutter]) -> Gutter | None:
+    """The gutter a label seat lies in.
+
+    A label on a horizontal run sits in the row gutter its centre falls in;
+    when its centre is level with a card row (a run down an empty column,
+    say), it sits in the column gutter instead. A label on a vertical run
+    is looked up the other way round.
+    """
+    cy, cx = box[1] + box[3] / 2, box[0] + box[2] / 2
+    first, second = (rows, cy), (cols, cx)
+    if not horizontal:
+        first, second = second, first
+    return find_gutter(first[0], first[1]) or find_gutter(second[0], second[1])
 
 
 def _lanes(a: float, b: float) -> list[float]:
@@ -433,8 +532,9 @@ BESIDE = 4.0
 # A short edge between two cards in one row cannot carry its label on the
 # line; the label sits in the row gutter above or below instead, aligned to
 # the edge: 38 clears a component card (28 half-height, 3 margin, half a
-# label), 51 is the second lane in a 36-unit gutter.
-GUTTER_OFFSETS = (-38.0, 38.0, -51.0, 51.0)
+# label), 53 is the second seat, one label and one gap further out, and the
+# last that clears the next card row in a 36-unit gutter.
+GUTTER_OFFSETS = (-38.0, 38.0, -53.0, 53.0)
 # Where along a segment a label may sit, as a fraction of the free run:
 # the middle first, then outward in both directions.
 T_ORDER = (0.5, *(v for k in range(1, 11) for v in (0.5 - k * 0.05, 0.5 + k * 0.05)))
@@ -510,15 +610,19 @@ def place_labels(
     lh: float,
     obstacles: list[tuple[str, Box]],
     canvas: tuple[float, float],
-    gap: float = 2.0,
+    gap: float = SEAT_GAP,
     names: dict[int, str] | None = None,
+    cards: dict[str, Box] | None = None,
 ) -> dict[int, Placed]:
     """Seat every label; shortest path first, since it has the fewest places.
 
     `names` gives each label the name a collision report calls it by; a
-    label without one is `label <index>`.
+    label without one is `label <index>`. With `cards`, a label that could
+    not be seated cleanly also carries the fix that applies (`Placed.fix`),
+    worked out from the gutters the cards leave.
     """
     names = names or {}
+    bands = gutters(cards, canvas) if cards is not None else None
 
     def pad(b: Box) -> Box:
         return (b[0] - gap, b[1] - gap, b[2] + 2 * gap, b[3] + 2 * gap)
@@ -599,5 +703,69 @@ def place_labels(
                 (names.get(j, f"label {j}"), other.box) for j, other in placed.items() if j != k
             ]
             best.hits = [n for n, ob in named if _overlap_area(pad(best.box), ob)]
+            if bands is not None:
+                best.fix = _diagnose(best, cands[k], partial(fixed, k), routes[k], widths[k], bands)
         placed[k] = best
     return placed
+
+
+def _horizontal(points: list[Point], segment: int) -> bool:
+    if not 0 <= segment < len(points) - 1:
+        return True
+    (_x0, y0), (_x1, y1) = points[segment], points[segment + 1]
+    return abs(y1 - y0) < 1e-6
+
+
+def _diagnose(
+    seat: Placed,
+    cands: list[tuple[int, bool, Box]],
+    fixed: Callable[[int], float],
+    route: Route,
+    lw: float,
+    bands: tuple[list[Gutter], list[Gutter]],
+) -> str:
+    """Which fix applies to a label the router could not seat cleanly.
+
+    Every candidate seat of a collided label costs something: it touches a
+    card or a header (a fixed obstacle) or another label. The seats that
+    touch no card or header are the gutter's seats, counted as distinct
+    rows across the gutter the label landed in; when there are any, every
+    one is taken by another label and the gutter is full, so the fix is to
+    move a card or widen the pitch. When there are none, the geometry has
+    no seat for a label this wide: the fix is to shorten the artifact, and
+    the line says by how much (the label's width over the longest run of
+    its path, or over the column gutter it crosses).
+    """
+    points = route.points
+    horizontal = _horizontal(points, seat.segment)
+    rows, cols = bands
+
+    def centre(box: Box) -> float:
+        # Across the run: the coordinate that tells one seat row from the next.
+        return box[1] + box[3] / 2 if horizontal else box[0] + box[2] / 2
+
+    home = locate(seat.box, horizontal, rows, cols)
+    free_rows = {
+        round(centre(box), 1)
+        for n, (segment, _longest, box) in enumerate(cands)
+        if fixed(n) == 0
+        and _horizontal(points, segment) == horizontal
+        and locate(box, horizontal, rows, cols) is home
+    }
+    if home is not None and free_rows:
+        n = len(free_rows)
+        pitch = "row" if home in rows else "column"
+        return f"gutter {home.name} holds {n} of {n} seats: move a card or widen the {pitch} pitch"
+    segs = list(zip(points, points[1:], strict=False))
+    runs: list[float] = []
+    for k, (a, b) in enumerate(segs):
+        if abs(b[1] - a[1]) > 1e-6:
+            continue
+        clear0 = CORNER_CLEAR if k > 0 else PORT_CLEAR
+        clear1 = CORNER_CLEAR if k < len(segs) - 1 else ARROW_CLEAR
+        runs.append(abs(b[0] - a[0]) - clear0 - clear1)
+    room = max(runs) if runs else (home.size - 2 * CARD_CLEAR if home is not None else lw)
+    over = lw - room
+    if over > 0:
+        return f"label is {math.ceil(over)} units wider than its seat: shorten the artifact"
+    return ""

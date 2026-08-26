@@ -18,10 +18,9 @@ draft it; the maintainer reviews every call before it is trusted.
 The model is one Python module, by default `map/model.py`, exporting `MODEL`
 and `MEANING`, built from the dataclasses `systemap` exports. Run every
 command from the repository root: prefixed with `uv run` when systemap is a
-development dependency, bare when it is installed as a tool. `--root DIR`,
-before or after the command, names the project when you are not in it. If
-there is no `systemap.toml`, run `systemap init` first; its starter model
-has no components, and the check says so until you write them.
+development dependency, bare when it is installed as a tool. `--root DIR`
+names the project when you are not in it. If there is no `systemap.toml`,
+run `systemap init` first; its starter model has no components yet.
 
 ## The loop
 
@@ -36,7 +35,9 @@ this skill, not a formality after it.
    `entry_points`. Every module in it must end up claimed by one component.
 2. **draft**: write `map/model.py` from the facts and the repository's own
    words: its README, AGENTS.md, CLAUDE.md, docs/. `references/schema.md`
-   has every field; `references/example.md` is a complete small model.
+   has every field; `references/example.md` is a complete small model;
+   `references/layout.md` says where the regions go so the edges have
+   corridors to run along. Keep the starter's grid of regions.
 3. **check**: `systemap check`. Fix every line it prints; repeat until only
    `stale` remains (the page has not been rendered yet).
 4. **judgement**: `systemap judgement`. Act on every line, or answer it in
@@ -45,11 +46,13 @@ this skill, not a formality after it.
    line is gone is reported as stale. A long list is answered in bulk:
    `items = [...]` with one reason per group where the reason is the same.
    Never pass a line over in silence.
-5. **render**: `systemap refresh`. Look at `docs/map/figures/structure.svg`
-   (the parts in their places) and then `docs/map/figures/system.svg`
-   (every edge); run `systemap serve` and open the URL it prints for the
-   page. Look for routes through cards, labels that touch, a region
-   holding one card, a layer that lights nothing.
+5. **render**: `systemap refresh`, then `systemap describe`: the picture in
+   numbers (cards per region, bends per edge worst first, seats per gutter,
+   what each reading lights). Open the page only if you can: `systemap
+   serve` prints its URL; `docs/map/figures/structure.svg` is the parts in
+   their places and `docs/map/figures/system.svg` every edge. Look for a
+   snaking edge, a full gutter, a region holding one card, a reading that
+   lights nothing.
 6. **second pass**: follow `references/second-pass.md`: walk every crossing
    import, every entry point, every rule the documents state, and look at
    the figure again. Expect to find missed edges and wrong groupings. Go
@@ -81,7 +84,10 @@ this skill, not a formality after it.
   each citing its source. `references/journeys-and-invariants.md`.
 - Positions are hand-placed on a grid: columns 190 apart, rows 92 apart,
   cards 150 wide (56 tall; 52 for a store or context; 44 for an actor).
-  The gutters are the corridors the edges run along. The check decides.
+  The gutters are the corridors the edges run along; an edge may not
+  cross a region it does not belong to, so regions leave gaps between
+  them (`references/layout.md`). An artifact label is a noun phrase of
+  one to three words, never a sentence. The check decides.
 
 ## Commands
 
@@ -91,6 +97,7 @@ this skill, not a formality after it.
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; always exit 0 |
+| `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, or `--components A,B` for a plan's reach |
 | `systemap serve` | serve the output directory over HTTP and print the URL; the page does not run from a file:// address |
@@ -99,16 +106,14 @@ this skill, not a formality after it.
 ## What to hand back
 
 1. Every `systemap judgement` line you did not act on, answered in
-   `[judgement] answered` in `systemap.toml` with its reason. The answers
-   are the hand-back, and they live in the repository, not in a chat;
-   `systemap judgement` then prints `nothing to confirm, N answered`. The
-   entry point, crossing import and model sdk lines are read first.
+   `[judgement] answered` in `systemap.toml` with its reason: the answers
+   live in the repository, not in a chat, and `systemap judgement` then
+   prints `nothing to confirm, N answered`.
 2. The coverage line from `systemap check` (`coverage: N/N modules mapped`)
    and its last line.
 3. The edges you inferred from imports rather than read in the documents,
    and the groupings that could go another way.
-4. The files to commit: `map/model.py`, `systemap.toml`, and the output
-   directory (`docs/map/` by default).
+4. The files to commit: `map/model.py`, `systemap.toml`, `docs/map/`.
 
 ## Rules
 
@@ -130,6 +135,9 @@ Read each when the loop reaches it:
   and the rules the check applies. Read before the draft.
 - `references/example.md`: one complete worked model that passes the
   check, with the configuration beside it. Read with the schema.
+- `references/layout.md`: the corridor rule, the region shapes that work
+  and the one that does not, and how to read `systemap describe`. Read
+  before placing anything, and again when the check names a route.
 - `references/layers.md`: the derived layers, the standard kinds, adding a
   kind of your own, and agentic systems. Read when choosing a flow's kind
   or a component's kind.

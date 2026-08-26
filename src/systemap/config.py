@@ -50,11 +50,11 @@ nothing would be worse than a refusal.
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import subprocess
 import sys
 import tomllib
+import types
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -542,20 +542,29 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
 
 
 def load_model(path: Path) -> tuple[Model, Meaning]:
-    """Import the model module by path and return its MODEL and MEANING."""
+    """Import the model module by path and return its MODEL and MEANING.
+
+    The source is compiled and run directly rather than through the
+    import system's loader: that loader keeps bytecode under
+    `__pycache__` keyed by the source's size and whole-second mtime, so an
+    edit that changes neither (a moved card, one name for another of the
+    same length, within the same second as the last run) would be read
+    back as the old model. An agent runs the check after every edit;
+    the model it checks must be the one on disk.
+    """
     if not path.is_file():
         raise ConfigError(f"model module not found: {path}")
-    spec = importlib.util.spec_from_file_location(f"systemap_model_{abs(hash(str(path)))}", path)
-    if spec is None or spec.loader is None:
-        raise ConfigError(f"cannot import model module: {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
+    name = f"systemap_model_{abs(hash(str(path)))}"
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    sys.modules[name] = module
     try:
-        spec.loader.exec_module(module)
+        source = path.read_text(encoding="utf-8")
+        exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - the model is code
     except Exception as exc:  # noqa: BLE001 - the consumer's module may fail any way
         raise ConfigError(f"{path}: {type(exc).__name__}: {exc}") from exc
     finally:
-        sys.modules.pop(spec.name, None)
+        sys.modules.pop(name, None)
     model = getattr(module, "MODEL", None)
     meaning = getattr(module, "MEANING", None)
     if not isinstance(model, Model):

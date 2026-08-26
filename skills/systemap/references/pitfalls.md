@@ -44,10 +44,13 @@ disagree.
 
 The check refuses a route through a card and across a foreign band, and
 the router does its best in the gutters. Cards off the grid close the
-corridors. Put every card on the grid (columns 190 apart, rows 92 apart),
-put the parts that talk most next to each other, leave one empty column
-where the long routes run, and move a card rather than accept a route that
-snakes. `map routes: 0 edges through a card` is the line to reach.
+corridors; regions that tile their container leave none. Put every card
+on the grid (columns 190 apart, rows 92 apart), keep the gaps between
+regions the starter has, put the parts that talk most next to each other,
+leave one empty column where the long routes run, and move a card rather
+than accept a route that snakes. `references/layout.md` has the rule and
+the shapes that work; `systemap describe` says what the picture looks
+like. `map routes: 0 edges through a card` is the line to reach.
 
 ## Inventing an entry
 

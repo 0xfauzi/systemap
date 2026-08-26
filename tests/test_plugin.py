@@ -25,6 +25,7 @@ MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
 REFERENCES = (
     "schema.md",
     "example.md",
+    "layout.md",
     "layers.md",
     "journeys-and-invariants.md",
     "second-pass.md",

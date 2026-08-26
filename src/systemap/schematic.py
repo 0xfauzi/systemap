@@ -497,7 +497,7 @@ def render(
     label_names = {
         i: f"label '{art}' ({src} -> {dst})" for i, (src, dst, art, _k) in enumerate(FLOWS)
     }
-    seats = place_labels(routes, widths, LABEL_H, obstacles, CANVAS, names=label_names)
+    seats = place_labels(routes, widths, LABEL_H, obstacles, CANVAS, names=label_names, cards=boxes)
 
     flow_parts: list[str] = []
     label_parts: dict[int, str] = {}
@@ -543,9 +543,13 @@ def render(
             f'marker-end="url(#{svg_id}-m-{marker})"/>'
         )
         if seat.cost > 0:
+            # The line names what the seat touches and, from the router's
+            # own seat counts, which fix applies: the gutter is full, or
+            # the label is wider than any seat its path offers.
+            fix = f"; {seat.fix}" if seat.fix else ""
             collisions.append(
                 f"label collision: '{artifact}' ({src} -> {dst}) overlaps "
-                f"{', '.join(seat.hits[:3])}"
+                f"{', '.join(seat.hits[:3])}{fix}"
             )
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
