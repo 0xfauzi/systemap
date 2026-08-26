@@ -500,15 +500,29 @@ function keyboard(page) {
     replaceStates: REPORT.replaceStates,
   };
   const pressed = () => doc.querySelectorAll('[data-layer-btn]').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.layerBtn);
+  const strip = () => {
+    // The strip's count line and the cards it lists, each with its kind.
+    const s = doc.querySelector('.lstrip__s');
+    return {
+      says: s ? s.textContent : '',
+      listed: doc.querySelectorAll('#lstrip [data-go]').map((b) => ({id: b.dataset.go, kind: A.detail[b.dataset.go].kind})),
+    };
+  };
 
   // Arrows switch readings while no journey is on.
   const arrows = [];
+  report.strips = {[A.state.layer]: strip()};
   key('ArrowRight'); arrows.push({after: 'right', layer: A.state.layer, pressed: pressed()});
+  report.strips[A.state.layer] = strip();
   key('ArrowRight'); arrows.push({after: 'right', layer: A.state.layer, pressed: pressed()});
+  report.strips[A.state.layer] = strip();
   key('ArrowLeft'); arrows.push({after: 'left', layer: A.state.layer, pressed: pressed()});
   key('ArrowLeft'); arrows.push({after: 'left', layer: A.state.layer, pressed: pressed()});
   key('ArrowLeft'); arrows.push({after: 'left', layer: A.state.layer, pressed: pressed()});
+  report.strips[A.state.layer] = strip();
   report.arrows = arrows;
+  report.header = (doc.querySelector('.bar .meta') || {textContent: ''}).textContent;
+  report.kinds = Object.fromEntries(svg.querySelectorAll('.node').map((n) => [n.dataset.id, n.dataset.kind]));
   // ... and are left alone inside the journey select.
   const select = doc.getElementById('journey');
   report.arrowInSelectPrevented = key('ArrowRight', select);

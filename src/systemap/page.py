@@ -49,6 +49,16 @@ def number_word(n: int) -> str:
     return NUMBER_WORDS[n] if 0 <= n < len(NUMBER_WORDS) else str(n)
 
 
+def counted(n_components: int, n_actors: int) -> str:
+    """`15 components and 3 actors`: the cards that are code, then the actors
+    when there are any. The header and the strip count the same way, so the
+    two never disagree about what a component is."""
+    out = f"{n_components} component{'' if n_components == 1 else 's'}"
+    if n_actors:
+        out += f" and {n_actors} actor{'' if n_actors == 1 else 's'}"
+    return out
+
+
 @dataclass(frozen=True)
 class Nesting:
     """Where a page sits in the tree of maps: what is above it, what opens below.
@@ -161,7 +171,8 @@ def build(
 
     commit = (facts.get("built_at_commit") or "")[:10]
     n_flows = len(model.flows)
-    n_comp = len([c for c in COMPONENTS if c.kind != "actor"])
+    n_actors = len([c for c in COMPONENTS if c.kind == "actor"])
+    cards = counted(len(COMPONENTS) - n_actors, n_actors)
     layers = all_layers(model, meaning)
     n_layers = number_word(len(layers))
 
@@ -188,13 +199,13 @@ def build(
         o.append(
             f'<p class="meta">The map inside the <code>{esc(nesting.card)}</code> card of '
             f'<a href="{esc(nesting.parent_href)}">the {esc(nesting.parent_label)} map</a>: '
-            f"{n_comp} components, {n_flows} flows, {n_layers} layers.{built}</p>"
+            f"{cards}, {n_flows} flows, {n_layers} layers.{built}</p>"
         )
     else:
         o.append(f"<h1>{esc(cfg.name)} <span>map</span></h1>")
         o.append(
             f'<p class="meta">A generated map of what the parts of {esc(cfg.name)} are and what '
-            f"they are to each other: {n_comp} components, {n_flows} flows, {n_layers} layers."
+            f"they are to each other: {cards}, {n_flows} flows, {n_layers} layers."
             f"{built}</p>"
         )
     if nesting.opens:
@@ -638,11 +649,16 @@ JS = r"""
       h += '</span>';
     } else {
       var l = LAY[L], list = A.layerIds(L);
+      // The count says what the header says: the cards that are code, then
+      // the actors the reading touches, named apart.
+      var actors = list.filter(function(id){ return A.detail[id].kind === 'actor'; }).length;
+      var comps = list.length - actors;
+      var counted = comps + ' component' + (comps === 1 ? '' : 's')
+        + (actors ? ' and ' + actors + ' actor' + (actors === 1 ? '' : 's') : '');
       h += '<span class="lstrip__l" style="--c:' + l.colour + '"><i></i>' + esc(l.label)
          + ' layer</span>';
       h += '<span class="lstrip__q">' + esc(l.question) + '</span>';
-      h += '<span class="lstrip__s">' + esc(l.sub) + '. ' + list.length
-         + ' components; click one.</span>';
+      h += '<span class="lstrip__s">' + esc(l.sub) + '. ' + counted + '; click one.</span>';
       h += '<span class="lstrip__row">';
       list.forEach(function(id){
         h += '<button type="button" data-go="' + esc(id) + '">' + esc(id) + '</button>'; });

@@ -372,6 +372,9 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     style = (nested / "docs/map/Style/index.html").read_text()
     assert "<title>demo system map</title>" in top
     assert "<title>demo system map: Gateway</title>" in gateway
+    # The header counts the cards that are code, then the actors apart.
+    assert "each other: 4 components and 1 actor, 4 flows, four layers." in top
+    assert "the demo map</a>: 3 components and 2 actors, 4 flows, four layers." in gateway
     # The top page: the mark on the opening cards, the legend row, the
     # links down in the header, and in the panel's detail the path of each
     # map inside and its preview (the sub-map's Structure reading, drawn

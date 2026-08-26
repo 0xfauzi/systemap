@@ -12,8 +12,9 @@ by row, left to right) and each takes focus; Enter on a focused card opens
 its wheel with one focusable spoke per edge; Escape closes the wheel and
 hands focus back to the card; a journey takes the arrows while it is on
 and Escape ends it; with prefers-reduced-motion the framing sets the view
-once per framing, never tweened; and the focus ring is drawn in the accent
-of the scheme, in both schemes.
+once per framing, never tweened; the header and the strip count the cards
+the same way (components, then actors named apart); and the focus ring is
+drawn in the accent of the scheme, in both schemes.
 """
 
 from __future__ import annotations
@@ -60,6 +61,45 @@ def sample_page(sample: Sample, tmp_path: Path, scheme: str = "dark") -> Path:
     return out
 
 
+def counted(n_components: int, n_actors: int) -> str:
+    out = f"{n_components} component{'' if n_components == 1 else 's'}"
+    if n_actors:
+        out += f" and {n_actors} actor{'' if n_actors == 1 else 's'}"
+    return out
+
+
+def check_counts(report: dict[str, object]) -> None:
+    """The header and the strip count the same way: the cards that are code
+    as components, the actors named apart when there are any."""
+    kinds = report["kinds"]
+    assert isinstance(kinds, dict) and kinds
+    n_actors = sum(1 for k in kinds.values() if k == "actor")
+    header = report["header"]
+    assert isinstance(header, str)
+    assert f": {counted(len(kinds) - n_actors, n_actors)}, " in header, header
+    assert n_actors > 0, "the sample and the self-map both have actors"
+    strips = report["strips"]
+    assert isinstance(strips, dict) and len(strips) >= 3
+    for layer, strip in strips.items():
+        if layer == "all":
+            continue  # All lists the layers, not the cards, and counts nothing
+        assert isinstance(strip, dict)
+        listed = strip["listed"]
+        assert isinstance(listed, list) and listed, layer
+        actors = sum(1 for c in listed if c["kind"] == "actor")
+        says = strip["says"]
+        assert isinstance(says, str)
+        assert says.endswith(f". {counted(len(listed) - actors, actors)}; click one."), (
+            layer,
+            says,
+        )
+    assert any(
+        any(c["kind"] == "actor" for c in s["listed"])  # type: ignore[index]
+        for layer, s in strips.items()
+        if layer != "all"
+    ), "some reading lists an actor, so the actor phrase is exercised"
+
+
 def check_keyboard(report: dict[str, object]) -> None:
     layers = report["layers"]
     assert isinstance(layers, list) and len(layers) >= 3
@@ -73,6 +113,7 @@ def check_keyboard(report: dict[str, object]) -> None:
         assert a["pressed"] == [a["layer"]], "one layer button reads pressed"
     assert report["arrowInSelectPrevented"] is False
     assert report["layerAfterSelectArrow"] == "all", "the select keeps its arrows"
+    check_counts(report)
 
     order = report["nodeOrder"]
     assert isinstance(order, list) and order
