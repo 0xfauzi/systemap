@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.11.0
+
+ROADMAP gap 7, everything but the publishing: the package proven on three
+operating systems, the plugin install proven by the CLI in the workflow,
+the light scheme rendered and looked at, the page from the keyboard with a
+test that drives its script, the README with the cost table by reference
+and a thirty-second tour. Not in this release: the PyPI publish (the
+maintainer publishes 1.0 by hand with `scripts/publish.sh`) and the
+submission to the official marketplace (after 1.0, not before).
+
+- CI on Linux, macOS and Windows with Python 3.11 and 3.13: the suite,
+  `mypy --strict`, `ruff check` and `ruff format --check` on each; and a
+  job per platform that builds the wheel, installs it with pip into an
+  empty virtual environment, copies this repository's own map beside the
+  checkout (no `.git`, no source tree on the path, no uv at run time) and
+  runs `init`, `extract`, `refresh`, `check`, `judgement --strict`,
+  `render --check` and `describe` there. `check` comes after `refresh`
+  because the check refuses a page that is not rendered, and the
+  committed page names the commit it was rendered at, which a copy
+  without `.git` cannot reproduce.
+- What Windows broke, fixed: every file systemap writes now ends its
+  lines with LF on every platform (`newline="\n"` on every writer:
+  the page, the facts, the figures, the model `place` edits, the skill,
+  what `init` scaffolds), so a page rendered on one machine is byte for
+  byte what another renders and `render --check` compares as written;
+  every path printed or recorded uses forward slashes (`Config.rel`, the
+  `file` of each module record in the facts, the skill directory `init`
+  names); `.gitattributes` checks every text file out with LF. Two tests
+  were platform-bound: the plugin skill-tree comparison keyed its paths
+  by the platform separator (now posix), and the `bench/run.sh` test is
+  skipped on Windows with the reason (the `bash` on a Windows PATH is
+  the WSL launcher, not a shell that runs it). `git archive` in `delta`
+  and the loopback server in `serve` needed no change: the suite runs
+  them on Windows.
+- The plugin job adds the checkout as a marketplace (`claude plugin
+  marketplace add ./`), installs `systemap@systemap` from it and lists
+  it, into a configuration directory of its own; the list must show the
+  plugin enabled. None of the three needs a login (measured with an
+  empty `CLAUDE_CONFIG_DIR` on the pinned CLI, locally and on the
+  runner), so the job fails when any of them does.
+- The light scheme, rendered and looked at: the page, the All and the
+  Control flow readings, a card's drawer with a spoke read, a journey
+  step, and the index and invariants under the map, each photographed
+  by headless Chrome. Nothing read badly; no token moved.
+  `docs/screenshots/light.png` sits beside `dark.png`, both at 1600 by
+  900, and the README shows them. `scripts/screenshots.py` writes both.
+- Keyboard: the cards are written in reading order (row by row, left to
+  right), so Tab moves across the map the way the eye does; Enter or
+  Space on a focused card opens its wheel; Escape closes it, returns the
+  view and hands the focus back to the card; the left and right arrows
+  switch readings, wrapping through All, or step the journey while one
+  is on; the journey select keeps its own arrows; the focus ring is the
+  accent of the scheme on the card, the spoke and every control; the
+  index buttons scroll without smoothing under `prefers-reduced-motion`,
+  which already turned every transition and the framing animation off.
+  The page's hint and key paragraph say so.
+- A test drives the page's script: `tests/page_driver.js` loads a
+  rendered page into a DOM of its own (a tag parser, a selector matcher,
+  events that bubble, focus, animation frames on a fake clock; no
+  library), runs the page's scripts as written, presses the keys and
+  reports; `tests/test_keyboard.py` asserts the arrows walk the readings
+  table the page carries, the Tab order, Enter, Escape, the journey and
+  that reduced motion frames without an animation frame, on the sample
+  page and on the committed self-map page. It runs under Node where
+  Node is on the PATH (every runner the workflow uses) and skips with
+  the reason where it is not.
+- README: the first paragraph says Python and only Python; the Cost
+  section is the table by reference (the table is the number) and
+  copies no row; a thirty-second tour, `docs/screenshots/tour.gif`,
+  twelve states of the page (each reading, All, a card and its wheel, a
+  spoke read, a journey stepped, a card on the Control flow reading) at
+  two and a half seconds each, produced from headless screenshots
+  stitched by ffmpeg, 1.1 MB. Every state could be driven headlessly.
+
 ## 0.10.1
 
 What the fourth headless run found: the first run with `place`, on the

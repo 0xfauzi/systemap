@@ -13,8 +13,9 @@
   <img alt="no dependencies" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
-systemap gives a coding agent the tools to draw a map of your system and the
-checker that refuses to let that map be incomplete or stale. You install it,
+systemap gives a coding agent the tools to draw a map of your Python system
+and the checker that refuses to let that map be incomplete or stale. It
+reads Python and only Python; no other language is planned. You install it,
 run `systemap init`, and tell your agent to map the repository. The agent
 reads the facts out of the code, writes down what the parts are and what
 they are to each other, checks it, and then makes a second pass over every
@@ -86,7 +87,7 @@ why. You read the answers, correct what you disagree with, commit
 
 The workflow `init` writes runs systemap from the released package,
 pinned to the tag of the version that wrote it (`uvx --from
-"git+https://github.com/0xfauzi/systemap@v0.10.1"`), so your project
+"git+https://github.com/0xfauzi/systemap@v0.11.0"`), so your project
 takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
 no token, so a workflow linter passes it as written. Its second job runs
@@ -101,7 +102,8 @@ way. The skill is plain text; there is nothing vendor-specific in it.
 ### Install as a Claude Code plugin
 
 The repository is also a plugin and its own marketplace, so the skill can
-be installed without `init`:
+be installed without `init` (the workflow installs it this way from the
+checkout on every push, so the proof is mechanical):
 
     /plugin marketplace add 0xfauzi/systemap
     /plugin install systemap@systemap
@@ -129,7 +131,20 @@ live page has them all.
 </p>
 
 The page is served from `docs/` by GitHub Pages at
-<https://0xfauzi.github.io/systemap/map/>.
+<https://0xfauzi.github.io/systemap/map/>. Thirty seconds of it, each
+reading, a card, a spoke, a journey stepped:
+
+<p align="center">
+  <img src="docs/screenshots/tour.gif" alt="The page in thirty seconds: each reading in turn, a card clicked and its wheel read, a journey stepped three edges" width="100%">
+</p>
+
+The page in both schemes, as headless Chrome renders it at 1600 by 900
+(`scripts/screenshots.py` writes both, and the tour):
+
+<p align="center">
+  <a href="docs/screenshots/dark.png"><img src="docs/screenshots/dark.png" alt="The page in the graphite scheme" width="49%"></a>
+  <a href="docs/screenshots/light.png"><img src="docs/screenshots/light.png" alt="The page in the paper scheme, scheme = light" width="49%"></a>
+</p>
 
 - **Readings.** One map, several layers, each answering one question. Four
   are derived from the model with no authoring, and the page opens on the
@@ -169,6 +184,13 @@ The page is served from `docs/` by GitHub Pages at
   does. A declared edge is dashed, and the panel says so.
 - **Pan and zoom.** The map is as large as the system; the page is not
   squeezed to fit a screen.
+- **Keyboard.** Tab moves across the cards in reading order, Enter opens
+  the focused card's wheel, Escape closes it and hands the focus back, the
+  left and right arrows switch readings, or step the journey while one is
+  on. The focus ring is drawn in the accent of the scheme.
+  `prefers-reduced-motion` turns every transition off, the framing
+  included. A test drives the page's script under Node with the readings
+  table and presses those keys.
 - **Maps inside cards.** A card may open a map of its own: it stands on
   a second card, its panel reads `opens: Gateway (5 cards)` with a link,
   and the page inside links back. One canvas holds about forty cards;
@@ -459,14 +481,14 @@ line, label and a mark per kind.
 
 ## Cost
 
-The number is the table in [docs/benchmarks.md](docs/benchmarks.md), and
-nothing else: one row per repository per mode (a first map; a maintenance
-run on a small, a medium and a large pull request), with the model named,
-the systemap version, the turns, the minutes and the dollars the session's
-own result event reported, and whether `systemap check` and `systemap
-judgement --strict` passed afterwards. The table is empty until a
-repository is measured. The targets in ROADMAP.md are targets, and this
-file does not quote them as results.
+The table is the number: [docs/benchmarks.md](docs/benchmarks.md), one row
+per repository per mode (a first map; a maintenance run on a small, a
+medium and a large pull request), with the model named, the systemap
+version, the turns, the minutes and the dollars the session's own result
+event reported, and whether `systemap check` and `systemap judgement
+--strict` passed afterwards. This file does not copy a row from it, so the
+two cannot disagree; the targets in ROADMAP.md are targets, and neither
+file quotes them as results.
 
 Each row is written by `bench/run.sh`, the documented headless recipe as a
 script: a worktree or a clone under a scratch directory, systemap
@@ -494,6 +516,15 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run systemap describe
     uv run systemap facts --modules
     uv run systemap suggest
+    uv run python scripts/screenshots.py   # docs/screenshots/: both schemes and the tour (Chrome, ffmpeg)
+
+The workflow runs the suite, the type check and the linter on Linux,
+macOS and Windows with Python 3.11 and 3.13, installs the built wheel
+with pip into an empty virtual environment on each and runs `init`,
+`extract`, `refresh`, `check` and `judgement --strict` on a copy of this
+repository's own map beside the checkout, and adds the checkout as a
+marketplace and installs the plugin from it with the Claude Code CLI.
+Every file systemap writes ends its lines with LF on every platform.
 
 The skill has one source of truth: [`src/systemap/skill/`](src/systemap/skill/),
 the directory the package ships and `systemap init` installs. The plugin's
