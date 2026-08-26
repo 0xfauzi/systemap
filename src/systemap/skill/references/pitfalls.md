@@ -60,6 +60,17 @@ check names a fix that is a card moved. `references/layout.md` says what
 is still yours to decide; `systemap describe` says what the picture looks
 like. `map routes: 0 edges through a card` is the line to reach.
 
+## A map past forty cards
+
+Sixty cards on one canvas is a poster, not a map: every reading lights
+everything, and no placement leaves a corridor. When `systemap suggest`
+says a map is past forty cards, or a card holds more than ten modules,
+open a map inside that card (`map=` on the card; `references/layout.md`
+says how) instead of squeezing the grid. The card stays on the top map
+with its flows; the map inside claims exactly the card's modules and
+nothing else, and the check refuses any difference with the modules
+named.
+
 ## A flow the code does not back
 
 An edge inferred from a document, or from what the parts ought to do, is

@@ -6,7 +6,7 @@
     systemap place [--print]           a first position for every card without one
     systemap render [--check]          render the page from facts and model
     systemap check                     every rule; exit 1 with each fix named
-    systemap figure ... --out FILE     one figure from the same generator
+    systemap figure ... --out FILE     one figure from the same generator; --map ID for a sub-map
     systemap refresh                   extract, check, render, figures
     systemap judgement [--strict]      the list the maintainer must confirm
     systemap delta --base REF          what a change did to the map, each line with its fix
@@ -18,6 +18,11 @@
 Exit codes: 0 the map is current or the check passed; 1 the map is stale or
 a check failed; 2 the configuration or the model cannot be used. Every
 non-zero exit prints one line saying what to run.
+
+Every command that reads the model walks the tree of maps (`nest`): the
+top map, then the map inside each card that opens one. A sub-map's lines
+carry its id in front, and its page is written under the output directory
+at `<id>/index.html`.
 """
 
 from __future__ import annotations
@@ -40,6 +45,7 @@ from systemap import (
     extract,
     figure,
     judgement,
+    nest,
     page,
     place,
     scaffold,
@@ -47,9 +53,8 @@ from systemap import (
 )
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
-from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError
-from systemap.model import Meaning, Model, all_layers
+from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
 
 OK, STALE, BAD_CONFIG = 0, 1, 2
@@ -57,10 +62,22 @@ OK, STALE, BAD_CONFIG = 0, 1, 2
 
 @dataclass(frozen=True)
 class Project:
+    """The configuration and the tree of maps under the configured model."""
+
     cfg: Config
-    model: Model
-    meaning: Meaning
-    theme: dict[str, Any]
+    tree: nest.Tree
+
+    @property
+    def model(self) -> Model:
+        return self.tree.top.model
+
+    @property
+    def meaning(self) -> Meaning:
+        return self.tree.top.meaning
+
+    @property
+    def theme(self) -> dict[str, Any]:
+        return self.tree.top.theme
 
 
 def say(*lines: str) -> None:
@@ -82,8 +99,7 @@ def _root(args: argparse.Namespace) -> Path:
 
 def _project(args: argparse.Namespace) -> Project:
     cfg = config.load(_root(args))
-    model, meaning = config.load_model(cfg.model_path, cfg.model)
-    return Project(cfg, model, meaning, theme_mod.resolve(cfg.theme, all_layers(model, meaning)))
+    return Project(cfg, nest.load(cfg))
 
 
 # ---- init ------------------------------------------------------------------
@@ -137,7 +153,13 @@ def cmd_extract(args: argparse.Namespace) -> int:
     fresh = extract.build(p.cfg)
     stored = extract.read_facts(p.cfg.facts_path)
     if args.check:
-        problems = check.stale_facts(fresh, stored, p.model, p.cfg.prefixes)
+        problems = [
+            m.prefix + line
+            for m in p.tree.maps
+            for line in check.stale_facts(fresh, stored, m.model, p.cfg.prefixes)
+        ]
+        # The drift is the facts' own and is reported once, on the top map.
+        problems = list(dict.fromkeys(problems))
         if problems:
             noun = "problem" if len(problems) == 1 else "problems"
             say(f"map is out of date ({len(problems)} {noun}):")
@@ -150,8 +172,9 @@ def cmd_extract(args: argparse.Namespace) -> int:
         return OK
     extract.write_facts(p.cfg.facts_path, fresh)
     say(*extract.summary(fresh))
-    for line in extract.mapping_drift(fresh, p.model, p.cfg.prefixes):
-        say(f"  warning: {line}")
+    for m in p.tree.maps:
+        for line in extract.mapping_drift(fresh, m.model, p.cfg.prefixes):
+            say(f"  warning: {m.prefix}{line}")
     say(f"written to {p.cfg.rel(p.cfg.facts_path)}")
     return OK
 
@@ -201,21 +224,26 @@ def _facts_or_stale(p: Project) -> dict[str, Any] | None:
     return facts
 
 
-def _model_ok(p: Project) -> bool:
-    problems = model_problems(p.model, p.meaning)
-    if problems:
-        say(*problems, f"fix {p.cfg.model}, then run: systemap check")
-        return False
-    return True
+def _model_ok(p: Project, maps: list[nest.Map] | None = None) -> bool:
+    """Every map (or the ones given) free of its own contradictions, else said."""
+    ok = True
+    for m in maps if maps is not None else list(p.tree.maps):
+        problems = model_problems(m.model, m.meaning)
+        if problems:
+            say(*(m.prefix + line for line in problems), f"fix {m.rel}, then run: systemap check")
+            ok = False
+    return ok
 
 
-def _render_page(p: Project, facts: dict[str, Any], args: argparse.Namespace) -> str:
+def _render_page(p: Project, m: nest.Map, facts: dict[str, Any], args: argparse.Namespace) -> str:
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
     if base:
-        ch = change.compute(p.cfg, p.model, base, facts, getattr(args, "head", "HEAD"))
+        ch = change.compute(p.cfg, m.model, base, facts, getattr(args, "head", "HEAD"))
         ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
-    return page.build(p.cfg, p.model, p.meaning, p.theme, facts, ch)
+    return page.build(
+        p.cfg, m.model, m.meaning, m.theme, facts, ch, nesting=page.nesting_of(p.cfg, p.tree, m)
+    )
 
 
 def cmd_render(args: argparse.Namespace) -> int:
@@ -225,22 +253,24 @@ def cmd_render(args: argparse.Namespace) -> int:
         return STALE
     if not _model_ok(p):
         return STALE
-    html = _render_page(p, facts, args)
-    out = p.cfg.page_path
-    if args.check:
-        current = out.read_text(encoding="utf-8") if out.is_file() else ""
-        if current != html:
-            say(
-                f"{p.cfg.rel(out)} is stale: it differs from what systemap renders",
-                "run: systemap refresh",
-            )
-            return STALE
-        say(f"{p.cfg.rel(out)} is current")
-        return OK
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(html, encoding="utf-8")
-    say(f"wrote {p.cfg.rel(out)} ({out.stat().st_size / 1024:.0f} KB)")
-    return OK
+    code = OK
+    for m in p.tree.maps:
+        html = _render_page(p, m, facts, args)
+        out = m.page_path(p.cfg)
+        if args.check:
+            current = out.read_text(encoding="utf-8") if out.is_file() else ""
+            if current != html:
+                say(f"{p.cfg.rel(out)} is stale: it differs from what systemap renders")
+                code = STALE
+            else:
+                say(f"{p.cfg.rel(out)} is current")
+            continue
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html, encoding="utf-8")
+        say(f"wrote {p.cfg.rel(out)} ({out.stat().st_size / 1024:.0f} KB)")
+    if code == STALE:
+        say("run: systemap refresh")
+    return code
 
 
 # ---- check -----------------------------------------------------------------
@@ -257,25 +287,42 @@ def _empty(p: Project) -> bool:
     return True
 
 
-def _fix_line(p: Project, result: check.Result) -> str:
+def _fix_line(p: Project, results: dict[str, check.Result]) -> str:
     """The one line naming what to do first about a failed check.
 
     The model's own contradictions come first, since nothing else can be
     judged until they are gone; then the facts; then the rules that read
-    the two together; then the outputs, which refresh regenerates.
+    the two together; then the outputs, which refresh regenerates. The
+    top map's file is named first, then a sub-map's.
     """
-    if result.problems:
-        return f"fix {p.cfg.model}, then run: systemap check"
-    if not result.coverage.checked:
+    for m in p.tree.maps:
+        if results[m.id].problems:
+            return f"fix {m.rel}, then run: systemap check"
+    top = results[p.tree.top.id]
+    if not top.coverage.checked:
         return "run: systemap extract"
-    if result.coverage.problems:
+    if top.coverage.problems:
         return (
             f"map every module in {p.cfg.model}, or ignore it with a reason under "
             "[coverage] in the configuration, then run: systemap check"
         )
-    if result.entry or result.interface:
-        return f"fix {p.cfg.model}, then run: systemap check"
+    for m in p.tree.maps:
+        result = results[m.id]
+        if result.entry or result.interface or result.nesting:
+            return f"fix {m.rel}, then run: systemap check"
     return "run: systemap refresh"
+
+
+def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
+    return check.run_tree(p.tree, facts, p.cfg.coverage_ignore, p.cfg.observed_by)
+
+
+def _report_tree(p: Project, results: dict[str, check.Result], stale: list[str]) -> list[str]:
+    """Every map's report in tree order, then the stale group once."""
+    out: list[str] = []
+    for m in p.tree.maps:
+        out += check.report(m.model, results[m.id], m.rel, m.prefix)
+    return out + check.report_stale(stale)
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -284,11 +331,11 @@ def cmd_check(args: argparse.Namespace) -> int:
     if _empty(p):
         return STALE
     facts = extract.read_facts(p.cfg.facts_path)
-    result = check.run(p.model, p.meaning, p.theme, facts, p.cfg.coverage_ignore, p.cfg.observed_by)
-    result = check.with_stale(result, check.stale(p.cfg, p.model, p.meaning, p.theme))
-    say(*check.report(p.model, result, p.cfg.model))
-    if not result.ok:
-        say(_fix_line(p, result))
+    results = _check_tree(p, facts)
+    stale = check.stale(p.cfg, p.tree)
+    say(*_report_tree(p, results, stale))
+    if not check.tree_ok(results) or stale:
+        say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
         return STALE
     return OK
 
@@ -303,18 +350,26 @@ def _ids(values: list[str] | None) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _map(p: Project, map_id: str) -> nest.Map:
+    """The map a `--map ID` names; the top map for none; unknown is refused."""
+    if not p.tree.has(map_id):
+        raise nest.unknown_map(p.tree, map_id)
+    return p.tree.get(map_id)
+
+
 def cmd_figure(args: argparse.Namespace) -> int:
     p = _project(args)
     facts = _facts_or_stale(p)
     if facts is None:
         return STALE
-    if not _model_ok(p):
+    m = _map(p, args.map or "")
+    if not _model_ok(p, [m]):
         return STALE
     html, collisions = figure.make(
         p.cfg,
-        p.model,
-        p.meaning,
-        p.theme,
+        m.model,
+        m.meaning,
+        m.theme,
         facts,
         mode=args.mode or "",
         components=_ids(args.components),
@@ -325,6 +380,8 @@ def cmd_figure(args: argparse.Namespace) -> int:
         interactive=bool(args.interactive),
         bare=bool(args.out) and args.out.endswith(".svg"),
         layer=args.layer or "",
+        map_id=m.id,
+        opens=nest.opens(p.tree, m, links=False),
     )
     for line in collisions:
         warn(line)
@@ -340,7 +397,7 @@ def cmd_figure(args: argparse.Namespace) -> int:
     else:
         sys.stdout.write(html)
     if collisions:
-        warn(f"fix {p.cfg.model}, then run: systemap check")
+        warn(f"fix {m.rel}, then run: systemap check")
         return STALE
     return OK
 
@@ -367,25 +424,28 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.
-    stale_lines = check.stale(p.cfg, p.model, p.meaning, p.theme, fresh)
-    result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore, p.cfg.observed_by)
-    if not stale_lines and result.ok:
+    stale_lines = check.stale(p.cfg, p.tree, fresh)
+    results = _check_tree(p, fresh)
+    if not stale_lines and check.tree_ok(results):
         note(ALREADY_CURRENT)
         return OK
 
     note("map: refreshing against the working tree")
     extract.write_facts(p.cfg.facts_path, fresh)
     written = [p.cfg.rel(p.cfg.facts_path)]
-    if not result.ok:
-        say(*check.report(p.model, result, p.cfg.model))
-        fix = _fix_line(p, result).replace("systemap check", "systemap refresh")
+    if not check.tree_ok(results):
+        say(*_report_tree(p, results, []))
+        fix = _fix_line(p, results).replace("systemap check", "systemap refresh")
         say(f"map: check failed; {fix}")
         return STALE
-    html = _render_page(p, fresh, argparse.Namespace())
-    p.cfg.page_path.write_text(html, encoding="utf-8")
-    written.append(p.cfg.rel(p.cfg.page_path))
+    for m in p.tree.maps:
+        html = _render_page(p, m, fresh, argparse.Namespace())
+        out = m.page_path(p.cfg)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html, encoding="utf-8")
+        written.append(p.cfg.rel(out))
     for fig in p.cfg.figures:
-        html, collisions = figure.configured(p.cfg, p.model, p.meaning, p.theme, fresh, fig)
+        html, collisions = figure.configured(p.cfg, p.tree, _map(p, fig.map), fresh, fig)
         for line in collisions:
             warn(line)
         out = p.cfg.out_path / fig.out
@@ -395,13 +455,13 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # What was written is checked as `systemap check` would check it. A
     # refresh that leaves the check failing is not a refresh, whatever it
     # wrote; the exit code says so.
-    after = check.with_stale(
-        check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore, p.cfg.observed_by),
-        check.stale(p.cfg, p.model, p.meaning, p.theme, fresh),
-    )
-    if not after.ok:
-        say(*check.report(p.model, after, p.cfg.model))
-        fix = _fix_line(p, after).replace("systemap check", "systemap refresh")
+    after = _check_tree(p, fresh)
+    stale_after = check.stale(p.cfg, p.tree, fresh)
+    if not check.tree_ok(after) or stale_after:
+        say(*_report_tree(p, after, stale_after))
+        fix = (
+            _fix_line(p, after) if not check.tree_ok(after) else "run: systemap refresh"
+        ).replace("systemap check", "systemap refresh")
         say(f"map: check failed after the refresh; {fix}")
         return STALE
     note(f"map: updated {', '.join(written)}")
@@ -427,9 +487,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")
-    lines = judgement.run(
-        p.model,
-        p.meaning,
+    lines = judgement.run_tree(
+        p.tree,
         facts,
         judgement.sdk_list(p.cfg.model_sdks),
         p.cfg.observed_by,
@@ -462,10 +521,9 @@ def cmd_delta(args: argparse.Namespace) -> int:
     base_sha = delta.resolve(root, args.base)
     head_sha = delta.resolve(root, args.head)
     compared = delta.merge_base(root, base_sha, head_sha)
-    d = delta.compute(
+    d = delta.compute_tree(
         p.cfg,
-        p.model,
-        p.meaning,
+        p.tree,
         delta.facts_at(p.cfg, compared),
         delta.facts_at(p.cfg, head_sha),
         base_ref=args.base,
@@ -482,13 +540,21 @@ def cmd_delta(args: argparse.Namespace) -> int:
 
 
 def cmd_suggest(args: argparse.Namespace) -> int:
-    """A first grouping from the facts alone, to argue with; never the answer."""
+    """A first grouping from the facts alone, to argue with; never the answer.
+
+    With a model that has cards, the tree is read too, for when a map is
+    past forty cards and which cards to open a map inside.
+    """
     cfg = config.load(_root(args))
     facts = extract.read_facts(cfg.facts_path)
     if not facts:
         say(f"no facts at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
     say(*suggest_mod.lines(facts))
+    if cfg.model_path.is_file():
+        tree = nest.load(cfg)
+        if tree.top.model.components:
+            say(*suggest_mod.nesting_lines(tree, facts))
     return OK
 
 
@@ -506,16 +572,21 @@ def cmd_describe(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    # A card without a position is placed for this look, as `systemap
-    # place` would place it, and the positions line says which.
-    placement = place.compute(p.model)
-    if placement.positions:
-        p = Project(p.cfg, place.apply(p.model, placement), p.meaning, p.theme)
-    if not _model_ok(p):
-        return STALE
     facts = extract.read_facts(p.cfg.facts_path)
-    say(*describe.run(p.model, p.meaning, p.theme, facts, p.cfg.observed_by, placement.placed))
-    return OK
+    code = OK
+    for m in p.tree.maps:
+        # A card without a position is placed for this look, as `systemap
+        # place` would place it, and the positions line says which.
+        placement = place.compute(m.model)
+        model = place.apply(m.model, placement) if placement.positions else m.model
+        problems = model_problems(model, m.meaning)
+        if problems:
+            say(*(m.prefix + line for line in problems), f"fix {m.rel}, then run: systemap check")
+            code = STALE
+            continue
+        lines = describe.run(model, m.meaning, m.theme, facts, p.cfg.observed_by, placement.placed)
+        say(*(m.prefix + line for line in lines))
+    return code
 
 
 # ---- place -----------------------------------------------------------------
@@ -533,28 +604,31 @@ def cmd_place(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    placement = place.compute(p.model)
-    if args.print or not placement.positions:
-        say(*place.lines(placement))
-        return OK
-    source = place.write(p.cfg.model_path, placement)
-    # The file is read back and compared with what was computed, so a card
-    # the edit could not reach is reported, never assumed written.
-    reloaded, _meaning = config.load_model(p.cfg.model_path, p.cfg.model)
-    wrong = place.unwritten(reloaded, placement)
-    if wrong:
-        p.cfg.model_path.write_text(source, encoding="utf-8")
-        raise place.PlaceError(
-            f"could not write a position for {', '.join(wrong)} into {p.cfg.model}: the card "
-            "is not a Component(id=...) call the file spells out; add x and y by hand from "
-            "systemap place --print"
-        )
-    n, m = len(placement.positions), len(placement.pinned)
-    laid = "; every box and the canvas laid out" if placement.fresh else ""
-    say(
-        f"place: wrote {p.cfg.model}: {n} card{'s' if n != 1 else ''} placed, {m} pinned{laid}",
-        "run: systemap check",
-    )
+    wrote = False
+    for m in p.tree.maps:
+        placement = place.compute(m.model)
+        if args.print or not placement.positions:
+            say(*(m.prefix + line for line in place.lines(placement)))
+            continue
+        source = place.write(m.path, placement)
+        # The file is read back and compared with what was computed, so a
+        # card the edit could not reach is reported, never assumed written.
+        reloaded, _meaning = config.load_model(m.path, m.rel)
+        wrong = place.unwritten(reloaded, placement)
+        if wrong:
+            m.path.write_text(source, encoding="utf-8")
+            raise place.PlaceError(
+                f"could not write a position for {', '.join(wrong)} into {m.rel}: the card "
+                "is not a Component(id=...) call the file spells out; add x and y by hand from "
+                "systemap place --print"
+            )
+        n, k = len(placement.positions), len(placement.pinned)
+        laid = "; every box and the canvas laid out" if placement.fresh else ""
+        cards = f"{n} card{'s' if n != 1 else ''}"
+        say(f"{m.prefix}place: wrote {m.rel}: {cards} placed, {k} pinned{laid}")
+        wrote = True
+    if wrote:
+        say("run: systemap check")
     return OK
 
 
@@ -704,7 +778,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser(
         "check",
         help="every rule: placement, routes, labels, type size, meaning, wheels, coverage, "
-        "entry, stale outputs; exit 1 with each fix named",
+        "nesting, entry, stale outputs, on every map; exit 1 with each fix named",
     )
     add_root(s)
     s.set_defaults(func=cmd_check)
@@ -729,6 +803,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="ID",
         help="one reading only: that layer's edges, every card, the legend reduced to it "
         "(structure, system, data, control, or a layer of the model's own)",
+    )
+    s.add_argument(
+        "--map",
+        default="",
+        metavar="ID",
+        help="the map inside a card, by the card's id (Gateway, or Gateway/Routes for a map "
+        "inside a map); the top map when not given",
     )
     s.add_argument("--caption", default="")
     s.add_argument("--svg-id", dest="svg_id", default="lessonmap")

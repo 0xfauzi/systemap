@@ -51,7 +51,7 @@ from __future__ import annotations
 import html
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from systemap import evidence
@@ -71,6 +71,8 @@ from systemap.route import path_d, place_labels, route_all
 
 CARD_W = 150.0
 RADIUS = 4.0
+# How far the second card behind a card that opens a map is offset.
+MAP_OFFSET = 3.0
 # The smallest type on the figure. Edge labels, plain words and every note
 # sit at this size; names sit half a point above it.
 TEXT_PX = 11.0
@@ -347,6 +349,7 @@ def render(
     hot_artifacts: set[str] | None = None,
     layer: str = "",
     observed_by: Iterable[str] = (),
+    opens: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[str, str]:
     """(svg, json detail).
 
@@ -369,7 +372,10 @@ def render(
     first and names the known ids.
 
     `observed_by` is the repository's `[flows] observed_by` list: the
-    mechanisms other than an import that make a flow observed.
+    mechanisms other than an import that make a flow observed. `opens`
+    says, per card that opens a map, what the panel prints for it (its
+    name, a link to its page, how many cards it holds); a card with a
+    `map` and no entry here is named alone.
 
     The detail JSON carries one record per component (what the focus panel
     shows) plus a `_meta` key: the layers, every edge with its verbs and its
@@ -381,6 +387,7 @@ def render(
     adjacent = adjacent or set()
     gained = gained or {}
     hot_artifacts = hot_artifacts or set()
+    opens = opens or {}
     change_mode = mode == "change"
 
     T = t
@@ -678,6 +685,15 @@ def render(
         dashes = ' stroke-dasharray="4 3"' if kind == "actor" else ""
         if mark == "dotted":
             dashes = ' stroke-dasharray="1.5 2.5"'
+        # A card that opens a map stands on a second card, offset down and
+        # right: the mark that says there is a map inside, on the page and
+        # in every figure. The panel names the map and links to it.
+        if c.opens:
+            g.append(
+                f'<g class="node__map"><title>opens a map</title>'
+                f'<rect x="{x + MAP_OFFSET}" y="{y + MAP_OFFSET}" width="{w}" height="{h}" '
+                f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" stroke-width="1.1"{dashes}/></g>'
+            )
         g.append(
             f'<rect class="node__box" x="{x}" y="{y}" width="{w}" height="{h}" '
             f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" '
@@ -784,6 +800,7 @@ def render(
             "entry_module": entry_module(c, facts),
             "note": c.note,
             "calls_model": c.calls_model,
+            "map": opens.get(cid, {"name": cid, "href": "", "cards": 0}) if c.opens else None,
             "moved": moved,
             "rules": model.rules_of(cid),
             "edges": [
@@ -980,6 +997,13 @@ def panel_css(t: dict[str, Any]) -> str:
         f".systemap-f__entry{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
         f"color:{t['ink_3']}}}"
         f".systemap-f__entry b{{font-weight:400;color:{t['ink_2']}}}"
+        # The map a card opens: its name, linked to its page when the panel
+        # is on a page, and how many cards it holds.
+        f".systemap-f__opens{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
+        f"color:{t['ink_3']}}}"
+        f".systemap-f__opens b{{font-weight:400;color:{t['ink_2']}}}"
+        f".systemap-f__opens a{{color:{t['accent']};text-decoration:none}}"
+        ".systemap-f__opens a:hover{text-decoration:underline}"
         # The wheel
         f".systemap-w__spoke{{cursor:pointer;outline:none}}"
         ".systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}"
@@ -1605,6 +1629,15 @@ function describe(d){
       ? esc(d.entry) + (d.entry_module ? ' (' + esc(d.entry_module) + ')' : '')
       : 'none (a namespace)';
     h += '<p class="systemap-f__entry">entry: <b>' + entry + '</b></p>';
+  }
+  // The map inside the card, when it opens one: its name, linked to its
+  // page when there is one to link to, and how many cards it holds.
+  if(d.map){
+    var name = d.map.href
+      ? '<a href="' + esc(d.map.href) + '">' + esc(d.map.name) + '</a>' : esc(d.map.name);
+    h += '<p class="systemap-f__opens">opens: <b>' + name
+       + (d.map.cards ? ' (' + d.map.cards + ' card' + (d.map.cards === 1 ? '' : 's') + ')' : '')
+       + '</b></p>';
   }
   h += '</div>';
   return h;

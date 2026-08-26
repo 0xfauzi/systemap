@@ -104,6 +104,10 @@ class Component:
     a single-shot call site: a part that calls a model once and is not an
     agent by the repository's own rule; a context or tool flow may end or
     start at it, and the model sdk judgement line is answered by the flag.
+    `map` opens a map of the card's own: a path, relative to the model
+    file, to a module that exports `MODEL` and `MEANING` like any model,
+    whose cards claim exactly the modules this card claims and whose
+    actors are cards of this map (`systemap.nest` walks the tree).
     """
 
     id: str
@@ -118,6 +122,12 @@ class Component:
     y: int | None = None
     note: str = ""
     calls_model: bool = False
+    map: str | None = None
+
+    @property
+    def opens(self) -> bool:
+        """Does the card open a map of its own? A `map` path is given."""
+        return bool(self.map)
 
     @property
     def pinned(self) -> bool:
@@ -286,6 +296,11 @@ class Model:
         return {c.id for c in self.components}
 
     @property
+    def opening(self) -> tuple[Component, ...]:
+        """The cards that open a map of their own, in model order."""
+        return tuple(c for c in self.components if c.opens)
+
+    @property
     def agentic(self) -> bool:
         """Does the model run a model anywhere? The agent layers appear only then.
 
@@ -322,8 +337,9 @@ class Model:
         container must sit inside it, every flow must name known components
         and a kind that is standard or declared, no ordered pair may carry
         two flows, a context or tool flow
-        must have an agent or a `calls_model` component at its agent end, and every invariant must
-        carry its own number and govern known components. A card outside its band would draw a
+        must have an agent or a `calls_model` component at its agent end, every invariant must
+        carry its own number and govern known components, and a card that opens a map is not
+        an actor. A card outside its band would draw a
         topology the model does not claim, which is the one lie a
         fixed layout can tell.
         """
@@ -338,6 +354,10 @@ class Model:
             seen.add(c.id)
             if c.kind not in KINDS:
                 out.append(f"{c.id} has unknown kind {c.kind}")
+            if c.map is not None and not c.map.strip():
+                out.append(f"{c.id} opens a map with an empty path; name the sub-model module")
+            elif c.opens and c.kind == "actor":
+                out.append(f"{c.id} is an actor and opens a map ({c.map}); an actor claims no code")
         for box in self.containers:
             if box.tone not in TONES:
                 out.append(f"container {box.id} has unknown tone {box.tone}")

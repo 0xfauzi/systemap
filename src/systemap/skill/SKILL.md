@@ -89,7 +89,7 @@ contradictions, not omissions; the second pass is the point of this skill.
    lights nothing.
 6. **second pass**: follow `references/second-pass.md`: walk every crossing
    import, every declared flow, every entry point, every rule the
-   documents state, and look at
+   documents state, on every map of the tree, and look at
    the figure again. The document reread is one pass over what the
    repository points a newcomer at (README, AGENTS.md, CLAUDE.md, a docs
    index or the first level of docs/), and it stops when the rules still
@@ -156,6 +156,11 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
   is in, the order of the regions, and when to pin (`references/layout.md`).
   An artifact label is a noun phrase of one to three words, never a
   sentence. The check decides.
+- A card whose modules exceed ten, or any card once a map is past forty
+  cards, may open a map of its own: `map="gateway.py"` names a second
+  model module beside this one whose cards claim exactly the card's
+  modules and whose actors are the cards around it. Every command walks
+  the tree, and a sub-map's lines carry its id (`references/layout.md`).
 
 ## Commands
 
@@ -165,13 +170,13 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | the facts read back: `--modules`, `--module NAME`, `--entry-points`, `--external`, `--imports NAME`; never open the JSON |
 | `systemap place` | a first position for every card without one, written into the model; a card with `x` and `y` is pinned; with no card pinned the regions, containers and canvas are laid out too; `--print` prints instead |
-| `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
-| `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer |
+| `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
+| `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |
 | `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; exit 1 while a line needs a person; `--format markdown` for a pull-request comment |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
-| `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, or `--components A,B` for a plan's reach |
+| `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, `--map ID` for the map inside a card, or `--components A,B` for a plan's reach |
 | `systemap serve` | serve the output directory over HTTP and print the URL; the page does not run from a file:// address |
 | `systemap skill` | reinstall this directory; `--print` writes SKILL.md to stdout |
 

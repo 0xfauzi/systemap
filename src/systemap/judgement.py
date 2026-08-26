@@ -59,16 +59,23 @@ components in either direction (`crossing`), every one into a component
 that matches no line is
 reported as stale, so answers cannot rot. `--strict` makes the CLI exit
 1 while any line is open, for a workflow.
+
+The list runs on every map of the tree (`run_tree`). A sub-map's lines
+carry its id in front (`Gateway: single module: ...`), so an `item`
+answer quotes the line as printed; the bulk forms read the line behind
+the prefix. An entry point, and a model sdk import, is asked about once,
+on the deepest map whose card claims its module, against the journeys
+of every map.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import evidence
+from systemap import evidence, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
 from systemap.extract import entry_label
@@ -229,7 +236,12 @@ def _journey_text(meaning: Meaning) -> str:
 
 
 def entry_points_without_journey(
-    model: Model, meaning: Meaning, facts: dict[str, Any]
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    *,
+    text: str | None = None,
+    skip: Collection[str] = (),
 ) -> list[str]:
     """Every entry point in the facts that no journey mentions.
 
@@ -238,16 +250,20 @@ def entry_points_without_journey(
     a subcommand by its word, a function by its name. A `main` function
     a console script targets, and a `__main__` module that imports a
     console script's module, are that script under another name and
-    are not asked about twice.
+    are not asked about twice. `text` is the journeys to read, every
+    map's when the model is one of a tree; `skip` the modules another
+    map asks about.
     """
     points: list[dict[str, str]] = facts.get("entry_points", [])
-    text = _journey_text(meaning)
+    text = _journey_text(meaning) if text is None else text
     scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
     components = facts.get("components", {})
     owner = _owner_of(model, facts)
     out: list[str] = []
     for p in points:
         module = p["module"]
+        if module in skip:
+            continue
         if p["kind"] == "main_function" and scripts.get(module, {}).get("target") == "main":
             continue
         if p["kind"] == "main_module":
@@ -321,7 +337,11 @@ def sdk_of(name: str, sdks: Iterable[str]) -> str:
 
 
 def model_sdk_imports(
-    model: Model, facts: dict[str, Any], sdks: Iterable[str] = MODEL_SDKS
+    model: Model,
+    facts: dict[str, Any],
+    sdks: Iterable[str] = MODEL_SDKS,
+    *,
+    skip: Collection[str] = (),
 ) -> list[str]:
     """Every module that imports a model SDK from a component that is not an agent.
 
@@ -330,6 +350,7 @@ def model_sdk_imports(
     sits in a plain component, a store or a tool is either an agent the
     map does not show or a call the reader should know about. A component
     marked `calls_model` has answered: the map says it calls a model once.
+    `skip` names the modules a map inside a card asks about instead.
     """
     components = facts.get("components", {})
     owner = _owner_of(model, facts)
@@ -338,7 +359,7 @@ def model_sdk_imports(
     out: list[str] = []
     for module in sorted(components):
         p = owner.get(module)
-        if not p or p in runs_a_model:
+        if not p or p in runs_a_model or module in skip:
             continue
         hit = sorted({sdk_of(n, sdk_list) for n in components[module].get("external", [])} - {""})
         for sdk in hit:
@@ -377,18 +398,51 @@ def run(
     facts: dict[str, Any],
     sdks: Iterable[str] = MODEL_SDKS,
     observed_by: Iterable[str] = (),
+    *,
+    journeys_text: str | None = None,
+    skip: Collection[str] = (),
 ) -> list[str]:
-    """Every line the maintainer should read, in the order above."""
+    """Every line the maintainer should read for one map, in the order above.
+
+    `journeys_text` and `skip` are what `run_tree` passes for a map in a
+    tree: every map's journeys, and the modules a map below asks about.
+    """
     return (
         single_module(model, facts)
         + mis_folds(model, meaning, facts)
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
-        + entry_points_without_journey(model, meaning, facts)
+        + entry_points_without_journey(model, meaning, facts, text=journeys_text, skip=skip)
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
-        + model_sdk_imports(model, facts, sdks)
+        + model_sdk_imports(model, facts, sdks, skip=skip)
     )
+
+
+def run_tree(
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    sdks: Iterable[str] = MODEL_SDKS,
+    observed_by: Iterable[str] = (),
+) -> list[str]:
+    """Every line for every map, a sub-map's each carrying its id in front.
+
+    An entry point or a model sdk import in a module a card opens a map
+    on is that map's question, not the card's, so the top map skips the
+    modules its opening cards claim, and a sub-map asks only about the
+    modules its own cards claim. A journey on any map covers an entry
+    point: a walk through the top map traces the card as a whole.
+    """
+    text = "\n".join(_journey_text(m.meaning) for m in tree.maps)
+    components = facts.get("components", {})
+    out: list[str] = []
+    for m in tree.maps:
+        skip = {mod for c in m.model.opening for mod in claimed(c, components)}
+        if not m.top:
+            skip |= set(components) - set(_owner_of(m.model, facts))
+        lines = run(m.model, m.meaning, facts, sdks, observed_by, journeys_text=text, skip=skip)
+        out += [m.prefix + line for line in lines]
+    return out
 
 
 # ---- answers: the exact line, or a family of lines with one reason ------------
@@ -402,10 +456,26 @@ SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component "
 KIND_PREFIX = {kind: f"{kind}: " for kind in LINE_KINDS} | {"entry point": "entry point "}
 
 
+def unprefixed(line: str) -> str:
+    """A sub-map's line without the `<map>: ` in front of it; any other line as it is."""
+    if any(line.startswith(prefix) for prefix in KIND_PREFIX.values()):
+        return line
+    _head, sep, rest = line.partition(": ")
+    if sep and any(rest.startswith(prefix) for prefix in KIND_PREFIX.values()):
+        return rest
+    return line
+
+
 def answers(answer: Answer, line: str) -> bool:
-    """Does one answer cover this line?"""
+    """Does one answer cover this line?
+
+    An exact item is the line as printed, a sub-map's prefix included;
+    the bulk forms read the line behind the prefix, so one `kind` or
+    `crossing` answer covers every map.
+    """
     if answer.items:
         return line in answer.items
+    line = unprefixed(line)
     if answer.crossing is not None:
         found = CROSSING_LINE.match(line)
         return found is not None and {found[1], found[2]} <= set(answer.crossing)

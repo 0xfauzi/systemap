@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import html
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
+from systemap import nest
 from systemap import theme as theme_mod
 from systemap.config import Config
 from systemap.model import Component, Meaning, Model, all_layers
@@ -45,6 +47,37 @@ def number_word(n: int) -> str:
     return NUMBER_WORDS[n] if 0 <= n < len(NUMBER_WORDS) else str(n)
 
 
+@dataclass(frozen=True)
+class Nesting:
+    """Where a page sits in the tree of maps: what is above it, what opens below.
+
+    `path` is the map's id (`Gateway`, `Gateway/Routes`), empty for the
+    top; `card` the card the page is inside; `parent_label` what the map
+    above is called (the project for the top map, else its card); `opens`
+    what each opening card on this page opens, as the panel prints it.
+    """
+
+    model_file: str
+    path: str = ""
+    card: str = ""
+    parent_href: str = ""
+    parent_label: str = ""
+    opens: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+def nesting_of(cfg: Config, tree: nest.Tree, m: nest.Map) -> Nesting:
+    """The nesting of one map's page: the link up is always `../index.html`."""
+    parent = tree.parent_of(m)
+    return Nesting(
+        model_file=m.rel,
+        path=m.id,
+        card=m.card,
+        parent_href="../index.html" if parent is not None else "",
+        parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
+        opens=nest.opens(tree, m),
+    )
+
+
 def _index_entry(c: Component, state: str, plain: str) -> str:
     cid = c.id
     return (
@@ -63,12 +96,20 @@ def build(
     t: dict[str, Any],
     facts: dict[str, Any],
     ch: dict[str, Any],
+    nesting: Nesting | None = None,
 ) -> str:
-    """The whole page as one string."""
+    """The whole page as one string; `nesting` places it in the tree of maps."""
     T = t
     COMPONENTS = model.components
+    nesting = nesting or Nesting(model_file=cfg.model)
     system_svg, detail = render_schematic(
-        model, meaning, T, facts, svg_id="schematic", observed_by=cfg.observed_by
+        model,
+        meaning,
+        T,
+        facts,
+        svg_id="schematic",
+        observed_by=cfg.observed_by,
+        opens=nesting.opens,
     )
     states = {cid: rec["state"] for cid, rec in json.loads(detail).items() if cid != "_meta"}
     change_svg, change_detail = "", ""
@@ -99,21 +140,46 @@ def build(
     o.append("<!doctype html>")
     o.append('<html lang="en"><head><meta charset="utf-8">')
     o.append('<meta name="viewport" content="width=device-width,initial-scale=1">')
-    o.append(f"<title>{esc(cfg.name)} system map</title>")
+    title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
+    o.append(f"<title>{esc(title)}</title>")
     o.append(f'<link rel="icon" href="{FAVICON}">')
     o.append(f"<style>{CSS.format(ROOT=':root{' + theme_mod.css_vars(T) + '}')}")
     o.append(f"{panel_css(T)}</style></head><body>")
 
     # ---------------- header ----------------
     o.append('<header class="bar">')
-    o.append(f"<h1>{esc(cfg.name)} <span>map</span></h1>")
-    o.append(
-        f'<p class="meta">A generated map of what the parts of {esc(cfg.name)} are and what '
-        f"they are to each other: {n_comp} components, {n_flows} flows, {n_layers} layers."
-        + (f' Built at <code title="commit">{esc(commit)}</code>.' if commit else "")
-        + "</p>"
-    )
+    built = f' Built at <code title="commit">{esc(commit)}</code>.' if commit else ""
+    if nesting.path:
+        # The page inside one card: its header names the card and links
+        # back to the map above it.
+        o.append(
+            f"<h1>{esc(cfg.name)} <span>map</span> "
+            f'<span class="bar__sub">/ {esc(nesting.path)}</span></h1>'
+        )
+        o.append(
+            f'<p class="meta">The map inside the <code>{esc(nesting.card)}</code> card of '
+            f'<a href="{esc(nesting.parent_href)}">the {esc(nesting.parent_label)} map</a>: '
+            f"{n_comp} components, {n_flows} flows, {n_layers} layers.{built}</p>"
+        )
+    else:
+        o.append(f"<h1>{esc(cfg.name)} <span>map</span></h1>")
+        o.append(
+            f'<p class="meta">A generated map of what the parts of {esc(cfg.name)} are and what '
+            f"they are to each other: {n_comp} components, {n_flows} flows, {n_layers} layers."
+            f"{built}</p>"
+        )
+    if nesting.opens:
+        # The maps inside this one, each a link: the same links the panel
+        # of an opening card carries.
+        inside = ", ".join(
+            f'<a href="{esc(o_["href"])}">{esc(o_["name"])}</a> ({o_["cards"]} card'
+            f"{'' if o_['cards'] == 1 else 's'})"
+            for o_ in nesting.opens.values()
+        )
+        o.append(f'<p class="meta maps">Maps inside: {inside}.</p>')
     o.append('<nav class="nav">')
+    if nesting.parent_href:
+        o.append(f'<a href="{esc(nesting.parent_href)}">Up: {esc(nesting.parent_label)}</a>')
     if change_svg:
         o.append('<a href="#change">Change</a>')
     o.append('<a href="#map">Map</a><a href="#components">Components</a>')
@@ -229,6 +295,12 @@ def build(
             f'<span class="lg"><i class="lg--mark-{esc(mark)}" style="background:{fill};'
             f'border-color:{stroke};color:{stroke}"></i>{esc(kind)}</span>'
         )
+    if model.opening:
+        fill, stroke, _label = T["state"]["built"]
+        o.append(
+            f'<span class="lg"><i class="lg--mark-map" style="background:{fill};'
+            f'border-color:{stroke};color:{stroke}"></i>has a map</span>'
+        )
     o.append(
         f'<span class="lg"><i class="lg--dashed" style="border-color:{T["ink_3"]}"></i>'
         "outside</span>"
@@ -245,7 +317,8 @@ def build(
         "code. A dot in a card's top corner marks a note; the panel shows it. Every line "
         "carries what it moves and is coloured by the layer it belongs to. A dashed line "
         "is a declared flow: no import in the facts joins its two ends; the panel says "
-        "of every flow whether it is observed, external or declared. "
+        "of every flow whether it is observed, external or declared. A card standing on "
+        "a second card opens a map of its own; the panel names it and links to it. "
         "Click a component; press Escape to clear it and return the view; arrow keys step a "
         "journey; double-click a region's name to frame the region. Text is drawn at 11px "
         "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"
@@ -302,7 +375,7 @@ def build(
     facts_rel = f"{cfg.out_dir}/{cfg.facts_file}"
     o.append(
         '<footer class="foot">Generated by <code>systemap</code> '
-        f"from <code>{esc(facts_rel)}</code> and <code>{esc(cfg.model)}</code>. "
+        f"from <code>{esc(facts_rel)}</code> and <code>{esc(nesting.model_file)}</code>. "
         "Refresh with <code>systemap refresh</code>.</footer>"
     )
 
@@ -327,6 +400,10 @@ button{{font:inherit;color:inherit}}
 background:var(--surface);display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem 1.4rem}}
 .bar h1{{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;font-family:var(--fm)}}
 .bar h1 span{{color:var(--accent);font-weight:400}}
+.bar h1 .bar__sub{{color:var(--ink-2)}}
+.meta a{{color:var(--accent);text-decoration:none}}
+.meta a:hover{{text-decoration:underline}}
+.meta.maps{{flex-basis:100%}}
 .meta{{margin:0;font-size:12.5px;color:var(--ink-3);max-width:60rem}}
 .meta code{{color:var(--ink-2)}}
 .nav{{margin-left:auto;display:flex;gap:.9rem;font-size:12.5px}}
@@ -421,6 +498,8 @@ background:none}}
 .lg i.lg--mark-ring{{box-shadow:inset 0 0 0 1.5px var(--surface),inset 0 0 0 2.5px currentColor}}
 .lg i.lg--mark-notch{{background-image:linear-gradient(135deg,currentColor 0 38%,transparent 38%)}}
 .lg i.lg--mark-dotted{{border-style:dotted}}
+/* a card that opens a map stands on a second card */
+.lg i.lg--mark-map{{box-shadow:2px 2px 0 0 currentColor}}
 .lg--gap{{width:.6rem}}
 .key{{font-size:12.5px;color:var(--ink-3);max-width:62rem;margin:.2rem 0 0}}
 .ixgrid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:.6rem 1.4rem}}

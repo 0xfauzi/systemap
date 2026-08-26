@@ -37,6 +37,11 @@ as it is now, the file the person edits: a card that names a module's new
 path is taken to have claimed the old one at the base commit, and a card
 that still names the old path is judged as if renamed, so a pending rename
 is one line, not four.
+
+The comparison runs on every map of the tree (`compute_tree`): the top
+map over every module, and the map inside a card over the modules that
+card claims, so a moved module names its card on each map it is drawn
+on, and the map's file. A sub-map's lines carry its id in front.
 """
 
 from __future__ import annotations
@@ -51,7 +56,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, extract
+from systemap import evidence, extract, nest
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
 from systemap.judgement import answers
@@ -59,6 +64,7 @@ from systemap.model import (
     Component,
     Meaning,
     Model,
+    claimed,
     defines_entry,
     is_symbol,
     module_matches,
@@ -269,8 +275,19 @@ def compute(
     head: dict[str, Any],
     base_ref: str = "",
     head_ref: str = "",
+    *,
+    model_file: str = "",
+    within: str = "",
+    prefix: str = "",
 ) -> Delta:
-    """What the change from `base` to `head` does to the map the model draws."""
+    """What the change from `base` to `head` does to the map the model draws.
+
+    `model_file` is the file the fixes name (the configured model when
+    empty); `within` names the card a sub-map is inside, whose claims
+    bound what a new module may be ignored from; `prefix` is what the
+    sub-map's judgement lines carry, so an answered crossing import is
+    matched as printed.
+    """
     b: dict[str, Any] = base.get("components", {})
     h: dict[str, Any] = head.get("components", {})
     gone = sorted(set(b) - set(h))
@@ -278,7 +295,7 @@ def compute(
     moves = _moves(b, h, gone, new)
     renamed = {old: new_name for old, (new_name, _how) in moves.items()}
     inverse = {new_name: old for old, new_name in renamed.items()}
-    model_file = cfg.model
+    model_file = model_file or cfg.model
     base_short = base.get("built_at_commit", "")[:7]
     at_base = f" at {base_short}" if base_short else " at the base commit"
 
@@ -343,14 +360,21 @@ def compute(
             lines.append(Line("added", f"added: {module}, claimed by {claimed_by}", (claimed_by,)))
         elif extract.is_empty_marker(h[module]):
             lines.append(Line("added", f"added: {module}, an empty package marker"))
-        elif ignored(module):
+        elif ignored(module) and not within:
             lines.append(Line("added", f"added: {module}, ignored under [coverage]"))
         else:
+            # Inside a card there is no ignoring: the sub-map claims
+            # exactly what the card claims.
+            way_out = (
+                f"the map inside {within} claims exactly what {within} claims"
+                if within
+                else "or ignore it with a reason under [coverage]"
+            )
             lines.append(
                 Line(
                     "added",
                     f"added: {module}, claimed by no card; name it in a card's implemented_by "
-                    f"in {model_file}, or ignore it with a reason under [coverage]",
+                    f"in {model_file}, {way_out}",
                     person=True,
                 )
             )
@@ -381,7 +405,7 @@ def compute(
                     person=True,
                 )
             )
-        elif module in ignores:
+        elif module in ignores and not within:
             lines.append(
                 Line(
                     "removed",
@@ -440,8 +464,8 @@ def compute(
             if not q or q == p or frozenset((p, q)) in joined or (module, target) in before:
                 continue
             asked = (
-                f"crossing import: module {module} (component {p}) imports module {target} "
-                f"(component {q}) and no flow joins {p} and {q}"
+                f"{prefix}crossing import: module {module} (component {p}) imports module "
+                f"{target} (component {q}) and no flow joins {p} and {q}"
             )
             if any(answers(a, asked) for a in cfg.judgement_answered):
                 continue
@@ -485,6 +509,76 @@ def compute(
         moved=len(moves),
         cards=sum(1 for c in model.components if c.kind != "actor"),
         lines=tuple(lines),
+    )
+
+
+def _view(facts: dict[str, Any], modules: set[str]) -> dict[str, Any]:
+    """The facts restricted to `modules`: what a map inside a card compares."""
+    components: dict[str, Any] = facts.get("components", {})
+    return {**facts, "components": {m: r for m, r in components.items() if m in modules}}
+
+
+def compute_tree(
+    cfg: Config,
+    tree: nest.Tree,
+    base: dict[str, Any],
+    head: dict[str, Any],
+    base_ref: str = "",
+    head_ref: str = "",
+) -> Delta:
+    """The change on every map of the tree, as one report.
+
+    The top map is compared over every module. The map inside a card is
+    compared over the modules the card claims, at each commit (a moved
+    module counts on both sides, through the card's renamed claims), so
+    a module the card lost or gained names the sub-map's card and file
+    too, and nothing outside the card is the sub-map's business. The
+    counts are the top map's; the cards named are every map's, a
+    sub-map's under `<map>/<card>`.
+    """
+    top = compute(cfg, tree.top.model, tree.top.meaning, base, head, base_ref, head_ref)
+    b: dict[str, Any] = base.get("components", {})
+    h: dict[str, Any] = head.get("components", {})
+    gone = sorted(set(b) - set(h))
+    new = sorted(set(h) - set(b))
+    renamed = {old: new_name for old, (new_name, _how) in _moves(b, h, gone, new).items()}
+    inverse = {new_name: old for old, new_name in renamed.items()}
+    lines = list(top.lines)
+    cards = top.cards
+    for m in tree.maps[1:]:
+        card = tree.opening_card(m)
+        if card is None:
+            continue
+        at_head = set(claimed(card, h))
+        at_base = set(claimed(with_claims_of(card, inverse), b))
+        sub = compute(
+            cfg,
+            m.model,
+            m.meaning,
+            _view(base, at_base),
+            _view(head, at_head),
+            base_ref,
+            head_ref,
+            model_file=m.rel,
+            within=card.id,
+            prefix=m.prefix,
+        )
+        cards += sub.cards
+        lines += [
+            dataclasses.replace(
+                line,
+                text=m.prefix + line.text,
+                cards=tuple(f"{m.id}/{c}" for c in line.cards),
+            )
+            for line in sub.lines
+        ]
+    return dataclasses.replace(top, cards=cards, lines=tuple(lines))
+
+
+def with_claims_of(card: Component, mapping: dict[str, str]) -> Component:
+    """One card with its claims renamed through `mapping`."""
+    return dataclasses.replace(
+        card, implemented_by=tuple(_mapped(p, mapping) for p in card.implemented_by)
     )
 
 

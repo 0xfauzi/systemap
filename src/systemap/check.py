@@ -30,7 +30,11 @@ What is checked, in order:
     coverage ...... every module in the facts is claimed by exactly one
                     component, unless the configuration ignores it with a
                     reason or it is an empty package marker; an incomplete
-                    map fails
+                    map fails. The top map alone: a card that opens a map
+                    claims its modules once, for the whole tree
+    nesting ....... the map inside a card claims exactly the modules the
+                    card claims, no more and no fewer, each once; its
+                    actors are cards of the map it is inside
     entry ......... every module a component names is in the facts, and the
                     entry it names is a public module-level name one of
                     them defines (a function, a class, an object); the map draws
@@ -46,7 +50,8 @@ What is checked, in order:
                     make, run in one place
 
 The CLI prints one line per problem, the fix under each group, and exits
-1 when any is found.
+1 when any is found. Every rule but coverage runs on every map of the
+tree (`run_tree`); a sub-map's lines carry its id in front.
 """
 
 from __future__ import annotations
@@ -60,7 +65,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import extract, figure, page
+from systemap import extract, figure, nest, page
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
@@ -283,6 +288,9 @@ class Coverage:
     by an ignore with a reason (`ignored`, counted among the mapped), or an
     empty package marker left out on its own (`markers`, likewise). Mapped
     is total when the map is complete, and the total is the extract's.
+    `counted` is false for the map inside a card: the card claims its
+    modules once, on the map above, and the nesting rule holds the
+    sub-map to exactly those, so nothing is counted twice.
     """
 
     checked: bool
@@ -291,6 +299,7 @@ class Coverage:
     ignored: int
     problems: tuple[str, ...]
     markers: int = 0
+    counted: bool = True
 
     @property
     def ok(self) -> bool:
@@ -347,6 +356,65 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
         else:
             problems.append(f"unmapped: {m} (no component claims it)")
     return Coverage(True, mapped, len(modules), n_ignored, tuple(problems), n_markers)
+
+
+# The coverage of a map inside a card: nothing, on record.
+NOT_COUNTED = Coverage(True, 0, 0, 0, (), counted=False)
+
+
+# ---- nesting: the map inside a card is that card and nothing else --------------
+
+
+def check_nesting(
+    parent: Model, card: Component, sub: Model, facts: dict[str, Any], sub_label: str
+) -> list[str]:
+    """The map inside `card` claims exactly what the card claims; its actors are cards above.
+
+    The card claims its modules once, on the parent map, and coverage
+    counts them there. The sub-map must claim every one of them and
+    nothing else, each by exactly one card: a module it leaves out has
+    no place inside, and a module it adds is drawn twice, once on each
+    map. Symbol claims count for no module, as everywhere; an empty
+    package marker is left out, as the coverage rule leaves it out. The
+    sub-map's actors stand for the cards around `card` on the parent
+    map, so its edges to the outside have somewhere to land: every actor
+    id must be a card of the parent map, and not `card` itself. The
+    claims are compared through the facts, so with none only the actors
+    are checked; the entry rule names a module the facts do not have.
+    """
+    where = f"the map inside {card.id} ({sub_label})"
+    out: list[str] = []
+    for c in sub.components:
+        if c.kind != "actor":
+            continue
+        if c.id == card.id:
+            out.append(f"{where} has actor {c.id}, the card it is inside")
+        elif c.id not in parent.ids:
+            out.append(
+                f"{where} has actor {c.id}, which is not a card of the map it is inside; "
+                "a sub-map's actors are the cards around its card"
+            )
+    components = facts.get("components", {})
+    if not components:
+        return out
+    markers = {m for m in components if extract.is_empty_marker(components[m])}
+    wanted = [m for m in claimed(card, components) if m not in markers]
+    have: dict[str, list[str]] = {}
+    for c in sub.components:
+        if c.kind == "actor":
+            continue
+        for m in claimed(c, components):
+            if m not in markers:
+                have.setdefault(m, []).append(c.id)
+    for m, owners in have.items():
+        if len(owners) > 1:
+            out.append(f"{where} claims {m} twice ({', '.join(owners)})")
+    for m in sorted(set(have) - set(wanted)):
+        out.append(f"{where} claims {m}, which {card.id} does not claim ({', '.join(have[m])})")
+    for m in wanted:
+        if m not in have:
+            out.append(f"{where} leaves {m} unclaimed, which {card.id} claims")
+    return out
 
 
 # ---- entry: a card is code that exists today ----------------------------------
@@ -554,19 +622,17 @@ def stale_facts(
 
 def stale(
     cfg: Config,
-    model: Model,
-    meaning: Meaning,
-    t: dict[str, Any],
+    tree: nest.Tree,
     fresh: dict[str, Any] | None = None,
 ) -> list[str]:
     """Every output that is older than the tree or the model.
 
-    The facts are compared against a fresh extraction, the page against a
-    fresh render from the stored facts (the committed page must match the
-    committed facts, whatever the tree has since done), and each configured
-    figure against the generator. A model that contradicts itself cannot
-    be rendered honestly, so only the facts are compared then; the
-    placement and meaning rules report the rest.
+    The facts are compared against a fresh extraction, every map's page
+    against a fresh render from the stored facts (the committed page must
+    match the committed facts, whatever the tree has since done), and
+    each configured figure against the generator. A model that
+    contradicts itself cannot be rendered honestly, so its page is not
+    compared then; the placement and meaning rules report the rest.
     """
     fresh = fresh if fresh is not None else extract.build(cfg)
     stored = extract.read_facts(cfg.facts_path)
@@ -576,13 +642,26 @@ def stale(
     # have is the entry rule's finding, and a placement problem is the
     # placement rule's, so neither is reported twice.
     out = [f"facts: {line}" for line in extract.drift(fresh, stored)]
-    if model_problems(model, meaning):
-        return out
-    out += _stale_file(
-        cfg, cfg.page_path, page.build(cfg, model, meaning, t, stored, {"has_change": False})
-    )
+    for m in tree.maps:
+        if model_problems(m.model, m.meaning):
+            continue
+        html = page.build(
+            cfg,
+            m.model,
+            m.meaning,
+            m.theme,
+            stored,
+            {"has_change": False},
+            nesting=page.nesting_of(cfg, tree, m),
+        )
+        out += _stale_file(cfg, m.page_path(cfg), html)
     for fig in cfg.figures:
-        html, _collisions = figure.configured(cfg, model, meaning, t, stored, fig)
+        if not tree.has(fig.map):
+            raise nest.unknown_map(tree, fig.map)
+        m = tree.get(fig.map)
+        if model_problems(m.model, m.meaning):
+            continue
+        html, _collisions = figure.configured(cfg, tree, m, stored, fig)
         out += _stale_file(cfg, cfg.out_path / fig.out, html)
     return out
 
@@ -606,9 +685,11 @@ class Result:
     `problems` are the placement, meaning, route, label, type-size and
     wheel findings; `coverage` is the module rule; `entry` is the rule that
     every card is code in the tree; `interface` the rule that a signature
-    names what the modules define; `stale` is filled in by the CLI, which
-    has the configuration the comparison needs; `through` and `across`
-    count edges through a foreign card and across a foreign region.
+    names what the modules define; `nesting` the rule that the map inside
+    a card is that card and nothing else (on the sub-map's own result);
+    `stale` is filled in by the CLI, which has the configuration the
+    comparison needs; `through` and `across` count edges through a
+    foreign card and across a foreign region.
     """
 
     problems: list[str]
@@ -617,6 +698,7 @@ class Result:
     coverage: Coverage
     entry: list[str] = field(default_factory=list)
     interface: list[str] = field(default_factory=list)
+    nesting: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
 
     @property
@@ -626,6 +708,7 @@ class Result:
             and self.coverage.ok
             and not self.entry
             and not self.interface
+            and not self.nesting
             and not self.stale
         )
 
@@ -637,15 +720,18 @@ def run(
     facts: dict[str, Any],
     ignores: Iterable[Ignore] = (),
     observed_by: Iterable[str] = (),
+    *,
+    coverage: bool = True,
 ) -> Result:
-    """Check the model against the facts.
+    """Check one map against the facts.
 
     Placement and meaning are checked first; the drawing is only attempted
     once those are clean, since a model that contradicts itself cannot be
     drawn honestly. Coverage is checked regardless, because it reads the
-    facts and the claims only, never the drawing. `observed_by` is the
-    repository's list of non-import mechanisms; it changes what the
-    drawing says of an edge, never what the check refuses.
+    facts and the claims only, never the drawing; `coverage=False` is the
+    map inside a card, whose modules the card counted once above.
+    `observed_by` is the repository's list of non-import mechanisms; it
+    changes what the drawing says of an edge, never what the check refuses.
     """
     problems = model_problems(model, meaning)
     through = across = 0
@@ -657,15 +743,38 @@ def run(
         problems += check_labels(meta)
         problems += check_type_size(svg)
         problems += check_wheels(meta["edges"], model, meaning)
-    coverage = check_coverage(model, facts, ignores)
+    counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
     return Result(
         problems,
         through,
         across,
-        coverage,
+        counted,
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
     )
+
+
+def run_tree(
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    ignores: Iterable[Ignore] = (),
+    observed_by: Iterable[str] = (),
+) -> dict[str, Result]:
+    """Every map checked, by map id: coverage on the top, nesting on each sub-map."""
+    out: dict[str, Result] = {}
+    for m in tree.maps:
+        result = run(m.model, m.meaning, m.theme, facts, ignores, observed_by, coverage=m.top)
+        card = tree.opening_card(m)
+        if card is not None:
+            parent = tree.get(m.parent or "")
+            nesting = check_nesting(parent.model, card, m.model, facts, m.rel)
+            result = replace(result, nesting=nesting)
+        out[m.id] = result
+    return out
+
+
+def tree_ok(results: Mapping[str, Result]) -> bool:
+    return all(result.ok for result in results.values())
 
 
 def with_stale(result: Result, lines: list[str]) -> Result:
@@ -688,16 +797,36 @@ def coverage_line(cov: Coverage) -> str:
     return line
 
 
-def report(model: Model, result: Result, model_file: str = "the model") -> list[str]:
+def report(
+    model: Model, result: Result, model_file: str = "the model", prefix: str = ""
+) -> list[str]:
     """The lines the CLI prints for one check run: each failing rule with
-    its findings and the fix under them."""
+    its findings and the fix under them. `prefix` is what a sub-map's
+    lines carry in front, its id and a colon."""
+    return [prefix + line for line in _report(model, result, model_file)]
+
+
+def report_stale(lines: list[str]) -> list[str]:
+    """The stale group, printed once for the whole tree after every map's rules."""
+    if not lines:
+        return []
+    return [
+        f"stale: {_plural(len(lines), 'problem')}",
+        *(f"  {line}" for line in lines),
+        "  fix: run: systemap refresh, then commit the output directory",
+    ]
+
+
+def _report(model: Model, result: Result, model_file: str) -> list[str]:
     through, across = result.through, result.across
     out = [
         f"map routes: {through} edge{'s' if through != 1 else ''} through a card "
         f"they do not connect, {across} across a region they neither start nor end in"
     ]
     cov = result.coverage
-    if cov.checked:
+    if not cov.counted:
+        pass
+    elif cov.checked:
         out.append(coverage_line(cov))
         out += [f"  {line}" for line in cov.problems]
         if cov.problems:
@@ -707,6 +836,13 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
             )
     else:
         out.append("coverage: not checked, there are no facts; run: systemap extract")
+    if result.nesting:
+        out.append(f"nesting: {_plural(len(result.nesting), 'problem')}")
+        out += [f"  {line}" for line in result.nesting]
+        out.append(
+            f"  fix: in {model_file}, claim exactly the modules the card that opens it "
+            "claims, each once, and name only cards of the map above as actors"
+        )
     if result.entry:
         out.append(f"entry: {_plural(len(result.entry), 'problem')}")
         out += [f"  {line}" for line in result.entry]
@@ -733,8 +869,5 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
             f"map layout: clean ({n} cards, {len(model.flows)} orthogonal labelled "
             f"edges, {n} wheels, nothing below {TEXT_PX:g}px)"
         )
-    if result.stale:
-        out.append(f"stale: {_plural(len(result.stale), 'problem')}")
-        out += [f"  {line}" for line in result.stale]
-        out.append("  fix: run: systemap refresh, then commit the output directory")
+    out += report_stale(result.stale)
     return out

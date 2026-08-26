@@ -27,7 +27,8 @@ goes, and the theme.
     [theme]        tokens laid over the default theme
     [[figures]]    figures `systemap refresh` regenerates: out, mode
                    ("system" or "reach"), components, caption, interactive,
-                   layer (one reading's id: only that layer's edges)
+                   layer (one reading's id: only that layer's edges), map
+                   (the id of a map inside a card, for a figure of it)
     [coverage]     ignore = [{module = "pkg.mod", reason = "..."}]: modules
                    the coverage rule of `systemap check` may leave unmapped;
                    every entry needs a reason, since an unexplained hole in
@@ -100,7 +101,7 @@ KNOWN_KEYS = {
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
-FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer"}
+FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
 JUDGEMENT_KEYS = {"answered"}
@@ -134,6 +135,7 @@ class Figure:
     interactive: bool = True
     svg_id: str = "lessonmap"
     layer: str = ""
+    map: str = ""
 
 
 @dataclass(frozen=True)
@@ -469,6 +471,7 @@ def load(root: Path) -> Config:
                 interactive=interactive,
                 svg_id=_str(item, "svg_id", "lessonmap", where),
                 layer=_str(item, "layer", "", where),
+                map=_str(item, "map", "", where),
             )
         )
 

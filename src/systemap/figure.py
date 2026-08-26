@@ -35,9 +35,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from systemap import change as change_mod
+from systemap import nest
 from systemap.config import Config, ConfigError, Figure
 from systemap.model import Layer, Meaning, Model, all_layers
 from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
@@ -72,6 +74,8 @@ MARK_STYLE = {
     "ring": "box-shadow:inset 0 0 0 1.5px {bg},inset 0 0 0 2.5px {ink}",
     "notch": "background-image:linear-gradient(135deg,{ink} 0 38%,transparent 38%)",
     "dotted": "border-style:dotted",
+    # A card that opens a map stands on a second card.
+    "map": "box-shadow:2px 2px 0 0 {ink}",
 }
 
 
@@ -105,6 +109,15 @@ def figure(
         f'display:inline-block"></span>{kind}</span>'
         for kind, mark in kind_rows(t, model)
     )
+    if model.opening:
+        swatches += (
+            f'<span style="display:inline-flex;align-items:center;gap:.4em;'
+            f'margin-right:1.1em;white-space:nowrap">'
+            f'<span style="width:.75em;height:.75em;border-radius:2px;'
+            f"background:{t['state']['built'][0]};border:1px solid {t['state']['built'][1]};"
+            f"{MARK_STYLE['map'].format(bg=t['state']['built'][0], ink=t['state']['built'][1])};"
+            f'display:inline-block"></span>has a map</span>'
+        )
     swatches += "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
@@ -199,6 +212,8 @@ def make(
     interactive: bool = False,
     bare: bool = False,
     layer: str = "",
+    map_id: str = "",
+    opens: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[str, list[str]]:
     """(the figure HTML, the label and header problems the drawing reported).
 
@@ -207,10 +222,13 @@ def make(
     are a ConfigError; an empty git range is a FigureError. `bare` returns
     the SVG alone, on its ground, instead of the figure element. `layer`
     is one reading's id; an id the page does not have is a ConfigError
-    naming the ones it does.
+    naming the ones it does. `map_id` names the map inside a card when
+    the figure draws one (the caption cites its page), and `opens` is
+    what the panel prints for each card that opens a map.
     """
-    page_url = f"{cfg.out_dir}/index.html"
+    page_url = f"{cfg.out_dir}/{map_id}/index.html" if map_id else f"{cfg.out_dir}/index.html"
     facts_url = f"{cfg.out_dir}/{cfg.facts_file}"
+    inside = f"Inside {map_id.rpartition('/')[2]}: " if map_id else ""
     mode = mode or ("change" if (base or components) else "system")
     known = model.ids
     reading = _reading(model, meaning, layer)
@@ -230,7 +248,7 @@ def make(
         changed = set(ids)
         legend_mode = "reach"
         caption = caption or (
-            f"The system, with the {len(changed)} components a plan reaches as "
+            f"{inside}The system, with the {len(changed)} components a plan reaches as "
             f"the figure. This marks a plan's reach, not a diff. Drawn by "
             f"<code>{GENERATOR}</code>, the same generator the map uses, so "
             f"this cannot disagree with <code>{page_url}</code>."
@@ -248,21 +266,21 @@ def make(
         hot = ch["flow_artifacts"]
         legend_mode = "change"
         caption = caption or (
-            f"The system, with this change as the figure. Drawn by "
+            f"{inside}The system, with this change as the figure. Drawn by "
             f"<code>{GENERATOR}</code>, the same generator the map uses, so "
             f"this cannot disagree with <code>{page_url}</code>."
         )
     elif reading is not None:
         sub = reading.sub[:1].upper() + reading.sub[1:] if reading.sub else ""
         caption = caption or (
-            f"{reading.label}: {reading.question} {sub + '. ' if sub else ''}"
+            f"{inside}{reading.label}: {reading.question} {sub + '. ' if sub else ''}"
             f"One reading of the system; the page at <code>{page_url}</code> has them "
             f"all. Drawn by <code>{GENERATOR}</code> from <code>{facts_url}</code>; "
             f"every card is code in the tree today."
         )
     else:
         caption = caption or (
-            f"The system as the map describes it. Drawn by <code>{GENERATOR}</code> "
+            f"{inside}The system as the map describes it. Drawn by <code>{GENERATOR}</code> "
             f"from <code>{facts_url}</code>; every card is code in the tree today. "
             f"Click a component to read what it is to its neighbours."
         )
@@ -281,6 +299,7 @@ def make(
         hot_artifacts=hot,
         layer=layer,
         observed_by=cfg.observed_by,
+        opens=opens,
     )
     meta = json.loads(detail).get("_meta", {})
     collisions: list[str] = list(meta.get("collisions", []))
@@ -322,13 +341,12 @@ def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
 
 def configured(
     cfg: Config,
-    model: Model,
-    meaning: Meaning,
-    t: dict[str, Any],
+    tree: nest.Tree,
+    m: nest.Map,
     facts: dict[str, Any],
     fig: Figure,
 ) -> tuple[str, list[str]]:
-    """One figure from the configuration's `[[figures]]` table.
+    """One figure from the configuration's `[[figures]]` table, of the map `m`.
 
     `systemap refresh` writes it and `systemap check` compares it, through
     this one function, so the two cannot disagree about what the file
@@ -336,9 +354,9 @@ def configured(
     """
     return make(
         cfg,
-        model,
-        meaning,
-        t,
+        m.model,
+        m.meaning,
+        m.theme,
         facts,
         mode="change" if fig.mode == "reach" else "system",
         components=fig.components,
@@ -347,4 +365,6 @@ def configured(
         interactive=fig.interactive,
         bare=fig.out.endswith(".svg"),
         layer=fig.layer,
+        map_id=m.id,
+        opens=nest.opens(tree, m, links=False),
     )

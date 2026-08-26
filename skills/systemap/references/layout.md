@@ -50,6 +50,33 @@ always gets the same positions, and a second run changes nothing.
   grow its box), or `label is 41 units wider than its seat: shorten the
   artifact` (no run of the path is long enough for the words).
 
+## When to open a map inside a card
+
+One canvas holds about forty cards; past that the readings stop being
+readings and no placement leaves a corridor. `systemap suggest` says
+when a map is past forty and names the cards with the most modules as
+the candidates; a card whose modules exceed ten is a candidate on any
+map. To open one:
+
+- Give the card `map="gateway.py"`: a path relative to the model file.
+- Write that module like any model, exporting `MODEL` and `MEANING`,
+  with no positions: its cards claim exactly the modules the card
+  claims, each once, and nothing else (a symbol claim is allowed); its
+  actors are the cards around the card on the map above, by their ids,
+  so the edges that leave the card land on them.
+- Run the loop as before. `systemap place` places every map; `systemap
+  check` runs every rule on every map and the nesting rule between
+  them, and refuses any difference with the modules named, a sub-map's
+  lines prefixed by its id (`Gateway: `); `refresh` writes one page per
+  map (`docs/map/Gateway/index.html`, linked from the card's panel and
+  back); `figure --map Gateway` draws one; `describe` and `judgement`
+  prefix their lines the same way; `delta` names a moved module's card
+  on every map it is drawn on, and the map's file.
+
+The top map keeps the card, its flows and its sentences: the map inside
+is a closer look, not a replacement. A map inside a map is opened the
+same way; its id is `Gateway/Routes`.
+
 ## Reading the picture without opening it
 
 `systemap describe` prints what a look at the page would tell you: how

@@ -164,9 +164,9 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has, and reads from the facts whether an import backs each flow: observed, external or declared.",
+        does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has, reads from the facts whether an import backs each flow (observed, external or declared), and loads the tree of maps when a card opens a map of its own.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
-        implemented_by=("systemap.model", "systemap", "systemap.evidence"),
+        implemented_by=("systemap.model", "systemap", "systemap.evidence", "systemap.nest"),
         entry="Model",
         kind="store",
         region="mean",

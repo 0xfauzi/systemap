@@ -118,6 +118,18 @@ the exception.
    reopens the crossing-import lines the edge answered, and the judgement
    in the same round is what sees it. Go to 1.
 
+## Every map
+
+The pass runs on every map of the tree. `systemap judgement` prints a
+sub-map's lines with its id in front (`Gateway: single module: ...`);
+an `item` answer quotes the line as printed, prefix included, and a
+bulk form (`kind`, `crossing`, `module_sdk`, ...) covers every map. A
+crossing import between two cards of one sub-map is that map's
+question; one between a card inside and a card outside is the top
+map's, between the two cards there. An entry point, or a model sdk
+import, is asked about once, on the deepest map whose card claims its
+module, and a journey on any map covers it.
+
 ## The stop condition
 
 Stop when all three hold:

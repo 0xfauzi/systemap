@@ -36,7 +36,7 @@ in a region.
 
 ## Component
 
-`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False)`
+`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False, map=None)`
 
 One card on the map. `id` is a code name in CamelCase, unique on the map.
 `does` says what it is for in plain words, one or two sentences, with no
@@ -131,6 +131,22 @@ flow may end at it and a tool flow start from it, the Context and Tools
 readings light those flows, the panel reads `component, calls a model`,
 and the `model sdk` judgement line for its modules is answered by the
 flag. The Agents reading stays agents only.
+
+`map` opens a map of the card's own, for a card whose modules exceed ten
+or any card once a map is past forty (`references/layout.md`, "When to
+open a map inside a card"): a path relative to the model file
+(`map="gateway.py"` beside `map/model.py`) to a module that exports
+`MODEL` and `MEANING` like any model. The map inside draws that card
+alone: its cards claim exactly the modules the card claims, no more and
+no fewer, each once (a symbol claim counts for no module, an empty
+package marker is left out); its actors are cards of the map it is
+inside, the ones around the card, so its edges to the outside have
+somewhere to land. The card claims the modules once, for coverage; the
+check's nesting rule holds the map inside to them, naming each module
+that differs. On the page the card stands on a second card, its panel
+reads `opens: Gateway (5 cards)` with a link, and the map's own page at
+`docs/map/Gateway/index.html` links back to it. An actor cannot open a
+map. A map inside a map is named `Gateway/Routes`.
 
 ## Flow
 
@@ -237,8 +253,12 @@ naming no module or only empty package markers. Entry: a module not in the facts
 entry not defined, a component with no module, no entry on any kind but
 a store or a context card. Interface: a line that
 starts with a name none of the component's modules defines, or
-`Class.method` where the class has no such public method. Stale: facts,
-page or figure older than the tree or the model.
+`Class.method` where the class has no such public method. Nesting: the
+map inside a card claiming a module the card does not claim, leaving one
+of the card's modules unclaimed, claiming one twice, or naming an actor
+that is not a card of the map above (or is the card itself); an actor
+that opens a map. Stale: facts, a page (one per map) or a figure older
+than the tree or the model.
 
 ## The facts file
 

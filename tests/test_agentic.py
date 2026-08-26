@@ -195,7 +195,7 @@ def test_entry_is_optional_for_store_and_context_kinds(
 
 def test_the_references_carry_calls_model_and_the_optional_entry() -> None:
     schema = skill.files()["references/schema.md"]
-    assert "calls_model=False)`" in schema
+    assert "calls_model=False, map=None)`" in schema
     assert "entry: none (a namespace)" in schema
     assert "The Agents reading stays agents only" in schema
     layers = skill.files()["references/layers.md"]

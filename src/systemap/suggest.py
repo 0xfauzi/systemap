@@ -12,6 +12,12 @@ lines push from both sides once the model exists.
 
 Empty package markers are left out, as the coverage rule leaves them
 out. A module alone in its package is listed to fold into a neighbour.
+
+Once a model exists, `nesting_lines` reads the tree of maps and says
+when a map is past forty cards, the point where one canvas stops
+working, and names the cards with the most modules as the candidates to
+open a map on (`Component.map`); a card whose modules exceed ten is a
+candidate on any map.
 """
 
 from __future__ import annotations
@@ -20,7 +26,9 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from systemap import nest
 from systemap.extract import empty_markers, is_empty_marker
+from systemap.model import claimed
 
 # Past this many modules a proposal is more than one thing a reader would
 # name; the skill's target is three to ten.
@@ -128,4 +136,49 @@ def lines(facts: dict[str, Any]) -> list[str]:
             f" and {len(imports) - 3} more" if len(imports) > 3 else ""
         )
         out.append(f"  {src} -> {dst}: {len(imports)} ({shown})")
+    return out
+
+
+def nesting_lines(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
+    """When to open a map inside a card, read from the tree and the facts.
+
+    A map past `nest.CARDS_PER_MAP` cards is named, with the cards that
+    hold the most modules as the candidates to open, most first; on any
+    map a card whose modules exceed `nest.MODULES_PER_CARD` is a
+    candidate too. A card that already opens a map is not proposed
+    again. With nothing past either line, one line says so.
+    """
+    components: dict[str, Any] = facts.get("components", {})
+    out: list[str] = []
+    for m in tree.maps:
+        name = m.id or "the top map"
+        held = {
+            c.id: len(claimed(c, components))
+            for c in m.model.components
+            if c.kind != "actor" and not c.opens
+        }
+        ranked = sorted(held, key=lambda cid: (-held[cid], cid))
+        n = len(m.model.components)
+        if n > nest.CARDS_PER_MAP:
+            candidates = [cid for cid in ranked if held[cid] > nest.MODULES_PER_CARD] or ranked[:5]
+            out.append(
+                f"nesting: {name} holds {n} cards, past {nest.CARDS_PER_MAP}; one canvas "
+                "stops working there. Open a map inside the cards with the most modules "
+                '(map="map/<card>.py" on the card; its cards claim exactly the card\'s modules):'
+            )
+            out += [f"  {cid}: {held[cid]} modules" for cid in candidates]
+            continue
+        wide = [cid for cid in ranked if held[cid] > nest.MODULES_PER_CARD]
+        if wide:
+            out.append(
+                f"nesting: {name} holds {n} cards; "
+                + ", ".join(f"{cid} ({held[cid]} modules)" for cid in wide)
+                + f" past {nest.MODULES_PER_CARD} modules: split the card, or open a map "
+                "inside it"
+            )
+    if not out:
+        out.append(
+            f"nesting: no map is past {nest.CARDS_PER_MAP} cards and no card holds more than "
+            f"{nest.MODULES_PER_CARD} modules; nothing to open"
+        )
     return out
