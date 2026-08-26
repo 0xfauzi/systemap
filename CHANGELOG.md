@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.2
+
+- The package said `Development Status :: 3 - Alpha` while being published as
+  1.0. It says Production/Stable, which is what shipping a 1.0 meant.
+- The badges read the package's own metadata rather than repeating it. The
+  Python versions and the licence come from what was published, so they cannot
+  say one thing while `pyproject.toml` says another.
+- The release workflow is `workflow.yml` and runs in the `pypi` environment,
+  which is the identity the trusted publisher on PyPI is registered against.
+  This is the first release published by that workflow rather than by hand.
+
 ## 1.0.1
 
 - The images show on PyPI. The README named them by a path relative to the

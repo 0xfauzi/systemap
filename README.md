@@ -7,10 +7,10 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/systemap/"><img alt="PyPI" src="https://img.shields.io/pypi/v/systemap?color=e0a458&labelColor=121417"></a>
-  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licence-MIT-8fbfa6?labelColor=121417"></a>
-  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-b3b1aa?labelColor=121417">
-  <img alt="no dependencies" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
+  <a href="https://pypi.org/project/systemap/"><img alt="the version on PyPI" src="https://img.shields.io/pypi/v/systemap?color=e0a458&labelColor=121417"></a>
+  <a href="https://pypi.org/project/systemap/"><img alt="the Python versions it runs on" src="https://img.shields.io/pypi/pyversions/systemap?color=b3b1aa&labelColor=121417"></a>
+  <a href="LICENSE"><img alt="the licence" src="https://img.shields.io/pypi/l/systemap?color=8fbfa6&labelColor=121417"></a>
+  <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
 If you have a coding agent working in your repository, you have probably

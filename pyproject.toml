@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "1.0.1"
+version = "1.0.2"
 description = "The map your coding agent draws of your system: facts read out of the code, meaning authored by the agent, a checker that refuses an incomplete or stale map."
 readme = "README.md"
 license = "MIT"
@@ -9,7 +9,7 @@ requires-python = ">=3.11"
 authors = [{ name = "Fauzi" }]
 keywords = ["architecture", "coding agents", "diagram", "documentation", "svg", "system map"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
