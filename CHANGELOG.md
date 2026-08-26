@@ -1,5 +1,112 @@
 # Changelog
 
+## 0.7.0
+
+What a third headless run found mapping a real repository with the skill:
+twenty-one items, written from inside a finished map (the run reached a
+clean check and an answered judgement on its own). Each fixed here with a
+test. The anonymised fixture gains an interface sweep and a re-export case.
+
+Things the schema reference said that were not true:
+
+- `interface`, `entry` and `note` now reach the reader. The detail panel
+  prints the interface as the card's signature, the entry as `entry: name
+  (module)` and the note as a caveat line; a card with a note carries a
+  dot in its top corner, on the map and in every figure. schema.md says
+  where each appears.
+- `interface` is checked. Its leading identifier (the token before `(`,
+  `.`, `->` or whitespace; both parts of `Class.method`) must be a name
+  one of the component's modules defines, a re-export included; the line
+  is refused with the closest defined name. Sixteen of a real map's
+  twenty-one interface lines were wrong after a check that never read
+  them. `interface` stays optional.
+- `refresh` says what current means: `already current: the page matches
+  the model's rendered fields and the facts`.
+
+Things the check called clean that were not:
+
+- Card text has a budget and nothing is elided. A name fits about 20
+  characters (a component, agent or tool card wraps a longer CamelCase
+  name over two lines), a plain word about 26 per line on the lines the
+  card has; the check refuses what does not fit, stating the budget
+  (`actor cards fit about 26 characters on one line; this one has 34`).
+  The ellipsis is gone from the drawing.
+- Two invariants with one number are refused, both rules quoted.
+- An `__init__` with no public names and no imports is an empty package
+  marker: listed once in the extract summary, left out of the coverage
+  rule on its own, and an ignore that names only markers is refused as
+  not needed. Nine such files once needed nine ignore entries. The
+  subtree form `module = "pkg.sub.*"` is documented. The coverage line
+  reads `144 of 144 modules mapped, 5 of them ignored with a reason, 9
+  of them empty package markers`.
+
+The facts:
+
+- `systemap facts` reads the file back one view at a time: `--modules`
+  (one line per module: name, public names, imports, tests), `--module
+  NAME`, `--entry-points`, `--external`, `--imports NAME`. The skill's
+  step 1 reads the facts through it, never the JSON (451 KB on a
+  144-module tree), and pitfalls.md says so.
+- A package `__init__` records the names it imports from the package's
+  own modules under `names`, with `reexport_of` and the kind the defining
+  module gives them; `entry` and `interface` accept them. The facts
+  format is 2, and `extract --check` reports an older file as stale.
+- The extract summary uses the documented field names (`functions`,
+  `classes`, `errors`, `tests`) and schema.md maps each word.
+
+Judgement and layout:
+
+- `crossing_into = "Card"` answers every crossing import into a card,
+  `crossing_from = "Card"` every one out of it, and `crossing` accepts two
+  or more ids (every pair among them). Each has an example.
+- The loop's check step is `systemap check && systemap judgement
+  --strict`, every round: a layout fix that drops an edge reopens the
+  lines the edge answered, and the judgement in the same round sees it.
+- `describe` and the label diagnosis name a gutter by its neighbours and
+  coordinates: `between the row of Orchestrator, Telemetry and the row of
+  RosterClient (y 160 to 226)`.
+- layout.md: the pitch is a starting value; a dense region may raise its
+  row pitch, and regions in one grid row need not share a height. The
+  diagnosis names the region: `raise the row pitch of region X`.
+- The skill states a target (three to ten modules per component, N/10 to
+  N/3 cards for N modules; the judgement lines push from both sides) and
+  `systemap suggest` prints a first grouping from the package structure
+  and the import graph, headed as a starting point to argue with, never
+  the answer.
+
+Agentic:
+
+- `Component.calls_model` marks a single-shot call site. Context and tool
+  flows accept an agent or a `calls_model` component at the agent end;
+  the Context and Tools readings light every such flow; the Agents
+  reading stays agents only; the `model sdk` line is answered by the
+  flag, listed beside the four outcomes in second-pass.md.
+- `entry` is optional for `store` and `context` kinds; the panel reads
+  `entry: none (a namespace)`.
+
+Words:
+
+- One flow per ordered pair, stated under Flow in schema.md and in the
+  check's message for a duplicate pair: pick the artifact that matters,
+  or draw the other direction as its own flow.
+- The starter's pragma is `# ruff: noqa: E501` only; every schema name is
+  imported and used, so neither F401 nor RUF100 fires; `# fmt: off` and
+  `# fmt: on` fence the position tables, with the reason beside them.
+- The second pass's document reread is one pass over what the repository
+  points a newcomer at (README, AGENTS.md, CLAUDE.md, a docs index or the
+  first level of docs/), stopping when the rules found govern parts not
+  in the tree.
+- SKILL.md step 4 lists every answer form on its own line with its
+  constraint, and a table of the seven line kinds, one sentence each,
+  what a mis-fold is and what to do.
+- SKILL.md says to run extract when `systemap.toml` exists but the facts
+  file does not; schema.md documents `state` (`built` is the only value
+  the page shows) and defines the wheel where the check counts them.
+
+The self-map: interface lines that pass the new check, a note on the
+Scaffold card, the FactsExtractor holding `facts` and the Judgement
+holding `suggest`, plain words that fit their cards.
+
 ## 0.6.0
 
 What a second fresh agent found mapping a real repository from the one

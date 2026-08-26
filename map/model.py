@@ -105,6 +105,7 @@ COMPONENTS = (
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
         entry="write",
+        note="never overwrites a file that exists: an upgrade of systemap edits nothing init wrote, so a pinned workflow is bumped by hand",
         region="operate",
         x=COL["c2"],
         y=ROW["r0"],
@@ -155,7 +156,7 @@ COMPONENTS = (
     Component(
         id="Model",
         does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has.",
-        interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, ...), exported by map/model.py as MODEL and MEANING",
+        interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=("systemap.model", "systemap"),
         entry="Model",
         kind="store",
@@ -167,7 +168,7 @@ COMPONENTS = (
     Component(
         id="Router",
         does="Routes every flow orthogonally through the gutters between cards, never through a card it does not connect, never across a band it neither starts nor ends in, and seats each label where it touches nothing.",
-        interface="route_all(...) -> routes; place_labels(...) -> placed labels and collisions",
+        interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=("systemap.route",),
         entry="route_all",
         region="draw",
@@ -197,7 +198,7 @@ COMPONENTS = (
     Component(
         id="Figures",
         does="One figure from the same generator, for a document: the whole system, a plan's reach, or a change. A .svg output is the bare drawing on its ground.",
-        interface="make(cfg, model, meaning, theme, facts, ...) -> (html, collisions)",
+        interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
         entry="make",
         region="draw",
@@ -207,8 +208,8 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        does="Every rule that refuses a lie: coverage, entry, placement, routes, labels, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
-        interface="run(model, meaning, theme, facts, ...) -> Result; stale(cfg, ...) -> lines",
+        does="Every rule that refuses a lie: coverage, entry, interface, placement, routes, labels and card text, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
+        interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, model, meaning, theme) -> lines",
         implemented_by=("systemap.check",),
         entry="run",
         region="keep",

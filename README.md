@@ -82,7 +82,7 @@ journey and why. You read the answers, correct what you disagree with,
 commit `docs/map/`, and turn on GitHub Pages from the `docs/` directory.
 
 The workflow `init` writes runs systemap from the released package,
-pinned to the version that wrote it (`uvx --from "systemap==0.6.0"`), so
+pinned to the version that wrote it (`uvx --from "systemap==0.7.0"`), so
 your project takes no dependency on it. That needs the package on PyPI,
 and systemap is not on PyPI yet: until the first release the workflow
 cannot pass, and the pin is the line to edit when it can. The workflow
@@ -143,7 +143,10 @@ The page is served from `docs/` by GitHub Pages at
 - **Click.** Click a component and every neighbour on the current reading
   lights, each spoke carrying a verb in the direction of the edge. One
   sentence per neighbour says what the clicked part is to it. Prose is for
-  emphasis; the edges carry the relationships.
+  emphasis; the edges carry the relationships. The panel also prints the
+  card's `interface` as its signature, its `entry` with the module that
+  defines it, and its `note`; a card with a note carries a dot in its top
+  corner, on the map and in every figure.
 - **Journeys.** Walks through the map, one edge at a time, one per entry
   point that matters: the first map of a repository; the second pass; a
   refactor that moves a module and fails the check until the map is
@@ -172,6 +175,15 @@ corner. systemap's own map has an `Agent` actor and leaves it an actor,
 since the agent that draws the map is outside the package; a repository
 whose agents live inside the package maps them with the agent kind.
 
+A part that calls a model once and is not an agent by the repository's
+own rule is marked `calls_model=True` instead: a context flow may end at
+it and a tool flow start from it, the Context and Tools readings light
+those flows, the panel says `calls a model`, and the `model sdk`
+judgement line for its modules is answered by the flag. The Agents
+reading stays agents only. A `store` or a `context` card may leave
+`entry` empty when it is a namespace (a constants table); the panel then
+reads `entry: none (a namespace)`.
+
 ## How it refuses to lie
 
 `systemap check` runs every rule below, prints each failure under its rule
@@ -179,11 +191,12 @@ with the fix, and exits 1 if any rule failed.
 
 | rule | what it catches |
 |---|---|
-| coverage | a module in the facts that no component claims, or that two claim |
-| entry | a component naming a module the facts do not have, no module, or an entry none of its modules defines; a symbol claim (`"pkg.mod:name"`) of a module the facts do not have, of a name the module does not define, or of a module nobody claims |
-| placement | a card outside its band, two cards overlapping, a flow of a kind neither standard nor declared, a context or tool flow whose agent end is not an agent, a flow or invariant naming something the model does not have |
+| coverage | a module in the facts that no component claims, or that two claim; an ignore that names nothing, or only empty package markers (an `__init__` with no public names and no imports, which the rule leaves out on its own) |
+| entry | a component naming a module the facts do not have, no module, or an entry none of its modules defines (a store or a context card may leave `entry` empty); a symbol claim (`"pkg.mod:name"`) of a module the facts do not have, of a name the module does not define, or of a module nobody claims |
+| interface | an `interface` line whose leading identifier (the token before `(`, `.`, `->` or whitespace; both parts of `Class.method`) is not a name the component's modules define, a re-export included; refused with the closest defined name |
+| placement | a card outside its band, two cards overlapping, a flow of a kind neither standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an agent nor `calls_model`, a flow or invariant naming something the model does not have, two invariants with one number |
 | routes | a route through a card it does not connect, or across a band it neither starts nor ends in |
-| labels | a label that touches a card, a header or another label (both labels named, and the fix that applies: the gutter is full, or the label is wider than its seat); a container or region header wider than its box, a `sub` that needs more than two lines, or a header touching a card |
+| labels | a label that touches a card, a header or another label (both labels named, and the fix that applies: the gutter is full, named by its neighbours and the region to open up, or the label is wider than its seat); a container or region header wider than its box, a `sub` that needs more than two lines, or a header touching a card; a card whose name or plain word does not fit its budget, stated in the refusal (nothing on the map is elided) |
 | type size | any text below 11 px at native scale |
 | meaning | a sentence, verb, override or journey step naming something the model does not have, a flow with no sentence, a custom layer taking a standard id |
 | wheel | a relationship wheel whose labels touch each other or the centre |
@@ -209,7 +222,7 @@ either changes the model or writes down why not:
 | thin layer | a reading that lights fewer than two components, including a standard kind never used |
 | entry point X has no journey | an entry point in the facts (a console script, a subcommand, a main, a public function of the package root) that no journey names |
 | crossing import | module A of component P imports module B of component Q and no flow joins P and Q, in either direction: an edge the code has and the map does not |
-| model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended or reduced by `[facts] model_sdks`) and its component is not an agent |
+| model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended or reduced by `[facts] model_sdks`) and its component is neither an agent nor marked `calls_model` |
 
 A report, not a gate: it exits 0, or 1 with `--strict` while any line is
 open, for CI. The list has memory: a line answered under `[judgement]
@@ -217,10 +230,16 @@ answered` in `systemap.toml` is suppressed and counted (`judgement: 3
 items for the maintainer to confirm, 21 answered`), and an answer that
 matches no line is reported as stale, so answers cannot rot. An answer
 names the exact line (`item`, or `items` for several) or a family with
-one reason: `crossing = ["A", "B"]` for every crossing import between the
-pair, `kind = "single module"` for every line of a kind, `module_sdk =
-"google.adk"` for every model sdk line of an import. The answers are what
-the maintainer reads, and they live beside the model.
+one reason: `crossing = ["A", "B", ...]` for every crossing import between
+any two of the ids, `crossing_into = "A"` for every one into A,
+`crossing_from = "A"` for every one out of it, `kind = "single module"`
+for every line of a kind, `module_sdk = "google.adk"` for every model sdk
+line of an import. The answers are what the maintainer reads, and they
+live beside the model. Before any of it, `systemap suggest` prints a
+first grouping from the facts alone (one proposal per package with two
+or more modules, and the imports between proposals) as a starting point
+to argue with, never the answer; the skill's target is three to ten
+modules per component, N/10 to N/3 cards for N modules.
 
 ## The model in one screen
 
@@ -266,13 +285,15 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | command | what it does |
 |---|---|
 | `systemap init [--no-ci]` | write the config, an empty starter model, the skill directory, and a workflow pinned to this version; never overwrites; prints the sentence for the agent |
-| `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names, imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
+| `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names (a package `__init__` lists what it re-exports), imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
+| `systemap facts` | read the facts back one view at a time, so nobody opens the JSON: `--modules` (one line per module: name, public names, imports, tests), `--module NAME` (its record), `--entry-points`, `--external` (every third-party import and who imports it), `--imports NAME` (what it imports and what imports it) |
 | `systemap check` | every rule in the table above; exit 1 with each fix named |
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
 | `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); a `.svg` name writes the bare drawing |
-| `systemap refresh` | extract, check, render, and every configured figure, then check what it wrote; "already current" when there is nothing to do; exit 1 when the check fails |
+| `systemap refresh` | extract, check, render, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
+| `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone |
 | `systemap judgement [--strict]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, model SDK imports outside an agent; answered lines suppressed and counted; exit 0, or 1 with `--strict` while a line is open |
-| `systemap describe` | what a look at the picture would tell an agent that cannot look: cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter, cards and edges per reading |
+| `systemap describe` | what a look at the picture would tell an agent that cannot look: cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), cards and edges per reading |
 | `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
 
@@ -295,9 +316,9 @@ not the current directory.
 | `spec_path` | none | a document whose `##` headings are recorded as spec sections |
 | `planes` | none | second-level package names recorded as their own plane in the facts |
 | `outside_label` | `OUTSIDE THE SYSTEM` | the index heading for actors outside every region |
-| `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`; an ignore needs a reason |
+| `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`, or `module = "pkg.sub.*"` for a subtree; an ignore needs a reason; an empty package marker needs none |
 | `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads; a leading `-` removes a built-in name (`"-google.adk"`) |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B"]`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported |
 | `[theme]` | graphite, dark | colour tokens; `scheme = "light"` picks the paper scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges); an `out` ending in `.svg` is the bare drawing |
 
@@ -340,6 +361,8 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run systemap check      # the repository's own map must stay current
     uv run systemap judgement --strict
     uv run systemap describe
+    uv run systemap facts --modules
+    uv run systemap suggest
 
 The skill has one source of truth: [`src/systemap/skill/`](src/systemap/skill/),
 the directory the package ships and `systemap init` installs. The plugin's
