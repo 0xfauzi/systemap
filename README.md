@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/hero.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
-    <img src="assets/hero.svg" alt="systemap: the map your coding agent draws of your system" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero-light.svg">
+    <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero.svg" alt="systemap: the map your coding agent draws of your system" width="100%">
   </picture>
 </p>
 
@@ -25,7 +25,7 @@ map lives beside the code, so seeing what your agents have built is one page
 rather than an afternoon of reading. It reads Python and only Python.
 
 <p align="center">
-  <img src="docs/screenshots/tour.gif" alt="the map: switching readings, clicking a component to light what it reaches, stepping a journey" width="100%">
+  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching readings, clicking a component to light what it reaches, stepping a journey" width="100%">
 </p>
 
 <p align="center">
@@ -88,7 +88,7 @@ vendor-specific in it.
 ## What you get
 
 <p align="center">
-  <img src="docs/map/figures/structure.svg" alt="systemap's map of itself: the Structure reading, every part in its region, no edges" width="100%">
+  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/map/figures/structure.svg" alt="systemap's map of itself: the Structure reading, every part in its region, no edges" width="100%">
 </p>
 
 One page, several readings of the same map, which is how you look at a system
@@ -113,9 +113,9 @@ Three colour schemes ship, and the picker in the header remembers the one you
 chose.
 
 <p align="center">
-  <img src="docs/screenshots/warm.png" alt="the warm scheme" width="32%">
-  <img src="docs/screenshots/graphite.png" alt="the graphite scheme" width="32%">
-  <img src="docs/screenshots/paper.png" alt="the paper scheme" width="32%">
+  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
+  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/graphite.png" alt="the graphite scheme" width="32%">
+  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/paper.png" alt="the paper scheme" width="32%">
 </p>
 
 ## What this pull request did to the system

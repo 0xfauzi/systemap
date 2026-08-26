@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- The images show on PyPI. The README named them by a path relative to the
+  repository, which resolves on GitHub and cannot on a project page that has
+  no repository behind it, so every image is now named by its full URL. A test
+  refuses a relative one, since the same file is both the front page and the
+  package's description.
+
 ## 1.0.0
 
 Everything the roadmap named as a gap is built and has been run on

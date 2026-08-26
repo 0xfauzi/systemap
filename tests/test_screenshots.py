@@ -121,3 +121,22 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     firsts = [r["dollars"] for r in rows if r["mode"] == "first-map"]
     low, high = int(quoted.group(2)), int(quoted.group(3))
     assert low <= min(firsts) and max(firsts) <= high, (low, high, min(firsts), max(firsts))
+
+
+def test_the_readme_names_every_image_absolutely() -> None:
+    """PyPI shows the README with no repository to resolve a path against.
+
+    A relative `src` renders on GitHub and breaks on the project page, which
+    is the same file, so every image the README shows is named by its full
+    URL.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    relative = [
+        url
+        for url in re.findall(r'(?:src|srcset)="([^"]+)"', readme)
+        if not url.startswith("http")
+    ]
+    assert not relative, relative
+    raw = "https://raw.githubusercontent.com/0xfauzi/systemap/main/"
+    for url in re.findall(rf'(?:src|srcset)="({re.escape(raw)}[^"]+)"', readme):
+        assert (ROOT / url[len(raw) :]).is_file(), url
