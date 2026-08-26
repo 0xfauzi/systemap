@@ -218,7 +218,7 @@ repository's map, and installs the plugin from the checkout with the Claude
 Code CLI. [docs/reference.md](docs/reference.md) has the rest, including how
 the skill's two copies are kept identical.
 
-Releases: push a tag that names the version. `.github/workflows/release.yml`
+Releases: push a tag that names the version. `.github/workflows/workflow.yml`
 builds the package and uploads it through PyPI's trusted publishing, where
 GitHub proves the build came from this repository and no long-lived token
 exists to be stolen. `scripts/publish.sh` is the manual path for a release

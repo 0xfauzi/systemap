@@ -6,10 +6,10 @@
 # was told to trust that identity. Nothing long-lived is stored here, in a
 # secret, or on anybody's laptop.
 #
-# It works once, on PyPI, someone adds a trusted publisher for this project:
-# owner 0xfauzi, repository systemap, workflow release.yml, environment left
-# blank. Until then the upload step fails and the build step still proves the
-# artifacts are sound.
+# The trusted publisher registered on PyPI names this repository, this file
+# (workflow.yml) and the environment pypi. All three are part of the identity
+# GitHub signs, so renaming this file or changing the environment breaks the
+# upload until the publisher on PyPI is changed to match.
 name: release
 
 on:
@@ -26,10 +26,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # No environment: the identity GitHub signs then names the repository,
-    # the workflow and the tag alone, which is what the trusted publisher on
-    # PyPI is registered against. Adding one here means adding the same name
-    # there, or the claims stop matching.
+    # Named in the identity GitHub signs, and registered on PyPI beside the
+    # repository and this file's name.
+    environment: pypi
     permissions:
       contents: read
       # What signs the identity PyPI checks. It is the whole mechanism.
