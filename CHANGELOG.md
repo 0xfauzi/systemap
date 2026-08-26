@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.1
+
+- The paper scheme reads on every surface it draws on. Its text colours were
+  tuned to the floor on the page ground and fell to between 4.15 and 4.22 to 1
+  on the raised surface behind the chips, the note block and the wheel's
+  centre. All twenty-one are darkened about four per cent in lightness, hue
+  kept, and clear 4.60 on that surface, 4.99 on the ground and 5.58 on the
+  panel.
+- A test holds the rule for every scheme: every colour a reader reads clears
+  4.5 to 1 against the surface it contrasts least with.
+
 ## 0.12.0
 
 Three schemes and a picker. The page was one dark table with a light
