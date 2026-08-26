@@ -287,7 +287,9 @@ def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
         f"{s} .node:focus-visible{{outline:none}}"
         f"{s} .node:focus-visible .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
         f"{s} .flow{{transition:opacity .18s ease}}"
-        f"{s} .flow.off,{s} .flowlbl.off{{display:none}}"
+        # A reading hides the edges it does not show; a peeked one (a spoke
+        # hovered in the wheel) shows through, so a wheel is never mute.
+        f"{s} .flow.off:not(.peek),{s} .flowlbl.off:not(.peek){{display:none}}"
         f"{s} .flow.dim{{opacity:.07}}"
         f"{s} .flow.hot{{opacity:1;stroke-opacity:1;stroke-width:2.6;"
         "stroke-dasharray:8 6;animation:systemapflow 1.1s linear infinite}"
@@ -1098,9 +1100,11 @@ def interactive_script(t: dict[str, Any], svg_id: str, panel_id: str, detail_jso
     layer's colour, tags each neighbour with the verb that relates it, and
     draws the relationship wheel in the panel. It also owns the viewport:
     wheel and pinch zoom about the pointer, drag pans, a selection or a
-    journey step frames its neighbourhood, a double-click on a region label
-    frames the region, and `svg.systemap.view` exposes fit, 100%, step and
-    back. The same script serves the map page and a lesson figure, so the
+    journey step frames what it lights in the part of the figure on screen
+    (less what the page lays over it: `view.frameFocus(cover)`), a
+    double-click on a region label frames the region, and
+    `svg.systemap.view` exposes fit, 100%, step, back and the last framing.
+    The same script serves the map page and a lesson figure, so the
     two cannot behave differently. The page adds layer and journey controls
     on top through `svg.systemap`.
 
@@ -1182,6 +1186,28 @@ flows.forEach(function(p){ flowOf[p.dataset.edge] = p; });
 var tags = svg.querySelector('[data-layer="tags"]');
 var state = {focus:'', layer:'all', journey:null, peek:-1};
 
+// ---- what a focus lights ----------------------------------------------------
+// The focused card, the edges of it the reading shows, and their other
+// ends: one set, read from the readings table, that the dimming, the
+// tags and the framing all use, so what is framed is exactly what is lit.
+// A reading with no edges of its own (Structure) lights every edge of the
+// card, as All does: there the click is how the edges are seen at all.
+function focusEdges(f, L){
+  var all = DETAIL[f] && DETAIL[f].edges || [];
+  if(L === 'all' || !(READINGS[L] && READINGS[L].edges && READINGS[L].edges.length)){
+    return all.slice();
+  }
+  return all.filter(function(i){ return edgeIn(i, L); });
+}
+function litSet(){
+  var f = state.focus;
+  if(!f || !DETAIL[f]){ return null; }
+  var ids = {}, edges = focusEdges(f, state.layer);
+  ids[f] = true;
+  edges.forEach(function(i){ ids[EDGES[i].from] = true; ids[EDGES[i].to] = true; });
+  return {id:f, ids:ids, edges:edges};
+}
+
 function setCls(el, map){
   for(var k in map){ if(map.hasOwnProperty(k)){ el.classList.toggle(k, !!map[k]); } }
 }
@@ -1204,8 +1230,10 @@ function el(name, attrs, text){
 // units. `base` is the CSS pixels the browser gives one viewBox unit; the
 // zoom the reader sees is base*k, and Fit (the whole map across the column)
 // is k = 1, t = 0. Wheel and pinch zoom about the pointer, a drag pans, a
-// selection or a journey step frames its neighbourhood, and Escape (in the
-// page around this script) returns to the view before the framing began.
+// selection or a journey step frames its neighbourhood in the part of the
+// figure the reader can see (the figure's box clipped to the window, less
+// whatever the page lays over it), and Escape (in the page around this
+// script) returns to the view before the framing began.
 var view = svg.querySelector('.view');
 var VB = svg.viewBox.baseVal;
 var ZMIN = 0.4, ZMAX = 2.5, ZCAP = 1.4, FRAME_PAD = 28, ANIM_MS = 320;
@@ -1213,6 +1241,7 @@ var cur = {k:1, tx:0, ty:0};   // what is drawn now, mid-animation included
 var goal = {k:1, tx:0, ty:0};  // where the view is heading
 var saved = null;              // the view before the current framing chain
 var framed = false;            // the view on screen is one a frame() set
+var lastFrame = null;          // {rect, area, k}: what the last framing fitted where
 var anim = 0, booted = false, dragged = false;
 function base(){ var m = svg.getScreenCTM(); return m && m.a ? m.a : 1; }
 function reduced(){
@@ -1230,11 +1259,15 @@ function toVb(clientX, clientY){
   var q = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
   return {x:q.x, y:q.y};
 }
-function clampView(v){
-  // The zoom stays between ZMIN and ZMAX (Fit is always allowed, even on a
-  // column so narrow that Fit is under ZMIN), and a fifth of the viewport
-  // always holds drawing, so the map cannot be dragged out of sight.
-  var b = base(), lo = Math.min(ZMIN, b) / b, hi = ZMAX / b;
+function clampView(v, kmin){
+  // The zoom stays between ZMIN and ZMAX, except that the zoom on screen
+  // and the zoom a framing asks for (kmin) are always allowed: Fit on a
+  // column so narrow that Fit is under ZMIN, and a lit set too large for
+  // the visible area at ZMIN, which is fitted whole rather than cropped
+  // (zooming out from there is a no-op, never a jump in). A fifth of the
+  // viewport always holds drawing, so the map cannot be dragged out of sight.
+  var b = base(), lo = Math.min(Math.min(ZMIN, b) / b, goal.k), hi = ZMAX / b;
+  if(kmin !== undefined){ lo = Math.min(lo, kmin); }
   var k = Math.min(hi, Math.max(lo, v.k));
   var mx = VB.width * 0.2, my = VB.height * 0.2;
   var tx = Math.min(VB.x + VB.width - mx - k * VB.x,
@@ -1252,8 +1285,8 @@ function apply(v){
   svg.dispatchEvent(new CustomEvent('systemap:view',
     {detail:{zoom:base() * v.k, fit:isFit(v)}, bubbles:true}));
 }
-function setView(v, instant){
-  goal = clampView(v);
+function setView(v, instant, kmin){
+  goal = clampView(v, kmin);
   if(anim){ cancelAnimationFrame(anim); anim = 0; }
   if(instant || !booted || reduced()){ apply(goal); return; }
   var from = cur, to = goal, t0 = 0;
@@ -1279,19 +1312,39 @@ function zoomAt(f, cx, cy, instant){
   var k = clampView({k:goal.k * f, tx:goal.tx, ty:goal.ty}).k, g = k / goal.k;
   userView({k:k, tx:cx - g * (cx - goal.tx), ty:cy - g * (cy - goal.ty)}, instant);
 }
-function frameRect(r, inset, instant){
-  // Fit the drawing rect r into the viewport minus inset {left, right, top,
-  // bottom} CSS pixels, at the largest zoom that shows all of it, capped at
-  // ZCAP. The first framing in a chain remembers the view it left.
-  inset = inset || {};
+function visibleArea(cover){
+  // The part of the figure the reader can see, in viewBox units: the
+  // figure's box on screen clipped to the window, less the box the page
+  // lays over one side of it (`cover`: {rect, side}, the drawer), or the
+  // whole viewBox where the figure has no box yet. A figure wholly off
+  // screen is framed in its own box: the page scrolls it into view.
+  var whole = {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
+  var s = svg.getBoundingClientRect ? svg.getBoundingClientRect() : null;
+  if(!s || !(s.width > 0) || !(s.height > 0)){ return whole; }
+  var ww = window.innerWidth || s.right, wh = window.innerHeight || s.bottom;
+  var l = Math.max(s.left, 0), t = Math.max(s.top, 0);
+  var r = Math.min(s.right, ww), bt = Math.min(s.bottom, wh);
+  if(r - l < 40 || bt - t < 40){ l = s.left; t = s.top; r = s.right; bt = s.bottom; }
+  if(cover && cover.rect && cover.rect.width > 0){
+    if(cover.side === 'left'){ l = Math.max(l, cover.rect.right + 12); }
+    else { r = Math.min(r, cover.rect.left - 12); }
+  }
+  var p = toVb(l, t), q = toVb(r, bt);
+  return {x:p.x, y:p.y, w:Math.max(40, q.x - p.x), h:Math.max(40, q.y - p.y)};
+}
+function frameRect(r, area, instant){
+  // Fit the drawing rect r into `area` (viewBox units; the whole viewBox
+  // when null) at the largest zoom that shows all of it, capped at ZCAP,
+  // its centre on the area's centre. A rect larger than the area at ZMIN
+  // is fitted whole, never cropped. The first framing in a chain remembers
+  // the view it left.
+  area = area || {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
   var b = base();
-  var il = (inset.left || 0) / b, ir = (inset.right || 0) / b;
-  var it = (inset.top || 0) / b, ib = (inset.bottom || 0) / b;
-  var aw = Math.max(40, VB.width - il - ir), ah = Math.max(40, VB.height - it - ib);
-  var k = Math.min(ZCAP / b, aw / r.w, ah / r.h);
-  var cx = VB.x + il + aw / 2, cy = VB.y + it + ah / 2;
+  var k = Math.min(ZCAP / b, area.w / r.w, area.h / r.h);
+  var cx = area.x + area.w / 2, cy = area.y + area.h / 2;
   if(!framed){ saved = goal; framed = true; }
-  setView({k:k, tx:cx - k * (r.x + r.w / 2), ty:cy - k * (r.y + r.h / 2)}, instant);
+  lastFrame = {rect:r, area:area, k:k};
+  setView({k:k, tx:cx - k * (r.x + r.w / 2), ty:cy - k * (r.y + r.h / 2)}, instant, k);
 }
 function unionBox(ids, edgeIdx){
   // The rect around some cards and the edges between them, in drawing units.
@@ -1310,29 +1363,29 @@ function unionBox(ids, edgeIdx){
   if(x0 === Infinity){ return null; }
   return {x:x0 - FRAME_PAD, y:y0 - FRAME_PAD, w:x1 - x0 + 2 * FRAME_PAD, h:y1 - y0 + 2 * FRAME_PAD};
 }
-function frameFocus(inset, instant){
-  // The selected component, every neighbour, and the edges between them.
-  var f = state.focus;
-  if(!f || !DETAIL[f]){ return; }
-  var ids = [f], edges = DETAIL[f].edges || [];
-  edges.forEach(function(i){ ids.push(EDGES[i].from); ids.push(EDGES[i].to); });
-  var r = unionBox(ids, edges);
-  if(r){ frameRect(r, inset, instant); }
+function frameFocus(cover, instant){
+  // What the focus lights (litSet: the card, the edges the reading shows,
+  // their other ends), framed in the visible area less `cover`.
+  var lit = litSet();
+  if(!lit){ return; }
+  var r = unionBox(Object.keys(lit.ids), lit.edges);
+  if(r){ frameRect(r, visibleArea(cover), instant); }
 }
 function frameJourney(step, instant){
-  // The step's acting and measuring components and the edge it traces.
+  // The step's acting and measuring components and the edge it traces,
+  // framed in the visible area; the page closes its drawer for a journey.
   var ids = (step.acts || []).concat(step.measures || []), edges = [];
   if(step.edge >= 0 && EDGES[step.edge]){
     ids.push(EDGES[step.edge].from); ids.push(EDGES[step.edge].to); edges.push(step.edge);
   }
   var r = unionBox(ids, edges);
-  if(r){ frameRect(r, null, instant); }
+  if(r){ frameRect(r, visibleArea(null), instant); }
 }
 function frameRegion(id){
   var box = null;
   (META.regions || []).forEach(function(z){ if(z.id === id && z.box){ box = z.box; } });
   if(!box){ return; }
-  frameRect({x:box[0] - 12, y:box[1] - 12, w:box[2] + 24, h:box[3] + 24}, null);
+  frameRect({x:box[0] - 12, y:box[1] - 12, w:box[2] + 24, h:box[3] + 24}, visibleArea(null));
 }
 function back(){
   // The view before the framing chain began; nothing if the reader has
@@ -1343,12 +1396,13 @@ function back(){
   setView(v);
 }
 function fracOf(id){
-  // Where the card's centre sits across the viewport, 0 to 1, once the view
-  // arrives. The page docks its drawer on the other side.
+  // Where the card's centre sits across the visible area (the last framing's,
+  // else the viewport), 0 to 1, once the view arrives. The page docks its
+  // drawer on the other side.
   var n = nodeOf[id];
   if(!n){ return 0.5; }
-  var b = boxOf(n);
-  return (goal.k * (b.x + b.w / 2) + goal.tx - VB.x) / VB.width;
+  var b = boxOf(n), a = lastFrame ? lastFrame.area : {x:VB.x, w:VB.width};
+  return (goal.k * (b.x + b.w / 2) + goal.tx - a.x) / a.w;
 }
 
 // Wheel (and trackpad pinch, which arrives as ctrl+wheel) zooms about the
@@ -1456,12 +1510,8 @@ function recolour(i, colour){
 
 function paint(){
   var f = state.focus, j = state.journey, L = state.layer;
-  var near = {}, hot = {};
-  if(f && DETAIL[f]){
-    near[f] = true;
-    (DETAIL[f].edges || []).forEach(function(i){
-      var e = EDGES[i]; hot[i] = true; near[e.from] = true; near[e.to] = true; });
-  }
+  var lit = litSet(), near = lit ? lit.ids : {}, hot = {};
+  if(lit){ lit.edges.forEach(function(i){ hot[i] = true; }); }
   var jset = {}, traced = -1;
   if(j){
     (j.acts || []).concat(j.measures || []).forEach(function(id){ jset[id] = true; });
@@ -1499,11 +1549,11 @@ function paint(){
   drawTags();
 }
 
-function verbsFrom(cid, other){
-  // The verbs on the edges between cid and other, read from cid, with the
-  // layer colour of the first.
+function verbsFrom(cid, other, edges){
+  // The verbs on the given edges between cid and other, read from cid,
+  // with the layer colour of the first.
   var out = [], colour = '';
-  (DETAIL[cid].edges || []).forEach(function(i){
+  edges.forEach(function(i){
     var e = EDGES[i];
     if(e.from === cid && e.to === other){ out.push(e.out); }
     else if(e.to === cid && e.from === other){ out.push(e['in']); }
@@ -1516,15 +1566,15 @@ function verbsFrom(cid, other){
 function drawTags(){
   if(!tags){ return; }
   while(tags.firstChild){ tags.removeChild(tags.firstChild); }
-  var f = state.focus;
-  if(!f || !DETAIL[f]){ return; }
-  var seen = {};
-  (DETAIL[f].edges || []).forEach(function(i){
+  var lit = litSet();
+  if(!lit){ return; }
+  var f = lit.id, seen = {};
+  lit.edges.forEach(function(i){
     var e = EDGES[i];
     var other = e.from === f ? e.to : e.from;
     if(other === f || seen[other] || !nodeOf[other]){ return; }
     seen[other] = true;
-    var v = verbsFrom(f, other);
+    var v = verbsFrom(f, other, lit.edges);
     var text = v.verbs.join(' / ');
     var lines = text.length > 25 ? v.verbs : [text];
     var b = boxOf(nodeOf[other]);
@@ -1810,6 +1860,8 @@ svg.systemap = {
     isFit: function(){ return isFit(); },
     frameFocus: frameFocus,
     frameRegion: frameRegion,
+    frame: function(){ return lastFrame; },
+    visibleArea: visibleArea,
     fracOf: fracOf,
     back: back
   },

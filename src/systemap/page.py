@@ -2,10 +2,12 @@
 
 The page is the map, at full width. It opens at Fit (the whole map across
 the column) and the reader zooms with the wheel, a pinch, or the Fit / 100%
-/ + / - controls, and pans by dragging; selecting a component frames it and
-its neighbours, and Escape returns the view. Above it, a layer switch (one
-map, several readings), the journeys a reader can step through, and a slim
-strip carrying the active layer's question and its components. Click a
+/ + / - controls, and pans by dragging; selecting a component frames what
+it lights (the card, the edges of it the reading shows, their other ends)
+in the part of the map on screen beside the drawer, and Escape returns the
+view. Above it, a layer switch (one map, several readings), the journeys a
+reader can step through, and a slim strip carrying the active layer's
+question and its components. Click a
 component and the focus panel opens as a drawer over the map, docked on the
 side away from the component: it leads with the plain word, draws the
 relationship wheel, and reads the sentence for whichever spoke the reader
@@ -604,16 +606,33 @@ JS = r"""
     b.addEventListener('click', function(){ setLayer(b.dataset.layerBtn); }); });
 
   // ---- the drawer: opens on selection, docks away from the node ---------
+  function cover(){
+    // What the drawer lays over the map: its box and its side, or nothing
+    // when it is hidden or sits below the map (the narrow layout).
+    if(!drawer || drawer.hidden){ return null; }
+    var d = drawer.getBoundingClientRect(), s = svg.getBoundingClientRect();
+    if(d.right <= s.left || d.left >= s.right || d.bottom <= s.top || d.top >= s.bottom){
+      return null;
+    }
+    return {rect:d, side:drawer.dataset.dock};
+  }
+  function frameBeside(id, instant){
+    // The lit set framed in the part of the map the drawer leaves visible,
+    // measured on the next frame, once the drawer is laid out and the page
+    // has scrolled the map into view.
+    window.requestAnimationFrame(function(){
+      if(A.state.focus === id){ A.view.frameFocus(cover(), instant); }
+    });
+  }
   function openDrawer(id, instant){
-    // The figure has already framed the neighbourhood; the card's position
-    // in that view picks the side. The drawer then covers that side of the
-    // stage, so the neighbourhood is framed again into the part it leaves.
+    // The figure has already framed the lit set in the visible map; the
+    // card's position in that view picks the side. The drawer then covers
+    // that side, so the lit set is framed again into the part it leaves.
     if(!drawer){ return; }
     drawer.dataset.dock = A.view.fracOf(id) > 0.6 ? 'left' : 'right';
     drawer.hidden = false;
-    var over = window.innerWidth > 1000 ? drawer.offsetWidth + 12 : 0;
-    A.view.frameFocus(drawer.dataset.dock === 'left' ? {left:over} : {right:over}, instant);
     reveal();
+    frameBeside(id, instant);
   }
   function closeDrawer(){ if(drawer){ drawer.hidden = true; } }
   function reveal(){
@@ -779,7 +798,11 @@ JS = r"""
         behavior:reduced() ? 'auto' : 'smooth', block:'start'});
     });
   });
-  window.addEventListener('resize', function(){ showZoom(A.view.zoom(), A.view.isFit()); });
+  window.addEventListener('resize', function(){
+    showZoom(A.view.zoom(), A.view.isFit());
+    // A held focus is framed again for the new window, in place.
+    if(A.state.focus && drawer && !drawer.hidden){ frameBeside(A.state.focus, true); }
+  });
 
   setLayer(A.layers.length ? A.layers[0].id : 'all');
   showZoom(A.view.zoom(), A.view.isFit());

@@ -11,9 +11,9 @@ Python) and wrap through All; the cards are written in reading order (row
 by row, left to right) and each takes focus; Enter on a focused card opens
 its wheel with one focusable spoke per edge; Escape closes the wheel and
 hands focus back to the card; a journey takes the arrows while it is on
-and Escape ends it; with prefers-reduced-motion the framing runs without
-an animation frame; and the focus ring is drawn in the accent of the
-scheme, in both schemes.
+and Escape ends it; with prefers-reduced-motion the framing sets the view
+once per framing, never tweened; and the focus ring is drawn in the accent
+of the scheme, in both schemes.
 """
 
 from __future__ import annotations
@@ -121,7 +121,8 @@ def check_keyboard(report: dict[str, object]) -> None:
 def test_sample_page_from_the_keyboard(sample: Sample, tmp_path: Path) -> None:
     report = drive(sample_page(sample, tmp_path))
     check_keyboard(report)
-    assert isinstance(report["rafCalls"], int) and report["rafCalls"] > 0, (
+    enter = report["enter"]
+    assert isinstance(enter, dict) and enter["viewEventsForFraming"] > 2, (
         "with motion allowed the framing animates"
     )
 
@@ -136,7 +137,12 @@ def test_self_map_page_from_the_keyboard() -> None:
 def test_reduced_motion_frames_without_animation(sample: Sample, tmp_path: Path) -> None:
     report = drive(sample_page(sample, tmp_path), reduced=True)
     check_keyboard(report)
-    assert report["rafCalls"] == 0, "prefers-reduced-motion: the view is set, never animated"
+    # Enter frames twice (the figure in the visible map, then the page
+    # beside the drawer once it is laid out): two views, no tween between.
+    enter = report["enter"]
+    assert isinstance(enter, dict) and enter["viewEventsForFraming"] == 2, (
+        "prefers-reduced-motion: the view is set, never animated"
+    )
     assert "smooth" not in report["scrolls"]
 
 

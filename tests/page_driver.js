@@ -1,15 +1,20 @@
 // Drives a rendered systemap page's scripts under Node with a small DOM of
-// its own, and reports what the keyboard did. No library: the page is the
+// its own, and reports what the page did. No library: the page is the
 // generator's output, well formed and closed, so a tag parser of a hundred
 // lines reads it, and the scripts touch a known handful of DOM calls, each
 // implemented below with the browser's meaning and nothing more. Geometry
-// is not modelled: every box is where its attributes say it is, and the
-// screen is a 1600 by 900 window whose CSS pixel is one viewBox unit.
+// is a stub: every box is where its attributes say it is, one CSS pixel is
+// one viewBox unit, the figure sits on screen at its viewBox's own
+// coordinates, the window is 1600 by 900 unless --viewport says otherwise,
+// and the drawer, when shown, is a 380 pixel column over the docked side
+// of the figure with 10 pixels of margin. A path's box is the box of the
+// points in its `d`, as a browser's getBBox would give it.
 //
-//     node tests/page_driver.js PAGE.html [--reduced]
+//     node tests/page_driver.js PAGE.html [--reduced] [--viewport WxH]
+//                                         [--scenario keyboard|framing]
 //
-// prints one JSON object; tests/test_keyboard.py reads it. --reduced makes
-// the page's prefers-reduced-motion query match.
+// prints one JSON object; tests/test_keyboard.py and tests/test_framing.py
+// read it. --reduced makes the page's prefers-reduced-motion query match.
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -33,6 +38,8 @@ let rafQueue = [];
 let rafCalls = 0;
 let scrolls = [];
 const REPORT = {replaceStates: []};
+const DRAWER_W = 380;
+const DRAWER_MARGIN = 10;
 
 class Text {
   constructor(data) { this.nodeType = 3; this.data = data; this.parentNode = null; }
@@ -149,7 +156,34 @@ class Element {
     this.dispatchEvent(new EventImpl('focus', {bubbles: false}));
   }
   blur() { if (focused === this) focused = null; }
-  getBoundingClientRect() { return {top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0}; }
+  getBoundingClientRect() {
+    // The stub screen: the figure at its viewBox's coordinates, the drawer
+    // (when shown) a column over the docked side of it, everything else
+    // nowhere.
+    const zero = {top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0};
+    if (this.tag === 'svg' && this.hasAttribute('viewBox')) {
+      const v = this.viewBox.baseVal;
+      return rect(v.x, v.y, v.width, v.height);
+    }
+    if (this.id === 'drawer' && !this.hidden && documentNode) {
+      const svg = documentNode.getElementById('schematic');
+      const s = svg ? svg.getBoundingClientRect() : zero;
+      const left = this.dataset.dock === 'left' ? s.left + DRAWER_MARGIN : s.right - DRAWER_MARGIN - DRAWER_W;
+      return rect(left, s.top, DRAWER_W, s.height);
+    }
+    return zero;
+  }
+  getBBox() {
+    // A path's box from the points its `d` names (M, L and Q, the commands
+    // the router writes); anything else has no box.
+    if (this.tag !== 'path') return {x: 0, y: 0, width: 0, height: 0};
+    const nums = (this.getAttribute('d') || '').match(/-?\d+(?:\.\d+)?/g);
+    if (!nums || nums.length < 2) return {x: 0, y: 0, width: 0, height: 0};
+    const xs = [], ys = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) { xs.push(+nums[i]); ys.push(+nums[i + 1]); }
+    const x0 = Math.min(...xs), y0 = Math.min(...ys);
+    return {x: x0, y: y0, width: Math.max(...xs) - x0, height: Math.max(...ys) - y0};
+  }
   scrollIntoView(opts) { scrolls.push(opts && opts.behavior ? opts.behavior : 'auto'); }
   get offsetWidth() { return this.id === 'drawer' ? 380 : 0; }
   get offsetHeight() { return 0; }
@@ -162,6 +196,10 @@ class Element {
 }
 
 function kebab(name) { return name.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()); }
+
+function rect(left, top, width, height) {
+  return {left, top, width, height, right: left + width, bottom: top + height, x: left, y: top};
+}
 
 function makeStyle() {
   const props = {};
@@ -332,6 +370,10 @@ class EventImpl {
 }
 class CustomEventImpl extends EventImpl {}
 class KeyboardEventImpl extends EventImpl {}
+class DOMPointImpl {
+  constructor(x, y) { this.x = x; this.y = y; }
+  matrixTransform(m) { return {x: m.a * this.x + m.c * this.y + m.e, y: m.b * this.x + m.d * this.y + m.f}; }
+}
 
 let documentNode = null;
 let windowObject = null;
@@ -358,7 +400,7 @@ function dispatch(target, ev) {
 }
 
 // ---- document and window ---------------------------------------------------------
-function load(html, reducedMotion) {
+function load(html, reducedMotion, viewport) {
   const doc = new Element('#document', false);
   documentNode = doc;
   parseInto(html, doc, false);
@@ -376,8 +418,8 @@ function load(html, reducedMotion) {
 
   const win = {
     listeners: {},
-    innerWidth: 1600,
-    innerHeight: 900,
+    innerWidth: viewport[0],
+    innerHeight: viewport[1],
     document: doc,
     location: {hash: '', pathname: '/index.html', search: '', href: 'http://127.0.0.1/index.html'},
     history: {replaceState: (_s, _t, url) => {
@@ -394,6 +436,7 @@ function load(html, reducedMotion) {
     Event: EventImpl,
     CustomEvent: CustomEventImpl,
     KeyboardEvent: KeyboardEventImpl,
+    DOMPoint: DOMPointImpl,
     console,
     Math, JSON, Object, Array, String, Number, parseInt, parseFloat, isNaN, Infinity, NaN,
     decodeURIComponent, encodeURIComponent, setTimeout: (cb) => { cb(); return 0; }, clearTimeout() {},
@@ -415,25 +458,37 @@ function runFrames(win) {
   }
 }
 
-// ---- the scenario ----------------------------------------------------------------
+// ---- the scenarios ---------------------------------------------------------------
 function main() {
   const args = process.argv.slice(2);
   const reduced = args.includes('--reduced');
   const file = args.find((a) => !a.startsWith('--'));
+  const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
+  const viewport = flag('--viewport', '1600x900').split('x').map(Number);
+  const scenario = flag('--scenario', 'keyboard');
   const html = fs.readFileSync(file, 'utf8');
-  const {doc, win} = load(html, reduced);
+  const {doc, win} = load(html, reduced, viewport);
   const context = vm.createContext(win);
   doc.querySelectorAll('script').forEach((s) => { vm.runInContext(s.textContent, context); });
   runFrames(win);
 
   const svg = doc.getElementById('schematic');
   const A = svg.systemap;
+  let viewEvents = 0;
+  svg.addEventListener('systemap:view', () => { viewEvents++; });
   const key = (k, target) => {
     const ev = new KeyboardEventImpl('keydown', {key: k, bubbles: true});
     dispatch(target || doc.body, ev);
     runFrames(win);
     return ev.defaultPrevented;
   };
+  const page = {doc, win, svg, A, key, reduced, viewport, views: () => viewEvents};
+  const report = scenario === 'framing' ? framing(page) : keyboard(page);
+  process.stdout.write(JSON.stringify(report) + '\n');
+}
+
+function keyboard(page) {
+  const {doc, win, svg, A, key, reduced} = page;
   const report = {
     reduced,
     layers: A.layers.map((l) => l.id),
@@ -473,7 +528,7 @@ function main() {
   const panel = doc.getElementById('panel');
   const withEdges = nodes.find((n) => (A.detail[n.dataset.id].edges || []).length > 1);
   withEdges.focus();
-  const before = {rafCalls};
+  const before = {rafCalls, views: page.views()};
   const enterPrevented = key('Enter', withEdges);
   report.enter = {
     id: withEdges.dataset.id,
@@ -487,6 +542,7 @@ function main() {
     spokesFocusable: panel.querySelectorAll('.systemap-w__spoke').every((s) => s.getAttribute('tabindex') === '0' && s.getAttribute('role') === 'button'),
     hash: REPORT.replaceStates[REPORT.replaceStates.length - 1],
     rafCallsForFraming: rafCalls - before.rafCalls,
+    viewEventsForFraming: page.views() - before.views,
     activeElement: doc.activeElement.dataset ? doc.activeElement.dataset.id : doc.activeElement.tag,
   };
   // Focus moves into the wheel (Tab, in a browser; here the spoke is focused
@@ -535,7 +591,76 @@ function main() {
   report.journey = j;
   report.rafCalls = rafCalls;
   report.scrolls = scrolls;
-  process.stdout.write(JSON.stringify(report) + '\n');
+  return report;
+}
+
+function parseTransform(value) {
+  // translate(tx ty) scale(k), as the script writes it.
+  const m = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/.exec(value || '');
+  return m ? {tx: +m[1], ty: +m[2], k: +m[3]} : {tx: 0, ty: 0, k: 1};
+}
+
+function framing(page) {
+  // Every reading, several cards each: what a selection lit, what it
+  // framed, where the view landed, and the drawer's box; then the window
+  // shrinks with the focus held. tests/test_framing.py does the geometry.
+  const {doc, win, svg, A, key} = page;
+  const drawer = doc.getElementById('drawer');
+  const nodes = svg.querySelectorAll('.node');
+  const boxOf = (n) => {
+    const b = n.querySelector('.node__box');
+    return {x: +b.getAttribute('x'), y: +b.getAttribute('y'), w: +b.getAttribute('width'), h: +b.getAttribute('height')};
+  };
+  const withEdges = nodes.filter((n) => (A.detail[n.dataset.id].edges || []).length);
+  // The first, the last and four from the middle: cards from every part of the map.
+  const picks = [0, withEdges.length - 1, 1, Math.floor(withEdges.length / 3), Math.floor(withEdges.length / 2), withEdges.length - 2]
+    .filter((i, k, all) => i >= 0 && all.indexOf(i) === k);
+  const cards = picks.map((i) => withEdges[i].dataset.id);
+  const readings = A.layers.map((l) => l.id).concat(['all']);
+  const snapshot = (reading, id) => {
+    const frame = A.view.frame();
+    const lit = nodes.filter((n) => !n.classList.contains('dim')).map((n) => ({id: n.dataset.id, box: boxOf(n)}));
+    const litEdges = svg.querySelectorAll('.flow.hot').map((p) => ({edge: +p.dataset.edge, box: p.getBBox()}));
+    return {
+      reading, id, frame, lit, litEdges,
+      view: parseTransform(svg.querySelector('.view').getAttribute('transform')),
+      dock: drawer.dataset.dock, drawerHidden: drawer.hidden, drawer: drawer.getBoundingClientRect(),
+      viewport: {w: win.innerWidth, h: win.innerHeight},
+    };
+  };
+  const cases = [];
+  readings.forEach((reading) => {
+    doc.querySelector('[data-layer-btn="' + reading + '"]').click();
+    cards.forEach((id) => {
+      A.select(id);
+      runFrames(win);
+      cases.push(snapshot(reading, id));
+      key('Escape');
+    });
+  });
+  // The window shrinks while a focus is held: the frame follows.
+  doc.querySelector('[data-layer-btn="' + readings[0] + '"]').click();
+  A.select(cards[0]);
+  runFrames(win);
+  const beforeResize = snapshot(readings[0], cards[0]);
+  const s = svg.getBoundingClientRect();
+  win.innerHeight = Math.round(s.bottom * 0.6);
+  win.innerWidth = Math.round(s.right * 0.8);
+  win.dispatchEvent(new EventImpl('resize'));
+  runFrames(win);
+  const afterResize = snapshot(readings[0], cards[0]);
+  key('Escape');
+  const v = svg.viewBox.baseVal;
+  return {
+    viewBox: {x: v.x, y: v.y, w: v.width, h: v.height},
+    svgRect: svg.getBoundingClientRect(),
+    readings: A.detail._meta.readings,
+    edges: A.edges.map((e) => ({from: e.from, to: e.to})),
+    detailEdges: Object.fromEntries(cards.map((id) => [id, A.detail[id].edges || []])),
+    kinds: Object.fromEntries(nodes.map((n) => [n.dataset.id, n.dataset.kind])),
+    drawerWidth: DRAWER_W,
+    cards, cases, beforeResize, afterResize,
+  };
 }
 
 main();
