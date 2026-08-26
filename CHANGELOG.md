@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.11.1
+
+`place` searches the region order. In the benchmark sessions on two of
+the four repositories, the agent wrote its own helper to try region
+orders and pick the one with the fewest bends and shortest routes,
+because `place` laid the regions on its grid in model order and never
+compared two. Now it does, and ROADMAP gaps 4 and 6 record what the
+four runs measured.
+
+- `systemap place` tries the orders of the regions on the grid: every
+  order when there are at most six regions (within each container every
+  permutation, every combination across containers: 720 at most); past
+  six, a greedy start (the region with the most flows first, then the
+  one with the most flows into what is placed) improved by pairwise
+  swaps until no swap does. Each order is laid out whole, cards and
+  barycentre sweeps included, and estimated by the bends its edges need
+  at least (straight when the two cards face each other with nothing
+  between, an L when either L-shaped path is clear of cards and foreign
+  regions, a Z otherwise) and their Manhattan length; the twelve best by
+  the estimate, and the order as listed, are routed with the real router
+  and the label pass and scored by label collisions, then routes that
+  had to cross a foreign region, then bends, then length. The least
+  wins; a tie goes to the order listed first, so the model's own order
+  wins every tie. `--keep-order` lays the regions as listed and skips
+  the search.
+- Why two stages, measured: the router costs 156 ms per order on the
+  144-module fixture (215 ms on this repository's own map), so routing
+  all 720 orders would take two minutes against a ten-second budget; the
+  estimate costs 0.75 ms per order. Routing every one of the 720 once,
+  off-line, found the order with the fewest bends (40, against 43 as
+  listed); the estimate ranks it second, and the search finds it in 2.2
+  seconds. On this repository's own map (five regions, 120 orders) the
+  search finds an order with the fewest bends of all 120, ten percent
+  longer than the shortest of those. tests/test_place.py asserts the
+  fixture under ten seconds with the search inside, and that the score
+  reported is the drawing's own, measured again on the placed model.
+- `place` prints the chosen order and its score after the write line
+  and under `--print` (`region order: layout, contracts, gateway,
+  orchestration, style, content; 40 bends, 7,909 units; 720 orders
+  tried, 13 routed`); `describe` prints the same line for the map as
+  written (`; as written`) or, when it placed the cards for the look,
+  with the orders tried.
+- `schematic.geometry` is the one function the drawing and the scorer
+  read their obstacles from (the card boxes, the headers and the empty
+  containers as walls, what a label may not sit on), so the order
+  `place` picks is scored on the drawing the page makes; the page is
+  byte for byte what 0.11.0 rendered. The self-map draws the three
+  edges this adds (Router and Schematic into Placer, Placer into
+  Describe).
+- The skill: step 2 and `references/layout.md` say the order is searched
+  and printed, never to write a helper to try orders, and when
+  `--keep-order` is the right call.
+- ROADMAP gap 6, measured: four repositories, three not ours, all
+  finished unattended with check clean and `judgement --strict` clean;
+  zero systemap crashes or usage errors in the logs; the friction-item
+  count not measured, because the harness runs the pure user sentence
+  (a friction log is a test instrument, not user behaviour), and the
+  substitute signal recorded: helper scripts written around the tool,
+  three on one repository, four on another, none on the other two. Gap
+  4: the four 0.9.0 first-map rows of docs/benchmarks.md against the
+  0.15 target, three under and one at 0.159; the targets unedited.
+
 ## 0.11.0
 
 ROADMAP gap 7, everything but the publishing: the package proven on three

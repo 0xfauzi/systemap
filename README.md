@@ -72,8 +72,9 @@ give your agent:
 > Map this repository with systemap. Follow the systemap skill.
 
 The agent then runs `systemap extract`, writes the model with no
-positions, runs `systemap place` (which lays the regions out with the
-corridors the edges need and puts every card on the grid), runs
+positions, runs `systemap place` (which lays the regions out in the order
+its search scores best, with the corridors the edges need, and puts every
+card on the grid), runs
 `systemap check` until every module is mapped and the layout passes, runs
 `systemap judgement` and acts on every line, renders with
 `systemap refresh` and reads the picture back with `systemap describe`,
@@ -87,7 +88,7 @@ why. You read the answers, correct what you disagree with, commit
 
 The workflow `init` writes runs systemap from the released package,
 pinned to the tag of the version that wrote it (`uvx --from
-"git+https://github.com/0xfauzi/systemap@v0.11.0"`), so your project
+"git+https://github.com/0xfauzi/systemap@v0.11.1"`), so your project
 takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
 no token, so a workflow linter passes it as written. Its second job runs
@@ -412,7 +413,7 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap init [--no-ci]` | write the config, an empty starter model, the skill directory, and a workflow pinned to this version; never overwrites; prints the sentence for the agent |
 | `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names (a package `__init__` lists what it re-exports), imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | read the facts back one view at a time, so nobody opens the JSON: `--modules` (one line per module: the first sentence of its docstring, then public names, imports and tests counted), `--docstrings` (the first sentence alone), `--module NAME` (its record, rendered: docstring, names with kinds, imports, imported by, external, test count; never a test's name), `--names NAME` (its public names with kinds), `--entry-points` (each with its target), `--external` (every third-party import and who imports it), `--imports NAME` (what it imports and what imports it) |
-| `systemap place [--all] [--print]` | a position for every card without one, written into the model in place (only the `x=` and `y=` values, the boxes and the canvas move), on every map of the tree: regions on a two-column grid with the corridors the router needs, cards on the grid inside, ordered by barycentre sweeps over the flows; a card with `x` and `y` is kept; `--all` lays every card out again and keeps only the cards marked `pinned=True`; deterministic, stdlib only; `--print` prints instead |
+| `systemap place [--all] [--print] [--keep-order]` | a position for every card without one, written into the model in place (only the `x=` and `y=` values, the boxes and the canvas move), on every map of the tree: regions on a two-column grid with the corridors the router needs, in the region order the search scores best (every order tried when there are at most six regions, a greedy start and pairwise swaps past that; each laid out and estimated by the bends its edges need, the twelve best and the order as listed routed with the real router and scored by label collisions, then refused routes, then bends, then length; the chosen order and its score printed: `region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed`), cards on the grid inside, ordered by barycentre sweeps over the flows; a card with `x` and `y` is kept; `--all` lays every card out again and keeps only the cards marked `pinned=True`; `--keep-order` lays the regions as listed and skips the search; deterministic, stdlib only; `--print` prints instead |
 | `systemap check` | every rule in the table above, on every map of the tree; exit 1 with each fix named |
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
 | `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); `--map ID` draws the map inside a card; a `.svg` name writes the bare drawing |
@@ -420,7 +421,7 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone; with a model, when a map is past forty cards and which cards hold the most modules, the candidates to open a map inside |
 | `systemap judgement [--strict] [--kind KIND] [--verbose]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow (one line per pair of cards, counting the modules; `--verbose` lists the imports under it), flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; `--kind KIND` prints one kind when the list runs long; exit 0, or 1 with `--strict` while a line is open |
 | `systemap delta --base REF [--head REF] [--format markdown]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a person, 1 when something does; `--format markdown` is the pull-request comment |
-| `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned, placed, and positioned for the look only, cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
+| `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned, placed, and positioned for the look only, cards per region, the region order and what the drawing costs under it (bends and length; label collisions and refused routes when there are any), bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
 | `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
 
