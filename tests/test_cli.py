@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from conftest import TINY_PACKAGE, TWO_CARD_MODEL, init_two_cards, write_tree
 
-from systemap import __version__, cli
+from systemap import __version__, cli, scaffold
 from systemap.cli import NO_COMPONENTS, main
 
 STARTER_MODULES = {
@@ -38,6 +38,17 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert "wrote .claude/skills/systemap/ (SKILL.md and 8 references)" in out
     assert "SKILL.md\n" not in out.replace("(SKILL.md and 8 references)\n", "")
     assert out.rstrip().endswith("Map this repository with systemap. Follow the systemap skill.")
+    # One note names the two gates a strict repository runs, with the exact
+    # pyproject lines deptry needs; mypy is answered in the file itself.
+    assert "\n".join(scaffold.TOOLING_NOTE) + "\nnext:" in out
+    assert "mypy --strict" in out and "deptry" in out
+    assert (
+        '\n    [tool.deptry.per_rule_ignores]\n    DEP001 = ["systemap"]\n    DEP003 = ["systemap"]\n'
+        in out
+    )
+    model = (tmp_path / "map/model.py").read_text()
+    assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
+    assert "prints the pyproject lines that answer deptry" in model
 
     # The starter model is empty: the check has one line to say, and says only that.
     assert run("--root", str(tmp_path), "check") == 1

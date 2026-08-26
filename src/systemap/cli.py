@@ -126,6 +126,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         f"wrote {skill_path.parent.relative_to(root)}/ "
         f"({skill.FILE_NAME} and {references} references)"
     )
+    say(*scaffold.TOOLING_NOTE)
     say("next: give your coding agent this sentence:", f"  {AGENT_SENTENCE}")
     return OK
 

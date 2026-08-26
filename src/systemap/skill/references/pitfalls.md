@@ -137,9 +137,16 @@ line names its fix; when a script is still needed, write it under the
 scratch directory the session has, never in the repository root, and
 delete it before the hand-back.
 
-## The generated files and the repository's hooks
+## The generated files and the repository's own gates
 
-Run the repository's formatter on `map/model.py` before the check, and its
-pre-commit on everything the map writes: the facts file is compact for a
-large-file hook, and the workflow is pinned for a workflow linter, but a
-hook the repository adds is the repository's rule.
+Run the repository's formatter on `map/model.py` before the check, and
+then every CI command the repository runs, not only pre-commit: its type
+checker, its dependency checker, its linter, on the map's files. The
+facts file is compact for a large-file hook and the workflow is pinned
+for a workflow linter, but a gate the repository adds is the repository's
+rule. Two are known: `mypy --strict` cannot find `systemap` in a
+repository that does not depend on it (the recommended shape), which the
+`# type: ignore[import-not-found]` on the starter's import line answers;
+`deptry` reports the same import (DEP001, DEP003), which the pyproject
+lines `systemap init` prints answer. A hand-back that says the hooks
+passed has not said CI will.

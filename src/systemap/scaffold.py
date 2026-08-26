@@ -101,7 +101,12 @@ facts; references/layout.md says what is still yours to decide.
 
 from __future__ import annotations
 
-from systemap import (
+# systemap is a tool this repository runs, not a dependency it declares,
+# so a strict type checker cannot find the import and a dependency
+# checker reports it. The ignore below answers mypy (and is not itself
+# reported as unused where systemap happens to be installed); `systemap
+# init` prints the pyproject lines that answer deptry (DEP001, DEP003).
+from systemap import (  # type: ignore[import-not-found, unused-ignore]
     Component,
     Container,
     Flow,
@@ -345,6 +350,22 @@ jobs:
           fi
           exit "$code"
 """
+
+
+# What `init` says about the repository's own gates: the model imports
+# systemap, which the repository need not depend on, so a strict type
+# checker and a dependency checker both need telling. mypy is answered in
+# the file; deptry by these lines, printed so they can be pasted.
+TOOLING_NOTE = (
+    "note: map/model.py imports systemap, a tool this repository runs and need not depend on:",
+    "  mypy --strict: the import line carries # type: ignore[import-not-found, "
+    "unused-ignore], so it passes as written",
+    "  deptry: add these lines to pyproject.toml",
+    "    [tool.deptry.per_rule_ignores]",
+    '    DEP001 = ["systemap"]',
+    '    DEP003 = ["systemap"]',
+    "  run every CI command the repository runs on the map's files, not only pre-commit",
+)
 
 
 def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool = True) -> dict[str, str]:
