@@ -12,6 +12,7 @@ import importlib.util
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -75,7 +76,7 @@ def test_summary_script_writes_one_line_and_appends_it(tmp_path: Path) -> None:
     out = tmp_path / "results.jsonl"
     proc = subprocess.run(
         [
-            "python3",
+            sys.executable,
             str(ROOT / "bench" / "summary.py"),
             str(FIXTURE),
             "--repository",
@@ -202,12 +203,19 @@ def test_the_committed_table_is_what_the_script_renders() -> None:
         "docs/benchmarks.md is stale; run: python3 bench/table.py"
     )
     proc = subprocess.run(
-        ["python3", str(ROOT / "bench" / "table.py"), "--check"], capture_output=True, text=True
+        [sys.executable, str(ROOT / "bench" / "table.py"), "--check"],
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode == 0, proc.stderr
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not on PATH")
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="bench/run.sh is a POSIX shell recipe; the bash on a Windows PATH is the WSL "
+    "launcher, which runs no script without a distribution installed",
+)
 def test_run_script_parses_and_prints_its_usage() -> None:
     script = ROOT / "bench" / "run.sh"
     assert subprocess.run(["bash", "-n", str(script)], capture_output=True).returncode == 0

@@ -376,7 +376,7 @@ def collect_module(
     if surface is None:
         return None
     return {
-        "file": str(path.relative_to(repo)),
+        "file": path.relative_to(repo).as_posix(),
         "loc": len(raw.splitlines()),
         # A change detector for the map, never a security claim: usedforsecurity=False
         # states that and keeps the digest byte-identical, so committed facts files
@@ -868,7 +868,7 @@ def dumps(facts: dict[str, Any]) -> str:
 
 def write_facts(path: Path, facts: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dumps(facts), encoding="utf-8")
+    path.write_text(dumps(facts), encoding="utf-8", newline="\n")
 
 
 def is_empty_marker(record: Mapping[str, Any]) -> bool:

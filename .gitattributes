@@ -1,0 +1,6 @@
+# Every text file is checked out with LF on every operating system, so a
+# page or a facts file written on one machine is byte for byte what another
+# renders, and the committed map is compared as written.
+* text=auto eol=lf
+*.png binary
+*.gif binary

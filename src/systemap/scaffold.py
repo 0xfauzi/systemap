@@ -400,6 +400,6 @@ def write(
             out.append(f"kept {rel} (already exists)")
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        path.write_text(content, encoding="utf-8", newline="\n")
         out.append(f"wrote {rel}")
     return out

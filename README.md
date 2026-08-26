@@ -495,6 +495,14 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run systemap facts --modules
     uv run systemap suggest
 
+The workflow runs the suite, the type check and the linter on Linux,
+macOS and Windows with Python 3.11 and 3.13, and installs the built wheel
+with pip into an empty virtual environment on each and runs `init`,
+`extract`, `refresh`, `check` and `judgement --strict` on a copy of this
+repository's own map beside the checkout. Every file systemap writes ends
+its lines with LF on every platform, and every path it prints uses
+forward slashes.
+
 The skill has one source of truth: [`src/systemap/skill/`](src/systemap/skill/),
 the directory the package ships and `systemap init` installs. The plugin's
 copy at `skills/systemap/` is kept identical by a test that compares the
