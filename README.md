@@ -101,7 +101,8 @@ way. The skill is plain text; there is nothing vendor-specific in it.
 ### Install as a Claude Code plugin
 
 The repository is also a plugin and its own marketplace, so the skill can
-be installed without `init`:
+be installed without `init` (the workflow installs it this way from the
+checkout on every push, so the proof is mechanical):
 
     /plugin marketplace add 0xfauzi/systemap
     /plugin install systemap@systemap
@@ -499,7 +500,9 @@ The workflow runs the suite, the type check and the linter on Linux,
 macOS and Windows with Python 3.11 and 3.13, and installs the built wheel
 with pip into an empty virtual environment on each and runs `init`,
 `extract`, `refresh`, `check` and `judgement --strict` on a copy of this
-repository's own map beside the checkout. Every file systemap writes ends
+repository's own map beside the checkout, and adds the checkout as a
+marketplace and installs the plugin from it with the Claude Code CLI.
+Every file systemap writes ends
 its lines with LF on every platform, and every path it prints uses
 forward slashes.
 
