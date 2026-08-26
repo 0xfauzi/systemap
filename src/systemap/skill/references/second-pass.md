@@ -55,13 +55,16 @@ the exception.
    answer why this entry point does not matter to a reader.
 
 4. Walk every model sdk line: `module X imports <sdk> and its component P
-   is not an agent`. Four outcomes: P runs a model and is an agent
-   (change its kind, and give it context and tool flows); the import is a
-   client the reader should see as a tool flow; it is dead; or P calls a
-   model once and is deliberately not an agent, by the repository's own rule.
-   When the repository defines what counts as an agent (an AGENTS.md, a
-   design rule), that definition wins over the SDK prompt: answer the
-   line citing it. The built-in list matches import prefixes,
+   is not an agent`. Five outcomes: P runs a model and is an agent
+   (change its kind, and give it context and tool flows); P calls a model
+   once and is deliberately not an agent, by the repository's own rule
+   (set `calls_model=True` on it: the flag answers the line, its context
+   and tool flows draw, and the Agents reading leaves it out); the import
+   is a client the reader should see as a tool flow; it is dead; or the
+   line is answered in the configuration, citing the rule. When the
+   repository defines what counts as an agent (an AGENTS.md, a design
+   rule), that definition wins over the SDK prompt. The built-in list
+   matches import prefixes,
    so a framework such as `google.adk` fires for its non-model parts;
    `[facts] model_sdks = ["-google.adk"]` removes the entry, and
    `module_sdk = "google.adk"` answers every line it raised.

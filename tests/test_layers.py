@@ -283,13 +283,13 @@ def test_context_and_tool_flows_need_an_agent_end(agentic: Sample) -> None:
     found = "\n".join(problems(demoted, agentic.meaning))
     assert (
         "flow Prompt -> Planner has kind context but Planner is not an agent; a context "
-        "flow ends at the agent whose window it enters: set Planner's kind to agent, or "
-        "give the flow the kind data"
+        "flow ends at the agent whose window it enters: set Planner's kind to agent, mark "
+        "it calls_model=True if it makes a single-shot call, or give the flow the kind data"
     ) in found
     assert (
         "flow Planner -> Shell has kind tool but Planner is not an agent; a tool flow "
-        "starts at the agent that invokes it: set Planner's kind to agent, or give the "
-        "flow the kind control"
+        "starts at the agent that invokes it: set Planner's kind to agent, mark it "
+        "calls_model=True if it makes a single-shot call, or give the flow the kind control"
     ) in found
     # The wrong end: a context flow leaving the agent is refused too.
     backwards = dataclasses.replace(

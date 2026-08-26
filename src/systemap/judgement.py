@@ -32,8 +32,10 @@ thing to look at:
                          map does not. The main tool of the second pass.
     model sdk .......... a module imports a model SDK or an agent framework
                          (a built-in list, extended or reduced by `[facts]
-                         model_sdks`) and its component is not an agent:
-                         the mechanical prompt for the agentic layers
+                         model_sdks`) and its component is neither an agent
+                         nor marked `calls_model`: the mechanical prompt for
+                         the agentic layers. Setting `calls_model=True` on a
+                         single-shot call site answers the line
 
 An ignored module is not a question: its reason is on record under
 `[coverage]`, and the check prints the count. It is not listed here.
@@ -302,16 +304,17 @@ def model_sdk_imports(
     The facts record each module's third-party imports; the agentic layers
     exist for the parts that run a model. A module that imports one and
     sits in a plain component, a store or a tool is either an agent the
-    map does not show or a call the reader should know about.
+    map does not show or a call the reader should know about. A component
+    marked `calls_model` has answered: the map says it calls a model once.
     """
     components = facts.get("components", {})
     owner = _owner_of(model, facts)
-    kind = {c.id: c.kind for c in model.components}
+    runs_a_model = {c.id for c in model.components if c.model_end}
     sdk_list = list(sdks)
     out: list[str] = []
     for module in sorted(components):
         p = owner.get(module)
-        if not p or kind.get(p) == "agent":
+        if not p or p in runs_a_model:
             continue
         hit = sorted({sdk_of(n, sdk_list) for n in components[module].get("external", [])} - {""})
         for sdk in hit:

@@ -34,9 +34,11 @@ lie in architecture diagrams.
 
 Layers are readings of the map. Three are derived from the model with no
 authoring (Structure, System context, and Agents when the model has an
-agent), four belong to the standard flow kinds (data, control, context,
-tool; the last two only when the model has an agent), and the rest are the
-model's own, one per custom kind.
+agent or a `calls_model` component), four belong to the standard flow
+kinds (data, control, context, tool; the last two likewise), and the rest
+are the model's own, one per custom kind. The Agents reading is agents
+only; the Context and Tools readings light every context and tool flow,
+whichever end runs the model.
 """
 
 from __future__ import annotations
@@ -92,7 +94,11 @@ class Component:
     `region` places a component or store; `container` places an actor. `x`
     and `y` are the card's top-left corner in canvas units. `note` is a
     caveat the reader should see; `interface` is the one-line signature the
-    reader is told.
+    reader is told. `entry` is required for every kind but `store` and
+    `context`, which may be a namespace with no way in. `calls_model` marks
+    a single-shot call site: a part that calls a model once and is not an
+    agent by the repository's own rule; a context or tool flow may end or
+    start at it, and the model sdk judgement line is answered by the flag.
     """
 
     id: str
@@ -106,6 +112,15 @@ class Component:
     x: int = 0
     y: int = 0
     note: str = ""
+    calls_model: bool = False
+
+    @property
+    def model_end(self) -> bool:
+        """May a context flow end here, or a tool flow start here?
+
+        An agent, or a single-shot call site marked `calls_model`.
+        """
+        return self.kind == "agent" or self.calls_model
 
     @property
     def home(self) -> str:
@@ -260,8 +275,15 @@ class Model:
 
     @property
     def agentic(self) -> bool:
-        """Does the model have an agent? The agent layers appear only then."""
-        return any(c.kind == "agent" for c in self.components)
+        """Does the model run a model anywhere? The agent layers appear only then.
+
+        An agent, or a component marked `calls_model`: the Context and Tools
+        readings exist for the flows into and out of either.
+        """
+        return any(c.model_end for c in self.components)
+
+    def _model_end(self, cid: str) -> bool:
+        return any(c.id == cid and c.model_end for c in self.components)
 
     def kind_of(self, cid: str) -> str:
         for c in self.components:
@@ -286,7 +308,7 @@ class Model:
         assigns it, no two cards may overlap, a region that names a
         container must sit inside it, every flow must name known components
         and a kind that is standard or declared, a context or tool flow
-        must have an agent at its agent end, and every invariant must
+        must have an agent or a `calls_model` component at its agent end, and every invariant must
         carry its own number and govern known components. A card outside its band would draw a
         topology the model does not claim, which is the one lie a
         hand-placed layout can tell.
@@ -336,17 +358,19 @@ class Model:
                     f"flow {f.src} -> {f.dst} has kind {f.kind}, which is neither standard "
                     f"({', '.join(STANDARD_KINDS)}) nor declared in flow_kinds"
                 )
-            if f.kind == "context" and self.kind_of(f.dst) != "agent":
+            if f.kind == "context" and not self._model_end(f.dst):
                 out.append(
                     f"flow {f.src} -> {f.dst} has kind context but {f.dst} is not an agent; "
                     f"a context flow ends at the agent whose window it enters: set {f.dst}'s "
-                    "kind to agent, or give the flow the kind data"
+                    "kind to agent, mark it calls_model=True if it makes a single-shot call, "
+                    "or give the flow the kind data"
                 )
-            if f.kind == "tool" and self.kind_of(f.src) != "agent":
+            if f.kind == "tool" and not self._model_end(f.src):
                 out.append(
                     f"flow {f.src} -> {f.dst} has kind tool but {f.src} is not an agent; "
                     f"a tool flow starts at the agent that invokes it: set {f.src}'s kind "
-                    "to agent, or give the flow the kind control"
+                    "to agent, mark it calls_model=True if it makes a single-shot call, or "
+                    "give the flow the kind control"
                 )
         numbered: dict[int, Invariant] = {}
         for inv in self.invariants:

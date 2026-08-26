@@ -36,7 +36,7 @@ in a region.
 
 ## Component
 
-`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=0, y=0, note="")`
+`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=0, y=0, note="", calls_model=False)`
 
 One card on the map. `id` is a code name in CamelCase, unique on the map.
 `does` says what it is for in plain words, one or two sentences, with no
@@ -90,7 +90,11 @@ function, a class, or an object such as `app` or `root_agent`; copy it from
 symbols, the entry is one of them. The panel shows it as `entry: name
 (module)`, the module being the one that defines it. The check refuses an
 entry no claimed module or symbol defines and a component that names no
-module. An actor is the exception: it claims no code.
+module. Two exceptions: an actor claims no code, and a `store` or
+`context` card may leave `entry` empty (a constants table, a namespace
+with no way in), when its modules alone say it exists and the panel
+reads `entry: none (a namespace)`; an entry it does give is checked like
+any other.
 
 `kind` is `component` (does work), `store` (holds state; drawn with a rule
 under its name), `actor` (a person or a system outside the code; dashed),
@@ -114,15 +118,22 @@ characters on one line; this one has 34`. Nothing on the map is elided.
 as a line under the signature, and the card carries a dot in its top
 corner on the map and in every figure, with the note as its hover text.
 
+`calls_model` marks a single-shot call site: a component that calls a
+model once and is not an agent by the repository's own rule. A context
+flow may end at it and a tool flow start from it, the Context and Tools
+readings light those flows, the panel reads `component, calls a model`,
+and the `model sdk` judgement line for its modules is answered by the
+flag. The Agents reading stays agents only.
+
 ## Flow
 
 `Flow(src, dst, artifact, kind)`
 
 One artifact travelling from `src` to `dst`, both component ids. `artifact`
 is what moves, as the label on the line: a file, a record, a message, a
-call. `kind` is `data`, `control`, `context` (then `dst` must be an agent),
-`tool` (then `src` must be an agent), or one of `flow_kinds`. Every flow
-needs a sentence in `relations`.
+call. `kind` is `data`, `control`, `context` (then `dst` must be an agent
+or a `calls_model` component), `tool` (then `src` must be one), or one of
+`flow_kinds`. Every flow needs a sentence in `relations`.
 
 ## Invariant
 
@@ -178,8 +189,8 @@ when the reader clicks the source and the verb when they click the target
 
 Placement: a card outside its band, two cards overlapping, a region outside
 its container, a flow naming an unknown component or a kind that is neither
-standard nor declared, a context or tool flow whose agent end is not an
-agent, an invariant governing an unknown id, two invariants with one
+standard nor declared, a context or tool flow whose agent end is neither an
+agent nor a `calls_model` component, an invariant governing an unknown id, two invariants with one
 number. Routes: an edge through a card it does not connect or across a
 band it neither starts nor ends in. Labels: a label touching a card, a
 header or another label (both labels named), a container or region header
@@ -191,7 +202,8 @@ or edge, an override naming an unknown edge, a custom layer taking a
 standard id. Wheel: a relationship wheel whose labels touch each other or
 the centre. Coverage: a module claimed by nobody or by two, an ignore
 naming no module or only empty package markers. Entry: a module not in the facts, an
-entry not defined, a component with no module. Interface: a line that
+entry not defined, a component with no module, no entry on any kind but
+a store or a context card. Interface: a line that
 starts with a name none of the component's modules defines, or
 `Class.method` where the class has no such public method. Stale: facts,
 page or figure older than the tree or the model.

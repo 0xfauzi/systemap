@@ -765,6 +765,7 @@ def render(
             "entry": c.entry,
             "entry_module": entry_module(c, facts),
             "note": c.note,
+            "calls_model": c.calls_model,
             "moved": moved,
             "rules": model.rules_of(cid),
             "edges": [
@@ -1542,7 +1543,8 @@ function describe(d){
   var h = '<div class="systemap-f">';
   h += '<h3 class="systemap-f__plain">' + esc(d.plain || d.id) + '</h3>';
   h += '<div class="systemap-f__code">' + esc(d.id) + '<span class="systemap-f__kind">'
-     + esc(d.kind) + (d.region ? ' in ' + esc(d.region) : '') + '</span></div>';
+     + esc(d.kind) + (d.calls_model ? ', calls a model' : '')
+     + (d.region ? ' in ' + esc(d.region) : '') + '</span></div>';
   h += '<p class="systemap-f__does">' + esc(d.does) + '</p>';
   // The one-line signature and the caveat, when the card has them.
   if(d.interface){ h += '<p class="systemap-f__iface">' + esc(d.interface) + '</p>'; }

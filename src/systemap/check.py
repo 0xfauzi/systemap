@@ -349,13 +349,20 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
 
 # ---- entry: a card is code that exists today ----------------------------------
 
+# The kinds whose card may be a namespace with no way in: state is what
+# they are, and their modules alone say they exist.
+ENTRY_OPTIONAL = ("store", "context")
+
 
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
     """Every component names modules the facts have and an entry they define.
 
     The map draws what exists. A module the facts do not have, an empty
     entry, or an entry none of the claimed modules define would each draw
-    a part that is not in the tree, so all three are refused. A symbol
+    a part that is not in the tree, so all three are refused. A store or
+    a context card may have no entry (a constants table, a namespace):
+    its modules alone say it exists, and an entry it does give is checked
+    like any other. A symbol
     claim (`pkg.mod:name`) must name a module the facts have, a public
     name that module defines, and a module some component claims: the
     symbol's card is a part inside that component's module, and a symbol
@@ -398,7 +405,8 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
             continue
         held = ", ".join(modules + symbols)
         if not c.entry:
-            out.append(f"{c.id} names no entry; its modules are {held}")
+            if c.kind not in ENTRY_OPTIONAL:
+                out.append(f"{c.id} names no entry; its modules are {held}")
             continue
         if not defines_entry(c, facts):
             out.append(f"{c.id} names entry {c.entry} which none of its modules defines ({held})")

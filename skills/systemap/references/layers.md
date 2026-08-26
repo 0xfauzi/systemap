@@ -70,6 +70,12 @@ do. Three component kinds and two flow kinds exist for that.
   the repository's rule stays a component, and the line is answered
   citing the rule. A module that calls a coding-agent CLI through a
   subprocess is found by reading it. Drawn with an inner ring.
+- `calls_model=True` on a component: a single-shot call site, a part
+  that calls a model once and is not an agent by the repository's rule.
+  Its context and tool flows are drawn like an agent's, the Context and
+  Tools readings light them, the panel says `calls a model`, and the
+  `model sdk` line for its modules is answered by the flag. It is not an
+  agent: the Agents reading leaves it out.
 - `kind="context"`: a store whose content enters an agent's window: a
   system prompt, a prompt template, a memory file, retrieved knowledge,
   injected facts, a conversation log. Find them by what is read before or
@@ -79,21 +85,26 @@ do. Three component kinds and two flow kinds exist for that.
   an API, a search, a file editor, a test runner. Find them by what the
   agent calls with arguments and reads the result of. Drawn with a
   notched corner.
-- `Flow(src, dst, artifact, "context")`: content entering an agent's
-  window. `src` is the source of the content, `dst` the agent. The check
-  refuses a context flow whose destination is not an agent. Layer
-  "Context": "What enters each agent's window, and from where?"
+- `Flow(src, dst, artifact, "context")`: content entering a window.
+  `src` is the source of the content, `dst` the agent or the
+  `calls_model` component. The check refuses a context flow whose
+  destination is neither. Layer "Context": "What enters each agent's
+  window, and from where?" It lights every context flow.
 - `Flow(src, dst, artifact, "tool")`: an agent invoking a tool. `src` is
-  the agent, `dst` the tool; the artifact is the call or its result. The
-  check refuses a tool flow whose source is not an agent. Layer "Tools":
-  "What can each agent do, and through what?"
+  the agent or the `calls_model` component, `dst` the tool; the artifact
+  is the call or its result. The check refuses a tool flow whose source
+  is neither. Layer "Tools": "What can each agent do, and through what?"
+  It lights every tool flow.
 
-The Agents layer appears with the first agent: every agent card and every
-edge that touches an agent, in one hue. Question: "Which parts run a model,
-and what do they reach?"
+The three agent readings appear with the first agent or `calls_model`
+component. Agents is agents only: every agent card and every edge that
+touches an agent, in one hue. Question: "Which parts run a model, and
+what do they reach?"
 
 An agent, a tool and a context card are code in the tree like any other
-component: each names its modules and an entry they define. A tool that is
+component: each names its modules and an entry they define, except that a
+context card, like a store, may leave `entry` empty when it is a
+namespace (a constants table, a prompt directory's module). A tool that is
 genuinely outside the package (a remote service the agent calls) is an
 actor, and the flow to it is still a tool flow. Write one journey per
 agent's turn: what enters the window, what the model returns, what the
