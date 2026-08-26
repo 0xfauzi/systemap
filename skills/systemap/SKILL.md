@@ -55,12 +55,30 @@ this skill, not a formality after it.
    edge answered, and only the judgement sees that; run in the same
    round, a fix on one side cannot quietly undo the other.
 4. **judgement**: `systemap judgement`. Act on every line, or answer it in
-   `[judgement] answered` in `systemap.toml` with a reason: the exact line
-   as `item`, several as `items = [...]`, or a family with one reason:
-   `crossing = ["A", "B"]`, `kind = "single module"`, `module_sdk =
-   "google.adk"` (`references/second-pass.md` shows each). An answered
-   line is suppressed and counted; an answer that matches no line is
-   reported as stale. Never pass a line over in silence.
+   `[judgement] answered` in `systemap.toml` with a reason: one table per
+   answer, one form each (`references/second-pass.md` shows them written):
+   - `item = "<line>"`: the exact line as printed, without the indent.
+   - `items = ["<line>", ...]`: several exact lines, one reason; not empty.
+   - `crossing = ["A", "B", ...]`: every crossing import between any two of
+     the ids, either direction; two or more different ids.
+   - `crossing_into = "A"`: every crossing import into A; one id.
+   - `crossing_from = "A"`: every crossing import out of A; one id.
+   - `kind = "<kind>"`: every line of one kind, named as in the table.
+   - `module_sdk = "<import>"`: every model sdk line for that import name.
+
+   An answered line is suppressed and counted; an answer that matches no
+   line is reported as stale, so remove it. Never pass a line over in
+   silence. The seven kinds of line:
+
+   | kind | what it says | what to do |
+   |---|---|---|
+   | `single module` | a card claims one module | keep it if a reader would name it; else fold it into a neighbour |
+   | `possible mis-fold` | a module of a several-module card shares no word with the card's id, `does`, plain word or `interface`, and its package holds none of the card's other modules: it may be folded into the wrong card | move it to the card whose purpose it serves, or answer why it belongs |
+   | `no sentence` | a flow has no relation sentence | write one, from the source side |
+   | `thin layer` | a reading lights fewer than two cards; a standard kind never used counts | add the flows the reading is for, or answer that the system has none |
+   | `entry point` | an entry point in the facts that no journey names | write the journey, or answer why it does not matter to a reader |
+   | `crossing import` | a module of one card imports a module of another and no flow joins the two | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
+   | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |
 5. **render**: `systemap refresh`, then `systemap describe`: the picture in
    numbers (cards per region, bends per edge worst first, seats per gutter,
    what each reading lights). Open the page only if you can: `systemap
@@ -70,11 +88,15 @@ this skill, not a formality after it.
    lights nothing.
 6. **second pass**: follow `references/second-pass.md`: walk every crossing
    import, every entry point, every rule the documents state, and look at
-   the figure again. Expect to find missed edges and wrong groupings. Go
-   to 3.
+   the figure again. The document reread is one pass over what the
+   repository points a newcomer at (README, AGENTS.md, CLAUDE.md, a docs
+   index or the first level of docs/), and it stops when the rules still
+   being found govern parts that are not in the tree. Expect to find
+   missed edges and wrong groupings. Go to 3.
 7. **stop**: when check is clean, `judgement --strict` exits 0 (every
-   remaining line answered in the configuration), and a full second pass
-   changed nothing.
+   remaining line answered in the configuration), a full second pass
+   changed nothing, and the documents left unread govern nothing in the
+   tree.
 8. **hand back**: the answers are in `systemap.toml`; add the coverage line
    and the list of edges you inferred rather than read.
 

@@ -307,7 +307,8 @@ class Model:
         Every card must sit inside the region (or container) the model
         assigns it, no two cards may overlap, a region that names a
         container must sit inside it, every flow must name known components
-        and a kind that is standard or declared, a context or tool flow
+        and a kind that is standard or declared, no ordered pair may carry
+        two flows, a context or tool flow
         must have an agent or a `calls_model` component at its agent end, and every invariant must
         carry its own number and govern known components. A card outside its band would draw a
         topology the model does not claim, which is the one lie a
@@ -350,9 +351,17 @@ class Model:
             for b in drawable[i + 1 :]:
                 if _overlap(a.box, b.box):
                     out.append(f"{a.id} overlaps {b.id}")
+        pairs: dict[Edge, Flow] = {}
         for f in self.flows:
             if f.src not in ids or f.dst not in ids:
                 out.append(f"flow {f.src} -> {f.dst} names an unknown component")
+            if f.edge in pairs:
+                out.append(
+                    f"flow {f.src} -> {f.dst} appears twice ('{pairs[f.edge].artifact}' and "
+                    f"'{f.artifact}'); one flow per ordered pair: pick the artifact that "
+                    "matters, or draw one each way when something travels back"
+                )
+            pairs.setdefault(f.edge, f)
             if f.kind not in STANDARD_KINDS and f.kind not in self.flow_kinds:
                 out.append(
                     f"flow {f.src} -> {f.dst} has kind {f.kind}, which is neither standard "

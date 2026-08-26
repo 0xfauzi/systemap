@@ -69,10 +69,14 @@ the exception.
    `[facts] model_sdks = ["-google.adk"]` removes the entry, and
    `module_sdk = "google.adk"` answers every line it raised.
 
-5. Walk every rule the documents state. Reread the README, AGENTS.md,
-   CLAUDE.md and docs/ with the invariant list beside them. Each rule is
-   an invariant with a citation, or a note in your hand-back saying why
-   not.
+5. Walk every rule the documents state. One pass, with the invariant
+   list beside you, over the documents the repository points a newcomer
+   at: the README, AGENTS.md, CLAUDE.md, and a docs index or the first
+   level of docs/. Not the whole docs tree: stop when the rules still
+   being found govern parts that are not in the tree (a design for a
+   part not yet written, a policy for a service the map does not hold).
+   Each rule found is an invariant with a citation, or a note in your
+   hand-back saying why not.
 
 6. Look at the rendered figures, `docs/map/figures/structure.svg` (the
    parts in their places) and then `docs/map/figures/system.svg` (every

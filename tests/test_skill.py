@@ -40,7 +40,7 @@ def test_skill_front_matter_and_vocabulary() -> None:
     # the configuration, in bulk where the reason is shared; both figures, the
     # Structure reading first.
     assert "its README, AGENTS.md, CLAUDE.md, docs/" in text
-    assert "[judgement] answered" in text and "items = [...]" in text
+    assert "[judgement] answered" in text and 'items = ["<line>", ...]' in text
     assert text.index("figures/structure.svg") < text.index("figures/system.svg")
     assert "open `docs/map/index.html`" not in text
     # Layout is the hard part and the skill says so: the draft step names the
@@ -98,6 +98,64 @@ def test_skill_front_matter_and_vocabulary() -> None:
     assert "codex" not in whole.lower()
     for word in ("planned", "tracker", "end state"):
         assert word not in whole, f"the skill no longer speaks of {word}"
+
+
+def test_step_four_lists_every_answer_form_and_every_line_kind() -> None:
+    """F20: the forms with their constraints, and the seven kinds, one sentence each."""
+    text = skill.text()
+    step = text[text.index("4. **judgement**") : text.index("5. **render**")]
+    for form in (
+        '- `item = "<line>"`: the exact line',
+        '- `items = ["<line>", ...]`: several exact lines',
+        '- `crossing = ["A", "B", ...]`: every crossing import between any two',
+        '- `crossing_into = "A"`: every crossing import into A; one id.',
+        '- `crossing_from = "A"`: every crossing import out of A; one id.',
+        '- `kind = "<kind>"`: every line of one kind',
+        '- `module_sdk = "<import>"`: every model sdk line',
+    ):
+        assert form in step, form
+    assert "two or more different ids" in step and "not empty" in step
+    from systemap.config import LINE_KINDS
+
+    rows = [line for line in step.splitlines() if line.strip().startswith("| `")]
+    assert [row.split("`")[1] for row in rows] == list(LINE_KINDS)
+    mis_fold = next(row for row in rows if "possible mis-fold" in row)
+    assert "shares no word with the card's id" in mis_fold
+    assert "folded into the wrong card" in mis_fold
+    assert "move it to the card whose purpose it serves" in mis_fold
+    for row in rows:
+        assert row.count("|") == 4, row
+
+
+def test_the_document_reread_is_bounded() -> None:
+    """F19: one pass over what the repository points a newcomer at, then stop."""
+    text = skill.text()
+    for step in ("6. **second pass**", "7. **stop**"):
+        assert step in text
+    second_pass = text[text.index("6. **second pass**") : text.index("8. **hand back**")]
+    assert "one pass over what the\n   repository points a newcomer at" in second_pass
+    assert (
+        "README, AGENTS.md, CLAUDE.md, a docs\n   index or the first level of docs/" in second_pass
+    )
+    assert "govern parts that are not in the tree" in second_pass
+    assert "the documents left unread govern nothing in the\n   tree" in second_pass
+    reference = skill.files()["references/second-pass.md"]
+    assert "Not the whole docs tree" in reference
+    assert "first\n   level of docs/" in reference
+    assert "govern parts that are not in the tree" in reference
+
+
+def test_schema_defines_state_the_wheel_and_the_pair_rule() -> None:
+    """F21 and F6: the words the check and the page print, defined where they are read."""
+    schema = skill.files()["references/schema.md"]
+    assert "`built` is its only value" in schema
+    assert "shows `outside`" in schema
+    assert "the relationship wheel is drawn for a card when it is\nclicked, one per card" in schema
+    assert "17 wheels" in schema
+    assert "One flow per ordered pair" in schema
+    assert "draw the other\ndirection as its own flow" in schema
+    assert "empty package marker" in schema
+    assert 'module = "pkg.vendor.*"' in schema
 
 
 def test_layers_reference_covers_the_agentic_kinds() -> None:

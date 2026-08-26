@@ -92,6 +92,14 @@ def test_starter_is_a_2x2_grid_with_corridors(tmp_path: Path) -> None:
     assert "corridors" in text and "references/layout.md" in text
     assert "one to three words" in text
     assert "from systemap import (" in text and "    Layer,\n" in text
+    # The position tables are fenced from the formatter, with the reason
+    # beside the fence; every schema name is imported and used.
+    assert text.count("# fmt: off") == 2 and text.count("# fmt: on") == 2
+    assert text.index("# fmt: off") < text.index("REGIONS = (") < text.index("# fmt: on")
+    off2 = text.index("# fmt: off", text.index("# fmt: on"))
+    assert off2 < text.index("COMPONENTS: tuple[Component, ...] = ()") < text.rindex("# fmt: on")
+    assert "the formatter is turned off" in text
+    assert "Steps = tuple[Step, ...]" in text
 
 
 @pytest.mark.parametrize("both_ways", [False, True])
@@ -141,6 +149,25 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
             "--isolated",
             "--select",
             "E,F,I,B,UP,W",
+            str(model),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stdout
+    # Every import is used and the only pragma is E501, for the prose the
+    # agent writes: once a sentence is in the file, RUF100 has nothing to
+    # say, where the old F401 pragma tripped it as soon as every import was used.
+    model.write_text(files["map/model.py"] + "# " + "a sentence the agent wrote " * 4 + "\n")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--isolated",
+            "--select",
+            "E,F,RUF100",
             str(model),
         ],
         capture_output=True,

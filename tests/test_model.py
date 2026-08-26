@@ -168,6 +168,21 @@ def test_layout_problems_find_lies() -> None:
     assert "region core is not inside sys" in found
 
 
+def test_one_flow_per_ordered_pair() -> None:
+    model, meaning = small_model()
+    doubled = dataclasses.replace(
+        model, flows=(*model.flows, Flow("A", "B", "another thing", "work"))
+    )
+    assert doubled.layout_problems() == [
+        "flow A -> B appears twice ('thing' and 'another thing'); one flow per ordered "
+        "pair: pick the artifact that matters, or draw one each way when something "
+        "travels back"
+    ]
+    # The other direction is its own pair.
+    both_ways = dataclasses.replace(model, flows=(*model.flows, Flow("B", "A", "reply", "work")))
+    assert both_ways.layout_problems() == []
+
+
 def test_two_invariants_with_one_number_are_refused_with_both_quoted() -> None:
     model, _meaning = small_model()
     doubled = dataclasses.replace(

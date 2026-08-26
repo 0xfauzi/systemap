@@ -88,7 +88,8 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
     model = (tmp_path / "map/model.py").read_text()
-    assert model.startswith("# ruff: noqa: E501, F401\n# The map is prose held in strings")
+    assert model.startswith("# ruff: noqa: E501\n# The map is prose held in strings")
+    assert "F401" not in model, "every import is used, so no pragma to trip RUF100"
     assert "COMPONENTS: tuple[Component, ...] = ()" in model
     assert "FLOWS: tuple[Flow, ...] = ()" in model
     assert "mypackage" not in model

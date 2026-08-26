@@ -96,6 +96,10 @@ with no way in), when its modules alone say it exists and the panel
 reads `entry: none (a namespace)`; an entry it does give is checked like
 any other.
 
+On the page every card has a `state`, and `built` is its only value: the
+check refuses a component whose modules or entry are not in the facts, so
+what is drawn exists (an actor, which claims no code, shows `outside`).
+
 `kind` is `component` (does work), `store` (holds state; drawn with a rule
 under its name), `actor` (a person or a system outside the code; dashed),
 `agent` (runs a model and acts on its output; inner ring), `tool` (a
@@ -134,6 +138,12 @@ is what moves, as the label on the line: a file, a record, a message, a
 call. `kind` is `data`, `control`, `context` (then `dst` must be an agent
 or a `calls_model` component), `tool` (then `src` must be one), or one of
 `flow_kinds`. Every flow needs a sentence in `relations`.
+
+One flow per ordered pair: `(src, dst)` is the key of the sentence, the
+verb and the spoke on the wheel, so the check refuses a second flow from
+A to B. When two things travel the same way, pick the artifact that
+matters to the reader; when something travels back, draw the other
+direction as its own flow with its own sentence.
 
 ## Invariant
 
@@ -189,7 +199,7 @@ when the reader clicks the source and the verb when they click the target
 
 Placement: a card outside its band, two cards overlapping, a region outside
 its container, a flow naming an unknown component or a kind that is neither
-standard nor declared, a context or tool flow whose agent end is neither an
+standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an
 agent nor a `calls_model` component, an invariant governing an unknown id, two invariants with one
 number. Routes: an edge through a card it does not connect or across a
 band it neither starts nor ends in. Labels: a label touching a card, a
@@ -199,8 +209,11 @@ touching a card, a card whose name or plain word does not fit its budget.
 Type size: anything below 11px. Meaning: a flow with no sentence or no
 layer, a component with no plain word, a journey step naming an unknown id
 or edge, an override naming an unknown edge, a custom layer taking a
-standard id. Wheel: a relationship wheel whose labels touch each other or
-the centre. Coverage: a module claimed by nobody or by two, an ignore
+standard id. Wheel: the relationship wheel is drawn for a card when it is
+clicked, one per card, a spoke per flow that touches it with the verb
+read from the card (the clean line counts them: `17 cards, 47 orthogonal
+labelled edges, 17 wheels`); one whose labels touch each other or the
+centre is refused. Coverage: a module claimed by nobody or by two, an ignore
 naming no module or only empty package markers. Entry: a module not in the facts, an
 entry not defined, a component with no module, no entry on any kind but
 a store or a context card. Interface: a line that

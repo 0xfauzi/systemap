@@ -69,11 +69,12 @@ interactive = false
 # accent = "#5DADE2"
 """
 
-MODEL = '''# ruff: noqa: E501, F401
+MODEL = '''# ruff: noqa: E501
 # The map is prose held in strings: a sentence per flow, a step per journey,
 # a rule per invariant. A sentence is not wrapped, so the line-length rule
-# does not apply to this file; and the schema is imported whole, so a card
-# written later finds every name.
+# does not apply to this file. The schema is imported whole and every name
+# is used below, so a card written later finds every name and the linter
+# has nothing to say.
 """The system map of {name}: what the parts are and what they are to each other.
 
 Everything in this file is written on purpose. The facts about the code
@@ -132,12 +133,17 @@ CONTAINERS = (
 # cross, so from any region there is a route to any other. Rename the
 # regions after the phases, concerns or teams the parts fall into; drop one
 # you do not need; keep the gaps.
+#
+# The position tables stay one line per row: the formatter is turned off
+# around them so the grid stays readable, and on again below.
+# fmt: off
 REGIONS = (
     Region(id="a", label="REGION A", box=(40, 60, 390, 216), container="system"),
     Region(id="b", label="REGION B", box=(478, 60, 390, 216), container="system"),
     Region(id="c", label="REGION C", box=(40, 312, 390, 216), container="system"),
     Region(id="d", label="REGION D", box=(478, 312, 390, 216), container="system"),
 )
+# fmt: on
 
 # One card per thing a reader would point at and name. `implemented_by`
 # names the modules that are it (from the facts file), `entry` one public
@@ -153,7 +159,9 @@ REGIONS = (
 #         x=COL["l1"],
 #         y=ROW["t1"],
 #     ),
+# fmt: off
 COMPONENTS: tuple[Component, ...] = ()
+# fmt: on
 
 # (from, to, the artifact carried, the kind). Two kinds are standard and
 # need no declaring: data (an artifact moves) and control (one part drives
@@ -193,7 +201,9 @@ RELATIONS: dict[tuple[str, str], str] = {{}}
 
 VERBS: dict[str, tuple[str, str]] = {{"data": ("hands to", "receives from")}}
 
-# One journey per entry point that matters, one Step per edge it traces.
+# One journey per entry point that matters, one Step per edge it traces;
+# a journey's steps are a tuple of Step.
+Steps = tuple[Step, ...]
 JOURNEYS: tuple[Journey, ...] = ()
 
 MEANING = Meaning(
