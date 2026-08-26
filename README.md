@@ -69,7 +69,9 @@ give your agent:
 
 > Map this repository with systemap. Follow the systemap skill.
 
-The agent then runs `systemap extract`, writes the model, runs
+The agent then runs `systemap extract`, writes the model with no
+positions, runs `systemap place` (which lays the regions out with the
+corridors the edges need and puts every card on the grid), runs
 `systemap check` until every module is mapped and the layout passes, runs
 `systemap judgement` and acts on every line, renders with
 `systemap refresh` and reads the picture back with `systemap describe`,
@@ -77,15 +79,14 @@ and goes round again until a full second pass changes nothing. Every
 judgement line it does not act on it answers in `[judgement] answered` in
 `systemap.toml`, with a reason, singly or a family at a time, so the
 answers live in the repository: groupings that could go another way,
-edges it inferred rather than read, entry points it left without a
-journey and why. You read the answers, correct what you disagree with,
-commit `docs/map/`, and turn on GitHub Pages from the `docs/` directory.
+edges the facts do not back, entry points it left without a journey and
+why. You read the answers, correct what you disagree with, commit
+`docs/map/`, and turn on GitHub Pages from the `docs/` directory.
 
 The workflow `init` writes runs systemap from the released package,
-pinned to the version that wrote it (`uvx --from "systemap==0.7.0"`), so
-your project takes no dependency on it. That needs the package on PyPI,
-and systemap is not on PyPI yet: until the first release the workflow
-cannot pass, and the pin is the line to edit when it can. The workflow
+pinned to the tag of the version that wrote it (`uvx --from
+"git+https://github.com/0xfauzi/systemap@v0.8.0"`), so your project
+takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
 no token, so a workflow linter passes it as written.
 
@@ -157,6 +158,10 @@ The page is served from `docs/` by GitHub Pages at
   the modules that are it (or a symbol inside another card's module) and
   one entry they define, and the check refuses a name the code does not
   have. Nothing on the map is a plan.
+- **What backs each edge.** Every flow carries an evidence state read
+  from the facts: `observed` when an import joins its two ends, `external`
+  when an actor is at either end, `declared` when nothing in the facts
+  does. A declared edge is dashed, and the panel says so.
 - **Pan and zoom.** The map is as large as the system; the page is not
   squeezed to fit a screen.
 
@@ -207,6 +212,16 @@ model cannot be used. A module that genuinely has no place on the map is
 ignored under `[coverage]` in the configuration, and every ignore needs a
 reason.
 
+The check verifies the cards against the code; it cannot verify that an
+edge exists, so every edge says whether the code backs it. The state is
+computed from the facts at render and at check time, never authored:
+
+| evidence | when | how it shows |
+|---|---|---|
+| `observed` | a module of one end imports a module of the other, in either direction; or the flow's sentence or artifact names a mechanism the repository lists under `[flows] observed_by` (a subprocess, a queue, a file), and then the panel says `observed by: queue` | a solid line; the panel says `observed: an import joins them` |
+| `external` | an actor is at either end: the edge is outside the code | a solid line; the panel says `external: outside the code` |
+| `declared` | nothing in the facts joins the two | a dashed line on the page and in every figure; the panel says `declared: no import behind it`; `systemap judgement` prints a `declared flow` line until the agent finds the evidence, names the mechanism in the sentence, or removes the edge |
+
 ## The second pass
 
 The check refuses contradictions; it cannot refuse omissions. `systemap
@@ -222,6 +237,7 @@ either changes the model or writes down why not:
 | thin layer | a reading that lights fewer than two components, including a standard kind never used |
 | entry point X has no journey | an entry point in the facts (a console script, a subcommand, a main, a public function of the package root) that no journey names |
 | crossing import | module A of component P imports module B of component Q and no flow joins P and Q, in either direction: an edge the code has and the map does not |
+| declared flow | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by`: an edge the map has and the code does not; find the evidence, name the mechanism, or remove it |
 | model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended or reduced by `[facts] model_sdks`) and its component is neither an agent nor marked `calls_model` |
 
 A report, not a gate: it exits 0, or 1 with `--strict` while any line is
@@ -233,8 +249,8 @@ names the exact line (`item`, or `items` for several) or a family with
 one reason: `crossing = ["A", "B", ...]` for every crossing import between
 any two of the ids, `crossing_into = "A"` for every one into A,
 `crossing_from = "A"` for every one out of it, `kind = "single module"`
-for every line of a kind, `module_sdk = "google.adk"` for every model sdk
-line of an import. The answers are what the maintainer reads, and they
+(or `"declared flow"`, or any other kind) for every line of a kind,
+`module_sdk = "google.adk"` for every model sdk line of an import. The answers are what the maintainer reads, and they
 live beside the model. Before any of it, `systemap suggest` prints a
 first grouping from the facts alone (one proposal per package with two
 or more modules, and the imports between proposals) as a starting point
@@ -259,11 +275,10 @@ MODEL = Model(
     components=(
         Component(id="FactsExtractor", region="gather",
                   does="Walks the package's syntax tree and writes the facts.",
-                  implemented_by=("systemap.extract",), entry="build", x=60, y=120),
+                  implemented_by=("systemap.extract",), entry="build"),
         Component(id="Schematic", region="draw",
                   does="Draws the cards, the routes and the interaction script.",
-                  implemented_by=("systemap.schematic", "systemap.theme"), entry="render",
-                  x=520, y=120),
+                  implemented_by=("systemap.schematic", "systemap.theme"), entry="render"),
     ),
     flows=(Flow("FactsExtractor", "Schematic", "map.json", "data"),),
     flow_kinds=(),
@@ -276,7 +291,9 @@ MEANING = Meaning(
 )
 ```
 
-The full schema, with one worked example of every part, is in the skill
+The cards carry no `x` and `y`: `systemap place` writes them, and a card
+given both is pinned where they say. The full schema, with one worked
+example of every part, is in the skill
 the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 [`references/`](src/systemap/skill/references/).
 
@@ -287,13 +304,14 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap init [--no-ci]` | write the config, an empty starter model, the skill directory, and a workflow pinned to this version; never overwrites; prints the sentence for the agent |
 | `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names (a package `__init__` lists what it re-exports), imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | read the facts back one view at a time, so nobody opens the JSON: `--modules` (one line per module: name, public names, imports, tests), `--module NAME` (its record), `--entry-points`, `--external` (every third-party import and who imports it), `--imports NAME` (what it imports and what imports it) |
+| `systemap place [--print]` | a first position for every card without one, written into the model in place (only the `x=` and `y=` values, the boxes and the canvas move): regions on a two-column grid with the corridors the router needs, cards on the grid inside, ordered by barycentre sweeps over the flows; a card with `x` and `y` is pinned and never moved; deterministic, stdlib only; `--print` prints instead |
 | `systemap check` | every rule in the table above; exit 1 with each fix named |
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
 | `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); a `.svg` name writes the bare drawing |
 | `systemap refresh` | extract, check, render, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
 | `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone |
-| `systemap judgement [--strict]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, model SDK imports outside an agent; answered lines suppressed and counted; exit 0, or 1 with `--strict` while a line is open |
-| `systemap describe` | what a look at the picture would tell an agent that cannot look: cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), cards and edges per reading |
+| `systemap judgement [--strict]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; exit 0, or 1 with `--strict` while a line is open |
+| `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned and how many `place` positioned for the look, cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
 | `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
 
@@ -318,6 +336,7 @@ not the current directory.
 | `outside_label` | `OUTSIDE THE SYSTEM` | the index heading for actors outside every region |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`, or `module = "pkg.sub.*"` for a subtree; an ignore needs a reason; an empty package marker needs none |
 | `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads; a leading `-` removes a built-in name (`"-google.adk"`) |
+| `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: the mechanisms other than an import that join the repository's parts; a flow whose sentence or artifact names one is observed by it rather than declared |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported |
 | `[theme]` | graphite, dark | colour tokens; `scheme = "light"` picks the paper scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges); an `out` ending in `.svg` is the bare drawing |
@@ -331,9 +350,10 @@ not the current directory.
 - Edges carry the relationships. Prose is for emphasis.
 - The map draws what exists today. Every module a component names is in
   the facts, and nothing on the map is a plan.
-- Positions are placed by hand and the checker decides. The same system
-  always draws the same picture, so a change in the picture is a change in
-  the system.
+- Positions are fixed in the model and the checker decides. `systemap
+  place` writes a first position for every card without one and never
+  moves a card that has one, so the same system always draws the same
+  picture, and a change in the picture is a change in the system.
 - The agent authors, the checker refuses, the person reviews. Each of the
   three does the thing it is good at.
 - The map is built in passes; the second pass is the point. The first
@@ -344,9 +364,10 @@ not the current directory.
 
 It is not a call graph: the facts record imports and public surfaces, but
 the map draws the flows the agent declared, not every call; the crossing
-imports it did not draw are answered, not hidden. It is not a dependency
+imports it did not draw are answered, not hidden, and every flow it did
+draw says whether an import backs it. It is not a dependency
 visualiser: modules are not cards, components are. It is not a UML tool:
-there is one diagram, one hand-placed layout, and no notation beyond card,
+there is one diagram, one fixed layout, and no notation beyond card,
 line, label and a mark per kind.
 
 ## Development
@@ -360,6 +381,7 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run ruff format --check src tests map
     uv run systemap check      # the repository's own map must stay current
     uv run systemap judgement --strict
+    uv run systemap place --print
     uv run systemap describe
     uv run systemap facts --modules
     uv run systemap suggest

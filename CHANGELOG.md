@@ -1,5 +1,82 @@
 # Changelog
 
+## 0.8.0
+
+The first two gaps of ROADMAP.md, closed together because both change
+the model and the check: layout was hand-placed, and flows were declared
+rather than observed.
+
+`systemap place`:
+
+- A first position for every card without one, deterministic and from
+  the standard library alone. Regions go on a two-column grid inside
+  their container, in the model's order, with the corridors
+  references/layout.md specifies (48 units between region columns, 36
+  between rows); cards go on the grid inside their region (columns 190
+  apart, rows 92 apart, three deep before a second column), ordered by
+  a few barycentre sweeps over the flows so the parts that talk sit
+  together; a region's box follows its card count, a container's its
+  regions, and an actor stands in a column beside them, level with what
+  it talks to.
+- `x` and `y` are optional in the schema. A card with both is pinned and
+  never moved; while any card is pinned the boxes and the canvas stay as
+  written and the unpinned cards take the free slots inside their own
+  boxes; a model with no pinned card is laid out whole. The check
+  refuses a card with no position until `place` has written one, and
+  nothing else about the check changes.
+- The positions are written into the model module in place: only the
+  `x=` and `y=` values, the `box=` tuples and the canvas move, and the
+  rest of the file is kept byte for byte; `--print` prints them instead.
+  The file is read back and compared after the write.
+- On the anonymised 144-module fixture with every position stripped,
+  `place` gives a map whose geometry check is clean with no manual move,
+  in about a millisecond; the test asserts under ten seconds. A second
+  run changes nothing, a pinned card stays where it was, and the
+  self-map with its positions stripped is clean after `place`.
+- `init`'s starter has no positions and no position tables; the skill's
+  draft step is: write the components and the flows, run `place`, then
+  check. `describe` reports how many cards are pinned and how many it
+  placed for the look. layout.md is shortened to what the agent still
+  decides: the region a card is in, the order of the regions, when to
+  pin a card, and how to read `describe`.
+
+Evidence on every flow:
+
+- Every flow has an evidence state computed from the facts at render
+  and at check time, never authored: `observed` when an import joins
+  the two components' modules in either direction, `external` when
+  either end is an actor, `declared` otherwise. A declared edge draws
+  dashed on the page, in every figure and on the wheel; the panel says
+  `declared: no import behind it` (or `observed: an import joins
+  them`, `external: outside the code`); the legend explains the dash.
+- `systemap judgement` prints one line per declared edge: `declared
+  flow: A -> B (artifact): no import joins them; find the evidence,
+  name the mechanism in the sentence, or remove it`. The bulk answer
+  forms cover the new kind (`kind = "declared flow"`), and
+  second-pass.md walks it after the crossing imports.
+- `[flows] observed_by = ["subprocess", "queue", ...]` lists the
+  mechanisms other than an import that join the repository's parts; a
+  flow whose sentence or artifact names one (a whole word, case blind)
+  is observed by it, drawn solid, and the panel says `observed by:
+  queue`.
+- On the self-map, two edges were declared before answering: the facts
+  file joins the extractor and the schematic (`observed_by = ["facts
+  file"]`, named in the sentence), and the change map reaches the page
+  through the CLI (answered in the configuration).
+
+Also:
+
+- The workflow `init` writes pins `uvx --from
+  "git+https://github.com/0xfauzi/systemap@v<version>"`, since nothing
+  is on PyPI yet; the pin moves to PyPI at 1.0.
+- The self-map gains a Placer card and claims the evidence module under
+  Model; invariant 5 now reads "written once by systemap place or by
+  hand".
+- The fixture's five plain words and one container sub that were over
+  the 0.7.0 card-text budget are shortened, and its two low containers
+  lifted clear of their headers, so the fixture passes the geometry
+  check as hand-placed too.
+
 ## 0.7.0
 
 What a third headless run found mapping a real repository with the skill:

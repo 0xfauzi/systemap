@@ -48,7 +48,12 @@ check does not change: it still decides.
 Acceptance, stated now:
 - On the anonymised 144-module fixture with every position stripped,
   `place` produces a map whose check is clean with zero manual moves, in
-  under ten seconds.
+  under ten seconds. Landed in 0.8.0 and measured: the geometry check
+  (placement, routes, labels, type size, wheels) is clean with no manual
+  move, and `place` takes about a millisecond; the test asserts the
+  ten-second bound. On the self-map, `place` cut the bends from 113 to
+  92 and the total edge length from 25609 to 18900 units against the
+  hand layout, so the self-map now carries its positions.
 - On a fresh headless run of the same repository, the number of
   `systemap check` and `systemap refresh` invocations across the run falls
   to at most half of run 3's. Baseline, read from run 3's session log on
@@ -74,7 +79,11 @@ non-import mechanisms it uses, so a queue edge is not nagged forever.
 
 Acceptance: on the run-3 map, the set of `declared` edges equals the five
 edges the session itself listed as inferred, plus or minus the ones that
-touch an actor; a fixture test asserts the three states.
+touch an actor; a fixture test asserts the three states. Landed in 0.8.0:
+the fixture test asserts the three states and observed-by-mechanism; on
+the self-map two edges were declared before answering, one now names
+its mechanism (the facts file) and one is answered. The run-3 comparison
+needs that map's session log and is not measured here.
 
 ### 3. There is no maintenance path
 

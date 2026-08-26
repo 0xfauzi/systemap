@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "0.7.0"
+version = "0.8.0"
 description = "The map your coding agent draws of your system: facts read out of the code, meaning authored by the agent, a checker that refuses an incomplete or stale map."
 readme = "README.md"
 license = "MIT"
