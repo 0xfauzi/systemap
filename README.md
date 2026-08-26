@@ -372,6 +372,10 @@ two trees; after editing the source, run
 The plugin manifest's version is tested against the package version, so
 the two are bumped together.
 
+## Where it is going
+
+[ROADMAP.md](ROADMAP.md) names every gap between this release and 1.0, with a mechanism and an acceptance number for each.
+
 ## Licence
 
 MIT.
