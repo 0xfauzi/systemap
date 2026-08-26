@@ -102,8 +102,9 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     assert "system.html" not in toml
     workflow = (tmp_path / ".github/workflows/systemap.yml").read_text()
     pin = f'uvx --from "systemap=={__version__}" systemap'
-    for command in ("extract --check", "check", "render --check"):
+    for command in ("extract --check", "check", "judgement --strict", "render --check"):
         assert f"{pin} {command}" in workflow, command
+    assert workflow.index("systemap check") < workflow.index("judgement --strict")
     assert "uv sync" not in workflow and "uv run" not in workflow
     assert "needs no dependency on it" in workflow
 

@@ -357,11 +357,13 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_judgement(args: argparse.Namespace) -> int:
-    """The list the maintainer confirms. A report, not a gate: always exit 0.
+    """The list the maintainer confirms. A report, not a gate: exit 0.
 
     Lines answered under `[judgement] answered` in the configuration are
-    suppressed and counted; an answer whose line is gone is reported as
-    stale so it can be removed.
+    suppressed and counted; an answer that matches no line is reported as
+    stale so it can be removed. With `--strict` the report is a gate for
+    a workflow: exit 1 while any line is open. A stale answer is reported
+    either way and fails neither.
     """
     p = _project(args)
     if _empty(p):
@@ -369,9 +371,12 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"no facts at {p.cfg.rel(p.cfg.facts_path)}; the list below reads the model alone")
-    sdks = judgement.MODEL_SDKS + p.cfg.model_sdks
-    lines = judgement.run(p.model, p.meaning, facts, p.cfg.coverage_ignore, sdks)
-    say(*judgement.report(judgement.apply_answers(lines, p.cfg.judgement_answered)))
+    lines = judgement.run(p.model, p.meaning, facts, judgement.sdk_list(p.cfg.model_sdks))
+    result = judgement.apply_answers(lines, p.cfg.judgement_answered)
+    say(*judgement.report(result))
+    if args.strict and result.open:
+        say("answer every line in [judgement] answered in systemap.toml, or act on it")
+        return STALE
     return OK
 
 
@@ -543,10 +548,14 @@ def build_parser() -> argparse.ArgumentParser:
         "judgement",
         help="print the list the maintainer must confirm: thin components, odd folds, "
         "flows without a sentence, thin layers, entry points without a journey, imports "
-        "across a boundary with no flow, ignored modules; lines answered under "
-        "[judgement] in the configuration are suppressed and counted; always exit 0",
+        "across a boundary with no flow, model sdk imports outside an agent; lines "
+        "answered under [judgement] in the configuration are suppressed and counted; "
+        "exit 0, or 1 with --strict while any line is open",
     )
     add_root(s)
+    s.add_argument(
+        "--strict", action="store_true", help="exit 1 while any line is unanswered, for CI"
+    )
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(

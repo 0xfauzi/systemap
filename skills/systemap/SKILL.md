@@ -41,11 +41,12 @@ this skill, not a formality after it.
 3. **check**: `systemap check`. Fix every line it prints; repeat until only
    `stale` remains (the page has not been rendered yet).
 4. **judgement**: `systemap judgement`. Act on every line, or answer it in
-   `[judgement] answered` in `systemap.toml`: the exact line as `item` and
-   a `reason`. An answered line is suppressed and counted; an answer whose
-   line is gone is reported as stale. A long list is answered in bulk:
-   `items = [...]` with one reason per group where the reason is the same.
-   Never pass a line over in silence.
+   `[judgement] answered` in `systemap.toml` with a reason: the exact line
+   as `item`, several as `items = [...]`, or a family with one reason:
+   `crossing = ["A", "B"]`, `kind = "single module"`, `module_sdk =
+   "google.adk"` (`references/second-pass.md` shows each). An answered
+   line is suppressed and counted; an answer that matches no line is
+   reported as stale. Never pass a line over in silence.
 5. **render**: `systemap refresh`, then `systemap describe`: the picture in
    numbers (cards per region, bends per edge worst first, seats per gutter,
    what each reading lights). Open the page only if you can: `systemap
@@ -57,9 +58,9 @@ this skill, not a formality after it.
    import, every entry point, every rule the documents state, and look at
    the figure again. Expect to find missed edges and wrong groupings. Go
    to 3.
-7. **stop**: when check is clean, judgement prints `nothing to confirm`
-   (every remaining line answered in the configuration), and a full second
-   pass changed nothing.
+7. **stop**: when check is clean, `judgement --strict` exits 0 (every
+   remaining line answered in the configuration), and a full second pass
+   changed nothing.
 8. **hand back**: the answers are in `systemap.toml`; add the coverage line
    and the list of edges you inferred rather than read.
 
@@ -96,7 +97,7 @@ this skill, not a formality after it.
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
-| `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; always exit 0 |
+| `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, or `--components A,B` for a plan's reach |
@@ -109,8 +110,7 @@ this skill, not a formality after it.
    `[judgement] answered` in `systemap.toml` with its reason: the answers
    live in the repository, not in a chat, and `systemap judgement` then
    prints `nothing to confirm, N answered`.
-2. The coverage line from `systemap check` (`coverage: N/N modules mapped`)
-   and its last line.
+2. The coverage line from `systemap check` and its last line.
 3. The edges you inferred from imports rather than read in the documents,
    and the groupings that could go another way.
 4. The files to commit: `map/model.py`, `systemap.toml`, `docs/map/`.

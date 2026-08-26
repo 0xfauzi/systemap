@@ -50,7 +50,13 @@ def test_skill_front_matter_and_vocabulary() -> None:
     assert text.index("systemap describe") < text.index("systemap serve")
     assert "one to three words" in text
     second = skill.files()["references/second-pass.md"]
-    assert "[judgement] answered" in second and "items = [...]" in second
+    assert "[judgement] answered" in second
+    # Every answer form, with an example each: the exact line, several,
+    # a crossing pair, a kind, a model sdk import.
+    for form in ("{ item = ", "{ items = [", '{ crossing = ["', '{ kind = "', '{ module_sdk = "'):
+        assert form in second, form
+    assert "by the repository's own rule" in second
+    assert "that definition wins" in second
     assert "systemap serve" in second
     assert "model sdk" in second
     assert "## The loop" in text

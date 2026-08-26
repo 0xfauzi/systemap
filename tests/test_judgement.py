@@ -12,7 +12,7 @@ from conftest import Sample, init_two_cards, sample_model, write_tree
 
 from systemap import config, judgement
 from systemap.cli import main
-from systemap.config import Answer, Ignore
+from systemap.config import Answer
 from systemap.model import Component, Flow, Journey, Layer, Meaning, Model, Region, Step
 
 
@@ -193,12 +193,11 @@ def test_thin_layer_lines(sample: Sample) -> None:
     assert "thin layer: x lights 0 components" in judgement.thin_layers(one, lonely)
 
 
-def test_ignored_lines(sample: Sample) -> None:
-    lines = judgement.ignored(
-        sample.facts,
-        (Ignore("pkg", "the package root"), Ignore("pkg.gone", "it left")),
-    )
-    assert lines == ["ignored: pkg (the package root)", "ignored: pkg.gone (it left)"]
+def test_an_ignored_module_is_not_a_question(sample: Sample) -> None:
+    """The coverage reason is the answer; the judgement does not ask again."""
+    lines = judgement.run(sample.model, sample.meaning, sample.facts)
+    assert not any(line.startswith("ignored") for line in lines)
+    assert not hasattr(judgement, "ignored")
 
 
 def test_report_wording() -> None:
@@ -252,9 +251,9 @@ answered = [
     )
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 1 item for the maintainer to confirm, 3 answered, 1 stale")
+    assert out.startswith("judgement: nothing to confirm, 3 answered, 1 stale")
     assert "single module: Reader" not in out.replace("stale answer", "")
-    assert "ignored: pkg (" in out
+    assert "ignored" not in out, "the ignored package root is not a question"
     assert (
         "stale answer: 'single module: Gone is only pkg.gone' no longer appears; "
         "remove it from [judgement] answered"
@@ -262,10 +261,15 @@ answered = [
     # An answer without a reason, with both forms, or with neither, is a configuration error.
     for bad, message in (
         ('{ item = "x" }', "needs a reason"),
-        ('{ item = "x", items = ["y"], reason = "r" }', "not both and not neither"),
-        ('{ reason = "r" }', "not both and not neither"),
+        ('{ item = "x", items = ["y"], reason = "r" }', "needs exactly one of"),
+        ('{ reason = "r" }', "needs exactly one of"),
         ('{ items = [], reason = "r" }', "non-empty list of lines"),
         ('{ item = "x", reason = "r", why = "w" }', "unknown key: why"),
+        ('{ crossing = ["A"], reason = "r" }', "two different component ids"),
+        ('{ crossing = ["A", "A"], reason = "r" }', "two different component ids"),
+        ('{ kind = "odd fold", reason = "r" }', "kind must be one of single module"),
+        ('{ module_sdk = "", reason = "r" }', "module_sdk must be an import name"),
+        ('{ kind = "single module" }', "needs a reason"),
     ):
         toml.write_text(f"[judgement]\nanswered = [{bad}]\n")
         assert main(["--root", str(tmp_path), "judgement"]) == 2
@@ -300,12 +304,13 @@ def test_judgement_command_always_exits_0(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for the maintainer to confirm")
+    assert out.startswith("judgement: 3 items for the maintainer to confirm")
     assert "single module: Reader is only pkg.reader" in out
     assert "single module: Writer is only pkg.writer" in out
     # The starter has one data flow and no control flow: the standard layer is thin.
     assert "thin layer: control lights 0 components" in out
-    assert "ignored: pkg (the package root only marks the directory as a package)" in out
+    # The ignored package root is not a question: its reason is under [coverage].
+    assert "ignored" not in out
     # A model that contradicts itself is a configuration error, exit 2.
     (tmp_path / "map/model.py").write_text("MODEL = 1\n")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
@@ -525,14 +530,150 @@ def test_model_sdks_configured(tmp_path: Path, capsys: pytest.CaptureFixture[str
     assert "facts has unknown key: sdks" in capsys.readouterr().err
 
 
-def test_run_orders_the_second_pass_before_ignores(sample: Sample) -> None:
+def test_run_orders_the_second_pass_last(sample: Sample) -> None:
     model, meaning = entry_model()
     facts = entry_facts()
     facts["components"]["pkg.reader"]["external"] = ["openai"]
-    lines = judgement.run(model, meaning, facts, (Ignore("pkg.gone", "left"),))
+    lines = judgement.run(model, meaning, facts)
     order = [
         k
-        for k in ("thin layer", "entry point", "crossing import", "model sdk", "ignored")
+        for k in ("thin layer", "entry point", "crossing import", "model sdk")
         if any(line.startswith(k) for line in lines)
     ]
-    assert order == ["thin layer", "entry point", "crossing import", "model sdk", "ignored"]
+    assert order == ["thin layer", "entry point", "crossing import", "model sdk"]
+
+
+# ---- answers in bulk: one reason for a family of lines -------------------------
+
+
+def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
+    lines = [
+        "single module: A is only p.a",
+        "single module: B is only p.b",
+        "crossing import: module p.a (component A) imports module p.b (component B) and no flow joins A and B",
+        "crossing import: module p.b (component B) imports module p.a (component A) and no flow joins B and A",
+        "crossing import: module p.a (component A) imports module p.c (component C) and no flow joins A and C",
+        "model sdk: module p.a imports google.adk and its component A is not an agent",
+        "model sdk: module p.c imports openai and its component C is not an agent",
+        "entry point main() in p.a has no journey (component A)",
+    ]
+    result = judgement.apply_answers(
+        lines,
+        (
+            Answer((), "one module per part", kind="single module"),
+            Answer((), "the schema, for type names", crossing=("B", "A")),
+            Answer((), "the framework's session module", module_sdk="google.adk"),
+            Answer((), "no such pair any more", crossing=("C", "D")),
+            Answer((), "nothing of that kind", kind="no sentence"),
+            Answer((), "gone", module_sdk="anthropic"),
+        ),
+    )
+    # Both directions of A and B are covered; A and C is not; openai is not.
+    assert result.open == [lines[4], lines[6], lines[7]]
+    assert result.answered == 5
+    assert result.stale == [
+        'crossing = ["C", "D"]',
+        'kind = "no sentence"',
+        'module_sdk = "anthropic"',
+    ]
+    # The entry point line has no colon; its kind still names it.
+    entry = judgement.apply_answers(lines, (Answer((), "a debugging hook", kind="entry point"),))
+    assert lines[7] not in entry.open and entry.answered == 1
+    assert judgement.report(result)[-1] == (
+        "  stale answer: 'module_sdk = \"anthropic\"' no longer appears; remove it from "
+        "[judgement] answered"
+    )
+    # A configured answer round-trips with its form.
+    assert Answer(("x", "y"), "r").label == "items = ['x', 'y']"
+    assert Answer(("x",), "r").label == "x"
+
+
+def test_bulk_answers_in_the_configuration(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/reader.py": "import housemodel\n\n\ndef read(source: str) -> str:\n    return source\n",
+            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+        },
+    )
+    init_two_cards(tmp_path, "--no-ci")
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    toml = tmp_path / "systemap.toml"
+    toml.write_text(
+        toml.read_text()
+        + """
+[facts]
+model_sdks = ["housemodel"]
+
+[judgement]
+answered = [
+    { kind = "single module", reason = "two real parts of a two-file package" },
+    { module_sdk = "housemodel", reason = "the reader calls the model once and is not an agent, by the README's rule" },
+    { crossing = ["Reader", "Writer"], reason = "no crossing import is left; this answer is stale" },
+]
+"""
+    )
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "judgement"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("judgement: 1 item for the maintainer to confirm, 3 answered, 1 stale")
+    assert "  thin layer: control lights 0 components" in out
+    assert 'stale answer: \'crossing = ["Reader", "Writer"]\' no longer appears' in out
+    cfg = config.load(tmp_path)
+    assert cfg.judgement_answered[2] == Answer(
+        (), "no crossing import is left; this answer is stale", crossing=("Reader", "Writer")
+    )
+
+
+def test_strict_exits_1_while_a_line_is_open(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
+            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+        },
+    )
+    init_two_cards(tmp_path, "--no-ci")
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 1
+    out = capsys.readouterr().out
+    assert out.startswith("judgement: 3 items for the maintainer to confirm")
+    assert out.rstrip().endswith(
+        "answer every line in [judgement] answered in systemap.toml, or act on it"
+    )
+    toml = tmp_path / "systemap.toml"
+    toml.write_text(
+        toml.read_text()
+        + """
+[judgement]
+answered = [
+    { kind = "single module", reason = "two real parts" },
+    { kind = "thin layer", reason = "nothing drives anything yet" },
+    { item = "single module: Gone is only pkg.gone", reason = "stale, and reported, not failed" },
+]
+"""
+    )
+    assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("judgement: nothing to confirm, 3 answered, 1 stale")
+    assert main(["--root", str(tmp_path), "judgement"]) == 0
+
+
+def test_model_sdks_removal() -> None:
+    assert "google.adk" in judgement.MODEL_SDKS
+    reduced = judgement.sdk_list(["-google.adk", "housemodel"])
+    assert "google.adk" not in reduced and "housemodel" in reduced
+    assert len(reduced) == len(judgement.MODEL_SDKS)
+    assert judgement.sdk_list([]) == judgement.MODEL_SDKS
+    assert judgement.sdk_list(["anthropic"]) == judgement.MODEL_SDKS, (
+        "an addition already listed is not doubled"
+    )
+    with pytest.raises(config.ConfigError, match=r"removes housemodel, which is not on the list"):
+        judgement.sdk_list(["-housemodel"])

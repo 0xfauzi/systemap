@@ -13,12 +13,26 @@ the exception.
 
 1. Run `systemap judgement`. Read every line. For each, do one of two
    things: change the model, or answer it in `[judgement] answered` in
-   `systemap.toml` with the exact line and a reason. An answered line is
-   suppressed and counted in the header; an answer whose line has gone is
-   reported as stale, so remove it. A long list is answered in bulk: one
-   table with `items = [...]` and one reason, for every group where the
-   reason is the same (every `single module` line of a small package, for
-   instance). Never pass a line over in silence.
+   `systemap.toml` with a reason. An answered line is suppressed and
+   counted in the header; an answer that matches no line is reported as
+   stale, so remove it. Never pass a line over in silence. Five forms,
+   each one table with one reason:
+
+   ```toml
+   [judgement]
+   answered = [
+       # the exact line, or several exact lines
+       { item = "thin layer: control lights 0 components", reason = "nothing drives anything; the parts are called by tests" },
+       { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
+       # every crossing-import line between two components, either direction
+       { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names; the model reaches it through Config, which the map draws" },
+       # every line of one kind: single module, possible mis-fold, no sentence,
+       # thin layer, entry point, crossing import, model sdk
+       { kind = "single module", reason = "a small package with one module per part; each card is a thing a reader would name" },
+       # every model sdk line for one import
+       { module_sdk = "google.adk", reason = "the framework's tool and session modules import it too; the agents are the cards of kind agent" },
+   ]
+   ```
 
 2. Walk every crossing import. The line reads: `module A (component P)
    imports module B (component Q) and no flow joins P and Q`. Open A, find
@@ -36,9 +50,16 @@ the exception.
    answer why this entry point does not matter to a reader.
 
 4. Walk every model sdk line: `module X imports <sdk> and its component P
-   is not an agent`. Either P runs a model and is an agent (change its
-   kind, and give it context and tool flows), or the import is a client
-   the reader should see as a tool flow, or it is dead; answer the line.
+   is not an agent`. Four outcomes: P runs a model and is an agent
+   (change its kind, and give it context and tool flows); the import is a
+   client the reader should see as a tool flow; it is dead; or P calls a
+   model once and is deliberately not an agent, by the repository's own rule.
+   When the repository defines what counts as an agent (an AGENTS.md, a
+   design rule), that definition wins over the SDK prompt: answer the
+   line citing it. The built-in list matches import prefixes,
+   so a framework such as `google.adk` fires for its non-model parts;
+   `[facts] model_sdks = ["-google.adk"]` removes the entry, and
+   `module_sdk = "google.adk"` answers every line it raised.
 
 5. Walk every rule the documents state. Reread the README, AGENTS.md,
    CLAUDE.md and docs/ with the invariant list beside them. Each rule is
@@ -63,10 +84,11 @@ the exception.
 
 Stop when all three hold:
 
-- `systemap check` is clean: `coverage: N/N modules mapped` and
+- `systemap check` is clean: `coverage: N of N modules mapped` and
   `map layout: clean`, no `stale` line after `refresh`.
-- `systemap judgement` prints `nothing to confirm`: every remaining line is
-  answered in `[judgement] answered`, and no answer is stale.
+- `systemap judgement --strict` exits 0: every remaining line is answered
+  in `[judgement] answered`, and no answer is stale. The workflow `init`
+  writes runs it after `check`.
 - A full pass through steps 1 to 7 changed nothing in `map/model.py`.
 
 Then hand back (SKILL.md, "What to hand back"): the answers are already in

@@ -35,14 +35,18 @@ goes, and the theme.
     [facts]        model_sdks = [...]: import names, added to the built-in
                    list, that mark a module as calling a model; the
                    judgement asks about each in a component that is not
-                   an agent
+                   an agent. A leading `-` removes a built-in name
+                   ("-google.adk")
     [judgement]    answered = [{item = "<a judgement line>", reason = "..."}]:
                    the lines of `systemap judgement` the maintainer has
                    answered, each with why; an answered line is suppressed
-                   and counted, an answer whose line no longer appears is
+                   and counted, an answer that matches no line is
                    reported as stale, and an answer without a reason is an
-                   error. `items = [...]` answers several lines with one
-                   reason
+                   error. `items = [...]` answers several exact lines with
+                   one reason; `crossing = ["A", "B"]` every crossing
+                   import between A and B in either direction; `kind =
+                   "single module"` every line of that kind; `module_sdk
+                   = "google.adk"` every model sdk line for that import
 
 Unknown keys are a configuration error: a misspelt key that silently did
 nothing would be worse than a refusal.
@@ -90,7 +94,18 @@ FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", 
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
 JUDGEMENT_KEYS = {"answered"}
-ANSWER_KEYS = {"item", "items", "reason"}
+ANSWER_FORMS = ("item", "items", "crossing", "kind", "module_sdk")
+ANSWER_KEYS = {*ANSWER_FORMS, "reason"}
+# The kinds of line `systemap judgement` prints, as `kind = "..."` names them.
+LINE_KINDS = (
+    "single module",
+    "possible mis-fold",
+    "no sentence",
+    "thin layer",
+    "entry point",
+    "crossing import",
+    "model sdk",
+)
 
 
 class ConfigError(Exception):
@@ -127,12 +142,30 @@ class Answer:
     """One or more judgement lines the maintainer has answered, and why.
 
     `items` are the lines exactly as `systemap judgement` prints them
-    (without the two-space indent). The answer is the hand-back: it lives
-    in the repository beside the model, not in a conversation.
+    (without the two-space indent). The bulk forms answer a family with
+    one reason: `crossing` every crossing-import line between two
+    components in either direction, `kind` every line of one kind,
+    `module_sdk` every model sdk line for one import. Exactly one form
+    is set. The answer is the hand-back: it lives in the repository
+    beside the model, not in a conversation.
     """
 
     items: tuple[str, ...]
     reason: str
+    crossing: tuple[str, str] | None = None
+    kind: str = ""
+    module_sdk: str = ""
+
+    @property
+    def label(self) -> str:
+        """The answer as the configuration wrote it, for the stale report."""
+        if self.crossing is not None:
+            return f'crossing = ["{self.crossing[0]}", "{self.crossing[1]}"]'
+        if self.kind:
+            return f'kind = "{self.kind}"'
+        if self.module_sdk:
+            return f'module_sdk = "{self.module_sdk}"'
+        return self.items[0] if len(self.items) == 1 else f"items = {list(self.items)}"
 
 
 @dataclass(frozen=True)
@@ -511,33 +544,67 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
         bad = sorted(set(entry) - ANSWER_KEYS)
         if bad:
             raise ConfigError(f"{where}: judgement.answered[{k}] has unknown key: {', '.join(bad)}")
-        item, items = entry.get("item"), entry.get("items")
-        if (item is None) == (items is None):
+        forms = [form for form in ANSWER_FORMS if entry.get(form) is not None]
+        if len(forms) != 1:
             raise ConfigError(
-                f"{where}: judgement.answered[{k}] needs item (one line) or items (a list), "
-                "not both and not neither"
+                f"{where}: judgement.answered[{k}] needs exactly one of item (one line), "
+                "items (a list), crossing (two component ids), kind (a line kind) or "
+                f"module_sdk (an import name); it has {len(forms)}"
             )
-        if item is not None:
-            if not isinstance(item, str) or not item.strip():
+        (form,) = forms
+        value = entry[form]
+        lines: tuple[str, ...] = ()
+        crossing: tuple[str, str] | None = None
+        kind = ""
+        module_sdk = ""
+        if form == "item":
+            if not isinstance(value, str) or not value.strip():
                 raise ConfigError(f"{where}: judgement.answered[{k}] item must be a line")
-            lines: tuple[str, ...] = (item.strip(),)
-        else:
+            lines = (value.strip(),)
+        elif form == "items":
             if (
-                not isinstance(items, list)
-                or not items
-                or not all(isinstance(v, str) and v.strip() for v in items)
+                not isinstance(value, list)
+                or not value
+                or not all(isinstance(v, str) and v.strip() for v in value)
             ):
                 raise ConfigError(
                     f"{where}: judgement.answered[{k}] items must be a non-empty list of lines"
                 )
-            lines = tuple(v.strip() for v in items)
+            lines = tuple(v.strip() for v in value)
+        elif form == "crossing":
+            if (
+                not isinstance(value, list)
+                or len(value) != 2
+                or not all(isinstance(v, str) and v.strip() for v in value)
+                or value[0].strip() == value[1].strip()
+            ):
+                raise ConfigError(
+                    f"{where}: judgement.answered[{k}] crossing must name two different "
+                    'component ids, ["A", "B"]'
+                )
+            crossing = (value[0].strip(), value[1].strip())
+        elif form == "kind":
+            if not isinstance(value, str) or value.strip() not in LINE_KINDS:
+                raise ConfigError(
+                    f"{where}: judgement.answered[{k}] kind must be one of {', '.join(LINE_KINDS)}"
+                )
+            kind = value.strip()
+        else:
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigError(
+                    f"{where}: judgement.answered[{k}] module_sdk must be an import name"
+                )
+            module_sdk = value.strip()
         reason = entry.get("reason")
+        answer = Answer(items=lines, reason="", crossing=crossing, kind=kind, module_sdk=module_sdk)
         if not isinstance(reason, str) or not reason.strip():
             raise ConfigError(
-                f"{where}: judgement.answered[{k}] ({lines[0]}) needs a reason: "
+                f"{where}: judgement.answered[{k}] ({answer.label}) needs a reason: "
                 "say why the line is answered rather than acted on"
             )
-        out.append(Answer(items=lines, reason=reason))
+        out.append(
+            Answer(items=lines, reason=reason, crossing=crossing, kind=kind, module_sdk=module_sdk)
+        )
     return tuple(out)
 
 

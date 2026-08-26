@@ -62,7 +62,13 @@ do. Three component kinds and two flow kinds exist for that.
   under `external`, and `systemap judgement` prints `model sdk: module X
   imports <sdk> and its component P is not an agent` for a built-in list
   of model SDKs and agent frameworks (extend it with `[facts] model_sdks`
-  in `systemap.toml`). A module that calls a coding-agent CLI through a
+  in `systemap.toml`; an entry with a leading `-` removes a built-in
+  name). The list matches import prefixes, so a framework fires for its
+  tool and session modules too. When the repository defines what counts
+  as an agent, in an AGENTS.md or a design rule, that definition wins
+  over the prompt: a part that calls a model once and is not an agent by
+  the repository's rule stays a component, and the line is answered
+  citing the rule. A module that calls a coding-agent CLI through a
   subprocess is found by reading it. Drawn with an inner ring.
 - `kind="context"`: a store whose content enters an agent's window: a
   system prompt, a prompt template, a memory file, retrieved knowledge,

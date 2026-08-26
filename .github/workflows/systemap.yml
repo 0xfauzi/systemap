@@ -45,6 +45,13 @@ jobs:
             exit 1
           }
 
+      - name: every judgement line is answered
+        run: |
+          uv run systemap judgement --strict || {
+            echo "::error title=Judgement::a judgement line is unanswered. Act on it, or answer it under [judgement] answered in systemap.toml."
+            exit 1
+          }
+
       - name: page matches the renderer
         run: |
           uv run systemap render --check || {

@@ -31,17 +31,23 @@ thing to look at:
                          either direction: an edge the code has and the
                          map does not. The main tool of the second pass.
     model sdk .......... a module imports a model SDK or an agent framework
-                         (a built-in list, extended by `[facts] model_sdks`)
-                         and its component is not an agent: the mechanical
-                         prompt for the agentic layers
-    ignored ............ a module the coverage rule leaves unmapped, with
-                         the reason the configuration gives
+                         (a built-in list, extended or reduced by `[facts]
+                         model_sdks`) and its component is not an agent:
+                         the mechanical prompt for the agentic layers
+
+An ignored module is not a question: its reason is on record under
+`[coverage]`, and the check prints the count. It is not listed here.
 
 The list has memory. A line the maintainer has answered lives in the
 configuration, under `[judgement] answered`, with its reason; it is
 suppressed here and counted, so the same line does not come back every
-run and the answer is in the repository, not in a chat. An answer whose
-line no longer appears is reported as stale, so answers cannot rot.
+run and the answer is in the repository, not in a chat. An answer names
+the exact line (`item`, or `items` for several), or a whole family with
+one reason: every crossing-import line between two components in either
+direction (`crossing`), every line of one kind (`kind`), every model-sdk
+line for one import (`module_sdk`). An answer that matches no line is
+reported as stale, so answers cannot rot. `--strict` makes the CLI exit
+1 while any line is open, for a workflow.
 """
 
 from __future__ import annotations
@@ -51,14 +57,16 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from systemap.config import Answer, Ignore
+from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.extract import entry_label
-from systemap.model import Component, Meaning, Model, claimed, flow_layers, module_matches
+from systemap.model import Component, Meaning, Model, claimed, flow_layers
 
 MIN_STEM = 4
 # Import names that mark a module as calling a model or running an agent
 # framework. Dotted where the namespace is shared. A cloud SDK that also
-# reaches a model (boto3) is too coarse to list.
+# reaches a model (boto3) is too coarse to list. Each matches as a prefix
+# of the import written, so a framework fires for its non-model parts too;
+# `[facts] model_sdks` removes one with a leading `-`.
 MODEL_SDKS: tuple[str, ...] = (
     "anthropic",
     "openai",
@@ -311,21 +319,33 @@ def model_sdk_imports(
     return out
 
 
-def ignored(facts: dict[str, Any], ignores: Iterable[Ignore]) -> list[str]:
-    modules = sorted(facts.get("components", {}))
-    out: list[str] = []
-    for ignore in ignores:
-        hit = [m for m in modules if module_matches(ignore.module, m)] or [ignore.module]
-        for m in hit:
-            out.append(f"ignored: {m} ({ignore.reason})")
-    return out
+def sdk_list(configured: Iterable[str]) -> tuple[str, ...]:
+    """The built-in SDK list with the configuration's additions and removals.
+
+    An entry adds an import name; an entry with a leading `-` removes one
+    of the built-in names (`-google.adk`, when the repository's own rule
+    says what counts as an agent). Removing a name that is not on the
+    list is refused: a silent no-op would hide a misspelling.
+    """
+    out = list(MODEL_SDKS)
+    for entry in configured:
+        if entry.startswith("-"):
+            name = entry[1:]
+            if name not in out:
+                raise ConfigError(
+                    f"[facts] model_sdks removes {name}, which is not on the list "
+                    f"({', '.join(out)})"
+                )
+            out.remove(name)
+        elif entry not in out:
+            out.append(entry)
+    return tuple(out)
 
 
 def run(
     model: Model,
     meaning: Meaning,
     facts: dict[str, Any],
-    ignores: Iterable[Ignore] = (),
     sdks: Iterable[str] = MODEL_SDKS,
 ) -> list[str]:
     """Every line the maintainer should read, in the order above."""
@@ -337,8 +357,33 @@ def run(
         + entry_points_without_journey(model, meaning, facts)
         + crossing_imports_without_flow(model, facts)
         + model_sdk_imports(model, facts, sdks)
-        + ignored(facts, ignores)
     )
+
+
+# ---- answers: the exact line, or a family of lines with one reason ------------
+
+CROSSING_LINE = re.compile(
+    r"^crossing import: module \S+ \(component (\S+)\) imports module \S+ "
+    r"\(component (\S+)\) and no flow joins "
+)
+SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component ")
+# How each kind's lines begin; the entry point line carries no colon.
+KIND_PREFIX = {kind: f"{kind}: " for kind in LINE_KINDS} | {"entry point": "entry point "}
+
+
+def answers(answer: Answer, line: str) -> bool:
+    """Does one answer cover this line?"""
+    if answer.items:
+        return line in answer.items
+    if answer.crossing is not None:
+        found = CROSSING_LINE.match(line)
+        return found is not None and {found[1], found[2]} == set(answer.crossing)
+    if answer.kind:
+        return line.startswith(KIND_PREFIX[answer.kind])
+    if answer.module_sdk:
+        found = SDK_LINE.match(line)
+        return found is not None and found[1] == answer.module_sdk
+    return False
 
 
 @dataclass(frozen=True)
@@ -346,8 +391,9 @@ class Answered:
     """The list once the configuration's answers are applied.
 
     `open` is what is still to confirm, `answered` how many lines an
-    answer suppressed, and `stale` every answered item no line matches:
-    the model or the code moved on and the answer should go.
+    answer suppressed, and `stale` every answer (an exact item, or a
+    bulk form named as written) no line matches: the model or the code
+    moved on and the answer should go.
     """
 
     open: list[str]
@@ -355,15 +401,20 @@ class Answered:
     stale: list[str]
 
 
-def apply_answers(lines: list[str], answers: Iterable[Answer]) -> Answered:
+def apply_answers(lines: list[str], answer_list: Iterable[Answer]) -> Answered:
     """Suppress every line the configuration answers; report the rest and the stale."""
-    answered_items = [item for a in answers for item in a.items]
-    present = set(lines)
-    known = set(answered_items)
+    given = list(answer_list)
+    covered = [line for line in lines if any(answers(a, line) for a in given)]
+    stale: list[str] = []
+    for a in given:
+        if a.items:
+            stale += [item for item in a.items if item not in lines]
+        elif not any(answers(a, line) for line in lines):
+            stale.append(a.label)
     return Answered(
-        open=[line for line in lines if line not in known],
-        answered=sum(1 for line in lines if line in known),
-        stale=[item for item in answered_items if item not in present],
+        open=[line for line in lines if line not in covered],
+        answered=len(covered),
+        stale=stale,
     )
 
 
