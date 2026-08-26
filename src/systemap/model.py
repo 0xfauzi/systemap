@@ -287,7 +287,7 @@ class Model:
         container must sit inside it, every flow must name known components
         and a kind that is standard or declared, a context or tool flow
         must have an agent at its agent end, and every invariant must
-        govern known components. A card outside its band would draw a
+        carry its own number and govern known components. A card outside its band would draw a
         topology the model does not claim, which is the one lie a
         hand-placed layout can tell.
         """
@@ -348,7 +348,15 @@ class Model:
                     f"a tool flow starts at the agent that invokes it: set {f.src}'s kind "
                     "to agent, or give the flow the kind control"
                 )
+        numbered: dict[int, Invariant] = {}
         for inv in self.invariants:
+            if inv.n in numbered:
+                out.append(
+                    f"invariant {inv.n} is numbered twice: '{numbered[inv.n].text}' and "
+                    f"'{inv.text}'; give each rule its own number"
+                )
+            else:
+                numbered[inv.n] = inv
             for cid in inv.governs:
                 if cid not in ids:
                     out.append(f"invariant {inv.n} governs unknown component {cid}")

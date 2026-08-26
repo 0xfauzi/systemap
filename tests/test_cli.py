@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import PKG_IGNORE, TINY_PACKAGE, TWO_CARD_MODEL, init_two_cards, write_tree
+from conftest import TINY_PACKAGE, TWO_CARD_MODEL, init_two_cards, write_tree
 
 from systemap import __version__, cli
 from systemap.cli import NO_COMPONENTS, main
@@ -49,8 +49,6 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
 
     # The agent writes two cards; from here the loop runs.
     (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
-    toml = tmp_path / "systemap.toml"
-    toml.write_text(toml.read_text() + PKG_IGNORE)
     # Nothing built yet: extract --check and render are stale, with the fix named.
     assert run("--root", str(tmp_path), "extract", "--check") == 1
     assert "run: systemap extract" in capsys.readouterr().out

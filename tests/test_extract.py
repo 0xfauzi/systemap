@@ -307,17 +307,18 @@ def test_zero_tests_is_said_in_one_line_naming_the_directories(tmp_path: Path) -
     facts = extract.build(config.load(tmp_path))
     assert facts["tests_dirs"] == ["tests"]
     lines = extract.summary(facts)
-    assert "  guarded by:       no tests import a module; searched tests" in lines
+    assert "  tests:            none import a module; searched tests" in lines
     (tmp_path / "tests").rmdir()
     facts = extract.build(config.load(tmp_path))
     assert facts["tests_dirs"] == []
     assert (
-        "  guarded by:       no tests import a module; no directory named tests or test was found"
+        "  tests:            none import a module; no directory named tests or test was found"
         in extract.summary(facts)
     )
     write_tree(tmp_path, TINY_PACKAGE)
-    assert "  guarded by:       3 tests (2 primary)" in extract.summary(
-        extract.build(config.load(tmp_path))
+    assert (
+        "  tests:            3 test functions import a module, 2 in a file named after it"
+        in extract.summary(extract.build(config.load(tmp_path)))
     )
 
 

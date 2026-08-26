@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from typing import Any
 
 from systemap.model import (
@@ -82,33 +83,6 @@ def esc(text: object) -> str:
     return html.escape(str(text), quote=True)
 
 
-def wrap_words(text: str, width: int, max_lines: int) -> list[str]:
-    """Greedy word wrap, truncated at a word boundary rather than overflowing."""
-    words = text.split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        candidate = f"{current} {word}".strip()
-        if len(candidate) <= width:
-            current = candidate
-            continue
-        if current:
-            lines.append(current)
-        current = word
-        if len(lines) == max_lines:
-            break
-    if current and len(lines) < max_lines:
-        lines.append(current)
-    if len(lines) == max_lines and len(" ".join(lines)) < len(text.rstrip(".")):
-        tail = lines[-1]
-        if len(tail) >= width:
-            cut = tail[: width - 1]
-            spaced, _, _ = cut.rpartition(" ")
-            tail = spaced or cut
-        lines[-1] = tail + "..."
-    return lines
-
-
 def wrap_all(text: str, width: int) -> list[str]:
     """Greedy word wrap with nothing dropped: a word wider than `width` stands alone."""
     lines: list[str] = []
@@ -130,6 +104,73 @@ def wrap_all(text: str, width: int) -> list[str]:
 LABEL_CHAR = 7.6
 SUB_CHAR = 5.6
 HEADER_LINES = 2
+
+# ---- card text: what fits, and what is refused ---------------------------------
+# A card's name is mono at 11.5px in 140 units of inner width: about 20
+# characters on one line. A component, agent or tool card (56 tall, no rule
+# under its head) has room for a second name line; a store or context card
+# (ruled at 23) and an actor (44 tall) do not. The plain word takes the
+# lines under the name, 12 units each. Nothing is cut and nothing is
+# elided: what does not fit is reported, and the check refuses the map.
+NAME_CHARS = 20
+NAME_LINE_H = 13
+TWO_LINE_NAME_KINDS = ("component", "agent", "tool")
+
+
+def wrap_id(cid: str, width: int) -> list[str]:
+    """A CamelCase or snake_case id over as few lines as its parts allow.
+
+    The break points are the words of the name; a part wider than `width`
+    stands alone and is then reported by the caller.
+    """
+    parts = re.findall(r"[A-Z]+[a-z0-9]*_*|[a-z0-9]+_*", cid)
+    if "".join(parts) != cid:
+        parts = [cid]
+    lines: list[str] = []
+    current = ""
+    for part in parts:
+        if current and len(current + part) > width:
+            lines.append(current)
+            current = part
+        else:
+            current += part
+    if current:
+        lines.append(current)
+    return lines
+
+
+def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], list[str]]:
+    """(the name lines, the plain lines, what does not fit) for one card.
+
+    Each problem states the budget the card kind has and what the text
+    measured: `actor cards fit about 26 characters on one line; this one
+    has 34`. The lines returned are what the drawing prints, cut to the
+    room the card has, since the check refuses the map anyway.
+    """
+    problems: list[str] = []
+    ruled = kind in ("store", "context")
+    name_lines = [cid]
+    if len(cid) > NAME_CHARS and kind in TWO_LINE_NAME_KINDS:
+        name_lines = wrap_id(cid, NAME_CHARS)
+    if len(name_lines) > 2 or any(len(line) > NAME_CHARS for line in name_lines):
+        room = "over two lines" if kind in TWO_LINE_NAME_KINDS else "on one line"
+        problems.append(
+            f"card {cid}: name does not fit ({kind} cards fit a name of about {NAME_CHARS} "
+            f"characters {room}; this one has {len(cid)})"
+        )
+        name_lines = name_lines[:2]
+    first = (36 if ruled else 32) + NAME_LINE_H * (len(name_lines) - 1)
+    lines = max(1, int((CARD_H[kind] - 4 - first) // 12) + 1)
+    plain_lines = wrap_all(plain, PLAIN_CHARS)
+    if len(plain_lines) > lines or any(len(line) > PLAIN_CHARS for line in plain_lines):
+        words = {1: "one line", 2: "two lines"}.get(lines, f"{lines} lines")
+        under = " under a two-line name" if len(name_lines) > 1 else ""
+        problems.append(
+            f"card {cid}: plain word does not fit ({kind} cards fit about {PLAIN_CHARS} "
+            f"characters on {words}{under}; this one has {len(plain)})"
+        )
+        plain_lines = plain_lines[:lines]
+    return name_lines, plain_lines, problems
 
 
 def _rgb(colour: str) -> tuple[int, int, int]:
@@ -629,7 +670,12 @@ def render(
                 f'<path class="node__mark" d="M{x + 3},{y + 3} h9 l-9,9 z" fill="{stroke}" '
                 f'fill-opacity=".85"/>'
             )
-        g.append(L(x + w / 2, y + 17, cid, NAME_PX, INK, "600", True))
+        # The name and the plain word, within the card's budget; what does
+        # not fit is reported for the check, never cut short.
+        name_lines, plain_lines, unfit = card_text(kind, cid, plain)
+        collisions += unfit
+        for k, line in enumerate(name_lines):
+            g.append(L(x + w / 2, y + 17 + NAME_LINE_H * k, line, NAME_PX, INK, "600", True))
         # A card with a note carries a dot in its top corner, on the map and
         # in every figure; the panel shows the note itself, and the dot's
         # title does when hovered.
@@ -647,11 +693,9 @@ def render(
                 f'<line x1="{x + 1}" y1="{y + 23}" x2="{x + w - 1}" y2="{y + 23}" '
                 f'stroke="{stroke}" stroke-opacity=".45" stroke-width="1"/>'
             )
-        # The plain word under the code name. How many lines fit is derived
-        # from the card, never assumed.
-        first = y + (36 if ruled else 32)
-        room = int((y + h - 4 - first) // 12) + 1
-        plain_lines = wrap_words(plain, PLAIN_CHARS, max(1, room))
+        # The plain word under the code name, on the lines the card has
+        # left under it.
+        first = y + (36 if ruled else 32) + NAME_LINE_H * (len(name_lines) - 1)
         g.append(
             '<g data-layer="job">'
             + "".join(

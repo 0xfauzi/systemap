@@ -10,7 +10,7 @@ import pytest
 from systemap import extract
 from systemap import theme as theme_mod
 from systemap.cli import main
-from systemap.config import Config, Ignore
+from systemap.config import Config
 from systemap.model import (
     Component,
     Container,
@@ -293,12 +293,9 @@ class Sample:
 def sample(tmp_path: Path) -> Sample:
     """The sample system on disk, with facts read out of it by the real extractor."""
     write_tree(tmp_path, SAMPLE_TREE)
-    cfg = Config(
-        root=tmp_path,
-        name="sample",
-        package_roots=(("pkg", "pkg"),),
-        coverage_ignore=(Ignore("pkg", "the package root only marks the directory"),),
-    )
+    # The package root is an empty package marker: the coverage rule leaves
+    # it out on its own, so nothing is ignored.
+    cfg = Config(root=tmp_path, name="sample", package_roots=(("pkg", "pkg"),))
     model, meaning = sample_model()
     facts = extract.build(cfg)
     return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)
@@ -426,16 +423,12 @@ MEANING = Meaning(
 )
 '''
 
-PKG_IGNORE = (
-    "\n[coverage]\nignore = [\n"
-    '    { module = "pkg", reason = "the package root only marks the directory as a package" },\n'
-    "]\n"
-)
-
 
 def init_two_cards(root: Path, *argv: str) -> None:
-    """init, then the two-card model over the empty starter, and the ignore for pkg."""
+    """init, then the two-card model over the empty starter.
+
+    The package root `pkg` is an empty `__init__`: an empty package marker
+    the coverage rule leaves out on its own, so no ignore is written.
+    """
     assert main(["--root", str(root), "init", *argv]) == 0
     (root / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
-    toml = root / "systemap.toml"
-    toml.write_text(toml.read_text(encoding="utf-8") + PKG_IGNORE, encoding="utf-8")

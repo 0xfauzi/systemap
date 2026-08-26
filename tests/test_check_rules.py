@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import PKG_IGNORE, TWO_CARD_MODEL, Sample, init_two_cards, write_tree
+from conftest import TWO_CARD_MODEL, Sample, init_two_cards, write_tree
 
 from systemap import check, route
 from systemap.cli import main
@@ -355,8 +355,6 @@ def test_root_is_accepted_after_the_subcommand(
     assert run("init", "--root", str(tmp_path), "--no-ci") == 0
     assert (tmp_path / "systemap.toml").is_file()
     (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
-    toml = tmp_path / "systemap.toml"
-    toml.write_text(toml.read_text() + PKG_IGNORE)
     assert run("extract", "--root", str(tmp_path)) == 0
     assert run("refresh", "--root", str(tmp_path)) == 0
     assert run("check", "--root", str(tmp_path)) == 0

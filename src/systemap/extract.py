@@ -23,11 +23,12 @@ import subprocess
 import sys
 import tomllib
 from collections import defaultdict
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from systemap.config import Config
-from systemap.model import Model, is_symbol, module_matches
+from systemap.model import Model, is_symbol, module_matches, public_names
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
 TESTS_KEPT = 25
@@ -133,6 +134,18 @@ def facts_doc() -> str:
     for scope, title in SCOPE_TITLES.items():
         out += ["", f"**{title}**", ""]
         out += [f"- `{name}`: {what}." for sc, name, what in FIELDS if sc == scope]
+    out += [
+        "",
+        "**The extract summary**",
+        "",
+        "The counts `systemap extract` prints, each mapped to a field above, and none of",
+        "them for the map: `modules` counts the records under `components`; `functions`,",
+        "`classes` and `errors` sum each module's field of that name; `tests` sums",
+        "`tests_total`, and the number in a file named after the module `tests_primary`;",
+        "`empty package markers` lists every `__init__` record with no public `names`",
+        "and nothing under `imports` or `external`, which the coverage rule leaves out on",
+        "its own.",
+    ]
     return "\n".join(out) + "\n"
 
 
@@ -766,30 +779,62 @@ def write_facts(path: Path, facts: dict[str, Any]) -> None:
     path.write_text(dumps(facts), encoding="utf-8")
 
 
+def is_empty_marker(record: Mapping[str, Any]) -> bool:
+    """Is one module record an empty package marker?
+
+    An `__init__.py` with no public names and no imports, inside or
+    outside the package: a file that marks a directory as a package and
+    nothing else. It has no place on the map, so the coverage rule leaves
+    it out on its own and the extract summary lists it once; a package
+    root that re-exports its modules, or imports anything, is a module
+    like any other. This is the one definition; the summary and the
+    coverage rule both read it.
+    """
+    if not str(record.get("file", "")).endswith("__init__.py"):
+        return False
+    return not public_names(record) and not record.get("imports") and not record.get("external")
+
+
+def empty_markers(facts: Mapping[str, Any]) -> list[str]:
+    """Every empty package marker in the facts, by name."""
+    return sorted(m for m, r in facts.get("components", {}).items() if is_empty_marker(r))
+
+
 def summary(facts: dict[str, Any]) -> list[str]:
-    """The counts printed after an extract, labelled for what they are.
+    """The counts printed after an extract, labelled by the field each sums.
 
     The map carries no counts (the skill's rule); these feed the change
     detector, and the header says so, so an agent reading the numbers does
-    not copy them onto a card.
+    not copy them onto a card. Each label is a field of the facts file, so
+    the reference maps every word: `modules` counts `components`, the next
+    three sum each module's `functions`, `classes` and `errors`, `tests`
+    sums `tests_total` and `tests_primary`, and the markers are the
+    `__init__` records with no public names and no imports.
     """
     comps = facts["components"]
     guarded = sum(c["tests_total"] for c in comps.values())
     primary = sum(c["tests_primary"] for c in comps.values())
     dirs: list[str] = list(facts.get("tests_dirs", []))
     if guarded:
-        tests = f"{guarded} tests ({primary} primary)"
+        tests = f"{guarded} test functions import a module, {primary} in a file named after it"
     elif dirs:
         # Zero is a finding, not a count: say where the extractor looked, so
         # a tests directory it did not find is set in `tests_dir`.
-        tests = f"no tests import a module; searched {', '.join(dirs)}"
+        tests = f"none import a module; searched {', '.join(dirs)}"
     else:
-        tests = "no tests import a module; no directory named tests or test was found"
-    return [
+        tests = "none import a module; no directory named tests or test was found"
+    out = [
         "facts for the change detector (these never appear on the map):",
         f"  modules:          {len(comps)}",
-        f"  public functions: {sum(len(c['functions']) for c in comps.values())}",
-        f"  types:            {sum(len(c['classes']) for c in comps.values())}",
-        f"  refusals:         {sum(len(c['errors']) for c in comps.values())}",
-        f"  guarded by:       {tests}",
+        f"  functions:        {sum(len(c['functions']) for c in comps.values())}",
+        f"  classes:          {sum(len(c['classes']) for c in comps.values())}",
+        f"  errors:           {sum(len(c['errors']) for c in comps.values())}",
+        f"  tests:            {tests}",
     ]
+    markers = empty_markers(facts)
+    if markers:
+        out.append(
+            f"  empty package markers: {len(markers)} ({', '.join(markers)}); an __init__ with "
+            "no public names and no imports, left out of the coverage rule"
+        )
+    return out

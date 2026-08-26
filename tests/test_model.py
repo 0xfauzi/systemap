@@ -168,6 +168,23 @@ def test_layout_problems_find_lies() -> None:
     assert "region core is not inside sys" in found
 
 
+def test_two_invariants_with_one_number_are_refused_with_both_quoted() -> None:
+    model, _meaning = small_model()
+    doubled = dataclasses.replace(
+        model,
+        invariants=(
+            Invariant(1, "The writer never reads the input.", governs=("A",)),
+            Invariant(2, "Every record is written once.", governs=("B",)),
+            Invariant(1, "Nothing is fetched at run time.", governs=("A",)),
+        ),
+    )
+    assert doubled.layout_problems() == [
+        "invariant 1 is numbered twice: 'The writer never reads the input.' and 'Nothing is "
+        "fetched at run time.'; give each rule its own number"
+    ]
+    assert model.layout_problems() == []
+
+
 def test_meaning_problems_find_gaps() -> None:
     model, meaning = small_model()
     gappy = Meaning(

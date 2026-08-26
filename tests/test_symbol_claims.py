@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import PKG_IGNORE, TWO_CARD_MODEL, write_tree
+from conftest import TWO_CARD_MODEL, write_tree
 
 from systemap import check, extract, judgement
 from systemap.cli import main
@@ -95,8 +95,6 @@ def scaffold(root: Path) -> None:
     write_tree(root, AGENT_FILE)
     assert run("--root", str(root), "init", "--no-ci") == 0
     (root / "map/model.py").write_text(MODEL)
-    toml = root / "systemap.toml"
-    toml.write_text(toml.read_text() + PKG_IGNORE.replace('"pkg"', '"bot"'))
 
 
 def edit(root: Path, old: str, new: str) -> None:
@@ -114,7 +112,7 @@ def test_a_symbol_claim_passes_and_counts_for_no_module(
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
     # Two modules, both claimed by the agent; the tool's symbol adds nothing and takes nothing.
-    assert "coverage: 2 of 3 modules mapped, 1 ignored with a reason" in out
+    assert "coverage: 3 of 3 modules mapped, 1 of them an empty package marker" in out
     assert "map layout: clean (2 cards" in out
     detail = json.loads((tmp_path / "docs/map/map.json").read_text())
     assert {n["name"] for n in detail["components"]["bot.agent"]["names"]} >= {

@@ -183,12 +183,17 @@ MEANING = Meaning(
 ```
 
 The configuration beside it, `systemap.toml`, needs nothing for this
-model to check; one key is worth knowing. A package root module that only
-marks the directory is ignored with a reason:
+model to check. The package root `pkg` is an `__init__.py` with a
+docstring and nothing else: an empty package marker, which `systemap
+extract` lists in its summary and the coverage rule leaves out on its
+own, so the check reports `coverage: 5 of 5 modules mapped, 1 of them an
+empty package marker`. A module that has code and no place on the map is
+ignored with a reason, by name or as a subtree:
 
 ```toml
 [coverage]
 ignore = [
-    { module = "pkg", reason = "the package root only marks the directory as a package" },
+    { module = "pkg.compat", reason = "a shim kept for one release; nothing reaches it" },
+    { module = "pkg.vendor.*", reason = "third-party code carried in the tree" },
 ]
 ```

@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import PKG_IGNORE, Sample, write_tree
+from conftest import Sample, write_tree
 
 from systemap import describe, route, scaffold, skill
 from systemap.check import check_labels
@@ -101,8 +101,6 @@ def test_starter_corridors_route_every_pair_of_regions(
     write_tree(tmp_path, {"pkg/__init__.py": "", **FOUR_MODULES})
     assert run("--root", str(tmp_path), "init", "--no-ci") == 0
     fill_starter(tmp_path / "map/model.py", both_ways)
-    toml = tmp_path / "systemap.toml"
-    toml.write_text(toml.read_text() + PKG_IGNORE)
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out

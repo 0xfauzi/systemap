@@ -116,16 +116,15 @@ def test_worked_example_passes_check(tmp_path: Path, capsys: pytest.CaptureFixtu
         tmp_path,
         {
             "map/model.py": worked_example(),
-            "systemap.toml": (
-                "[coverage]\n"
-                'ignore = [{ module = "pkg", reason = "the package root only marks the directory" }]\n'
-            ),
+            # The configuration the example needs: none. The package root is
+            # an empty package marker the coverage rule leaves out on its own.
+            "systemap.toml": "",
         },
     )
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
     out = capsys.readouterr().out
-    assert "coverage: 4 of 5 modules mapped, 1 ignored with a reason" in out
+    assert "coverage: 5 of 5 modules mapped, 1 of them an empty package marker" in out
     assert "map layout: clean" in out
     assert "stale" not in out
     page = (tmp_path / "docs/map/index.html").read_text()

@@ -28,7 +28,8 @@ What is checked, in order:
                     itself to its labels, so nothing can leave the drawing)
     coverage ...... every module in the facts is claimed by exactly one
                     component, unless the configuration ignores it with a
-                    reason; an incomplete map fails
+                    reason or it is an empty package marker; an incomplete
+                    map fails
     entry ......... every module a component names is in the facts, and the
                     entry it names is a public module-level name one of
                     them defines (a function, a class, an object); the map draws
@@ -275,10 +276,11 @@ class Coverage:
 
     `checked` is false when there were no facts to check against, which is
     itself a failure: a map cannot be called complete against nothing.
-    `total` counts every module in the facts, `ignored` those the
-    configuration takes out of the rule with a reason, and `mapped` how
-    many of the rest exactly one component claims; mapped plus ignored is
-    total when the map is complete, and the total is the extract's.
+    `total` counts every module in the facts and `mapped` how many are
+    accounted for: claimed by exactly one component, taken out of the rule
+    by an ignore with a reason (`ignored`, counted among the mapped), or an
+    empty package marker left out on its own (`markers`, likewise). Mapped
+    is total when the map is complete, and the total is the extract's.
     """
 
     checked: bool
@@ -286,6 +288,7 @@ class Coverage:
     total: int
     ignored: int
     problems: tuple[str, ...]
+    markers: int = 0
 
     @property
     def ok(self) -> bool:
@@ -299,20 +302,31 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     find that code on the page. A module two components claim is a lie in
     the other direction: the page says one thing does it and another thing
     also does it. An ignore in the configuration takes a module out of the
-    first rule, with its reason on record; it never excuses the second. An
-    ignore that matches nothing in the facts is reported too, so a stale
-    entry cannot quietly outlive the module it named.
+    first rule, with its reason on record, by exact name or as `pkg.sub.*`
+    for a subtree; it never excuses the second. An empty package marker
+    (an `__init__` with no public names and no imports) is left out of
+    the first rule on its own. An ignore that matches nothing in the facts
+    is reported, so a stale entry cannot quietly outlive the module it
+    named, and so is one that names only markers, which is not needed.
     """
     if not facts:
         return Coverage(False, 0, 0, 0, ("no facts to check coverage against",))
-    modules = sorted(facts.get("components", {}))
+    components = facts.get("components", {})
+    modules = sorted(components)
+    markers = {m for m in modules if extract.is_empty_marker(components[m])}
     ignore_list = list(ignores)
     problems: list[str] = []
     for ignore in ignore_list:
-        if not any(module_matches(ignore.module, m) for m in modules):
+        matched = [m for m in modules if module_matches(ignore.module, m)]
+        if not matched:
             problems.append(f"ignore names a module the facts do not have: {ignore.module}")
+        elif all(m in markers for m in matched):
+            problems.append(
+                f"ignore is not needed: {ignore.module} is an empty package marker, left out "
+                "of the coverage rule on its own; remove the entry"
+            )
     ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
-    mapped = 0
+    mapped = n_ignored = n_markers = 0
     for m in modules:
         owners = [
             c.id for c in model.components if any(module_matches(p, m) for p in c.implemented_by)
@@ -320,13 +334,17 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
         if len(owners) > 1:
             times = "twice" if len(owners) == 2 else f"{len(owners)} times"
             problems.append(f"claimed {times}: {m} ({', '.join(owners)})")
-        elif m in ignored:
-            continue
-        elif not owners:
-            problems.append(f"unmapped: {m} (no component claims it)")
-        else:
+        elif owners:
             mapped += 1
-    return Coverage(True, mapped, len(modules), len(ignored), tuple(problems))
+        elif m in markers:
+            mapped += 1
+            n_markers += 1
+        elif m in ignored:
+            mapped += 1
+            n_ignored += 1
+        else:
+            problems.append(f"unmapped: {m} (no component claims it)")
+    return Coverage(True, mapped, len(modules), n_ignored, tuple(problems), n_markers)
 
 
 # ---- entry: a card is code that exists today ----------------------------------
@@ -621,6 +639,18 @@ def _plural(n: int, noun: str) -> str:
     return f"{n} {noun}{'s' if n != 1 else ''}"
 
 
+def coverage_line(cov: Coverage) -> str:
+    """`coverage: 144 of 144 modules mapped, 5 of them ignored with a reason,
+    9 of them empty package markers`: the mapped count includes both."""
+    line = f"coverage: {cov.mapped} of {cov.total} modules mapped"
+    if cov.ignored:
+        line += f", {cov.ignored} of them ignored with a reason"
+    if cov.markers:
+        noun = "an empty package marker" if cov.markers == 1 else "empty package markers"
+        line += f", {cov.markers} of them {noun}"
+    return line
+
+
 def report(model: Model, result: Result, model_file: str = "the model") -> list[str]:
     """The lines the CLI prints for one check run: each failing rule with
     its findings and the fix under them."""
@@ -631,8 +661,7 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
     ]
     cov = result.coverage
     if cov.checked:
-        ignored = f", {cov.ignored} ignored with a reason" if cov.ignored else ""
-        out.append(f"coverage: {cov.mapped} of {cov.total} modules mapped{ignored}")
+        out.append(coverage_line(cov))
         out += [f"  {line}" for line in cov.problems]
         if cov.problems:
             out.append(

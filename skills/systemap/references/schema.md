@@ -56,8 +56,24 @@ with none shows no signature.
 `implemented_by` names the modules that are it: a module exactly
 (`"pkg.reader"`) or a package followed by `.*` (`"pkg.ui.*"`) for the
 package and everything beneath it. Every module named must be in the facts,
-and every module in the facts must be claimed by exactly one component (or
-ignored with a reason under `[coverage]` in `systemap.toml`).
+and every module in the facts must be claimed by exactly one component, or
+ignored with a reason under `[coverage]` in `systemap.toml`, by exact name
+or as a subtree with the same `.*` form:
+
+```toml
+[coverage]
+ignore = [
+    { module = "pkg.compat", reason = "a shim with no place on the map" },
+    { module = "pkg.vendor.*", reason = "third-party code carried in the tree" },
+]
+```
+
+An `__init__.py` with no public names and no imports the facts record (the
+package's own modules, or third-party ones) is an empty package marker: `systemap extract` lists every one in its summary, and the
+coverage rule leaves them out on its own, so they need no ignore (an
+ignore that names only markers is refused as not needed). The coverage
+line counts them among the mapped: `coverage: 144 of 144 modules mapped,
+5 of them ignored with a reason, 9 of them empty package markers`.
 
 A third form claims one public name inside a module another card owns:
 `"pkg.mod:name"`, a symbol claim, for a part that lives in its neighbour's
@@ -83,7 +99,18 @@ capability an agent invokes; notched corner) or `context` (a store whose
 content enters an agent's window; dotted). `region` places anything but an
 actor; `container` places an actor. `x` and `y` are the card's top-left
 corner; cards are 150 wide, and 56 tall (52 for a store or a context card,
-44 for an actor). `note` is a caveat the reader sees: the panel shows it
+44 for an actor).
+
+The card has a text budget, and the check refuses what does not fit rather
+than cutting it: the `id` fits about 20 characters on one line (a
+component, agent or tool card wraps a longer CamelCase name over two lines
+at its words; a store, a context card and an actor do not), and the plain
+word about 26 characters per line, on two lines for a component, store,
+context, agent or tool card and one for an actor (one for a component under
+a two-line name). The refusal states the budget: `actor cards fit about 26
+characters on one line; this one has 34`. Nothing on the map is elided.
+
+`note` is a caveat the reader sees: the panel shows it
 as a line under the signature, and the card carries a dot in its top
 corner on the map and in every figure, with the note as its hover text.
 
@@ -103,8 +130,9 @@ needs a sentence in `relations`.
 
 A numbered rule the repository states about itself, with its source in the
 text (a file and line, or a document heading), and the ids of the
-components it directly governs. The page lists invariants and the panel of
-a governed component points at them.
+components it directly governs. Each rule has its own number; the check
+refuses two rules with one number, quoting both. The page lists invariants
+and the panel of a governed component points at them.
 
 ## Journey
 
@@ -151,16 +179,18 @@ when the reader clicks the source and the verb when they click the target
 Placement: a card outside its band, two cards overlapping, a region outside
 its container, a flow naming an unknown component or a kind that is neither
 standard nor declared, a context or tool flow whose agent end is not an
-agent, an invariant governing an unknown id. Routes: an edge through a card
-it does not connect or across a band it neither starts nor ends in. Labels:
-a label touching a card, a header or another label (both labels named), a
-container or region header wider than its box or a `sub` that needs more
-than two lines, a header touching a card. Type size: anything below 11px.
-Meaning: a flow with no sentence or no layer, a component with no plain
-word, a journey step naming an unknown id or edge, an override naming an
-unknown edge, a custom layer taking a standard id. Wheel: a relationship
-wheel whose labels touch each other or the centre. Coverage: a
-module claimed by nobody or by two. Entry: a module not in the facts, an
+agent, an invariant governing an unknown id, two invariants with one
+number. Routes: an edge through a card it does not connect or across a
+band it neither starts nor ends in. Labels: a label touching a card, a
+header or another label (both labels named), a container or region header
+wider than its box or a `sub` that needs more than two lines, a header
+touching a card, a card whose name or plain word does not fit its budget.
+Type size: anything below 11px. Meaning: a flow with no sentence or no
+layer, a component with no plain word, a journey step naming an unknown id
+or edge, an override naming an unknown edge, a custom layer taking a
+standard id. Wheel: a relationship wheel whose labels touch each other or
+the centre. Coverage: a module claimed by nobody or by two, an ignore
+naming no module or only empty package markers. Entry: a module not in the facts, an
 entry not defined, a component with no module. Interface: a line that
 starts with a name none of the component's modules defines, or
 `Class.method` where the class has no such public method. Stale: facts,
@@ -209,3 +239,13 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `name`: the script name, the `python -m` line, `main`, the subcommand word, or the function name.
 - `module`: the module that defines it.
 - `target`: the function a console script names, or the console script a subcommand belongs to; else empty.
+
+**The extract summary**
+
+The counts `systemap extract` prints, each mapped to a field above, and none of
+them for the map: `modules` counts the records under `components`; `functions`,
+`classes` and `errors` sum each module's field of that name; `tests` sums
+`tests_total`, and the number in a file named after the module `tests_primary`;
+`empty package markers` lists every `__init__` record with no public `names`
+and nothing under `imports` or `external`, which the coverage rule leaves out on
+its own.

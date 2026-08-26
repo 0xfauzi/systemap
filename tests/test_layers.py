@@ -15,12 +15,12 @@ import re
 from pathlib import Path
 
 import pytest
-from conftest import PKG_IGNORE, TWO_CARD_MODEL, Sample, sample_model, write_tree
+from conftest import TWO_CARD_MODEL, Sample, sample_model, write_tree
 
 from systemap import check, page
 from systemap import theme as theme_mod
 from systemap.cli import main
-from systemap.config import Config, Ignore
+from systemap.config import Config
 from systemap.extract import build as build_facts
 from systemap.model import (
     Component,
@@ -146,12 +146,7 @@ def agent_model() -> tuple[Model, Meaning]:
 @pytest.fixture
 def agentic(tmp_path: Path) -> Sample:
     write_tree(tmp_path, AGENT_TREE)
-    cfg = Config(
-        root=tmp_path,
-        name="bot",
-        package_roots=(("bot", "bot"),),
-        coverage_ignore=(Ignore("bot", "the package root only marks the directory"),),
-    )
+    cfg = Config(root=tmp_path, name="bot", package_roots=(("bot", "bot"),))
     model, meaning = agent_model()
     facts = build_facts(cfg)
     return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)
@@ -211,8 +206,6 @@ def test_standard_kinds_need_no_declaration(tmp_path: Path) -> None:
     assert "LAYERS: tuple[Layer, ...] = ()" in text
     assert 'Flow("Reader", "Writer", "request", "data")' in TWO_CARD_MODEL
     (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
-    toml = tmp_path / "systemap.toml"
-    toml.write_text(toml.read_text() + PKG_IGNORE)
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
     html = (tmp_path / "docs/map/index.html").read_text()

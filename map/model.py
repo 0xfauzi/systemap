@@ -363,9 +363,9 @@ MODEL = Model(
 # ---- meaning: the plain words, the layers, one sentence per flow ---------
 
 PLAIN = {
-    "Agent": "the coding agent that draws the map",
-    "CI": "the runner that refuses a stale map",
-    "Maintainer": "the person who confirms the judgement",
+    "Agent": "the agent that draws",
+    "CI": "the runner that refuses",
+    "Maintainer": "the person who confirms",
     "CLI": "the commands",
     "Scaffold": "what init writes",
     "Config": "the configuration",
