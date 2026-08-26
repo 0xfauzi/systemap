@@ -16,3 +16,7 @@ table is the measurement; the README quotes it, not the targets.
 | repository | mode | modules | systemap | model | turns | minutes | dollars | dollars per module | check | judgement | run | skill first | date |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | a 144-module service (private) | first-map | 144 | 0.8.0 | claude-opus-5[1m] | 155 | 31.9 | 25.49 | 0.177 | clean | clean | finished | yes | 2026-08-26 |
+| https://github.com/0xfauzi/kstrl | first-map | 111 | 0.9.0 | claude-opus-5[1m] | 112 | 34.1 | 17.61 | 0.159 | clean | clean | finished | yes | 2026-08-26 |
+| https://github.com/Textualize/rich | first-map | 103 | 0.9.0 | claude-opus-5[1m] | 118 | 26.7 | 14.37 | 0.14 | clean | clean | finished | yes | 2026-08-26 |
+| https://github.com/paperless-ngx/paperless-ngx | first-map | 341 | 0.9.0 | claude-opus-5[1m] | 151 | 36 | 24.24 | 0.071 | clean | clean | finished | yes | 2026-08-26 |
+| https://github.com/python-poetry/poetry | first-map | 192 | 0.9.0 | claude-opus-5[1m] | 174 | 35.9 | 20.82 | 0.108 | clean | clean | finished | yes | 2026-08-26 |
