@@ -70,6 +70,7 @@ from systemap.model import (
     reading,
 )
 from systemap.route import path_d, place_labels, route_all
+from systemap.theme import Palette
 
 CARD_W = 150.0
 RADIUS = 4.0
@@ -185,21 +186,6 @@ def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], li
     return name_lines, plain_lines, problems
 
 
-def _rgb(colour: str) -> tuple[int, int, int]:
-    c = colour.lstrip("#")
-    return int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
-
-
-def mix(a: str, b: str, t: float) -> str:
-    """a towards b by t."""
-    ra, ga, ba = _rgb(a)
-    rb, gb, bb = _rgb(b)
-    r = round(ra + (rb - ra) * t)
-    g = round(ga + (gb - ga) * t)
-    bl = round(ba + (bb - ba) * t)
-    return f"#{r:02X}{g:02X}{bl:02X}"
-
-
 def _file_of(claim: str) -> str:
     """The file one claim names, and the symbol after a colon for a symbol claim."""
     module, _, name = claim.partition(":")
@@ -231,30 +217,44 @@ def lives_in(modules: list[str]) -> str:
     return "/".join(common) + f"/ ({len(modules)} modules)"
 
 
-def legend_rows(t: dict[str, Any], mode: str) -> list[tuple[str, str, str]]:
-    """(fill, stroke, label) for the legend the given mode needs."""
+def legend_rows(
+    t: dict[str, Any], mode: str, variables: bool = False
+) -> list[tuple[str, str, str]]:
+    """(fill, stroke, label) for the legend the given mode needs.
+
+    `variables` writes each colour as `var(--token)`, for the page; a
+    figure takes the literals.
+    """
+    P = Palette(t, variables)
     if mode == "change":
-        d = t["delta"]
-        return [
-            (mix(t["bg"], t["change"], 0.14), t["change"], "changed here"),
-            (mix(t["bg"], t["reach"], 0.12), t["reach"], "reached by it"),
-            (t["ghost"][0], t["ghost"][1], "untouched"),
-            (d["operations"], d["operations"], "new operations"),
-            (d["types"], d["types"], "new types"),
-            (d["refusals"], d["refusals"], "new refusals"),
-            (d["tests"], d["tests"], "new tests"),
+        ghost_fill, ghost_stroke = P.ghost()
+        rows = [
+            (P.changed_fill(), P["change"], "changed here"),
+            (P.reach_fill(), P["reach"], "reached by it"),
+            (ghost_fill, ghost_stroke, "untouched"),
         ]
-    return [(f, s, label) for f, s, label in t["state"].values()]
+        for key, label in (
+            ("operations", "new operations"),
+            ("types", "new types"),
+            ("refusals", "new refusals"),
+            ("tests", "new tests"),
+        ):
+            rows.append((P.delta(key), P.delta(key), label))
+        return rows
+    return [P.state(name) for name in t["state"]]
 
 
-def layer_rows(t: dict[str, Any], model: Model, meaning: Meaning) -> list[tuple[str, str, str]]:
+def layer_rows(
+    t: dict[str, Any], model: Model, meaning: Meaning, variables: bool = False
+) -> list[tuple[str, str, str]]:
     """(id, colour, label) for every layer that draws a line, in layer order.
 
     Structure draws no edges, so its colour would be a swatch of nothing;
     it is left out of the legend.
     """
+    P = Palette(t, variables)
     return [
-        (layer.id, t["layers"][layer.id], layer.label)
+        (layer.id, P.layer(layer.id), layer.label)
         for layer in all_layers(model, meaning)
         if layer.id != "structure"
     ]
@@ -267,7 +267,7 @@ def kind_rows(t: dict[str, Any], model: Model) -> list[tuple[str, str]]:
     return [(kind, marks[kind]) for kind in AGENT_KINDS if kind in present and kind in marks]
 
 
-def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
+def _svg_style(svg_id: str, t: Palette) -> str:
     """Interaction states, scoped to one figure so two on a page cannot leak."""
     s = f"#{svg_id}"
     return (
@@ -316,14 +316,14 @@ def _svg_style(svg_id: str, t: dict[str, Any]) -> str:
     )
 
 
-def _defs(svg_id: str, t: dict[str, Any]) -> str:
+def _defs(svg_id: str, t: Palette) -> str:
     """Arrowheads: one per layer colour, plus the change-map colours.
 
     Sized in user units so a thick focused edge and a hairline ghost edge
     carry the same head; the thickness is the emphasis, the head is the
     direction.
     """
-    heads = dict(t["layers"])
+    heads = {lid: t.layer(lid) for lid in t.t["layers"]}
     heads["change"] = t["change"]
     heads["reach"] = t["reach"]
     out = ["<defs>"]
@@ -460,6 +460,7 @@ def render(
     layer: str = "",
     observed_by: Iterable[str] = (),
     opens: Mapping[str, Mapping[str, Any]] | None = None,
+    variables: bool = False,
 ) -> tuple[str, str]:
     """(svg, json detail).
 
@@ -489,6 +490,10 @@ def render(
     alone, and one with a path gets the button that opens the map in
     place, which the page answers.
 
+    `variables` writes every colour as `var(--token)` (theme.Palette): the
+    page carries the tables and switches them at runtime. A figure that
+    leaves the page takes the literals.
+
     The detail JSON carries one record per component (what the focus panel
     shows) plus a `_meta` key: the layers, every edge with its verbs and its
     sentence, the rules, the regions, and the edge labels the collision pass
@@ -503,13 +508,14 @@ def render(
     change_mode = mode == "change"
 
     T = t
+    P = Palette(t, variables)
     COMPONENTS = model.components
     FLOWS = [(f.src, f.dst, f.artifact, f.kind) for f in model.flows]
     CANVAS = model.canvas
-    INK, INK_3 = T["ink"], T["ink_3"]
-    HALO = T["bg"]
-    GHOST_FILL, GHOST_STROKE = T["ghost"]
-    LAYER_COLOUR: dict[str, str] = T["layers"]
+    INK, INK_3 = P["ink"], P["ink_3"]
+    HALO = P["bg"]
+    GHOST_FILL, GHOST_STROKE = P.ghost()
+    LAYER_COLOUR: dict[str, str] = {lid: P.layer(lid) for lid in T["layers"]}
     MARKS: dict[str, str] = T.get("marks") or {}
     LAYERS = all_layers(model, meaning)
     # Which edges and which cards each reading shows, decided once here and
@@ -554,7 +560,7 @@ def render(
     def text_css() -> str:
         rules: list[str] = []
         for (size, colour, weight, mono, anchor, spacing, halo), cls in text_styles.items():
-            family = T["font_mono"] if mono else T["font_ui"]
+            family = P["font_mono"] if mono else P["font_ui"]
             rule = (
                 f"font-family:{family};font-size:{size}px;font-weight:{weight};"
                 f"fill:{colour};text-anchor:{anchor}"
@@ -591,9 +597,9 @@ def render(
     collisions = list(geo.collisions)
     for box in model.containers:
         x, y, w, h = box.box
-        stroke, fill = T["container"][box.tone]
+        stroke, fill = P.container(box.tone)
         if change_mode:
-            stroke, fill = T["line"], T["bg"]
+            stroke, fill = P["line"], P["bg"]
         _header, sub_lines, _unfit = container_header(box)
         floor.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
@@ -610,13 +616,13 @@ def render(
         x, y, w, h = region.box
         zones.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" fill="none" '
-            f'stroke="{T["region"]}" stroke-opacity=".28" stroke-width="1" '
+            f'stroke="{P["region"]}" stroke-opacity=".28" stroke-width="1" '
             f'stroke-dasharray="3 4"/>'
             f'<g class="zone__h" data-zone="{esc(region.id)}">'
             f'<circle cx="{x + 17:.0f}" cy="{y + 16:.0f}" r="8.5" fill="{HALO}" '
-            f'stroke="{T["region"]}" stroke-opacity=".5"/>'
-            + L(x + 17, y + 20, str(i), TEXT_PX, T["region"], "600", True)
-            + L(x + 31, y + 20, region.label, TEXT_PX, T["region"], "600", True, "start", ".13em")
+            f'stroke="{P["region"]}" stroke-opacity=".5"/>'
+            + L(x + 17, y + 20, str(i), TEXT_PX, P["region"], "600", True)
+            + L(x + 31, y + 20, region.label, TEXT_PX, P["region"], "600", True, "start", ".13em")
             + "</g>"
         )
 
@@ -678,7 +684,7 @@ def render(
         if reading_hue:
             colour, marker = LAYER_COLOUR[reading_hue], reading_hue
         if art_hot:
-            colour, marker = T["change"], "change"
+            colour, marker = P["change"], "change"
         fid = f"{svg_id}-f{i}"
         ev = backed[(src, dst)]
         # A declared edge is dashed: the map says so and the code does not.
@@ -719,17 +725,17 @@ def render(
         cid = c.id
         kind = c.kind
         state = states[cid]
-        fill, stroke, state_label = T["state"][state]
+        fill, stroke, state_label = P.state(state)
         if kind == "actor":
-            fill, stroke = mix(T["bg"], T["line_2"], 0.35), INK_3
+            fill, stroke = P.actor()
         moved, near = cid in changed, cid in adjacent
         tier = "moved" if moved else ("near" if near else "far")
         if change_mode and tier == "far":
             fill, stroke = GHOST_FILL, GHOST_STROKE
         if change_mode and moved:
-            stroke = T["change"]
+            stroke = P["change"]
         elif change_mode and near:
-            stroke = T["reach"]
+            stroke = P["reach"]
         subject = marks_reading and cid in subjects
         quiet = marks_reading and not subject and cid not in reached
         if subject and layer:
@@ -828,11 +834,11 @@ def render(
                 seg = (w - 2) * n / total
                 g.append(
                     f'<rect x="{x + 1 + pos:.1f}" y="{y + 1}" '
-                    f'width="{seg:.1f}" height="2.5" fill="{T["delta"][key]}"/>'
+                    f'width="{seg:.1f}" height="2.5" fill="{P.delta(key)}"/>'
                 )
                 pos += seg
             g.append(
-                f'<circle cx="{x + 12}" cy="{y - 1}" r="10" fill="{T["change"]}"/>'
+                f'<circle cx="{x + 12}" cy="{y - 1}" r="10" fill="{P["change"]}"/>'
                 + L(x + 12, y + 3, f"+{sum(delta.values())}", TEXT_PX, HALO, "600", True)
             )
         elif change_mode and moved:
@@ -842,7 +848,7 @@ def render(
                     y - 5,
                     "IN REACH" if not changed_modules else "CHANGED INSIDE",
                     TEXT_PX,
-                    T["change"],
+                    P["change"],
                     "600",
                     True,
                     "middle",
@@ -931,6 +937,7 @@ def render(
                     "question": lay.question,
                     "sub": lay.sub,
                     "colour": LAYER_COLOUR[lay.id],
+                    "tag": P.tag(lay.id),
                     "derived": lay.id in DERIVED_LAYERS,
                 }
                 for lay in LAYERS
@@ -993,8 +1000,8 @@ def render(
         f'preserveAspectRatio="xMidYMid meet" tabindex="0" role="application" '
         f'aria-label="{esc(what)}">'
         f"<title>{esc(title)}</title>",
-        _defs(svg_id, T),
-        _svg_style(svg_id, T),
+        _defs(svg_id, P),
+        _svg_style(svg_id, P),
     ]
     # Everything drawn sits in one group the script pans and zooms with a
     # transform; the viewBox never changes, so every coordinate read back from
@@ -1016,94 +1023,97 @@ def render(
     return "".join(p), json.dumps({**detail, **meta}, ensure_ascii=False)
 
 
-def panel_css(t: dict[str, Any]) -> str:
+def panel_css(t: dict[str, Any], variables: bool = False) -> str:
     """Styles for the focus panel the interactive script writes into.
 
     Shared by the map page and a lesson figure, so a component reads the
     same in both. Class names are prefixed so a host page's own styles are
-    never caught by accident.
+    never caught by accident. `variables` names the tokens, for the page.
     """
+    P = Palette(t, variables)
     return (
-        f".systemap-panel{{font-family:{t['font_ui']};font-size:13px;line-height:1.45;"
-        f"color:{t['ink_2']};background:{t['surface']};border:1px solid {t['line']};"
+        f".systemap-panel{{font-family:{P['font_ui']};font-size:13px;line-height:1.45;"
+        f"color:{P['ink_2']};background:{P['surface']};border:1px solid {P['line']};"
         "border-radius:8px;padding:.9rem 1rem 1rem;min-height:3rem}"
         f".systemap-panel:empty::before{{content:'Click a component to read it.';"
-        f"color:{t['ink_3']}}}"
-        f".systemap-f__plain{{font-size:19px;font-weight:600;color:{t['ink']};"
+        f"color:{P['ink_3']}}}"
+        f".systemap-f__plain{{font-size:19px;font-weight:600;color:{P['ink']};"
         "letter-spacing:-.01em;line-height:1.2;margin:0}"
-        f".systemap-f__code{{font-family:{t['font_mono']};font-size:12px;color:{t['accent']};"
+        f".systemap-f__code{{font-family:{P['font_mono']};font-size:12px;color:{P['accent']};"
         "margin:.3rem 0 0;display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline}"
-        f".systemap-f__kind{{color:{t['ink_3']};font-size:11px;letter-spacing:.06em;"
+        f".systemap-f__kind{{color:{P['ink_3']};font-size:11px;letter-spacing:.06em;"
         "text-transform:uppercase}"
-        f".systemap-f__does{{margin:.6rem 0 .2rem;font-size:13px;color:{t['ink_2']}}}"
+        f".systemap-f__does{{margin:.6rem 0 .2rem;font-size:13px;color:{P['ink_2']}}}"
         # The card's one-line signature, then the caveat, before the wheel.
-        f".systemap-f__iface{{margin:.3rem 0 .2rem;font-family:{t['font_mono']};"
-        f"font-size:11.5px;color:{t['ink_2']};word-break:break-word}}"
+        f".systemap-f__iface{{margin:.3rem 0 .2rem;font-family:{P['font_mono']};"
+        f"font-size:11.5px;color:{P['ink_2']};word-break:break-word}}"
         f".systemap-f__note{{margin:.5rem 0 .2rem;padding:.4rem .6rem;font-size:12.5px;"
-        f"color:{t['ink']};border-left:3px solid {t['warn']};background:{t['raised']};"
+        f"color:{P['ink']};border-left:3px solid {P['warn']};background:{P['raised']};"
         "border-radius:0 6px 6px 0}"
         ".systemap-f__wheel{margin:.4rem 0 0}"
         ".systemap-f__wheel svg{width:100%;height:auto;display:block;margin:0 auto}"
         f".systemap-f__say{{margin:.2rem 0 .6rem;padding:.55rem .7rem;font-size:13px;"
-        f"line-height:1.45;color:{t['ink']};border-left:3px solid {t['accent']};"
-        f"background:{t['raised']};border-radius:0 6px 6px 0;min-height:2.6rem}}"
-        f".systemap-f__say.muted{{color:{t['ink_3']};border-left-color:{t['line_2']}}}"
+        f"line-height:1.45;color:{P['ink']};border-left:3px solid {P['accent']};"
+        f"background:{P['raised']};border-radius:0 6px 6px 0;min-height:2.6rem}}"
+        f".systemap-f__say.muted{{color:{P['ink_3']};border-left-color:{P['line_2']}}}"
         # The evidence line under the sentence: what the facts say about the edge.
-        f".systemap-f__evidence{{margin:-.3rem 0 .6rem;font-family:{t['font_mono']};"
-        f"font-size:11px;color:{t['ink_3']};min-height:1em}}"
-        f".systemap-f__evidence.declared{{color:{t['warn']}}}"
+        f".systemap-f__evidence{{margin:-.3rem 0 .6rem;font-family:{P['font_mono']};"
+        f"font-size:11px;color:{P['ink_3']};min-height:1em}}"
+        f".systemap-f__evidence.declared{{color:{P['warn']}}}"
         ".systemap-f__chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}"
         f".systemap-chip{{display:inline-flex;align-items:center;gap:.35em;min-height:24px;"
-        f"padding:0 .55em;border-radius:4px;font-family:{t['font_mono']};font-size:11px;"
-        f"letter-spacing:.04em;background:{t['raised']};color:{t['ink_3']};"
-        f"border:1px solid {t['line']}}}"
-        f".systemap-chip--built{{color:{t['good']};border-color:transparent}}"
-        f".systemap-chip--actor{{color:{t['ink_3']};background:none;"
-        f"border:1px dashed {t['line_2']}}}"
-        f".systemap-chip a{{color:{t['accent']};text-decoration:none}}"
+        f"padding:0 .55em;border-radius:4px;font-family:{P['font_mono']};font-size:11px;"
+        f"letter-spacing:.04em;background:{P['raised']};color:{P['ink_3']};"
+        f"border:1px solid {P['line']}}}"
+        f".systemap-chip--built{{color:{P['good']};border-color:transparent}}"
+        f".systemap-chip--actor{{color:{P['ink_3']};background:none;"
+        f"border:1px dashed {P['line_2']}}}"
+        f".systemap-chip a{{color:{P['accent']};text-decoration:none}}"
         ".systemap-chip a:hover{text-decoration:underline}"
-        f".systemap-chip--rule{{color:{t['violet']};cursor:help;min-width:24px;"
+        f".systemap-chip--rule{{color:{P['violet']};cursor:help;min-width:24px;"
         "justify-content:center}"
-        f".systemap-f__lives{{margin:.6rem 0 0;font-family:{t['font_mono']};font-size:11px;"
-        f"color:{t['ink_3']}}}"
-        f".systemap-f__lives b{{font-weight:400;color:{t['ink_3']}}}"
-        f".systemap-f__entry{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
-        f"color:{t['ink_3']}}}"
-        f".systemap-f__entry b{{font-weight:400;color:{t['ink_2']}}}"
+        f".systemap-f__lives{{margin:.6rem 0 0;font-family:{P['font_mono']};font-size:11px;"
+        f"color:{P['ink_3']}}}"
+        f".systemap-f__lives b{{font-weight:400;color:{P['ink_3']}}}"
+        f".systemap-f__entry{{margin:.4rem 0 0;font-family:{P['font_mono']};font-size:11px;"
+        f"color:{P['ink_3']}}}"
+        f".systemap-f__entry b{{font-weight:400;color:{P['ink_2']}}}"
         # The map a card opens: its name and how many cards it holds, then on
         # a page its preview and the button that opens it in place.
-        f".systemap-f__opens{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
-        f"color:{t['ink_3']}}}"
-        f".systemap-f__opens b{{font-weight:400;color:{t['ink_2']}}}"
-        f".systemap-f__preview{{margin:.5rem 0 0;border:1px solid {t['line']};border-radius:6px;"
-        f"overflow:hidden;background:{t['bg']}}}"
+        f".systemap-f__opens{{margin:.4rem 0 0;font-family:{P['font_mono']};font-size:11px;"
+        f"color:{P['ink_3']}}}"
+        f".systemap-f__opens b{{font-weight:400;color:{P['ink_2']}}}"
+        f".systemap-f__preview{{margin:.5rem 0 0;border:1px solid {P['line']};border-radius:6px;"
+        f"overflow:hidden;background:{P['bg']}}}"
         ".systemap-f__preview svg{width:100%;height:auto;display:block}"
         f".systemap-f__open{{appearance:none;display:block;margin:.5rem 0 0;min-height:30px;"
-        f"padding:0 .8rem;border-radius:6px;border:1px solid {t['accent']};background:none;"
-        f"color:{t['accent']};font-family:{t['font_ui']};font-size:12.5px;cursor:pointer}}"
-        f".systemap-f__open:hover{{background:{t['raised']}}}"
+        f"padding:0 .8rem;border-radius:6px;border:1px solid {P['accent']};background:none;"
+        f"color:{P['accent']};font-family:{P['font_ui']};font-size:12.5px;cursor:pointer}}"
+        f".systemap-f__open:hover{{background:{P['raised']}}}"
         # The wheel
         f".systemap-w__spoke{{cursor:pointer;outline:none}}"
         ".systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}"
         ".systemap-w__line{fill:none;stroke-width:1.5;transition:stroke-width .12s ease}"
-        f".systemap-w__verb{{font-family:{t['font_ui']};font-size:11px;font-weight:500;"
-        f"text-anchor:middle;paint-order:stroke;stroke:{t['surface']};stroke-width:5;"
+        f".systemap-w__verb{{font-family:{P['font_ui']};font-size:11px;font-weight:500;"
+        f"text-anchor:middle;paint-order:stroke;stroke:{P['surface']};stroke-width:5;"
         "stroke-linejoin:round;pointer-events:none}"
-        f".systemap-w__name{{font-family:{t['font_mono']};font-size:11px;font-weight:600;"
-        f"fill:{t['ink']};pointer-events:none}}"
-        f".systemap-w__centre rect{{fill:{t['raised']};stroke:{t['accent']};stroke-width:1.6}}"
-        f".systemap-w__centre text{{font-family:{t['font_mono']};font-size:12px;font-weight:600;"
-        f"fill:{t['ink']};text-anchor:middle}}"
+        f".systemap-w__name{{font-family:{P['font_mono']};font-size:11px;font-weight:600;"
+        f"fill:{P['ink']};pointer-events:none}}"
+        f".systemap-w__centre rect{{fill:{P['raised']};stroke:{P['accent']};stroke-width:1.6}}"
+        f".systemap-w__centre text{{font-family:{P['font_mono']};font-size:12px;font-weight:600;"
+        f"fill:{P['ink']};text-anchor:middle}}"
         ".systemap-w__spoke.peek .systemap-w__line,.systemap-w__spoke:hover .systemap-w__line,"
         ".systemap-w__spoke:focus-visible .systemap-w__line{stroke-width:3.2}"
         f".systemap-w__spoke.peek .systemap-w__name,.systemap-w__spoke:hover .systemap-w__name,"
-        f".systemap-w__spoke:focus-visible .systemap-w__name{{fill:{t['accent']}}}"
-        f".systemap-w__empty{{font-family:{t['font_ui']};font-size:12px;fill:{t['ink_3']};"
+        f".systemap-w__spoke:focus-visible .systemap-w__name{{fill:{P['accent']}}}"
+        f".systemap-w__empty{{font-family:{P['font_ui']};font-size:12px;fill:{P['ink_3']};"
         "text-anchor:middle}"
     )
 
 
-def interactive_script(t: dict[str, Any], svg_id: str, panel_id: str, detail_json: str) -> str:
+def interactive_script(
+    t: dict[str, Any], svg_id: str, panel_id: str, detail_json: str, variables: bool = False
+) -> str:
     """The one script that makes a figure operable. Plain DOM, no libraries.
 
     Clicking a component (or pressing Enter on it) dims everything but the
@@ -1120,7 +1130,8 @@ def interactive_script(t: dict[str, Any], svg_id: str, panel_id: str, detail_jso
     on top through `svg.systemap`.
 
     The detail JSON is inlined; `</` is broken up so no artifact label can
-    close the script early.
+    close the script early. `variables` names the one colour the script
+    reads from the theme (the ink a verb falls back to) as its token.
     """
     # The layout audit (label boxes, card boxes) is for checkers, not the
     # page; it is dropped from the inlined copy to keep a figure small.
@@ -1131,16 +1142,7 @@ def interactive_script(t: dict[str, Any], svg_id: str, panel_id: str, detail_jso
     meta.pop("paths", None)
     parsed["_meta"] = meta
     data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    palette = json.dumps(
-        {
-            "accent": t["accent"],
-            "steel": t["steel"],
-            "surface": t["surface"],
-            "raised": t["raised"],
-            "bg": t["bg"],
-            "ink": t["ink"],
-        }
-    )
+    palette = json.dumps({"ink": Palette(t, variables)["ink"]})
     return (
         "<script>(function(){\n"
         f"var DETAIL = {data};\n"
@@ -1159,8 +1161,11 @@ var LAYERS = META.layers || [];
 var EDGES = META.edges || [];
 var RULES = {};
 (META.rules || []).forEach(function(r){ RULES[r.n] = r.text; });
-var LCOL = {}, LORD = {}, LAYER_AT = {};
-LAYERS.forEach(function(l, i){ LCOL[l.id] = l.colour; LORD[l.id] = i; LAYER_AT[l.id] = l; });
+// A layer's colour and its verb tag's fill, both from the theme (on the
+// page, as the tokens the root block carries).
+var LCOL = {}, LTAG = {}, LORD = {}, LAYER_AT = {};
+LAYERS.forEach(function(l, i){
+  LCOL[l.id] = l.colour; LTAG[l.id] = l.tag; LORD[l.id] = i; LAYER_AT[l.id] = l; });
 // Which edges and which cards each reading shows, decided in Python
 // (systemap.model.reading) and carried in the detail, so the page's layer
 // switch and a figure of one layer read the same table.
@@ -1176,17 +1181,6 @@ EDGES.forEach(function(e, i){ EDGE_AT[e.from + '>' + e.to] = i; });
 var NS = 'http://www.w3.org/2000/svg';
 function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-function mix(a, b, t){
-  function rgb(h){
-    h = h.replace('#', '');
-    return [0, 2, 4].map(function(i){ return parseInt(h.substr(i, 2), 16); });
-  }
-  var x = rgb(a), y = rgb(b);
-  return '#' + x.map(function(v, i){
-    var m = Math.round(v + (y[i] - v) * t);
-    return ('0' + m.toString(16)).slice(-2);
-  }).join('');
-}
 var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
 var flows = Array.prototype.slice.call(svg.querySelectorAll('.flow'));
 var labels = Array.prototype.slice.call(svg.querySelectorAll('.flowlbl'));
@@ -1562,16 +1556,16 @@ function paint(){
 
 function verbsFrom(cid, other, edges){
   // The verbs on the given edges between cid and other, read from cid,
-  // with the layer colour of the first.
-  var out = [], colour = '';
+  // with the layer of the first: its colour, and its tag's fill.
+  var out = [], layer = '';
   edges.forEach(function(i){
     var e = EDGES[i];
     if(e.from === cid && e.to === other){ out.push(e.out); }
     else if(e.to === cid && e.from === other){ out.push(e['in']); }
     else { return; }
-    colour = colour || LCOL[e.layer];
+    layer = layer || e.layer;
   });
-  return {verbs:out, colour:colour || PAL.ink};
+  return {verbs:out, colour:LCOL[layer] || PAL.ink, fill:LTAG[layer] || PAL.ink};
 }
 
 function drawTags(){
@@ -1592,7 +1586,7 @@ function drawTags(){
     var th = lines.length > 1 ? 29 : 17;
     var g = el('g', {'class':'vtag', 'data-id':other});
     g.appendChild(el('rect', {x:b.x + 5, y:b.y + b.h - th - 3, width:b.w - 10, height:th, rx:3,
-      fill:mix(PAL.raised, v.colour, 0.16), stroke:v.colour}));
+      fill:v.fill, stroke:v.colour}));
     lines.forEach(function(line, k){
       var y = b.y + b.h - 8 - (lines.length - 1 - k) * 12;
       g.appendChild(el('text', {x:b.x + b.w / 2, y:y, fill:v.colour}, line));

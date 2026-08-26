@@ -104,7 +104,9 @@ def nesting_of(
 
 def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
     """The map inside a card as a small drawing: its Structure reading, every
-    card and no edge, under an id of its own so its styles stay its own."""
+    card and no edge, under an id of its own so its styles stay its own. It
+    is part of the page, so it draws through the page's tokens and follows
+    the scheme the reader picks."""
     svg, _detail = render_schematic(
         m.model,
         m.meaning,
@@ -113,6 +115,7 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
         svg_id=f"preview-{m.card}",
         layer="structure",
         observed_by=cfg.observed_by,
+        variables=True,
     )
     return svg
 
@@ -137,8 +140,15 @@ def build(
     ch: dict[str, Any],
     nesting: Nesting | None = None,
 ) -> str:
-    """The whole page as one string; `nesting` places it in the tree of maps."""
+    """The whole page as one string; `nesting` places it in the tree of maps.
+
+    Every colour on the page is a token: the drawing, the panel, the
+    legend and the controls name `var(--token)`, and the tokens' values
+    live in the `:root` block alone (theme.css_vars), so the page has one
+    place a colour is set.
+    """
     T = t
+    P = theme_mod.Palette(T, variables=True)
     COMPONENTS = model.components
     nesting = nesting or Nesting(model_file=cfg.model)
     system_svg, detail = render_schematic(
@@ -149,6 +159,7 @@ def build(
         svg_id="schematic",
         observed_by=cfg.observed_by,
         opens=nesting.opens,
+        variables=True,
     )
     states = {cid: rec["state"] for cid, rec in json.loads(detail).items() if cid != "_meta"}
     change_svg, change_detail = "", ""
@@ -167,6 +178,7 @@ def build(
             gained=gained,
             hot_artifacts=ch["flow_artifacts"],
             observed_by=cfg.observed_by,
+            variables=True,
         )
 
     commit = (facts.get("built_at_commit") or "")[:10]
@@ -184,7 +196,7 @@ def build(
     o.append(f"<title>{esc(title)}</title>")
     o.append(f'<link rel="icon" href="{FAVICON}">')
     o.append(f"<style>{CSS.format(ROOT=':root{' + theme_mod.css_vars(T) + '}')}")
-    o.append(f"{panel_css(T)}</style></head><body>")
+    o.append(f"{panel_css(T, variables=True)}</style></head><body>")
 
     # ---------------- header ----------------
     o.append('<header class="bar">')
@@ -242,7 +254,7 @@ def build(
         rows = "".join(
             f'<span class="lg"><i style="background:{fill};border-color:{stroke}"></i>'
             f"{esc(label)}</span>"
-            for fill, stroke, label in legend_rows(T, "change")
+            for fill, stroke, label in legend_rows(T, "change", variables=True)
         )
         o.append('<section class="map" id="change">')
         o.append(
@@ -261,7 +273,7 @@ def build(
     for layer in layers:
         o.append(
             f'<button type="button" class="seg__b" data-layer-btn="{esc(layer.id)}" '
-            f'aria-pressed="false" style="--c:{T["layers"][layer.id]}">'
+            f'aria-pressed="false" style="--c:{P.layer(layer.id)}">'
             f"<i></i>{esc(layer.label)}</button>"
         )
     o.append(
@@ -344,40 +356,40 @@ def build(
     o.append('<span class="strip__say" id="stripsay"></span>')
     o.append('<span class="strip__meas" id="stripmeas"></span></div>')
     o.append('<div class="legend">')
-    for _lid, colour, label in layer_rows(T, model, meaning):
+    for _lid, colour, label in layer_rows(T, model, meaning, variables=True):
         o.append(
             f'<span class="lg"><i class="lg--line" style="background:{colour}"></i>'
             f"{esc(label)}</span>"
         )
     o.append(
-        f'<span class="lg"><i class="lg--dashline" style="border-color:{T["ink_3"]}"></i>'
+        f'<span class="lg"><i class="lg--dashline" style="border-color:{P["ink_3"]}"></i>'
         "declared</span>"
     )
     o.append('<span class="lg lg--gap"></span>')
-    for fill, stroke, label in legend_rows(T, "system"):
+    for fill, stroke, label in legend_rows(T, "system", variables=True):
         o.append(
             f'<span class="lg"><i style="background:{fill};'
             f'border-color:{stroke}"></i>{esc(label)}</span>'
         )
     for kind, mark in kind_rows(T, model):
-        fill, stroke, _label = T["state"]["built"]
+        fill, stroke, _label = P.state("built")
         o.append(
             f'<span class="lg"><i class="lg--mark-{esc(mark)}" style="background:{fill};'
             f'border-color:{stroke};color:{stroke}"></i>{esc(kind)}</span>'
         )
     if model.opening:
-        fill, stroke, _label = T["state"]["built"]
+        fill, stroke, _label = P.state("built")
         o.append(
             f'<span class="lg"><i class="lg--mark-map" style="background:{fill};'
             f'border-color:{stroke};color:{stroke}"></i>has a map</span>'
         )
     o.append(
-        f'<span class="lg"><i class="lg--dashed" style="border-color:{T["ink_3"]}"></i>'
+        f'<span class="lg"><i class="lg--dashed" style="border-color:{P["ink_3"]}"></i>'
         "outside</span>"
     )
     o.append(
-        f'<span class="lg"><i class="lg--ring" style="border-color:{T["accent"]}"></i>'
-        f'acts</span><span class="lg"><i class="lg--ring" style="border-color:{T["steel"]}">'
+        f'<span class="lg"><i class="lg--ring" style="border-color:{P["accent"]}"></i>'
+        f'acts</span><span class="lg"><i class="lg--ring" style="border-color:{P["steel"]}">'
         "</i>measures</span>"
     )
     o.append("</div>")
@@ -459,9 +471,9 @@ def build(
         "Refresh with <code>systemap refresh</code>.</footer>"
     )
 
-    o.append(interactive_script(T, "schematic", "panel", detail))
+    o.append(interactive_script(T, "schematic", "panel", detail, variables=True))
     if change_svg:
-        o.append(interactive_script(T, "changemap", "panel", change_detail))
+        o.append(interactive_script(T, "changemap", "panel", change_detail, variables=True))
     o.append(f"<script>{JS}</script>")
     o.append("</body></html>")
     return "\n".join(o) + "\n"

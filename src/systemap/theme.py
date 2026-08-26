@@ -33,6 +33,15 @@ Colour carries meaning or is absent:
     bad ......... only for "nothing measures this step" and a change map
 
 Nothing else on the page is coloured.
+
+The page draws through variables. Every colour its drawing and its panel
+take from the table is written as `var(--token)` (`Palette`, with
+`variables=True`), and the tables themselves are the `:root` blocks the
+page carries (`css_vars`), so the page can switch tables at runtime
+without a redraw. A figure that leaves the page (`systemap figure`, a
+README image, a preview) carries no table and is written with the literal
+colours (`Palette` without `variables`); the two are the same table read
+two ways, never two tables.
 """
 
 from __future__ import annotations
@@ -239,17 +248,138 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
     return t
 
 
+def _rgb(colour: str) -> tuple[int, int, int]:
+    c = colour.lstrip("#")
+    return int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+
+
+def mix(a: str, b: str, t: float) -> str:
+    """a towards b by t."""
+    ra, ga, ba = _rgb(a)
+    rb, gb, bb = _rgb(b)
+    r = round(ra + (rb - ra) * t)
+    g = round(ga + (gb - ga) * t)
+    bl = round(ba + (bb - ba) * t)
+    return f"#{r:02X}{g:02X}{bl:02X}"
+
+
+# The plain tokens, each with the name the page's CSS carries it under.
+CSS_NAMES: dict[str, str] = {
+    "bg": "--bg",
+    "surface": "--surface",
+    "raised": "--raised",
+    "line": "--line",
+    "line_2": "--line-2",
+    "ink": "--ink",
+    "ink_2": "--ink-2",
+    "ink_3": "--ink-3",
+    "accent": "--accent",
+    "accent_soft": "--accent-soft",
+    "steel": "--steel",
+    "good": "--good",
+    "warn": "--warn",
+    "bad": "--bad",
+    "violet": "--violet",
+    "region": "--region",
+    "change": "--change",
+    "reach": "--reach",
+    "flow": "--flow",
+    "font_ui": "--fs",
+    "font_mono": "--fm",
+}
+
+# How far each derived tint leans from its ground towards its colour: an
+# actor's fill from the ground towards the second line, the change map's
+# two tints from the ground towards change and reach, and a verb tag's
+# fill from the raised surface towards the layer.
+ACTOR_MIX = 0.35
+CHANGED_MIX = 0.14
+REACH_MIX = 0.12
+TAG_MIX = 0.16
+
+
+def tints(t: dict[str, Any]) -> dict[str, Any]:
+    """The colours derived from the table, computed in one place so the
+    `:root` block and a literal figure cannot disagree about a tint."""
+    return {
+        "actor": mix(t["bg"], t["line_2"], ACTOR_MIX),
+        "changed_fill": mix(t["bg"], t["change"], CHANGED_MIX),
+        "reach_fill": mix(t["bg"], t["reach"], REACH_MIX),
+        "tags": {lid: mix(t["raised"], colour, TAG_MIX) for lid, colour in t["layers"].items()},
+    }
+
+
+class Palette:
+    """Every colour the drawing writes, read from one table two ways.
+
+    With `variables` each answer is `var(--token)`: the page carries the
+    tables as `:root` blocks and switches them at runtime, so its drawing
+    names tokens and never values. Without it each answer is the literal
+    colour, for a figure that leaves the page and carries no table. The
+    token names are the ones `css_vars` writes; nothing else names them.
+    """
+
+    def __init__(self, t: dict[str, Any], variables: bool = False) -> None:
+        self.t = t
+        self.variables = variables
+        self._tints = tints(t)
+
+    def _v(self, name: str, literal: str) -> str:
+        return f"var({name})" if self.variables else literal
+
+    def __getitem__(self, key: str) -> str:
+        return self._v(CSS_NAMES[key], str(self.t[key]))
+
+    def layer(self, lid: str) -> str:
+        return self._v(f"--l-{lid}", self.t["layers"][lid])
+
+    def tag(self, lid: str) -> str:
+        """A verb tag's fill for a layer: the raised surface tinted with it."""
+        return self._v(f"--lt-{lid}", self._tints["tags"][lid])
+
+    def state(self, name: str) -> tuple[str, str, str]:
+        """(fill, stroke, the legend's word) for a card in the given state."""
+        fill, stroke, label = self.t["state"][name]
+        return self._v(f"--card-{name}", fill), self._v(f"--card-{name}-line", stroke), label
+
+    def actor(self) -> tuple[str, str]:
+        """(fill, stroke) for an actor: a tint of the ground, the quiet ink."""
+        return self._v("--actor", self._tints["actor"]), self["ink_3"]
+
+    def ghost(self) -> tuple[str, str]:
+        """(fill, stroke) for what a change map or a reach figure leaves unmarked."""
+        fill, stroke = self.t["ghost"]
+        return self._v("--ghost", fill), self._v("--ghost-line", stroke)
+
+    def container(self, tone: str) -> tuple[str, str]:
+        """(stroke, fill) for a container of the given tone, as the table orders them."""
+        stroke, fill = self.t["container"][tone]
+        return self._v(f"--box-{tone}-line", stroke), self._v(f"--box-{tone}", fill)
+
+    def delta(self, key: str) -> str:
+        return self._v(f"--d-{key}", self.t["delta"][key])
+
+    def changed_fill(self) -> str:
+        return self._v("--changed-fill", self._tints["changed_fill"])
+
+    def reach_fill(self) -> str:
+        return self._v("--reach-fill", self._tints["reach_fill"])
+
+
 def css_vars(t: dict[str, Any]) -> str:
-    """The :root block. One source for both halves of the page."""
-    layers = "".join(f"--l-{k}:{v};" for k, v in t["layers"].items())
-    return (
-        f"color-scheme:{t['scheme']};"
-        f"--bg:{t['bg']};--surface:{t['surface']};--raised:{t['raised']};"
-        f"--line:{t['line']};--line-2:{t['line_2']};"
-        f"--ink:{t['ink']};--ink-2:{t['ink_2']};--ink-3:{t['ink_3']};"
-        f"--accent:{t['accent']};--accent-soft:{t['accent_soft']};"
-        f"--steel:{t['steel']};--good:{t['good']};--warn:{t['warn']};"
-        f"--bad:{t['bad']};--violet:{t['violet']};"
-        f"--fs:{t['font_ui']};--fm:{t['font_mono']};"
-        f"{layers}"
-    )
+    """One scheme's declarations: every token the page's drawing and panel
+    name, plain and derived, as one `:root` block's body."""
+    d = tints(t)
+    out = [f"color-scheme:{t['scheme']};"]
+    out += [f"{name}:{t[key]};" for key, name in CSS_NAMES.items()]
+    for state, (fill, stroke, _label) in t["state"].items():
+        out.append(f"--card-{state}:{fill};--card-{state}-line:{stroke};")
+    out.append(f"--actor:{d['actor']};--ghost:{t['ghost'][0]};--ghost-line:{t['ghost'][1]};")
+    for tone, (stroke, fill) in t["container"].items():
+        out.append(f"--box-{tone}:{fill};--box-{tone}-line:{stroke};")
+    out.append(f"--changed-fill:{d['changed_fill']};--reach-fill:{d['reach_fill']};")
+    out += [f"--d-{key}:{colour};" for key, colour in t["delta"].items()]
+    out += [
+        f"--l-{lid}:{colour};--lt-{lid}:{d['tags'][lid]};" for lid, colour in t["layers"].items()
+    ]
+    return "".join(out)

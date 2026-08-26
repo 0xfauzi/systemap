@@ -14,7 +14,7 @@ hands focus back to the card; a journey takes the arrows while it is on
 and Escape ends it; with prefers-reduced-motion the framing sets the view
 once per framing, never tweened; the header and the strip count the cards
 the same way (components, then actors named apart); and the focus ring is
-drawn in the accent of the scheme, in both schemes.
+drawn in the accent token, whose value each scheme's root block sets.
 """
 
 from __future__ import annotations
@@ -196,8 +196,10 @@ def test_focus_ring_and_reduced_motion_in_both_schemes(
     assert f"color-scheme:{scheme};" in html
     assert f"--accent:{accent};" in html
     assert ":focus-visible{outline:2px solid var(--accent);outline-offset:2px}" in html
-    assert f"#schematic .node:focus-visible .node__box{{stroke:{accent};stroke-width:2.6}}" in html
-    assert f".systemap-w__spoke:focus-visible .systemap-w__name{{fill:{accent}}}" in html
+    assert (
+        "#schematic .node:focus-visible .node__box{stroke:var(--accent);stroke-width:2.6}" in html
+    )
+    assert ".systemap-w__spoke:focus-visible .systemap-w__name{fill:var(--accent)}" in html
     assert (
         "@media (prefers-reduced-motion:reduce){*{transition:none!important;"
         "animation:none!important}}" in html
