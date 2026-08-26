@@ -481,6 +481,27 @@ class Palette:
         return self._v("--reach-fill", self._tints["reach_fill"])
 
 
+def root_css(t: dict[str, Any]) -> str:
+    """The page's root blocks: the default scheme's table on `:root`, every
+    scheme's under `:root[data-theme="<name>"]`, and the light scheme's
+    under `prefers-color-scheme: light` for a root no script has stamped.
+
+    The page's head script stamps `data-theme` before the first paint
+    (the stored pick, else paper when the system prefers light, else the
+    default), so the attribute blocks are what a reader sees; the bare
+    `:root` and the media block carry a page whose script did not run.
+    """
+    schemes: dict[str, dict[str, Any]] = t.get("schemes") or {t["scheme"]: t}
+    out = [f":root{{{css_vars(t)}}}"]
+    out += [f':root[data-theme="{name}"]{{{css_vars(table)}}}' for name, table in schemes.items()]
+    light = schemes.get(LIGHT_SCHEME)
+    if light is not None:
+        out.append(
+            f"@media (prefers-color-scheme:light){{:root:not([data-theme]){{{css_vars(light)}}}}}"
+        )
+    return "".join(out)
+
+
 def css_vars(t: dict[str, Any]) -> str:
     """One scheme's declarations: every token the page's drawing and panel
     name, plain and derived, as one `:root` block's body."""

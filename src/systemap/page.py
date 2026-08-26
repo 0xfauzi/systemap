@@ -37,7 +37,11 @@ from systemap.schematic import render as render_schematic
 STATE_WORD = {"built": "built", "actor": "outside"}
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
-# The mark, inline, so the tab shows it with nothing fetched.
+# Where the page keeps the reader's scheme, in this browser.
+SCHEME_KEY = "systemap-theme"
+
+# The mark, inline, so the tab shows it with nothing fetched. It is not
+# themed: a tab's icon is one picture.
 FAVICON = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='112'%20fill='%23121417'/%3E%3Cpath%20d='M380,132%20H172%20V256%20H340%20V380%20H132'%20fill='none'%20stroke='%23e6e4df'%20stroke-width='40'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3Ccircle%20cx='380'%20cy='132'%20r='40'%20fill='%23e0a458'/%3E%3Ccircle%20cx='132'%20cy='380'%20r='40'%20fill='%23e0a458'/%3E%3C/svg%3E"
 
 
@@ -195,7 +199,20 @@ def build(
     title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
     o.append(f"<title>{esc(title)}</title>")
     o.append(f'<link rel="icon" href="{FAVICON}">')
-    o.append(f"<style>{CSS.format(ROOT=':root{' + theme_mod.css_vars(T) + '}')}")
+    # The scheme is stamped on the root before the first paint: the pick
+    # this browser kept, else paper when the system prefers light, else
+    # the configured default. Storage may be absent or refused (a private
+    # window, a file address); the page renders either way.
+    schemes = list(T.get("schemes") or {T["scheme"]: T})
+    o.append(
+        "<script>(function(){var s=null;try{s=localStorage.getItem("
+        f"{json.dumps(SCHEME_KEY)})}}catch(e){{}}"
+        f"if({json.dumps(schemes)}.indexOf(s)<0){{s=(window.matchMedia&&"
+        "window.matchMedia('(prefers-color-scheme: light)').matches)?"
+        f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(T['scheme'])}}}"
+        "document.documentElement.setAttribute('data-theme',s)})();</script>"
+    )
+    o.append(f"<style>{CSS.format(ROOT=theme_mod.root_css(T))}")
     o.append(f"{panel_css(T, variables=True)}</style></head><body>")
 
     # ---------------- header ----------------
@@ -243,6 +260,12 @@ def build(
         o.append('<a href="#change">Change</a>')
     o.append('<a href="#map">Map</a><a href="#components">Components</a>')
     o.append('<a href="#invariants">Invariants</a>')
+    # The scheme picker: the three tables the page carries, the reader's
+    # pick kept in this browser.
+    o.append('<label class="scheme">Scheme <select id="scheme" aria-label="Scheme">')
+    for name in schemes:
+        o.append(f'<option value="{esc(name)}">{esc(name)}</option>')
+    o.append("</select></label>")
     o.append("</nav></header>")
 
     o.append('<main class="main">')
@@ -501,6 +524,11 @@ background:var(--surface);display:flex;flex-wrap:wrap;align-items:baseline;gap:.
 .nav{{margin-left:auto;display:flex;gap:.9rem;font-size:12.5px}}
 .nav a{{color:var(--ink-2);text-decoration:none}}
 .nav a:hover{{color:var(--accent)}}
+.scheme{{display:inline-flex;align-items:center;gap:.4rem;color:var(--ink-3);font-family:var(--fm);
+font-size:11px;letter-spacing:.08em;text-transform:uppercase}}
+.scheme select{{font:inherit;font-family:var(--fs);font-size:12.5px;text-transform:none;
+letter-spacing:0;color:var(--ink);background:var(--surface);border:1px solid var(--line-2);
+border-radius:6px;min-height:26px;padding:0 .4rem}}
 .main{{padding:.8rem 1.4rem 3rem}}
 h2{{font-size:15px;font-weight:600;margin:1.8rem 0 .5rem;letter-spacing:-.01em}}
 h2 span{{color:var(--ink-3);font-weight:400;font-size:12.5px;margin-left:.6rem}}
@@ -875,6 +903,30 @@ JS = r"""
   }
   svg.addEventListener('systemap:open', openSubmap);
   if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
+
+  // ---- the scheme -------------------------------------------------------
+  // The head script stamped the root before the first paint; the picker
+  // shows that, and a change restamps the root, keeps the pick in this
+  // browser when it can, and follows into the map inside a card.
+  var pick = document.getElementById('scheme');
+  function scheme(){ return document.documentElement.getAttribute('data-theme') || ''; }
+  function stampFrame(){
+    try {
+      var d = submapFrame && submapFrame.contentDocument;
+      if(d && d.documentElement){ d.documentElement.setAttribute('data-theme', scheme()); }
+    } catch(e){}
+  }
+  function setScheme(name){
+    document.documentElement.setAttribute('data-theme', name);
+    if(pick){ pick.value = name; }
+    try { localStorage.setItem('systemap-theme', name); } catch(e){}
+    stampFrame();
+  }
+  if(pick){
+    pick.value = scheme() || pick.value;
+    pick.addEventListener('change', function(){ setScheme(pick.value); });
+  }
+  if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
 
   // ---- keyboard ---------------------------------------------------------
   // The page from the keyboard: Tab moves across the cards in reading

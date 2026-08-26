@@ -6,14 +6,26 @@ theme is written as `var(--token)`, and the tokens' values appear in the
 them at runtime. A standalone figure (`systemap figure`, a README image)
 has no table to read and keeps the literal colours. Both are asserted
 here on the rendered output, not on the tables.
+
+Three schemes, each a full table, every text token at 4.5:1 on its
+ground; and the picker: the page carries all three tables, stamps the
+root before the first paint (the stored pick, else paper when the system
+prefers light, else the configured default), and a pick restamps the
+root and is kept in this browser when storage allows.
 """
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import Sample
+from test_keyboard import DRIVER, SELF_MAP, needs_node, sample_page
 
 from systemap import figure, page
 from systemap import theme as theme_mod
@@ -239,3 +251,113 @@ def test_overrides_apply_per_scheme_and_bare_keys_to_the_default(sample: Sample)
         theme_mod.resolve({"scheme": "sepia"}, layers)
     with pytest.raises(ValueError, match="theme.warm must be a table of tokens"):
         theme_mod.resolve({"warm": "#fff"}, layers)
+
+
+# ---- the picker, under the Node driver ------------------------------------------
+
+
+def drive_theme(html: Path, *flags: str) -> dict[str, Any]:
+    args = [shutil.which("node") or "node", str(DRIVER), str(html), "--scenario", "theme", *flags]
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+    report: dict[str, Any] = json.loads(proc.stdout)
+    return report
+
+
+def test_the_page_carries_every_scheme_and_stamps_the_default(sample: Sample) -> None:
+    layers = all_layers(sample.model, sample.meaning)
+    t = theme_mod.resolve({"paper": {"accent": "#123456"}}, layers)
+    html = page.build(
+        sample.cfg, sample.model, sample.meaning, t, sample.facts, {"has_change": False}
+    )
+    head = html.split("</head>")[0]
+    # The default's table on the bare root, every scheme's under its
+    # attribute, and paper under the light preference for a root no script
+    # stamped; the head script names the default and the three.
+    assert head.count(":root{") == 1
+    for name in ("warm", "graphite", "paper"):
+        assert f':root[data-theme="{name}"]{{' in head, name
+    bare = re.search(r":root\{([^}]*)\}", head)
+    warm = re.search(r':root\[data-theme="warm"\]\{([^}]*)\}', head)
+    paper = re.search(r':root\[data-theme="paper"\]\{([^}]*)\}', head)
+    media = re.search(
+        r"@media \(prefers-color-scheme:light\)\{:root:not\(\[data-theme\]\)\{([^}]*)\}", head
+    )
+    assert bare and warm and paper and media
+    assert bare.group(1) == warm.group(1)
+    assert media.group(1) == paper.group(1)
+    assert "--accent:#123456;" in paper.group(1) and "--accent:#123456;" not in warm.group(1)
+    assert "color-scheme:dark;" in warm.group(1) and "color-scheme:light;" in paper.group(1)
+    assert 'localStorage.getItem("systemap-theme")' in head
+    assert '["warm", "graphite", "paper"].indexOf(s)<0' in head
+    assert '\'(prefers-color-scheme: light)\').matches)?"paper":"warm"' in head
+    assert "document.documentElement.setAttribute('data-theme',s)" in head
+    assert head.index("<script>") < head.index("<style>"), "the root is stamped before the styles"
+    # The picker in the header, one option per scheme.
+    assert '<label class="scheme">Scheme <select id="scheme" aria-label="Scheme">' in html
+    assert re.findall(r'<option value="(\w+)">', html.split("</header>")[0]) == [
+        "warm",
+        "graphite",
+        "paper",
+    ]
+    # A configured default lands on the bare root and in the head script.
+    t = theme_mod.resolve({"scheme": "paper"}, layers)
+    html = page.build(
+        sample.cfg, sample.model, sample.meaning, t, sample.facts, {"has_change": False}
+    )
+    head = html.split("</head>")[0]
+    bare = re.search(r":root\{([^}]*)\}", head)
+    assert bare and "color-scheme:light;" in bare.group(1)
+    assert '\'(prefers-color-scheme: light)\').matches)?"paper":"paper"' in head
+
+
+@needs_node
+@pytest.mark.parametrize(
+    ("scheme", "flags", "expected"),
+    [
+        ("warm", (), "warm"),
+        ("graphite", (), "graphite"),
+        ("warm", ("--light",), "paper"),
+        ("warm", ("--stored", "graphite"), "graphite"),
+        ("warm", ("--light", "--stored", "warm"), "warm"),
+        ("warm", ("--stored", "sepia"), "warm"),
+        ("warm", ("--light", "--stored", "sepia"), "paper"),
+        ("warm", ("--no-storage",), "warm"),
+        ("warm", ("--light", "--no-storage"), "paper"),
+    ],
+)
+def test_the_scheme_on_load(
+    sample: Sample, tmp_path: Path, scheme: str, flags: tuple[str, ...], expected: str
+) -> None:
+    """The stored pick is read first; with none, paper when the system
+    prefers light, else the configured default; storage refused or absent
+    changes nothing about the page."""
+    report = drive_theme(sample_page(sample, tmp_path, scheme), *flags)
+    assert report["onLoad"] == expected, report
+    assert report["pickValue"] == expected, "the picker shows what the root carries"
+    assert report["options"] == report["blocks"] == ["warm", "graphite", "paper"]
+
+
+@needs_node
+def test_a_pick_restamps_the_root_and_is_kept(sample: Sample, tmp_path: Path) -> None:
+    report = drive_theme(sample_page(sample, tmp_path))
+    assert report["storedOnLoad"] is None, "nothing is stored until the reader picks"
+    assert report["switches"] == [
+        {"picked": name, "attr": name, "pickValue": name, "stored": name}
+        for name in ("warm", "graphite", "paper")
+    ]
+    # With storage refused the pick still restamps the root; it is not kept.
+    report = drive_theme(sample_page(sample, tmp_path), "--no-storage")
+    assert report["storedOnLoad"] == "unavailable"
+    assert [(s["picked"], s["attr"], s["stored"]) for s in report["switches"]] == [
+        (name, name, "unavailable") for name in ("warm", "graphite", "paper")
+    ]
+
+
+@needs_node
+def test_the_self_map_page_stamps_warm_and_switches() -> None:
+    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
+    report = drive_theme(SELF_MAP)
+    assert report["onLoad"] == "warm"
+    assert [s["attr"] for s in report["switches"]] == ["warm", "graphite", "paper"]
+    assert drive_theme(SELF_MAP, "--light")["onLoad"] == "paper"

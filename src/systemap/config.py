@@ -24,7 +24,9 @@ goes, and the theme.
     planes         optional list of second-level package names that count as
                    their own architectural plane in the facts
     outside_label  the index heading for actors outside every region
-    [theme]        tokens laid over the default theme
+    [theme]        tokens laid over the default scheme; `scheme` names
+                   the default ("warm", "graphite" or "paper"), and
+                   `[theme.<scheme>]` lays tokens over one scheme
     [[figures]]    figures `systemap refresh` regenerates: out, mode
                    ("system" or "reach"), components, caption, interactive,
                    layer (one reading's id: only that layer's edges), map

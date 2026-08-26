@@ -10,12 +10,16 @@
 // of the figure with 10 pixels of margin. A path's box is the box of the
 // points in its `d`, as a browser's getBBox would give it.
 //
-//     node tests/page_driver.js PAGE.html [--reduced] [--viewport WxH]
-//                                         [--scenario keyboard|framing|submap]
+//     node tests/page_driver.js PAGE.html [--reduced] [--light] [--viewport WxH]
+//                                         [--stored NAME] [--no-storage]
+//                                         [--scenario keyboard|framing|submap|theme]
 //
-// prints one JSON object; tests/test_keyboard.py, tests/test_framing.py
-// and tests/test_nested.py read it. --reduced makes the page's
-// prefers-reduced-motion query match.
+// prints one JSON object; tests/test_keyboard.py, tests/test_framing.py,
+// tests/test_nested.py and tests/test_theme.py read it. --reduced makes
+// the page's prefers-reduced-motion query match, --light its
+// prefers-color-scheme light query; --stored seeds the browser's storage
+// with a scheme, and --no-storage makes every touch of localStorage
+// throw, as a browser that refuses storage does.
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -401,7 +405,8 @@ function dispatch(target, ev) {
 }
 
 // ---- document and window ---------------------------------------------------------
-function load(html, reducedMotion, viewport) {
+function load(html, reducedMotion, viewport, prefs) {
+  prefs = prefs || {};
   const doc = new Element('#document', false);
   documentNode = doc;
   parseInto(html, doc, false);
@@ -427,7 +432,10 @@ function load(html, reducedMotion, viewport) {
       REPORT.replaceStates.push(url);
       win.location.hash = url.startsWith('#') ? url : '';
     }},
-    matchMedia: (q) => ({matches: reducedMotion && /prefers-reduced-motion/.test(q), addEventListener() {}}),
+    matchMedia: (q) => ({
+      matches: (reducedMotion && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q)),
+      addEventListener() {},
+    }),
     requestAnimationFrame: (cb) => { rafCalls++; const id = rafQueue.length + 1; rafQueue.push({id, cb}); return id; },
     cancelAnimationFrame: (id) => { rafQueue = rafQueue.filter((f) => f.id !== id); },
     addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push({fn, capture: false}); },
@@ -444,6 +452,19 @@ function load(html, reducedMotion, viewport) {
   };
   win.window = win;
   win.self = win;
+  // The browser's storage: a map, seeded with --stored; with --no-storage
+  // every touch throws, as a browser that refuses storage does.
+  const store = new Map();
+  if (prefs.stored !== undefined && prefs.stored !== null) store.set('systemap-theme', prefs.stored);
+  if (prefs.noStorage) {
+    Object.defineProperty(win, 'localStorage', {get() { throw new Error('SecurityError: storage is refused'); }});
+  } else {
+    win.localStorage = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => { store.set(k, String(v)); },
+      removeItem: (k) => { store.delete(k); },
+    };
+  }
   windowObject = win;
   return {doc, win};
 }
@@ -467,8 +488,9 @@ function main() {
   const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
   const viewport = flag('--viewport', '1600x900').split('x').map(Number);
   const scenario = flag('--scenario', 'keyboard');
+  const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage')};
   const html = fs.readFileSync(file, 'utf8');
-  const {doc, win} = load(html, reduced, viewport);
+  const {doc, win} = load(html, reduced, viewport, prefs);
   const context = vm.createContext(win);
   doc.querySelectorAll('script').forEach((s) => { vm.runInContext(s.textContent, context); });
   runFrames(win);
@@ -484,7 +506,7 @@ function main() {
     return ev.defaultPrevented;
   };
   const page = {doc, win, svg, A, key, reduced, viewport, views: () => viewEvents};
-  const scenarios = {keyboard, framing, submap};
+  const scenarios = {keyboard, framing, submap, theme};
   const report = (scenarios[scenario] || keyboard)(page);
   process.stdout.write(JSON.stringify(report) + '\n');
 }
@@ -747,6 +769,32 @@ function submap(page) {
     here: overlay.dataset.here, overlays: doc.querySelectorAll('#submap').length,
     panelHas, steps, escapePrevented,
   };
+}
+
+function theme(page) {
+  // The scheme: what the head script stamped on the root on load, what
+  // the picker shows, and what a pick does to the root and to storage.
+  const {doc, win} = page;
+  const root = doc.documentElement;
+  const pick = doc.getElementById('scheme');
+  const stored = () => { try { return win.localStorage.getItem('systemap-theme'); } catch (e) { return 'unavailable'; } };
+  const style = doc.querySelector('style').textContent;
+  const report = {
+    onLoad: root.getAttribute('data-theme'),
+    pickValue: pick ? pick.value : null,
+    options: pick ? pick.querySelectorAll('option').map((o) => o.getAttribute('value')) : [],
+    blocks: (style.match(/:root\[data-theme="([a-z]+)"\]\{/g) || []).map((m) => m.slice(18, -3)),
+    storedOnLoad: stored(),
+    switches: [],
+  };
+  if (pick) {
+    report.options.forEach((name) => {
+      pick.value = name;
+      pick.dispatchEvent(new EventImpl('change', {bubbles: true}));
+      report.switches.push({picked: name, attr: root.getAttribute('data-theme'), pickValue: pick.value, stored: stored()});
+    });
+  }
+  return report;
 }
 
 main();
