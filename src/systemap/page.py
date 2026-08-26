@@ -268,7 +268,8 @@ def build(
     o.append("</div>")  # mapwrap
     o.append(
         '<p class="hint">Scroll to zoom, drag to pan, click a component to frame it, '
-        "Escape to go back.</p>"
+        "Escape to go back. From the keyboard: Tab moves across the cards, Enter opens one, "
+        "Escape closes it, the left and right arrows switch readings or step a journey.</p>"
     )
     o.append('<div class="strip" id="strip" hidden><span class="strip__n" id="stripn"></span>')
     o.append('<span class="strip__say" id="stripsay"></span>')
@@ -319,8 +320,9 @@ def build(
         "is a declared flow: no import in the facts joins its two ends; the panel says "
         "of every flow whether it is observed, external or declared. A card standing on "
         "a second card opens a map of its own; the panel names it and links to it. "
-        "Click a component; press Escape to clear it and return the view; arrow keys step a "
-        "journey; double-click a region's name to frame the region. Text is drawn at 11px "
+        "Click a component; press Escape to clear it and return the view; the arrow keys switch "
+        "readings, or step a journey while one is on; double-click a region's name to frame "
+        "the region. Text is drawn at 11px "
         "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"
     )
     o.append("</section>")
@@ -552,6 +554,9 @@ JS = r"""
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function all(sel, root){
     return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function reduced(){
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
 
   // ---- the strip above the map: the active layer and what it touches ----
   function layerStrip(){
@@ -715,34 +720,63 @@ JS = r"""
   if(next){ next.addEventListener('click', function(){ stepBy(1); }); }
 
   // ---- keyboard ---------------------------------------------------------
+  // The page from the keyboard: Tab moves across the cards in reading
+  // order (they are written in that order and each takes focus), Enter on
+  // a card opens its wheel, Escape closes it and returns the view, the
+  // left and right arrows switch readings, or step the journey while one
+  // is on. A control that takes arrows itself (the journey select) keeps
+  // them.
+  function stepLayer(d){
+    var ids = layerBtns.map(function(b){ return b.dataset.layerBtn; });
+    if(!ids.length){ return; }
+    var i = ids.indexOf(A.state.layer);
+    setLayer(ids[(i + d + ids.length) % ids.length]);
+  }
   document.addEventListener('keydown', function(e){
     var t = e.target, tag = t && t.tagName;
     if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){ return; }
+    if(e.altKey || e.ctrlKey || e.metaKey){ return; }
     if(e.key === 'Escape'){
       if(cur.j >= 0){ endJourney(); }
       A.clear();
       A.view.back();
       e.preventDefault();
     } else if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
-      if(cur.j >= 0 && stepBy(e.key === 'ArrowRight' ? 1 : -1)){ e.preventDefault(); }
+      var d = e.key === 'ArrowRight' ? 1 : -1;
+      if(cur.j >= 0){ if(stepBy(d)){ e.preventDefault(); } }
+      else { stepLayer(d); e.preventDefault(); }
     }
   });
 
   // ---- selection, hash, index ------------------------------------------
+  var opened = '';
   svg.addEventListener('systemap:select', function(e){
     if(cur.j >= 0){ endJourney(); }
     var id = e.detail.id;
+    opened = id;
     openDrawer(id);
     if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
   });
   svg.addEventListener('systemap:clear', function(){
     closeDrawer();
     if(location.hash){ history.replaceState(null, '', location.pathname + location.search); }
+    // Focus that was in the drawer, or nowhere, goes back to the card the
+    // drawer was about, so the keyboard reader is where they left off.
+    var active = document.activeElement, node = opened && nodeOf(opened);
+    opened = '';
+    if(node && (!active || active === document.body || active.isConnected === false
+        || (drawer && drawer.contains(active)))){
+      node.focus({preventScroll:true});
+    }
   });
+  function nodeOf(id){
+    return all('.node', svg).filter(function(n){ return n.dataset.id === id; })[0] || null;
+  }
   all('.ix[data-go], .gv[data-go]').forEach(function(b){
     b.addEventListener('click', function(){
       A.select(b.dataset.go);
-      document.getElementById('map').scrollIntoView({behavior:'smooth', block:'start'});
+      document.getElementById('map').scrollIntoView({
+        behavior:reduced() ? 'auto' : 'smooth', block:'start'});
     });
   });
   window.addEventListener('resize', function(){ showZoom(A.view.zoom(), A.view.isFit()); });

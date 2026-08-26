@@ -177,6 +177,13 @@ writes both):
   does. A declared edge is dashed, and the panel says so.
 - **Pan and zoom.** The map is as large as the system; the page is not
   squeezed to fit a screen.
+- **Keyboard.** Tab moves across the cards in reading order, Enter opens
+  the focused card's wheel, Escape closes it and hands the focus back, the
+  left and right arrows switch readings, or step the journey while one is
+  on. The focus ring is drawn in the accent of the scheme.
+  `prefers-reduced-motion` turns every transition off, the framing
+  included. A test drives the page's script under Node with the readings
+  table and presses those keys.
 - **Maps inside cards.** A card may open a map of its own: it stands on
   a second card, its panel reads `opens: Gateway (5 cards)` with a link,
   and the page inside links back. One canvas holds about forty cards;

@@ -644,9 +644,12 @@ def render(
         )
 
     # ---- cards ------------------------------------------------------------
+    # Cards are written in reading order, row by row and left to right,
+    # so Tab moves across the map the way the eye does, and the detail
+    # lists them the same way; no two overlap, so paint order is free.
     detail: dict[str, Any] = {}
     cards: list[str] = []
-    for c in COMPONENTS:
+    for c in sorted(COMPONENTS, key=lambda c: (boxes[c.id][1], boxes[c.id][0])):
         cid = c.id
         kind = c.kind
         state = states[cid]
