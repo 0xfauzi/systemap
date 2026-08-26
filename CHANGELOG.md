@@ -1,5 +1,102 @@
 # Changelog
 
+## 0.6.0
+
+What a second fresh agent found mapping a real repository from the one
+sentence `init` prints: ten items, none of them among the first run's
+twenty-two, plus three from the repository's own pre-commit hooks. Each
+fixed here with a test.
+
+Layout, which took a third of the session's turns:
+
+- `references/layout.md`, named from the skill's draft step: an edge may
+  not cross a region it does not belong to, so regions never tile a
+  container; a 2xN grid of regions works for every pair because the
+  corridors form a cross, more than two full-width bands does not; 48
+  units between region columns, 36 between rows; the parts that talk most
+  in adjacent regions; one empty card column for the long routes.
+- The starter model `init` writes is a 2x2 grid of regions with the
+  corridors in place, ruff-formatted at 88 and 100 columns, importing
+  every schema name including `Layer`. A test fills its four corners and
+  routes every pair cleanly.
+- A label collision says which fix applies, from the router's own seat
+  counts: `gutter between rows 2 and 3 holds 3 of 3 seats: move a card or
+  widen the row pitch`, or `label is 41 units wider than its seat: shorten
+  the artifact`. The skill's rule of thumb: an artifact label is a noun
+  phrase of one to three words, never a sentence. The second gutter seat
+  moved from 51 to 53 units so two seats a side are two seats.
+- `systemap describe`: what a look at the picture would tell an agent
+  that cannot look. Cards per region; bends and length per edge, worst
+  first, with the gutter each label sits in; seats used of seats available
+  per gutter; cards and edges per reading. The skill's render step runs it
+  and opens the page only if it can.
+
+Judgement:
+
+- `ignored:` lines are not questions and are not printed; the coverage
+  reason is the answer.
+- Bulk answer forms in `[judgement] answered`, each one table with one
+  reason: `crossing = ["A", "B"]` answers every crossing-import line for
+  the pair in either direction, `kind = "single module"` every line of
+  that kind, `module_sdk = "google.adk"` every model sdk line for that
+  import. `item` and `items` stay. An answer that matches no line is
+  reported as stale under the form it was written in.
+  `references/second-pass.md` shows every form with an example.
+- The model sdk line has a fourth outcome: a part that calls a model once
+  and is deliberately not an agent, by the repository's own rule; when the
+  repository defines what counts as an agent, that definition wins over the
+  SDK prompt. The built-in list matches import prefixes, so `[facts]
+  model_sdks` removes a built-in name with a leading `-` (`"-google.adk"`);
+  removing a name that is not listed is refused.
+- `systemap judgement --strict` exits 1 while any line is unanswered, for
+  CI; the workflow `init` writes runs it after `check`.
+
+Symbol claims:
+
+- `implemented_by` may name a symbol, `"pkg.mod:name"`, for a part that
+  lives inside another card's module (a tool defined beside the agent
+  that invokes it). A symbol claim counts for no module in the coverage
+  rule and conflicts with no claim; the entry rule refuses a symbol of a
+  module the facts do not have, of a name the module does not define, or
+  of a module nobody claims. `references/layers.md` shows the case.
+
+Words:
+
+- The skill: both `systemap` and `uv run systemap` resolve when the tool
+  is installed; use whichever `systemap --version` answers to.
+- The extract summary labels its numbers: facts for the change detector,
+  which never appear on the map.
+- A `NameError` or `ImportError` while loading the model is one line with
+  the fix (`map/model.py failed to import: ...; add the missing name to
+  the import from systemap`), exit 2, never a traceback.
+- `check` prints coverage as `140 of 144 modules mapped, 4 ignored with a
+  reason`, so the extract's total and the check's total agree.
+- `figure --out` is relative to `out_dir`, like a `[[figures]]` out; an
+  absolute path stays absolute.
+- The model module is compiled and run directly, not through the import
+  loader whose bytecode cache handed back the previous model after an
+  edit of the same size within the same second.
+
+The repository's hooks:
+
+- The facts file is compact: no indentation, keys sorted, one module
+  record per line, and no per-symbol docstrings. Measured with the old
+  and the new writer on the same trees: this repository, 17 modules,
+  87 KB before and 59 KB after; a 111-module tree, 428 KB before and
+  304 KB after. The session's 144-module tree (635 KB) was not available
+  to measure; at the ratio measured it would land near 450 KB, under the
+  500 KB hook, so the symbol table was not split.
+- The workflow `init` writes pins every action to a commit with the
+  version beside it, declares `permissions: contents: read`, and sets
+  `persist-credentials: false` on the checkout; zizmor reports nothing on
+  it, and a test asserts all three.
+- `references/pitfalls.md`: run the repository's formatter on
+  `map/model.py` before the check; keep scratch scripts out of the
+  repository root.
+
+The self-map gains a `Describe` card and answers its judgement with the
+bulk forms.
+
 ## 0.5.0
 
 What a fresh agent found mapping a real repository with only the README:

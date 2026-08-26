@@ -12,7 +12,8 @@ The map has three actors outside the code (the agent that authors, the
 maintainer who reviews, the CI that refuses) and five bands inside it:
 what you operate, what gathers, what means, what draws, what keeps the map
 true. Positions are hand-placed on a grid; `systemap check` decides
-whether the placement is clean.
+whether the placement is clean, and `systemap describe` says what the
+picture shows.
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ REGIONS = (
     Region("gather", "GATHER", (280, 190, 380, 125), container="systemap"),
     Region("mean", "MEAN", (850, 190, 380, 125), container="systemap"),
     Region("draw", "DRAW", (280, 350, 380, 290), container="systemap"),
-    Region("keep", "KEEP TRUE", (850, 350, 380, 125), container="systemap"),
+    Region("keep", "KEEP TRUE", (850, 350, 380, 290), container="systemap"),
 )
 
 COMPONENTS = (
@@ -90,7 +91,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        does="The commands the agent runs: init, extract, check, render, figure, refresh, judgement, serve, skill. Every non-zero exit names what to run next.",
+        does="The commands the agent runs: init, extract, check, render, figure, refresh, judgement, describe, serve, skill. Every non-zero exit names what to run next.",
         interface="systemap <command> [--root DIR]; exit 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__"),
         entry="main",
@@ -100,7 +101,7 @@ COMPONENTS = (
     ),
     Component(
         id="Scaffold",
-        does="What init writes once and never overwrites: the configuration, a starter model that passes every check, the output directory, the workflow.",
+        does="What init writes once and never overwrites: the configuration, a starter model laid out as a grid of regions with corridors between them, the output directory, a pinned workflow.",
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
         entry="write",
@@ -216,13 +217,23 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent, every ignore. Answered lines are suppressed and counted. A report, never a gate.",
-        interface="run(model, meaning, facts, ignores) -> lines; always exit 0",
+        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict.",
+        interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=("systemap.judgement",),
         entry="run",
         region="keep",
         x=COL["c5"],
         y=ROW["r2"],
+    ),
+    Component(
+        id="Describe",
+        does="What a look at the picture would tell an agent that cannot look: cards per region, bends and length per edge worst first, seats used per gutter, cards and edges per reading. A description, never a rule.",
+        interface="run(model, meaning, theme, facts) -> lines; always exit 0",
+        implemented_by=("systemap.describe",),
+        entry="run",
+        region="keep",
+        x=COL["c4"],
+        y=ROW["r3"],
     ),
 )
 
@@ -241,6 +252,7 @@ FLOWS = (
     Flow("CLI", "Page", "render", "control"),
     Flow("CLI", "Figures", "figure", "control"),
     Flow("CLI", "Judgement", "judgement", "control"),
+    Flow("CLI", "Describe", "describe", "control"),
     Flow("Check", "Page", "render to compare", "control"),
     Flow("Check", "Figures", "render to compare", "control"),
     # data: what moves, and where it goes
@@ -250,7 +262,7 @@ FLOWS = (
     Flow("Config", "Page", "name, paths", "data"),
     Flow("Config", "Figures", "figures table", "data"),
     Flow("Config", "Check", "ignores", "data"),
-    Flow("Config", "Judgement", "ignores", "data"),
+    Flow("Config", "Judgement", "answers, sdks", "data"),
     Flow("Scaffold", "Model", "starter", "data"),
     Flow("FactsExtractor", "Check", "map.json", "data"),
     Flow("FactsExtractor", "Schematic", "map.json", "data"),
@@ -263,9 +275,12 @@ FLOWS = (
     Flow("Model", "Schematic", "topology, meaning", "data"),
     Flow("Model", "Check", "model", "data"),
     Flow("Router", "Schematic", "routes, labels", "data"),
+    Flow("Router", "Describe", "gutters, seats", "data"),
     Flow("Schematic", "Page", "svg, detail", "data"),
     Flow("Schematic", "Figures", "svg", "data"),
     Flow("Schematic", "Check", "geometry", "data"),
+    Flow("Schematic", "Describe", "geometry", "data"),
+    Flow("Describe", "Agent", "the picture in numbers", "data"),
     Flow("Page", "Maintainer", "the page", "data"),
     Flow("Check", "Agent", "the fix", "data"),
     Flow("Check", "CI", "verdict", "data"),
@@ -364,6 +379,7 @@ PLAIN = {
     "Figures": "a picture for a document",
     "Check": "what refuses",
     "Judgement": "what asks",
+    "Describe": "what the picture shows",
 }
 
 # The page derives Structure, System context, Data flow and Control flow.
@@ -411,7 +427,14 @@ RELATIONS = {
         "CLI",
         "Figures",
     ): "figure draws one figure to a file; refresh draws every figure the configuration lists.",
-    ("CLI", "Judgement"): "judgement prints the list to act on or answer, and always exits 0.",
+    (
+        "CLI",
+        "Judgement",
+    ): "judgement prints the list to act on or answer; with --strict it exits 1 while a line is open.",
+    (
+        "CLI",
+        "Describe",
+    ): "describe draws the map the way the page does and prints what the drawing shows, in numbers.",
     (
         "Check",
         "Page",
@@ -447,7 +470,7 @@ RELATIONS = {
     (
         "Config",
         "Judgement",
-    ): "Every ignore is listed with its reason, so a hole in the map stays visible.",
+    ): "The answers under [judgement] suppress the lines they cover, and [facts] model_sdks extends or reduces the SDK list the model sdk line reads.",
     (
         "Scaffold",
         "Model",
@@ -495,7 +518,11 @@ RELATIONS = {
     (
         "Router",
         "Schematic",
-    ): "The router hands back the routes and the seated labels, and reports what could not be placed cleanly.",
+    ): "The router hands back the routes and the seated labels, and reports what could not be placed cleanly, with the fix that applies.",
+    (
+        "Router",
+        "Describe",
+    ): "The router's gutters and seat counts are what describe reports per gutter.",
     (
         "Schematic",
         "Page",
@@ -505,6 +532,14 @@ RELATIONS = {
         "Schematic",
         "Check",
     ): "The check renders once and reads the geometry back: routes, labels, type size, wheels.",
+    (
+        "Schematic",
+        "Describe",
+    ): "describe renders once and reads the geometry back as a description: regions, edges, gutters, readings.",
+    (
+        "Describe",
+        "Agent",
+    ): "An agent that cannot open the page reads the picture in numbers after every refresh.",
     (
         "Page",
         "Maintainer",
@@ -559,6 +594,7 @@ VERB_OVERRIDES = {
     ("Page", "Maintainer"): ("is read by", "reads"),
     ("Config", "Check"): ("excuses modules to", "takes ignores from"),
     ("Check", "Agent"): ("refuses", "is refused by"),
+    ("Describe", "Agent"): ("describes to", "reads"),
     ("Check", "CI"): ("answers", "asks"),
     ("Check", "Page"): ("compares", "is compared by"),
     ("Check", "Figures"): ("compares", "is compared by"),
@@ -639,13 +675,13 @@ JOURNEYS = (
                 acts=("Page",),
                 measures=(),
                 edge=("CLI", "Page"),
-                say="systemap refresh renders the page and every configured figure, and systemap serve opens the page; systemap figure draws one more for a document.",
+                say="systemap refresh renders the page and every configured figure; systemap describe says what the picture shows, and systemap serve opens the page for anyone who can look.",
             ),
             Step(
                 acts=("Judgement",),
                 measures=("Maintainer",),
                 edge=("Judgement", "Maintainer"),
-                say="The agent answers the remaining judgement lines in systemap.toml, under [judgement] answered; the maintainer reads the answers and commits docs/map.",
+                say="The agent answers the remaining judgement lines in systemap.toml, under [judgement] answered, singly or by family; judgement --strict exits 0, and the maintainer reads the answers and commits docs/map.",
             ),
         ),
     ),

@@ -33,31 +33,20 @@ out = "figures/system.svg"
 mode = "system"
 interactive = false
 
-# The judgement lines the maintainer has answered, with why. An answered line
-# is suppressed and counted; a line that no longer appears is reported as
-# stale, so the list below cannot outlive the map it answers.
+# The judgement lines the maintainer has answered, with why. An answered
+# line is suppressed and counted; an answer that matches no line is reported
+# as stale, so the list below cannot outlive the map it answers. A family of
+# lines with one reason is answered by its form: every line of a kind, or
+# every crossing import between two components.
 [judgement]
 answered = [
-    { items = [
-        "single module: Scaffold is only systemap.scaffold",
-        "single module: Config is only systemap.config",
-        "single module: FactsExtractor is only systemap.extract",
-        "single module: ChangeDetector is only systemap.change",
-        "single module: Skill is only systemap.skill",
-        "single module: Router is only systemap.route",
-        "single module: Page is only systemap.page",
-        "single module: Figures is only systemap.figure",
-        "single module: Check is only systemap.check",
-        "single module: Judgement is only systemap.judgement",
-    ], reason = "a small package with one module per part: each card is a thing a reader would point at and name, and folding two of them would draw one card for two jobs" },
-    { items = [
-        "crossing import: module systemap.cli (component CLI) imports module systemap (component Model) and no flow joins CLI and Model",
-        "crossing import: module systemap.cli (component CLI) imports module systemap.model (component Model) and no flow joins CLI and Model",
-    ], reason = "the CLI imports the schema for type names, the version, and the placement check it runs before it renders; MODEL and MEANING reach the commands through Config (the settings edge), which is where the map draws them" },
-    { item = "crossing import: module systemap.cli (component CLI) imports module systemap.theme (component Schematic) and no flow joins CLI and Schematic", reason = "the CLI resolves the theme's tokens over the layers before handing them to every drawer; the theme is the Schematic's own table, and the edges the Schematic feeds already carry it" },
-    { item = "crossing import: module systemap.config (component Config) imports module systemap.model (component Model) and no flow joins Config and Model", reason = "load_model imports the schema only to check that MODEL and MEANING are the right types; the model flows on to the commands as settings, not back into the configuration" },
+    { kind = "single module", reason = "a small package with one module per part: each card is a thing a reader would point at and name, and folding two of them would draw one card for two jobs" },
+    { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names, the version, and the placement check it runs before it renders; MODEL and MEANING reach the commands through Config (the settings edge), which is where the map draws them" },
+    { crossing = ["CLI", "Schematic"], reason = "the CLI resolves the theme's tokens over the layers before handing them to every drawer; the theme is the Schematic's own table, and the edges the Schematic feeds already carry it" },
+    { crossing = ["Config", "Model"], reason = "load_model imports the schema only to check that MODEL and MEANING are the right types; the model flows on to the commands as settings, not back into the configuration" },
     { items = [
         "crossing import: module systemap.figure (component Figures) imports module systemap.model (component Model) and no flow joins Figures and Model",
         "crossing import: module systemap.page (component Page) imports module systemap.model (component Model) and no flow joins Page and Model",
     ], reason = "the drawers import the schema for type names and the layer order; the model itself reaches them through the Schematic (topology, meaning), which the map draws" },
+    { crossing = ["Describe", "Model"], reason = "describe imports the schema for the layer table and the readings it counts; the model reaches it as the Schematic's geometry, which the map draws" },
 ]
