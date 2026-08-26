@@ -12,6 +12,12 @@ printed as numbers:
                   placed and wrote, and how many it placed for this look
                   only, not yet written
     regions ..... how many cards each holds, and which
+    order ....... the regions as they follow each other on the grid, and
+                  what the drawing costs under that order: label
+                  collisions and refused routes when there are any, the
+                  bends and the length of every route together; and, when
+                  `place` chose the order for this look, how many orders
+                  it tried and routed
     edges ....... bends and length, worst first, and where each label sits
     evidence .... how many edges are observed, external and declared
     gutters ..... the bands between card rows and columns: how many label
@@ -31,6 +37,7 @@ from typing import Any
 
 from systemap.evidence import STATES
 from systemap.model import Meaning, Model, all_layers, reading
+from systemap.place import Score, grid_order
 from systemap.route import Gutter, gutters, locate, seats
 from systemap.schematic import LABEL_H
 from systemap.schematic import render as render_schematic
@@ -107,14 +114,33 @@ def gutter_lines(
     return out
 
 
+def drawn_score(meta: dict[str, Any], flows: int) -> Score:
+    """The drawing's score, read back from its `_meta`: the label collisions
+    it reports, the routes that had to break a rule, every path's bends and length."""
+    paths: dict[str, list[list[float]]] = meta["paths"]
+    return Score(
+        collisions=sum(1 for line in meta.get("collisions", []) if line.startswith("label ")),
+        refused=len(meta.get("notes", [])),
+        bends=sum(bends(paths.get(str(i), [])) for i in range(flows)),
+        length=int(round(sum(length(paths.get(str(i), [])) for i in range(flows)))),
+    )
+
+
 def lines(
-    model: Model, meaning: Meaning, meta: dict[str, Any], placed: Iterable[str] = ()
+    model: Model,
+    meaning: Meaning,
+    meta: dict[str, Any],
+    placed: Iterable[str] = (),
+    searched: tuple[int, int] | None = None,
 ) -> list[str]:
     """The description, from the drawing's own `_meta` (cards, paths, labels).
 
     `placed` names the cards `systemap place` positioned for this look
     because the model has none for them; the rest have a written
     position, and the ones marked `pinned` are counted as pinned.
+    `searched` is (orders tried, orders routed) when `place` laid the
+    whole map out for this look and chose the region order; None when
+    the order is the one written.
     """
     cards: dict[str, list[float]] = meta["cards"]
     paths: dict[str, list[list[float]]] = meta["paths"]
@@ -145,6 +171,18 @@ def lines(
     outside = [c.id for c in model.components if not c.region]
     if outside:
         out.append(f"  in a container only: {_plural(len(outside), 'card')} ({', '.join(outside)})")
+
+    order = ", ".join(grid_order(model)) if model.regions else "none"
+    cost = drawn_score(meta, len(model.flows)).text()
+    if searched is None:
+        how = "as written"
+    elif searched[0]:
+        how = (
+            f"{searched[0]} orders tried, {searched[1]} routed, for this look; run: systemap place"
+        )
+    else:
+        how = "as listed, for this look; run: systemap place"
+    out.append(f"region order: {order}; {cost}; {how}")
 
     rows, cols = gutters({cid: (b[0], b[1], b[2], b[3]) for cid, b in cards.items()}, (w, h))
     out.append("edges, worst first: bends, length, where the label sits")
@@ -208,8 +246,9 @@ def run(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
     placed: Iterable[str] = (),
+    searched: tuple[int, int] | None = None,
 ) -> list[str]:
     """Draw once, the way the page does, and describe what was drawn."""
     _svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
     meta = json.loads(detail)["_meta"]
-    return lines(model, meaning, meta, placed)
+    return lines(model, meaning, meta, placed, searched)

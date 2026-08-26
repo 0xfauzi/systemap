@@ -47,10 +47,12 @@ contradictions, not omissions; the second pass is the point of this skill.
    answer. Then write `map/model.py` from the facts and the repository's
    own words: its README, AGENTS.md, CLAUDE.md, docs/. Write the
    components and the flows with no `x` and `y`, then run `systemap
-   place`: it lays the regions out with the corridors the edges need,
-   puts every card on the grid, and writes the positions into the file;
-   after adding or removing a card, `systemap place --all` lays every
-   card out again, keeping only the cards marked `pinned=True`.
+   place`: it tries the region orders and keeps the one whose routes
+   have the fewest collisions, refusals, bends and length (never write
+   a helper to try orders), lays the regions out with the corridors the
+   edges need, puts every card on the grid, and writes the positions
+   into the file; after adding or removing a card, `systemap place
+   --all` lays every card out again, keeping only `pinned=True` cards.
    `references/schema.md` has every field; `references/example.md` is a
    complete small model; `references/layout.md`, what you still decide.
 3. **check**: `systemap check && systemap judgement --strict`, together,
@@ -158,11 +160,12 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
   each citing its source. `references/journeys-and-invariants.md`.
 - Positions: leave `x` and `y` out and run `systemap place`. It lays the
   regions out on a two-column grid with corridors between them (an edge
-  may not cross a region it does not belong to) and puts every card on
-  the grid inside its region, the parts that talk together; after adding
-  or removing a card, `systemap place --all` lays every card out again,
-  keeping only the cards marked `pinned=True`. You decide which region a
-  card is in, the order of the regions, and which cards to pin
+  may not cross a region it does not belong to), in the region order its
+  search scores best, and puts every card on the grid inside its region,
+  the parts that talk together; after adding or removing a card,
+  `systemap place --all` lays every card out again, keeping only the
+  cards marked `pinned=True`. You decide which region a card is in and
+  which cards to pin; the region order only with `--keep-order`
   (`references/layout.md`). An artifact label is a noun phrase of
   one to three words, never a sentence. The check decides.
 - A card whose modules exceed ten, or any card once a map is past forty
@@ -178,7 +181,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | the facts read back, one view at a time: `--modules` (first sentence and counts per module), `--docstrings`, `--module NAME` (one record, rendered), `--names NAME` (public names with kinds), `--entry-points` (with targets), `--external`, `--imports NAME`; never open the JSON |
-| `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too; `--print` prints instead |
+| `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too, in the region order the search scores best (every order tried, the best routed; the chosen order and its score are printed); `--keep-order` lays the regions as listed; `--print` prints instead |
 | `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI; `--kind KIND` prints one kind when the list runs long; `--verbose` lists the imports behind each crossing-import line |

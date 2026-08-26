@@ -52,6 +52,7 @@ import html
 import json
 import re
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from systemap import evidence
@@ -59,9 +60,10 @@ from systemap.model import (
     AGENT_KINDS,
     CARD_H,
     DERIVED_LAYERS,
-    Component,
+    Container,
     Meaning,
     Model,
+    Region,
     all_layers,
     build_state,
     entry_module,
@@ -334,6 +336,112 @@ def _defs(svg_id: str, t: dict[str, Any]) -> str:
     return "".join(out)
 
 
+@dataclass(frozen=True)
+class Geometry:
+    """What the router and the label pass are given, read off the model alone.
+
+    `boxes` is every card's box; `blocks` what a route may not cross
+    besides a card (every header, and a container that holds neither a
+    card nor a region); `obstacles` what a label may not sit on, each
+    named for the collision report (the headers, the empty containers,
+    the cards with 3 clear around them); `headers` every header's box,
+    for the labels rule; `collisions` the headers their box cannot hold.
+    `systemap place` scores a candidate layout with this same geometry,
+    so the order it picks is measured on the drawing the page makes.
+    """
+
+    boxes: dict[str, Box]
+    actors: set[str]
+    blocks: list[Box]
+    obstacles: list[tuple[str, Box]]
+    headers: list[dict[str, Any]]
+    collisions: list[str]
+    region_boxes: dict[str, Box]
+    region_of: dict[str, str]
+
+
+def container_header(box: Container) -> tuple[Box, list[str], list[str]]:
+    """A container's header obstacle, the sub lines drawn, and what its box cannot hold.
+
+    The header obstacle is the text, not the whole top edge of the box:
+    the factory's spans the canvas, and a wall that wide would close the
+    corridor every long edge runs along. A label wider than the box, or a
+    sub that needs more than two lines, is drawn as far as it fits and
+    reported, so a header never quietly runs into a card.
+    """
+    x, y, w, _h = box.box
+    chars = max(12, int((w - 26) / SUB_CHAR))
+    all_lines = wrap_all(box.sub, chars)
+    sub_lines = all_lines[:HEADER_LINES]
+    collisions: list[str] = []
+    if len(all_lines) > HEADER_LINES or any(len(line) > chars for line in all_lines):
+        collisions.append(
+            f"header of container {box.id}: sub does not fit its box "
+            f"({len(box.sub)} characters; {HEADER_LINES} lines of {chars} fit)"
+        )
+    if 13 + len(box.label) * LABEL_CHAR + 8 > w:
+        collisions.append(f"header of container {box.id}: label is wider than its box")
+    text_w = max([len(box.label) * LABEL_CHAR] + [len(line) * SUB_CHAR for line in sub_lines]) + 8
+    header: Box = (x + 8, y + 6, min(w - 16, text_w), 30 + 12 * len(sub_lines))
+    return header, sub_lines, collisions
+
+
+def region_header(region: Region) -> tuple[Box, list[str]]:
+    """A region's header obstacle (its number and label), and a label wider than the box."""
+    x, y, w, _h = region.box
+    label_w = 31 - 6 + len(region.label) * LABEL_CHAR + 8
+    collisions: list[str] = []
+    if 31 + len(region.label) * LABEL_CHAR + 8 > w:
+        collisions.append(f"header of region {region.id}: label is wider than its box")
+    return (x + 6, y + 5, max(150.0, label_w), 24), collisions
+
+
+def geometry(model: Model) -> Geometry:
+    """The router's and the label pass's inputs for a positioned model."""
+    boxes: dict[str, Box] = {}
+    for c in model.components:
+        left, top, _w, tall = c.box
+        boxes[c.id] = (float(left), float(top), CARD_W, float(tall))
+    obstacles: list[tuple[str, Box]] = []
+    blocks: list[Box] = []
+    headers: list[dict[str, Any]] = []
+    collisions: list[str] = []
+    occupied = {c.container for c in model.components if c.container}
+    occupied |= {r.container for r in model.regions if r.container}
+    for box in model.containers:
+        header, _sub_lines, unfit = container_header(box)
+        collisions += unfit
+        obstacles.append((f"{box.id} header", header))
+        blocks.append(header)
+        headers.append({"id": box.id, "kind": "container", "box": [round(v, 1) for v in header]})
+        if box.id not in occupied:
+            bx, by, bw, bh = box.box
+            whole: Box = (float(bx), float(by), float(bw), float(bh))
+            blocks.append(whole)
+            obstacles.append((box.id, whole))
+    for region in model.regions:
+        header, unfit = region_header(region)
+        collisions += unfit
+        obstacles.append((f"{region.id} header", header))
+        blocks.append(header)
+        headers.append({"id": region.id, "kind": "region", "box": [round(v, 1) for v in header]})
+    for cid, (x, y, w, h) in boxes.items():
+        obstacles.append((cid, (x - 3, y - 3, w + 6, h + 6)))
+    return Geometry(
+        boxes=boxes,
+        actors={c.id for c in model.components if c.kind == "actor"},
+        blocks=blocks,
+        obstacles=obstacles,
+        headers=headers,
+        collisions=collisions,
+        region_boxes={
+            r.id: (float(r.box[0]), float(r.box[1]), float(r.box[2]), float(r.box[3]))
+            for r in model.regions
+        },
+        region_of={c.id: c.region or "" for c in model.components},
+    )
+
+
 def render(
     model: Model,
     meaning: Meaning,
@@ -457,11 +565,12 @@ def render(
     states = {c.id: build_state(c, facts) for c in COMPONENTS}
     backed = evidence.of_model(model, meaning, facts, observed_by)
 
-    def geom(c: Component) -> Box:
-        x, y, _w, h = c.box
-        return float(x), float(y), CARD_W, float(h)
-
-    boxes = {c.id: geom(c) for c in COMPONENTS}
+    # The geometry the router and the label pass read: the card boxes, the
+    # headers and the empty containers as walls, every obstacle named for
+    # the collision report, and the headers a box cannot hold. The same
+    # function scores a layout for `systemap place`.
+    geo = geometry(model)
+    boxes = geo.boxes
 
     # ---- ground: boundaries, then the bands -------------------------------
     # Boxes are integers in the model and floats once routed; the drawing
@@ -472,34 +581,16 @@ def render(
     w: float
     h: float
     floor: list[str] = []
-    obstacles: list[tuple[str, Box]] = []
-    # What a route may not cross besides a card: every header, and any
-    # container that holds neither a card nor a region (a directory the
-    # system writes to, a tree it may not enter).
-    blocks: list[Box] = []
-    # Every header's box, for the labels rule, and every header the box
-    # cannot hold: a label wider than the box, a sub that needs more than
-    # two lines. The text is drawn as far as it fits and the check refuses
-    # the map, so a header never quietly runs into a card.
-    headers: list[dict[str, Any]] = []
-    collisions: list[str] = []
-    occupied = {c.container for c in COMPONENTS if c.container}
-    occupied |= {r.container for r in model.regions if r.container}
+    obstacles = geo.obstacles
+    blocks = geo.blocks
+    headers = geo.headers
+    collisions = list(geo.collisions)
     for box in model.containers:
         x, y, w, h = box.box
         stroke, fill = T["container"][box.tone]
         if change_mode:
             stroke, fill = T["line"], T["bg"]
-        chars = max(12, int((w - 26) / SUB_CHAR))
-        all_lines = wrap_all(box.sub, chars)
-        sub_lines = all_lines[:HEADER_LINES]
-        if len(all_lines) > HEADER_LINES or any(len(line) > chars for line in all_lines):
-            collisions.append(
-                f"header of container {box.id}: sub does not fit its box "
-                f"({len(box.sub)} characters; {HEADER_LINES} lines of {chars} fit)"
-            )
-        if 13 + len(box.label) * LABEL_CHAR + 8 > w:
-            collisions.append(f"header of container {box.id}: label is wider than its box")
+        _header, sub_lines, _unfit = container_header(box)
         floor.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
             f'fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>'
@@ -509,19 +600,6 @@ def render(
                 for k, line in enumerate(sub_lines)
             )
         )
-        # The header obstacle is the text, not the whole top edge of the box:
-        # the factory's spans the canvas, and a wall that wide would close
-        # the corridor every long edge runs along.
-        text_w = (
-            max([len(box.label) * LABEL_CHAR] + [len(line) * SUB_CHAR for line in sub_lines]) + 8
-        )
-        header: Box = (x + 8, y + 6, min(w - 16, text_w), 30 + 12 * len(sub_lines))
-        obstacles.append((f"{box.id} header", header))
-        blocks.append(header)
-        headers.append({"id": box.id, "kind": "container", "box": [round(v, 1) for v in header]})
-        if box.id not in occupied:
-            blocks.append((float(x), float(y), float(w), float(h)))
-            obstacles.append((box.id, (float(x), float(y), float(w), float(h))))
 
     zones: list[str] = []
     for i, region in enumerate(model.regions, start=1):
@@ -537,29 +615,13 @@ def render(
             + L(x + 31, y + 20, region.label, TEXT_PX, T["region"], "600", True, "start", ".13em")
             + "</g>"
         )
-        label_w = 31 - 6 + len(region.label) * LABEL_CHAR + 8
-        if 31 + len(region.label) * LABEL_CHAR + 8 > w:
-            collisions.append(f"header of region {region.id}: label is wider than its box")
-        region_header: Box = (x + 6, y + 5, max(150.0, label_w), 24)
-        obstacles.append((f"{region.id} header", region_header))
-        blocks.append(region_header)
-        headers.append(
-            {"id": region.id, "kind": "region", "box": [round(v, 1) for v in region_header]}
-        )
-    for cid, (x, y, w, h) in boxes.items():
-        obstacles.append((cid, (x - 3, y - 3, w + 6, h + 6)))
 
     # ---- flows ------------------------------------------------------------
     # Every flow is a Manhattan path through the gutters, routed by route.py
     # against the card boxes, the headers and the region boxes; the drawing
     # here only paints what the router returns and reports what it could
     # not do.
-    actor_ids = {c.id for c in COMPONENTS if c.kind == "actor"}
-    region_of = {c.id: c.region or "" for c in COMPONENTS}
-    region_boxes: dict[str, Box] = {
-        r.id: (float(r.box[0]), float(r.box[1]), float(r.box[2]), float(r.box[3]))
-        for r in model.regions
-    }
+    actor_ids, region_of, region_boxes = geo.actors, geo.region_of, geo.region_boxes
     edges = [(src, dst) for src, dst, _art, _k in FLOWS]
     routes = route_all(edges, boxes, actor_ids, blocks, region_boxes, region_of, CANVAS)
     widths = {i: len(FLOWS[i][2]) * LABEL_CHAR_W + 6 for i in routes}

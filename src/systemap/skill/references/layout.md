@@ -8,10 +8,22 @@ adding or removing a card, run `place --all`. What it does, so that you
 do not do it by hand:
 
 - Regions go on a two-column grid inside their container, in the order
-  the model lists them, with the corridors the router needs already
+  the search below chooses, with the corridors the router needs already
   there: 48 units between the region columns, 36 between the region
   rows. An edge may not cross a region it does not belong to, and on
   this grid every pair of regions is joined by a corridor.
+- The order of the regions on the grid is searched. Every order is
+  tried when there are at most six regions (past six, a greedy start
+  and pairwise swaps); each is laid out whole and estimated by the
+  bends its edges need at least and their length, and the best twelve
+  by that estimate, plus the order the model lists, are routed with
+  the real router and scored by label collisions, then routes that had
+  to cross a foreign region, then bends, then length. The least wins;
+  a tie goes to the order listed first. `place` prints the order it
+  chose and the score (`region order: gateway, contracts, ...; 40
+  bends, 7,909 units; 720 orders tried, 13 routed`), and `describe`
+  prints the order and the score of the map as written.
+  `systemap place --keep-order` lays the regions as the model lists them.
 - Cards go on the grid inside their region, columns 190 apart and rows
   92 apart, three deep before the region takes a second column. A
   region's box follows its card count and a container's box its
@@ -34,10 +46,13 @@ always gets the same positions, and a second run changes nothing. When
   team; the parts that talk most belong in one region or in adjacent
   ones. This is the placement decision that carries meaning, and
   `place` never makes it.
-- **The order of the regions.** The model's order is the grid's order,
-  two regions per row, left to right and then down. List the regions in
-  the order a reader would walk them, and put regions that talk most
-  side by side or one above the other.
+- **The order of the regions.** Only when you must: `place` searches
+  it and prints what it chose. List the regions in the order a reader
+  would walk them (the list is the order `describe` and the page's
+  index use, and the tie-breaker of the search), and pass
+  `--keep-order` only when the grid must follow that order too: the
+  search scores the drawing, and an order it did not choose costs
+  bends.
 - **When to pin a card.** A card marked `pinned=True` (with its `x`
   and `y`) is one a person placed on purpose: `place --all` keeps it
   where it is and lays the other cards out around it, in the free

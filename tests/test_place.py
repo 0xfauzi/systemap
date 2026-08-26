@@ -137,17 +137,29 @@ def test_a_positioned_card_stays_where_it_was() -> None:
     )
     assert_clean(placed, meaning, fixture_workspace.facts())
     # Pinned off the grid, it still stays, and nothing is put on top of it.
+    # The last card of its region is nudged down and right, into the
+    # region's own padding: a nudge towards another slot blocks that slot
+    # (the test below), and which slot is Gateway's depends on the order
+    # the search chose.
+    last = max(
+        (c for c in fresh.components if c.region == "gateway"),
+        key=lambda c: (c.y, c.x),  # type: ignore[return-value]
+    )
     off = dataclasses.replace(
-        partly,
+        fresh,
         components=tuple(
-            dataclasses.replace(c, x=gateway.x + 7, y=gateway.y + 5) if c.id == "Gateway" else c  # type: ignore[operator]
-            for c in partly.components
+            dataclasses.replace(c, x=last.x + 7, y=last.y + 5)  # type: ignore[operator]
+            if c.id == last.id
+            else dataclasses.replace(c, x=None, y=None)
+            for c in fresh.components
         ),
     )
-    placed = place.apply(off, place.compute(off))
-    assert (placed.component("Gateway").x, placed.component("Gateway").y) == (
-        gateway.x + 7,  # type: ignore[operator]
-        gateway.y + 5,  # type: ignore[operator]
+    placement = place.compute(off)
+    assert placement.kept == (last.id,)
+    placed = place.apply(off, placement)
+    assert (placed.component(last.id).x, placed.component(last.id).y) == (
+        last.x + 7,  # type: ignore[operator]
+        last.y + 5,  # type: ignore[operator]
     )
     assert not [p for p in placed.layout_problems() if "overlaps" in p]
 
@@ -276,16 +288,22 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     assert main(["--root", str(tmp_path), "place", "--print"]) == 0
     printed = capsys.readouterr().out
     assert printed.startswith("place: 28 cards placed, 0 kept, every box and the canvas laid out\n")
+    assert "\n  region order: " in printed and "; 720 orders tried, 13 routed\n" in printed
     assert "  Gateway: x=" in printed and "  region gateway: box=(" in printed
     assert "  container server: box=(" in printed and "  canvas: (" in printed
     assert model_path.read_text(encoding="utf-8") == before, "--print writes nothing"
 
     assert main(["--root", str(tmp_path), "place"]) == 0
     out = capsys.readouterr().out
-    assert out == (
-        "place: wrote map/model.py: 28 cards placed, 0 kept; every box and the canvas "
-        "laid out\nrun: systemap check\n"
-    )
+    # The chosen region order and its score follow the write line: six
+    # regions, so every one of the 720 orders was tried, and the twelve
+    # best by the estimate plus the order as listed were routed.
+    assert re.fullmatch(
+        r"place: wrote map/model.py: 28 cards placed, 0 kept; every box and the canvas "
+        r"laid out\n  region order: (\w+, ){5}\w+; \d+ bends, [\d,]+ units; 720 orders tried, "
+        r"13 routed\nrun: systemap check\n",
+        out,
+    ), out
     after = model_path.read_text(encoding="utf-8")
     # Only positions, boxes and the canvas moved: every other line is byte
     # for byte. With the inserted x and y lines taken out and every number
@@ -478,10 +496,169 @@ def test_first_layout_refuses_a_card_with_no_home_and_places_loose_regions() -> 
     placement = place.compute(model)
     placed = place.apply(model, placement)
     assert placed.layout_problems() == []
-    assert placement.regions["b"][0] - (placement.regions["a"][0] + placement.regions["a"][2]) == 48
+    # The two regions share a row with the corridor between them, whichever
+    # order the search put them in.
+    left, right = sorted((placement.regions["a"], placement.regions["b"]))
+    assert right[0] - (left[0] + left[2]) == 48
     (out,) = placed.containers
     assert out.box[2] > 190 and place.sub_lines(out.sub, out.box[2]) == 2
     meaning = Meaning(
         plain={"U": "u", "P": "p", "Q": "q"}, relations={f.edge: "s" for f in model.flows}
     )
     assert_clean(placed, meaning, {})
+
+
+# ---- the region order: every order tried, the best routed --------------------------
+
+
+def test_the_search_picks_an_order_the_router_scores_no_worse_than_the_listed_one() -> None:
+    """Six regions: all 720 orders laid out and estimated, the twelve best by
+    the estimate and the order as listed routed, the least score chosen;
+    the score reported is the drawing's own, measured again on the placed
+    model; `keep_order` skips the search and lays the regions as listed."""
+    model, meaning, facts = (
+        stripped(fixture_workspace.MODEL),
+        fixture_workspace.MEANING,
+        fixture_workspace.facts(),
+    )
+    searched = place.compute(model)
+    listed = place.compute(model, keep_order=True)
+    assert searched.fresh and listed.fresh
+    assert (searched.tried, searched.routed) == (720, place.ROUTED + 1)
+    assert (listed.tried, listed.routed) == (0, 0)
+    assert listed.order == tuple(r.id for r in model.regions)
+    assert sorted(searched.order) == sorted(listed.order) and searched.order != listed.order
+    assert searched.score is not None and listed.score is not None
+    assert searched.score <= listed.score
+    # Measured on this fixture: the listed order needs 43 bends, the chosen
+    # one 40 (the least of all 720, from routing every one of them once,
+    # off-line). The search earns its keep here; if the router changes so
+    # that it no longer does, this is the line to look at.
+    assert searched.score.bends < listed.score.bends
+    assert (searched.score.collisions, searched.score.refused) == (0, 0)
+    for placement in (searched, listed):
+        placed = place.apply(model, placement)
+        assert place.score(placed) == placement.score
+        assert place.grid_order(placed) == placement.order
+        assert_clean(placed, meaning, facts)
+    # Deterministic: the same search twice is the same placement.
+    assert place.compute(model) == searched
+    assert re.fullmatch(
+        r"region order: (\w+, ){5}\w+; \d+ bends, [\d,]+ units; 720 orders tried, 13 routed",
+        place.order_line(searched),
+    )
+    assert place.order_line(listed) == (
+        f"region order: {', '.join(listed.order)}; {listed.score.text()}; as listed"
+    )
+
+
+def test_score_ranks_collisions_then_refusals_then_bends_then_length() -> None:
+    assert place.Score(0, 0, 50, 1) < place.Score(0, 1, 0, 0)
+    assert place.Score(0, 9, 9, 9) < place.Score(1, 0, 0, 0)
+    assert place.Score(0, 0, 41, 100) < place.Score(0, 0, 41, 101)
+    assert place.Score(0, 0, 41, 12300).text() == "41 bends, 12,300 units"
+    assert place.Score(2, 1, 1, 5).text() == "2 label collisions, 1 route refused, 1 bend, 5 units"
+
+
+def test_the_estimate_counts_a_straight_run_an_l_and_a_z() -> None:
+    def model(*cards: tuple[str, int, int]) -> Model:
+        return Model(
+            canvas=(1000, 600),
+            containers=(),
+            regions=(Region("r", "R", (0, 0, 1000, 600)),),
+            components=tuple(Component(i, i.lower(), region="r", x=x, y=y) for i, x, y in cards),
+            flows=(Flow("A", "B", "x", "data"),),
+            flow_kinds=(),
+        )
+
+    # Facing each other in one row, nothing between: straight, and the
+    # length is the distance between the centres.
+    assert place.estimate(model(("A", 20, 40), ("B", 420, 40))) == (0, 400.0)
+    # A card between them: the straight run is blocked, a Z at least.
+    assert place.estimate(model(("A", 20, 40), ("C", 210, 40), ("B", 420, 40)))[0] == 2
+    # Diagonal with a clear corner: one L.
+    assert place.estimate(model(("A", 20, 40), ("B", 420, 240))) == (1, 600.0)
+    # Diagonal with both corners blocked: a Z.
+    blocked = model(("A", 20, 40), ("B", 420, 240), ("C", 420, 40), ("D", 20, 240))
+    assert place.estimate(blocked)[0] == 2
+    # A foreign region is a wall too.
+    walled = dataclasses.replace(
+        model(("A", 20, 40), ("B", 420, 40)),
+        regions=(Region("r", "R", (0, 0, 1000, 600)), Region("f", "F", (200, 0, 100, 600))),
+    )
+    assert place.estimate(walled)[0] == 2
+
+
+def test_past_six_regions_a_greedy_start_and_pairwise_swaps_are_tried() -> None:
+    """Seven regions: 5040 orders is too many to lay out, so the search
+    starts from the region with the most flows and swaps pairs while a
+    swap lowers the estimate; the routed shortlist and the listed order
+    are scored as before, and the layout is clean."""
+    ids = [f"r{k}" for k in range(7)]
+    chain = ["r3", "r0", "r5", "r1", "r6", "r2", "r4"]
+    model = Model(
+        canvas=(100, 100),
+        containers=(Container("c", "C", (0, 0, 1, 1)),),
+        regions=tuple(Region(r, r.upper(), (0, 0, 1, 1), container="c") for r in ids),
+        components=tuple(Component(f"P{r}", r, region=r) for r in ids),
+        flows=tuple(
+            Flow(f"P{a}", f"P{b}", "x", "data") for a, b in zip(chain, chain[1:], strict=False)
+        )
+        + (
+            Flow("Pr3", "Pr5", "y", "data"),
+            Flow("Pr3", "Pr1", "z", "data"),
+            Flow("Pr3", "Pr6", "w", "data"),
+        ),
+        flow_kinds=(),
+    )
+    weights = place._region_weights(model)
+    assert weights[("r3", "r0")] == 1 and weights[("r0", "r3")] == 1
+    greedy = [r.id for r in place._greedy(list(model.regions), weights, ids)]
+    assert greedy[0] == "r3", "the region with the most flows (four) starts"
+    assert greedy[1] in {"r0", "r5", "r1", "r6"}, "then one it talks to"
+    assert set(greedy) == set(ids)
+    placement = place.compute(model)
+    listed = place.compute(model, keep_order=True)
+    assert 2 < placement.tried < 5040
+    assert placement.routed <= place.ROUTED + 1
+    assert placement.score is not None and listed.score is not None
+    assert placement.score <= listed.score
+    assert sorted(placement.order) == sorted(ids)
+    placed = place.apply(model, placement)
+    assert placed.layout_problems() == []
+    assert place.grid_order(placed) == placement.order
+    assert place.compute(model) == placement
+
+
+def test_describe_prints_the_region_order_for_the_look_and_as_written(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "systemap.toml": "",
+            "pkg/__init__.py": "",
+            "map/model.py": fixture_source_without_positions(),
+        },
+    )
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "describe"]) == 0
+    out = capsys.readouterr().out
+    assert re.search(
+        r"^region order: (\w+, ){5}\w+; \d+ bends, [\d,]+ units; 720 orders tried, 13 routed, "
+        r"for this look; run: systemap place$",
+        out,
+        flags=re.M,
+    ), out
+    assert main(["--root", str(tmp_path), "place", "--keep-order"]) == 0
+    out = capsys.readouterr().out
+    assert re.search(r"^  region order: gateway, contracts, .*; as listed$", out, flags=re.M), out
+    assert main(["--root", str(tmp_path), "describe"]) == 0
+    out = capsys.readouterr().out
+    assert re.search(
+        r"^region order: gateway, contracts, content, orchestration, style, layout; "
+        r"\d+ bends, [\d,]+ units; as written$",
+        out,
+        flags=re.M,
+    ), out

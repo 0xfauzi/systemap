@@ -3,7 +3,8 @@
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
     systemap facts [--modules ...]     read the facts back, one view at a time (never the JSON)
-    systemap place [--all] [--print]   a position for every card without one; --all for every card
+    systemap place [--all] [--print] [--keep-order]
+                                       a position for every card without one; --all for every card
     systemap render [--check]          render the page from facts and model
     systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator; --map ID for a sub-map
@@ -582,7 +583,9 @@ def cmd_describe(args: argparse.Namespace) -> int:
     code = OK
     for m in p.tree.maps:
         # A card without a position is placed for this look, as `systemap
-        # place` would place it, and the positions line says which.
+        # place` would place it, and the positions line says which; a
+        # whole layout searched the region order, and the order line says
+        # how many orders it tried.
         placement = place.compute(m.model)
         model = place.apply(m.model, placement) if placement.positions else m.model
         problems = model_problems(model, m.meaning)
@@ -590,7 +593,15 @@ def cmd_describe(args: argparse.Namespace) -> int:
             say(*(m.prefix + line for line in problems), f"fix {m.rel}, then run: systemap check")
             code = STALE
             continue
-        lines = describe.run(model, m.meaning, m.theme, facts, p.cfg.observed_by, placement.placed)
+        lines = describe.run(
+            model,
+            m.meaning,
+            m.theme,
+            facts,
+            p.cfg.observed_by,
+            placement.placed,
+            searched=(placement.tried, placement.routed) if placement.fresh else None,
+        )
         say(*(m.prefix + line for line in lines))
     return code
 
@@ -605,7 +616,9 @@ def cmd_place(args: argparse.Namespace) -> int:
     out again and keeps only the cards marked `pinned=True`. With no card
     kept the regions, the containers and the canvas are laid out too;
     with any kept, the boxes stay as written and the other cards take
-    the free slots inside them. `--print` prints the positions instead
+    the free slots inside them; with none kept the region order is
+    searched (`--keep-order` lays them as listed) and the chosen order
+    and its score are printed. `--print` prints the positions instead
     of writing them. The check decides, as before: run it next.
     """
     p = _project(args)
@@ -613,7 +626,9 @@ def cmd_place(args: argparse.Namespace) -> int:
         return STALE
     wrote = False
     for m in p.tree.maps:
-        placement = place.compute(m.model, all_cards=bool(args.all))
+        placement = place.compute(
+            m.model, all_cards=bool(args.all), keep_order=bool(args.keep_order)
+        )
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))
             continue
@@ -631,6 +646,8 @@ def cmd_place(args: argparse.Namespace) -> int:
             )
         laid = "; every box and the canvas laid out" if placement.fresh else ""
         say(f"{m.prefix}place: wrote {m.rel}: {place.head(placement)}{laid}")
+        if placement.fresh:
+            say(f"{m.prefix}  {place.order_line(placement)}")
         wrote = True
     if wrote:
         say("run: systemap check")
@@ -787,8 +804,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="write a position into the model for every card without one, keeping every "
         "card that has one; --all lays every card out again and keeps only the cards "
         "marked pinned=True (run it after adding or removing a card); with no card kept, "
-        "the regions, containers and canvas are laid out too; --print prints instead of "
-        "writing",
+        "the regions, containers and canvas are laid out too, and the order of the regions "
+        "on the grid is searched: every order tried, the best routed, the one with the "
+        "fewest label collisions, refused routes, bends and length chosen; --keep-order "
+        "lays them as the model lists them; --print prints instead of writing",
     )
     add_root(s)
     s.add_argument(
@@ -797,6 +816,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="lay every card out again, keeping only the cards marked pinned=True",
     )
     s.add_argument("--print", action="store_true", help="print the positions; write nothing")
+    s.add_argument(
+        "--keep-order",
+        action="store_true",
+        help="lay the regions in the order the model lists them; skip the search",
+    )
     s.set_defaults(func=cmd_place)
 
     s = sub.add_parser("render", help="render the page from the facts and the model")
@@ -921,8 +945,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser(
         "describe",
         help="what a look at the picture would tell you, in numbers: cards per region, "
-        "bends and length per edge (worst first), seats per gutter, cards and edges per "
-        "reading; for an agent that cannot open the page",
+        "the region order and its score, bends and length per edge (worst first), seats "
+        "per gutter, cards and edges per reading; for an agent that cannot open the page",
     )
     add_root(s)
     s.set_defaults(func=cmd_describe)

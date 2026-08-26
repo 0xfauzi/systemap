@@ -145,7 +145,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        does="A first position for every card without one: regions on a two-column grid with corridors between them, cards on the grid inside, ordered by barycentre sweeps over the flows. Writes the positions into map/model.py in place; with --all, lays every card out again and keeps the pinned ones.",
+        does="A first position for every card without one: regions on a two-column grid with corridors between them, in the order the search scores best (every order tried, the best routed and scored by collisions, refusals, bends and length), cards on the grid inside, ordered by barycentre sweeps over the flows. Writes the positions into map/model.py in place; with --all, lays every card out again and keeps the pinned ones.",
         interface="compute(model) -> Placement; write(path, model, placement)",
         implemented_by=("systemap.place",),
         entry="compute",
@@ -292,6 +292,9 @@ FLOWS = (
     Flow("Model", "Check", "model", "data"),
     Flow("Router", "Schematic", "routes, labels", "data"),
     Flow("Router", "Describe", "gutters, seats", "data"),
+    Flow("Router", "Placer", "routes, seats", "data"),
+    Flow("Schematic", "Placer", "geometry", "data"),
+    Flow("Placer", "Describe", "region order, score", "data"),
     Flow("Schematic", "Page", "svg, detail", "data"),
     Flow("Schematic", "Figures", "svg", "data"),
     Flow("Schematic", "Check", "geometry", "data"),
@@ -431,6 +434,18 @@ RELATIONS = {
         "CLI",
         "Placer",
     ): "place computes a position for every card without one, or with --all for every card not pinned, and writes it into the model; describe places them for one look without writing.",
+    (
+        "Router",
+        "Placer",
+    ): "The placer routes every shortlisted region order with the router and the label pass, and keeps the order with the fewest label collisions, refused routes, bends and length.",
+    (
+        "Schematic",
+        "Placer",
+    ): "The placer scores a candidate layout on the drawing's own geometry (the card boxes, the headers and empty containers as walls, what a label may not sit on) and reads the header measurements so a box it lays out holds its header.",
+    (
+        "Placer",
+        "Describe",
+    ): "Describe reads the region order off the map as placed and the score of the drawing under it, and says how many orders place tried when it chose the order for the look.",
     (
         "CLI",
         "FactsExtractor",
