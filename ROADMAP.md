@@ -174,9 +174,19 @@ turn budgets in the skill. Measured, as of 0.10.1: the table has one
 row, a first map of a private 144-module service by systemap 0.8.0,
 from its session log: 25.49 dollars, 0.177 dollars per module, against
 the 0.15 target. Missed; the target stands, and the table carries the
-measured value. Still unmeasured: every other first-map row (the
-self-map, a 100-module tree, a 300-plus-module tree) and every
-maintenance mode.
+measured value.
+
+Measured, as of 0.11.1, in docs/benchmarks.md: four more first-map rows,
+each run by bench/run.sh on systemap 0.9.0, against the 0.15 target:
+https://github.com/0xfauzi/kstrl, 111 modules, 17.61 dollars, 0.159 per
+module; https://github.com/Textualize/rich, 103 modules, 14.37 dollars,
+0.14; https://github.com/paperless-ngx/paperless-ngx, 341 modules, 24.24
+dollars, 0.071; https://github.com/python-poetry/poetry, 192 modules,
+20.82 dollars, 0.108. Three of the four under the target; one at 0.159.
+The target stands, unedited; the table carries the measured values, the
+0.177 row included. The 100-module and 300-plus-module trees of the
+acceptance line are in the table; the self-map row is not. Still
+unmeasured in the committed table: every maintenance mode.
 
 ### 5. Past sixty cards the single map stops working
 
@@ -209,7 +219,7 @@ external runs.
 
 ### 6. It has been run on one repository, ours
 
-What is wrong: n equals one, and we wrote it.
+What was wrong: n equals one, and we wrote it.
 
 Mechanism: the benchmark harness on three public Python repositories we
 did not write, chosen for shape rather than fame: a command-line tool, a
@@ -223,6 +233,29 @@ Acceptance: all three finish unattended with check clean and
 `judgement --strict` at exit 0; at most five friction items per run and
 none of them a defect (a defect is wrong output, a valid input refused, or
 a crash; a wording complaint is not).
+
+Measured, as of 0.11.1: four repositories, three not ours
+(https://github.com/Textualize/rich, a library, 103 modules;
+https://github.com/paperless-ngx/paperless-ngx, a web service, 341;
+https://github.com/python-poetry/poetry, a command-line tool, 192) and
+https://github.com/0xfauzi/kstrl (ours, 111), each run by bench/run.sh
+on systemap 0.9.0 with the documented sentence and nothing else. All
+four finished unattended with check clean and `judgement --strict` at
+exit 0 (docs/benchmarks.md). Zero systemap crashes and zero usage errors
+in the four session logs.
+
+Not measured: the friction-item count. The harness runs the pure user
+sentence, and a friction log is a test instrument, not user behaviour;
+asking the agent to keep one would change the run being measured, so
+the acceptance line's "at most five friction items" has no number. The
+substitute signal is the helper scripts the agent wrote around the
+tool: three on one repository, four on another, none on the other two.
+The helper both of those repositories shared tried region orders and
+picked the one with the fewest bends and shortest routes, because
+`place` laid the regions in model order and never compared two; 0.11.1
+builds that search into `place`. The other helpers are not yet read for
+the same signal; that is the next item here. Not done: the three maps
+are not published as examples.
 
 ### 7. It is not yet distributed, and the page's claims are half verified
 
@@ -286,6 +319,7 @@ Every number above is a target or a threshold set before the work, so
 that the work can fail it, except the ones marked measured: gap 1's
 check-and-refresh count (21 against a target of 11) and gap 4's first-map
 cost (0.177 dollars per module against 0.15), both missed on run 4 and
-both left standing. When a measured value misses its target, the choice
-is to change the mechanism or to publish the measured value, never to
-move the target quietly.
+both left standing, and gap 4's four 0.9.0 rows (three under 0.15, one
+at 0.159). When a measured value misses its target, the choice is to
+change the mechanism or to publish the measured value, never to move
+the target quietly.
