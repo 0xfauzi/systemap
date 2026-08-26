@@ -57,4 +57,5 @@ answered = [
     { crossing = ["Describe", "Model"], reason = "describe imports the schema for the layer table and the readings it counts; the model reaches it as the Schematic's geometry, which the map draws" },
     { crossing = ["Placer", "Schematic"], reason = "the placer reads the drawing's header measurements (the label and sub widths) so a box it lays out holds its header; nothing travels between them at run time" },
     { item = "declared flow: ChangeDetector -> Page (change map): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the change map is computed by the detector and handed to the page by the CLI (render --base); the page never imports the detector, and the hand-over is the CLI's control edge to each" },
+    { crossing = ["ChangeDetector", "Judgement"], reason = "delta reuses the judgement's answer matcher so a crossing import already answered under [judgement] is not asked again; the answers themselves reach the detector through Config (the settings edge), which the map draws" },
 ]

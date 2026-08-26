@@ -63,6 +63,7 @@ from typing import Any
 from systemap import extract, figure, page
 from systemap.config import Config, Ignore
 from systemap.model import (
+    Component,
     Layer,
     Meaning,
     Model,
@@ -431,7 +432,7 @@ def interface_head(text: str) -> tuple[str, str] | None:
     return found.group(1), found.group(2) or ""
 
 
-def _method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
+def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
     """The public methods one facts record gives a class, from their signatures."""
     out: set[str] = set()
     for group in ("classes", "errors"):
@@ -477,54 +478,64 @@ def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
         return []
     out: list[str] = []
     for c in model.components:
-        if c.kind == "actor" or not c.interface.strip():
-            continue
-        modules = claimed(c, components)
-        symbols = symbol_claims(c)
-        names: set[str] = set()
-        for m in modules:
-            names |= public_names(components[m])
-        names |= {name for _module, name in symbols}
-        held = ", ".join(modules + [f"{m}:{n}" for m, n in symbols])
-        head = interface_head(c.interface)
-        if head is None:
-            out.append(
-                f"{c.id} interface '{c.interface}' does not start with a name; start it "
-                f"with a public name one of its modules defines ({held})"
-            )
-            continue
-        name, method = head
-        if name not in names:
-            closest = _closest(name, names)
-            hint = f"; closest: {closest}" if closest else ""
-            out.append(
-                f"{c.id} interface starts with {name}, which none of its modules defines "
-                f"({held}){hint}"
-            )
-            continue
-        if not method:
-            continue
-        methods: set[str] = set()
-        for m in modules:
-            methods |= _method_names(components[m], name)
-            # A class re-exported by a package __init__ keeps its methods in
-            # the module that defines it.
-            for source in _reexport_sources(components[m], name):
-                if source in components:
-                    methods |= _method_names(components[source], name)
-        for m, n in symbols:
-            if n == name and m in components:
-                methods |= _method_names(components[m], name)
-        if method not in methods and method not in names:
-            # The class's own methods first: a wrong method is usually a
-            # misspelt one, not a module-level name.
-            closest = _closest(method, methods) or _closest(method, names)
-            hint = f"; closest: {closest}" if closest else ""
-            out.append(
-                f"{c.id} interface names {name}.{method}, but {name} has no public method "
-                f"{method} ({held}){hint}"
-            )
+        problem = interface_problem(c, components)
+        if problem:
+            out.append(problem)
     return out
+
+
+def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
+    """The interface rule for one card: the problem line, or empty when it passes.
+
+    The one definition of the rule: `check_interface` reports it and
+    `systemap delta` compares it at two commits, so a name that vanished
+    is judged by the same words that refuse it.
+    """
+    if c.kind == "actor" or not c.interface.strip():
+        return ""
+    modules = claimed(c, components)
+    symbols = symbol_claims(c)
+    names: set[str] = set()
+    for m in modules:
+        names |= public_names(components[m])
+    names |= {name for _module, name in symbols}
+    held = ", ".join(modules + [f"{m}:{n}" for m, n in symbols])
+    head = interface_head(c.interface)
+    if head is None:
+        return (
+            f"{c.id} interface '{c.interface}' does not start with a name; start it "
+            f"with a public name one of its modules defines ({held})"
+        )
+    name, method = head
+    if name not in names:
+        closest = _closest(name, names)
+        hint = f"; closest: {closest}" if closest else ""
+        return (
+            f"{c.id} interface starts with {name}, which none of its modules defines ({held}){hint}"
+        )
+    if not method:
+        return ""
+    methods: set[str] = set()
+    for m in modules:
+        methods |= method_names(components[m], name)
+        # A class re-exported by a package __init__ keeps its methods in
+        # the module that defines it.
+        for source in _reexport_sources(components[m], name):
+            if source in components:
+                methods |= method_names(components[source], name)
+    for m, n in symbols:
+        if n == name and m in components:
+            methods |= method_names(components[m], name)
+    if method not in methods and method not in names:
+        # The class's own methods first: a wrong method is usually a
+        # misspelt one, not a module-level name.
+        closest = _closest(method, methods) or _closest(method, names)
+        hint = f"; closest: {closest}" if closest else ""
+        return (
+            f"{c.id} interface names {name}.{method}, but {name} has no public method "
+            f"{method} ({held}){hint}"
+        )
+    return ""
 
 
 # ---- stale: the outputs are what the tree and the model say ----------------------

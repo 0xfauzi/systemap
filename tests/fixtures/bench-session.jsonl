@@ -1,0 +1,14 @@
+{"type":"system","subtype":"hook_started","hook_name":"SessionStart:startup","session_id":"s1"}
+{"type":"system","subtype":"init","cwd":"/scratch/demo","session_id":"s1","tools":["Bash","Read","Skill"],"model":"claude-opus-5[1m]","permissionMode":"acceptEdits","claude_code_version":"2.1.246"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"text","text":"I'll start by loading the systemap skill."}]},"session_id":"s1"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Skill","input":{"skill":"systemap"}}]},"session_id":"s1"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"the skill text"}]},"session_id":"s1"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"systemap extract","description":"Extract the facts"}}]},"session_id":"s1"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_2","content":"facts for the change detector"}]},"session_id":"s1"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_3","name":"Write","input":{"file_path":"map/model.py","content":"..."}}]},"session_id":"s1"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_4","name":"Bash","input":{"command":"systemap place && systemap check && systemap judgement --strict"}}]},"session_id":"s1"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_5","name":"Bash","input":{"command":"systemap refresh"}}]},"session_id":"s1"}
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_6","name":"Bash","input":{"command":"systemap check"}}]},"session_id":"s1"}
+not json: a line the log writer never meant to be parsed
+{"type":"assistant","message":{"model":"claude-opus-5","role":"assistant","content":[{"type":"text","text":"Done: 12 cards, check clean."}]},"session_id":"s1"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":1965000,"duration_api_ms":1800000,"num_turns":42,"stop_reason":"end_turn","result":"Done.","session_id":"s1","total_cost_usd":3.14159,"usage":{"input_tokens":100,"output_tokens":2000},"modelUsage":{"claude-opus-5[1m]":{"inputTokens":100,"outputTokens":2000,"costUSD":3.14159}}}

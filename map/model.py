@@ -133,9 +133,9 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports.",
-        interface="compute(cfg, model, base, facts, head) -> change",
-        implemented_by=("systemap.change",),
+        does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports. systemap delta reads the facts at two commits out of git and says what the change did to the map, one line per thing with its fix.",
+        interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
+        implemented_by=("systemap.change", "systemap.delta"),
         entry="compute",
         region="gather",
         x=698,
@@ -154,7 +154,7 @@ COMPONENTS = (
     # ---- mean: the judgement ----
     Component(
         id="Skill",
-        does="The procedure the agent follows: extract, draft, check, judgement, render, the second pass, the stop condition, what to hand back. A directory of plain text with references, shipped in the package.",
+        does="The procedure the agent follows: extract, draft, check, judgement, render, the second pass, the stop condition, what to hand back, and the maintenance path when the code changed. A directory of plain text with references, shipped in the package.",
         interface="files() -> the skill directory; write(dir) -> the installed SKILL.md",
         implemented_by=("systemap.skill",),
         entry="write",
@@ -258,7 +258,7 @@ FLOWS = (
     Flow("CLI", "Placer", "place", "control"),
     Flow("CLI", "Skill", "init, skill", "control"),
     Flow("CLI", "FactsExtractor", "extract", "control"),
-    Flow("CLI", "ChangeDetector", "--base", "control"),
+    Flow("CLI", "ChangeDetector", "--base, delta", "control"),
     Flow("CLI", "Check", "check", "control"),
     Flow("CLI", "Page", "render", "control"),
     Flow("CLI", "Figures", "figure", "control"),
@@ -266,6 +266,7 @@ FLOWS = (
     Flow("CLI", "Describe", "describe", "control"),
     Flow("Check", "Page", "render to compare", "control"),
     Flow("Check", "Figures", "render to compare", "control"),
+    Flow("Check", "ChangeDetector", "interface rule", "control"),
     # data: what moves, and where it goes
     Flow("Config", "CLI", "settings", "data"),
     Flow("Config", "FactsExtractor", "package roots", "data"),
@@ -435,7 +436,7 @@ RELATIONS = {
     (
         "CLI",
         "ChangeDetector",
-    ): "render --base and figure --base ask the change detector what a git range moved.",
+    ): "render --base and figure --base ask the change detector what a git range moved; delta asks it what a change did to the map, from the facts at two commits.",
     (
         "CLI",
         "Check",
@@ -461,6 +462,10 @@ RELATIONS = {
         "Check",
         "Figures",
     ): "The stale rule renders every configured figure and compares it with the committed one.",
+    (
+        "Check",
+        "ChangeDetector",
+    ): "delta judges an interface name that vanished by the check's own interface rule, so the two cannot disagree about what a line may start with.",
     (
         "Config",
         "CLI",
@@ -625,6 +630,7 @@ VERB_OVERRIDES = {
     ("Check", "CI"): ("answers", "asks"),
     ("Check", "Page"): ("compares", "is compared by"),
     ("Check", "Figures"): ("compares", "is compared by"),
+    ("Check", "ChangeDetector"): ("lends its rule to", "judges by"),
 }
 
 JOURNEYS = (
@@ -720,31 +726,31 @@ JOURNEYS = (
     ),
     Journey(
         id="refactor",
-        label="A refactor moves a module",
+        label="A refactor moves a module: the maintenance path",
         steps=(
             Step(
                 acts=("CI",),
                 measures=(),
                 edge=("CI", "CLI"),
-                say="A pull request moves a module; the workflow runs systemap extract --check, check, and render --check.",
+                say="A pull request moves a module; the workflow runs systemap delta --base against the base branch and posts what the change did to the map as one comment.",
             ),
             Step(
-                acts=("FactsExtractor",),
-                measures=("Check",),
-                edge=("FactsExtractor", "Check"),
-                say="A fresh extraction differs from the committed facts: the map is stale.",
+                acts=("ChangeDetector",),
+                measures=(),
+                edge=("CLI", "ChangeDetector"),
+                say="The detector reads the facts at both commits out of git, never from the working copy, and names the card that still names the old path, with the rename that fixes it.",
             ),
             Step(
                 acts=("Check",),
                 measures=("CI",),
                 edge=("Check", "CI"),
-                say="The check fails the pull request and names the fix: systemap refresh.",
+                say="The job fails while a line needs a person; the comment names each fix, so the map is maintained in the pull request that changed the code.",
             ),
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs refresh, moves the module's claim if a component changed, and commits docs/map.",
+                say="The agent follows the maintenance path: acts on the delta's lines alone, never redrawing the map, then runs refresh, check and judgement --strict, and commits docs/map.",
             ),
             Step(
                 acts=("Page",),

@@ -35,8 +35,8 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         assert (tmp_path / rel).is_file(), rel
     assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text()
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/systemap/ (SKILL.md and 7 references)" in out
-    assert "SKILL.md\n" not in out.replace("(SKILL.md and 7 references)\n", "")
+    assert "wrote .claude/skills/systemap/ (SKILL.md and 8 references)" in out
+    assert "SKILL.md\n" not in out.replace("(SKILL.md and 8 references)\n", "")
     assert out.rstrip().endswith("Map this repository with systemap. Follow the systemap skill.")
 
     # The starter model is empty: the check has one line to say, and says only that.
@@ -112,13 +112,44 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     import re
 
     uses = re.findall(r"uses: (\S+)( # v[\d.]+)?", workflow)
-    assert len(uses) == 2 and all(
+    assert len(uses) == 4 and all(
         re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", u) for u, _v in uses
     ), uses
     assert all(v for _u, v in uses), "the version is beside the pin"
     assert "\npermissions:\n  contents: read\n" in workflow
+    assert workflow.index("\npermissions:\n  contents: read\n") < workflow.index("\njobs:")
     assert "persist-credentials: false" in workflow
     assert workflow.index("persist-credentials") < workflow.index("setup-uv")
+
+
+def test_init_workflow_posts_the_delta_on_a_pull_request(tmp_path: Path) -> None:
+    """The pull_request job: delta in markdown, one comment posted or updated,
+    write permission on that job alone, nothing expanded inside a run block."""
+    import re
+
+    from systemap import delta
+
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    assert run("--root", str(tmp_path), "init") == 0
+    workflow = (tmp_path / ".github/workflows/systemap.yml").read_text()
+    assert workflow.count("\n  delta:\n") == 1
+    job = workflow[workflow.index("\n  delta:\n") :]
+    assert "if: github.event_name == 'pull_request'" in job
+    assert workflow.count("pull-requests: write") == 1 and "pull-requests: write" in job
+    assert "    permissions:\n      contents: read\n      pull-requests: write" in job
+    assert "persist-credentials: false" in job and "fetch-depth: 0" in job
+    assert "BASE: ${{ github.event.pull_request.base.sha }}" in job
+    assert "HEAD: ${{ github.event.pull_request.head.sha }}" in job
+    pin = f'uvx --from "git+https://github.com/0xfauzi/systemap@v{__version__}" systemap'
+    assert f'{pin} delta --base "$BASE" --head "$HEAD" --format markdown > delta.md' in job
+    # One comment: found by the marker delta prints first, then edited in place.
+    assert f'startswith("{delta.MARKER}")' in job
+    assert "-X PATCH" in job and "-X POST" in job and "-F body=@delta.md" in job
+    assert "GH_TOKEN: ${{ github.token }}" in job
+    assert job.rstrip().endswith('exit "$code"')
+    # Every expression reaches a command through env, never through the template.
+    for block in re.findall(r"run: \|\n((?:          .*\n)+)", job):
+        assert "${{" not in block, block
 
 
 def test_rendered_files_end_with_a_newline(tmp_path: Path) -> None:
@@ -263,7 +294,7 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     assert written.is_file()
     out = capsys.readouterr().out
     assert f"wrote {written}" in out
-    assert "references/ (7 files)" in out
+    assert "references/ (8 files)" in out
     text = written.read_text()
     assert text.startswith("---\nname: systemap\n")
     assert "systemap check" in text
@@ -277,6 +308,7 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
         "journeys-and-invariants",
         "second-pass",
         "pitfalls",
+        "maintenance",
     ):
         assert (target / "references" / f"{ref}.md").is_file(), ref
     # The default location is under the root, and rerunning refreshes the text.

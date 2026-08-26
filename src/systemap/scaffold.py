@@ -224,15 +224,17 @@ WORKFLOW = """name: systemap
 # systemap runs from the released package, pinned to the tag of the
 # version that wrote this file, so the project needs no dependency on it;
 # the pin moves to PyPI at 1.0. Bump the pin when you upgrade. Every
-# action is pinned to a commit, with the version beside it; the job reads
-# the tree and nothing else, and the checkout keeps no token, so a
-# workflow linter passes it as written.
+# action is pinned to a commit, with the version beside it; the jobs read
+# the tree and nothing else, the checkout keeps no token, and the one job
+# that writes (the delta comment on a pull request) says so beside its
+# permission, so a workflow linter passes it as written.
 
 on:
   push:
     branches: [main]
   pull_request:
 
+# Read-only for every job; the delta job widens it for itself alone.
 permissions:
   contents: read
 
@@ -282,6 +284,64 @@ jobs:
             echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
             exit 1
           }
+
+  delta:
+    # What the pull request does to the map, as one comment: posted once,
+    # then updated in place on every push. The base and head commits reach
+    # the command through the environment, never through the template. A
+    # pull request from a fork has a read-only token, so the comment step
+    # warns instead of failing there; the delta is in the log either way.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # this job posts or updates the delta comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the base and the head commits, for the two extractions
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: what this change does to the map
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          code=0
+          uvx --from "git+https://github.com/0xfauzi/systemap@v__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
+          echo "$code" > delta.code
+          if [ ! -s delta.md ]; then
+            printf '<!-- systemap delta -->\\n## What this change does to the map\\n\\nsystemap delta could not run (exit %s); see the workflow log.\\n' "$code" > delta.md
+          fi
+          cat delta.md
+
+      - name: post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.body | startswith("<!-- systemap delta -->"))) | first | .id // empty' | head -n 1)"
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@delta.md > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@delta.md > /dev/null
+          fi || echo "::warning title=Map delta::could not post the comment (a pull request from a fork has a read-only token); the delta is in the step above."
+
+      - name: every line is acted on
+        run: |
+          code="$(cat delta.code)"
+          if [ "$code" != "0" ]; then
+            echo "::error title=Map delta::the change needs the map's attention; see the comment on the pull request, act on each line, then run systemap refresh."
+          fi
+          exit "$code"
 """
 
 

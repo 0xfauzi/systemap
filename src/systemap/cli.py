@@ -9,6 +9,7 @@
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
     systemap judgement [--strict]      the list the maintainer must confirm
+    systemap delta --base REF          what a change did to the map, each line with its fix
     systemap suggest                   a first grouping from the facts, to argue with
     systemap describe                  what a look at the picture would tell you, in numbers
     systemap serve [--port N]          serve the output directory over HTTP, print the URL
@@ -34,6 +35,7 @@ from systemap import (
     change,
     check,
     config,
+    delta,
     describe,
     extract,
     figure,
@@ -88,6 +90,12 @@ def _project(args: argparse.Namespace) -> Project:
 
 
 AGENT_SENTENCE = "Map this repository with systemap. Follow the systemap skill."
+# The sentence for a repository that already has a map: the skill's "the
+# code changed" path, with the ref the map is compared against.
+MAINTENANCE_SENTENCE = (
+    "The code changed. Update the map with systemap: follow the systemap skill's "
+    "maintenance path, with base {base}."
+)
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -434,6 +442,42 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     return OK
 
 
+# ---- delta -----------------------------------------------------------------
+
+
+def cmd_delta(args: argparse.Namespace) -> int:
+    """What a change did to the map, from the facts at two commits.
+
+    Both trees are read from git, never from the working copy; the model
+    is the one on disk. Exit 0 when nothing needs a person, 1 when a line
+    does, each line naming its fix; `--format markdown` prints the report
+    as a pull-request comment, with the committed map at the head commit
+    where a GitHub remote and a figure make that possible.
+    """
+    p = _project(args)
+    _require_roots(p)
+    if _empty(p):
+        return STALE
+    root = p.cfg.root
+    base_sha = delta.resolve(root, args.base)
+    head_sha = delta.resolve(root, args.head)
+    compared = delta.merge_base(root, base_sha, head_sha)
+    d = delta.compute(
+        p.cfg,
+        p.model,
+        p.meaning,
+        delta.facts_at(p.cfg, compared),
+        delta.facts_at(p.cfg, head_sha),
+        base_ref=args.base,
+        head_ref=args.head,
+    )
+    if args.format == "markdown":
+        sys.stdout.write(delta.markdown(d, delta.figure_url(p.cfg, head_sha)))
+    else:
+        say(*delta.report(d))
+    return STALE if d.open else OK
+
+
 # ---- suggest ---------------------------------------------------------------
 
 
@@ -717,6 +761,27 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(
+        "delta",
+        help="what a change did to the map, from the facts at two commits read out of git: "
+        "modules added, removed and moved with the card each belongs to, entry and interface "
+        "names that vanished, new imports across a card boundary with no flow, flows the "
+        "code stopped backing; each line names its fix; exit 0 when nothing needs a person, "
+        "1 when something does",
+    )
+    add_root(s)
+    s.add_argument(
+        "--base", required=True, help="the commit, branch or tag the map is compared against"
+    )
+    s.add_argument("--head", default="HEAD", help="the commit under study (default HEAD)")
+    s.add_argument(
+        "--format",
+        choices=["text", "markdown"],
+        default="text",
+        help="markdown prints the report as a pull-request comment with the committed map",
+    )
+    s.set_defaults(func=cmd_delta)
+
+    s = sub.add_parser(
         "suggest",
         help="a first grouping to argue with, never the answer: one proposed card per "
         "package with two or more modules, its modules, and the crossing imports between "
@@ -773,6 +838,9 @@ def main(argv: list[str] | None = None) -> int:
     except place.PlaceError as exc:
         warn(f"systemap: {exc}")
         return STALE
+    except delta.DeltaError as exc:
+        warn(f"systemap: {exc}", "give delta a ref git can resolve, then run again")
+        return BAD_CONFIG
     return int(code)
 
 

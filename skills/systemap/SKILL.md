@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), places the cards with `systemap place`, runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and answers the remaining judgement lines in `[judgement] answered` in systemap.toml for the maintainer.
+description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), places the cards with `systemap place`, runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and answers the remaining judgement lines in `[judgement] answered` in systemap.toml for the maintainer. After the code changed, runs `systemap delta --base REF` and acts on its lines alone (the maintenance path).
 license: MIT
 compatibility: Requires Python 3.11+ and the systemap package (uv tool install systemap)
 ---
@@ -102,6 +102,24 @@ contradictions, not omissions; the second pass is the point of this skill.
 8. **hand back**: the answers are in `systemap.toml`; add the coverage line
    and the groupings that could go another way.
 
+Turn budgets, per step: extract 2, draft 10, place and check 15,
+judgement 10, second pass 20. Budgets, not limits: a step that overruns
+is finished, and the overrun is named in the hand-back with the step
+that ate it, so a run that cost more than expected says where.
+
+## When the code changed
+
+A mapped repository after a pull request is not a first draft. Never
+redraw the map to absorb a small change; follow `references/maintenance.md`:
+
+1. `systemap delta --base <the base branch>`: what the change did to the
+   map, one line per thing with its fix, from the facts at both commits
+   read out of git; exit 1 while a line needs a person.
+2. Act only on those lines, in `map/model.py` and `systemap.toml`.
+3. `systemap refresh`, then `systemap check && systemap judgement --strict`.
+4. When `delta` names more than about a third of the cards, it says so:
+   say so in the hand-back and run the full loop above instead.
+
 ## What goes in the model
 
 - A component is something a reader would point at and name. A module is
@@ -150,6 +168,7 @@ contradictions, not omissions; the second pass is the point of this skill.
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |
+| `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; exit 1 while a line needs a person; `--format markdown` for a pull-request comment |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, or `--components A,B` for a plan's reach |
@@ -161,7 +180,8 @@ contradictions, not omissions; the second pass is the point of this skill.
 1. Every `systemap judgement` line you did not act on, answered in
    `[judgement] answered` in `systemap.toml` with its reason (in the
    repository, not in a chat); `judgement` then prints `nothing to confirm`.
-2. The coverage line from `systemap check` and its last line.
+2. The coverage line from `systemap check` and its last line, and the
+   step that overran its turn budget, if one did.
 3. The groupings that could go another way. The edges the facts do not
    back are the `declared flow` lines: fixed, answered, or removed.
 4. The files to commit: `map/model.py`, `systemap.toml`, `docs/map/`.
@@ -198,3 +218,6 @@ Read each when the loop reaches it:
   Read at step 6, every time round.
 - `references/pitfalls.md`: mistakes seen on first drafts. Read before the
   draft, and again when judgement runs long.
+- `references/maintenance.md`: the path when the code changed: `delta`,
+  its lines and what each asks, the third-of-the-cards rule, the budget.
+  Read instead of the loop when a map already exists.
