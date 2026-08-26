@@ -248,7 +248,13 @@ def _render_page(p: Project, m: nest.Map, facts: dict[str, Any], args: argparse.
         ch = change.compute(p.cfg, m.model, base, facts, getattr(args, "head", "HEAD"))
         ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
     return page.build(
-        p.cfg, m.model, m.meaning, m.theme, facts, ch, nesting=page.nesting_of(p.cfg, p.tree, m)
+        p.cfg,
+        m.model,
+        m.meaning,
+        m.theme,
+        facts,
+        ch,
+        nesting=page.nesting_of(p.cfg, p.tree, m, facts),
     )
 
 

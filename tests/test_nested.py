@@ -12,11 +12,15 @@ and delta names the card and the map a moved module belongs to.
 
 from __future__ import annotations
 
+import json
+import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import write_tree
+from test_keyboard import DRIVER, needs_node
 
 from systemap import nest, place, suggest
 from systemap.cli import main
@@ -369,17 +373,38 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert "<title>demo system map</title>" in top
     assert "<title>demo system map: Gateway</title>" in gateway
     # The top page: the mark on the opening cards, the legend row, the
-    # links down in the header and in the panel's detail.
+    # links down in the header, and in the panel's detail the path of each
+    # map inside and its preview (the sub-map's Structure reading, drawn
+    # under an id of its own, every card and no edge).
     assert top.count('class="node__map"') == 2
     assert "has a map" in top
     assert (
         'Maps inside: <a href="Gateway/index.html">Gateway</a> (3 cards), <a href="Style/index.html">Style</a> (2 cards).'
         in top
     )
-    assert '"map":{"name":"Gateway","href":"Gateway/index.html","cards":3}' in top
-    assert '"map":{"name":"Style","href":"Style/index.html","cards":2}' in top
+    assert (
+        '"map":{"name":"Gateway","href":"Gateway/index.html","cards":3,'
+        '"preview":"<svg id=\\"preview-Gateway\\"' in top
+    )
+    assert (
+        '"map":{"name":"Style","href":"Style/index.html","cards":2,'
+        '"preview":"<svg id=\\"preview-Style\\"' in top
+    )
     assert '"map":null' in top
     assert "opens: <b>" in top and "systemap-f__opens" in top
+    preview = json.loads(_detail_json(top))["Gateway"]["map"]["preview"]
+    assert preview.startswith('<svg id="preview-Gateway"') and preview.endswith("</svg>")
+    assert preview.count('class="node ') == 5 and 'class="flow ' not in preview
+    assert 'data-id="App"' in preview and 'data-id="Routes"' in preview
+    assert "#preview-Gateway .node" in preview and "#schematic" not in preview
+    # The button and the overlay: the button's text once in the panel script,
+    # the overlay once on a page with a map inside, and not on a page without.
+    assert top.count("Open the map inside") == 1
+    assert top.count('id="submap"') == 1 and 'data-here="demo"' in top
+    assert 'id="submapframe"' in top and 'src="about:blank"' in top
+    assert "Double-click a card that opens a map" in top
+    assert 'id="submap"' not in gateway and "Open the map inside" in gateway
+    assert "Double-click a card that opens a map" not in gateway
     # A sub-page: the card it is inside, the link up, no mark, the model file it came from.
     assert 'class="bar__sub">/ Gateway</span>' in gateway
     assert (
@@ -402,6 +427,64 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     )
     assert run("--root", str(nested), "check") == 1
     assert "docs/map/Style/index.html has not been rendered" in capsys.readouterr().out
+
+
+def _detail_json(html: str) -> str:
+    """The detail JSON the page inlines for the map's script."""
+    start = html.index("var DETAIL = ") + len("var DETAIL = ")
+    end = html.index(";\nvar PAL = ", start)
+    return html[start:end].replace("<\\/", "</")
+
+
+@needs_node
+def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
+    """The Node driver: the panel's preview and button; the button, a
+    double-click and a second Enter open the overlay; Escape and the close
+    control close it and hand the focus back to the card, the selection
+    kept; a card without a map is left alone by the same keys."""
+    assert run("--root", str(nested), "refresh") == 0
+    args = [
+        shutil.which("node") or "node",
+        str(DRIVER),
+        str(nested / "docs/map/index.html"),
+        "--scenario",
+        "submap",
+    ]
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+    report: dict[str, Any] = json.loads(proc.stdout)
+    # The first opening card in reading order, whichever place put on top.
+    card = report["id"]
+    inside = {"Gateway": (3, 5), "Style": (2, 4)}[card]  # cards of its own, cards drawn
+    assert report["href"] == f"{card}/index.html"
+    assert report["here"] == "demo" and report["overlays"] == 1
+    has = report["panelHas"]
+    assert has["opens"] == f"opens: {card} ({inside[0]} cards)"
+    assert has["preview"] is True and has["previewId"] == f"preview-{card}"
+    assert has["previewCards"] == inside[1] and has["previewInert"] is True
+    assert has["buttons"] == 1 and has["buttonText"] == "Open the map inside"
+    assert has["links"] == 0, "the panel opens the map in place; no link out"
+    steps = {s["label"]: s for s in report["steps"]}
+    closed = {"overlayHidden": True, "src": "about:blank", "bodyClass": ""}
+    for label in ("start", "selected", "escape", "close-control", "enter-once", "escape-again"):
+        assert {k: steps[label][k] for k in closed} == closed, label
+    opened = {
+        "overlayHidden": False,
+        "src": f"{card}/index.html",
+        "crumb": f"demo > {card}",
+        "focus": card,
+        "active": "submapclose",
+        "bodyClass": "submap-open",
+    }
+    for label in ("button", "dblclick", "enter-twice"):
+        assert {k: steps[label][k] for k in opened} == opened, label
+    assert report["escapePrevented"] is True
+    for label in ("escape", "close-control", "escape-again"):
+        assert steps[label]["focus"] == card, f"{label}: the selection is kept"
+        assert steps[label]["active"] == card, f"{label}: the focus returns to the card"
+    assert steps["escape-clears"]["focus"] == "", "a second Escape clears the selection"
+    plain = steps["plain-enter-twice"]
+    assert plain["focus"] == report["plainId"] and plain["overlayHidden"] is True
 
 
 def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -434,7 +517,7 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     assert run("--root", str(nested), "figure", "--interactive", "--out", str(out)) == 0
     text = out.read_text()
     assert text.count('class="node__map"') == 2 and "has a map" in text
-    assert '"map":{"name":"Gateway","href":"","cards":3}' in text
+    assert '"map":{"name":"Gateway","href":"","cards":3,"preview":""}' in text
     capsys.readouterr()
     assert run("--root", str(nested), "figure", "--map", "Nope", "--out", str(out)) == 2
     assert (

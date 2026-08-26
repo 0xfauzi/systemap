@@ -193,8 +193,11 @@ The page in both schemes, as headless Chrome renders it at 1600 by 900
   included. A test drives the page's script under Node with the readings
   table and presses those keys.
 - **Maps inside cards.** A card may open a map of its own: it stands on
-  a second card, its panel reads `opens: Gateway (5 cards)` with a link,
-  and the page inside links back. One canvas holds about forty cards;
+  a second card, its panel reads `opens: Gateway (5 cards)` over a preview
+  of the map inside and a button that opens it in place, over the page
+  (a double-click on the card or a second Enter does the same; Escape
+  closes it), and the page inside links back for whoever opens it
+  directly. One canvas holds about forty cards;
   a large repository is a top map of at most that many, with a map
   inside the cards that hold the most.
 

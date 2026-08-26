@@ -652,7 +652,7 @@ def stale(
             m.theme,
             stored,
             {"has_change": False},
-            nesting=page.nesting_of(cfg, tree, m),
+            nesting=page.nesting_of(cfg, tree, m, stored),
         )
         out += _stale_file(cfg, m.page_path(cfg), html)
     for fig in cfg.figures:

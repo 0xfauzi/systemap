@@ -11,10 +11,11 @@
 // points in its `d`, as a browser's getBBox would give it.
 //
 //     node tests/page_driver.js PAGE.html [--reduced] [--viewport WxH]
-//                                         [--scenario keyboard|framing]
+//                                         [--scenario keyboard|framing|submap]
 //
-// prints one JSON object; tests/test_keyboard.py and tests/test_framing.py
-// read it. --reduced makes the page's prefers-reduced-motion query match.
+// prints one JSON object; tests/test_keyboard.py, tests/test_framing.py
+// and tests/test_nested.py read it. --reduced makes the page's
+// prefers-reduced-motion query match.
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -483,7 +484,8 @@ function main() {
     return ev.defaultPrevented;
   };
   const page = {doc, win, svg, A, key, reduced, viewport, views: () => viewEvents};
-  const report = scenario === 'framing' ? framing(page) : keyboard(page);
+  const scenarios = {keyboard, framing, submap};
+  const report = (scenarios[scenario] || keyboard)(page);
   process.stdout.write(JSON.stringify(report) + '\n');
 }
 
@@ -660,6 +662,76 @@ function framing(page) {
     kinds: Object.fromEntries(nodes.map((n) => [n.dataset.id, n.dataset.kind])),
     drawerWidth: DRAWER_W,
     cards, cases, beforeResize, afterResize,
+  };
+}
+
+function submap(page) {
+  // A card that opens a map: the panel's preview and button; the button,
+  // a double-click and a second Enter open the map inside in place; Escape
+  // and the close control close it and hand the focus back to the card,
+  // the selection kept. A card without a map is left alone by the same keys.
+  const {doc, win, svg, A, key} = page;
+  const overlay = doc.getElementById('submap');
+  const frame = doc.getElementById('submapframe');
+  const panel = doc.getElementById('panel');
+  const nodes = svg.querySelectorAll('.node');
+  const opener = nodes.find((n) => A.detail[n.dataset.id].map && A.detail[n.dataset.id].map.href);
+  const plain = nodes.find((n) => !A.detail[n.dataset.id].map);
+  const activeId = () => {
+    const a = doc.activeElement;
+    return a.dataset && a.dataset.id ? a.dataset.id : (a.id || a.tag);
+  };
+  const state = (label) => ({
+    label, overlayHidden: overlay.hidden, src: frame.getAttribute('src'),
+    crumb: doc.getElementById('submapcrumb').textContent, focus: A.state.focus,
+    active: activeId(), bodyClass: doc.body.className,
+  });
+  const steps = [state('start')];
+  opener.focus();
+  key('Enter', opener);
+  const preview = panel.querySelector('.systemap-f__preview');
+  const panelHas = {
+    opens: (panel.querySelector('.systemap-f__opens') || {textContent: ''}).textContent,
+    preview: !!(preview && preview.querySelector('svg')),
+    previewId: preview && preview.querySelector('svg') ? preview.querySelector('svg').id : '',
+    previewCards: preview ? preview.querySelectorAll('.node').length : 0,
+    previewInert: !!(preview && preview.hasAttribute('inert')),
+    buttons: panel.querySelectorAll('[data-open-map]').length,
+    buttonText: (panel.querySelector('[data-open-map]') || {textContent: ''}).textContent,
+    links: panel.querySelectorAll('a').length,
+  };
+  steps.push(state('selected'));
+  panel.querySelector('[data-open-map]').click();
+  runFrames(win);
+  steps.push(state('button'));
+  const escapePrevented = key('Escape', doc.activeElement);
+  steps.push(state('escape'));
+  dispatch(opener, new EventImpl('dblclick', {bubbles: true}));
+  runFrames(win);
+  steps.push(state('dblclick'));
+  doc.getElementById('submapclose').click();
+  runFrames(win);
+  steps.push(state('close-control'));
+  // From nothing selected: the first Enter selects, the second opens.
+  key('Escape');
+  opener.focus();
+  key('Enter', opener);
+  steps.push(state('enter-once'));
+  key('Enter', opener);
+  steps.push(state('enter-twice'));
+  key('Escape', doc.activeElement);
+  steps.push(state('escape-again'));
+  key('Escape');
+  steps.push(state('escape-clears'));
+  plain.focus();
+  key('Enter', plain);
+  key('Enter', plain);
+  steps.push(state('plain-enter-twice'));
+  key('Escape');
+  return {
+    id: opener.dataset.id, plainId: plain.dataset.id, href: A.detail[opener.dataset.id].map.href,
+    here: overlay.dataset.here, overlays: doc.querySelectorAll('#submap').length,
+    panelHas, steps, escapePrevented,
   };
 }
 

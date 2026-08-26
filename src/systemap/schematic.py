@@ -483,9 +483,11 @@ def render(
 
     `observed_by` is the repository's `[flows] observed_by` list: the
     mechanisms other than an import that make a flow observed. `opens`
-    says, per card that opens a map, what the panel prints for it (its
-    name, a link to its page, how many cards it holds); a card with a
-    `map` and no entry here is named alone.
+    says, per card that opens a map, what the panel shows for it (its
+    name, the relative path of its page, how many cards it holds, a
+    preview drawing); a card with a `map` and no entry here is named
+    alone, and one with a path gets the button that opens the map in
+    place, which the page answers.
 
     The detail JSON carries one record per component (what the focus panel
     shows) plus a `_meta` key: the layers, every edge with its verbs and its
@@ -867,7 +869,11 @@ def render(
             "entry_module": entry_module(c, facts),
             "note": c.note,
             "calls_model": c.calls_model,
-            "map": opens.get(cid, {"name": cid, "href": "", "cards": 0}) if c.opens else None,
+            "map": (
+                opens.get(cid, {"name": cid, "href": "", "cards": 0, "preview": ""})
+                if c.opens
+                else None
+            ),
             "moved": moved,
             "rules": model.rules_of(cid),
             "edges": [
@@ -1064,13 +1070,18 @@ def panel_css(t: dict[str, Any]) -> str:
         f".systemap-f__entry{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
         f"color:{t['ink_3']}}}"
         f".systemap-f__entry b{{font-weight:400;color:{t['ink_2']}}}"
-        # The map a card opens: its name, linked to its page when the panel
-        # is on a page, and how many cards it holds.
+        # The map a card opens: its name and how many cards it holds, then on
+        # a page its preview and the button that opens it in place.
         f".systemap-f__opens{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
         f"color:{t['ink_3']}}}"
         f".systemap-f__opens b{{font-weight:400;color:{t['ink_2']}}}"
-        f".systemap-f__opens a{{color:{t['accent']};text-decoration:none}}"
-        ".systemap-f__opens a:hover{text-decoration:underline}"
+        f".systemap-f__preview{{margin:.5rem 0 0;border:1px solid {t['line']};border-radius:6px;"
+        f"overflow:hidden;background:{t['bg']}}}"
+        ".systemap-f__preview svg{width:100%;height:auto;display:block}"
+        f".systemap-f__open{{appearance:none;display:block;margin:.5rem 0 0;min-height:30px;"
+        f"padding:0 .8rem;border-radius:6px;border:1px solid {t['accent']};background:none;"
+        f"color:{t['accent']};font-family:{t['font_ui']};font-size:12.5px;cursor:pointer}}"
+        f".systemap-f__open:hover{{background:{t['raised']}}}"
         # The wheel
         f".systemap-w__spoke{{cursor:pointer;outline:none}}"
         ".systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}"
@@ -1745,14 +1756,21 @@ function describe(d){
       : 'none (a namespace)';
     h += '<p class="systemap-f__entry">entry: <b>' + entry + '</b></p>';
   }
-  // The map inside the card, when it opens one: its name, linked to its
-  // page when there is one to link to, and how many cards it holds.
+  // The map inside the card, when it opens one: its name and how many
+  // cards it holds; on a page, its preview (drawn at render time, inert:
+  // a picture, not a second map to click) and the button that opens it in
+  // place. A figure has no page to open and names the map alone.
   if(d.map){
-    var name = d.map.href
-      ? '<a href="' + esc(d.map.href) + '">' + esc(d.map.name) + '</a>' : esc(d.map.name);
-    h += '<p class="systemap-f__opens">opens: <b>' + name
+    h += '<p class="systemap-f__opens">opens: <b>' + esc(d.map.name)
        + (d.map.cards ? ' (' + d.map.cards + ' card' + (d.map.cards === 1 ? '' : 's') + ')' : '')
        + '</b></p>';
+    if(d.map.href){
+      if(d.map.preview){
+        h += '<div class="systemap-f__preview" inert>' + d.map.preview + '</div>';
+      }
+      h += '<button type="button" class="systemap-f__open" data-open-map="' + esc(d.id)
+         + '">Open the map inside</button>';
+    }
   }
   h += '</div>';
   return h;
@@ -1792,6 +1810,17 @@ function edgeBetween(a, b){
   if(i === undefined){ i = EDGE_AT[b + '>' + a]; }
   return i === undefined ? -1 : i;
 }
+function opensPage(cid){
+  // A card that opens a map with a page to show: the page answers the event.
+  var d = DETAIL[cid];
+  return !!(d && d.map && d.map.href);
+}
+function openMap(cid){
+  if(!opensPage(cid)){ return; }
+  var m = DETAIL[cid].map;
+  svg.dispatchEvent(new CustomEvent('systemap:open',
+    {detail:{id:cid, name:m.name, href:m.href, cards:m.cards}, bubbles:true}));
+}
 function select(cid){
   var d = DETAIL[cid];
   if(!d){ return; }
@@ -1801,6 +1830,8 @@ function select(cid){
   if(panel){
     panel.innerHTML = describe(d);
     panel.classList.add('on');
+    var open = panel.querySelector('[data-open-map]');
+    if(open){ open.addEventListener('click', function(){ openMap(cid); }); }
     Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
       var i = +s.dataset.edge;
       s.addEventListener('mouseenter', function(){ peek(i); });
@@ -1826,7 +1857,15 @@ function clearAll(){
 }
 nodes.forEach(function(n){
   n.addEventListener('click', function(e){ e.stopPropagation(); select(n.dataset.id); });
+  // A double-click on a card that opens a map, or Enter on it a second
+  // time while it is the selection, opens the map inside it.
+  n.addEventListener('dblclick', function(e){
+    if(opensPage(n.dataset.id)){ e.preventDefault(); openMap(n.dataset.id); }
+  });
   n.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && state.focus === n.dataset.id && opensPage(n.dataset.id)){
+      e.preventDefault(); openMap(n.dataset.id); return;
+    }
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); select(n.dataset.id); }
   });
   n.addEventListener('mouseenter', function(){

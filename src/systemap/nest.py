@@ -170,16 +170,19 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
 
 
 def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:
-    """What each opening card of `m` opens, for the panel: name, link, cards.
+    """What each opening card of `m` opens, for the panel: name, link, cards, preview.
 
     The link is relative to the map's own page (`<card>/index.html`); a
-    figure, which may be embedded anywhere, is given none.
+    figure, which may be embedded anywhere, is given none. `preview` is
+    the drawing the page fills in (`page.nesting_of`, the sub-map's
+    Structure reading as a small SVG); empty here and in a figure.
     """
     return {
         child.card: {
             "name": child.card,
             "href": f"{child.card}/index.html" if links else "",
             "cards": child.inside,
+            "preview": "",
         }
         for child in tree.children(m)
     }

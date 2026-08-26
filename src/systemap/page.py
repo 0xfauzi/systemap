@@ -67,17 +67,44 @@ class Nesting:
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
-def nesting_of(cfg: Config, tree: nest.Tree, m: nest.Map) -> Nesting:
-    """The nesting of one map's page: the link up is always `../index.html`."""
+def nesting_of(
+    cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any] | None = None
+) -> Nesting:
+    """The nesting of one map's page: the link up is always `../index.html`.
+
+    With `facts`, each opening card's record carries a preview of the map
+    inside it: that map's Structure reading, drawn by the same generator
+    at render time and inlined in the page data, so the panel shows it
+    with nothing fetched.
+    """
     parent = tree.parent_of(m)
+    opens = nest.opens(tree, m)
+    if facts is not None:
+        for child in tree.children(m):
+            opens[child.card]["preview"] = preview(cfg, child, facts)
     return Nesting(
         model_file=m.rel,
         path=m.id,
         card=m.card,
         parent_href="../index.html" if parent is not None else "",
         parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
-        opens=nest.opens(tree, m),
+        opens=opens,
     )
+
+
+def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
+    """The map inside a card as a small drawing: its Structure reading, every
+    card and no edge, under an id of its own so its styles stay its own."""
+    svg, _detail = render_schematic(
+        m.model,
+        m.meaning,
+        m.theme,
+        facts,
+        svg_id=f"preview-{m.card}",
+        layer="structure",
+        observed_by=cfg.observed_by,
+    )
+    return svg
 
 
 def _index_entry(c: Component, state: str, plain: str) -> str:
@@ -268,11 +295,33 @@ def build(
     o.append('<div class="systemap-panel" id="panel" aria-live="polite"></div>')
     o.append("</div></aside>")
     o.append("</div>")  # mapwrap
+    inside_hint = (
+        " Double-click a card that opens a map, or press Enter on it a second time, "
+        "to open the map inside it here."
+        if nesting.opens
+        else ""
+    )
     o.append(
         '<p class="hint">Scroll to zoom, drag to pan, click a component to frame it, '
         "Escape to go back. From the keyboard: Tab moves across the cards, Enter opens one, "
-        "Escape closes it, the left and right arrows switch readings or step a journey.</p>"
+        "Escape closes it, the left and right arrows switch readings or step a journey."
+        f"{inside_hint}</p>"
     )
+    if nesting.opens:
+        # The map inside a card, opened in place: an overlay over this page
+        # holding the sub-map's page in a frame, under a breadcrumb that
+        # names this map and the card. The frame's address is the relative
+        # path the header links carry, so it loads wherever the page does.
+        here = f"{cfg.name} / {nesting.path}" if nesting.path else cfg.name
+        o.append(
+            f'<div class="submap" id="submap" role="dialog" aria-modal="true" '
+            f'aria-label="The map inside a card" data-here="{esc(here)}" hidden>'
+            '<div class="submap__bar"><span class="submap__crumb" id="submapcrumb"></span>'
+            '<button type="button" class="submap__x" id="submapclose" '
+            'aria-label="Close the map inside">Close</button></div>'
+            '<iframe class="submap__frame" id="submapframe" title="The map inside the card" '
+            'src="about:blank"></iframe></div>'
+        )
     o.append('<div class="strip" id="strip" hidden><span class="strip__n" id="stripn"></span>')
     o.append('<span class="strip__say" id="stripsay"></span>')
     o.append('<span class="strip__meas" id="stripmeas"></span></div>')
@@ -321,7 +370,8 @@ def build(
         "carries what it moves and is coloured by the layer it belongs to. A dashed line "
         "is a declared flow: no import in the facts joins its two ends; the panel says "
         "of every flow whether it is observed, external or declared. A card standing on "
-        "a second card opens a map of its own; the panel names it and links to it. "
+        "a second card opens a map of its own; the panel shows a preview of it and a button "
+        "that opens it in place, over this page. "
         "Click a component; press Escape to clear it and return the view; the arrow keys switch "
         "readings, or step a journey while one is on; double-click a region's name to frame "
         "the region. Text is drawn at 11px "
@@ -482,6 +532,19 @@ font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
 .drawer__x::after{{content:"\\00d7";font-size:16px;line-height:1;color:var(--ink-2)}}
 .drawer__x:hover{{color:var(--ink)}}
 .drawer__x:hover::after{{color:var(--accent)}}
+/* the map inside a card, opened in place over the page */
+.submap{{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--bg)}}
+.submap[hidden]{{display:none}}
+.submap__bar{{display:flex;align-items:center;gap:1rem;padding:.5rem 1rem;background:var(--surface);
+border-bottom:1px solid var(--line);font-family:var(--fm);font-size:12.5px}}
+.submap__crumb{{color:var(--ink);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+white-space:nowrap}}
+.submap__x{{appearance:none;background:var(--raised);border:1px solid var(--line-2);
+border-radius:6px;min-height:30px;padding:0 .8rem;font-family:var(--fm);font-size:11px;
+letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);cursor:pointer}}
+.submap__x:hover{{color:var(--ink);border-color:var(--accent)}}
+.submap__frame{{flex:1 1 auto;width:100%;border:0;background:var(--bg)}}
+body.submap-open{{overflow:hidden}}
 .strip{{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem 1rem;margin:.6rem 0 0;
 padding:.6rem .9rem;background:var(--raised);border-radius:6px;
 border-left:3px solid var(--accent);font-size:13.5px;color:var(--ink)}}
@@ -738,6 +801,38 @@ JS = r"""
   if(prev){ prev.addEventListener('click', function(){ stepBy(-1); }); }
   if(next){ next.addEventListener('click', function(){ stepBy(1); }); }
 
+  // ---- the map inside a card, in place -----------------------------------
+  // The figure says which card to open (its button in the panel, a
+  // double-click on the card, Enter on it a second time); the page lays the
+  // sub-map's page over itself in a frame, under a breadcrumb, and hands
+  // the focus back to the card when the overlay closes.
+  var submap = document.getElementById('submap');
+  var submapFrame = document.getElementById('submapframe');
+  var submapCrumb = document.getElementById('submapcrumb');
+  var submapClose = document.getElementById('submapclose');
+  var submapOpener = null;
+  function openSubmap(e){
+    var d = e.detail || {};
+    if(!submap || !d.href){ return; }
+    submapOpener = nodeOf(d.id) || document.activeElement;
+    submapCrumb.textContent = (submap.dataset.here || '') + ' > ' + d.name;
+    if(submapFrame.getAttribute('src') !== d.href){ submapFrame.setAttribute('src', d.href); }
+    submap.hidden = false;
+    document.body.classList.add('submap-open');
+    submapClose.focus();
+  }
+  function closeSubmap(){
+    if(!submap || submap.hidden){ return false; }
+    submap.hidden = true;
+    submapFrame.setAttribute('src', 'about:blank');
+    document.body.classList.remove('submap-open');
+    if(submapOpener){ submapOpener.focus({preventScroll:true}); }
+    submapOpener = null;
+    return true;
+  }
+  svg.addEventListener('systemap:open', openSubmap);
+  if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
+
   // ---- keyboard ---------------------------------------------------------
   // The page from the keyboard: Tab moves across the cards in reading
   // order (they are written in that order and each takes focus), Enter on
@@ -756,6 +851,8 @@ JS = r"""
     if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){ return; }
     if(e.altKey || e.ctrlKey || e.metaKey){ return; }
     if(e.key === 'Escape'){
+      // The map inside a card closes first, and the selection under it stays.
+      if(closeSubmap()){ e.preventDefault(); return; }
       if(cur.j >= 0){ endJourney(); }
       A.clear();
       A.view.back();

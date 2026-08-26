@@ -146,9 +146,12 @@ inside, the ones around the card, so its edges to the outside have
 somewhere to land. The card claims the modules once, for coverage; the
 check's nesting rule holds the map inside to them, naming each module
 that differs. On the page the card stands on a second card, its panel
-reads `opens: Gateway (5 cards)` with a link, and the map's own page at
-`docs/map/Gateway/index.html` links back to it. An actor cannot open a
-map. A map inside a map is named `Gateway/Routes`.
+reads `opens: Gateway (5 cards)` over a preview of the map inside and a
+button that opens it in place (a double-click on the card or a second
+Enter does the same), and the map's own page at
+`docs/map/Gateway/index.html` links back to it for whoever opens it
+directly. An actor cannot open a map. A map inside a map is named
+`Gateway/Routes`.
 
 ## Flow
 

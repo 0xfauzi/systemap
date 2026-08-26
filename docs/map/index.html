@@ -94,6 +94,19 @@ font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
 .drawer__x::after{content:"\00d7";font-size:16px;line-height:1;color:var(--ink-2)}
 .drawer__x:hover{color:var(--ink)}
 .drawer__x:hover::after{color:var(--accent)}
+/* the map inside a card, opened in place over the page */
+.submap{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--bg)}
+.submap[hidden]{display:none}
+.submap__bar{display:flex;align-items:center;gap:1rem;padding:.5rem 1rem;background:var(--surface);
+border-bottom:1px solid var(--line);font-family:var(--fm);font-size:12.5px}
+.submap__crumb{color:var(--ink);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+white-space:nowrap}
+.submap__x{appearance:none;background:var(--raised);border:1px solid var(--line-2);
+border-radius:6px;min-height:30px;padding:0 .8rem;font-family:var(--fm);font-size:11px;
+letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);cursor:pointer}
+.submap__x:hover{color:var(--ink);border-color:var(--accent)}
+.submap__frame{flex:1 1 auto;width:100%;border:0;background:var(--bg)}
+body.submap-open{overflow:hidden}
 .strip{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem 1rem;margin:.6rem 0 0;
 padding:.6rem .9rem;background:var(--raised);border-radius:6px;
 border-left:3px solid var(--accent);font-size:13.5px;color:var(--ink)}
@@ -152,10 +165,10 @@ border-top:1px solid var(--line)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
-.systemap-panel{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px;line-height:1.45;color:#b3b1aa;background:#181b1f;border:1px solid #262b32;border-radius:8px;padding:.9rem 1rem 1rem;min-height:3rem}.systemap-panel:empty::before{content:'Click a component to read it.';color:#858a92}.systemap-f__plain{font-size:19px;font-weight:600;color:#e6e4df;letter-spacing:-.01em;line-height:1.2;margin:0}.systemap-f__code{font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:12px;color:#e0a458;margin:.3rem 0 0;display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline}.systemap-f__kind{color:#858a92;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.systemap-f__does{margin:.6rem 0 .2rem;font-size:13px;color:#b3b1aa}.systemap-f__iface{margin:.3rem 0 .2rem;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11.5px;color:#b3b1aa;word-break:break-word}.systemap-f__note{margin:.5rem 0 .2rem;padding:.4rem .6rem;font-size:12.5px;color:#e6e4df;border-left:3px solid #d6b14a;background:#1f2329;border-radius:0 6px 6px 0}.systemap-f__wheel{margin:.4rem 0 0}.systemap-f__wheel svg{width:100%;height:auto;display:block;margin:0 auto}.systemap-f__say{margin:.2rem 0 .6rem;padding:.55rem .7rem;font-size:13px;line-height:1.45;color:#e6e4df;border-left:3px solid #e0a458;background:#1f2329;border-radius:0 6px 6px 0;min-height:2.6rem}.systemap-f__say.muted{color:#858a92;border-left-color:#3a4149}.systemap-f__evidence{margin:-.3rem 0 .6rem;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92;min-height:1em}.systemap-f__evidence.declared{color:#d6b14a}.systemap-f__chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}.systemap-chip{display:inline-flex;align-items:center;gap:.35em;min-height:24px;padding:0 .55em;border-radius:4px;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;letter-spacing:.04em;background:#1f2329;color:#858a92;border:1px solid #262b32}.systemap-chip--built{color:#8cbf8a;border-color:transparent}.systemap-chip--actor{color:#858a92;background:none;border:1px dashed #3a4149}.systemap-chip a{color:#e0a458;text-decoration:none}.systemap-chip a:hover{text-decoration:underline}.systemap-chip--rule{color:#a99bd0;cursor:help;min-width:24px;justify-content:center}.systemap-f__lives{margin:.6rem 0 0;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92}.systemap-f__lives b{font-weight:400;color:#858a92}.systemap-f__entry{margin:.4rem 0 0;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92}.systemap-f__entry b{font-weight:400;color:#b3b1aa}.systemap-f__opens{margin:.4rem 0 0;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92}.systemap-f__opens b{font-weight:400;color:#b3b1aa}.systemap-f__opens a{color:#e0a458;text-decoration:none}.systemap-f__opens a:hover{text-decoration:underline}.systemap-w__spoke{cursor:pointer;outline:none}.systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}.systemap-w__line{fill:none;stroke-width:1.5;transition:stroke-width .12s ease}.systemap-w__verb{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:500;text-anchor:middle;paint-order:stroke;stroke:#181b1f;stroke-width:5;stroke-linejoin:round;pointer-events:none}.systemap-w__name{font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;font-weight:600;fill:#e6e4df;pointer-events:none}.systemap-w__centre rect{fill:#1f2329;stroke:#e0a458;stroke-width:1.6}.systemap-w__centre text{font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:12px;font-weight:600;fill:#e6e4df;text-anchor:middle}.systemap-w__spoke.peek .systemap-w__line,.systemap-w__spoke:hover .systemap-w__line,.systemap-w__spoke:focus-visible .systemap-w__line{stroke-width:3.2}.systemap-w__spoke.peek .systemap-w__name,.systemap-w__spoke:hover .systemap-w__name,.systemap-w__spoke:focus-visible .systemap-w__name{fill:#e0a458}.systemap-w__empty{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12px;fill:#858a92;text-anchor:middle}</style></head><body>
+.systemap-panel{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px;line-height:1.45;color:#b3b1aa;background:#181b1f;border:1px solid #262b32;border-radius:8px;padding:.9rem 1rem 1rem;min-height:3rem}.systemap-panel:empty::before{content:'Click a component to read it.';color:#858a92}.systemap-f__plain{font-size:19px;font-weight:600;color:#e6e4df;letter-spacing:-.01em;line-height:1.2;margin:0}.systemap-f__code{font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:12px;color:#e0a458;margin:.3rem 0 0;display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline}.systemap-f__kind{color:#858a92;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.systemap-f__does{margin:.6rem 0 .2rem;font-size:13px;color:#b3b1aa}.systemap-f__iface{margin:.3rem 0 .2rem;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11.5px;color:#b3b1aa;word-break:break-word}.systemap-f__note{margin:.5rem 0 .2rem;padding:.4rem .6rem;font-size:12.5px;color:#e6e4df;border-left:3px solid #d6b14a;background:#1f2329;border-radius:0 6px 6px 0}.systemap-f__wheel{margin:.4rem 0 0}.systemap-f__wheel svg{width:100%;height:auto;display:block;margin:0 auto}.systemap-f__say{margin:.2rem 0 .6rem;padding:.55rem .7rem;font-size:13px;line-height:1.45;color:#e6e4df;border-left:3px solid #e0a458;background:#1f2329;border-radius:0 6px 6px 0;min-height:2.6rem}.systemap-f__say.muted{color:#858a92;border-left-color:#3a4149}.systemap-f__evidence{margin:-.3rem 0 .6rem;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92;min-height:1em}.systemap-f__evidence.declared{color:#d6b14a}.systemap-f__chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}.systemap-chip{display:inline-flex;align-items:center;gap:.35em;min-height:24px;padding:0 .55em;border-radius:4px;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;letter-spacing:.04em;background:#1f2329;color:#858a92;border:1px solid #262b32}.systemap-chip--built{color:#8cbf8a;border-color:transparent}.systemap-chip--actor{color:#858a92;background:none;border:1px dashed #3a4149}.systemap-chip a{color:#e0a458;text-decoration:none}.systemap-chip a:hover{text-decoration:underline}.systemap-chip--rule{color:#a99bd0;cursor:help;min-width:24px;justify-content:center}.systemap-f__lives{margin:.6rem 0 0;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92}.systemap-f__lives b{font-weight:400;color:#858a92}.systemap-f__entry{margin:.4rem 0 0;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92}.systemap-f__entry b{font-weight:400;color:#b3b1aa}.systemap-f__opens{margin:.4rem 0 0;font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;color:#858a92}.systemap-f__opens b{font-weight:400;color:#b3b1aa}.systemap-f__preview{margin:.5rem 0 0;border:1px solid #262b32;border-radius:6px;overflow:hidden;background:#121417}.systemap-f__preview svg{width:100%;height:auto;display:block}.systemap-f__open{appearance:none;display:block;margin:.5rem 0 0;min-height:30px;padding:0 .8rem;border-radius:6px;border:1px solid #e0a458;background:none;color:#e0a458;font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px;cursor:pointer}.systemap-f__open:hover{background:#1f2329}.systemap-w__spoke{cursor:pointer;outline:none}.systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}.systemap-w__line{fill:none;stroke-width:1.5;transition:stroke-width .12s ease}.systemap-w__verb{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:500;text-anchor:middle;paint-order:stroke;stroke:#181b1f;stroke-width:5;stroke-linejoin:round;pointer-events:none}.systemap-w__name{font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:11px;font-weight:600;fill:#e6e4df;pointer-events:none}.systemap-w__centre rect{fill:#1f2329;stroke:#e0a458;stroke-width:1.6}.systemap-w__centre text{font-family:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;font-size:12px;font-weight:600;fill:#e6e4df;text-anchor:middle}.systemap-w__spoke.peek .systemap-w__line,.systemap-w__spoke:hover .systemap-w__line,.systemap-w__spoke:focus-visible .systemap-w__line{stroke-width:3.2}.systemap-w__spoke.peek .systemap-w__name,.systemap-w__spoke:hover .systemap-w__name,.systemap-w__spoke:focus-visible .systemap-w__name{fill:#e0a458}.systemap-w__empty{font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12px;fill:#858a92;text-anchor:middle}</style></head><body>
 <header class="bar">
 <h1>systemap <span>map</span></h1>
-<p class="meta">A generated map of what the parts of systemap are and what they are to each other: 15 components, 54 flows, five layers. Built at <code title="commit">d699f8c267</code>.</p>
+<p class="meta">A generated map of what the parts of systemap are and what they are to each other: 15 components, 54 flows, five layers. Built at <code title="commit">de91efd4de</code>.</p>
 <nav class="nav">
 <a href="#map">Map</a><a href="#components">Components</a>
 <a href="#invariants">Invariants</a>
@@ -209,7 +222,7 @@ border-top:1px solid var(--line)}
 <span class="lg"><i class="lg--dashed" style="border-color:#858a92"></i>outside</span>
 <span class="lg"><i class="lg--ring" style="border-color:#e0a458"></i>acts</span><span class="lg"><i class="lg--ring" style="border-color:#8fb0c4"></i>measures</span>
 </div>
-<p class="key">Every card is code in the tree today: the check refuses a component whose modules or entry are not in the facts. A dashed card is an actor outside the code. A dot in a card's top corner marks a note; the panel shows it. Every line carries what it moves and is coloured by the layer it belongs to. A dashed line is a declared flow: no import in the facts joins its two ends; the panel says of every flow whether it is observed, external or declared. A card standing on a second card opens a map of its own; the panel names it and links to it. Click a component; press Escape to clear it and return the view; the arrow keys switch readings, or step a journey while one is on; double-click a region's name to frame the region. Text is drawn at 11px and never smaller: at Fit it is scaled down, and zoom brings it back.</p>
+<p class="key">Every card is code in the tree today: the check refuses a component whose modules or entry are not in the facts. A dashed card is an actor outside the code. A dot in a card's top corner marks a note; the panel shows it. Every line carries what it moves and is coloured by the layer it belongs to. A dashed line is a declared flow: no import in the facts joins its two ends; the panel says of every flow whether it is observed, external or declared. A card standing on a second card opens a map of its own; the panel shows a preview of it and a button that opens it in place, over this page. Click a component; press Escape to clear it and return the view; the arrow keys switch readings, or step a journey while one is on; double-click a region's name to frame the region. Text is drawn at 11px and never smaller: at Fit it is scaled down, and zoom brings it back.</p>
 </section>
 <section class="list" id="components"><h2>Components <span>by region; click one to focus it</span></h2>
 <div class="ixgrid">
@@ -877,14 +890,21 @@ function describe(d){
       : 'none (a namespace)';
     h += '<p class="systemap-f__entry">entry: <b>' + entry + '</b></p>';
   }
-  // The map inside the card, when it opens one: its name, linked to its
-  // page when there is one to link to, and how many cards it holds.
+  // The map inside the card, when it opens one: its name and how many
+  // cards it holds; on a page, its preview (drawn at render time, inert:
+  // a picture, not a second map to click) and the button that opens it in
+  // place. A figure has no page to open and names the map alone.
   if(d.map){
-    var name = d.map.href
-      ? '<a href="' + esc(d.map.href) + '">' + esc(d.map.name) + '</a>' : esc(d.map.name);
-    h += '<p class="systemap-f__opens">opens: <b>' + name
+    h += '<p class="systemap-f__opens">opens: <b>' + esc(d.map.name)
        + (d.map.cards ? ' (' + d.map.cards + ' card' + (d.map.cards === 1 ? '' : 's') + ')' : '')
        + '</b></p>';
+    if(d.map.href){
+      if(d.map.preview){
+        h += '<div class="systemap-f__preview" inert>' + d.map.preview + '</div>';
+      }
+      h += '<button type="button" class="systemap-f__open" data-open-map="' + esc(d.id)
+         + '">Open the map inside</button>';
+    }
   }
   h += '</div>';
   return h;
@@ -924,6 +944,17 @@ function edgeBetween(a, b){
   if(i === undefined){ i = EDGE_AT[b + '>' + a]; }
   return i === undefined ? -1 : i;
 }
+function opensPage(cid){
+  // A card that opens a map with a page to show: the page answers the event.
+  var d = DETAIL[cid];
+  return !!(d && d.map && d.map.href);
+}
+function openMap(cid){
+  if(!opensPage(cid)){ return; }
+  var m = DETAIL[cid].map;
+  svg.dispatchEvent(new CustomEvent('systemap:open',
+    {detail:{id:cid, name:m.name, href:m.href, cards:m.cards}, bubbles:true}));
+}
 function select(cid){
   var d = DETAIL[cid];
   if(!d){ return; }
@@ -933,6 +964,8 @@ function select(cid){
   if(panel){
     panel.innerHTML = describe(d);
     panel.classList.add('on');
+    var open = panel.querySelector('[data-open-map]');
+    if(open){ open.addEventListener('click', function(){ openMap(cid); }); }
     Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
       var i = +s.dataset.edge;
       s.addEventListener('mouseenter', function(){ peek(i); });
@@ -958,7 +991,15 @@ function clearAll(){
 }
 nodes.forEach(function(n){
   n.addEventListener('click', function(e){ e.stopPropagation(); select(n.dataset.id); });
+  // A double-click on a card that opens a map, or Enter on it a second
+  // time while it is the selection, opens the map inside it.
+  n.addEventListener('dblclick', function(e){
+    if(opensPage(n.dataset.id)){ e.preventDefault(); openMap(n.dataset.id); }
+  });
   n.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && state.focus === n.dataset.id && opensPage(n.dataset.id)){
+      e.preventDefault(); openMap(n.dataset.id); return;
+    }
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); select(n.dataset.id); }
   });
   n.addEventListener('mouseenter', function(){
@@ -1209,6 +1250,38 @@ booted = true;
   if(prev){ prev.addEventListener('click', function(){ stepBy(-1); }); }
   if(next){ next.addEventListener('click', function(){ stepBy(1); }); }
 
+  // ---- the map inside a card, in place -----------------------------------
+  // The figure says which card to open (its button in the panel, a
+  // double-click on the card, Enter on it a second time); the page lays the
+  // sub-map's page over itself in a frame, under a breadcrumb, and hands
+  // the focus back to the card when the overlay closes.
+  var submap = document.getElementById('submap');
+  var submapFrame = document.getElementById('submapframe');
+  var submapCrumb = document.getElementById('submapcrumb');
+  var submapClose = document.getElementById('submapclose');
+  var submapOpener = null;
+  function openSubmap(e){
+    var d = e.detail || {};
+    if(!submap || !d.href){ return; }
+    submapOpener = nodeOf(d.id) || document.activeElement;
+    submapCrumb.textContent = (submap.dataset.here || '') + ' > ' + d.name;
+    if(submapFrame.getAttribute('src') !== d.href){ submapFrame.setAttribute('src', d.href); }
+    submap.hidden = false;
+    document.body.classList.add('submap-open');
+    submapClose.focus();
+  }
+  function closeSubmap(){
+    if(!submap || submap.hidden){ return false; }
+    submap.hidden = true;
+    submapFrame.setAttribute('src', 'about:blank');
+    document.body.classList.remove('submap-open');
+    if(submapOpener){ submapOpener.focus({preventScroll:true}); }
+    submapOpener = null;
+    return true;
+  }
+  svg.addEventListener('systemap:open', openSubmap);
+  if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
+
   // ---- keyboard ---------------------------------------------------------
   // The page from the keyboard: Tab moves across the cards in reading
   // order (they are written in that order and each takes focus), Enter on
@@ -1227,6 +1300,8 @@ booted = true;
     if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){ return; }
     if(e.altKey || e.ctrlKey || e.metaKey){ return; }
     if(e.key === 'Escape'){
+      // The map inside a card closes first, and the selection under it stays.
+      if(closeSubmap()){ e.preventDefault(); return; }
       if(cur.j >= 0){ endJourney(); }
       A.clear();
       A.view.back();

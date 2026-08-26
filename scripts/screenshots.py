@@ -87,7 +87,13 @@ def render(root: Path, scheme: str) -> str:
     tokens["scheme"] = scheme
     theme = theme_mod.resolve(tokens, all_layers(m.model, m.meaning))
     return page.build(
-        cfg, m.model, m.meaning, theme, facts, {"has_change": False}, page.nesting_of(cfg, tree, m)
+        cfg,
+        m.model,
+        m.meaning,
+        theme,
+        facts,
+        {"has_change": False},
+        page.nesting_of(cfg, tree, m, facts),
     )
 
 
