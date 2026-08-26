@@ -16,6 +16,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # By hand, from the Actions tab or `gh workflow run`: the push of 0.11.2
+  # produced no run, and there was no way to ask for one.
+  workflow_dispatch:
 
 # Read-only for every job; the delta job widens it for itself alone.
 permissions:
