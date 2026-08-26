@@ -109,6 +109,14 @@ README carries the measured numbers.
 
 Measurement: the benchmark harness in gap 4.
 
+Landed in 0.9.0: `systemap delta --base REF [--head REF] [--format
+markdown]`, reading the facts at both commits out of git; the skill's
+"When the code changed" section and references/maintenance.md; the
+workflow's pull_request job that posts the delta as one comment, with
+`pull-requests: write` on that job alone and zizmor clean. Not measured:
+the three replayed pull requests need a mapped repository's history and
+a harness run, and the table in docs/benchmarks.md is empty until then.
+
 ### 4. Cost is measured twice, on one repository, by hand
 
 What is wrong: two runs, one repository, numbers read off a log. Nothing
@@ -128,6 +136,12 @@ first-map mode and at least one in every maintenance mode. Targets for
 1.0, stated now: first map at most 0.15 dollars per module; maintenance
 at most 2 dollars on a medium pull request. The README quotes the table,
 not the targets.
+
+Landed in 0.9.0: bench/run.sh (the recipe as a script, the summary line
+from the session's result event, the first tool call verified from the
+log), bench/summary.py, bench/table.py and docs/benchmarks.md, and the
+turn budgets in the skill. No repository has been measured by the harness
+yet; the table says so.
 
 ### 5. Past sixty cards the single map stops working
 

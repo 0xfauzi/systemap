@@ -1,5 +1,100 @@
 # Changelog
 
+## 0.9.0
+
+Gaps 3 and 4 of ROADMAP.md, closed together because the maintenance
+path is what the benchmark mostly measures: there was no maintenance
+path, and cost was measured twice, on one repository, by hand.
+
+`systemap delta --base REF [--head REF]`:
+
+- The facts at two commits, both read out of git (`git archive` into a
+  temporary directory, then the extractor as usual), never from the
+  working copy; the base is the merge base of the two refs, so a base
+  branch that moved on is not a change. Compared in the map's terms
+  against the model on disk: modules moved (same content, else the same
+  public names), added and removed, with the card each belongs to; a new
+  module no card claims (coverage lost); entry and interface names the
+  card's modules defined at the base and no longer do, judged by the
+  check's own interface rule; imports that cross a card boundary at the
+  head and did not at the base, with no flow and no answer under
+  `[judgement]`; flows an import backed at the base and nothing backs
+  now.
+- One line per thing, each naming its fix, in two groups: `needs a
+  person` and `changed, nothing to do`. Exit 0 when nothing needs a
+  person, 1 when something does, and the last line names what to run. A
+  card told to rename or drop a module is not also asked about its
+  names, and a card that names a module's new path is taken to have
+  claimed the old one at the base, so a pending rename is one line. When
+  more than about a third of the cards are named the report says so.
+- `--format markdown` prints the report as a pull-request comment: a
+  marker line the workflow finds the comment by, the two groups, and the
+  committed whole-map figure at the head commit as an image, by the blob
+  URL with `?raw=true` (the form GitHub's writing guide gives for an
+  image from the repository in a comment; a `data:` URI is stripped).
+  The change map itself depends on the base and is not a committed
+  file, so the comment names the command that draws it.
+- An unknown ref is refused with exit 2 and the fix named.
+
+The maintenance path:
+
+- SKILL.md gains "When the code changed" and `references/maintenance.md`:
+  `delta --base <the base branch>`, act only on its lines, `refresh`,
+  `check && judgement --strict`; never redraw a map to absorb a small
+  change; when `delta` names more than about a third of the cards, say
+  so and run the full loop instead. The sentence for an agent: "The code
+  changed. Update the map with systemap: follow the systemap skill's
+  maintenance path, with base <ref>." A budget of 15 turns.
+- The skill states a turn budget per step: extract 2, draft 10, place
+  and check 15, judgement 10, second pass 20; budgets an overrun names in
+  the hand-back, not limits. SKILL.md's ceiling moves from 200 to 230
+  lines for the new section.
+- The workflow `init` writes gains a `delta` job on pull requests: it
+  runs `delta --base <base sha> --head <head sha> --format markdown` with
+  both shas passed through the environment, posts the report as one
+  comment or updates the one it posted before (found by the marker, with
+  `gh api`), and fails while a line needs a person. `contents: read` at
+  the top, `pull-requests: write` on that job alone with the reason
+  beside it, every action pinned to a commit, zizmor clean; a fork's
+  read-only token turns the post into a warning. This repository's own
+  workflow carries the same job.
+
+The benchmark harness:
+
+- `bench/run.sh <repo-url-or-path> <first-map|maintenance> [--ref REF]
+  [--base REF] [--from SPEC] [--model NAME] [--max-turns N]`: a worktree
+  for a path or a clone for a URL under `bench/scratch/`, systemap
+  installed into a tool directory of the run's own from the release tag
+  of this checkout's version (`--from` overrides it), `systemap init`,
+  the documented sentence (the maintenance sentence with `--base`), the
+  agent headless with the acceptEdits permission mode and the tool list
+  the recipe used (Skill, Read, Edit, Write, Glob, Grep, TodoWrite, and
+  Bash for systemap, uv, uvx, python3, git, ls, cat, grep, rg, find,
+  head, tail, sed, wc and mkdir), the session streamed as JSON to a log.
+  Then `check`, `judgement --strict`, the module count, and one summary
+  line appended to `bench/results.jsonl` by `bench/summary.py`: the
+  model the session names, its turns, minutes and dollars from the
+  result event, finished or cut off, and whether the first tool call was
+  the systemap skill, which the recipe requires. Nothing is estimated: a
+  value the log lacks is null.
+- `bench/table.py` renders `bench/results.jsonl` into
+  `docs/benchmarks.md`, one row per repository per mode with the model
+  and the systemap version named and the dollars per module for a first
+  map; a test keeps the committed file equal to the render. The table is
+  empty: no repository has been measured by the harness yet, and the
+  README's Cost section says the table is the number.
+- Tests: the parser on a synthetic stream-json fixture, the table, the
+  script's usage and the recipe it spells out, the workflow text, and
+  `delta` on a synthetic two-commit repository covering every line kind.
+
+Also:
+
+- The check's interface rule is one function, `interface_problem`,
+  reported by the check and compared at two commits by `delta`.
+- The self-map claims the delta module under ChangeDetector, draws the
+  interface-rule edge from Check, retells the refactor journey as the
+  maintenance path, and answers the one new crossing import.
+
 ## 0.8.0
 
 The first two gaps of ROADMAP.md, closed together because both change

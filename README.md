@@ -63,7 +63,8 @@ reading and the whole map, both as `.svg`), a starter `map/model.py` with
 no components yet and four regions laid out as a grid with the corridors
 the edges need, the agent's skill under `.claude/skills/systemap/` (a
 `SKILL.md` and a `references/` directory), and a workflow that runs the
-check and the judgement on every push and pull request. It never
+check and the judgement on every push and pull request and, on a pull
+request, posts what the change does to the map as one comment. It never
 overwrites a file that exists, and it ends by printing the sentence to
 give your agent:
 
@@ -85,10 +86,14 @@ why. You read the answers, correct what you disagree with, commit
 
 The workflow `init` writes runs systemap from the released package,
 pinned to the tag of the version that wrote it (`uvx --from
-"git+https://github.com/0xfauzi/systemap@v0.8.0"`), so your project
+"git+https://github.com/0xfauzi/systemap@v0.9.0"`), so your project
 takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
-no token, so a workflow linter passes it as written.
+no token, so a workflow linter passes it as written. Its second job runs
+on a pull request alone: `systemap delta --base <the base commit>
+--format markdown`, posted as one comment and updated in place on every
+push; that job alone has `pull-requests: write`, and it fails while a
+line needs a person.
 
 Any agent that can read a skill directory and run a command works the same
 way. The skill is plain text; there is nothing vendor-specific in it.
@@ -257,6 +262,45 @@ or more modules, and the imports between proposals) as a starting point
 to argue with, never the answer; the skill's target is three to ten
 modules per component, N/10 to N/3 cards for N modules.
 
+## When the code changed
+
+A map exists and a pull request moves the code. The first-draft loop
+would redraw the map at first-draft cost; the maintenance path acts on
+the change alone. `systemap delta --base <ref>` reads the facts at two
+commits out of git (never from the working copy; the base is the merge
+base, so a base branch that moved on is not a change) and says, in the
+map's terms, what the change did, one line per thing with its fix:
+
+| line | what it says |
+|---|---|
+| `moved: A -> B (same content)` | a module is at a new path, recognised by its content, else by its public names; the card that names the old path is told to rename it |
+| `added: M, claimed by CARD` | a new module a `pkg.*` pattern already claims; nothing to do |
+| `added: M, claimed by no card` | a new module with no place on the map: coverage lost |
+| `removed: M; CARD names it` | a module is gone and a card still names it, or a `[coverage]` ignore does |
+| `entry vanished`, `interface vanished` | a card's entry, or the name its interface line starts with, was defined by its modules at the base and is not now |
+| `new crossing import` | an import now crosses a card boundary and no flow joins the two cards; a line already answered under `[judgement]` is not asked again |
+| `evidence lost` | a flow an import backed at the base commit is backed by nothing now |
+
+Exit 0 when nothing needs a person, 1 when something does; the lines are
+grouped as `needs a person` and `changed, nothing to do`. The agent's
+path (`references/maintenance.md` in the skill) is: `delta`, act only on
+its lines, `systemap refresh`, `systemap check && systemap judgement
+--strict`; never redraw a map to absorb a small change. When `delta`
+names more than about a third of the cards it says so, and the full loop
+runs instead. The sentence for an agent:
+
+> The code changed. Update the map with systemap: follow the systemap
+> skill's maintenance path, with base main.
+
+`--format markdown` prints the same report as a pull-request comment,
+with the committed map at the head commit under the lines. GitHub renders
+an image from the repository in a comment by its blob URL with
+`?raw=true` (the form its writing guide gives) and strips a `data:` URI;
+the change map itself depends on the base and is not a committed file,
+so the comment shows the committed figure and names the command that
+draws the change map. The workflow `init` writes posts that comment on
+every pull request.
+
 ## The model in one screen
 
 The agent writes one Python module. Everything in it is a frozen dataclass.
@@ -311,6 +355,7 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap refresh` | extract, check, render, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
 | `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone |
 | `systemap judgement [--strict]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow, flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; exit 0, or 1 with `--strict` while a line is open |
+| `systemap delta --base REF [--head REF] [--format markdown]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to, a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a person, 1 when something does; `--format markdown` is the pull-request comment |
 | `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned and how many `place` positioned for the look, cards per region, bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
 | `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
@@ -370,6 +415,26 @@ visualiser: modules are not cards, components are. It is not a UML tool:
 there is one diagram, one fixed layout, and no notation beyond card,
 line, label and a mark per kind.
 
+## Cost
+
+The number is the table in [docs/benchmarks.md](docs/benchmarks.md), and
+nothing else: one row per repository per mode (a first map; a maintenance
+run on a small, a medium and a large pull request), with the model named,
+the systemap version, the turns, the minutes and the dollars the session's
+own result event reported, and whether `systemap check` and `systemap
+judgement --strict` passed afterwards. The table is empty until a
+repository is measured. The targets in ROADMAP.md are targets, and this
+file does not quote them as results.
+
+Each row is written by `bench/run.sh`, the documented headless recipe as a
+script: a worktree or a clone under a scratch directory, systemap
+installed from its release tag, `systemap init`, the sentence, the session
+streamed as JSON to a log, and one summary line appended to
+`bench/results.jsonl` by `bench/summary.py`; `python3 bench/table.py`
+renders the table. The skill states a turn budget per step (extract 2,
+draft 10, place and check 15, judgement 10, second pass 20; the
+maintenance path 15) so a run that overruns names the step that ate it.
+
 ## Development
 
 Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`, which builds `dist/` and uploads with the PyPI token held in the maintainer's macOS Keychain (`--dry-run` builds and stops).
@@ -378,9 +443,11 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run pytest -q
     uv run mypy src --strict
     uv run ruff check .
-    uv run ruff format --check src tests map
+    uv run ruff format --check src tests map bench
     uv run systemap check      # the repository's own map must stay current
     uv run systemap judgement --strict
+    uv run systemap delta --base v0.8.0    # what the last release did to the map
+    python3 bench/table.py --check         # docs/benchmarks.md is what the script renders
     uv run systemap place --print
     uv run systemap describe
     uv run systemap facts --modules
