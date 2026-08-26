@@ -250,6 +250,18 @@ ten modules, the one headless run since (run 4, 144 modules, 40 cards)
 opened no map inside a card, and the acceptance line waits on gap 6's
 external runs.
 
+Measured on 2026-08-26 (systemap 0.11.0, claude-opus-5[1m]): a 460-module
+public repository (mealie), by the harness, finished on its own in 167
+turns, 32.9 minutes and 23.76 dollars (0.052 per module, inside the
+first-map target); check clean on every map, judgement --strict at exit 0
+with 105 answered. The top map has 37 cards (at most forty: met) and the
+session opened one sub-map (ImportWorkflow, 10 cards, clean). The
+acceptance line asked for at least two sub-maps: one was drawn, so that
+clause is missed and the line stays as written. What the run shows is that
+the mechanism holds on a real 460-module tree; whether an agent opens a
+second map is its judgement of the code, which the tool suggests but does
+not force.
+
 ### 6. It has been run on one repository, ours
 
 What was wrong: n equals one, and we wrote it.
