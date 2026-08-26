@@ -88,6 +88,22 @@ Measurement: count check invocations in the session's stream-json log;
 count the place, check and refresh calls before the first clean layout
 and the refusals among them.
 
+The restated claim (a first draft with no positions reaches a clean layout
+with at most one layout refusal after `place`), measured on 2026-08-26
+from the four first-map benchmark logs on systemap 0.9.0, which had
+`place` without the region-order search:
+
+| repository | refusals between the first place and the first clean layout |
+|---|---|
+| rich | 1 |
+| poetry | 1 |
+| paperless-ngx | 2 |
+| kstrl | 4 |
+
+Met on two of four. The refusals were label collisions, which is what the
+region-order search in 0.11.1 scores against; the claim is re-measured on
+the next first-map runs on 0.11.1 or later.
+
 ### 2. Flows are declared, not observed
 
 What is wrong: the check verifies entries and interfaces against the code.
