@@ -13,4 +13,6 @@ ROADMAP.md states the targets (a first map at most 0.15 dollars per
 module; maintenance at most 2 dollars on a medium pull request). This
 table is the measurement; the README quotes it, not the targets.
 
-No run recorded yet: the table is empty until a repository is measured.
+| repository | mode | modules | systemap | model | turns | minutes | dollars | dollars per module | check | judgement | run | skill first | date |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| a 144-module service (private) | first-map | 144 | 0.8.0 | claude-opus-5[1m] | 155 | 31.9 | 25.49 | 0.177 | clean | clean | finished | yes | 2026-08-26 |
