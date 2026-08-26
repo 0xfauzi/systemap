@@ -11,10 +11,11 @@ check refuses anything else, so nothing here is a plan and nothing says
 The map has three actors outside the code (the agent that authors, the
 maintainer who reviews, the CI that refuses) and five bands inside it:
 what you operate, what gathers, what means, what draws, what keeps the map
-true. Positions are fixed in this file, and pinned: `systemap place`
-writes a first position for a card without one and never moves a pinned
-card; `systemap check` decides whether the placement is clean, and
-`systemap describe` says what the picture shows.
+true. Positions are fixed in this file: `systemap place` writes a
+position for a card without one and keeps every card that has one,
+`systemap place --all` lays every card out again but the pinned ones;
+`systemap check` decides whether the placement is clean, and `systemap
+describe` says what the picture shows.
 """
 
 from __future__ import annotations
@@ -32,9 +33,10 @@ from systemap import (
     Step,
 )
 
-# Every position, box and the canvas below were written by `systemap place`
-# and are pinned: a card keeps its x and y until the maintainer moves it,
-# and a card written without them is placed into a free slot of its region.
+# Every position, box and the canvas below were written by `systemap place`:
+# a card keeps its x and y until `place --all` lays the map out again, a
+# card written without them is placed into a free slot of its region, and
+# no card is pinned, so `place --all` may move any of them.
 
 CONTAINERS = (
     Container(
@@ -143,7 +145,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        does="A first position for every card without one: regions on a two-column grid with corridors between them, cards on the grid inside, ordered by barycentre sweeps over the flows. Writes the positions into map/model.py in place and never moves a pinned card.",
+        does="A first position for every card without one: regions on a two-column grid with corridors between them, cards on the grid inside, ordered by barycentre sweeps over the flows. Writes the positions into map/model.py in place; with --all, lays every card out again and keeps the pinned ones.",
         interface="compute(model) -> Placement; write(path, model, placement)",
         implemented_by=("systemap.place",),
         entry="compute",
@@ -428,7 +430,7 @@ RELATIONS = {
     (
         "CLI",
         "Placer",
-    ): "place computes a position for every card without one and writes it into the model; describe places them for one look without writing.",
+    ): "place computes a position for every card without one, or with --all for every card not pinned, and writes it into the model; describe places them for one look without writing.",
     (
         "CLI",
         "FactsExtractor",
@@ -525,7 +527,7 @@ RELATIONS = {
     (
         "Model",
         "Placer",
-    ): "The placer reads the cards, their regions and the flows between them; a card with x and y is pinned and left alone.",
+    ): "The placer reads the cards, their regions and the flows between them; a card with x and y is kept, and with --all only a pinned card is.",
     (
         "Placer",
         "Model",

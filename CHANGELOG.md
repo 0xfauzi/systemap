@@ -1,5 +1,78 @@
 # Changelog
 
+## 0.10.1
+
+What the fourth headless run found: the first run with `place`, on the
+same repository as runs 1 to 3 (systemap 0.8.0; finished on its own,
+check clean, `judgement --strict` 0). Ten friction items, each with a
+decision, and the measurement gap 1 of ROADMAP.md was waiting on.
+
+- ROADMAP gap 1, measured and missed: the check-and-refresh count on
+  run 4 was 21 against a target of 11 (run 3: 22). The roadmap records
+  the count, the calls to the first clean layout (2 and 3, one refusal
+  each), the work between the first model write and that layout (6 tool
+  uses over 8 turns, then 5 over 7) and the whole-run cost (168 turns
+  and 17.30 dollars, then 232 and 25.49), under the original target,
+  kept and marked missed, with the reading: hand placement was already
+  cheap on that repository by run 3, and `place` could not lay a map
+  out again. The acceptance for `place` is restated as a claim it can
+  meet: on a first draft with no positions, `place --all` reaches a
+  clean layout with at most one refusal, measured on the next run. Gaps
+  3, 4 and 5 say what landed and what is still unmeasured; gap 4 states
+  the one benchmark row, 0.177 dollars per module against 0.15.
+- `place --all` and `Component.pinned`. After the first `place` every
+  card had a position, so a card added later found no free slot and the
+  only fix was a hand edit of the file. Now `pinned: bool = False` on a
+  card means a person chose its position; `systemap place` places the
+  cards without a position and keeps the rest, as before; `systemap
+  place --all` lays every card out again and keeps only the pinned
+  ones (with none pinned, the boxes and the canvas too); the "no free
+  slots" refusal names `place --all`; `describe` counts pinned by the
+  flag (`positions: 1 pinned, 17 placed`); the skill's loop says to run
+  `place --all` after adding or removing a card, and layout.md says
+  when to pin. `Component.positioned` is the property that `pinned`
+  was; `Placement.kept` is the tuple that `Placement.pinned` was.
+- The facts views no longer leak the JSON they replace. `facts --module
+  NAME` renders the record (docstring, public names with their kinds,
+  re-exports marked with their module, imports, imported by, external,
+  the test count) and never a test's name; `--modules` carries the
+  first sentence of each module's docstring before the counts;
+  `--docstrings` prints module and first sentence alone; `--names NAME`
+  prints the public names with kinds; `--entry-points` prints each
+  target beside the point, the thing that collapses `python -m pkg`
+  and `main()` into one journey. SKILL.md says which view gives what.
+- Evidence: two cards that share a module (a tool claimed by symbol
+  inside its agent's module, the shape layers.md recommends) can never
+  have an import between them, so the flow was permanently declared.
+  Now the shared module is the evidence: the flow is observed, the panel
+  says `observed: shared module`, and layers.md says so.
+- `init` against a strict repository's own gates. The starter's import
+  line carries `# type: ignore[import-not-found, unused-ignore]` with a
+  comment saying why (mypy strict refused the import in a repository
+  that does not depend on systemap, the recommended shape; the second
+  code keeps the ignore quiet where systemap happens to be installed);
+  the package ships `py.typed`, so an installed systemap is typed; and
+  `init` prints one note naming mypy and deptry with the exact pyproject
+  lines deptry needs (`[tool.deptry.per_rule_ignores]`, `DEP001 =
+  ["systemap"]`, `DEP003 = ["systemap"]`). pitfalls.md says to run
+  every CI command the repository runs, not only pre-commit.
+- `judgement` output fit for one tool call. Crossing-import lines are
+  one per ordered pair of cards with a module count (`crossing import:
+  Page imports Model in 16 modules and no flow joins them`) instead of
+  one per import; `--verbose` lists the imports under each line;
+  `--kind KIND` prints one kind at a time (the head and `--strict` still
+  count every open line). `delta` matches an answer against the grouped
+  line. An `item` answer that quotes an old crossing-import line goes
+  stale: answer the pair (`crossing`, `crossing_into`, `crossing_from`)
+  or quote the new line. second-pass.md shows one row per answer form,
+  seven for seven, and names the new line and both flags.
+- pitfalls.md: a scratch script goes outside the repository (for
+  example /tmp), never in the repository root.
+- Tests: the anonymised fixture gains a pinned tool card that claims a
+  symbol inside its agent's module and the tool flow between them, so
+  `place --all`, the pinned flag and the shared-module evidence are
+  measured on it; every decision above has a test.
+
 ## 0.10.0
 
 Gap 5 of ROADMAP.md: past sixty cards the single map stopped working,

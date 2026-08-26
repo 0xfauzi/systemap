@@ -1,6 +1,6 @@
 {
   "name": "systemap",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "The map your coding agent draws of your system: the systemap skill, which extracts the facts, drafts the model, checks it until every module is mapped, renders the page, makes a second pass with the judgement until nothing changes, and hands back the answers.",
   "author": {
     "name": "0xfauzi",
