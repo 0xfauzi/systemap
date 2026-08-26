@@ -59,7 +59,7 @@ from typing import Any
 from systemap import evidence, extract, nest
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
-from systemap.judgement import answers
+from systemap.judgement import answers, crossing_line, crossing_pairs
 from systemap.model import (
     Component,
     Meaning,
@@ -455,6 +455,10 @@ def compute(
     # ---- new crossing imports ------------------------------------------------------
     joined = {frozenset(f.edge) for f in model.flows}
     before = {(renamed.get(m, m), renamed.get(t, t)) for m in b for t in b[m].get("uses", {})}
+    # The judgement's line for the pair at the head commit, so an answer
+    # that covers the pair there (by pair, into, from, kind or the exact
+    # line) covers the new import here.
+    pairs = crossing_pairs(h, owner_head)
     for module in sorted(h):
         p = owner_head.get(module)
         if not p:
@@ -463,10 +467,7 @@ def compute(
             q = owner_head.get(target)
             if not q or q == p or frozenset((p, q)) in joined or (module, target) in before:
                 continue
-            asked = (
-                f"{prefix}crossing import: module {module} (component {p}) imports module "
-                f"{target} (component {q}) and no flow joins {p} and {q}"
-            )
+            asked = prefix + crossing_line(p, q, pairs.get((p, q), [(module, target)]))
             if any(answers(a, asked) for a in cfg.judgement_answered):
                 continue
             lines.append(

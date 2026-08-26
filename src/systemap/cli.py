@@ -8,7 +8,7 @@
     systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator; --map ID for a sub-map
     systemap refresh                   extract, check, render, figures
-    systemap judgement [--strict]      the list the maintainer must confirm
+    systemap judgement [--strict]      the list the maintainer must confirm; --kind, --verbose
     systemap delta --base REF          what a change did to the map, each line with its fix
     systemap suggest                   a first grouping from the facts, to argue with
     systemap describe                  what a look at the picture would tell you, in numbers
@@ -499,7 +499,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
         p.cfg.observed_by,
     )
     result = judgement.apply_answers(lines, p.cfg.judgement_answered)
-    say(*judgement.report(result))
+    detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
+    say(*judgement.report(result, detail, args.kind or ""))
     if args.strict and result.open:
         say("answer every line in [judgement] answered in systemap.toml, or act on it")
         return STALE
@@ -864,11 +865,26 @@ def build_parser() -> argparse.ArgumentParser:
         "across a boundary with no flow, flows no import backs, model sdk imports outside "
         "an agent; lines "
         "answered under [judgement] in the configuration are suppressed and counted; "
-        "exit 0, or 1 with --strict while any line is open",
+        "exit 0, or 1 with --strict while any line is open; --kind KIND prints one kind, "
+        "--verbose lists the imports behind each crossing-import line",
     )
     add_root(s)
     s.add_argument(
         "--strict", action="store_true", help="exit 1 while any line is unanswered, for CI"
+    )
+    s.add_argument(
+        "--kind",
+        default="",
+        metavar="KIND",
+        choices=config.LINE_KINDS,
+        help="print the open lines of one kind only (one of: "
+        + ", ".join(f'"{kind}"' for kind in config.LINE_KINDS)
+        + "); the head and the exit code still count every line",
+    )
+    s.add_argument(
+        "--verbose",
+        action="store_true",
+        help="under each crossing-import line, the imports it counts, one per line",
     )
     s.set_defaults(func=cmd_judgement)
 

@@ -55,6 +55,26 @@ def test_skill_front_matter_and_vocabulary() -> None:
     # a crossing pair, a kind, a model sdk import.
     for form in ("{ item = ", "{ items = [", '{ crossing = ["', '{ kind = "', '{ module_sdk = "'):
         assert form in second, form
+    # The count of forms the text states is the count of rows the block shows.
+    block = re.search(r"```toml\n(.*?)```", second, re.S)
+    assert block is not None
+    rows = re.findall(r"^\s+\{ (\w+) = ", block.group(1), re.M)
+    assert rows == [
+        "item",
+        "items",
+        "crossing",
+        "crossing_into",
+        "crossing_from",
+        "kind",
+        "module_sdk",
+    ]
+    assert "Seven forms" in second and len(rows) == 7
+    # The crossing-import line as the judgement prints it, and the flags.
+    assert "`crossing import: P\n   imports Q in N modules and no flow joins them`" in second
+    assert "systemap judgement --verbose" in second and '--kind "crossing import"' in second
+    pitfalls = skill.files()["references/pitfalls.md"]
+    assert "outside the\nrepository (for example /tmp)" in pitfalls
+    assert "every CI command the repository runs, not only pre-commit" in pitfalls
     assert "by the repository's own rule" in second
     assert "that definition wins" in second
     assert "systemap serve" in second

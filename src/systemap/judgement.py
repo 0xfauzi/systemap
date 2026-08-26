@@ -29,7 +29,11 @@ thing to look at:
     crossing import .... a module of one component imports a module of
                          another and no flow joins the two components, in
                          either direction: an edge the code has and the
-                         map does not. The main tool of the second pass.
+                         map does not. One line per ordered pair of
+                         components, with how many modules of the first
+                         import the second (`--verbose` lists them), so
+                         a pair joined in sixteen places is one question,
+                         not sixteen. The main tool of the second pass.
     declared flow ...... a flow no import backs, in either direction, and
                          whose sentence and artifact name none of the
                          mechanisms `[flows] observed_by` lists: an edge
@@ -58,7 +62,8 @@ components in either direction (`crossing`), every one into a component
 (`module_sdk`). An answer
 that matches no line is
 reported as stale, so answers cannot rot. `--strict` makes the CLI exit
-1 while any line is open, for a workflow.
+1 while any line is open, for a workflow; `--kind KIND` prints the open
+lines of one kind, and the exit code still reads them all.
 
 The list runs on every map of the tree (`run_tree`). A sub-map's lines
 carry its id in front (`Gateway: single module: ...`), so an `item`
@@ -278,30 +283,77 @@ def entry_points_without_journey(
     return out
 
 
-def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
-    """Every import across a component boundary with no flow between the two.
+Pair = tuple[str, str]
 
-    The facts record what each module imports. When a module of P imports
-    a module of Q and the model has no flow P -> Q or Q -> P, the code has
-    an edge the map does not. It may be one the reader needs, or one the
-    map leaves out on purpose; either way it is looked at, not guessed.
+
+def crossing_pairs(
+    components: dict[str, Any], owner: dict[str, str]
+) -> dict[Pair, list[tuple[str, str]]]:
+    """(P, Q) -> the (module, target) imports of P's modules into Q's, P and Q distinct.
+
+    Read from raw facts records and an owner table, so `delta` can ask
+    the same question of the facts at another commit.
     """
-    components = facts.get("components", {})
-    owner = _owner_of(model, facts)
-    joined = {frozenset(f.edge) for f in model.flows}
-    out: list[str] = []
+    out: dict[Pair, list[tuple[str, str]]] = {}
     for module in sorted(components):
         p = owner.get(module)
         if not p:
             continue
         for target in sorted(components[module].get("uses", {})):
             q = owner.get(target)
-            if not q or q == p or frozenset((p, q)) in joined:
-                continue
-            out.append(
-                f"crossing import: module {module} (component {p}) imports module {target} "
-                f"(component {q}) and no flow joins {p} and {q}"
-            )
+            if q and q != p:
+                out.setdefault((p, q), []).append((module, target))
+    return out
+
+
+def crossing_line(p: str, q: str, imports: list[tuple[str, str]]) -> str:
+    """The one line for a pair: how many modules of P import Q."""
+    n = len({module for module, _target in imports})
+    return (
+        f"crossing import: {p} imports {q} in {n} module{'s' if n != 1 else ''} and no flow "
+        "joins them"
+    )
+
+
+def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tuple[str, str]]]:
+    """Every pair of components an import joins that no flow does, with the imports."""
+    components = facts.get("components", {})
+    joined = {frozenset(f.edge) for f in model.flows}
+    return {
+        pair: imports
+        for pair, imports in crossing_pairs(components, _owner_of(model, facts)).items()
+        if frozenset(pair) not in joined
+    }
+
+
+def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
+    """One line per ordered pair of components an import joins and no flow does.
+
+    The facts record what each module imports. When a module of P imports
+    a module of Q and the model has no flow P -> Q or Q -> P, the code has
+    an edge the map does not. It may be one the reader needs, or one the
+    map leaves out on purpose; either way it is looked at, not guessed.
+    The line counts the modules of P that import Q; `crossing_detail`
+    lists them for `--verbose`.
+    """
+    return [
+        crossing_line(p, q, imports) for (p, q), imports in crossing_imports(model, facts).items()
+    ]
+
+
+def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
+    """line as printed -> the imports behind it, one `module imports target` each."""
+    return {
+        prefix + crossing_line(p, q, imports): [f"{m} imports {t}" for m, t in imports]
+        for (p, q), imports in crossing_imports(model, facts).items()
+    }
+
+
+def crossing_detail_tree(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
+    """`crossing_detail` for every map, each line carrying its map's prefix."""
+    out: dict[str, list[str]] = {}
+    for m in tree.maps:
+        out.update(crossing_detail(m.model, facts, m.prefix))
     return out
 
 
@@ -448,8 +500,7 @@ def run_tree(
 # ---- answers: the exact line, or a family of lines with one reason ------------
 
 CROSSING_LINE = re.compile(
-    r"^crossing import: module \S+ \(component (\S+)\) imports module \S+ "
-    r"\(component (\S+)\) and no flow joins "
+    r"^crossing import: (\S+) imports (\S+) in \d+ modules? and no flow joins"
 )
 SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component ")
 # How each kind's lines begin; the entry point line carries no colon.
@@ -525,8 +576,23 @@ def apply_answers(lines: list[str], answer_list: Iterable[Answer]) -> Answered:
     )
 
 
-def report(lines: list[str] | Answered) -> list[str]:
-    """The lines the CLI prints."""
+def of_kind(lines: list[str], kind: str) -> list[str]:
+    """The lines of one kind, on any map."""
+    return [line for line in lines if unprefixed(line).startswith(KIND_PREFIX[kind])]
+
+
+def report(
+    lines: list[str] | Answered,
+    detail: dict[str, list[str]] | None = None,
+    kind: str = "",
+) -> list[str]:
+    """The lines the CLI prints.
+
+    `detail` (from `--verbose`) is what a line stands for, printed under
+    it: the imports behind a crossing-import line. `kind` (from `--kind`)
+    prints the open lines of that kind alone; the head still counts them
+    all, since the exit code does.
+    """
     result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
     open_lines = result.open
     tail = ""
@@ -539,7 +605,16 @@ def report(lines: list[str] | Answered) -> list[str]:
     else:
         noun = "item" if len(open_lines) == 1 else "items"
         head = f"judgement: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
-    out = [head] + [f"  {line}" for line in open_lines]
+    shown = open_lines
+    if kind:
+        shown = of_kind(open_lines, kind)
+        noun = "line" if len(shown) == 1 else "lines"
+        head += f"; showing the {len(shown)} {kind} {noun}"
+    out = [head]
+    for line in shown:
+        out.append(f"  {line}")
+        if detail:
+            out += [f"    {item}" for item in detail.get(line, [])]
     out += [
         f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
         for item in result.stale

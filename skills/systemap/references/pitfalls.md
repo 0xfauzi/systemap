@@ -133,9 +133,9 @@ line; a line whose reason differs gets its own table.
 A helper written to count something the tool did not print (`.answers.py`,
 `.routes.py`) ends up committed beside the model. `systemap describe`
 prints the geometry, the bulk answer forms cover a list, and the label
-line names its fix; when a script is still needed, write it under the
-scratch directory the session has, never in the repository root, and
-delete it before the hand-back.
+line names its fix; when a script is still needed, write it outside the
+repository (for example /tmp), never in the repository root, and delete
+it before the hand-back.
 
 ## The generated files and the repository's own gates
 

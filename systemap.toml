@@ -52,10 +52,8 @@ answered = [
     { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names, the version, and the placement check it runs before it renders; MODEL and MEANING reach the commands through Config (the settings edge), which is where the map draws them" },
     { crossing = ["Config", "Model"], reason = "load_model imports the schema only to check that MODEL and MEANING are the right types; the model flows on to the commands as settings, not back into the configuration" },
     { items = [
-        "crossing import: module systemap.figure (component Figures) imports module systemap.model (component Model) and no flow joins Figures and Model",
-        "crossing import: module systemap.page (component Page) imports module systemap.model (component Model) and no flow joins Page and Model",
-        "crossing import: module systemap.figure (component Figures) imports module systemap.nest (component Model) and no flow joins Figures and Model",
-        "crossing import: module systemap.page (component Page) imports module systemap.nest (component Model) and no flow joins Page and Model",
+        "crossing import: Figures imports Model in 1 module and no flow joins them",
+        "crossing import: Page imports Model in 1 module and no flow joins them",
     ], reason = "the drawers import the schema for type names and the layer order, and the tree of maps for the link a card that opens a map carries; the model itself reaches them through the Schematic (topology, meaning), which the map draws" },
     { crossing = ["Describe", "Model"], reason = "describe imports the schema for the layer table and the readings it counts; the model reaches it as the Schematic's geometry, which the map draws" },
     { crossing = ["Placer", "Schematic"], reason = "the placer reads the drawing's header measurements (the label and sub widths) so a box it lays out holds its header; nothing travels between them at run time" },

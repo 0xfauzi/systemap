@@ -17,34 +17,38 @@ the exception.
    `systemap.toml` with a reason. An answered line is suppressed and
    counted in the header; an answer that matches no line is reported as
    stale, so remove it. Never pass a line over in silence. Seven forms,
-   each one table with one reason:
+   each one table with one reason, one row each below:
 
    ```toml
    [judgement]
    answered = [
-       # the exact line, or several exact lines
-       { item = "thin layer: control lights 0 components", reason = "nothing drives anything; the parts are called by tests" },
-       { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
-       # every crossing-import line between any two of these components, either direction
-       { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names; the model reaches it through Config, which the map draws" },
-       { crossing = ["Page", "Figures", "Describe"], reason = "the three drawers share the schematic's tables; every pair among them" },
-       # every crossing import into one component, whoever imports it
-       { crossing_into = "Model", reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
-       # every crossing import out of one component, whatever it imports
-       { crossing_from = "CLI", reason = "the commands import every part they run; the control edges are the ones the map draws" },
-       # a declared flow that is real and joined by nothing in the tree
+       # item: the exact line as printed (here a declared flow that is real and joined by nothing in the tree)
        { item = "declared flow: Gateway -> Renderer (render job): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the job crosses to the render container as an HTTP request; the client is generated at build time and is not in the tree" },
-       # every line of one kind: single module, possible mis-fold, no sentence,
-       # thin layer, entry point, crossing import, declared flow, model sdk
+       # items: several exact lines, one reason
+       { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
+       # crossing: every crossing-import line between any two of these components, either direction
+       { crossing = ["Page", "Figures", "Describe"], reason = "the three drawers share the schematic's tables; every pair among them" },
+       # crossing_into: every crossing import into one component, whoever imports it
+       { crossing_into = "Model", reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
+       # crossing_from: every crossing import out of one component, whatever it imports
+       { crossing_from = "CLI", reason = "the commands import every part they run; the control edges are the ones the map draws" },
+       # kind: every line of one kind (single module, possible mis-fold, no sentence,
+       # thin layer, entry point, crossing import, declared flow, model sdk)
        { kind = "single module", reason = "a small package with one module per part; each card is a thing a reader would name" },
-       # every model sdk line for one import
+       # module_sdk: every model sdk line for one import
        { module_sdk = "google.adk", reason = "the framework's tool and session modules import it too; the agents are the cards of kind agent" },
    ]
    ```
 
-2. Walk every crossing import. The line reads: `module A (component P)
-   imports module B (component Q) and no flow joins P and Q`. Open A, find
-   the import, and ask what travels or who drives whom. Three outcomes:
+   The list can run past what one tool call shows. `systemap judgement
+   --kind "crossing import"` prints one kind at a time (the head still
+   counts every open line, and `--strict` reads them all).
+
+2. Walk every crossing import. The line reads: `crossing import: P
+   imports Q in N modules and no flow joins them`, one line per ordered
+   pair of cards; `systemap judgement --verbose` lists the imports under
+   it (`module A imports module B`). Open A, find the import, and ask
+   what travels or who drives whom. Three outcomes:
    - an edge the reader needs: add a `Flow` with its artifact and kind, and
      its sentence in `relations`;
    - an import the reader does not need on the map (a type imported for an
