@@ -10,7 +10,7 @@ name: systemap
 # package supports. The built wheel is installed into a clean virtual
 # environment on each of the three and run on a copy of this repository's
 # own map from a directory that is not a checkout. And the repository is
-# validated as a Claude Code plugin.
+# validated, added and installed as a Claude Code plugin with the CLI.
 
 on:
   push:
@@ -237,6 +237,12 @@ jobs:
     # The repository is also a Claude Code plugin and its own marketplace.
     # Both manifests, and the skill under skills/, are validated in strict
     # mode so an unrecognised field or a missing description fails here.
+    # Then the checkout is added as a marketplace and the plugin installed
+    # from it with the CLI, into a configuration directory of its own, and
+    # the list must show it enabled: the install proof is mechanical.
+    # Adding a marketplace, installing and listing need no login (measured
+    # with an empty CLAUDE_CONFIG_DIR on the pinned version), so the job
+    # fails when any of the three does.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -261,3 +267,12 @@ jobs:
 
       - name: skills
         run: claude plugin validate skills --strict
+
+      - name: the checkout as a marketplace, the plugin installed from it, listed
+        env:
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
+        run: |
+          claude plugin marketplace add ./
+          claude plugin install systemap@systemap
+          claude plugin list
+          claude plugin list --json | jq -e '.[] | select(.id == "systemap@systemap" and .enabled == true)' > /dev/null
