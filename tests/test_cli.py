@@ -243,6 +243,18 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     (tmp_path / "systemap.toml").unlink()
     assert run("--root", str(tmp_path), "check") == 2
     assert "theme must be a table" in capsys.readouterr().err
+    # A scheme that is not one of the three is refused with the three named.
+    write_tree(tmp_path, {"map/model.py": TWO_CARD_MODEL})
+    write_tree(
+        tmp_path, {"pyproject.toml": '[tool.systemap]\n[tool.systemap.theme]\nscheme = "sepia"\n'}
+    )
+    assert run("--root", str(tmp_path), "check") == 2
+    err = capsys.readouterr().err
+    assert "unknown theme scheme 'sepia'; the schemes are warm, graphite, paper" in err
+    assert "Traceback" not in err
+    write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\npaper = 3\n"})
+    assert run("--root", str(tmp_path), "check") == 2
+    assert "theme.paper must be a table of tokens" in capsys.readouterr().err
 
     # The issue link template left with the field it served; an old key is refused.
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "https://x/{n}"\n'})

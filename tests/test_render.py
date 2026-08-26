@@ -88,12 +88,13 @@ def test_default_theme_colours_every_layer() -> None:
     assert len(set(t["layers"].values())) == len(layers), "every layer has its own hue"
     # The standard layers are named in the scheme; the model's own take the
     # palette from its first entry, whatever their position.
-    assert t["layers"]["data"] == theme_mod.STANDARD_LAYERS_DARK["data"]
-    assert t["layers"]["record"] == theme_mod.LAYER_PALETTE[0]
-    assert t["layers"]["memory"] == theme_mod.LAYER_PALETTE[1]
+    assert t["scheme"] == theme_mod.DEFAULT_SCHEME == "warm"
+    assert t["layers"]["data"] == theme_mod.STANDARD_LAYERS_WARM["data"]
+    assert t["layers"]["record"] == theme_mod.LAYER_PALETTE_WARM[0]
+    assert t["layers"]["memory"] == theme_mod.LAYER_PALETTE_WARM[1]
     custom = theme_mod.resolve({"layers": {"record": "#123456"}, "accent": "#ABCDEF"}, layers)
     assert custom["layers"]["record"] == "#123456"
-    assert custom["layers"]["memory"] == theme_mod.LAYER_PALETTE[0]
+    assert custom["layers"]["memory"] == theme_mod.LAYER_PALETTE_WARM[0]
     assert custom["accent"] == "#ABCDEF"
     assert "--accent:#ABCDEF" in theme_mod.css_vars(custom)
 
@@ -116,25 +117,34 @@ def test_reach_figure(sample: Sample) -> None:
     assert "endstate" not in html and "planned" not in html
 
 
-def test_light_scheme_derives_from_the_same_palette() -> None:
+def test_the_three_schemes_share_one_token_table() -> None:
     model, meaning = sample_model()
     layers = all_layers(model, meaning)
-    dark = theme_mod.resolve({}, layers)
-    light = theme_mod.resolve({"scheme": "light"}, layers)
-    assert dark["bg"] == theme_mod.GRAPHITE and dark["ink"] == theme_mod.INK
-    assert light["bg"] == theme_mod.PAPER and light["ink"] == theme_mod.INK_ON_PAPER
-    assert dark["accent"] == theme_mod.AMBER and dark["reach"] == theme_mod.AMBER
-    assert dark["steel"] == theme_mod.STEEL
-    assert dark["layers"]["data"] == theme_mod.STANDARD_LAYERS_DARK["data"]
-    assert light["layers"]["data"] == theme_mod.STANDARD_LAYERS_LIGHT["data"]
-    # The same token names exist in both schemes, so an override written
-    # for one applies to the other.
-    assert set(dark) == set(light)
-    assert set(dark["state"]) == set(light["state"])
-    assert set(dark["container"]) == set(light["container"])
-    assert set(dark["layers"]) == set(light["layers"])
-    assert dark["marks"] == light["marks"] == theme_mod.KIND_MARKS
-    custom = theme_mod.resolve({"scheme": "light", "accent": "#ABCDEF"}, layers)
+    warm = theme_mod.resolve({}, layers)
+    graphite = theme_mod.resolve({"scheme": "graphite"}, layers)
+    paper = theme_mod.resolve({"scheme": "paper"}, layers)
+    assert warm["bg"] == theme_mod.WARM_GROUND and warm["ink"] == theme_mod.WARM_INK
+    assert graphite["bg"] == theme_mod.GRAPHITE_GROUND and graphite["ink"] == theme_mod.GRAPHITE_INK
+    assert paper["bg"] == theme_mod.PAPER_GROUND and paper["ink"] == theme_mod.PAPER_INK
+    assert warm["accent"] == warm["reach"] == theme_mod.WARM_AMBER
+    assert graphite["accent"] == graphite["reach"] == theme_mod.GRAPHITE_AMBER
+    assert paper["accent"] == paper["reach"] == theme_mod.PAPER_AMBER
+    assert warm["layers"]["data"] == theme_mod.STANDARD_LAYERS_WARM["data"]
+    assert graphite["layers"]["data"] == theme_mod.STANDARD_LAYERS_GRAPHITE["data"]
+    assert paper["layers"]["data"] == theme_mod.STANDARD_LAYERS_PAPER["data"]
+    # The same token names exist in every scheme, so an override written
+    # for one applies to another.
+    for t in (graphite, paper):
+        assert set(t) == set(warm)
+        assert set(t["state"]) == set(warm["state"])
+        assert set(t["container"]) == set(warm["container"])
+        assert set(t["layers"]) == set(warm["layers"])
+        assert t["marks"] == warm["marks"] == theme_mod.KIND_MARKS
+    custom = theme_mod.resolve({"scheme": "paper", "accent": "#ABCDEF"}, layers)
     assert custom["accent"] == "#ABCDEF"
-    assert custom["bg"] == theme_mod.PAPER
-    assert "color-scheme:light" in theme_mod.css_vars(light)
+    assert custom["bg"] == theme_mod.PAPER_GROUND
+    assert "color-scheme:light" in theme_mod.css_vars(paper)
+    assert "color-scheme:dark" in theme_mod.css_vars(warm)
+    # The names 0.11 used still pick the two older schemes.
+    assert theme_mod.resolve({"scheme": "light"}, layers)["scheme"] == "paper"
+    assert theme_mod.resolve({"scheme": "dark"}, layers)["scheme"] == "graphite"

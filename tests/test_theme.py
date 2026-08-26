@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import re
 
+import pytest
 from conftest import Sample
 
 from systemap import figure, page
 from systemap import theme as theme_mod
+from systemap.model import all_layers
 from systemap.schematic import interactive_script, panel_css
 from systemap.schematic import render as render_schematic
 
@@ -128,3 +130,112 @@ def test_the_palette_answers_one_table_two_ways(sample: Sample) -> None:
     assert f"--lt-data:{literal.tag('data')};" in css
     assert f"--changed-fill:{literal.changed_fill()};" in css
     assert f"--box-server:{t['container']['server'][1]};" in css
+
+
+# ---- the three schemes ---------------------------------------------------------
+
+
+def luminance(colour: str) -> float:
+    """Relative luminance, as WCAG 2 defines it."""
+    parts = []
+    for i in (1, 3, 5):
+        c = int(colour[i : i + 2], 16) / 255
+        parts.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    r, g, b = parts
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a: str, b: str) -> float:
+    la, lb = luminance(a), luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def text_tokens(t: dict[str, object]) -> dict[str, str]:
+    """Every token that is read as text somewhere on the page, by name."""
+    out = {name: str(t[name]) for name in theme_mod.TEXT_TOKENS}
+    layers = t["layers"]
+    assert isinstance(layers, dict)
+    out.update({f"layer {lid}": str(colour) for lid, colour in layers.items()})
+    palette = t["layer_palette"]
+    assert isinstance(palette, list)
+    out.update({f"palette {k}": str(colour) for k, colour in enumerate(palette)})
+    return out
+
+
+def test_contrast_is_the_wcag_formula() -> None:
+    assert contrast("#ffffff", "#000000") == 21
+    assert round(contrast("#767676", "#ffffff"), 2) == 4.54
+
+
+@pytest.mark.parametrize("scheme", list(theme_mod.SCHEMES))
+def test_every_text_token_clears_four_and_a_half_to_one_on_its_ground(scheme: str) -> None:
+    t = theme_mod.SCHEMES[scheme]
+    ground = str(t["bg"])
+    short = {name: round(contrast(colour, ground), 2) for name, colour in text_tokens(t).items()}
+    assert all(ratio >= 4.5 for ratio in short.values()), {
+        name: ratio for name, ratio in short.items() if ratio < 4.5
+    }
+
+
+def test_the_schemes_are_three_full_tables_and_the_default_is_warm() -> None:
+    assert list(theme_mod.SCHEMES) == ["warm", "graphite", "paper"]
+    assert theme_mod.DEFAULT_SCHEME == "warm" and theme_mod.LIGHT_SCHEME == "paper"
+    keys = {name: set(t) for name, t in theme_mod.SCHEMES.items()}
+    assert keys["warm"] == keys["graphite"] == keys["paper"]
+    for name, t in theme_mod.SCHEMES.items():
+        assert t["scheme"] == name
+        assert t["color_scheme"] == ("light" if name == "paper" else "dark")
+        assert set(t["layers"]) == set(theme_mod.STANDARD_LAYERS_WARM)
+        assert len(set(t["layers"].values())) == len(t["layers"]), (
+            "every standard layer its own hue"
+        )
+        assert not set(t["layer_palette"]) & set(t["layers"].values()), (
+            "a custom layer never takes a standard hue"
+        )
+    warm = theme_mod.WARM
+    assert warm["bg"] == "#161310" and warm["accent"] == "#e5a84f" and warm["ink"] == "#ece5d8"
+    assert warm["state"]["built"] == ["#27221a", "#8a7d63", "built"]
+    assert warm["container"]["isolated"] == ["#6b4a3d", "#1d1613"]
+    assert list(warm["layers"].values()) == [
+        "#d9cdb2",
+        "#82a7ba",
+        "#e39a86",
+        "#dd9bbd",
+        "#b48ec9",
+        "#86c9a9",
+        "#b7c27c",
+    ]
+    assert warm["layer_palette"][0] == "#e3b778"
+    assert theme_mod.PAPER["accent"] == "#99621c"
+
+
+def test_overrides_apply_per_scheme_and_bare_keys_to_the_default(sample: Sample) -> None:
+    layers = all_layers(sample.model, sample.meaning)
+    t = theme_mod.resolve(
+        {"accent": "#111111", "paper": {"accent": "#222222", "layers": {"data": "#333333"}}},
+        layers,
+    )
+    assert t["scheme"] == "warm" and t["accent"] == "#111111"
+    schemes = t["schemes"]
+    assert list(schemes) == ["warm", "graphite", "paper"]
+    assert schemes["warm"]["accent"] == "#111111"
+    assert schemes["graphite"]["accent"] == theme_mod.GRAPHITE["accent"], (
+        "bare keys are the default's"
+    )
+    assert schemes["paper"]["accent"] == "#222222"
+    assert schemes["paper"]["layers"]["data"] == "#333333"
+    assert schemes["paper"]["layers"]["record"] == theme_mod.LAYER_PALETTE_PAPER[0]
+    assert "schemes" not in schemes["paper"], "a scheme's table is not nested again"
+    # With the default moved, the bare keys move with it; a sub-table for
+    # the default is laid over them.
+    t = theme_mod.resolve(
+        {"scheme": "light", "accent": "#111111", "paper": {"bad": "#444444"}}, layers
+    )
+    assert t["scheme"] == "paper" and t["accent"] == "#111111" and t["bad"] == "#444444"
+    assert t["schemes"]["warm"]["accent"] == theme_mod.WARM["accent"]
+    with pytest.raises(
+        ValueError, match="unknown theme scheme 'sepia'; the schemes are warm, graphite, paper"
+    ):
+        theme_mod.resolve({"scheme": "sepia"}, layers)
+    with pytest.raises(ValueError, match="theme.warm must be a table of tokens"):
+        theme_mod.resolve({"warm": "#fff"}, layers)

@@ -14,6 +14,7 @@ import pytest
 from conftest import TWO_CARD_MODEL, Sample, init_two_cards, write_tree
 
 from systemap import check, route
+from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.model import Container, all_layers
 from systemap.schematic import render as render_schematic
@@ -194,7 +195,7 @@ def test_svg_figure_is_the_bare_drawing_on_its_ground(
     assert 'xmlns="http://www.w3.org/2000/svg"' in svg
     assert svg.rstrip().endswith("</svg>")
     assert "<figure" not in svg and "<script" not in svg
-    assert 'fill="#121417"/>' in svg, "the ground rectangle carries the theme's bg"
+    assert f'fill="{theme_mod.WARM_GROUND}"/>' in svg, "the ground rectangle carries the theme's bg"
     assert svg.index("<rect") < svg.index("<defs>"), "the ground is drawn first"
     assert run("--root", str(tmp_path), "check") == 0
     capsys.readouterr()

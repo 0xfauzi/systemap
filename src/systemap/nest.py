@@ -134,7 +134,10 @@ def load(cfg: Config) -> Tree:
 
 
 def _theme(cfg: Config, model: Model, meaning: Meaning) -> dict[str, Any]:
-    return theme_mod.resolve(cfg.theme, all_layers(model, meaning))
+    try:
+        return theme_mod.resolve(cfg.theme, all_layers(model, meaning))
+    except ValueError as exc:
+        raise ConfigError(f"{cfg.source or 'theme'}: {exc}") from exc
 
 
 def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:

@@ -51,7 +51,7 @@ def drive(html: Path, reduced: bool = False) -> dict[str, object]:
     return report
 
 
-def sample_page(sample: Sample, tmp_path: Path, scheme: str = "dark") -> Path:
+def sample_page(sample: Sample, tmp_path: Path, scheme: str = "warm") -> Path:
     tokens = theme_mod.resolve({"scheme": scheme}, all_layers(sample.model, sample.meaning))
     html = page.build(
         sample.cfg, sample.model, sample.meaning, tokens, sample.facts, {"has_change": False}
@@ -187,13 +187,13 @@ def test_reduced_motion_frames_without_animation(sample: Sample, tmp_path: Path)
     assert "smooth" not in report["scrolls"]
 
 
-@pytest.mark.parametrize("scheme", ["dark", "light"])
-def test_focus_ring_and_reduced_motion_in_both_schemes(
+@pytest.mark.parametrize("scheme", list(theme_mod.SCHEMES))
+def test_focus_ring_and_reduced_motion_in_every_scheme(
     sample: Sample, tmp_path: Path, scheme: str
 ) -> None:
     html = sample_page(sample, tmp_path, scheme).read_text(encoding="utf-8")
     accent = theme_mod.SCHEMES[scheme]["accent"]
-    assert f"color-scheme:{scheme};" in html
+    assert f"color-scheme:{theme_mod.SCHEMES[scheme]['color_scheme']};" in html
     assert f"--accent:{accent};" in html
     assert ":focus-visible{outline:2px solid var(--accent);outline-offset:2px}" in html
     assert (
@@ -208,5 +208,6 @@ def test_focus_ring_and_reduced_motion_in_both_schemes(
     assert "From the keyboard: Tab moves across the cards, Enter opens one" in html
 
 
-def test_dark_and_light_accents_differ() -> None:
-    assert theme_mod.DARK["accent"] != theme_mod.LIGHT["accent"]
+def test_the_schemes_accents_differ() -> None:
+    accents = {t["accent"] for t in theme_mod.SCHEMES.values()}
+    assert len(accents) == len(theme_mod.SCHEMES)

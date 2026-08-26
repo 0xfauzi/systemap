@@ -1,22 +1,25 @@
-"""The map's look, as one table of tokens.
+"""The map's look, as one table of tokens per scheme.
 
 Everything visual lives here so the scene, the panel and the page cannot
-disagree about a colour. The palette is cool graphite with one muted amber
-accent and low-chroma layer hues; nothing on the page is saturated:
+disagree about a colour. Three schemes, each a full table of the same
+tokens, and the reader picks one on the page:
 
-    graphite #121417 .. the ground
-    surface #181b1f ... panels; raised #1f2329 for what sits on a panel
-    ink #e6e4df ....... text; ink_2 #b3b1aa and ink_3 #858a92 quieter
-    amber #e0a458 ..... the component the reader clicked (accent), and reach
-    steel #8fb0c4 ..... measurement
+    warm ....... the default: ink #ece5d8 on a warm dark ground #161310,
+                 an amber accent #e5a84f, low-chroma layer hues
+    graphite ... the cool dark scheme: ink #e6e4df on graphite #121417,
+                 a muted amber #e0a458
+    paper ...... the light scheme: ink #1d2024 on paper #f4f2ee, with
+                 every hue that is read as text darkened until it clears
+                 4.5:1 on paper
 
-Two schemes share the palette. `dark` puts ink on graphite; `light` puts
-ink #1d2024 on paper #f4f2ee, with every hue that is read as text darkened
-until it clears 4.5:1 on paper (measured, not guessed; the values are
-recorded in the commit that set them). A consumer picks one with
-`scheme = "light"` under `[theme]` and overrides any token from there; the
-result is merged over the scheme's table, so every token name stays the
-same in both.
+Every text token of every scheme clears 4.5:1 on its ground (measured, not
+guessed; the ratios are recorded in the commit that set them, and
+tests/test_theme.py holds them). A consumer picks the default with
+`scheme = "warm"` under `[theme]` and overrides any token from there
+(`[theme]` applies to the default scheme, `[theme.paper]` to one scheme);
+the result is merged over the scheme's table, so every token name is the
+same in all three. The names 0.11 used, `dark` and `light`, still pick
+graphite and paper.
 
 Colour carries meaning or is absent:
 
@@ -37,11 +40,11 @@ Nothing else on the page is coloured.
 The page draws through variables. Every colour its drawing and its panel
 take from the table is written as `var(--token)` (`Palette`, with
 `variables=True`), and the tables themselves are the `:root` blocks the
-page carries (`css_vars`), so the page can switch tables at runtime
+page carries (`css_vars`), so the page switches schemes at runtime
 without a redraw. A figure that leaves the page (`systemap figure`, a
-README image, a preview) carries no table and is written with the literal
-colours (`Palette` without `variables`); the two are the same table read
-two ways, never two tables.
+README image) carries no table and is written with the literal colours
+(`Palette` without `variables`); the two are the same table read two
+ways, never two tables.
 """
 
 from __future__ import annotations
@@ -63,18 +66,36 @@ SANS = (
 )
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
-GRAPHITE = "#121417"
-INK = "#e6e4df"
-AMBER = "#e0a458"
-STEEL = "#8fb0c4"
-PAPER = "#f4f2ee"
-INK_ON_PAPER = "#1d2024"
+# The ground, the ink and the accent each scheme is named for.
+WARM_GROUND = "#161310"
+WARM_INK = "#ece5d8"
+WARM_AMBER = "#e5a84f"
+GRAPHITE_GROUND = "#121417"
+GRAPHITE_INK = "#e6e4df"
+GRAPHITE_AMBER = "#e0a458"
+PAPER_GROUND = "#f4f2ee"
+PAPER_INK = "#1d2024"
+PAPER_AMBER = "#99621c"
 
-# The standard layers' hues on graphite: the two derived readings, the two
+# The standard layers' hues per scheme: the two derived readings, the two
 # standard kinds, and the three agent readings. Each reads apart from the
-# others (the agent three were searched for the widest CIE distance from
-# the rest at low chroma) and stays quieter than the accent.
-STANDARD_LAYERS_DARK: dict[str, str] = {
+# others and stays quieter than the accent. Then the hues for the model's
+# own layers, taken in order; a map with more custom layers than this
+# wraps around. Warm's four were searched for the widest CIELAB distance
+# from its standard hues at low chroma (the first is the eighth hue of the
+# scheme; the other three were picked by that search and looked at).
+STANDARD_LAYERS_WARM: dict[str, str] = {
+    "structure": "#d9cdb2",
+    "system": "#82a7ba",
+    "data": "#e39a86",
+    "control": "#dd9bbd",
+    "agents": "#b48ec9",
+    "context": "#86c9a9",
+    "tools": "#b7c27c",
+}
+LAYER_PALETTE_WARM: list[str] = ["#e3b778", "#bbc1f1", "#7ed1d6", "#e7b8bb"]
+
+STANDARD_LAYERS_GRAPHITE: dict[str, str] = {
     "structure": "#d8d3c6",
     "system": "#8fb0c4",
     "data": "#8fbfa6",
@@ -83,13 +104,10 @@ STANDARD_LAYERS_DARK: dict[str, str] = {
     "context": "#c186c1",
     "tools": "#86c189",
 }
+LAYER_PALETTE_GRAPHITE: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
 
-# Hues for the model's own layers, taken in order; a map with more custom
-# layers than this wraps around.
-LAYER_PALETTE: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
-
-# The same hues darkened in HSL until each clears 4.5:1 as text on paper.
-STANDARD_LAYERS_LIGHT: dict[str, str] = {
+# Graphite's hues darkened in HSL until each clears 4.5:1 as text on paper.
+STANDARD_LAYERS_PAPER: dict[str, str] = {
     "structure": "#786e52",
     "system": "#4a738c",
     "data": "#45785d",
@@ -98,35 +116,83 @@ STANDARD_LAYERS_LIGHT: dict[str, str] = {
     "context": "#9f519f",
     "tools": "#3f7b42",
 }
-LAYER_PALETTE_LIGHT: list[str] = ["#ab5641", "#7660b4", "#67743e", "#3d71aa"]
+LAYER_PALETTE_PAPER: list[str] = ["#ab5641", "#7660b4", "#67743e", "#3d71aa"]
 
-DARK: dict[str, Any] = {
+# Each table: `scheme` is its name, `color_scheme` what the browser is told
+# (its form controls and scrollbars follow). A card's `state` is its fill,
+# its stroke, then the word the legend prints; there is one state, a card
+# is code that exists today. `ghost` is what a change map or a reach figure
+# draws for the parts it does not mark, (fill, stroke). `container` holds
+# the hard boundaries, (stroke, fill) per tone.
+WARM: dict[str, Any] = {
     "name": "systemap",
-    "scheme": "dark",
-    "bg": GRAPHITE,
+    "scheme": "warm",
+    "color_scheme": "dark",
+    "bg": WARM_GROUND,
+    "surface": "#1e1a15",
+    "raised": "#27221a",
+    "line": "#2e2820",
+    "line_2": "#4a4237",
+    "ink": WARM_INK,
+    "ink_2": "#c4b9a4",
+    "ink_3": "#a2967f",
+    "accent": WARM_AMBER,
+    "accent_soft": "#e5a84f2e",
+    "steel": "#82a7ba",
+    "good": "#8fc470",
+    "warn": "#d9b036",
+    "bad": "#e26d5a",
+    "violet": "#b48ec9",
+    "state": {
+        "built": ["#27221a", "#8a7d63", "built"],
+    },
+    "ghost": ["#1a1713", "#2e2820"],
+    "container": {
+        "host": ["#4a4237", "#1a1713"],
+        "client": ["#4a4237", "#1a1713"],
+        "server": ["#3b3428", "#1b1814"],
+        "isolated": ["#6b4a3d", "#1d1613"],
+    },
+    "region": "#a2967f",
+    "change": "#e26d5a",
+    "reach": WARM_AMBER,
+    "flow": "#5e5548",
+    "layer_palette": LAYER_PALETTE_WARM,
+    "layers": dict(STANDARD_LAYERS_WARM),
+    "marks": dict(KIND_MARKS),
+    "delta": {
+        "operations": "#82a7ba",
+        "types": "#8fc470",
+        "refusals": "#e26d5a",
+        "tests": WARM_AMBER,
+    },
+    "font_ui": SANS,
+    "font_mono": MONO,
+}
+
+GRAPHITE: dict[str, Any] = {
+    "name": "systemap",
+    "scheme": "graphite",
+    "color_scheme": "dark",
+    "bg": GRAPHITE_GROUND,
     "surface": "#181b1f",
     "raised": "#1f2329",
     "line": "#262b32",
     "line_2": "#3a4149",
-    "ink": INK,
+    "ink": GRAPHITE_INK,
     "ink_2": "#b3b1aa",
     "ink_3": "#858a92",
-    "accent": AMBER,
+    "accent": GRAPHITE_AMBER,
     "accent_soft": "#e0a4582e",
-    "steel": STEEL,
+    "steel": "#8fb0c4",
     "good": "#8cbf8a",
     "warn": "#d6b14a",
     "bad": "#d97b6c",
     "violet": "#a99bd0",
-    # A card's fill and stroke, then the word the legend prints. There is
-    # one state: a card is code that exists today.
     "state": {
         "built": ["#1f2329", "#6b7380", "built"],
     },
-    # What a change map or a reach figure draws for the parts it does not
-    # mark: (fill, stroke).
     "ghost": ["#15181c", "#262b32"],
-    # Hard boundaries: (stroke, fill) per tone.
     "container": {
         "host": ["#3a4149", "#15181c"],
         "client": ["#3a4149", "#15181c"],
@@ -135,33 +201,34 @@ DARK: dict[str, Any] = {
     },
     "region": "#858a92",
     "change": "#d97b6c",
-    "reach": AMBER,
+    "reach": GRAPHITE_AMBER,
     "flow": "#4a515a",
-    "layer_palette": LAYER_PALETTE,
-    "layers": dict(STANDARD_LAYERS_DARK),
+    "layer_palette": LAYER_PALETTE_GRAPHITE,
+    "layers": dict(STANDARD_LAYERS_GRAPHITE),
     "marks": dict(KIND_MARKS),
     "delta": {
-        "operations": STEEL,
+        "operations": "#8fb0c4",
         "types": "#8cbf8a",
         "refusals": "#d97b6c",
-        "tests": AMBER,
+        "tests": GRAPHITE_AMBER,
     },
     "font_ui": SANS,
     "font_mono": MONO,
 }
 
-LIGHT: dict[str, Any] = {
+PAPER: dict[str, Any] = {
     "name": "systemap",
-    "scheme": "light",
-    "bg": PAPER,
+    "scheme": "paper",
+    "color_scheme": "light",
+    "bg": PAPER_GROUND,
     "surface": "#ffffff",
     "raised": "#ebe9e4",
     "line": "#d9d6cf",
     "line_2": "#b9b5ac",
-    "ink": INK_ON_PAPER,
+    "ink": PAPER_INK,
     "ink_2": "#55534d",
     "ink_3": "#6a6f77",
-    "accent": "#99621c",
+    "accent": PAPER_AMBER,
     "accent_soft": "#99621c2e",
     "steel": "#4a738c",
     "good": "#457a43",
@@ -180,25 +247,43 @@ LIGHT: dict[str, Any] = {
     },
     "region": "#6a6f77",
     "change": "#bf4531",
-    "reach": "#99621c",
+    "reach": PAPER_AMBER,
     "flow": "#b4b8be",
-    "layer_palette": LAYER_PALETTE_LIGHT,
-    "layers": dict(STANDARD_LAYERS_LIGHT),
+    "layer_palette": LAYER_PALETTE_PAPER,
+    "layers": dict(STANDARD_LAYERS_PAPER),
     "marks": dict(KIND_MARKS),
     "delta": {
         "operations": "#4a738c",
         "types": "#457a43",
         "refusals": "#bf4531",
-        "tests": "#99621c",
+        "tests": PAPER_AMBER,
     },
     "font_ui": SANS,
     "font_mono": MONO,
 }
 
-SCHEMES: dict[str, dict[str, Any]] = {"dark": DARK, "light": LIGHT}
-
+# The schemes in the order the page offers them.
+SCHEMES: dict[str, dict[str, Any]] = {"warm": WARM, "graphite": GRAPHITE, "paper": PAPER}
+# The names 0.11 knew the two older schemes by.
+ALIASES: dict[str, str] = {"dark": "graphite", "light": "paper"}
 # The scheme a consumer gets when it names none.
-DEFAULT: dict[str, Any] = DARK
+DEFAULT_SCHEME = "warm"
+# The scheme a first visit gets when the reader's system prefers light.
+LIGHT_SCHEME = "paper"
+# The tokens that are read as text somewhere on the page, held to 4.5:1
+# on the ground; a layer hue is text too (an edge's label, a verb tag).
+TEXT_TOKENS = (
+    "ink",
+    "ink_2",
+    "ink_3",
+    "accent",
+    "steel",
+    "good",
+    "warn",
+    "bad",
+    "violet",
+    "region",
+)
 
 
 def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -212,30 +297,31 @@ def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def base_for(tokens: dict[str, Any]) -> dict[str, Any]:
-    """The scheme table the consumer's tokens are laid over.
+def scheme_name(tokens: dict[str, Any]) -> str:
+    """The default scheme a consumer's `[theme]` names, the older names mapped.
 
-    `scheme = "light"` picks the paper scheme; anything else, or nothing,
-    picks the graphite scheme. An unknown scheme word is not refused here:
-    the page's `color-scheme` carries it through, and the tokens fall back
-    to the graphite scheme, so an older configuration keeps rendering.
+    A word that is no scheme is refused with the three named: a typo that
+    quietly fell back to one of them would render a page the consumer did
+    not ask for.
     """
-    scheme = tokens.get("scheme")
-    if isinstance(scheme, str) and scheme in SCHEMES:
-        return SCHEMES[scheme]
-    return DEFAULT
+    scheme = tokens.get("scheme", DEFAULT_SCHEME)
+    if not isinstance(scheme, str):
+        raise ValueError(f"theme scheme must be one of {', '.join(SCHEMES)}")
+    name = ALIASES.get(scheme, scheme)
+    if name not in SCHEMES:
+        raise ValueError(
+            f"unknown theme scheme {scheme!r}; the schemes are {', '.join(SCHEMES)} "
+            f"(dark and light, the names 0.11 used, still pick graphite and paper)"
+        )
+    return name
 
 
-def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
-    """The theme with a colour for every layer of the map, in layer order.
-
-    A layer named in the `layers` table keeps its colour (the scheme names
-    every standard layer); the rest, the model's own, take the palette in
-    order. The result is what the drawing reads.
-    """
-    t = merge(base_for(tokens), tokens)
+def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
+    """A colour for every layer of the map, in layer order: a layer named in
+    the `layers` table keeps its colour (the scheme names every standard
+    layer); the rest, the model's own, take the palette in order."""
     named: dict[str, str] = dict(t.get("layers") or {})
-    palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE)
+    palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE_WARM)
     resolved: dict[str, str] = {}
     unnamed = 0
     for layer in layers:
@@ -244,8 +330,37 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
             colour = palette[unnamed % len(palette)]
             unnamed += 1
         resolved[layer.id] = colour
-    t["layers"] = resolved
-    return t
+    return resolved
+
+
+def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
+    """The default scheme's table with a colour for every layer of the map,
+    carrying every scheme's table under `schemes`.
+
+    `tokens` is the consumer's `[theme]`: `scheme` names the default, a
+    sub-table named for a scheme (`[theme.paper]`) overrides that scheme,
+    and every other key overrides the default scheme. Each scheme's table
+    is merged the same way, so the page can carry all three and a token
+    name means the same thing in each. The result is what the drawing
+    reads; a figure reads the default's table alone.
+    """
+    layers = list(layers)
+    name = scheme_name(tokens)
+    own = {k: v for k, v in tokens.items() if k != "scheme" and k not in SCHEMES}
+    tables: dict[str, dict[str, Any]] = {}
+    for scheme, base in SCHEMES.items():
+        override = tokens.get(scheme) or {}
+        if not isinstance(override, dict):
+            raise ValueError(f"theme.{scheme} must be a table of tokens")
+        if scheme == name:
+            override = merge(own, override)
+        t = merge(base, override)
+        t["scheme"] = scheme
+        t["layers"] = _layers(t, layers)
+        tables[scheme] = t
+    out = copy.deepcopy(tables[name])
+    out["schemes"] = tables
+    return out
 
 
 def _rgb(colour: str) -> tuple[int, int, int]:
@@ -370,7 +485,7 @@ def css_vars(t: dict[str, Any]) -> str:
     """One scheme's declarations: every token the page's drawing and panel
     name, plain and derived, as one `:root` block's body."""
     d = tints(t)
-    out = [f"color-scheme:{t['scheme']};"]
+    out = [f"color-scheme:{t['color_scheme']};"]
     out += [f"{name}:{t[key]};" for key, name in CSS_NAMES.items()]
     for state, (fill, stroke, _label) in t["state"].items():
         out.append(f"--card-{state}:{fill};--card-{state}-line:{stroke};")
