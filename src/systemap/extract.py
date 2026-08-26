@@ -50,7 +50,13 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "the facts format; 2, since a package `__init__` records the names it re-exports; "
         "`extract --check` reports a file of an older format as stale",
     ),
-    ("facts", "built_at_commit", "the commit the tree was at, or empty outside git"),
+    (
+        "facts",
+        "built_at_commit",
+        "the commit the tree was read at (HEAD when extract ran), or empty outside git; the "
+        "page prints it as `facts from <sha>`, and it is the commit before the one that "
+        "records the facts, since they are committed after they are read",
+    ),
     ("facts", "packages", "the import names of the package roots"),
     (
         "facts",

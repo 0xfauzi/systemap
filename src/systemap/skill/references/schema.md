@@ -273,7 +273,7 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 **The file**
 
 - `version`: the facts format; 2, since a package `__init__` records the names it re-exports; `extract --check` reports a file of an older format as stale.
-- `built_at_commit`: the commit the tree was at, or empty outside git.
+- `built_at_commit`: the commit the tree was read at (HEAD when extract ran), or empty outside git; the page prints it as `facts from <sha>`, and it is the commit before the one that records the facts, since they are committed after they are read.
 - `packages`: the import names of the package roots.
 - `tests_dirs`: the directories test files were read from, relative to the root: the configured `tests_dir`, or every directory named `tests` or `test`.
 - `spec_sections`: the `##` headings of `spec_path`, each with `level` and `title`.

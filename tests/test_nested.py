@@ -611,6 +611,38 @@ def git(root: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
+def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
+    """The facts record HEAD at extraction, one commit before the one that
+    records them; the page calls the sha what it is, on every map's page."""
+    git(nested, "init", "-q")
+    git(nested, "add", "-A")
+    git(nested, "commit", "-q", "-m", "base")
+    sha = git(nested, "rev-parse", "HEAD")
+    assert run("--root", str(nested), "refresh") == 0
+    for rel in ("index.html", "Gateway/index.html"):
+        html = (nested / "docs/map" / rel).read_text()
+        assert (
+            f' Facts from <code title="the commit the tree was read at">{sha[:10]}</code>.</p>'
+            in html
+        ), rel
+        assert (
+            f"The facts are from <code>{sha[:10]}</code>, the commit the tree was read at "
+            "when they were extracted: the one before the commit that records them, since "
+            "the facts are committed after they are read. Refresh with" in html
+        ), rel
+        assert "Built at" not in html, rel
+    # The field table the facts view and the skill's schema read says the same.
+    from systemap.extract import FIELDS
+
+    assert (
+        "facts",
+        "built_at_commit",
+        "the commit the tree was read at (HEAD when extract ran), or empty outside git; the "
+        "page prints it as `facts from <sha>`, and it is the commit before the one that "
+        "records the facts, since they are committed after they are read",
+    ) in FIELDS
+
+
 def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
     nested: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
