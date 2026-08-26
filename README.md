@@ -218,9 +218,12 @@ repository's map, and installs the plugin from the checkout with the Claude
 Code CLI. [docs/reference.md](docs/reference.md) has the rest, including how
 the skill's two copies are kept identical.
 
-Releases: tag `v<version>` on the release commit, then run
-`scripts/publish.sh`, which builds `dist/` and uploads with the PyPI token in
-the maintainer's macOS Keychain (`--dry-run` builds and stops).
+Releases: push a tag that names the version. `.github/workflows/release.yml`
+builds the package and uploads it through PyPI's trusted publishing, where
+GitHub proves the build came from this repository and no long-lived token
+exists to be stolen. `scripts/publish.sh` is the manual path for a release
+made from a laptop, taking the token from `UV_PUBLISH_TOKEN` or, on macOS,
+from the login keychain.
 
 MIT licensed.
 

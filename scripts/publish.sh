@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
-# Publish systemap to PyPI with the token held in the macOS login Keychain.
+# Build and upload a release to PyPI from a working copy.
 #
-# The token never appears on the command line or in a file: it is read from
-# the Keychain item "pypi-token-systemap" into the environment of the one
-# process that needs it. Store or replace it with:
+# Prefer the release workflow: pushing a v<version> tag publishes through
+# PyPI's trusted publishing, where GitHub proves the build's identity and
+# no long-lived token exists anywhere. This script is the manual path, for
+# a release made from a laptop when that workflow cannot run.
+#
+# The token comes from the environment:
+#
+#   UV_PUBLISH_TOKEN=pypi-... scripts/publish.sh
+#
+# On macOS it can come from the login keychain instead, which keeps it out
+# of your shell history and your environment. Store one with:
 #
 #   security add-generic-password -U -a "$USER" -s pypi-token-systemap -w
 #
-# (the -w with no value prompts for it, so it never enters shell history).
+# (the -w with no value prompts for it), and name the item with
+# SYSTEMAP_KEYCHAIN_ITEM if you use a different one.
 #
-# Usage: scripts/publish.sh            build dist/ for the current version and publish
+# Usage: scripts/publish.sh            build dist/ and upload
 #        scripts/publish.sh --dry-run  build and check only
 set -euo pipefail
 
@@ -34,8 +43,13 @@ if [ "${1:-}" = "--dry-run" ]; then
   exit 0
 fi
 
-if ! token="$(security find-generic-password -s pypi-token-systemap -w 2>/dev/null)"; then
-  echo "publish: no Keychain item pypi-token-systemap; see the header of this script" >&2
+token="${UV_PUBLISH_TOKEN:-}"
+if [ -z "$token" ] && command -v security >/dev/null 2>&1; then
+  item="${SYSTEMAP_KEYCHAIN_ITEM:-pypi-token-systemap}"
+  token="$(security find-generic-password -s "$item" -w 2>/dev/null || true)"
+fi
+if [ -z "$token" ]; then
+  echo "publish: no token. Set UV_PUBLISH_TOKEN, or store one in the keychain; see the header of this script." >&2
   exit 1
 fi
 UV_PUBLISH_TOKEN="$token" uv publish
