@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.11.2
+
+The page, from four reports on the maps it draws: the framing on click,
+the map inside a card opened in place, one count of the components, and
+the commit the facts are from.
+
+- Framing on click. A selection frames what it lights, and only that:
+  the card, the edges of it the current reading shows (every edge on All
+  and on Structure, which has no edges of its own), and their other ends,
+  one set read from the readings table for the dimming, the tags and the
+  frame alike. The rectangle is centred in the part of the map the reader
+  can see, the map's box clipped to the window less the drawer's column,
+  measured on the next frame once the drawer is laid out, so the lit set
+  no longer sits under the panel or below the fold. A lit set larger than
+  that area at the minimum zoom is fitted whole, never cropped, and
+  zooming out from there is a no-op rather than a jump in. The frame
+  follows a window resize while the focus is held; a journey step and a
+  region frame the same way; a spoke peeked in the wheel shows its edge
+  through a reading that hides it. `tests/test_framing.py` drives the
+  page under Node with a stub viewport, the drawer's box and a path's
+  `getBBox`, and does the geometry again from the stub's numbers: the
+  framed rectangle's centre on the visible area's centre within one unit
+  for six cards on every reading, every lit card and edge inside it, on
+  the sample and on the self-map at three window sizes.
+- The map inside a card opens in place. The panel of a card with a map
+  shows a preview (the sub-map's Structure reading, drawn at render time
+  into the page data, inert) and a button, Open the map inside; the
+  button, a double-click on the card, or Enter a second time on the
+  focused card opens the sub-map's page in an overlay over the parent
+  page, in a frame at the relative path (so it loads from Pages, from
+  `systemap serve` and from a file), under a breadcrumb `demo > Gateway`
+  with a close control; Escape or the control closes it and hands the
+  focus back to the card with the selection kept. The sub-page keeps its
+  own link up for whoever opens it directly. The check and the
+  screenshots render the page with the same previews as refresh. Escape
+  pressed inside the frame is the sub-page's own; the overlay closes from
+  its control, or from Escape with the focus in the parent page.
+- The header and the strip count the same way: `15 components and 3
+  actors` in the header (the cards that are code, then the actors named
+  apart), and the strip's line counts the reading's components the same
+  way with its actors named apart when present. Before, the header left
+  the actors out and the strip counted them in, so one page said 15 and
+  18 of the same cards.
+- `Facts from <sha>` in the header, in place of `Built at`: the sha is
+  the commit the tree was read at when the facts were extracted, one
+  before the commit that records them, and the footer and the schema
+  reference (`built_at_commit`) say so.
+
 ## 0.11.1
 
 `place` searches the region order. In the benchmark sessions on two of
