@@ -179,7 +179,8 @@ def lines(
     out.append(
         "evidence: "
         + ", ".join(f"{counts.get(state, 0)} {state}" for state in STATES)
-        + " (an import joins the ends, an actor is at one end, or nothing in the facts does)"
+        + " (an import or a shared module joins the ends, an actor is at one end, or nothing "
+        "in the facts does)"
     )
 
     out.append("readings: the cards and edges each lights")

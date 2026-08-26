@@ -229,7 +229,7 @@ computed from the facts at render and at check time, never authored:
 
 | evidence | when | how it shows |
 |---|---|---|
-| `observed` | a module of one end imports a module of the other, in either direction; or the flow's sentence or artifact names a mechanism the repository lists under `[flows] observed_by` (a subprocess, a queue, a file), and then the panel says `observed by: queue` | a solid line; the panel says `observed: an import joins them` |
+| `observed` | a module of one end imports a module of the other, in either direction; or the two ends share a module (one claims a symbol inside a module the other claims, the shape of a tool defined beside its agent), and then the panel says `observed: shared module`; or the flow's sentence or artifact names a mechanism the repository lists under `[flows] observed_by` (a subprocess, a queue, a file), and then the panel says `observed by: queue` | a solid line; the panel says `observed: an import joins them` |
 | `external` | an actor is at either end: the edge is outside the code | a solid line; the panel says `external: outside the code` |
 | `declared` | nothing in the facts joins the two | a dashed line on the page and in every figure; the panel says `declared: no import behind it`; `systemap judgement` prints a `declared flow` line until the agent finds the evidence, names the mechanism in the sentence, or removes the edge |
 

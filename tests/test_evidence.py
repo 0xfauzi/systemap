@@ -8,14 +8,19 @@ names the mechanisms and the answer forms cover the line kind.
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import json
 from pathlib import Path
 
+import fixture_workspace
 import pytest
 from conftest import Sample, write_tree
 
 from systemap import config, evidence, figure, judgement, page
+from systemap import theme as theme_mod
 from systemap.config import Answer, ConfigError
+from systemap.model import all_layers
 from systemap.schematic import render as render_schematic
 
 # The sample: the parser imports the reader and the writer imports the
@@ -56,6 +61,64 @@ def test_the_three_states_and_observed_by_a_mechanism(sample: Sample) -> None:
         ("Parser", "Writer"),
         ("Ledger", "Parser"),
     ]
+
+
+def test_two_cards_sharing_a_module_are_observed_by_it() -> None:
+    """A tool claimed by symbol inside its agent's module can never be joined
+    by an import; the shared module is the evidence, and the panel says so."""
+    model, meaning, facts = (
+        fixture_workspace.MODEL,
+        fixture_workspace.MEANING,
+        fixture_workspace.facts(),
+    )
+    assert model.component("CropPicker").implemented_by == (
+        "wharf_server.style.completer:pick_crops",
+    )
+    assert evidence.sharing_a_module(model, facts) == {frozenset({"StyleCompleter", "CropPicker"})}
+    states = evidence.of_model(model, meaning, facts)
+    assert states[("StyleCompleter", "CropPicker")] == evidence.Evidence("observed", shared=True)
+    assert states[("StyleCompleter", "CropPicker")].says == "observed: shared module"
+    assert ("StyleCompleter", "CropPicker") not in {
+        f.edge for f in evidence.declared(model, meaning, facts)
+    }
+    lines = judgement.run(model, meaning, facts)
+    assert not [line for line in lines if "CropPicker" in line and line.startswith("declared flow")]
+    # The drawing carries the state and the line, so the page and a figure agree.
+    t = theme_mod.resolve({}, all_layers(model, meaning))
+    _svg, detail = render_schematic(model, meaning, t, facts)
+    by_edge = {(e["from"], e["to"]): e for e in json.loads(detail)["_meta"]["edges"]}
+    picker = by_edge[("StyleCompleter", "CropPicker")]
+    assert (picker["evidence"], picker["mechanism"], picker["evidence_says"]) == (
+        "observed",
+        "",
+        "observed: shared module",
+    )
+    # A symbol claim on the card's own module, or on a module no card claims,
+    # joins no pair; an import still wins the wording when both hold.
+    own = dataclasses.replace(
+        model,
+        components=tuple(
+            dataclasses.replace(
+                c, implemented_by=(*c.implemented_by, "wharf_server.style.completer:complete")
+            )
+            if c.id == "StyleCompleter"
+            else dataclasses.replace(c, implemented_by=("wharf_server.nowhere:pick",))
+            if c.id == "CropPicker"
+            else c
+            for c in model.components
+        ),
+    )
+    assert evidence.sharing_a_module(own, facts) == set()
+    assert (
+        evidence.of_model(own, meaning, facts)[("StyleCompleter", "CropPicker")].state == "declared"
+    )
+    imported = copy.deepcopy(facts)
+    imported["components"]["wharf_server.style.completion_eval"]["uses"] = {
+        "wharf_server.style.completer": ["pick_crops"]
+    }
+    assert evidence.of_model(model, meaning, imported)[("StyleCompleter", "CropPicker")].says == (
+        "observed: shared module"
+    ), "an import inside one module is not a crossing import; the module is still shared"
 
 
 def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None:

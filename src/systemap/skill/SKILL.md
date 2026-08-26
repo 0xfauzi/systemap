@@ -145,10 +145,12 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
   every import; `references/layers.md` says how to choose, and how the
   facts' `external` imports and the `model sdk` judgement line find agents.
 - Every flow carries an evidence state read from the facts, never from
-  you: `observed` when an import joins its two ends either way or its
-  sentence or artifact names a mechanism listed under `[flows] observed_by`
-  (a subprocess, a queue, a file); `external` when an actor is at either
-  end; `declared` otherwise. A declared flow draws dashed and is asked about.
+  you: `observed` when an import joins its two ends either way, when the
+  two cards share a module (a symbol claim inside the other's module), or
+  when its sentence or artifact names a mechanism listed under `[flows]
+  observed_by` (a subprocess, a queue, a file); `external` when an actor
+  is at either end; `declared` otherwise. A declared flow draws dashed
+  and is asked about.
 - One sentence per flow in `relations`, read from the source side. A plain
   name per component in `plain`: the words a newcomer would use.
 - Journeys: one per entry point that matters, tracing the components it

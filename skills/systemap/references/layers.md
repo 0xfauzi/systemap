@@ -148,4 +148,7 @@ cannot claim `app.agent` too. It claims the symbol instead:
 public name `search` inside it, conflicts with nothing, and the check
 verifies that `app.agent` defines `search`. A symbol claim on a module no
 card claims is refused: claim the module first. The flow between them is
-`Flow("Assistant", "Search", "query", "tool")`, as for any tool.
+`Flow("Assistant", "Search", "query", "tool")`, as for any tool. Two
+cards in one module can never have an import between them, so the
+shared module is the evidence: the flow is `observed`, the panel says
+`observed: shared module`, and no `declared flow` line asks about it.
