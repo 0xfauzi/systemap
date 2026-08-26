@@ -211,6 +211,11 @@ def test_the_committed_table_is_what_the_script_renders() -> None:
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not on PATH")
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="bench/run.sh is a POSIX shell recipe; the bash on a Windows PATH is the WSL "
+    "launcher, which runs no script without a distribution installed",
+)
 def test_run_script_parses_and_prints_its_usage() -> None:
     script = ROOT / "bench" / "run.sh"
     assert subprocess.run(["bash", "-n", str(script)], capture_output=True).returncode == 0
