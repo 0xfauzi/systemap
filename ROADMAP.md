@@ -58,8 +58,35 @@ Acceptance, stated now:
   `systemap check` and `systemap refresh` invocations across the run falls
   to at most half of run 3's. Baseline, read from run 3's session log on
   2026-08-26: 22 invocations in 101 turns. Target: at most 11.
+  Measured on run 4 (2026-08-26, systemap 0.8.0, the same repository):
+  21. Missed. Two more measures, read from both session logs with one
+  parser, say why the mechanism did not move the number:
+  - calls (place, check or refresh) to the first clean layout: run 3 =
+    2, run 4 = 3; layout refusals before it: 1 and 1.
+  - work between the first write of map/model.py and the first clean
+    layout: run 3 = 6 tool uses over 8 assistant turns; run 4 = 5 over
+    7.
+  - whole run: run 3 = 168 assistant turns, 17.30 dollars; run 4 = 232
+    turns, 25.49 dollars; the same model (claude-opus-5[1m]) and
+    repository.
 
-Measurement: count check invocations in the session's stream-json log.
+  Reading: by run 3 the layout reference (0.6) had already made hand
+  placement cheap on this repository, so `place` had little left to
+  remove there; its value is on a first draft with no positions and on
+  relayout, which 0.8.0 could not do (after the first place every card
+  had a position, so a card added later found no free slot and the only
+  fix was a hand edit). Run 4 cost more than run 3, with the extra turns
+  spent on the facts views and on relayout by hand; 0.10.1 changes both
+  (`place --all`, the rendered facts views). The target above is kept
+  as written and stands missed; the acceptance for `place` is restated
+  as a claim it can meet:
+- On a first draft with no positions, `place --all` reaches a clean
+  layout with at most one refusal. Measured on the next headless run.
+  The cost target in gap 4 stands and is now the number to watch.
+
+Measurement: count check invocations in the session's stream-json log;
+count the place, check and refresh calls before the first clean layout
+and the refusals among them.
 
 ### 2. Flows are declared, not observed
 
@@ -113,9 +140,12 @@ Landed in 0.9.0: `systemap delta --base REF [--head REF] [--format
 markdown]`, reading the facts at both commits out of git; the skill's
 "When the code changed" section and references/maintenance.md; the
 workflow's pull_request job that posts the delta as one comment, with
-`pull-requests: write` on that job alone and zizmor clean. Not measured:
-the three replayed pull requests need a mapped repository's history and
-a harness run, and the table in docs/benchmarks.md is empty until then.
+`pull-requests: write` on that job alone and zizmor clean. Since then,
+0.10.0 made `delta` walk every map of a tree. Still not measured, as of
+0.10.1: no pull request has been replayed in the maintenance path by a
+headless session; the three replayed pull requests need a mapped
+repository's history and a harness run, and docs/benchmarks.md has no
+maintenance row until then.
 
 ### 4. Cost is measured twice, on one repository, by hand
 
@@ -140,8 +170,13 @@ not the targets.
 Landed in 0.9.0: bench/run.sh (the recipe as a script, the summary line
 from the session's result event, the first tool call verified from the
 log), bench/summary.py, bench/table.py and docs/benchmarks.md, and the
-turn budgets in the skill. No repository has been measured by the harness
-yet; the table says so.
+turn budgets in the skill. Measured, as of 0.10.1: the table has one
+row, a first map of a private 144-module service by systemap 0.8.0,
+from its session log: 25.49 dollars, 0.177 dollars per module, against
+the 0.15 target. Missed; the target stands, and the table carries the
+measured value. Still unmeasured: every other first-map row (the
+self-map, a 100-module tree, a 300-plus-module tree) and every
+maintenance mode.
 
 ### 5. Past sixty cards the single map stops working
 
@@ -166,9 +201,11 @@ that are cards above), one page per map with the links up and down, the
 "has a map" mark and the `opens:` panel line, `figure --map`, the
 prefixed check, judgement, describe and place lines, `delta` on every
 map, `suggest`'s past-forty line, and the skill's guidance on when to
-open a map inside a card. Not measured: no 300-plus-module repository
+open a map inside a card. Not measured, as of 0.10.1: no 300-plus-module repository
 has been mapped this way yet; the fixture in tests/test_nested.py is
-ten modules, and the acceptance line waits on gap 6's external runs.
+ten modules, the one headless run since (run 4, 144 modules, 40 cards)
+opened no map inside a card, and the acceptance line waits on gap 6's
+external runs.
 
 ### 6. It has been run on one repository, ours
 
@@ -231,7 +268,10 @@ numbers measured).
 
 ## What this document does not promise
 
-No number above is a measurement yet; each is a target or a threshold set
-before the work, so that the work can fail it. When a measured value
-misses its target, the choice is to change the mechanism or to publish the
-measured value, never to move the target quietly.
+Every number above is a target or a threshold set before the work, so
+that the work can fail it, except the ones marked measured: gap 1's
+check-and-refresh count (21 against a target of 11) and gap 4's first-map
+cost (0.177 dollars per module against 0.15), both missed on run 4 and
+both left standing. When a measured value misses its target, the choice
+is to change the mechanism or to publish the measured value, never to
+move the target quietly.
