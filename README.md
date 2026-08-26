@@ -87,7 +87,7 @@ why. You read the answers, correct what you disagree with, commit
 
 The workflow `init` writes runs systemap from the released package,
 pinned to the tag of the version that wrote it (`uvx --from
-"git+https://github.com/0xfauzi/systemap@v0.10.1"`), so your project
+"git+https://github.com/0xfauzi/systemap@v0.11.0"`), so your project
 takes no dependency on it. The pin moves to PyPI at 1.0. The workflow
 pins every action to a commit, reads the tree and nothing else, and keeps
 no token, so a workflow linter passes it as written. Its second job runs
@@ -519,14 +519,13 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run python scripts/screenshots.py   # docs/screenshots/: both schemes and the tour (Chrome, ffmpeg)
 
 The workflow runs the suite, the type check and the linter on Linux,
-macOS and Windows with Python 3.11 and 3.13, and installs the built wheel
+macOS and Windows with Python 3.11 and 3.13; installs the built wheel
 with pip into an empty virtual environment on each and runs `init`,
 `extract`, `refresh`, `check` and `judgement --strict` on a copy of this
-repository's own map beside the checkout, and adds the checkout as a
+repository's own map beside the checkout; and adds the checkout as a
 marketplace and installs the plugin from it with the Claude Code CLI.
-Every file systemap writes ends
-its lines with LF on every platform, and every path it prints uses
-forward slashes.
+Every file systemap writes ends its lines with LF on every platform, and
+every path it prints uses forward slashes.
 
 The skill has one source of truth: [`src/systemap/skill/`](src/systemap/skill/),
 the directory the package ships and `systemap init` installs. The plugin's

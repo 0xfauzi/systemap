@@ -226,32 +226,46 @@ a crash; a wording complaint is not).
 
 ### 7. It is not yet distributed, and the page's claims are half verified
 
-What is wrong: not on PyPI, so a consumer's CI cannot pass; the plugin
+What was wrong: not on PyPI, so a consumer's CI cannot pass; the plugin
 install was proven once, by hand, on this machine; the light scheme was
-measured for contrast but never looked at; nothing has run on Windows;
-the page has no keyboard path.
+measured for contrast but never looked at; nothing had run on Windows;
+the page had no keyboard path.
 
-Mechanism, in order:
-- Publish 0.8 to PyPI as soon as gaps 1 and 2 land, so consumers' CI can
-  run while the rest is built; 1.0 when every acceptance line in this
-  document is met.
-- CI matrix: macOS, Linux, Windows; the tests pass on all three, and a
-  job installs the built wheel and runs `init`, `extract`, `check` on the
-  self-map from a clean directory.
-- A CI job that adds the repository as a marketplace and installs the
-  plugin with the CLI, then lists it, so the install proof is mechanical.
-- The light scheme rendered and looked at, with its screenshot kept
-  beside the dark one in `docs/`.
-- Keyboard: readings switch with the arrow keys, cards take focus with
-  Tab, Enter opens the wheel, Escape closes it; `prefers-reduced-motion`
-  honoured. A test drives the page's script with the readings table.
-- README: the Python-only statement in the first paragraph; the measured
-  cost table; a thirty-second recording of the page.
-- Submit the plugin to the official marketplace after 1.0, not before.
+Landed in 0.11.0, each with its measurement:
+- CI matrix: Linux, macOS and Windows with Python 3.11 and 3.13; the
+  suite, the types and the linter pass on all six; a job per platform
+  installs the built wheel with pip into an empty virtual environment
+  and runs `init`, `extract`, `refresh`, `check`, `judgement --strict`
+  and `render --check` on a copy of the self-map beside the checkout.
+  Windows broke line endings (every writer now writes LF) and path
+  separators (every printed or recorded path is posix); `git archive`
+  in `delta` and the loopback server in `serve` ran unchanged.
+- The plugin job adds the checkout as a marketplace, installs the
+  plugin from it with the CLI and lists it; no login is needed for the
+  three commands, so the job is strict.
+- The light scheme rendered and looked at (the page, two readings, a
+  drawer with a spoke read, a journey step, the index and invariants);
+  nothing read badly; `docs/screenshots/light.png` beside `dark.png`.
+- Keyboard: arrows switch readings or step a journey, Tab moves across
+  the cards in reading order, Enter opens the wheel, Escape closes it
+  and hands the focus back, `prefers-reduced-motion` honoured;
+  `tests/test_keyboard.py` drives the page's script under Node with the
+  readings table.
+- README: Python-only in the first paragraph; the cost table by
+  reference; a thirty-second tour of the page.
 
-Acceptance: `uv tool install systemap` and the four-command path work on
-all three operating systems in CI; the marketplace install job passes;
-both scheme screenshots exist; the keyboard test passes.
+Deferred, on purpose:
+- Publishing to PyPI: the maintainer publishes 1.0 by hand with
+  `scripts/publish.sh` when every acceptance line in this document is
+  met; until then the workflow `init` writes pins the release tag.
+- Submitting the plugin to the official marketplace: after 1.0, not
+  before.
+
+Acceptance, restated: `uv tool install systemap` from PyPI on all three
+operating systems is the one line still open, and it opens with the
+publish; the four-command path from the built wheel passes on all three
+in CI; the marketplace install job passes; both scheme screenshots
+exist; the keyboard test passes.
 
 ## Order
 
@@ -263,8 +277,8 @@ repository and the external runs supply one. Gap 7 runs alongside from
 the first PyPI release and closes last.
 
 Versions: 0.8 (gaps 1, 2; first PyPI release), 0.9 (gaps 3, 4), 0.10
-(gaps 5, 6), 1.0 (gap 7 closed, every acceptance line above met, README
-numbers measured).
+(gaps 5, 6), 0.11 (gap 7 but the publishing), 1.0 (gap 7 closed, every
+acceptance line above met, README numbers measured).
 
 ## What this document does not promise
 
