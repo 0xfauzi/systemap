@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3
+
+- The version badge reads PyPI rather than pypi, and its address changed with
+  it. GitHub proxies every image a README shows and had been serving a copy
+  fetched before the package existed, which said the version was not found; a
+  purge did not shift it and a new address does, since the proxy has nothing
+  cached for one it has not seen.
+
 ## 1.0.2
 
 - The package said `Development Status :: 3 - Alpha` while being published as
