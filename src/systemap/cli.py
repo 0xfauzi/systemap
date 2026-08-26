@@ -2,7 +2,7 @@
 
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
-    systemap facts [--modules ...]     read the facts back, one view at a time
+    systemap facts [--modules ...]     read the facts back, one view at a time (never the JSON)
     systemap place [--all] [--print]   a position for every card without one; --all for every card
     systemap render [--check]          render the page from facts and model
     systemap check                     every rule; exit 1 with each fix named
@@ -195,8 +195,12 @@ def cmd_facts(args: argparse.Namespace) -> int:
     try:
         if args.modules:
             lines = facts_mod.modules(facts)
+        elif args.docstrings:
+            lines = facts_mod.docstrings(facts)
         elif args.module:
             lines = facts_mod.module(facts, args.module)
+        elif args.names:
+            lines = facts_mod.names(facts, args.names)
         elif args.entry_points:
             lines = facts_mod.entry_points(facts)
         elif args.external:
@@ -725,23 +729,43 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "facts",
-        help="read the facts back one view at a time: --modules (one line per module), "
-        "--module NAME (its record), --entry-points, --external, --imports NAME; with no "
-        "option, the extract summary",
+        help="read the facts back one view at a time: --modules (one line per module: the "
+        "docstring's first sentence, then public names, imports and tests counted), "
+        "--docstrings (the first sentence only), --module NAME (its record, rendered), "
+        "--names NAME (its public names with kinds), --entry-points (with targets), "
+        "--external, --imports NAME; with no option, the extract summary",
     )
     add_root(s)
     view = s.add_mutually_exclusive_group()
     view.add_argument(
         "--modules",
         action="store_true",
-        help="one line per module: public names, imports and tests counted",
+        help="one line per module: the first sentence of its docstring, then its public "
+        "names, imports and tests counted",
     )
-    view.add_argument("--module", default="", metavar="NAME", help="one module's full record")
+    view.add_argument(
+        "--docstrings",
+        action="store_true",
+        help="one line per module: the first sentence of its docstring",
+    )
+    view.add_argument(
+        "--module",
+        default="",
+        metavar="NAME",
+        help="one module's record, rendered: docstring, public names with kinds, imports, "
+        "imported by, external imports, test count",
+    )
+    view.add_argument(
+        "--names",
+        default="",
+        metavar="NAME",
+        help="one module's public names with their kinds; a re-export names its module",
+    )
     view.add_argument(
         "--entry-points",
         dest="entry_points",
         action="store_true",
-        help="where a run can start, each named the way a person types it",
+        help="where a run can start, each named the way a person types it, with its target",
     )
     view.add_argument(
         "--external",

@@ -17,10 +17,12 @@ grouped by file.
 
 The facts file is hundreds of kilobytes on a real tree, and reading it
 fills the context with JSON that answers nothing. Read it through
-`systemap facts` instead: `--modules` for the list, `--module NAME` for
-one record, `--entry-points`, `--external`, and `--imports NAME` for the
-edges around one module. The JSON is for the tools; the views are for
-you.
+`systemap facts` instead: `--modules` for the list with each module's
+first sentence, `--docstrings` for the sentences alone, `--module NAME`
+for one record rendered, `--names NAME` for its public names with their
+kinds, `--entry-points` with their targets, `--external`, and `--imports
+NAME` for the edges around one module. The JSON is for the tools; the
+views are for you, and none of them prints a test's name.
 
 ## Counting
 

@@ -56,8 +56,9 @@ def test_skill_is_a_directory_of_named_references() -> None:
     assert sorted(shipped) == sorted(["SKILL.md", *(f"references/{r}" for r in REFERENCES)])
     # SKILL.md stays short and names every reference and when to read it.
     lines = shipped["SKILL.md"].splitlines()
-    # 230 since 0.9.0: the maintenance path is its own short section.
-    assert len(lines) <= 230, f"SKILL.md is {len(lines)} lines; the ceiling is 230"
+    # 230 since 0.9.0: the maintenance path is its own short section; 240
+    # since 0.10.1: the extract step names what every facts view gives.
+    assert len(lines) <= 240, f"SKILL.md is {len(lines)} lines; the ceiling is 240"
     for ref in REFERENCES:
         assert f"references/{ref}" in shipped["SKILL.md"], ref
 

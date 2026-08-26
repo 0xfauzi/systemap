@@ -30,12 +30,17 @@ contradictions, not omissions; the second pass is the point of this skill.
 
 1. **extract**: `systemap extract`, also when `systemap.toml` exists but
    the facts file does not. Then read the facts through `systemap facts`,
-   never the JSON (hundreds of kilobytes on a real tree): `--modules` is
-   one line per module (name, public names, imports, tests), `--module
-   NAME` one record, `--entry-points` where a run starts, `--external`
-   every third-party import and who imports it, `--imports NAME` what a
-   module imports and what imports it. Every module must end up claimed
-   by one component, except the empty package markers the summary lists.
+   never the JSON (hundreds of kilobytes on a real tree). Each view
+   answers one question: `--modules`, one line per module with the first
+   sentence of its docstring and its names, imports and tests counted;
+   `--docstrings`, the first sentence alone, for `does`; `--module NAME`,
+   one record rendered (docstring, names with kinds, imports, imported
+   by, external, test count); `--names NAME`, its public names with
+   kinds, for `entry` and `interface`; `--entry-points`, where a run
+   starts, each with its target; `--external`, every third-party import
+   and who imports it; `--imports NAME`, what a module imports and what
+   imports it. Every module must end up claimed by one component, except
+   the empty package markers the summary lists.
 2. **draft**: `systemap suggest` prints a first grouping from the facts
    alone, one proposal per package with two or more modules and the
    imports between proposals: a starting point to argue with, never the
@@ -170,7 +175,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 |---|---|
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
-| `systemap facts` | the facts read back: `--modules`, `--module NAME`, `--entry-points`, `--external`, `--imports NAME`; never open the JSON |
+| `systemap facts` | the facts read back, one view at a time: `--modules` (first sentence and counts per module), `--docstrings`, `--module NAME` (one record, rendered), `--names NAME` (public names with kinds), `--entry-points` (with targets), `--external`, `--imports NAME`; never open the JSON |
 | `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too; `--print` prints instead |
 | `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open |

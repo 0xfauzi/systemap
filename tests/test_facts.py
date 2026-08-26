@@ -8,7 +8,6 @@ kilobytes on a real tree, was what the skill told the agent to read.
 from __future__ import annotations
 
 import dataclasses
-import json
 from pathlib import Path
 
 import pytest
@@ -159,27 +158,71 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert out.startswith("facts for the change detector (these never appear on the map):\n")
     assert out.rstrip().endswith(facts_mod.VIEWS)
 
+    # One line per module: the docstring's first sentence, then the counts.
     assert run("--root", str(tmp_path), "facts", "--modules") == 0
     out = capsys.readouterr().out
     assert out == (
-        "modules: 3; each with its public names, imports and tests\n"
+        "modules: 3; each with the first sentence of its docstring, then its public names, "
+        "imports and tests counted\n"
         "  pkg: empty package marker\n"
-        "  pkg.reader: 4 names, 0 imports, 2 tests\n"
-        "  pkg.writer: 1 names, 1 imports, 1 tests\n"
+        "  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n"
+        "  pkg.writer: no docstring (1 name, 1 import, 1 test)\n"
+    )
+    assert run("--root", str(tmp_path), "facts", "--docstrings") == 0
+    assert capsys.readouterr().out == (
+        "docstrings: 2 of 3 modules have one; the first sentence of each\n"
+        "  pkg: empty package marker\n"
+        "  pkg.reader: Read things.\n"
+        "  pkg.writer: no docstring\n"
     )
 
+    # One record, rendered: never the JSON, and never a test's name.
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.reader") == 0
-    record = json.loads(capsys.readouterr().out)
-    assert record["id"] == "pkg.reader"
-    assert record["functions"][0]["signature"] == "def read(source: str) -> Request"
+    out = capsys.readouterr().out
+    assert out == (
+        "pkg.reader (pkg/reader.py)\n"
+        "  docstring: Read things.\n"
+        "  public names: 4\n"
+        "    LIMIT: constant\n"
+        "    Request: class\n"
+        "    ReadError: error\n"
+        "    read: function\n"
+        "  imports: nothing from the package\n"
+        "  imported by: pkg.writer\n"
+        "  external: none\n"
+        "  tests: 2 import it (2 in a file named after it)\n"
+    )
+    assert "test_read_returns_request" not in out and "{" not in out
+    assert run("--root", str(tmp_path), "facts", "--module", "pkg.writer") == 0
+    out = capsys.readouterr().out
+    assert "  docstring: no docstring\n" in out
+    assert "  imports: pkg.reader\n  imported by: nothing in the package\n  external: yaml\n" in out
+    assert out.endswith("  tests: 1 import it (0 in a file named after it)\n")
+    assert run("--root", str(tmp_path), "facts", "--module", "pkg") == 0
+    assert capsys.readouterr().out == (
+        "pkg (pkg/__init__.py)\n"
+        "  empty package marker: an __init__ with no public names and no imports\n"
+    )
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.reder") == 1
     assert capsys.readouterr().out == (
         "no module pkg.reder in the facts; closest: pkg.reader\nrun: systemap facts --modules\n"
     )
 
+    # The public names with their kinds, for entry and interface.
+    assert run("--root", str(tmp_path), "facts", "--names", "pkg.reader") == 0
+    assert capsys.readouterr().out == (
+        "pkg.reader: 4 public names\n"
+        "  LIMIT: constant\n"
+        "  Request: class\n"
+        "  ReadError: error\n"
+        "  read: function\n"
+    )
+    assert run("--root", str(tmp_path), "facts", "--names", "pkg.reder") == 1
+    assert "closest: pkg.reader" in capsys.readouterr().out
+
     assert run("--root", str(tmp_path), "facts", "--entry-points") == 0
     out = capsys.readouterr().out
-    assert out.startswith("entry points: 0; a journey names each that matters\n")
+    assert out.startswith("entry points: 0; a journey names each that matters; the target is ")
 
     assert run("--root", str(tmp_path), "facts", "--external") == 0
     assert capsys.readouterr().out == (
@@ -201,22 +244,93 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     # The views are exclusive.
     with pytest.raises(SystemExit):
         run("--root", str(tmp_path), "facts", "--modules", "--external")
+    with pytest.raises(SystemExit):
+        run("--root", str(tmp_path), "facts", "--docstrings", "--names", "pkg")
+
+
+def test_entry_points_view_prints_the_target_beside_each() -> None:
+    """The target is what collapses `python -m pkg`, `main()` and the console
+    script into one journey; the view prints it so the reader can see that."""
+    facts = {
+        "entry_points": [
+            {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"},
+            {"kind": "main_function", "name": "main", "module": "pkg.cli", "target": "main"},
+            {
+                "kind": "main_module",
+                "name": "python -m pkg",
+                "module": "pkg.__main__",
+                "target": "",
+            },
+            {"kind": "subcommand", "name": "init", "module": "pkg.cli", "target": "pkg"},
+            {"kind": "public_function", "name": "open_thing", "module": "pkg", "target": ""},
+        ]
+    }
+    assert facts_mod.entry_points(facts) == [
+        "entry points: 5; a journey names each that matters; the target is the function a "
+        "console script calls, or the script a subcommand belongs to",
+        "  pkg (console script): pkg.cli, target main",
+        "  main() in pkg.cli: pkg.cli, target main",
+        "  python -m pkg: pkg.__main__",
+        "  pkg init (subcommand): pkg.cli, target pkg",
+        "  open_thing() in pkg: pkg",
+    ]
+
+
+def test_names_and_first_sentence_read_old_and_new_records() -> None:
+    """A re-export says which module defines it; a facts file from before
+    `names` was recorded offers its functions, classes, errors and constants."""
+    new = {
+        "names": [
+            {"name": "run", "kind": "function", "reexport_of": "pkg.core"},
+            {"name": "util", "kind": "module", "reexport_of": "pkg.util"},
+            {"name": "VERSION", "kind": "constant"},
+        ]
+    }
+    assert facts_mod.kinds(new) == [
+        ("run", "function, re-exported from pkg.core"),
+        ("util", "module, re-exported from pkg.util"),
+        ("VERSION", "constant"),
+    ]
+    old = {
+        "functions": [{"name": "read"}],
+        "classes": [{"name": "Request"}],
+        "errors": [{"name": "ReadError"}],
+        "constants": [{"name": "LIMIT"}],
+    }
+    assert facts_mod.kinds(old) == [
+        ("read", "function"),
+        ("Request", "class"),
+        ("ReadError", "error"),
+        ("LIMIT", "constant"),
+    ]
+    assert facts_mod.first_sentence("Reads the input. Then more.") == "Reads the input."
+    assert facts_mod.first_sentence("Reads  the\n input") == "Reads the input"
+    assert facts_mod.first_sentence("Is it read? Yes.") == "Is it read?"
+    assert facts_mod.first_sentence("") == "" and facts_mod.first_sentence("  ") == ""
 
 
 def test_the_skill_reads_the_facts_through_the_command() -> None:
     text = skill.text()
     step = text[text.index("1. **extract**") : text.index("2. **draft**")]
     assert "systemap facts" in step and "never the JSON" in step
+    # Every view, and what each gives, in the step.
     for view in (
-        "--modules",
-        "--module\n   NAME",
-        "--entry-points",
-        "--external",
-        "--imports NAME",
+        "`--modules`, one line per module with the first\n   sentence of its docstring",
+        "`--docstrings`, the first sentence alone, for `does`",
+        "`--module NAME`,\n   one record rendered",
+        "`--names NAME`, its public names with\n   kinds, for `entry` and `interface`",
+        "`--entry-points`, where a run\n   starts, each with its target",
+        "`--external`, every third-party import\n   and who imports it",
+        "`--imports NAME`, what a module imports and what\n   imports it",
     ):
         assert view in step, view
+    row = text[text.index("| `systemap facts` |") :].split("\n")[0]
+    for view in ("--modules", "--docstrings", "--module NAME", "--names NAME", "--entry-points"):
+        assert view in row, view
     assert "`systemap.toml` exists but\n   the facts file does not" in step
     assert "| `systemap facts` |" in text
     pitfalls = skill.files()["references/pitfalls.md"]
     assert "## Reading the facts file whole" in pitfalls
     assert "systemap facts" in pitfalls
+    assert "`--docstrings`" in pitfalls and "`--names NAME`" in pitfalls
+    assert "none of them prints a test's name" in pitfalls
