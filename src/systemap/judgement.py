@@ -43,9 +43,11 @@ configuration, under `[judgement] answered`, with its reason; it is
 suppressed here and counted, so the same line does not come back every
 run and the answer is in the repository, not in a chat. An answer names
 the exact line (`item`, or `items` for several), or a whole family with
-one reason: every crossing-import line between two components in either
-direction (`crossing`), every line of one kind (`kind`), every model-sdk
-line for one import (`module_sdk`). An answer that matches no line is
+one reason: every crossing-import line between any two of some
+components in either direction (`crossing`), every one into a component
+(`crossing_into`) or out of it (`crossing_from`), every line of one kind
+(`kind`), every model-sdk line for one import (`module_sdk`). An answer
+that matches no line is
 reported as stale, so answers cannot rot. `--strict` makes the CLI exit
 1 while any line is open, for a workflow.
 """
@@ -377,7 +379,13 @@ def answers(answer: Answer, line: str) -> bool:
         return line in answer.items
     if answer.crossing is not None:
         found = CROSSING_LINE.match(line)
-        return found is not None and {found[1], found[2]} == set(answer.crossing)
+        return found is not None and {found[1], found[2]} <= set(answer.crossing)
+    if answer.crossing_into:
+        found = CROSSING_LINE.match(line)
+        return found is not None and found[2] == answer.crossing_into
+    if answer.crossing_from:
+        found = CROSSING_LINE.match(line)
+        return found is not None and found[1] == answer.crossing_from
     if answer.kind:
         return line.startswith(KIND_PREFIX[answer.kind])
     if answer.module_sdk:

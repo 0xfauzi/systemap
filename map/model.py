@@ -217,9 +217,9 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict.",
+        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict. Before any of it, systemap suggest proposes a first grouping from the facts, to argue with.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
-        implemented_by=("systemap.judgement",),
+        implemented_by=("systemap.judgement", "systemap.suggest"),
         entry="run",
         region="keep",
         x=COL["c5"],
@@ -633,7 +633,7 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "Model"),
-                say="The agent writes map/model.py: components, flows, one sentence per edge, a journey per entry point.",
+                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, a journey per entry point.",
             ),
             Step(
                 acts=("Check",),

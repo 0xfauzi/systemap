@@ -547,7 +547,16 @@ def render(
     label_names = {
         i: f"label '{art}' ({src} -> {dst})" for i, (src, dst, art, _k) in enumerate(FLOWS)
     }
-    seats = place_labels(routes, widths, LABEL_H, obstacles, CANVAS, names=label_names, cards=boxes)
+    seats = place_labels(
+        routes,
+        widths,
+        LABEL_H,
+        obstacles,
+        CANVAS,
+        names=label_names,
+        cards=boxes,
+        region_of=region_of,
+    )
 
     flow_parts: list[str] = []
     label_parts: dict[int, str] = {}

@@ -173,9 +173,35 @@ def test_a_full_gutter_names_its_seats_and_the_fix() -> None:
     (hit,) = [p for p in placed.values() if p.cost > 0]
     assert any(h.startswith("label 'art") for h in hit.hits), hit.hits
     assert re.fullmatch(
-        r"gutter (above|below) row 1 holds 2 of 2 seats: move a card or widen the row pitch",
+        r"gutter (above|below) the row of A, B \(y \d+ to \d+\) holds 2 of 2 seats: "
+        r"move a card or raise the row pitch",
         hit.fix,
     ), hit.fix
+    # With the regions the cards sit in, the fix names the region to open up.
+    placed = route.place_labels(
+        routes,
+        dict.fromkeys(routes, 30.0),
+        13.0,
+        obstacles(),
+        CANVAS,
+        names=names,
+        cards=CARDS,
+        region_of={"A": "work", "B": "work"},
+    )
+    (hit,) = [p for p in placed.values() if p.cost > 0]
+    assert hit.fix.endswith("move a card or raise the row pitch of region work"), hit.fix
+    placed = route.place_labels(
+        routes,
+        dict.fromkeys(routes, 30.0),
+        13.0,
+        obstacles(),
+        CANVAS,
+        names=names,
+        cards=CARDS,
+        region_of={"A": "work", "B": "keep"},
+    )
+    (hit,) = [p for p in placed.values() if p.cost > 0]
+    assert hit.fix.endswith("raise the row pitch of region keep or work"), hit.fix
     # Without the cards there is no gutter to count, and no fix is claimed.
     placed = route.place_labels(
         routes, dict.fromkeys(routes, 30.0), 13.0, obstacles(), CANVAS, names=names
@@ -238,13 +264,24 @@ def test_gutters_are_named_from_the_card_grid() -> None:
         "U": (10.0, 110.0, 150.0, 44.0),  # an actor overlapping row 1 in y: one row
     }
     rows, cols = route.gutters(cards, (500.0, 300.0))
-    assert [g.name for g in rows] == ["above row 1", "between rows 1 and 2", "below row 2"]
-    assert (rows[1].lo, rows[1].hi) == (156.0, 192.0)
-    assert [g.name for g in cols] == [
-        "left of column 1",
-        "between columns 1 and 2",
-        "right of column 2",
+    # Named by the cards on either side, in reading order, and the span covered.
+    assert [g.name for g in rows] == [
+        "above the row of U, A, B (y 0 to 100)",
+        "between the row of U, A, B and the row of C (y 156 to 192)",
+        "below the row of C (y 248 to 300)",
     ]
+    assert (rows[1].lo, rows[1].hi) == (156.0, 192.0)
+    assert rows[1].before == ("U", "A", "B") and rows[1].after == ("C",)
+    assert rows[0].before == () and rows[0].after == ("U", "A", "B")
+    assert [g.name for g in cols] == [
+        "left of the column of A, U, C (x 0 to 10)",
+        "between the column of A, U, C and the column of B (x 210 to 250)",
+        "right of the column of B (x 400 to 500)",
+    ]
+    # More than three neighbours are counted, not listed.
+    many = {f"C{k}": (60.0 + 190.0 * k, 100.0, 150.0, 56.0) for k in range(5)}
+    rows, _cols = route.gutters(many, (1100.0, 300.0))
+    assert rows[0].name == "above the row of C0, C1, C2 and 2 more (y 0 to 100)"
     assert route.seats(36.0, 13.0) == 2, (
         "two 13-unit labels with a 2-unit gap, 3 clear of each card"
     )
@@ -317,5 +354,11 @@ def test_layout_reference_states_the_corridor_rule() -> None:
         "one empty card column",
         "one to three words",
         "systemap describe",
+        # The pitch is a starting value; a dense region has its own.
+        "The pitch is a starting value, not a rule",
+        "raises its own row\n  pitch",
+        "need\n  not share a height",
+        "raise the row pitch of region X",
+        "between the row of A, B and\nthe row of C (y 160 to 226)",
     ):
         assert phrase in layout, phrase

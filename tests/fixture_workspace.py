@@ -176,12 +176,30 @@ MODULES: tuple[str, ...] = (
 
 
 def facts() -> dict[str, Any]:
-    """Minimal facts: one empty record per module, keyed by name."""
+    """Minimal facts: one empty record per module, keyed by name.
+
+    A module that has submodules is a package `__init__`, and its `file`
+    says so; with no names and no imports recorded, every one is an empty
+    package marker, as the real tree's mostly were.
+    """
+    packages = {m.rpartition(".")[0] for m in MODULES}
+
+    def file_of(module: str) -> str:
+        path = module.replace(".", "/")
+        return f"{path}/__init__.py" if module in packages else f"{path}.py"
+
     return {
         "packages": ["wharf_contracts", "wharf_server"],
         "entry_points": [],
         "components": {
-            m: {"functions": [], "classes": [], "errors": [], "constants": [], "uses": {}}
+            m: {
+                "file": file_of(m),
+                "functions": [],
+                "classes": [],
+                "errors": [],
+                "constants": [],
+                "uses": {},
+            }
             for m in MODULES
         },
     }

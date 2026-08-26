@@ -39,13 +39,21 @@ this skill, not a formality after it.
    every third-party import and who imports it, `--imports NAME` what a
    module imports and what imports it. Every module must end up claimed
    by one component, except the empty package markers the summary lists.
-2. **draft**: write `map/model.py` from the facts and the repository's own
-   words: its README, AGENTS.md, CLAUDE.md, docs/. `references/schema.md`
+2. **draft**: `systemap suggest` prints a first grouping from the facts
+   alone, one proposal per package with two or more modules and the
+   imports between proposals: a starting point to argue with, never the
+   answer. Then write `map/model.py` from the facts and the repository's
+   own words: its README, AGENTS.md, CLAUDE.md, docs/. `references/schema.md`
    has every field; `references/example.md` is a complete small model;
    `references/layout.md` says where the regions go so the edges have
    corridors to run along. Keep the starter's grid of regions.
-3. **check**: `systemap check`. Fix every line it prints; repeat until only
-   `stale` remains (the page has not been rendered yet).
+3. **check**: `systemap check && systemap judgement --strict`, together,
+   every round. Fix every line the check prints and act on or answer every
+   judgement line; repeat until only `stale` remains (the page has not
+   been rendered yet) and the judgement exits 0. Together, because a
+   layout fix that drops an edge reopens the crossing-import lines that
+   edge answered, and only the judgement sees that; run in the same
+   round, a fix on one side cannot quietly undo the other.
 4. **judgement**: `systemap judgement`. Act on every line, or answer it in
    `[judgement] answered` in `systemap.toml` with a reason: the exact line
    as `item`, several as `items = [...]`, or a family with one reason:
@@ -73,8 +81,11 @@ this skill, not a formality after it.
 ## What goes in the model
 
 - A component is something a reader would point at and name. A module is
-  not a part; a component usually holds several, and a module that does
-  two things belongs with the one it is for. `implemented_by` names its
+  not a part; a component usually holds three to ten, and a repository of
+  N modules usually lands between N/10 and N/3 cards: the `single module`
+  line pushes from below, `possible mis-fold` and `crossing import` from
+  above. A module that does two things belongs with the one it is for.
+  `implemented_by` names its
   modules, or a symbol `pkg.mod:name` for a part that lives inside another
   card's module; `entry` is one public name they define (a function, a
   class, an object such as `app`); both must be in the facts. Kinds:
@@ -106,6 +117,7 @@ this skill, not a formality after it.
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | the facts read back: `--modules`, `--module NAME`, `--entry-points`, `--external`, `--imports NAME`; never open the JSON |
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
+| `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
@@ -131,7 +143,9 @@ this skill, not a formality after it.
   the facts; nothing on the map is a plan.
 - Prose is for emphasis; the relationships live on the edges. If it
   matters, it is an edge.
-- Run `systemap check` after every move; it refuses, it does not warn.
+- Run `systemap check && systemap judgement --strict` after every move;
+  the check refuses, it does not warn, and the judgement sees what a
+  layout fix reopened.
 
 ## References
 

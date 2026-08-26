@@ -8,6 +8,7 @@
     systemap figure ... --out FILE     one figure from the same generator
     systemap refresh                   extract, check, render, figures
     systemap judgement [--strict]      the list the maintainer must confirm
+    systemap suggest                   a first grouping from the facts, to argue with
     systemap describe                  what a look at the picture would tell you, in numbers
     systemap serve [--port N]          serve the output directory over HTTP, print the URL
     systemap skill [--dir PATH|--print] reinstall the skill directory, or print SKILL.md
@@ -41,6 +42,7 @@ from systemap import (
     skill,
 )
 from systemap import facts as facts_mod
+from systemap import suggest as suggest_mod
 from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError
 from systemap.model import Meaning, Model, all_layers
@@ -424,6 +426,20 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     return OK
 
 
+# ---- suggest ---------------------------------------------------------------
+
+
+def cmd_suggest(args: argparse.Namespace) -> int:
+    """A first grouping from the facts alone, to argue with; never the answer."""
+    cfg = config.load(_root(args))
+    facts = extract.read_facts(cfg.facts_path)
+    if not facts:
+        say(f"no facts at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
+        return STALE
+    say(*suggest_mod.lines(facts))
+    return OK
+
+
 # ---- describe --------------------------------------------------------------
 
 
@@ -635,6 +651,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--strict", action="store_true", help="exit 1 while any line is unanswered, for CI"
     )
     s.set_defaults(func=cmd_judgement)
+
+    s = sub.add_parser(
+        "suggest",
+        help="a first grouping to argue with, never the answer: one proposed card per "
+        "package with two or more modules, its modules, and the crossing imports between "
+        "proposals, from the facts alone",
+    )
+    add_root(s)
+    s.set_defaults(func=cmd_suggest)
 
     s = sub.add_parser(
         "describe",

@@ -15,7 +15,7 @@ the exception.
    things: change the model, or answer it in `[judgement] answered` in
    `systemap.toml` with a reason. An answered line is suppressed and
    counted in the header; an answer that matches no line is reported as
-   stale, so remove it. Never pass a line over in silence. Five forms,
+   stale, so remove it. Never pass a line over in silence. Seven forms,
    each one table with one reason:
 
    ```toml
@@ -24,8 +24,13 @@ the exception.
        # the exact line, or several exact lines
        { item = "thin layer: control lights 0 components", reason = "nothing drives anything; the parts are called by tests" },
        { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
-       # every crossing-import line between two components, either direction
+       # every crossing-import line between any two of these components, either direction
        { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names; the model reaches it through Config, which the map draws" },
+       { crossing = ["Page", "Figures", "Describe"], reason = "the three drawers share the schematic's tables; every pair among them" },
+       # every crossing import into one component, whoever imports it
+       { crossing_into = "Model", reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
+       # every crossing import out of one component, whatever it imports
+       { crossing_from = "CLI", reason = "the commands import every part they run; the control edges are the ones the map draws" },
        # every line of one kind: single module, possible mis-fold, no sentence,
        # thin layer, entry point, crossing import, model sdk
        { kind = "single module", reason = "a small package with one module per part; each card is a thing a reader would name" },
@@ -78,7 +83,10 @@ the exception.
 7. Reread every sentence in `relations` from the source side. A sentence
    that could be said of any edge ("A uses B") is not a sentence yet.
 
-8. Run `systemap check`, then `systemap refresh`. Go to 1.
+8. Run `systemap check && systemap judgement --strict`, then `systemap
+   refresh`. Together every round: a layout fix that drops an edge
+   reopens the crossing-import lines the edge answered, and the judgement
+   in the same round is what sees it. Go to 1.
 
 ## The stop condition
 

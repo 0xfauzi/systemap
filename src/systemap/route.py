@@ -92,11 +92,18 @@ SEAT_GAP = 2.0
 
 @dataclass(frozen=True)
 class Gutter:
-    """One free band between two card rows or two card columns, or a margin."""
+    """One free band between two card rows or two card columns, or a margin.
+
+    `before` and `after` are the cards of the row (column) on each side,
+    so a diagnosis can name the region the gutter runs through; a margin
+    has cards on one side only.
+    """
 
     lo: float
     hi: float
     name: str
+    before: tuple[str, ...] = ()
+    after: tuple[str, ...] = ()
 
     @property
     def size(self) -> float:
@@ -106,46 +113,72 @@ class Gutter:
         return self.lo <= centre <= self.hi
 
 
-def _merge(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """The spans joined wherever they touch or overlap, in order."""
-    out: list[tuple[float, float]] = []
-    for a, b in sorted(spans):
-        if out and a <= out[-1][1]:
-            out[-1] = (out[-1][0], max(out[-1][1], b))
+Run = tuple[float, float, tuple[str, ...]]
+
+
+def _runs(cards: dict[str, Box], rows: bool) -> list[Run]:
+    """The card rows (or columns): runs of cards whose spans touch or
+    overlap, each with its cards in reading order along the run."""
+    along, across = (1, 0) if rows else (0, 1)
+    out: list[tuple[float, float, list[str]]] = []
+    for cid, box in sorted(cards.items(), key=lambda kv: (kv[1][along], kv[1][across])):
+        lo, hi = box[along], box[along] + box[along + 2]
+        if out and lo <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], hi), [*out[-1][2], cid])
         else:
-            out.append((a, b))
-    return out
+            out.append((lo, hi, [cid]))
+    return [
+        (lo, hi, tuple(sorted(ids, key=lambda c: (cards[c][across], cards[c][along]))))
+        for lo, hi, ids in out
+    ]
 
 
-def _bands(spans: list[tuple[float, float]], hi: float, word: str) -> list[Gutter]:
-    if not spans:
+def _named(ids: tuple[str, ...]) -> str:
+    """Up to three cards by name; the rest counted."""
+    shown = ", ".join(ids[:3])
+    return shown if len(ids) <= 3 else f"{shown} and {len(ids) - 3} more"
+
+
+def _bands(runs: list[Run], hi: float, rows: bool) -> list[Gutter]:
+    """The gutters around and between the runs, each named by its
+    neighbours and its coordinates: `between the row of A, B and the row
+    of C (y 160 to 226)`."""
+    if not runs:
         return []
-    before, after = ("above", "below") if word == "row" else ("left of", "right of")
+    word, axis = ("row", "y") if rows else ("column", "x")
+    first, last = ("above", "below") if rows else ("left of", "right of")
     out: list[Gutter] = []
-    if spans[0][0] > 0:
-        out.append(Gutter(0.0, spans[0][0], f"{before} {word} 1"))
-    for i in range(len(spans) - 1):
-        out.append(Gutter(spans[i][1], spans[i + 1][0], f"between {word}s {i + 1} and {i + 2}"))
-    if spans[-1][1] < hi:
-        out.append(Gutter(spans[-1][1], hi, f"{after} {word} {len(spans)}"))
+    lo0, _, ids0 = runs[0]
+    if lo0 > 0:
+        name = f"{first} the {word} of {_named(ids0)} ({axis} 0 to {lo0:.0f})"
+        out.append(Gutter(0.0, lo0, name, after=ids0))
+    for (_a, end, ids_a), (start, _b, ids_b) in zip(runs, runs[1:], strict=False):
+        name = (
+            f"between the {word} of {_named(ids_a)} and the {word} of {_named(ids_b)} "
+            f"({axis} {end:.0f} to {start:.0f})"
+        )
+        out.append(Gutter(end, start, name, before=ids_a, after=ids_b))
+    _, end, ids_n = runs[-1]
+    if end < hi:
+        name = f"{last} the {word} of {_named(ids_n)} ({axis} {end:.0f} to {hi:.0f})"
+        out.append(Gutter(end, hi, name, before=ids_n))
     return out
 
 
 def gutters(
     cards: dict[str, Box], canvas: tuple[float, float]
 ) -> tuple[list[Gutter], list[Gutter]]:
-    """(row gutters, column gutters), named the way a person reads the grid.
+    """(row gutters, column gutters), named by their neighbours and coordinates.
 
     A card row is a run of cards whose vertical spans touch or overlap; a
     column likewise. The gutters are the bands between consecutive rows
     (columns), plus the margin above the first and below the last (left
     of the first, right of the last), so every label seat lies in one.
+    Each is named by the cards on either side and the span it covers,
+    since a row number maps to nothing in the model.
     """
     w, h = canvas
-    boxes = list(cards.values())
-    rows = _merge([(y, y + ch) for _x, y, _w, ch in boxes])
-    cols = _merge([(x, x + cw) for x, _y, cw, _h in boxes])
-    return _bands(rows, h, "row"), _bands(cols, w, "column")
+    return _bands(_runs(cards, True), h, True), _bands(_runs(cards, False), w, False)
 
 
 def seats(size: float, across: float) -> int:
@@ -613,16 +646,19 @@ def place_labels(
     gap: float = SEAT_GAP,
     names: dict[int, str] | None = None,
     cards: dict[str, Box] | None = None,
+    region_of: dict[str, str] | None = None,
 ) -> dict[int, Placed]:
     """Seat every label; shortest path first, since it has the fewest places.
 
     `names` gives each label the name a collision report calls it by; a
     label without one is `label <index>`. With `cards`, a label that could
     not be seated cleanly also carries the fix that applies (`Placed.fix`),
-    worked out from the gutters the cards leave.
+    worked out from the gutters the cards leave; with `region_of` (card id
+    to region id) the fix names the region whose pitch to raise.
     """
     names = names or {}
     bands = gutters(cards, canvas) if cards is not None else None
+    region_of = region_of or {}
 
     def pad(b: Box) -> Box:
         return (b[0] - gap, b[1] - gap, b[2] + 2 * gap, b[3] + 2 * gap)
@@ -704,7 +740,9 @@ def place_labels(
             ]
             best.hits = [n for n, ob in named if _overlap_area(pad(best.box), ob)]
             if bands is not None:
-                best.fix = _diagnose(best, cands[k], partial(fixed, k), routes[k], widths[k], bands)
+                best.fix = _diagnose(
+                    best, cands[k], partial(fixed, k), routes[k], widths[k], bands, region_of
+                )
         placed[k] = best
     return placed
 
@@ -723,6 +761,7 @@ def _diagnose(
     route: Route,
     lw: float,
     bands: tuple[list[Gutter], list[Gutter]],
+    region_of: dict[str, str] | None = None,
 ) -> str:
     """Which fix applies to a label the router could not seat cleanly.
 
@@ -731,14 +770,17 @@ def _diagnose(
     touch no card or header are the gutter's seats, counted as distinct
     rows across the gutter the label landed in; when there are any, every
     one is taken by another label and the gutter is full, so the fix is to
-    move a card or widen the pitch. When there are none, the geometry has
-    no seat for a label this wide: the fix is to shorten the artifact, and
-    the line says by how much (the label's width over the longest run of
-    its path, or over the column gutter it crosses).
+    move a card or raise the pitch of the region the gutter runs through
+    (named from the cards on either side of it; the pitch is a starting
+    value, and a dense region may have its own). When there are none, the
+    geometry has no seat for a label this wide: the fix is to shorten the
+    artifact, and the line says by how much (the label's width over the
+    longest run of its path, or over the column gutter it crosses).
     """
     points = route.points
     horizontal = _horizontal(points, seat.segment)
     rows, cols = bands
+    region_of = region_of or {}
 
     def centre(box: Box) -> float:
         # Across the run: the coordinate that tells one seat row from the next.
@@ -755,7 +797,13 @@ def _diagnose(
     if home is not None and free_rows:
         n = len(free_rows)
         pitch = "row" if home in rows else "column"
-        return f"gutter {home.name} holds {n} of {n} seats: move a card or widen the {pitch} pitch"
+        verb = "raise" if pitch == "row" else "widen"
+        regions = sorted({region_of[c] for c in home.before + home.after if region_of.get(c)})
+        where = f" of region {' or '.join(regions)}" if regions else ""
+        return (
+            f"gutter {home.name} holds {n} of {n} seats: move a card or {verb} the "
+            f"{pitch} pitch{where}"
+        )
     segs = list(zip(points, points[1:], strict=False))
     runs: list[float] = []
     for k, (a, b) in enumerate(segs):

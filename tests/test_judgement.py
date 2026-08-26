@@ -265,8 +265,11 @@ answered = [
         ('{ reason = "r" }', "needs exactly one of"),
         ('{ items = [], reason = "r" }', "non-empty list of lines"),
         ('{ item = "x", reason = "r", why = "w" }', "unknown key: why"),
-        ('{ crossing = ["A"], reason = "r" }', "two different component ids"),
-        ('{ crossing = ["A", "A"], reason = "r" }', "two different component ids"),
+        ('{ crossing = ["A"], reason = "r" }', "two or more different component ids"),
+        ('{ crossing = ["A", "A"], reason = "r" }', "two or more different component ids"),
+        ('{ crossing = ["A", "B", "A"], reason = "r" }', "two or more different component ids"),
+        ('{ crossing_into = "", reason = "r" }', "crossing_into must name one component id"),
+        ('{ crossing_from = 3, reason = "r" }', "crossing_from must name one component id"),
         ('{ kind = "odd fold", reason = "r" }', "kind must be one of single module"),
         ('{ module_sdk = "", reason = "r" }', "module_sdk must be an import name"),
         ('{ kind = "single module" }', "needs a reason"),
@@ -586,6 +589,108 @@ def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
     # A configured answer round-trips with its form.
     assert Answer(("x", "y"), "r").label == "items = ['x', 'y']"
     assert Answer(("x",), "r").label == "x"
+
+
+def test_crossing_answers_cover_into_from_and_every_pair() -> None:
+    """One answer for every crossing import into a card, out of it, or among a set."""
+
+    def line(a: str, b: str) -> str:
+        return (
+            f"crossing import: module p.{a.lower()} (component {a}) imports module "
+            f"p.{b.lower()} (component {b}) and no flow joins {a} and {b}"
+        )
+
+    lines = [line("A", "M"), line("B", "M"), line("M", "C"), line("A", "B"), line("C", "A")]
+    into = judgement.apply_answers(lines, (Answer((), "the schema", crossing_into="M"),))
+    assert into.open == [line("M", "C"), line("A", "B"), line("C", "A")]
+    assert into.answered == 2 and into.stale == []
+    out = judgement.apply_answers(lines, (Answer((), "the commands", crossing_from="A"),))
+    assert out.open == [line("B", "M"), line("M", "C"), line("C", "A")]
+    assert out.answered == 2
+    # Every pair among three ids, in either direction; M and C is not a pair of them.
+    among = judgement.apply_answers(lines, (Answer((), "one family", crossing=("A", "B", "C")),))
+    assert among.open == [line("A", "M"), line("B", "M"), line("M", "C")]
+    assert among.answered == 2
+    # A stale bulk answer is reported as written.
+    stale = judgement.apply_answers(
+        lines,
+        (
+            Answer((), "gone", crossing_into="Z"),
+            Answer((), "gone", crossing_from="Z"),
+            Answer((), "gone", crossing=("X", "Y", "Z")),
+        ),
+    )
+    assert stale.stale == [
+        'crossing_into = "Z"',
+        'crossing_from = "Z"',
+        'crossing = ["X", "Y", "Z"]',
+    ]
+
+
+def test_crossing_into_and_from_in_the_configuration(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
+            "pkg/writer.py": "def write(request: str) -> str:\n    return request\n",
+            "pkg/extra.py": "from pkg import reader, writer\n\n\ndef extra() -> None:\n    pass\n",
+        },
+    )
+    init_two_cards(tmp_path, "--no-ci")
+    # A third card, joined to neither: its module imports both of the others.
+    model = tmp_path / "map/model.py"
+    model.write_text(
+        model.read_text()
+        .replace(
+            "COMPONENTS = (\n",
+            'COMPONENTS = (\n    Component(id="Extra", region="core", does="Extra.", '
+            'implemented_by=("pkg.extra",), entry="extra", x=COL["c1"], y=200),\n',
+        )
+        .replace(
+            '"Reader": "the part that reads",',
+            '"Reader": "the part that reads", "Extra": "the extra",',
+        )
+    )
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "judgement"]) == 0
+    out = capsys.readouterr().out
+    into_reader = (
+        "crossing import: module pkg.extra (component Extra) imports module pkg.reader "
+        "(component Reader) and no flow joins Extra and Reader"
+    )
+    into_writer = (
+        "crossing import: module pkg.extra (component Extra) imports module pkg.writer "
+        "(component Writer) and no flow joins Extra and Writer"
+    )
+    assert into_reader in out and into_writer in out
+    toml = tmp_path / "systemap.toml"
+    kept = toml.read_text()
+    for form, answered, left in (
+        ('crossing_into = "Reader"', 1, [into_writer]),
+        ('crossing_from = "Extra"', 2, []),
+        ('crossing = ["Reader", "Writer", "Extra"]', 2, []),
+        ('crossing = ["Reader", "Extra"]', 1, [into_writer]),
+    ):
+        toml.write_text(
+            kept
+            + f"""
+[judgement]
+answered = [
+    {{ {form}, reason = "the extra reads the others' types; the map draws the data edges" }},
+]
+"""
+        )
+        assert main(["--root", str(tmp_path), "judgement"]) == 0
+        out = capsys.readouterr().out
+        assert f", {answered} answered" in out, form
+        for line in (into_reader, into_writer):
+            assert (line in out) == (line in left), (form, line)
+    cfg = config.load(tmp_path)
+    assert cfg.judgement_answered[0].crossing == ("Reader", "Extra")
 
 
 def test_bulk_answers_in_the_configuration(
