@@ -147,6 +147,23 @@ headless session; the three replayed pull requests need a mapped
 repository's history and a harness run, and docs/benchmarks.md has no
 maintenance row until then.
 
+Measured on 2026-08-26 (systemap 0.11.0, claude-opus-5[1m]), three real merged
+pull requests replayed as reverts on the kstrl benchmark map, by the harness,
+each finishing on its own with check clean and judgement --strict at exit 0:
+
+| replay | files | turns | minutes | dollars |
+|---|---|---|---|---|
+| small (PR 237) | 8 | 51 | 6.4 | 2.31 |
+| medium (PR 213) | 17 | 63 | 11.3 | 4.39 |
+| large (PR 184) | 20 | 46 | 5.8 | 2.50 |
+
+Against the target (small and medium at most 15 turns and 2 dollars): missed
+on turns by three to four times, missed on dollars by 0.31 and 2.39. The
+turn target did not account for the maintenance path's own steps (delta,
+refresh, check and judgement together, answers), which is where most turns
+went; the dollar number is the one the README quotes. The target line
+above stays as written.
+
 ### 4. Cost is measured twice, on one repository, by hand
 
 What is wrong: two runs, one repository, numbers read off a log. Nothing
