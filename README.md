@@ -130,7 +130,14 @@ live page has them all.
 </p>
 
 The page is served from `docs/` by GitHub Pages at
-<https://0xfauzi.github.io/systemap/map/>.
+<https://0xfauzi.github.io/systemap/map/>. The page in both schemes, as
+headless Chrome renders it at 1600 by 900 (`scripts/screenshots.py`
+writes both):
+
+<p align="center">
+  <a href="docs/screenshots/dark.png"><img src="docs/screenshots/dark.png" alt="The page in the graphite scheme" width="49%"></a>
+  <a href="docs/screenshots/light.png"><img src="docs/screenshots/light.png" alt="The page in the paper scheme, scheme = light" width="49%"></a>
+</p>
 
 - **Readings.** One map, several layers, each answering one question. Four
   are derived from the model with no authoring, and the page opens on the
@@ -495,6 +502,7 @@ Releases: tag `v<version>` on the release commit, then run `scripts/publish.sh`,
     uv run systemap describe
     uv run systemap facts --modules
     uv run systemap suggest
+    uv run python scripts/screenshots.py   # docs/screenshots/: both schemes (Chrome)
 
 The workflow runs the suite, the type check and the linter on Linux,
 macOS and Windows with Python 3.11 and 3.13, and installs the built wheel
