@@ -13,6 +13,15 @@ asks about every card that claims one module. Some are right (a small
 system has small parts); a map where every line is `single module` was
 grouped by file.
 
+## Reading the facts file whole
+
+The facts file is hundreds of kilobytes on a real tree, and reading it
+fills the context with JSON that answers nothing. Read it through
+`systemap facts` instead: `--modules` for the list, `--module NAME` for
+one record, `--entry-points`, `--external`, and `--imports NAME` for the
+edges around one module. The JSON is for the tools; the views are for
+you.
+
 ## Counting
 
 "Handles 14 modules", "guarded by 40 tests", "the largest part": none of

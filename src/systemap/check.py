@@ -436,6 +436,15 @@ def _method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
     return out
 
 
+def _reexport_sources(record: Mapping[str, Any], name: str) -> list[str]:
+    """The modules a record's `names` say define `name`, when it is re-exported."""
+    return [
+        str(n["reexport_of"])
+        for n in record.get("names", [])
+        if n.get("name") == name and n.get("reexport_of")
+    ]
+
+
 def _closest(name: str, candidates: Iterable[str]) -> str:
     matches = difflib.get_close_matches(name, sorted(set(candidates)), n=1, cutoff=0.0)
     return matches[0] if matches else ""
@@ -489,6 +498,11 @@ def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
         methods: set[str] = set()
         for m in modules:
             methods |= _method_names(components[m], name)
+            # A class re-exported by a package __init__ keeps its methods in
+            # the module that defines it.
+            for source in _reexport_sources(components[m], name):
+                if source in components:
+                    methods |= _method_names(components[source], name)
         for m, n in symbols:
             if n == name and m in components:
                 methods |= _method_names(components[m], name)

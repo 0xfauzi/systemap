@@ -31,9 +31,14 @@ purpose, an entry point with no walk through it. The check catches
 contradictions; it cannot catch omissions. The second pass is the point of
 this skill, not a formality after it.
 
-1. **extract**: `systemap extract`. Read the facts file it writes (by default
-   `docs/map/map.json`): one record per module under `components`, and the
-   `entry_points`. Every module in it must end up claimed by one component.
+1. **extract**: `systemap extract`, also when `systemap.toml` exists but
+   the facts file does not. Then read the facts through `systemap facts`,
+   never the JSON (hundreds of kilobytes on a real tree): `--modules` is
+   one line per module (name, public names, imports, tests), `--module
+   NAME` one record, `--entry-points` where a run starts, `--external`
+   every third-party import and who imports it, `--imports NAME` what a
+   module imports and what imports it. Every module must end up claimed
+   by one component, except the empty package markers the summary lists.
 2. **draft**: write `map/model.py` from the facts and the repository's own
    words: its README, AGENTS.md, CLAUDE.md, docs/. `references/schema.md`
    has every field; `references/example.md` is a complete small model;
@@ -99,6 +104,7 @@ this skill, not a formality after it.
 |---|---|
 | `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
+| `systemap facts` | the facts read back: `--modules`, `--module NAME`, `--entry-points`, `--external`, `--imports NAME`; never open the JSON |
 | `systemap check` | every rule; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |

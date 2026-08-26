@@ -31,6 +31,9 @@ from systemap.config import Config
 from systemap.model import Model, is_symbol, module_matches, public_names
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
+# The facts format. 2 since a package __init__ records the names it
+# re-exports; a stored file of an older format is reported as stale.
+FORMAT = 2
 TESTS_KEPT = 25
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
@@ -41,7 +44,12 @@ UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 # skill's schema reference; the test compares the rendered text with the
 # shipped reference and the table with what `build` actually writes.
 FIELDS: tuple[tuple[str, str, str], ...] = (
-    ("facts", "version", "the facts format; 1"),
+    (
+        "facts",
+        "version",
+        "the facts format; 2, since a package `__init__` records the names it re-exports; "
+        "`extract --check` reports a file of an older format as stale",
+    ),
     ("facts", "built_at_commit", "the commit the tree was at, or empty outside git"),
     ("facts", "packages", "the import names of the package roots"),
     (
@@ -73,7 +81,10 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "names",
         "every public module-level name in source order, with its `kind`: `function`, "
         "`class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, "
-        "such as `app` or `root_agent`); a component's `entry` may name any of them",
+        "such as `app` or `root_agent`). A package `__init__` also lists every name it "
+        "imports from the package's own modules, with `reexport_of` naming the module "
+        "that defines it and the kind that module gives it (`module` for a submodule "
+        "imported whole). A component's `entry` and `interface` may name any of them",
     ),
     (
         "module",
@@ -207,12 +218,25 @@ def sentence(test_name: str) -> str:
     return body.replace("_", " ").strip() or test_name
 
 
-def parse_surface(raw: str) -> dict[str, Any] | None:
+def parse_surface(
+    raw: str,
+    *,
+    module: str = "",
+    is_package: bool = False,
+    prefixes: frozenset[str] = frozenset(),
+) -> dict[str, Any] | None:
     """The public surface of one module's source, or None if it cannot parse.
 
     This is the ONE definition of "public surface" in the map: the extractor
     stores it and the change detector diffs it between two git blobs, so the
     two can never disagree about what a module exports.
+
+    A package `__init__` (`is_package`, with its dotted `module` name and
+    the package `prefixes`) also records the names it imports from the
+    package's own modules, under `names` with `reexport_of`: the package's
+    public face is those names, and a card may name one as its entry. The
+    kind is filled in by `build`, which knows the defining module; here it
+    is `reexport`.
     """
     try:
         tree = ast.parse(raw)
@@ -226,7 +250,21 @@ def parse_surface(raw: str) -> dict[str, Any] | None:
     # lower-case object (`app`, `root_agent`) as well as a function or class.
     names: list[dict[str, str]] = []
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        if isinstance(node, ast.ImportFrom) and is_package and module:
+            source = _reexport_source(node, module, prefixes)
+            if source is None:
+                continue
+            for alias in node.names:
+                public = alias.asname or alias.name
+                if alias.name == "*" or public.startswith("_"):
+                    continue
+                entry = {"name": public, "kind": "reexport", "reexport_of": source}
+                if alias.asname:
+                    # The defining module knows it by its own name; `build`
+                    # reads that for the kind and drops it.
+                    entry["defined_as"] = alias.name
+                names.append(entry)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             if node.name.startswith("_"):
                 continue
             names.append({"name": node.name, "kind": "function"})
@@ -285,12 +323,56 @@ def parse_surface(raw: str) -> dict[str, Any] | None:
     }
 
 
-def collect_module(path: Path, repo: Path) -> dict[str, Any] | None:
+def _reexport_source(node: ast.ImportFrom, module: str, prefixes: frozenset[str]) -> str | None:
+    """The dotted module a `from ... import` in a package `__init__` reads from,
+    when it is one of the package's own; None for anything else."""
+    if node.level:
+        # Relative to the package itself: `.mod` is a sibling module of
+        # the __init__, each further level one package up.
+        anchor = module.split(".")
+        if node.level > 1:
+            anchor = anchor[: len(anchor) - (node.level - 1)]
+        if not anchor:
+            return None
+        return ".".join([*anchor, *node.module.split(".")] if node.module else anchor)
+    if not node.module or node.module.split(".")[0] not in prefixes:
+        return None
+    return node.module
+
+
+def resolve_reexports(components: dict[str, Any]) -> None:
+    """Give every re-exported name the kind its defining module records.
+
+    `from . import mod` re-exports a module: its kind is `module` and
+    `reexport_of` the module itself. A name the source module does not
+    define (imported from elsewhere in turn, or from a module the facts
+    lack) keeps `reexport_of` and takes the kind `object`.
+    """
+    for record in components.values():
+        for entry in record.get("names", []):
+            if entry.get("kind") != "reexport":
+                continue
+            source = entry["reexport_of"]
+            original = entry.pop("defined_as", entry["name"])
+            as_module = f"{source}.{original}"
+            if as_module in components:
+                entry["reexport_of"] = as_module
+                entry["kind"] = "module"
+                continue
+            defined = {n["name"]: n["kind"] for n in components.get(source, {}).get("names", [])}
+            entry["kind"] = defined.get(original, "object")
+
+
+def collect_module(
+    path: Path, repo: Path, module: str = "", prefixes: frozenset[str] = frozenset()
+) -> dict[str, Any] | None:
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError:
         return None
-    surface = parse_surface(raw)
+    surface = parse_surface(
+        raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes
+    )
     if surface is None:
         return None
     return {
@@ -615,7 +697,7 @@ def build(cfg: Config) -> dict[str, Any]:
     imports: dict[str, set[str]] = {}
     sources: dict[str, str] = {}
     for module, path in sorted(paths.items()):
-        record = collect_module(path, repo)
+        record = collect_module(path, repo, module, frozenset(prefixes))
         if record is None:
             continue
         record["id"] = module
@@ -638,6 +720,9 @@ def build(cfg: Config) -> dict[str, Any]:
         imports[module] = set(uses)
         components[module] = record
 
+    # Every module is parsed before a re-export can be given the kind its
+    # defining module records.
+    resolve_reexports(components)
     importers: dict[str, set[str]] = defaultdict(set)
     for module, deps in imports.items():
         for dep in deps:
@@ -666,7 +751,7 @@ def build(cfg: Config) -> dict[str, Any]:
 
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True)
     return {
-        "version": 1,
+        "version": FORMAT,
         "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
         "packages": sorted(prefixes),
         "tests_dirs": list(tests_dirs),
@@ -680,6 +765,13 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
     """Ways the stored facts no longer describe the tree. Empty means current."""
     out: list[str] = []
     new_c, old_c = fresh["components"], (stored or {}).get("components", {})
+    # A file written by an older extractor records less than this one
+    # reads (a re-export, say), whatever the tree did since.
+    if stored and stored.get("version") != fresh.get("version"):
+        out.append(
+            f"facts format {stored.get('version')} is older than the extractor's "
+            f"{fresh.get('version')}; the file records less than the extractor reads"
+        )
     # Entry points come partly from pyproject.toml, which no module hash
     # covers, so they are compared on their own.
     new_e = {entry_label(e) for e in fresh.get("entry_points", [])}

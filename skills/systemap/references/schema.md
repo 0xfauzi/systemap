@@ -203,7 +203,7 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 
 **The file**
 
-- `version`: the facts format; 1.
+- `version`: the facts format; 2, since a package `__init__` records the names it re-exports; `extract --check` reports a file of an older format as stale.
 - `built_at_commit`: the commit the tree was at, or empty outside git.
 - `packages`: the import names of the package roots.
 - `tests_dirs`: the directories test files were read from, relative to the root: the configured `tests_dir`, or every directory named `tests` or `test`.
@@ -224,7 +224,7 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `classes`: public classes that are not errors: `name` and `methods` (public method signatures).
 - `errors`: public classes named or based on Error or Exception, the same fields.
 - `constants`: UPPER_CASE assignments: `name` and `value`, the first 14.
-- `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, such as `app` or `root_agent`); a component's `entry` may name any of them.
+- `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, such as `app` or `root_agent`). A package `__init__` also lists every name it imports from the package's own modules, with `reexport_of` naming the module that defines it and the kind that module gives it (`module` for a submodule imported whole). A component's `entry` and `interface` may name any of them.
 - `uses`: the package's modules this one imports, each with the names taken from it, or `*` for the whole module.
 - `imports`: the keys of `uses`.
 - `imported_by`: the package's modules that import this one.

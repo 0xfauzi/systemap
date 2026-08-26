@@ -2,6 +2,7 @@
 
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
+    systemap facts [--modules ...]     read the facts back, one view at a time
     systemap render [--check]          render the page from facts and model
     systemap check                     every rule; exit 1 with each fix named
     systemap figure ... --out FILE     one figure from the same generator
@@ -39,6 +40,7 @@ from systemap import (
     scaffold,
     skill,
 )
+from systemap import facts as facts_mod
 from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError
 from systemap.model import Meaning, Model, all_layers
@@ -139,6 +141,40 @@ def cmd_extract(args: argparse.Namespace) -> int:
     for line in extract.mapping_drift(fresh, p.model, p.cfg.prefixes):
         say(f"  warning: {line}")
     say(f"written to {p.cfg.rel(p.cfg.facts_path)}")
+    return OK
+
+
+# ---- facts -----------------------------------------------------------------
+
+
+def cmd_facts(args: argparse.Namespace) -> int:
+    """Read the facts back one view at a time, so nobody opens the JSON.
+
+    With no option: the extract summary and the views. A module name the
+    facts do not have is one line with the closest they do, exit 1.
+    """
+    p = _project(args)
+    facts = _facts_or_stale(p)
+    if facts is None:
+        return STALE
+    try:
+        if args.modules:
+            lines = facts_mod.modules(facts)
+        elif args.module:
+            lines = facts_mod.module(facts, args.module)
+        elif args.entry_points:
+            lines = facts_mod.entry_points(facts)
+        elif args.external:
+            lines = facts_mod.external(facts)
+        elif args.imports:
+            lines = facts_mod.imports(facts, args.imports)
+        else:
+            lines = facts_mod.overview(extract.summary(facts))
+    except facts_mod.UnknownModule as exc:
+        hint = f"; closest: {exc.closest}" if exc.closest else ""
+        say(f"no module {exc.name} in the facts{hint}", "run: systemap facts --modules")
+        return STALE
+    say(*lines)
     return OK
 
 
@@ -500,6 +536,39 @@ def build_parser() -> argparse.ArgumentParser:
     add_root(s)
     s.add_argument("--check", action="store_true", help="exit 1 if the stored facts are stale")
     s.set_defaults(func=cmd_extract)
+
+    s = sub.add_parser(
+        "facts",
+        help="read the facts back one view at a time: --modules (one line per module), "
+        "--module NAME (its record), --entry-points, --external, --imports NAME; with no "
+        "option, the extract summary",
+    )
+    add_root(s)
+    view = s.add_mutually_exclusive_group()
+    view.add_argument(
+        "--modules",
+        action="store_true",
+        help="one line per module: public names, imports and tests counted",
+    )
+    view.add_argument("--module", default="", metavar="NAME", help="one module's full record")
+    view.add_argument(
+        "--entry-points",
+        dest="entry_points",
+        action="store_true",
+        help="where a run can start, each named the way a person types it",
+    )
+    view.add_argument(
+        "--external",
+        action="store_true",
+        help="every third-party import, with the modules that import it",
+    )
+    view.add_argument(
+        "--imports",
+        default="",
+        metavar="NAME",
+        help="what one module imports from the package, and what imports it",
+    )
+    s.set_defaults(func=cmd_facts)
 
     s = sub.add_parser("render", help="render the page from the facts and the model")
     add_root(s)

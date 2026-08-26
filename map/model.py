@@ -123,9 +123,9 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        does="Walks the package's syntax tree and writes the facts: every module, its public surface and every public name, what it imports inside and outside the package, the tests that import it, and where a run can start. Nothing anyone writes changes what it finds.",
+        does="Walks the package's syntax tree and writes the facts: every module, its public surface and every public name, what it imports inside and outside the package, the tests that import it, and where a run can start. Nothing anyone writes changes what it finds; systemap facts reads them back one view at a time.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> what no longer matches",
-        implemented_by=("systemap.extract",),
+        implemented_by=("systemap.extract", "systemap.facts"),
         entry="build",
         region="gather",
         x=COL["c1"],
