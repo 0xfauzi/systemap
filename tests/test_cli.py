@@ -107,6 +107,18 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     assert workflow.index("systemap check") < workflow.index("judgement --strict")
     assert "uv sync" not in workflow and "uv run" not in workflow
     assert "needs no dependency on it" in workflow
+    # A workflow linter's three complaints, answered: every action pinned to a
+    # commit with the version beside it, least privilege, no persisted token.
+    import re
+
+    uses = re.findall(r"uses: (\S+)( # v[\d.]+)?", workflow)
+    assert len(uses) == 2 and all(
+        re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", u) for u, _v in uses
+    ), uses
+    assert all(v for _u, v in uses), "the version is beside the pin"
+    assert "\npermissions:\n  contents: read\n" in workflow
+    assert "persist-credentials: false" in workflow
+    assert workflow.index("persist-credentials") < workflow.index("setup-uv")
 
 
 def test_rendered_files_end_with_a_newline(tmp_path: Path) -> None:

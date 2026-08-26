@@ -216,12 +216,17 @@ WORKFLOW = """name: systemap
 #
 # systemap runs from the released package, pinned to the version that
 # wrote this file, so the project needs no dependency on it. Bump the pin
-# when you upgrade.
+# when you upgrade. Every action is pinned to a commit, with the version
+# beside it; the job reads the tree and nothing else, and the checkout
+# keeps no token, so a workflow linter passes it as written.
 
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -232,10 +237,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           version: latest
           enable-cache: true

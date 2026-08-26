@@ -175,8 +175,8 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `loc`: lines in the file.
 - `sha`: twelve hex digits of the source's SHA-1: the change detector's key.
 - `docstring`: the first paragraph of the module docstring, capped.
-- `functions`: public functions: `name`, `signature`, `doc` (the first docstring line).
-- `classes`: public classes that are not errors: `name`, `doc`, `methods` (public method signatures).
+- `functions`: public functions: `name` and `signature`.
+- `classes`: public classes that are not errors: `name` and `methods` (public method signatures).
 - `errors`: public classes named or based on Error or Exception, the same fields.
 - `constants`: UPPER_CASE assignments: `name` and `value`, the first 14.
 - `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, such as `app` or `root_agent`); a component's `entry` may name any of them.

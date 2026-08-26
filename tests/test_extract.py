@@ -24,8 +24,14 @@ def test_extract_finds_modules_and_public_surface(tmp_path: Path) -> None:
     assert reader["docstring"] == "Read things."
     assert [f["name"] for f in reader["functions"]] == ["read"]
     assert reader["functions"][0]["signature"] == "def read(source: str) -> Request"
-    assert reader["functions"][0]["doc"] == "Read a source."
+    assert reader["functions"][0] == {
+        "name": "read",
+        "signature": "def read(source: str) -> Request",
+    }
     assert [c["name"] for c in reader["classes"]] == ["Request"]
+    assert "doc" not in reader["classes"][0] and "doc" not in reader["errors"][0], (
+        "per-symbol docstrings are not facts the map or the change detector reads"
+    )
     assert reader["classes"][0]["methods"] == ["def send(self, body: str) -> None"]
     assert [e["name"] for e in reader["errors"]] == ["ReadError"]
     assert reader["constants"] == [{"name": "LIMIT", "value": "10"}]
@@ -381,3 +387,32 @@ def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
     assert reference.endswith(extract.facts_doc()), (
         "references/schema.md's facts section differs from extract.FIELDS; regenerate it"
     )
+
+
+def test_facts_file_is_compact_and_one_record_per_line(tmp_path: Path) -> None:
+    """The committed file stays small and diffs module by module."""
+    write_tree(tmp_path, TINY_PACKAGE)
+    cfg = config.load(tmp_path)
+    facts = extract.build(cfg)
+    extract.write_facts(cfg.facts_path, facts)
+    text = cfg.facts_path.read_text()
+    assert extract.read_facts(cfg.facts_path) == facts, "round-trips"
+    lines = text.splitlines()
+    assert lines[0] == "{" and lines[-1] == "}" and text.endswith("\n")
+    assert not any(line.startswith(" ") for line in lines), "no indentation"
+    records = [line for line in lines if line.startswith('"pkg')]
+    assert len(records) == 3, "one module record per line"
+    assert all(": " not in line.split(":", 1)[1][:2] for line in records)
+    keys = [
+        line.split(":", 1)[0]
+        for line in lines
+        if line.startswith('"') and not line.startswith('"pkg')
+    ]
+    assert keys == sorted(keys)
+    assert '"components":{' in text
+    # The compact file is smaller than the pretty one it replaces; the sizes
+    # on real trees are in the changelog, this only pins the direction.
+    import json
+
+    pretty = json.dumps(facts, indent=1, ensure_ascii=False, sort_keys=True)
+    assert len(text) < len(pretty)

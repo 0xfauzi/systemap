@@ -93,3 +93,19 @@ Two hundred `single module` lines on a two-hundred-module repository do
 not need two hundred tables. One table with `items = [...]` and one
 reason answers every line the reason covers. Group by reason, not by
 line; a line whose reason differs gets its own table.
+
+## Scratch scripts in the repository root
+
+A helper written to count something the tool did not print (`.answers.py`,
+`.routes.py`) ends up committed beside the model. `systemap describe`
+prints the geometry, the bulk answer forms cover a list, and the label
+line names its fix; when a script is still needed, write it under the
+scratch directory the session has, never in the repository root, and
+delete it before the hand-back.
+
+## The generated files and the repository's hooks
+
+Run the repository's formatter on `map/model.py` before the check, and its
+pre-commit on everything the map writes: the facts file is compact for a
+large-file hook, and the workflow is pinned for a workflow linter, but a
+hook the repository adds is the repository's rule.

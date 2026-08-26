@@ -59,15 +59,11 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ("module", "loc", "lines in the file"),
     ("module", "sha", "twelve hex digits of the source's SHA-1: the change detector's key"),
     ("module", "docstring", "the first paragraph of the module docstring, capped"),
-    (
-        "module",
-        "functions",
-        "public functions: `name`, `signature`, `doc` (the first docstring line)",
-    ),
+    ("module", "functions", "public functions: `name` and `signature`"),
     (
         "module",
         "classes",
-        "public classes that are not errors: `name`, `doc`, `methods` (public method signatures)",
+        "public classes that are not errors: `name` and `methods` (public method signatures)",
     ),
     ("module", "errors", "public classes named or based on Error or Exception, the same fields"),
     ("module", "constants", "UPPER_CASE assignments: `name` and `value`, the first 14"),
@@ -221,13 +217,9 @@ def parse_surface(raw: str) -> dict[str, Any] | None:
             if node.name.startswith("_"):
                 continue
             names.append({"name": node.name, "kind": "function"})
-            functions.append(
-                {
-                    "name": node.name,
-                    "signature": signature(node),
-                    "doc": first_line(ast.get_docstring(node)),
-                }
-            )
+            # The signature is the surface; a docstring is prose nobody
+            # renders, and it doubled the facts file on a real tree.
+            functions.append({"name": node.name, "signature": signature(node)})
         elif isinstance(node, ast.ClassDef):
             if node.name.startswith("_"):
                 continue
@@ -240,7 +232,6 @@ def parse_surface(raw: str) -> dict[str, Any] | None:
             )
             record = {
                 "name": node.name,
-                "doc": first_line(ast.get_docstring(node)),
                 # Full signatures, not names: a class's surface includes what
                 # its methods accept and return, so a parameter change is a
                 # change to the type.
@@ -744,12 +735,35 @@ def read_facts(path: Path) -> dict[str, Any]:
     return dict(data) if isinstance(data, dict) else {}
 
 
+def dumps(facts: dict[str, Any]) -> str:
+    """The facts as committed: compact, keys sorted, one module record per line.
+
+    A pretty-printed file was 635 KB on a 144-module tree and tripped a
+    repository's large-file hook. Each module's record is one line with no
+    spaces, so the file stays small and a diff between two commits still
+    reads module by module; the top-level keys are one per line too.
+    """
+
+    def compact(value: Any) -> str:
+        return json.dumps(value, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+
+    parts: list[str] = []
+    for key in sorted(facts):
+        value = facts[key]
+        if key == "components" and isinstance(value, dict):
+            records = ",\n".join(
+                f"{json.dumps(module)}:{compact(record)}"
+                for module, record in sorted(value.items())
+            )
+            parts.append(f'"components":{{\n{records}\n}}')
+        else:
+            parts.append(f"{json.dumps(key)}:{compact(value)}")
+    return "{\n" + ",\n".join(parts) + "\n}\n"
+
+
 def write_facts(path: Path, facts: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(facts, indent=1, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    path.write_text(dumps(facts), encoding="utf-8")
 
 
 def summary(facts: dict[str, Any]) -> list[str]:
