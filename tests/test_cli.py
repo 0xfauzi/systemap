@@ -162,7 +162,28 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
 
     write_tree(tmp_path, {"map/model.py": "MODEL = 1\n"})
     assert run("--root", str(tmp_path), "check") == 2
-    assert "MODEL must be a systemap.Model" in capsys.readouterr().err
+    assert "map/model.py: MODEL must be a systemap.Model" in capsys.readouterr().err
+
+    # A name the model does not import, or one systemap does not export, is one
+    # line with the fix, never a traceback.
+    write_tree(
+        tmp_path, {"map/model.py": "from systemap import Model\nLAYERS = (Layer('a', 'A'),)\n"}
+    )
+    assert run("--root", str(tmp_path), "check") == 2
+    err = capsys.readouterr().err
+    assert (
+        "map/model.py failed to import: name 'Layer' is not defined; add the missing name to the import from systemap"
+        in err
+    )
+    assert "Traceback" not in err
+    write_tree(tmp_path, {"map/model.py": "from systemap import Model, Layers\n"})
+    assert run("--root", str(tmp_path), "check") == 2
+    err = capsys.readouterr().err
+    assert "map/model.py failed to import: cannot import name 'Layers' from 'systemap'" in err
+    assert "add the missing name to the import from systemap" in err
+    write_tree(tmp_path, {"map/model.py": "raise ValueError('boom')\n"})
+    assert run("--root", str(tmp_path), "check") == 2
+    assert "map/model.py failed to import: ValueError: boom" in capsys.readouterr().err
 
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\ntheme = "dark"\n'})
     (tmp_path / "systemap.toml").unlink()
@@ -212,6 +233,12 @@ def test_figure_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         == 0
     )
     assert "<script>" in out.read_text()
+    # A relative --out lands in the output directory, like a [[figures]] out.
+    capsys.readouterr()
+    assert run("--root", str(tmp_path), "figure", "--static", "--out", "figures/one.svg") == 0
+    assert (tmp_path / "docs/map/figures/one.svg").read_text().startswith("<svg ")
+    assert capsys.readouterr().out.startswith("wrote docs/map/figures/one.svg (")
+    assert not (Path.cwd() / "figures/one.svg").exists()
     assert run("--root", str(tmp_path), "figure", "--components", "Nope", "--out", str(out)) == 2
     assert "unknown component ids: Nope" in capsys.readouterr().err
     assert run("--root", str(tmp_path), "figure", "--mode", "change", "--out", str(out)) == 1
@@ -263,7 +290,11 @@ def test_extract_on_tiny_package_via_cli(
     assert run("--root", str(tmp_path), "init") == 0
     assert run("--root", str(tmp_path), "extract") == 0
     out = capsys.readouterr().out
-    assert "modules: 3" in out
+    # The numbers are labelled for what they are: the map carries no counts.
+    assert (
+        "facts for the change detector (these never appear on the map):\n  modules:          3\n"
+        in out
+    )
     assert "written to docs/map/map.json" in out
 
 

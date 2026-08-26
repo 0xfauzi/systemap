@@ -74,7 +74,7 @@ def _root(args: argparse.Namespace) -> Path:
 
 def _project(args: argparse.Namespace) -> Project:
     cfg = config.load(_root(args))
-    model, meaning = config.load_model(cfg.model_path)
+    model, meaning = config.load_model(cfg.model_path, cfg.model)
     return Project(cfg, model, meaning, theme_mod.resolve(cfg.theme, all_layers(model, meaning)))
 
 
@@ -281,10 +281,14 @@ def cmd_figure(args: argparse.Namespace) -> int:
     for line in collisions:
         warn(line)
     if args.out:
+        # Relative to the output directory, like a [[figures]] out; an
+        # absolute path is written where it says.
         out = Path(args.out)
+        if not out.is_absolute():
+            out = p.cfg.out_path / out
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
-        say(f"wrote {args.out} ({len(html) / 1024:.0f} KB)")
+        say(f"wrote {p.cfg.rel(out)} ({len(html) / 1024:.0f} KB)")
     else:
         sys.stdout.write(html)
     if collisions:
@@ -535,7 +539,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--out",
         default="",
-        help="the file to write (default: stdout); a .svg name writes the drawing alone",
+        help="the file to write, relative to out_dir like a [[figures]] out (default: "
+        "stdout); a .svg name writes the drawing alone",
     )
     s.set_defaults(func=cmd_figure)
 

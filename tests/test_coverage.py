@@ -35,7 +35,7 @@ def test_all_mapped(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     scaffold(tmp_path)
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
-    assert "coverage: 2/2 modules mapped, 1 ignored" in out
+    assert "coverage: 2 of 3 modules mapped, 1 ignored with a reason" in out
     assert "unmapped" not in out
 
 
@@ -45,7 +45,7 @@ def test_one_unmapped_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     assert run("--root", str(tmp_path), "extract") == 0
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "coverage: 2/3 modules mapped, 1 ignored" in out
+    assert "coverage: 2 of 4 modules mapped, 1 ignored with a reason" in out
     assert "unmapped: pkg.extra (no component claims it)" in out
     assert "map layout: clean" in out, "the layout is fine; only coverage failed"
     assert "map every module in map/model.py, or ignore it with a reason" in out
@@ -67,7 +67,7 @@ def test_ignore_with_reason_passes(tmp_path: Path, capsys: pytest.CaptureFixture
     )
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
-    assert "coverage: 2/2 modules mapped, 2 ignored" in capsys.readouterr().out
+    assert "coverage: 2 of 4 modules mapped, 2 ignored with a reason" in capsys.readouterr().out
 
 
 def test_ignore_without_reason_is_a_config_error(
@@ -110,7 +110,7 @@ def test_double_claim_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     )
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "coverage: 1/2 modules mapped, 1 ignored" in out
+    assert "coverage: 1 of 3 modules mapped, 1 ignored with a reason" in out
     assert "claimed twice: pkg.reader (Reader, Writer)" in out
 
 
@@ -131,7 +131,7 @@ def test_subtree_claim_covers_the_package(
     model.write_text(text)
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
-    assert "coverage: 4/4 modules mapped, 1 ignored" in capsys.readouterr().out
+    assert "coverage: 4 of 5 modules mapped, 1 ignored with a reason" in capsys.readouterr().out
 
 
 def test_stale_ignore_is_reported(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

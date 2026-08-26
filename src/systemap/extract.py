@@ -753,7 +753,12 @@ def write_facts(path: Path, facts: dict[str, Any]) -> None:
 
 
 def summary(facts: dict[str, Any]) -> list[str]:
-    """The counts printed after an extract."""
+    """The counts printed after an extract, labelled for what they are.
+
+    The map carries no counts (the skill's rule); these feed the change
+    detector, and the header says so, so an agent reading the numbers does
+    not copy them onto a card.
+    """
     comps = facts["components"]
     guarded = sum(c["tests_total"] for c in comps.values())
     primary = sum(c["tests_primary"] for c in comps.values())
@@ -767,7 +772,8 @@ def summary(facts: dict[str, Any]) -> list[str]:
     else:
         tests = "no tests import a module; no directory named tests or test was found"
     return [
-        f"modules: {len(comps)}",
+        "facts for the change detector (these never appear on the map):",
+        f"  modules:          {len(comps)}",
         f"  public functions: {sum(len(c['functions']) for c in comps.values())}",
         f"  types:            {sum(len(c['classes']) for c in comps.values())}",
         f"  refusals:         {sum(len(c['errors']) for c in comps.values())}",

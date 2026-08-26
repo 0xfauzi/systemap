@@ -17,10 +17,11 @@ draft it; the maintainer reviews every call before it is trusted.
 
 The model is one Python module, by default `map/model.py`, exporting `MODEL`
 and `MEANING`, built from the dataclasses `systemap` exports. Run every
-command from the repository root: prefixed with `uv run` when systemap is a
-development dependency, bare when it is installed as a tool. `--root DIR`
-names the project when you are not in it. If there is no `systemap.toml`,
-run `systemap init` first; its starter model has no components yet.
+command from the repository root. Both `systemap` and `uv run systemap`
+resolve when the tool is installed; use whichever `systemap --version`
+answers to. `--root DIR` names the project when you are not in it. If
+there is no `systemap.toml`, run `systemap init` first; its starter model
+has no components yet.
 
 ## The loop
 
@@ -119,8 +120,7 @@ this skill, not a formality after it.
 
 ## Rules
 
-- No code or test counts anywhere. The map explains what the system does,
-  not how much code it has.
+- No code or test counts anywhere: the map says what, never how much.
 - The map draws what exists today. Every module a component names is in
   the facts; nothing on the map is a plan.
 - Prose is for emphasis; the relationships live on the edges. If it

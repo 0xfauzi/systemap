@@ -68,10 +68,10 @@ def test_check_passes_on_sample(sample: Sample) -> None:
     assert result.problems == []
     assert (result.through, result.across) == (0, 0)
     assert result.coverage.problems == ()
-    assert (result.coverage.mapped, result.coverage.total, result.coverage.ignored) == (4, 4, 1)
+    assert (result.coverage.mapped, result.coverage.total, result.coverage.ignored) == (4, 5, 1)
     assert result.ok
     lines = check.report(sample.model, result)
-    assert "coverage: 4/4 modules mapped, 1 ignored" in lines
+    assert "coverage: 4 of 5 modules mapped, 1 ignored with a reason" in lines
     assert any(line.startswith("map layout: clean") for line in lines)
     # A label on a shorter segment was once a note on a clean check; it is
     # not a rule, so it is not printed.

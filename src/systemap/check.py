@@ -271,9 +271,10 @@ class Coverage:
 
     `checked` is false when there were no facts to check against, which is
     itself a failure: a map cannot be called complete against nothing.
-    `total` counts the modules the rule applies to (the facts minus the
-    ignored ones) and `mapped` how many of those exactly one component
-    claims.
+    `total` counts every module in the facts, `ignored` those the
+    configuration takes out of the rule with a reason, and `mapped` how
+    many of the rest exactly one component claims; mapped plus ignored is
+    total when the map is complete, and the total is the extract's.
     """
 
     checked: bool
@@ -321,7 +322,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
             problems.append(f"unmapped: {m} (no component claims it)")
         else:
             mapped += 1
-    return Coverage(True, mapped, len(modules) - len(ignored), len(ignored), tuple(problems))
+    return Coverage(True, mapped, len(modules), len(ignored), tuple(problems))
 
 
 # ---- entry: a card is code that exists today ----------------------------------
@@ -518,8 +519,8 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
     ]
     cov = result.coverage
     if cov.checked:
-        ignored = f", {cov.ignored} ignored" if cov.ignored else ""
-        out.append(f"coverage: {cov.mapped}/{cov.total} modules mapped{ignored}")
+        ignored = f", {cov.ignored} ignored with a reason" if cov.ignored else ""
+        out.append(f"coverage: {cov.mapped} of {cov.total} modules mapped{ignored}")
         out += [f"  {line}" for line in cov.problems]
         if cov.problems:
             out.append(

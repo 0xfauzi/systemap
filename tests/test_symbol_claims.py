@@ -114,7 +114,7 @@ def test_a_symbol_claim_passes_and_counts_for_no_module(
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
     # Two modules, both claimed by the agent; the tool's symbol adds nothing and takes nothing.
-    assert "coverage: 2/2 modules mapped, 1 ignored" in out
+    assert "coverage: 2 of 3 modules mapped, 1 ignored with a reason" in out
     assert "map layout: clean (2 cards" in out
     detail = json.loads((tmp_path / "docs/map/map.json").read_text())
     assert {n["name"] for n in detail["components"]["bot.agent"]["names"]} >= {

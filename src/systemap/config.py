@@ -608,8 +608,14 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     return tuple(out)
 
 
-def load_model(path: Path) -> tuple[Model, Meaning]:
+def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     """Import the model module by path and return its MODEL and MEANING.
+
+    `label` is the name the messages call the module by (the configured
+    `model`, `map/model.py`); the path itself when not given. A name the
+    module could not import or does not know is reported as such, with
+    the fix: the starter imports every schema name, and an agent that
+    trims the import and then uses `Layer` gets one line, not a traceback.
 
     The source is compiled and run directly rather than through the
     import system's loader: that loader keeps bytecode under
@@ -621,6 +627,7 @@ def load_model(path: Path) -> tuple[Model, Meaning]:
     """
     if not path.is_file():
         raise ConfigError(f"model module not found: {path}")
+    label = label or str(path)
     name = f"systemap_model_{abs(hash(str(path)))}"
     module = types.ModuleType(name)
     module.__file__ = str(path)
@@ -628,14 +635,18 @@ def load_model(path: Path) -> tuple[Model, Meaning]:
     try:
         source = path.read_text(encoding="utf-8")
         exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - the model is code
+    except (ImportError, NameError) as exc:
+        raise ConfigError(
+            f"{label} failed to import: {exc}; add the missing name to the import from systemap"
+        ) from exc
     except Exception as exc:  # noqa: BLE001 - the consumer's module may fail any way
-        raise ConfigError(f"{path}: {type(exc).__name__}: {exc}") from exc
+        raise ConfigError(f"{label} failed to import: {type(exc).__name__}: {exc}") from exc
     finally:
         sys.modules.pop(name, None)
     model = getattr(module, "MODEL", None)
     meaning = getattr(module, "MEANING", None)
     if not isinstance(model, Model):
-        raise ConfigError(f"{path}: MODEL must be a systemap.Model")
+        raise ConfigError(f"{label}: MODEL must be a systemap.Model")
     if not isinstance(meaning, Meaning):
-        raise ConfigError(f"{path}: MEANING must be a systemap.Meaning")
+        raise ConfigError(f"{label}: MEANING must be a systemap.Meaning")
     return model, meaning
