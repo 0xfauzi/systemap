@@ -40,8 +40,18 @@ in a region.
 
 One card on the map. `id` is a code name in CamelCase, unique on the map.
 `does` says what it is for in plain words, one or two sentences, with no
-counts of lines, files or tests. `interface` is the one line by which other
-parts reach it: a signature, a file it writes, a command.
+counts of lines, files or tests.
+
+`interface` is the one line by which other parts reach it, shown in the
+detail panel (the click) under `does` as the card's signature. It starts
+with a public name one of the component's modules defines, a re-export or
+a name claimed by symbol included: `read(source) -> Request`,
+`Ledger.record / Ledger.history`, `app (the framework's App)`. The check
+reads the leading identifier, the token before `(`, `.`, `->` or
+whitespace, and for `Class.method` both parts, the method among the
+class's public methods in the facts; a line that starts with anything
+else is refused with the closest defined name. It is optional: a card
+with none shows no signature.
 
 `implemented_by` names the modules that are it: a module exactly
 (`"pkg.reader"`) or a package followed by `.*` (`"pkg.ui.*"`) for the
@@ -60,10 +70,11 @@ claims.
 
 `entry` is one public module-level name the claimed modules define: a
 function, a class, or an object such as `app` or `root_agent`; copy it from
-the facts file's `names`. For a card that claims only symbols, the entry is
-one of them. The check refuses an entry no claimed module or symbol
-defines and a component that names no module. An actor is the exception:
-it claims no code.
+`systemap facts --module NAME`, under `names`. For a card that claims only
+symbols, the entry is one of them. The panel shows it as `entry: name
+(module)`, the module being the one that defines it. The check refuses an
+entry no claimed module or symbol defines and a component that names no
+module. An actor is the exception: it claims no code.
 
 `kind` is `component` (does work), `store` (holds state; drawn with a rule
 under its name), `actor` (a person or a system outside the code; dashed),
@@ -72,7 +83,9 @@ capability an agent invokes; notched corner) or `context` (a store whose
 content enters an agent's window; dotted). `region` places anything but an
 actor; `container` places an actor. `x` and `y` are the card's top-left
 corner; cards are 150 wide, and 56 tall (52 for a store or a context card,
-44 for an actor). `note` is a caveat the reader sees on the card.
+44 for an actor). `note` is a caveat the reader sees: the panel shows it
+as a line under the signature, and the card carries a dot in its top
+corner on the map and in every figure, with the note as its hover text.
 
 ## Flow
 
@@ -148,8 +161,10 @@ word, a journey step naming an unknown id or edge, an override naming an
 unknown edge, a custom layer taking a standard id. Wheel: a relationship
 wheel whose labels touch each other or the centre. Coverage: a
 module claimed by nobody or by two. Entry: a module not in the facts, an
-entry not defined, a component with no module. Stale: facts, page or figure
-older than the tree or the model.
+entry not defined, a component with no module. Interface: a line that
+starts with a name none of the component's modules defines, or
+`Class.method` where the class has no such public method. Stale: facts,
+page or figure older than the tree or the model.
 
 ## The facts file
 

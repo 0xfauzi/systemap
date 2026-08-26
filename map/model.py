@@ -92,7 +92,7 @@ COMPONENTS = (
     Component(
         id="CLI",
         does="The commands the agent runs: init, extract, check, render, figure, refresh, judgement, describe, serve, skill. Every non-zero exit names what to run next.",
-        interface="systemap <command> [--root DIR]; exit 0 current, 1 failed or stale, 2 unusable",
+        interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__"),
         entry="main",
         region="operate",
@@ -155,7 +155,7 @@ COMPONENTS = (
     Component(
         id="Model",
         does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has.",
-        interface="MODEL: Model and MEANING: Meaning, exported by map/model.py",
+        interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, ...), exported by map/model.py as MODEL and MEANING",
         implemented_by=("systemap.model", "systemap"),
         entry="Model",
         kind="store",

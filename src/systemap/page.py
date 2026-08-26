@@ -235,7 +235,8 @@ def build(
     o.append(
         '<p class="key">Every card is code in the tree today: the check refuses a component '
         "whose modules or entry are not in the facts. A dashed card is an actor outside the "
-        "code. Every line carries what it moves and is coloured by the layer it belongs to. "
+        "code. A dot in a card's top corner marks a note; the panel shows it. Every line "
+        "carries what it moves and is coloured by the layer it belongs to. "
         "Click a component; press Escape to clear it and return the view; arrow keys step a "
         "journey; double-click a region's name to frame the region. Text is drawn at 11px "
         "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"

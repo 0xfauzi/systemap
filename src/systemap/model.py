@@ -610,6 +610,23 @@ def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
     return any(name == component.entry for _module, name in symbol_claims(component))
 
 
+def entry_module(component: Component, facts: Mapping[str, Any]) -> str:
+    """The module that defines the component's entry, for the panel's `entry: name (module)`.
+
+    The first claimed module (in the facts' order) whose public names hold
+    the entry, else the module of the symbol claim that names it, else
+    empty: an entry the check refused, or a store or context with none.
+    """
+    components = facts.get("components", {})
+    for m in claimed(component, components):
+        if component.entry and component.entry in public_names(components[m]):
+            return m
+    for module, name in symbol_claims(component):
+        if name == component.entry:
+            return module
+    return ""
+
+
 def build_state(component: Component, facts: Mapping[str, Any]) -> str:
     """The one build state a drawn component has: `built`.
 

@@ -225,7 +225,7 @@ def _fix_line(p: Project, result: check.Result) -> str:
             f"map every module in {p.cfg.model}, or ignore it with a reason under "
             "[coverage] in the configuration, then run: systemap check"
         )
-    if result.entry:
+    if result.entry or result.interface:
         return f"fix {p.cfg.model}, then run: systemap check"
     return "run: systemap refresh"
 
@@ -299,6 +299,10 @@ def cmd_figure(args: argparse.Namespace) -> int:
 
 # ---- refresh ---------------------------------------------------------------
 
+# Current means the page is what the renderer draws from the model's
+# rendered fields and the stored facts, and the facts describe the tree.
+ALREADY_CURRENT = "map: already current: the page matches the model's rendered fields and the facts"
+
 
 def cmd_refresh(args: argparse.Namespace) -> int:
     p = _project(args)
@@ -318,7 +322,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     stale_lines = check.stale(p.cfg, p.model, p.meaning, p.theme, fresh)
     result = check.run(p.model, p.meaning, p.theme, fresh, p.cfg.coverage_ignore)
     if not stale_lines and result.ok:
-        note("map: already current")
+        note(ALREADY_CURRENT)
         return OK
 
     note("map: refreshing against the working tree")

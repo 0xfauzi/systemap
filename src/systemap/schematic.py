@@ -55,6 +55,7 @@ from systemap.model import (
     Model,
     all_layers,
     build_state,
+    entry_module,
     reading,
 )
 from systemap.route import path_d, place_labels, route_all
@@ -629,6 +630,14 @@ def render(
                 f'fill-opacity=".85"/>'
             )
         g.append(L(x + w / 2, y + 17, cid, NAME_PX, INK, "600", True))
+        # A card with a note carries a dot in its top corner, on the map and
+        # in every figure; the panel shows the note itself, and the dot's
+        # title does when hovered.
+        if c.note:
+            g.append(
+                f'<g class="node__note"><title>{esc(c.note)}</title>'
+                f'<circle cx="{x + w - 6}" cy="{y + 6}" r="2.5" fill="{INK_3}"/></g>'
+            )
         # A store is the same card with a rule under its head: flat convention
         # for a thing that holds rows rather than does work. A context card is
         # a store too: its rows enter an agent's window.
@@ -696,6 +705,13 @@ def render(
             "state": state if kind != "actor" else "actor",
             "state_label": state_label if kind != "actor" else "outside",
             "lives": lives_in(list(c.implemented_by)),
+            # The three fields the panel prints beside the plain word: the
+            # one-line signature, the entry with the module that defines
+            # it, and the caveat.
+            "interface": c.interface,
+            "entry": c.entry,
+            "entry_module": entry_module(c, facts),
+            "note": c.note,
             "moved": moved,
             "rules": model.rules_of(cid),
             "edges": [
@@ -848,6 +864,12 @@ def panel_css(t: dict[str, Any]) -> str:
         f".systemap-f__kind{{color:{t['ink_3']};font-size:11px;letter-spacing:.06em;"
         "text-transform:uppercase}"
         f".systemap-f__does{{margin:.6rem 0 .2rem;font-size:13px;color:{t['ink_2']}}}"
+        # The card's one-line signature, then the caveat, before the wheel.
+        f".systemap-f__iface{{margin:.3rem 0 .2rem;font-family:{t['font_mono']};"
+        f"font-size:11.5px;color:{t['ink_2']};word-break:break-word}}"
+        f".systemap-f__note{{margin:.5rem 0 .2rem;padding:.4rem .6rem;font-size:12.5px;"
+        f"color:{t['ink']};border-left:3px solid {t['warn']};background:{t['raised']};"
+        "border-radius:0 6px 6px 0}"
         ".systemap-f__wheel{margin:.4rem 0 0}"
         ".systemap-f__wheel svg{width:100%;height:auto;display:block;margin:0 auto}"
         f".systemap-f__say{{margin:.2rem 0 .6rem;padding:.55rem .7rem;font-size:13px;"
@@ -869,6 +891,9 @@ def panel_css(t: dict[str, Any]) -> str:
         f".systemap-f__lives{{margin:.6rem 0 0;font-family:{t['font_mono']};font-size:11px;"
         f"color:{t['ink_3']}}}"
         f".systemap-f__lives b{{font-weight:400;color:{t['ink_3']}}}"
+        f".systemap-f__entry{{margin:.4rem 0 0;font-family:{t['font_mono']};font-size:11px;"
+        f"color:{t['ink_3']}}}"
+        f".systemap-f__entry b{{font-weight:400;color:{t['ink_2']}}}"
         # The wheel
         f".systemap-w__spoke{{cursor:pointer;outline:none}}"
         ".systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}"
@@ -1466,6 +1491,9 @@ function describe(d){
   h += '<div class="systemap-f__code">' + esc(d.id) + '<span class="systemap-f__kind">'
      + esc(d.kind) + (d.region ? ' in ' + esc(d.region) : '') + '</span></div>';
   h += '<p class="systemap-f__does">' + esc(d.does) + '</p>';
+  // The one-line signature and the caveat, when the card has them.
+  if(d.interface){ h += '<p class="systemap-f__iface">' + esc(d.interface) + '</p>'; }
+  if(d.note){ h += '<p class="systemap-f__note">' + esc(d.note) + '</p>'; }
   h += '<div class="systemap-f__wheel">' + wheelSvg(d.id) + '</div>';
   var say = (d.edges && d.edges.length) ? SAY_HINT : 'Nothing flows to or from this yet.';
   h += '<p class="systemap-f__say muted" data-say>' + esc(say) + '</p>';
@@ -1478,6 +1506,14 @@ function describe(d){
   });
   h += '</div>';
   if(d.lives){ h += '<p class="systemap-f__lives">lives in <b>' + esc(d.lives) + '</b></p>'; }
+  // The entry the card names, with the module that defines it; a store or
+  // a context card may have none, and then it is a namespace.
+  if(d.kind !== 'actor'){
+    var entry = d.entry
+      ? esc(d.entry) + (d.entry_module ? ' (' + esc(d.entry_module) + ')' : '')
+      : 'none (a namespace)';
+    h += '<p class="systemap-f__entry">entry: <b>' + entry + '</b></p>';
+  }
   h += '</div>';
   return h;
 }

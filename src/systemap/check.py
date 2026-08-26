@@ -34,6 +34,9 @@ What is checked, in order:
                     them defines (a function, a class, an object); the map draws
                     what exists today, so a name the code does not have
                     would draw a part that is not there
+    interface ..... every `interface` line starts with a name the
+                    component's modules define (`Class.method` needs both),
+                    refused with the closest defined name
     stale ......... the facts file describes the tree, the page is what the
                     renderer draws from the facts and the model, and every
                     configured figure is what the generator draws; the
@@ -46,10 +49,11 @@ The CLI prints one line per problem, the fix under each group, and exits
 
 from __future__ import annotations
 
+import difflib
 import json
 import math
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -383,6 +387,105 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
     return out
 
 
+# ---- interface: the signature names something the modules define ------------------
+
+# The leading identifier of an interface line, and the method after a dot
+# when the line reads `Class.method`. The token ends at `(`, `.`, `->`,
+# whitespace or anything else that is not part of a name.
+INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?")
+
+
+def interface_head(text: str) -> tuple[str, str] | None:
+    """(the leading identifier, the method after a dot or empty), or None
+    when the line starts with no identifier at all."""
+    found = INTERFACE_HEAD.match(text)
+    if found is None:
+        return None
+    return found.group(1), found.group(2) or ""
+
+
+def _method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
+    """The public methods one facts record gives a class, from their signatures."""
+    out: set[str] = set()
+    for group in ("classes", "errors"):
+        for cls in record.get(group, []):
+            if cls.get("name") != class_name:
+                continue
+            for sig in cls.get("methods", []):
+                found = re.match(r"(?:async )?def (\w+)\(", sig)
+                if found:
+                    out.add(found.group(1))
+    return out
+
+
+def _closest(name: str, candidates: Iterable[str]) -> str:
+    matches = difflib.get_close_matches(name, sorted(set(candidates)), n=1, cutoff=0.0)
+    return matches[0] if matches else ""
+
+
+def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
+    """Every `interface` starts with a name the component's modules define.
+
+    The interface line is what the reader is told other parts reach the
+    component by, so its leading identifier (the token before `(`, `.`,
+    `->` or whitespace) must be a public name one of the claimed modules
+    defines, a re-export included, or a name the component claims by
+    symbol. `Class.method` needs both: the class, and a public method of
+    it in the facts. The line is refused with the closest defined name,
+    since a session found most of its interface lines wrong after a check
+    that never read them. `interface` stays optional; an empty one is not
+    checked, and an actor claims no code.
+    """
+    components = facts.get("components", {})
+    if not components:
+        return []
+    out: list[str] = []
+    for c in model.components:
+        if c.kind == "actor" or not c.interface.strip():
+            continue
+        modules = claimed(c, components)
+        symbols = symbol_claims(c)
+        names: set[str] = set()
+        for m in modules:
+            names |= public_names(components[m])
+        names |= {name for _module, name in symbols}
+        held = ", ".join(modules + [f"{m}:{n}" for m, n in symbols])
+        head = interface_head(c.interface)
+        if head is None:
+            out.append(
+                f"{c.id} interface '{c.interface}' does not start with a name; start it "
+                f"with a public name one of its modules defines ({held})"
+            )
+            continue
+        name, method = head
+        if name not in names:
+            closest = _closest(name, names)
+            hint = f"; closest: {closest}" if closest else ""
+            out.append(
+                f"{c.id} interface starts with {name}, which none of its modules defines "
+                f"({held}){hint}"
+            )
+            continue
+        if not method:
+            continue
+        methods: set[str] = set()
+        for m in modules:
+            methods |= _method_names(components[m], name)
+        for m, n in symbols:
+            if n == name and m in components:
+                methods |= _method_names(components[m], name)
+        if method not in methods and method not in names:
+            # The class's own methods first: a wrong method is usually a
+            # misspelt one, not a module-level name.
+            closest = _closest(method, methods) or _closest(method, names)
+            hint = f"; closest: {closest}" if closest else ""
+            out.append(
+                f"{c.id} interface names {name}.{method}, but {name} has no public method "
+                f"{method} ({held}){hint}"
+            )
+    return out
+
+
 # ---- stale: the outputs are what the tree and the model say ----------------------
 
 
@@ -450,7 +553,8 @@ class Result:
 
     `problems` are the placement, meaning, route, label, type-size and
     wheel findings; `coverage` is the module rule; `entry` is the rule that
-    every card is code in the tree; `stale` is filled in by the CLI, which
+    every card is code in the tree; `interface` the rule that a signature
+    names what the modules define; `stale` is filled in by the CLI, which
     has the configuration the comparison needs; `through` and `across`
     count edges through a foreign card and across a foreign region.
     """
@@ -460,11 +564,18 @@ class Result:
     across: int
     coverage: Coverage
     entry: list[str] = field(default_factory=list)
+    interface: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return not self.problems and self.coverage.ok and not self.entry and not self.stale
+        return (
+            not self.problems
+            and self.coverage.ok
+            and not self.entry
+            and not self.interface
+            and not self.stale
+        )
 
 
 def run(
@@ -498,6 +609,7 @@ def run(
         across,
         coverage,
         entry=check_entry(model, facts),
+        interface=check_interface(model, facts),
     )
 
 
@@ -536,6 +648,13 @@ def report(model: Model, result: Result, model_file: str = "the model") -> list[
             f"  fix: in {model_file}, name only modules the facts have and set entry to "
             "a public name one of them defines (a function, a class, an object such as "
             "app); the map draws what exists today"
+        )
+    if result.interface:
+        out.append(f"interface: {_plural(len(result.interface), 'problem')}")
+        out += [f"  {line}" for line in result.interface]
+        out.append(
+            f"  fix: in {model_file}, start interface with a public name one of the "
+            "component's modules defines (Class.method for a method), or leave it empty"
         )
     problems = result.problems
     if problems:

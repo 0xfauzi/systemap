@@ -232,8 +232,10 @@ def test_entry_may_be_any_public_name(tmp_path: Path, capsys: pytest.CaptureFixt
         model.read_text()
         .replace('implemented_by=("pkg.reader",)', 'implemented_by=("pkg.app",)')
         .replace('entry="read",', 'entry="app",')
+        .replace('interface="read(source) -> Request",', 'interface="app (the server object)",')
         .replace('implemented_by=("pkg.writer",)', 'implemented_by=("pkg.core",)')
         .replace('entry="write",', 'entry="run",')
+        .replace('interface="write(request) -> Result",', 'interface="run() -> None",')
     )
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
