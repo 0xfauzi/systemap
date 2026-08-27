@@ -358,3 +358,56 @@ def test_with_claims_renames_modules_and_symbols_and_keeps_patterns() -> None:
     renamed = delta.with_claims(model, {"pkg.old": "pkg.new"})
     assert renamed.components[0].implemented_by == ("pkg.new", "pkg.new:name", "pkg.sub.*")
     assert delta.with_claims(model, {}) == model
+
+
+def record(file: str, sha: str, *names: str) -> dict[str, object]:
+    """One module's facts, as much of them as the matcher reads."""
+    return {"file": file, "sha": sha, "names": [{"name": n, "kind": "function"} for n in names]}
+
+
+def test_the_best_pairing_wins_over_the_first_free_one() -> None:
+    # Every migration holds one class of the same name, so each old module
+    # is eligible for every new one. Taking the first free candidate walks
+    # the whole set one place along and tells each card to claim its
+    # neighbour's module; the file names are what say which became which.
+    base = {
+        f"pkg.migrations.{n:04d}_{word}": record(f"pkg/migrations/{n:04d}_{word}.py", "aa", "Migration")
+        for n, word in ((3, "order"), (4, "storage"), (5, "checksum"))
+    }
+    head = {
+        f"pkg.migrations.{n:04d}_{word}": record(f"pkg/migrations/{n:04d}_{word}.py", "bb", "Migration")
+        for n, word in ((4, "order"), (5, "storage"), (6, "checksum"))
+    }
+    moves = delta._moves(base, head, sorted(base), sorted(head))
+    assert {old: new for old, (new, _how) in moves.items()} == {
+        "pkg.migrations.0003_order": "pkg.migrations.0004_order",
+        "pkg.migrations.0004_storage": "pkg.migrations.0005_storage",
+        "pkg.migrations.0005_checksum": "pkg.migrations.0006_checksum",
+    }
+
+
+def test_a_module_renamed_and_edited_at_once_is_still_one_move() -> None:
+    # Neither the source nor the whole surface survives, so the two
+    # stronger questions cannot answer; the file name and the names that
+    # did survive can. One name in ten changing leaves 0.82 of the surface,
+    # over SURFACE_OVERLAP, and route.py reads 0.78 like routing.py, over
+    # NAME_ALIKE.
+    kept = tuple(f"name{i}" for i in range(9))
+    base = {"pkg.route": record("pkg/route.py", "aa", "route_all", *kept)}
+    head = {"pkg.routing": record("pkg/routing.py", "bb", "compute_routes", *kept)}
+    moves = delta._moves(base, head, ["pkg.route"], ["pkg.routing"])
+    new, how = moves["pkg.route"]
+    assert new == "pkg.routing"
+    assert "file name" in how
+
+
+def test_two_empty_modules_with_different_names_are_not_joined() -> None:
+    # Identical source is no evidence when there is no source: an empty
+    # module is like every other empty module, so the file names must agree.
+    base = {"pkg.a.ui": record("pkg/a/ui.py", "e3b0")}
+    head = {"pkg.b": record("pkg/b/__init__.py", "e3b0")}
+    assert delta._moves(base, head, ["pkg.a.ui"], ["pkg.b"]) == {}
+    same = {"pkg.b.thing": record("pkg/b/thing/__init__.py", "e3b0")}
+    moves = delta._moves({"pkg.a.thing": record("pkg/a/thing/__init__.py", "e3b0")},
+                         same, ["pkg.a.thing"], ["pkg.b.thing"])
+    assert moves["pkg.a.thing"][0] == "pkg.b.thing"

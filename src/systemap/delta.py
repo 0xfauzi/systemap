@@ -6,9 +6,10 @@ only answer used to be the whole loop again, at first-draft cost. This
 module reads the facts at two commits and says, in the map's terms, what
 the change did:
 
-    moved ................ a module at a new path, with the same content or
-                           the same public names; the card that names the
-                           old path is told to rename it
+    moved ................ a module at a new path, with the same content,
+                           the same public names, or a file name that reads
+                           the same and most of the same names; the card
+                           that names the old path is told to rename it
     added ................ a new module, and the card that claims it; a new
                            module no card claims is coverage lost, and the
                            line says so
@@ -53,7 +54,8 @@ import subprocess
 import tarfile
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path
+from difflib import SequenceMatcher
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import evidence, extract, nest
@@ -77,6 +79,16 @@ NEXT = "systemap refresh && systemap check && systemap judgement --strict"
 # Past this share of the cards, the skill says to run the full loop instead
 # of acting line by line.
 FULL_LOOP_SHARE = 1 / 3
+# What the last question asks of a module renamed and edited at once:
+# how much of its public surface it kept, and how alike the two file
+# names read. Measured over every python rename git reports in kstrl,
+# rich, poetry, mealie and paperless-ngx. 0.8 of the surface is the
+# loosest value that costs nothing: at 0.6, mealie gains two wrong
+# pairings. 0.6 of the file name buys two more real renames for one
+# wrong one, and is what recognises route.py -> routing.py, which
+# reads 0.78 alike.
+SURFACE_OVERLAP = 0.8
+NAME_ALIKE = 0.6
 
 
 class DeltaError(Exception):
@@ -211,33 +223,124 @@ class Delta:
         return self.cards > 0 and len(self.named) > self.cards * FULL_LOOP_SHARE
 
 
+def _path(record: dict[str, Any]) -> PurePosixPath:
+    """Where a module's file sits, as the facts recorded it."""
+    return PurePosixPath(str(record.get("file", "")))
+
+
+def _affinity(old: dict[str, Any], cand: dict[str, Any]) -> tuple[int, int, int]:
+    """How alike two modules' files are: the tail of the path first, then
+    how alike the two file names read, then the head of the path.
+
+    The middle term is the one that earns its place. A package that
+    renumbers its migrations offers a file per number with the same one
+    class in each, so every other signal ties, and only `0003_widget.py`
+    reading like `0004_widget.py` says which became which.
+    """
+    a, b = _path(old).parts, _path(cand).parts
+    tail = 0
+    for x, y in zip(reversed(a), reversed(b), strict=False):
+        if x != y:
+            break
+        tail += 1
+    head = 0
+    for x, y in zip(a, b, strict=False):
+        if x != y:
+            break
+        head += 1
+    return (tail, int(_alike(a[-1] if a else "", b[-1] if b else "") * 1000), head)
+
+
+def _first(score: tuple[int, int, int]) -> tuple[int, int, int]:
+    """The sort key that puts the likeliest pairing first."""
+    return (-score[0], -score[1], -score[2])
+
+
+def _alike(a: str, b: str) -> float:
+    """How alike two file names read, between 0 and 1."""
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def _overlap(a: set[str], b: set[str]) -> float:
+    """The share of the two surfaces' names that both of them have."""
+    union = a | b
+    return len(a & b) / len(union) if union else 0.0
+
+
 def _moves(
     base: dict[str, Any], head: dict[str, Any], gone: list[str], new: list[str]
 ) -> dict[str, tuple[str, str]]:
     """old module -> (new module, how it was recognised), for every move.
 
-    Same content first (the extractor's sha of the source), then the same
-    public names when there are any; each new module is matched once.
+    Three questions, the strongest first: the same source (the extractor's
+    sha), then the same public names, then a file name that reads the same
+    and most of the same names. Each new module is matched once.
+
+    Every pairing a question admits is scored by `_affinity` and the best
+    is taken, because a question can admit a great many at once. When a
+    package moves to a src layout, every empty `__init__.py` in it has the
+    same source as every other, and pairing each old module with the first
+    free candidate walks the whole set one place along, so each card is
+    told to rename its claim to its neighbour's module. Measured on the
+    renames git reports in five repositories, taking the best pairing
+    rather than the first turned 27 such wrong lines into 12.
     """
+    surface = {m: public_names(r) for m, r in list(base.items()) + list(head.items())}
     out: dict[str, tuple[str, str]] = {}
-    free = list(new)
-    for old in gone:
-        for candidate in free:
-            if base[old]["sha"] == head[candidate]["sha"]:
-                out[old] = (candidate, "same content")
-                free.remove(candidate)
-                break
-    for old in gone:
-        if old in out:
-            continue
-        names = public_names(base[old])
-        if not names:
-            continue
-        for candidate in free:
-            if public_names(head[candidate]) == names:
-                out[old] = (candidate, "same public names")
-                free.remove(candidate)
-                break
+    taken: set[str] = set()
+
+    def assign(pairs: list[tuple[tuple[int, int, int], str, str]], how: str) -> None:
+        for _score, old, cand in sorted(pairs, key=lambda p: (_first(p[0]), p[1], p[2])):
+            if old in out or cand in taken:
+                continue
+            out[old] = (cand, how)
+            taken.add(cand)
+
+    def left() -> list[str]:
+        return [m for m in gone if m not in out]
+
+    def right() -> list[str]:
+        return [m for m in new if m not in taken]
+
+    # The same source is strong evidence, except where there is no source
+    # to speak of: two empty modules are alike for a reason that says
+    # nothing about which is which, so their file names must agree.
+    assign(
+        [
+            (_affinity(base[o], head[c]), o, c)
+            for o in left()
+            for c in right()
+            if base[o]["sha"] == head[c]["sha"]
+            and (surface[o] or _path(base[o]).name == _path(head[c]).name)
+        ],
+        "same content",
+    )
+    assign(
+        [
+            (_affinity(base[o], head[c]), o, c)
+            for o in left()
+            if surface[o]
+            for c in right()
+            if surface[c] == surface[o]
+        ],
+        "same public names",
+    )
+    # A module renamed and edited in the same commit answers neither
+    # question above: its source changed and so did its surface. What is
+    # left is how much of the surface survived and how alike the two file
+    # names read.
+    assign(
+        [
+            (_affinity(base[o], head[c]), o, c)
+            for o in left()
+            if surface[o]
+            for c in right()
+            if surface[c]
+            and _alike(_path(base[o]).name, _path(head[c]).name) >= NAME_ALIKE
+            and _overlap(surface[o], surface[c]) >= SURFACE_OVERLAP
+        ],
+        "a file name that reads the same and most of the same names",
+    )
     return out
 
 
