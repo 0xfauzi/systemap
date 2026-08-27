@@ -214,6 +214,32 @@ repos:
         types: [python]
         exclude: *evidence
 
+      # Stops a file GROWING TO more than 800 lines. Two cases fail: a file this
+      # commit adds already over the limit, and a file that was at or under it and
+      # is now over. Those are the moments a file becomes a problem.
+      #
+      # A file ALREADY over the limit is reported when it grows, not failed. That
+      # differs from the complexity gates on purpose: complexity is a property of
+      # one function, so freezing a bad one costs nothing because you can edit its
+      # neighbour. Length is a property of the whole file, so failing on growth
+      # would block every edit until somebody does a large refactor they did not
+      # come here to do. Measured across these repos: 135 Python files are already
+      # over 800 lines, 77 of them source. Freezing 135 files is how a hook gets
+      # --no-verify'd. FREEZE_OVERSIZE in the script flips this if you want it.
+      #
+      # Lines, not bytes: check-added-large-files caps bytes and only looks at
+      # files being ADDED, so a file growing past a megabyte one commit at a time
+      # is invisible to it. Neither hook covers what this one does.
+      #
+      # Python only. A generic length rule fires on lock files, JSON fixtures and
+      # generated output, where length is not a defect.
+      - id: file-length-ratchet
+        name: no file grows past 800 lines
+        language: system
+        entry: python3 scripts/precommit/file_length_ratchet.py
+        types: [python]
+        exclude: *vendored
+
       - id: no-em-dash
         name: forbid em dashes
         language: pygrep
