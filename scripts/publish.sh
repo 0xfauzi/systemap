@@ -36,7 +36,10 @@ fi
 
 rm -rf dist
 uv build
-echo "publish: built $(ls dist | tr '\n' ' ')"
+# Not `ls dist`: parsing ls breaks on a name with a space or a newline in
+# it, and shellcheck refuses it (SC2012). The glob is the shell's own list.
+built="$(cd dist && printf '%s ' *)"
+echo "publish: built $built"
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "publish: dry run, nothing uploaded"

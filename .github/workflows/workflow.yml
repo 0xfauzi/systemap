@@ -26,6 +26,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Without this the job inherits GitHub's six-hour default, so one hang
+    # bills six hours. Build and upload is a two-minute job.
+    timeout-minutes: 10
     # Named in the identity GitHub signs, and registered on PyPI beside the
     # repository and this file's name.
     environment: pypi
