@@ -61,6 +61,15 @@ not (0.159 and 0.177). The maintenance runs came in at 2.31, 4.39 and
 over the 15 the target named, because the maintenance path runs delta,
 refresh, check and judgement rather than the two steps that number
 assumed. Neither target was moved after the fact.
+
+A note on which direction a maintenance run reads. These runs were set up
+by reverting a merged pull request and leaving the map as it was, so the
+code had lost structure the map still claimed. That exercises the lines
+that fire when something goes: `entry vanished`, `interface vanished` and
+`evidence lost`. The workflow `init` writes reads the other way, from a
+pull request's base to its head, where the line that fires is `new
+crossing import`. Both directions are covered by the test suite; the
+turns and dollars below are the reverted one.
 """
 
 EMPTY = "No run recorded yet: the table is empty until a repository is measured."
