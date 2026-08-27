@@ -772,7 +772,9 @@ def markdown(d: Delta, figure: str = "") -> str:
     if d.open:
         out.append(f"Act on each line, then run `{NEXT}`.")
     else:
-        out.append("Nothing to decide: the map already covers this change. "
-            "`systemap refresh` brings the facts up to date.")
+        out.append(
+            "Nothing to decide: the map already covers this change. "
+            "`systemap refresh` brings the facts up to date."
+        )
     out.append("")
     return "\n".join(out)

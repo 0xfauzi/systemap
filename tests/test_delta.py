@@ -307,7 +307,9 @@ def test_nothing_to_do_and_no_change_exit_zero(
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 0
     out = capsys.readouterr().out
     assert "1 modules changed, 0 added, 0 removed, 0 moved; 0 of 6 cards named" in out
-    assert out.rstrip().endswith("nothing to decide: the map already covers this change. run: systemap refresh")
+    assert out.rstrip().endswith(
+        "nothing to decide: the map already covers this change. run: systemap refresh"
+    )
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")
@@ -371,11 +373,15 @@ def test_the_best_pairing_wins_over_the_first_free_one() -> None:
     # the whole set one place along and tells each card to claim its
     # neighbour's module; the file names are what say which became which.
     base = {
-        f"pkg.migrations.{n:04d}_{word}": record(f"pkg/migrations/{n:04d}_{word}.py", "aa", "Migration")
+        f"pkg.migrations.{n:04d}_{word}": record(
+            f"pkg/migrations/{n:04d}_{word}.py", "aa", "Migration"
+        )
         for n, word in ((3, "order"), (4, "storage"), (5, "checksum"))
     }
     head = {
-        f"pkg.migrations.{n:04d}_{word}": record(f"pkg/migrations/{n:04d}_{word}.py", "bb", "Migration")
+        f"pkg.migrations.{n:04d}_{word}": record(
+            f"pkg/migrations/{n:04d}_{word}.py", "bb", "Migration"
+        )
         for n, word in ((4, "order"), (5, "storage"), (6, "checksum"))
     }
     moves = delta._moves(base, head, sorted(base), sorted(head))
@@ -408,6 +414,10 @@ def test_two_empty_modules_with_different_names_are_not_joined() -> None:
     head = {"pkg.b": record("pkg/b/__init__.py", "e3b0")}
     assert delta._moves(base, head, ["pkg.a.ui"], ["pkg.b"]) == {}
     same = {"pkg.b.thing": record("pkg/b/thing/__init__.py", "e3b0")}
-    moves = delta._moves({"pkg.a.thing": record("pkg/a/thing/__init__.py", "e3b0")},
-                         same, ["pkg.a.thing"], ["pkg.b.thing"])
+    moves = delta._moves(
+        {"pkg.a.thing": record("pkg/a/thing/__init__.py", "e3b0")},
+        same,
+        ["pkg.a.thing"],
+        ["pkg.b.thing"],
+    )
     assert moves["pkg.a.thing"][0] == "pkg.b.thing"

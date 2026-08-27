@@ -122,7 +122,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 
 1. `systemap delta --base <the base branch>`: what the change did to the
    map, one line per thing with its fix, from the facts at both commits
-   read out of git; exit 1 while a line needs a person.
+   read out of git; exit 1 while a line needs a decision.
 2. Act only on those lines, in `map/model.py` and `systemap.toml`.
 3. `systemap refresh`, then `systemap check && systemap judgement --strict`.
 4. When `delta` names more than about a third of the cards, it says so:
@@ -185,7 +185,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI; `--kind KIND` prints one kind when the list runs long; `--verbose` lists the imports behind each crossing-import line |
-| `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; exit 1 while a line needs a person; `--format markdown` for a pull-request comment |
+| `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; exit 1 while a line needs a decision; `--format markdown` for a pull-request comment |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, `--map ID` for the map inside a card, or `--components A,B` for a plan's reach |
