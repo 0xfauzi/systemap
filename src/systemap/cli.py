@@ -521,7 +521,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     """What a change did to the map, from the facts at two commits.
 
     Both trees are read from git, never from the working copy; the model
-    is the one on disk. Exit 0 when nothing needs a person, 1 when a line
+    is the one on disk. Exit 0 when nothing needs a decision, 1 when a line
     does, each line naming its fix; `--format markdown` prints the report
     as a pull-request comment, with the committed map at the head commit
     where a GitHub remote and a figure make that possible.
@@ -923,7 +923,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="what a change did to the map, from the facts at two commits read out of git: "
         "modules added, removed and moved with the card each belongs to, entry and interface "
         "names that vanished, new imports across a card boundary with no flow, flows the "
-        "code stopped backing; each line names its fix; exit 0 when nothing needs a person, "
+        "code stopped backing; each line names its fix; exit 0 when nothing needs a decision, "
         "1 when something does",
     )
     add_root(s)

@@ -113,7 +113,7 @@ fix:
 The workflow `init` writes posts that report as one comment on every pull
 request and keeps it updated as you push, so the review you do on your agent's
 work starts with what the change did to the system rather than with 400 lines
-of diff. It exits 0 when nothing needs a person and 1 when something does, so
+of diff. It exits 0 when nothing needs a decision and 1 when something does, so
 CI can hold the line while you are not looking.
 
 Then your agent acts on those lines alone rather than redrawing the map.

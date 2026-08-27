@@ -761,7 +761,7 @@ JOURNEYS = (
                 acts=("Check",),
                 measures=("CI",),
                 edge=("Check", "CI"),
-                say="The job fails while a line needs a person; the comment names each fix, so the map is maintained in the pull request that changed the code.",
+                say="The job fails while a line needs a decision; the comment names each fix, so the map is maintained in the pull request that changed the code.",
             ),
             Step(
                 acts=("Agent",),

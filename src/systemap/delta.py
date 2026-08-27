@@ -25,9 +25,13 @@ the change did:
     evidence lost ........ a flow an import backed at the base commit and
                            nothing backs now
 
-Each line names its fix. A line needs a person, or it does not (a new
-module claimed through a `pkg.*` pattern needs nobody), and the exit
-code says which: 0 when nothing needs a person, 1 when something does.
+Each line names its fix. A line needs a decision, or it does not, and
+the exit code says which: 0 when nothing needs a decision, 1 when
+something does. A decision is one nobody else can take: which card
+claims a new module, whether a new dependency across a boundary
+belongs, what a card's entry point is now. The rest is a line the map
+as written already covers, such as a new module a `pkg.*` pattern
+claims, and `systemap refresh` is the whole of the fix.
 `--format markdown` prints the same report as a pull-request comment.
 
 The facts at each commit are read from the git tree (`git archive` into
@@ -184,7 +188,7 @@ class Line:
     kind: str
     text: str
     cards: tuple[str, ...] = ()
-    person: bool = False
+    decide: bool = False
 
 
 @dataclass(frozen=True)
@@ -204,11 +208,11 @@ class Delta:
 
     @property
     def open(self) -> list[Line]:
-        return [line for line in self.lines if line.person]
+        return [line for line in self.lines if line.decide]
 
     @property
     def quiet(self) -> list[Line]:
-        return [line for line in self.lines if not line.person]
+        return [line for line in self.lines if not line.decide]
 
     @property
     def named(self) -> list[str]:
@@ -428,7 +432,7 @@ def compute(
                     f"moved: {old} -> {new_name} ({how}); {who} names {old} in implemented_by: "
                     f"rename it to {new_name} in {model_file}",
                     tuple(explicit),
-                    person=True,
+                    decide=True,
                 )
             )
         elif (
@@ -443,7 +447,7 @@ def compute(
                     f"moved: {old} -> {new_name} ({how}); no card claims {new_name}: name it in "
                     f"a card's implemented_by in {model_file}",
                     (was,) if was else (),
-                    person=True,
+                    decide=True,
                 )
             )
         else:
@@ -478,7 +482,7 @@ def compute(
                     "added",
                     f"added: {module}, claimed by no card; name it in a card's implemented_by "
                     f"in {model_file}, {way_out}",
-                    person=True,
+                    decide=True,
                 )
             )
     for module in gone:
@@ -495,7 +499,7 @@ def compute(
                     "removed",
                     f"removed: {module}; {who} names it in implemented_by: drop it in {model_file}",
                     tuple(explicit),
-                    person=True,
+                    decide=True,
                 )
             )
         elif symbols:
@@ -505,7 +509,7 @@ def compute(
                     "removed",
                     f"removed: {module}; {who}: drop it in {model_file}",
                     tuple(cid for cid, _n in symbols),
-                    person=True,
+                    decide=True,
                 )
             )
         elif module in ignores and not within:
@@ -513,7 +517,7 @@ def compute(
                 Line(
                     "removed",
                     f"removed: {module}; the [coverage] ignore that names it is stale: remove it",
-                    person=True,
+                    decide=True,
                 )
             )
         else:
@@ -524,7 +528,7 @@ def compute(
     # ---- entry and interface names that vanished ---------------------------------
     # A card told to rename or drop a module is not asked about its names
     # too: the rename or the drop comes first, and delta is run again.
-    touched = {card for line in lines if line.person for card in line.cards}
+    touched = {card for line in lines if line.decide for card in line.cards}
     for c_base, c_head in zip(base_model.components, head_model.components, strict=True):
         if c_head.kind == "actor" or c_head.id in touched:
             continue
@@ -536,7 +540,7 @@ def compute(
                     f"defined{at_base} and no longer do; set entry to a public name they define "
                     f"in {model_file}",
                     (c_head.id,),
-                    person=True,
+                    decide=True,
                 )
             )
         if not c_head.interface.strip() or interface_problem(c_base, b):
@@ -551,7 +555,7 @@ def compute(
                     f"modules defined{at_base} and no longer do; start it with a public name "
                     f"they define in {model_file}, or leave it empty",
                     (c_head.id,),
-                    person=True,
+                    decide=True,
                 )
             )
 
@@ -580,7 +584,7 @@ def compute(
                     f"no flow joins {p} and {q}; add the flow with its sentence in {model_file}, "
                     "or answer it under [judgement] answered",
                     (p, q),
-                    person=True,
+                    decide=True,
                 )
             )
 
@@ -597,7 +601,7 @@ def compute(
                     "no import joins them now; find the evidence, name the mechanism in the "
                     f"sentence, or remove the flow in {model_file}",
                     (f.src, f.dst),
-                    person=True,
+                    decide=True,
                 )
             )
 
@@ -717,7 +721,7 @@ def report(d: Delta) -> list[str]:
         return [f"delta: no module changed between {pair}; the map is unaffected"]
     out = [f"delta: {span}: {_counts(d)}"]
     if d.open:
-        out.append(f"needs a person ({len(d.open)}):")
+        out.append(f"needs a decision ({len(d.open)}):")
         out += [f"  {line.text}" for line in d.open]
     if d.quiet:
         out.append(f"changed, nothing to do ({len(d.quiet)}):")
@@ -727,7 +731,7 @@ def report(d: Delta) -> list[str]:
     if d.open:
         out.append(f"act on each line above, then run: {NEXT}")
     else:
-        out.append("nothing needs a person; run: systemap refresh")
+        out.append("nothing to decide: the map already covers this change. run: systemap refresh")
     return out
 
 
@@ -743,7 +747,7 @@ def markdown(d: Delta, figure: str = "") -> str:
         return "\n".join(out)
     out += [f"{span}: {_counts(d)}.", ""]
     if d.open:
-        out += [f"**Needs a person ({len(d.open)})**", ""]
+        out += [f"**Needs a decision ({len(d.open)})**", ""]
         out += [f"- `{line.text}`" for line in d.open]
         out.append("")
     if d.quiet:
@@ -768,6 +772,7 @@ def markdown(d: Delta, figure: str = "") -> str:
     if d.open:
         out.append(f"Act on each line, then run `{NEXT}`.")
     else:
-        out.append("Nothing needs a person; `systemap refresh` brings the facts up to date.")
+        out.append("Nothing to decide: the map already covers this change. "
+            "`systemap refresh` brings the facts up to date.")
     out.append("")
     return "\n".join(out)

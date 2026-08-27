@@ -255,7 +255,7 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
         "added: pkg.vendor.lib, ignored under [coverage]",
         "removed: pkg.more.gone, was claimed by Writer through a pattern",
     ]
-    start = lines.index(f"needs a person ({len(expected_open)}):")
+    start = lines.index(f"needs a decision ({len(expected_open)}):")
     assert lines[start + 1 : start + 1 + len(expected_open)] == [f"  {t}" for t in expected_open]
     start = lines.index(f"changed, nothing to do ({len(expected_quiet)}):")
     assert lines[start + 1 : start + 1 + len(expected_quiet)] == [f"  {t}" for t in expected_quiet]
@@ -280,7 +280,7 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     lines = out.splitlines()
     assert lines[0] == delta.MARKER
     assert lines[1] == "## What this change does to the map"
-    assert "**Needs a person (9)**" in lines
+    assert "**Needs a decision (9)**" in lines
     assert "**Changed, nothing to do (6)**" in lines
     assert "- `added: pkg.fresh, claimed by no card; " in out
     assert f"> {delta.FULL_LOOP[0].upper()}{delta.FULL_LOOP[1:]}." in lines
@@ -307,7 +307,7 @@ def test_nothing_to_do_and_no_change_exit_zero(
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 0
     out = capsys.readouterr().out
     assert "1 modules changed, 0 added, 0 removed, 0 moved; 0 of 6 cards named" in out
-    assert out.rstrip().endswith("nothing needs a person; run: systemap refresh")
+    assert out.rstrip().endswith("nothing to decide: the map already covers this change. run: systemap refresh")
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")

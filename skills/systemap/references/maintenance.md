@@ -12,8 +12,8 @@ on the change alone.
    (`built_at_commit` in the facts file). The facts at both commits are
    read out of git, never from the working copy, and compared in the
    map's terms: one line per thing the change did, each naming its fix.
-   Exit 0 when nothing needs a person; exit 1 while a line does.
-2. Act only on the lines under `needs a person`, in `map/model.py` and
+   Exit 0 when nothing needs a decision; exit 1 while a line does.
+2. Act only on the lines under `needs a decision`, in `map/model.py` and
    `systemap.toml`. Do not redraw the map, regroup cards the lines do not
    name, or move a card by hand; a card added for a new module is
    placed by `systemap place` into a free slot of its region, and when
@@ -46,7 +46,7 @@ the hand-back, with the step that ate it.
 | `new crossing import` | an import now crosses a card boundary and no flow joins the two cards | add the flow with its sentence, or answer it under `[judgement] answered`, as in the second pass |
 | `evidence lost` | a flow an import backed is backed by nothing now | find the evidence, name the mechanism in the sentence, or remove the flow, as for a `declared flow` line |
 
-A line under `changed, nothing to do` is on record and needs nobody; a
+A line under `changed, nothing to do` is on record and needs no decision; a
 `removed` module that a pattern claimed, or an added module a pattern
 claims, is such a line.
 
@@ -62,7 +62,7 @@ An agent given a mapped repository after a change is told:
 The workflow `systemap init` writes runs `delta --base <the base commit>
 --format markdown` on every pull request and posts the report as one
 comment, updated in place on every push, with the committed map at the
-head commit under the lines. The job fails while a line needs a person and
+head commit under the lines. The job fails while a line needs a decision and
 the comment names each fix, so the map is maintained in the pull request
 that changed the code, not after it.
 

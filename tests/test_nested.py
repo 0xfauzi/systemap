@@ -671,7 +671,7 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
         "  Style: added: pkg.style.extra, claimed by no card; name it in a card's "
         "implemented_by in map/style.py, the map inside Style claims exactly what Style claims\n"
     ) in out
-    assert "needs a person (2):" in out
+    assert "needs a decision (2):" in out
     assert "3 of 9 cards named" in out
     assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1
     assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in capsys.readouterr().out
