@@ -1,0 +1,125 @@
+{
+ "020ab2748d7e1e6d3e2e315c4d2b6adc1185d982f3833e77fe20c64b093c07c0": {
+  "answers": {
+   "holds": {
+    "noul": 0.13,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 466,
+   "output_tokens": 20
+  }
+ },
+ "3fbedb4e0fa80a3e26626eb00aac22be247219252780c6ef25d09274e2756cac": {
+  "answers": {
+   "governs": {
+    "noul": 0.69,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 356,
+   "output_tokens": 22
+  }
+ },
+ "439cdacba0faa9bb46b6ff52df21a566c13a63c064e739cc2f1b0ae6181a3d39": {
+  "answers": {
+   "describes": {
+    "noul": 0.27,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 367,
+   "output_tokens": 22
+  }
+ },
+ "7c01305d92126a23586db9f8c43dab0a622806dcef93d58cecf8a609a7cc6361": {
+  "models": [
+   {
+    "description": "The latest iteration of TypeSafe's System One Model: Jev",
+    "name": "jev-latest",
+    "release_date": "2026-09-10T18:38:01.391457+00:00"
+   },
+   {
+    "description": "A preview version of `jev-latest`: should be better in most ways",
+    "name": "jev-preview",
+    "release_date": "2026-09-10T18:39:06.057655+00:00"
+   }
+  ]
+ },
+ "93246d27d9e9a319ee56dea9a6104e2168ed8cfb6554e98a0e6a83f239fa1f01": {
+  "answers": {
+   "describes": {
+    "noul": 0.43,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 365,
+   "output_tokens": 22
+  }
+ },
+ "9e910e937842e269b356616bec9889c933e763f635700e747a90d7bfa27b78d7": {
+  "answers": {
+   "owner": {
+    "choice": "Writer",
+    "confidence": 1.0,
+    "probabilities": {
+     "Reader": 0.0,
+     "Writer": 1.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 476,
+   "output_tokens": 40
+  }
+ },
+ "aa0be866b813faf84b2185d87daca7e867c0c7a161b2148b411df2c6bc1327c4": {
+  "answers": {
+   "owner": {
+    "choice": "Reader",
+    "confidence": 0.99,
+    "probabilities": {
+     "Reader": 1.0,
+     "Writer": 0.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 476,
+   "output_tokens": 40
+  }
+ },
+ "ff7abbd52581976941dac660c8ad6fbda37681979b8711cb518d226fbbd33aa1": {
+  "answers": {
+   "where": {
+    "choice": "Reader",
+    "confidence": 1.0,
+    "probabilities": {
+     "Reader": 1.0,
+     "Writer": 0.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 419,
+   "output_tokens": 40
+  }
+ }
+}

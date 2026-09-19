@@ -1,0 +1,243 @@
+{
+ "007723319d905b74b98cdb39a350917748b48c58760258a4ed9a9827c06fa69d": {
+  "answers": {
+   "describes": {
+    "noul": 0.44,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 374,
+   "output_tokens": 22
+  }
+ },
+ "0f5852b86d11034a65632f6213a61a1254e16a818cb4dab1f74b52f6c0d6ccd2": {
+  "answers": {
+   "owner": {
+    "choice": "Reader",
+    "confidence": 1.0,
+    "probabilities": {
+     "Ledger": 0.0,
+     "Parser": 0.0,
+     "Reader": 1.0,
+     "Writer": 0.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 549,
+   "output_tokens": 55
+  }
+ },
+ "1a785eeb0e0645d7458be1dfff09a4310b2081eb6672b46bda4dda656bce8129": {
+  "answers": {
+   "holds": {
+    "noul": 0.13,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 466,
+   "output_tokens": 20
+  }
+ },
+ "225ca55cd8f1195cf972b1be55c0db6579fe9f7e6dd8233e637a5f3b811bc9dc": {
+  "answers": {
+   "holds": {
+    "noul": 0.14,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 466,
+   "output_tokens": 20
+  }
+ },
+ "2382a1e544a5bada3c770beb9d1b8003aa085f24ce1f16cf02305365326a34ed": {
+  "answers": {
+   "governs": {
+    "noul": 0.3,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 359,
+   "output_tokens": 22
+  }
+ },
+ "3fbedb4e0fa80a3e26626eb00aac22be247219252780c6ef25d09274e2756cac": {
+  "answers": {
+   "governs": {
+    "noul": 0.71,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 356,
+   "output_tokens": 22
+  }
+ },
+ "56881fffd5de3e56207413752412a6de8aadcd88d8a14182ec6b6959d4f8c97f": {
+  "answers": {
+   "governs": {
+    "noul": 0.45,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 352,
+   "output_tokens": 22
+  }
+ },
+ "5ac7e780da69ccc1bfaec0d7ae7caba6d9db5380f69b0d5e2a049bf14f75fb2d": {
+  "answers": {
+   "describes": {
+    "noul": 0.23,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 366,
+   "output_tokens": 22
+  }
+ },
+ "6b27480f993bd5c8577a2869139aa7080e5538efeb9c851c87f4da1d0d30d47c": {
+  "answers": {
+   "describes": {
+    "noul": 0.61,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 367,
+   "output_tokens": 22
+  }
+ },
+ "6eed6d7b27ce2f646181da0d1b2997f01d312ead9d8ad7915292dce94f6f56a8": {
+  "answers": {
+   "owner": {
+    "choice": "Ledger",
+    "confidence": 0.99,
+    "probabilities": {
+     "Ledger": 1.0,
+     "Parser": 0.0,
+     "Reader": 0.0,
+     "Writer": 0.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 545,
+   "output_tokens": 56
+  }
+ },
+ "72375d0605b7685f1f56297f81c054426329671797d7eb1fd53829807d59076c": {
+  "answers": {
+   "describes": {
+    "noul": 0.27,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 367,
+   "output_tokens": 22
+  }
+ },
+ "7c01305d92126a23586db9f8c43dab0a622806dcef93d58cecf8a609a7cc6361": {
+  "models": [
+   {
+    "description": "The latest iteration of TypeSafe's System One Model: Jev",
+    "name": "jev-latest",
+    "release_date": "2026-09-10T18:38:01.391457+00:00"
+   },
+   {
+    "description": "A preview version of `jev-latest`: should be better in most ways",
+    "name": "jev-preview",
+    "release_date": "2026-09-10T18:39:06.057655+00:00"
+   }
+  ]
+ },
+ "948ccf1ae0ff10e24c7905c09f60750925ab2cf65f6c9c1cccb32967e6f421e7": {
+  "answers": {
+   "governs": {
+    "noul": 0.27,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 354,
+   "output_tokens": 22
+  }
+ },
+ "9a4aa7881df888db6665713d08a5b9751d524b2aea27ddbcd84767f8db6a1a21": {
+  "answers": {
+   "owner": {
+    "choice": "Writer",
+    "confidence": 1.0,
+    "probabilities": {
+     "Ledger": 0.0,
+     "Parser": 0.0,
+     "Reader": 0.0,
+     "Writer": 1.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 544,
+   "output_tokens": 55
+  }
+ },
+ "9bc13ab0a7027d2cc58602ce9a65a32186b258dd53422327e2b06d1b9f75f46a": {
+  "answers": {
+   "owner": {
+    "choice": "Parser",
+    "confidence": 1.0,
+    "probabilities": {
+     "Ledger": 0.0,
+     "Parser": 1.0,
+     "Reader": 0.0,
+     "Writer": 0.0,
+     "none of these": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 542,
+   "output_tokens": 55
+  }
+ },
+ "a70ca2c980f7f2d136bf1fd115a039254bbd75ffb3dde0a592cad261ed139d30": {
+  "answers": {
+   "governs": {
+    "noul": 0.47,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 357,
+   "output_tokens": 22
+  }
+ }
+}
