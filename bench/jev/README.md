@@ -63,3 +63,20 @@ told to group with `suggest --jev`: on httpie 3.2.4 it took 54 turns, $3.61
 and 5.5 minutes against 46, $3.43 and 4.8 for the plain first map, one run
 each (`bench/results.jsonl`). No saving was measured, so `suggest --jev`
 stays opt-in and out of the recipe.
+
+## Tests 7 and 8 on agent labels
+
+The maintainer chose not to hand-label. Each set was labelled once by a
+Claude subagent reading the full commits in git, blind to Jev's answers
+(`results/labels/agent-*.json`, with a reason per item; scores in
+`results/labels/report.txt`).
+
+- Test 8, moves (20 successors, 12 unrelated): a factual question, checkable
+  in git, so the agent's labels are taken as the truth. Delta then Jev at
+  P>=0.8 finds 82 renames against delta's 66; Jev's 17 additions are 16 right
+  (94%). Pass: +8 at 90% or better. **Passed.**
+- Test 7, drift (12 stale, 48 hold): a judgement, where a model labelling a
+  model's answers measures agreement rather than truth. AUC 0.957; at
+  P(holds)<0.4, 75% of stale sentences caught and 0.4 false alarms per 10
+  cards. It would pass the bar, but **it is not a measurement**: drift
+  detection stays unbuilt until about 15 human labels confirm the agent's.

@@ -1,0 +1,130 @@
+{
+ "mealie@327da02f:mealie.services.parser_services._helpers.string_utils": {
+  "label": "successor",
+  "reason": "The _helpers package was renamed to parser_utils; string_utils keeps all its code and gains new quantity helpers."
+ },
+ "mealie@476aefee:mealie.db.data_access_layer.db_access": {
+  "label": "successor",
+  "reason": "DatabaseAccessLayer became the session-bound Database class in access_model_factory with the same repository attributes."
+ },
+ "mealie@60908e5a:mealie.routes.recipe.ingredient_parser": {
+  "label": "successor",
+  "reason": "The ingredient parser route moved to routes/parser and now calls IngredientParserService."
+ },
+ "mealie@60908e5a:mealie.services.scraper.ingredient_nlp.processor": {
+  "label": "successor",
+  "reason": "The ingredient_nlp package moved to parser_services/crfpp; processor keeps CRFIngredient and convert_list_to_crf_model."
+ },
+ "mealie@74e13682:mealie.db.data_access_layer.access_model_factory": {
+  "label": "successor",
+  "reason": "Straight rename of the Database class file to repos/repository_factory with classes renamed to AllRepositories/Repository*."
+ },
+ "mealie@c4540f13:mealie.routes.groups.categories": {
+  "label": "unrelated",
+  "reason": "The mealplan-categories endpoints moved to controller_meaplan_config.py; controller_mealplan is the meal plan entries controller."
+ },
+ "mealie@c4540f13:mealie.routes.groups.invitations": {
+  "label": "successor",
+  "reason": "The invitation endpoints were converted into GroupInvitationsController in controller_invitations with the same routes."
+ },
+ "mealie@c4540f13:mealie.routes.groups.migrations": {
+  "label": "successor",
+  "reason": "The group migration endpoint was converted into GroupMigrationController in controller_migrations."
+ },
+ "mealie@c4540f13:mealie.routes.groups.self_service": {
+  "label": "successor",
+  "reason": "The /groups self, members and permissions endpoints were converted into GroupSelfServiceController."
+ },
+ "mealie@c4540f13:mealie.routes.users.passwords": {
+  "label": "successor",
+  "reason": "forgot_password keeps the forgot/reset password endpoints and the Users: Passwords router; only the change-password endpoint moved to crud.py."
+ },
+ "mealie@c4540f13:mealie.services._base_http_service.http_services": {
+  "label": "successor",
+  "reason": "The Public/User/Admin HTTP service base classes were replaced by the Public/User/Admin controller base classes in abc_controller, which take the same role."
+ },
+ "mealie@c4540f13:mealie.services._base_http_service.router_factory": {
+  "label": "unrelated",
+  "reason": "RouterFactory was deleted; routes/_base/routers.py is a rename of routes/routers.py (AdminAPIRouter/UserAPIRouter)."
+ },
+ "mealie@c4540f13:mealie.services.group_services.cookbook_service": {
+  "label": "successor",
+  "reason": "The cookbook service logic (get_all sort, update_many, id-or-slug lookup, CRUD) was folded into GroupCookbookController."
+ },
+ "mealie@c4540f13:mealie.services.group_services.group_service": {
+  "label": "successor",
+  "reason": "GroupSelfService's core (members, permissions, preferences, self) moved into GroupSelfServiceController; invites and categories went to other controllers."
+ },
+ "mealie@c4540f13:mealie.services.group_services.migration_service": {
+  "label": "successor",
+  "reason": "The migrate dispatch logic moved into GroupMigrationController.start_data_migration."
+ },
+ "mealie@c4540f13:mealie.services.group_services.reports_service": {
+  "label": "successor",
+  "reason": "The report get_all/get/delete logic moved into GroupReportsController."
+ },
+ "mealie@c4540f13:mealie.services.group_services.webhook_service": {
+  "label": "successor",
+  "reason": "The webhook CRUD service moved into the webhooks controller."
+ },
+ "mealie@c617251f:mealie.routes.categories": {
+  "label": "successor",
+  "reason": "The categories package router init became the organizers package router init, which now includes categories plus tags and tools."
+ },
+ "mealie@c617251f:mealie.routes.categories.categories": {
+  "label": "successor",
+  "reason": "The categories CRUD controller moved to organizers/controller_categories with id-based edits."
+ },
+ "mealie@c617251f:mealie.routes.tags": {
+  "label": "successor",
+  "reason": "The tags CRUD controller moved to organizers/controller_tags with id-based edits."
+ },
+ "mealie@c617251f:mealie.services.image.image": {
+  "label": "unrelated",
+  "reason": "write_image/scrape_image moved into services/recipe/recipe_data_service.py; pkgs/img/__init__ is only a docstring and re-export of the new minify module."
+ },
+ "mealie@c617251f:mealie.services.image.minify": {
+  "label": "successor",
+  "reason": "Image minification (to_webp, crop_center, minify) moved to pkgs/img/minify and was rewritten into a PillowMinifier class."
+ },
+ "mealie@c617251f:mealie.utils": {
+  "label": "unrelated",
+  "reason": "utils/__init__ only re-exported cache_key; the new pkgs/cache/cache_key.py is the successor of utils/cache_key.py, not of the package init."
+ },
+ "mealie@d1024e27:mealie.routes.groups.controller_meaplan_config": {
+  "label": "unrelated",
+  "reason": "The file was renamed to controller_mealplan_config.py (typo fix, identical content); controller_mealplan_rules is a new rules CRUD controller."
+ },
+ "mealie@eb170cc7:mealie.routes.groups.controller_mealplan_config": {
+  "label": "unrelated",
+  "reason": "The mealplan-categories config controller was deleted; households/controller_mealplan_rules is a rename of groups/controller_mealplan_rules, a different controller."
+ },
+ "paperless@4271812c:documents.migrations.0002_auto_20151226_1316": {
+  "label": "unrelated",
+  "reason": "The 2015 migration was dropped in the squash (its effect is in the new 0001_initial); 0002_initial is a generated second initial migration with unrelated constraints and fields."
+ },
+ "paperless@4271812c:documents.migrations.1075_workflowaction_order": {
+  "label": "successor",
+  "reason": "The recreated 0003_workflowaction_order adds the same workflowaction.order field, minus the data backfill."
+ },
+ "paperless@86fa74c1:documents.migrations.0004_remove_document_storage_type": {
+  "label": "unrelated",
+  "reason": "Migrations were renumbered down by one; this migration became 0003_remove_document_storage_type, and the new 0004 is the renumbered 0005 workflowtrigger migration."
+ },
+ "paperless@86fa74c1:documents.migrations.0010_alter_document_content_length": {
+  "label": "unrelated",
+  "reason": "Renumbered to 0009_alter_document_content_length; the new 0010 is the renumbered 0011_optimize_integer_field_sizes."
+ },
+ "paperless@86fa74c1:documents.migrations.0012_alter_workflowaction_type": {
+  "label": "unrelated",
+  "reason": "Renumbered to 0011_alter_workflowaction_type; the new 0008 is the renumbered 0009 passwords migration."
+ },
+ "paperless@86fa74c1:documents.migrations.0014_alter_paperlesstask_task_name": {
+  "label": "unrelated",
+  "reason": "Renumbered to 0013_alter_paperlesstask_task_name; the new 0014 is the renumbered 0015 savedview visibility migration."
+ },
+ "poetry@73f41951:poetry.utils.env.python_manager": {
+  "label": "unrelated",
+  "reason": "python_manager.py was renamed to python/manager.py (Python class); providers.py only received the small ShutilWhichPythonProvider class."
+ }
+}

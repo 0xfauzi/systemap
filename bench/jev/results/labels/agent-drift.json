@@ -1,0 +1,242 @@
+{
+ "kstrl-maint@35620Z:CommandLine": {
+  "label": "holds",
+  "reason": "Reverts the ks sense command, which the sentence never listed."
+ },
+ "kstrl-maint@35620Z:TestOracle": {
+  "label": "holds",
+  "reason": "Drops the -B flag from the fixture runner; the two checks are unchanged."
+ },
+ "kstrl-maint@40254Z:CommandLine": {
+  "label": "holds",
+  "reason": "Removes a control-relocation check from autonomy promote; the command tree is unchanged."
+ },
+ "kstrl-maint@40254Z:ControlDir": {
+  "label": "stale",
+  "reason": "Reverts control-state relocation: state now resolves only to in-tree .kstrl and the outside-the-repo and trust checks are gone."
+ },
+ "kstrl-maint@40254Z:Inbox": {
+  "label": "holds",
+  "reason": "Inbox moves back to .kstrl/inbox.jsonl; the sentence names no location and still holds."
+ },
+ "kstrl-maint@41423Z:Dashboard": {
+  "label": "holds",
+  "reason": "Lower-bound flag computed differently in home data; board unchanged."
+ },
+ "kstrl-maint@41423Z:Scheduler": {
+  "label": "holds",
+  "reason": "Reverts per-axis cost coverage reporting; scheduling unchanged."
+ },
+ "kstrl@072ae27:CommandLine": {
+  "label": "holds",
+  "reason": "Help text and init seeding of language-specific verify commands; the command tree is unchanged."
+ },
+ "kstrl@116663f:Findings": {
+  "label": "holds",
+  "reason": "Adds one finding category constant."
+ },
+ "kstrl@130cd66:EventBus": {
+  "label": "holds",
+  "reason": "Adds phase and advisory fields to one event type."
+ },
+ "kstrl@1580b00:Worktrees": {
+  "label": "holds",
+  "reason": "Moves reviewer prompt text into versioned constants; no behavioural change."
+ },
+ "kstrl@1eb1501:CommandLine": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:Feedforward": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:GitHubIntake": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:HumanCheckpoint": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:LinearMirror": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:PRD": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:PullRequests": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@1eb1501:WorkQueue": {
+  "label": "holds",
+  "reason": "1eb1501 is a ruff-format-only change to these modules (verified: kstrl/ diff of the merge equals commit 745343f, pure formatting)."
+ },
+ "kstrl@2ce97a0:RunViews": {
+  "label": "holds",
+  "reason": "Init wizard preview gains an 'older template' row; screens unchanged."
+ },
+ "kstrl@407dc93:RetryContext": {
+  "label": "stale",
+  "reason": "Retry context becomes level-triggered: failures carry attempt and phase and are sorted into current, not re-measured and resolved buckets, a mechanism the sentence does not describe."
+ },
+ "kstrl@45f6de8:Worktrees": {
+  "label": "holds",
+  "reason": "Reviewer reads the diff via git with a diffstat cross-check instead of chunked pasted diffs; still the git moves and diffs phases read."
+ },
+ "kstrl@4b5c97a:Architect": {
+  "label": "holds",
+  "reason": "Refines the spec convergence report (excluded history accounting, refusing unscorable entries); the red-team/halt/split description still holds."
+ },
+ "kstrl@5abbc91:Evolution": {
+  "label": "holds",
+  "reason": "Reads CLAUDE.md as UTF-8 and tolerates decode errors; no change in role."
+ },
+ "kstrl@5abbc91:Inbox": {
+  "label": "holds",
+  "reason": "Compaction now uses a shared atomic-write helper; behaviour unchanged."
+ },
+ "kstrl@5abbc91:MechanicalVerifier": {
+  "label": "holds",
+  "reason": "UTF-8 read of CLAUDE.md; no change in role."
+ },
+ "kstrl@5f4f654:ControlDir": {
+  "label": "stale",
+  "reason": "statedir now also defines kstrl's in-tree state subdirs/files and the carve-out the scope guard must not count, a new responsibility beyond resolving and distrusting the outside control dir."
+ },
+ "kstrl@66cfdb8:AgentAdapter": {
+  "label": "holds",
+  "reason": "Namespaces the architect pseudo-component id; adapter role unchanged."
+ },
+ "kstrl@66cfdb8:CommandLine": {
+  "label": "holds",
+  "reason": "Uses the new ARCHITECT_COMPONENT constant; no command change."
+ },
+ "kstrl@6c0f794:Findings": {
+  "label": "holds",
+  "reason": "Adds a divergence finding category and constructor; still the one typed record."
+ },
+ "kstrl@7359493:RunViews": {
+  "label": "holds",
+  "reason": "Adds a safe-mode chip and banner to existing screens; a small added display."
+ },
+ "kstrl@7b1aa65:RunViews": {
+  "label": "holds",
+  "reason": "Only changes wording and an 'append' row in the init wizard preview."
+ },
+ "kstrl@913a22e:AgentAdapter": {
+  "label": "holds",
+  "reason": "Deadline breach now deregisters the streamer; the adapter description is unchanged."
+ },
+ "kstrl@97d4410:Configuration": {
+  "label": "holds",
+  "reason": "Adds ConfigError and a scoped parse cache and unresolved sections in the report; resolution and source reporting unchanged."
+ },
+ "kstrl@97d4410:Evolution": {
+  "label": "holds",
+  "reason": "Widens caught exceptions in load_or_none."
+ },
+ "kstrl@97d4410:RunViews": {
+  "label": "holds",
+  "reason": "Config screen notifies about unresolved sections."
+ },
+ "kstrl@a14e28b:LoopGuards": {
+  "label": "holds",
+  "reason": "Adds a predicate classifying unmatchable allowedPaths entries; the two fences are unchanged."
+ },
+ "kstrl@a14e28b:MechanicalVerifier": {
+  "label": "holds",
+  "reason": "Adds a harness-path carve-out to the diff-scope check and richer failure details; the list of checks and behaviour described are unchanged."
+ },
+ "kstrl@a14e28b:PRD": {
+  "label": "holds",
+  "reason": "Adds PRD tamper detection comparing to the pre-run copy; consistent with passes being the engineer's only writable claim."
+ },
+ "kstrl@ab673da:Architect": {
+  "label": "holds",
+  "reason": "Adds a spec convergence report comparing issue counts with earlier audits; an elaboration of the red-team output that does not contradict the sentence."
+ },
+ "kstrl@b228080:Scheduler": {
+  "label": "holds",
+  "reason": "Refactors pre-launch refusals into a function and adds an untrustworthy-scope refusal; scheduling role unchanged."
+ },
+ "kstrl@c4b45e0:Worktrees": {
+  "label": "holds",
+  "reason": "Adds base-branch detection to the git module; still the factory's git moves."
+ },
+ "kstrl@d4d9a50:CommandLine": {
+  "label": "holds",
+  "reason": "Adds a safe-mode block to status and serve dry-run output."
+ },
+ "systemap@01ea324:CLI": {
+  "label": "stale",
+  "reason": "Adds the 'delta' command (the maintenance path), missing from the sentence's exhaustive command list."
+ },
+ "systemap@0b2e629:Schematic": {
+  "label": "holds",
+  "reason": "Card names can wrap to two lines and unfit text is reported; drawing described is unchanged."
+ },
+ "systemap@20fd733:CLI": {
+  "label": "stale",
+  "reason": "Adds the 'facts' command, missing from the sentence's exhaustive command list."
+ },
+ "systemap@20fd733:Check": {
+  "label": "holds",
+  "reason": "Interface check follows re-exported classes; rule set unchanged."
+ },
+ "systemap@5ea4c0d:CLI": {
+  "label": "stale",
+  "reason": "Adds the 'place' command, missing from the sentence's exhaustive command list."
+ },
+ "systemap@5ea4c0d:Describe": {
+  "label": "holds",
+  "reason": "Adds positions and evidence count lines to the description; small additions of the same kind."
+ },
+ "systemap@5ea4c0d:Judgement": {
+  "label": "stale",
+  "reason": "Adds a new judgement line kind, 'declared flow' (a flow no import backs), which the sentence's enumerated list of lines omits."
+ },
+ "systemap@5ea4c0d:Scaffold": {
+  "label": "holds",
+  "reason": "Starter model still four regions on a grid with corridors; card position tables dropped and workflow pin moved to a git tag, still pinned."
+ },
+ "systemap@77299ab:Check": {
+  "label": "stale",
+  "reason": "Removes the tracker rule that the sentence lists among the checks."
+ },
+ "systemap@77299ab:Schematic": {
+  "label": "stale",
+  "reason": "Build states (partial, planned, ghosts, endstate) are removed so every card is 'built'; 'cards filled by build state' no longer describes the drawing."
+ },
+ "systemap@91f4da3:CLI": {
+  "label": "stale",
+  "reason": "Adds the 'suggest' command, missing from the sentence's exhaustive command list."
+ },
+ "systemap@91f4da3:Router": {
+  "label": "holds",
+  "reason": "Gutters are now named by neighbouring cards and the fix names a region; routing rules unchanged."
+ },
+ "systemap@9dc83f8:Judgement": {
+  "label": "stale",
+  "reason": "Judgement now runs over a tree of nested maps with prefixed lines, and suggest gains nesting proposals (when to open a map inside a card), neither of which the sentence covers."
+ },
+ "systemap@d071176:Model": {
+  "label": "holds",
+  "reason": "Adds an entry_module helper."
+ },
+ "systemap@d071176:Schematic": {
+  "label": "holds",
+  "reason": "Adds a note dot and panel fields (interface, entry, note); the drawing and interaction described are unchanged."
+ },
+ "systemap@d516b5b:Describe": {
+  "label": "holds",
+  "reason": "Adds a region order and score line to the description; a small addition of the same kind."
+ },
+ "systemap@d516b5b:Placer": {
+  "label": "stale",
+  "reason": "Placement now searches region orders (exhaustive or greedy plus swaps) scored by the router, a new mechanism the detailed sentence does not describe and that replaces the model's listed order."
+ }
+}
