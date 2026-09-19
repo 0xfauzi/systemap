@@ -105,8 +105,15 @@ ignores them all.
 likely change, with their modules and neighbours on the map: on 80 closed
 issues of two repositories, the card the fixing pull request touched was
 Jev's first pick 80% of the time and in its top three 88%. `delta --jev`
-adds the card each unclaimed module reads like to delta's report, leaving
-its exit code alone. `suggest --jev` groups modules from Jev's answers about
+asks, for each module that disappeared and that delta's own three questions
+(same source, same public names, a file name that reads the same) left
+unpaired, which new module it became, and reports a pick at confidence 0.8
+or more as a move, `(read as the same module by Jev, confidence 0.94)`, like
+delta's own: on the renames in five repositories that found 82 real renames
+against delta's 66, and 16 of the 17 pairings it added were right (labelled
+blind from the commits, `bench/jev`). A move changes the report and so can
+change its exit code, as a move delta found would. It then adds the card
+each unclaimed module reads like. `suggest --jev` groups modules from Jev's answers about
 pairs (import-joined, and neighbours in one package): it beat one card per
 package on three development maps of five and lost on two.
 
@@ -200,7 +207,7 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap refresh` | extract, check, render one page per map, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
 | `systemap suggest [--jev]` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone; with a model, when a map is past forty cards and which cards hold the most modules, the candidates to open a map inside; `--jev` groups modules from Jev's answers about module pairs instead |
 | `systemap judgement [--strict] [--kind KIND] [--verbose]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow (one line per pair of cards, counting the modules; `--verbose` lists the imports under it), flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; `--kind KIND` prints one kind when the list runs long; exit 0, or 1 with `--strict` while a line is open |
-| `systemap delta --base REF [--head REF] [--format markdown] [--jev]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a decision, 1 when something does; `--format markdown` is the pull-request comment; `--jev` adds the card each unclaimed module reads like, and leaves the exit code alone |
+| `systemap delta --base REF [--head REF] [--format markdown] [--jev]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a decision, 1 when something does; `--format markdown` is the pull-request comment; `--jev` also pairs modules renamed and rewritten at once, where Jev reads them as one (the section above), and adds the card each unclaimed module reads like |
 | `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned, placed, and positioned for the look only, cards per region, the region order and what the drawing costs under it (bends and length; label collisions and refused routes when there are any), bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
 | `systemap audit [--dry-run] [--kind KIND]...` | a second opinion from Jev on the map: `jev mis-fold`, `jev owner`, `jev sentence` and `jev governs` lines, and `jev flow` lines when asked with `--kind "jev flow"` (the section above); `--kind`, repeatable, asks only those kinds; answers cached; needs `TYPESAFE_API_KEY`; a report, exit 0, or 1 when it could not run |
 | `systemap triage TEXT` | the three cards an issue's fix will most likely change, with their modules and neighbours; `-` reads the text from stdin; the text is cut at 2,000 characters; needs `TYPESAFE_API_KEY` |

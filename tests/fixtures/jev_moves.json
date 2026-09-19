@@ -1,0 +1,54 @@
+{
+ "327a16755b6c33a7f20b77be802bc281d2637bc38aaa8f015c80cb42a2ddd90d": {
+  "answers": {
+   "became": {
+    "choice": "pkg.accounts.book",
+    "confidence": 0.88,
+    "probabilities": {
+     "not moved: deleted": 0.08,
+     "pkg.accounts.book": 0.92,
+     "pkg.report": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 490,
+   "output_tokens": 47
+  }
+ },
+ "7c01305d92126a23586db9f8c43dab0a622806dcef93d58cecf8a609a7cc6361": {
+  "models": [
+   {
+    "description": "The latest iteration of TypeSafe's System One Model: Jev",
+    "name": "jev-latest",
+    "release_date": "2026-09-10T18:38:01.391457+00:00"
+   },
+   {
+    "description": "A preview version of `jev-latest`: should be better in most ways",
+    "name": "jev-preview",
+    "release_date": "2026-09-10T18:39:06.057655+00:00"
+   }
+  ]
+ },
+ "de28f6d4941e751b29e57414136c0ed79c3cabc6f2c886374d7479240cf17930": {
+  "answers": {
+   "became": {
+    "choice": "not moved: deleted",
+    "confidence": 0.99,
+    "probabilities": {
+     "not moved: deleted": 0.99,
+     "pkg.accounts.book": 0.01,
+     "pkg.report": 0.0
+    },
+    "type": "choice"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 488,
+   "output_tokens": 48
+  }
+ }
+}

@@ -14,7 +14,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from systemap import audit, config, extract, jev, nest
+from systemap import audit, config, extract, jev, moves, nest
 from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
@@ -22,6 +22,11 @@ OK, STALE = 0, 1
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
 REPORT_CAP = 2000
+# A module that disappeared is paired with Jev's pick at this confidence or
+# more, when delta's own three questions left it unpaired: on the renames in
+# five repositories this found 82 real renames against delta's 66, and 16 of
+# the 17 pairings it added were right (labelled blind from the commits).
+MOVE_AT = 0.8
 # Pairs at or above this are one part, for `suggest --jev`: with the threshold
 # chosen on four development maps and scored on the fifth, pairwise F1 beat one
 # card per package by 0.18 on average, and lost on two maps of five.
@@ -31,6 +36,14 @@ TRIAGE_Q = (
     "`report` is an issue filed against this system. Which component will "
     "the fix most likely have to change?"
 )
+BECAME_Q = (
+    "In one commit `old_module` disappeared and the modules in the options "
+    "appeared. Which new module is the old one, moved or renamed and perhaps "
+    "edited? If it was deleted, say so."
+)
+NOT_MOVED = "not moved: deleted"
+# How many new modules the question offers: the measured cap.
+MOVE_OPTIONS = 250
 SAME_Q = (
     "Do `module_a` and `module_b` belong to the same component of "
     "this system: one part with one job that a reader would point at "
@@ -163,6 +176,67 @@ def owner_suggestions(
         if line is not None:
             out.append(f"{line.text} ({'; '.join(line.detail)})")
     return out
+
+
+# ---- delta --jev: which new module a module that disappeared became ---------------
+
+
+def _first_sentence(text: str, cap: int) -> str:
+    text = " ".join((text or "").split())
+    for end in (". ", ".\n"):
+        i = text.find(end)
+        if i != -1:
+            text = text[: i + 1]
+            break
+    return text[:cap]
+
+
+def _brief(record: dict[str, Any]) -> str:
+    names = ", ".join(n["name"] for n in record.get("names", [])[:12])
+    doc = _first_sentence(record.get("docstring") or "", 160)
+    return f"{record.get('file')}: {doc} Names: {names}"
+
+
+def _move_ask(base: dict[str, Any], old: str, criteria: dict[str, str]) -> Ask:
+    record = base[old]
+    state = {
+        "old_module": {
+            "module": old,
+            "file": record.get("file"),
+            "docstring": record.get("docstring"),
+            "names": [n["name"] for n in record.get("names", [])][:40],
+        }
+    }
+    question = {"type": "choice", "instructions": BECAME_Q, "criteria": criteria}
+    return Ask(old, state, {"became": question})
+
+
+def jev_moves(
+    base: dict[str, Any], head: dict[str, Any], client: jev.Jev
+) -> dict[str, tuple[str, str]]:
+    """old module -> (new module, how), for the modules that disappeared and that
+    delta's own questions left unpaired, where Jev names one at MOVE_AT or more."""
+    b, h = base.get("components", {}), head.get("components", {})
+    gone = sorted(set(b) - set(h))
+    new = sorted(set(h) - set(b))
+    found = moves.find(b, h, gone, new)
+    left = [m for m in gone if m not in found and not extract.is_empty_marker(b[m])]
+    options = [m for m in new if not extract.is_empty_marker(h[m])]
+    if not left or not options:
+        return {}
+    criteria = {m: _brief(h[m]) for m in options[:MOVE_OPTIONS]}
+    criteria[NOT_MOVED] = "The old module was deleted; none of the new modules continues it."
+    asks = [_move_ask(b, old, criteria) for old in left]
+    answered = client.ask(asks)
+    picks = sorted(
+        ((answered[a.key]["became"], a.key) for a in asks),
+        key=lambda p: (-p[0].get("confidence", 0.0), p[1]),
+    )
+    return {
+        old: (a["choice"], f"read as the same module by Jev, confidence {a['confidence']:.2f}")
+        for a, old in picks
+        if a.get("choice") not in (None, NOT_MOVED) and a.get("confidence", 0.0) >= MOVE_AT
+    }
 
 
 # ---- suggest --jev: groups from Jev's answers about module pairs -------------------

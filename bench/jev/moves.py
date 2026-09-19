@@ -17,8 +17,9 @@ import sys
 
 from common import DATA, REPOS, choice, first_sentence, load, row, write
 
-from systemap.delta import _moves, facts_at
+from systemap.delta import facts_at
 from systemap.extract import is_empty_marker
+from systemap.moves import find as _moves
 
 NOT_MOVED = "not moved: deleted"
 PER_REPO = 12

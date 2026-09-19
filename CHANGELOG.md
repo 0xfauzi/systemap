@@ -21,8 +21,12 @@ was added: the HTTP API is spoken with `urllib`.
   questions and says what would leave the machine.
 - `systemap triage "<issue>"` names the three cards a fix will most likely
   change, with their modules and neighbours on the map.
-- `delta --jev` adds the card each unclaimed module reads like to the report;
-  the exit code is delta's. `suggest --jev` groups modules from Jev's answers
+- `delta --jev` asks Jev which new module each module that disappeared
+  became, where delta's own questions paired none, and reports a pick at
+  confidence 0.8 or more as a move: on renames in five repositories it found
+  82 against delta's 66, 16 of its 17 additions right (labelled blind by an
+  agent from the commits; `bench/jev`). It then adds the card each
+  unclaimed module reads like. `suggest --jev` groups modules from Jev's answers
   about module pairs; on the development maps it beat one card per package on
   three of five and lost on two, and says so when it runs. On httpie, a first
   map told to start from it took 54 turns, $3.61 and 5.5 minutes against 46,

@@ -539,15 +539,13 @@ def cmd_delta(args: argparse.Namespace) -> int:
     head_sha = delta.resolve(root, args.head)
     compared = delta.merge_base(root, base_sha, head_sha)
     head = delta.facts_at(p.cfg, head_sha)
+    base = delta.facts_at(p.cfg, compared)
+    client, told, extra = _jev_moves(p, base, head) if args.jev else (None, {}, [])
     d = delta.compute_tree(
-        p.cfg,
-        p.tree,
-        delta.facts_at(p.cfg, compared),
-        head,
-        base_ref=args.base,
-        head_ref=args.head,
+        p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head, told=told
     )
-    extra = _delta_jev(p, head, d) if args.jev else []
+    if client is not None:
+        extra += _delta_jev(p, head, d, client)
     if args.format == "markdown":
         sys.stdout.write(delta.markdown(d, delta.figure_url(p.cfg, head_sha)))
         if extra:
@@ -558,18 +556,28 @@ def cmd_delta(args: argparse.Namespace) -> int:
     return STALE if d.open else OK
 
 
-def _delta_jev(p: Project, head: dict[str, Any], d: delta.Delta) -> list[str]:
-    """`delta --jev`: the card each unclaimed module reads like. The exit code is delta's."""
-    modules = jev_cli.unclaimed_in([line.text for line in d.lines])
-    if not modules:
-        return []
+def _jev_moves(
+    p: Project, base: dict[str, Any], head: dict[str, Any]
+) -> tuple[jev.Jev | None, dict[str, tuple[str, str]], list[str]]:
+    """`delta --jev`, first half: the client, and the moves Jev finds that delta's
+    own questions missed. Without a key, or when Jev fails, delta runs without them
+    and says so."""
     try:
         client = jev.from_env(p.cfg.jev_model, p.cfg.jev_cache_path)
+        return client, jev_cli.jev_moves(base, head, client), []
     except jev.JevError as exc:
-        return [f"delta --jev: {exc}"]
-    lines, _ = jev_cli.run_or_explain(
-        lambda: jev_cli.owner_suggestions(p.cfg, p.tree, head, modules, client), "delta --jev"
-    )
+        return None, {}, [f"delta --jev: {exc}"]
+
+
+def _delta_jev(p: Project, head: dict[str, Any], d: delta.Delta, client: jev.Jev) -> list[str]:
+    """`delta --jev`, second half: the card each unclaimed module reads like. The exit
+    code is delta's."""
+    modules = jev_cli.unclaimed_in([line.text for line in d.lines])
+    lines: list[str] = []
+    if modules:
+        lines, _ = jev_cli.run_or_explain(
+            lambda: jev_cli.owner_suggestions(p.cfg, p.tree, head, modules, client), "delta --jev"
+        )
     return [*lines, client.usage.line()]
 
 
@@ -975,8 +983,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--jev",
         action="store_true",
-        help="ask Jev which card each unclaimed module reads like (needs TYPESAFE_API_KEY); "
-        "the exit code is unchanged",
+        help="ask Jev which new module each module that disappeared became, where delta's "
+        "own rules pair none (a pairing is reported as a move, like delta's own), and which "
+        "card each unclaimed module reads like (needs TYPESAFE_API_KEY)",
     )
     s.set_defaults(func=cmd_delta)
 

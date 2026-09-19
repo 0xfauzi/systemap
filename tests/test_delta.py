@@ -19,6 +19,7 @@ from conftest import write_tree
 
 from systemap import delta
 from systemap.cli import main
+from systemap.moves import find as find_moves
 
 BASE_TREE = {
     "pkg/__init__.py": "",
@@ -384,7 +385,7 @@ def test_the_best_pairing_wins_over_the_first_free_one() -> None:
         )
         for n, word in ((4, "order"), (5, "storage"), (6, "checksum"))
     }
-    moves = delta._moves(base, head, sorted(base), sorted(head))
+    moves = find_moves(base, head, sorted(base), sorted(head))
     assert {old: new for old, (new, _how) in moves.items()} == {
         "pkg.migrations.0003_order": "pkg.migrations.0004_order",
         "pkg.migrations.0004_storage": "pkg.migrations.0005_storage",
@@ -401,7 +402,7 @@ def test_a_module_renamed_and_edited_at_once_is_still_one_move() -> None:
     kept = tuple(f"name{i}" for i in range(9))
     base = {"pkg.route": record("pkg/route.py", "aa", "route_all", *kept)}
     head = {"pkg.routing": record("pkg/routing.py", "bb", "compute_routes", *kept)}
-    moves = delta._moves(base, head, ["pkg.route"], ["pkg.routing"])
+    moves = find_moves(base, head, ["pkg.route"], ["pkg.routing"])
     new, how = moves["pkg.route"]
     assert new == "pkg.routing"
     assert "file name" in how
@@ -412,9 +413,9 @@ def test_two_empty_modules_with_different_names_are_not_joined() -> None:
     # module is like every other empty module, so the file names must agree.
     base = {"pkg.a.ui": record("pkg/a/ui.py", "e3b0")}
     head = {"pkg.b": record("pkg/b/__init__.py", "e3b0")}
-    assert delta._moves(base, head, ["pkg.a.ui"], ["pkg.b"]) == {}
+    assert find_moves(base, head, ["pkg.a.ui"], ["pkg.b"]) == {}
     same = {"pkg.b.thing": record("pkg/b/thing/__init__.py", "e3b0")}
-    moves = delta._moves(
+    moves = find_moves(
         {"pkg.a.thing": record("pkg/a/thing/__init__.py", "e3b0")},
         same,
         ["pkg.a.thing"],
