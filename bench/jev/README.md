@@ -33,3 +33,33 @@ Each experiment, its label source and what it measures:
 | cardkind | the card's kind | what kind of card are these modules |
 | answerfit | the answer that covers the crossing line | does this recorded reason cover this import |
 | moves | git's rename detection at 50% | which new module is the old one |
+
+## The holdout set
+
+`JEV_SET=holdout` builds, runs and scores on maps no threshold was chosen
+on: systemap's own map, scorecard (`../scorecard`), and the newest finished
+`bench/run.sh https://github.com/httpie/cli first-map` run. Data and
+results go to `holdout/` under `data/` and `results/`, and the scorer prints
+each experiment at the threshold `systemap audit` ships with:
+
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/build.py owner sentence flowverify governs issues
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py owner sentence flowverify governs issues
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/score.py owner sentence flowverify governs issues
+
+The bar, set before the run: within 10 points of the development figure, or
+the kind is not asked by default. `results/holdout/report.txt` has the output:
+
+| kind, at the shipped threshold | development | holdout | verdict |
+|---|---|---|---|
+| mis-fold, planted next door (P<0.05) | 95% caught, 4% flagged | 93%, 1% (n=106) | asked |
+| owner (confidence >= 0.9) | 56% answered, 98% right | 60%, 100% | asked |
+| sentence (P<0.2) | 67% caught, 1% flagged | 61%, 2% (44 wrong) | asked |
+| flow (P<0.2) | 66% caught, 2% flagged | 54%, 4% (48 wrong) | only with `--kind "jev flow"` |
+| governs (P>=0.8) | 31% found, 1% suggested | 38%, 1% (58 governed) | asked |
+| issues, top-1 (`triage`) | 80% | 79% (39 httpie issues) | shipped |
+
+Test 9's follow-up ran as `bench/run.sh <repo> first-map-jev`, the first map
+told to group with `suggest --jev`: on httpie 3.2.4 it took 54 turns, $3.61
+and 5.5 minutes against 46, $3.43 and 4.8 for the plain first map, one run
+each (`bench/results.jsonl`). No saving was measured, so `suggest --jev`
+stays opt-in and out of the recipe.

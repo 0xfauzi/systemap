@@ -14,7 +14,10 @@ at a time, and prints a line where its answer disagrees with the map:
 Each threshold below was chosen on the five first maps in bench/scratch and
 is quoted with what it measured there (bench/jev, results/report.txt). The
 questions and the state they read are the ones measured; change either and
-the numbers no longer hold.
+the numbers no longer hold. Each was then checked on three maps no threshold
+was chosen on (JEV_SET=holdout): every kind held within 10 points but `jev
+flow`, which caught 54% of wrong flows there against 66%, so it is asked
+only on request (`--kind "jev flow"`).
 
 A known limit, measured with it: a flow's evidence is the lines in either
 card's modules that name something imported from the other, so a call made
@@ -54,12 +57,22 @@ OWNER_AT = 0.9
 # 1% of right ones flagged.
 SENTENCE_BELOW = 0.2
 # P(code carries the claim) below this: 66% of wrong claims caught, 2% of
-# real ones flagged.
+# real ones flagged; on the holdout maps 54% and 4%, so asked only on request.
 FLOW_BELOW = 0.2
 # P(invariant governs card) at or above this: 31% of governed cards found,
 # 1% of the rest suggested.
 GOVERNS_AT = 0.8
 
+# The question each line kind comes from: the owner question gives two kinds.
+QUESTION_OF = {
+    "jev mis-fold": "owner",
+    "jev owner": "owner",
+    "jev sentence": "sentence",
+    "jev flow": "flow",
+    "jev governs": "governs",
+}
+# The kinds asked when none is named: all but the one that missed the holdout bar.
+DEFAULT_KINDS = tuple(k for k in QUESTION_OF if k != "jev flow")
 KINDS = AUDIT_KINDS
 NONE = "none of these"
 
@@ -260,17 +273,25 @@ def plan_governs(plan: Plan, m: nest.Map) -> None:
             plan.add(f"{m.id}|governs|{inv.n}|{c.id}", state, questions, ("governs", m, inv, c.id))
 
 
-def make_plan(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Plan:
-    """Every question, for every map: the top map also asks about the modules no card claims."""
+def make_plan(
+    tree: nest.Tree, facts: dict[str, Any], cfg: Config, kinds: Iterable[str] = DEFAULT_KINDS
+) -> Plan:
+    """The questions behind `kinds`, for every map: the top map also asks about the
+    modules no card claims."""
+    asked = {QUESTION_OF[k] for k in kinds}
     plan = Plan()
     ignores = [i.module for i in cfg.coverage_ignore]
     for m in tree.maps:
         extra = unclaimed(m.model, facts, ignores) if m.top else []
         view = facts if m.top else _view(facts, m)
-        plan_owner(plan, m, view, extra, cfg.name)
-        plan_sentences(plan, m, view)
-        plan_flows(plan, m, view, cfg.root)
-        plan_governs(plan, m)
+        if "owner" in asked:
+            plan_owner(plan, m, view, extra, cfg.name)
+        if "sentence" in asked:
+            plan_sentences(plan, m, view)
+        if "flow" in asked:
+            plan_flows(plan, m, view, cfg.root)
+        if "governs" in asked:
+            plan_governs(plan, m)
     return plan
 
 
@@ -357,8 +378,14 @@ def lines(plan: Plan, answered: dict[str, Answers]) -> list[Line]:
     return out
 
 
-def run(tree: nest.Tree, facts: dict[str, Any], cfg: Config, jev: Jev) -> list[Line]:
-    plan = make_plan(tree, facts, cfg)
+def run(
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    cfg: Config,
+    jev: Jev,
+    kinds: Iterable[str] = DEFAULT_KINDS,
+) -> list[Line]:
+    plan = make_plan(tree, facts, cfg, kinds)
     return lines(plan, jev.ask(plan.asks))
 
 
@@ -384,9 +411,19 @@ def _covers(answer: Answer, line: str) -> bool:
     return _bare(line).startswith(answer.kind + ": ")
 
 
-def apply(found: list[Line], given: Iterable[Answer]) -> tuple[list[Line], int, list[str]]:
-    """(open lines, how many answered, stale answers), reading only audit answers."""
-    mine = [a for a in given if is_audit_answer(a)]
+def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
+    """Does this answer name a kind this run asked? Others cannot be judged stale."""
+    names = [answer.kind] if answer.kind else [_bare(i).split(": ", 1)[0] for i in answer.items]
+    return all(n in kinds for n in names)
+
+
+def apply(
+    found: list[Line], given: Iterable[Answer], kinds: Iterable[str] = DEFAULT_KINDS
+) -> tuple[list[Line], int, list[str]]:
+    """(open lines, how many answered, stale answers), reading only the audit answers
+    about the kinds this run asked."""
+    kinds = tuple(kinds)
+    mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
     texts = [x.text for x in found]
     stale = [i for a in mine for i in a.items if i not in texts]
     stale += [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]

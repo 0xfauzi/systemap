@@ -160,7 +160,7 @@ are clean, before stopping. Each line is a question, not a verdict:
 | `jev mis-fold: CARD claims M, which reads like OTHER` | read M; move it to the card whose job it does, or answer why it belongs |
 | `jev owner: M is claimed by no card; ...` | claim M in the named card or one of the closest three, or ignore it under `[coverage]` with a reason |
 | `jev sentence: CARD's sentence may not describe its modules` | reread the modules and rewrite the sentence, or answer why it holds |
-| `jev flow: A -> B ('x'): ...` | find the call that carries it; a call through an instance is not in Jev's evidence, so a real flow can be doubted for that alone; fix the sentence, or answer |
+| `jev flow: A -> B ('x'): ...` (only with `--kind "jev flow"`, which caught fewer wrong flows on maps its threshold was not chosen on) | find the call that carries it; a call through an instance is not in Jev's evidence, so a real flow can be doubted for that alone; fix the sentence, or answer |
 | `jev governs: invariant N may govern CARD, ...` | add CARD to the invariant's `governs` when a change to it could break the rule, or answer |
 
 Answer in `[judgement] answered` like a judgement line: `item` for one line,

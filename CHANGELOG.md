@@ -12,6 +12,10 @@ was added: the HTTP API is spoken with `urllib`.
   were chosen on the five first maps in `bench/scratch` and each is quoted in
   `audit.py` with what it measured; `bench/jev` holds every experiment, its
   labels, the answers and the report, beside the heuristic systemap used.
+  Each kind was then checked on three maps no threshold was chosen on
+  (`JEV_SET=holdout`): all held within 10 points of the development figures
+  but `jev flow` (54% of wrong flows caught against 66%), which is asked only
+  with `--kind "jev flow"`. `--kind` repeats, and asks only the kinds named.
   A line is answered in `[judgement] answered`; `audit` reads only the answers
   that name its lines, and `judgement` ignores them. `--dry-run` counts the
   questions and says what would leave the machine.
@@ -20,7 +24,10 @@ was added: the HTTP API is spoken with `urllib`.
 - `delta --jev` adds the card each unclaimed module reads like to the report;
   the exit code is delta's. `suggest --jev` groups modules from Jev's answers
   about module pairs; on the development maps it beat one card per package on
-  three of five and lost on two, and says so when it runs.
+  three of five and lost on two, and says so when it runs. On httpie, a first
+  map told to start from it took 54 turns, $3.61 and 5.5 minutes against 46,
+  $3.43 and 4.8 for the plain recipe (one run each, so the spread between
+  runs is not measured); it stays opt-in, and the recipe does not use it.
 - Answers are cached in `.systemap/jev-cache.json` by model, release date,
   state and question: an unchanged map costs nothing the second time, and a
   new release of the model asks again. `[jev]` in the configuration names the

@@ -38,7 +38,7 @@ def answer(key: str, **fields: Any) -> dict[str, Any]:
 
 
 def test_plan_asks_one_question_per_module_card_flow_and_invariant_pair(sample: Sample) -> None:
-    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg)
+    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, audit.KINDS)
     kinds = sorted({a.key.split("|")[1] for a in plan.asks})
     assert kinds == ["flow", "governs", "owner", "sentence"]
     owners = sorted(a.key for a in plan.asks if "|owner|" in a.key)
@@ -59,7 +59,7 @@ def test_plan_asks_one_question_per_module_card_flow_and_invariant_pair(sample: 
 
 
 def test_flow_state_holds_the_lines_where_the_two_cards_meet(sample: Sample) -> None:
-    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg)
+    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, audit.KINDS)
     ask = next(a for a in plan.asks if a.key == "|flow|Reader->Parser:parse")
     assert ask.state["claim"]["sentence"] == "The reader calls the parser on each request."
     assert any("pkg.parser:" in line and "Request" in line for line in ask.state["code"])
@@ -150,6 +150,26 @@ def test_audit_answers_are_told_apart_from_judgement_answers() -> None:
     assert not audit.is_audit_answer(Answer(items=(), reason="r", kind="crossing import"))
 
 
+def test_by_default_the_flow_question_is_not_asked(sample: Sample) -> None:
+    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg)
+    assert sorted({a.key.split("|")[1] for a in plan.asks}) == ["governs", "owner", "sentence"]
+    assert "jev flow" not in audit.DEFAULT_KINDS
+    one = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ["jev flow"])
+    assert {a.key.split("|")[1] for a in one.asks} == {"flow"}
+
+
+def test_an_answer_about_a_kind_not_asked_is_not_stale() -> None:
+    given = [
+        Answer(items=(), reason="the joins are events", kind="jev flow"),
+        Answer(
+            items=("jev flow: A -> B ('x'): the code where they meet may not carry it",),
+            reason="old",
+        ),
+    ]
+    assert audit.apply([], given) == ([], 0, [])
+    assert len(audit.apply([], given, audit.KINDS)[2]) == 2
+
+
 def test_apply_suppresses_answered_lines_and_reports_stale_answers() -> None:
     found = [
         audit.Line("jev sentence: Reader's sentence may not describe its modules"),
@@ -165,7 +185,7 @@ def test_apply_suppresses_answered_lines_and_reports_stale_answers() -> None:
         Answer(items=(), reason="no mis-folds any more", kind="jev mis-fold"),
         Answer(items=("single module: Reader is only pkg.reader",), reason="judgement's"),
     ]
-    open_lines, answered, stale = audit.apply(found, given)
+    open_lines, answered, stale = audit.apply(found, given, audit.KINDS)
     assert open_lines == [] and answered == 2
     assert stale == [
         "jev flow: A -> B ('x'): the code where they meet may not carry it",
@@ -266,7 +286,7 @@ def test_no_key_sends_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 def test_audit_on_recorded_answers(sample: Sample) -> None:
     recording = Recording("jev_sample")
     client = jev.Jev(recording.send)
-    found = audit.run(tree_of(sample), sample.facts, sample.cfg, client)
+    found = audit.run(tree_of(sample), sample.facts, sample.cfg, client, audit.KINDS)
     # What the real model said about the sample, recorded. Every module reads like its own
     # card. Both flows are doubted: Reader -> Parser rightly (nothing in pkg.reader calls the
     # parser; the parser only imports Request), Writer -> Ledger because the evidence is the

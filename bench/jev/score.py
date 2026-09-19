@@ -300,7 +300,9 @@ def shipped_line(pos: list[float], neg: list[float], below: float = 0.0, at: flo
 
 
 def score_noul(exp: str, q: str, label: str, title: str, below: float = 0.0, at: float = 0.0):
-    data, res = rows(exp), results(exp)
+    data = rows(exp)
+    # Only the rows in the current dataset: a rebuild may drop sampled rows.
+    res = {i: r for i, r in results(exp).items() if i in data}
     pos = [r["answers"][q]["noul"] for i, r in res.items() if data[i]["label"][label]]
     neg = [r["answers"][q]["noul"] for i, r in res.items() if not data[i]["label"][label]]
     print(title)

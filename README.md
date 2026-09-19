@@ -118,8 +118,8 @@ CI can hold the line while you are not looking.
 
 Then your agent acts on those lines alone rather than redrawing the map.
 Measured on three real merged pull requests, that path cost 2.31, 4.39 and 2.50
-dollars, against between 14 and 26 dollars for a first map of a whole
-repository. Every run, with the model that produced it, is in
+dollars, against between 3 and 26 dollars for a first map of a whole
+repository (78 to 460 modules). Every run, with the model that produced it, is in
 [docs/benchmarks.md](docs/benchmarks.md).
 
 ## One model, several ways to read it
@@ -194,15 +194,18 @@ word with its card and cannot say that it does a different job. `systemap
 audit` asks TypeSafe's Jev model that kind of question, one narrow judgement
 at a time, and prints a line where the answer disagrees with the map: a
 module that reads like another card, a card sentence that does not describe
-its code, a flow the code where two cards meet may not carry, an invariant
-that may govern a card it does not name. `systemap triage "<issue>"` names
+its code, an invariant that may govern a card it does not name, and, when
+asked, a flow the code where two cards meet may not carry. `systemap triage "<issue>"` names
 the three cards a bug report's fix will most likely change.
 
 Measured on five mapped repositories before it was built: modules moved into
 a neighbouring card were caught 95% of the time, against 32% for the word
 rule, with 4% of correctly placed modules flagged; for 80 closed issues, the
 card the fixing pull request touched was the first pick 80% of the time.
-Every run and threshold is in [bench/jev](bench/jev).
+On three maps no threshold was chosen on, the figures held within 10 points
+(93% caught, 1% flagged; 79% first pick for 39 httpie issues), except the
+flow check, which is asked only on request. Every run and threshold is in
+[bench/jev](bench/jev).
 
 It is opt-in and off the path CI takes. It needs `TYPESAFE_API_KEY`, adds no
 dependency, sends module names, docstrings, card sentences and the source

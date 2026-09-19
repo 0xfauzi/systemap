@@ -61,7 +61,8 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     if facts is None:
         return STALE
     tree = nest.load(cfg)
-    plan = audit.make_plan(tree, facts, cfg)
+    kinds = tuple(args.kind) if args.kind else audit.DEFAULT_KINDS
+    plan = audit.make_plan(tree, facts, cfg, kinds)
     if args.dry_run:
         pending = None
         if send is not None or jev.has_key():
@@ -74,9 +75,8 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     except JevError as exc:
         print(f"audit: {exc}")
         return STALE
-    open_lines, answered, stale = audit.apply(found, cfg.judgement_answered)
-    if args.kind:
-        open_lines = [x for x in open_lines if audit._bare(x.text).startswith(args.kind + ": ")]
+    open_lines, answered, stale = audit.apply(found, cfg.judgement_answered, kinds)
+    open_lines = [x for x in open_lines if audit._bare(x.text).split(": ", 1)[0] in kinds]
     print(*audit.report(open_lines, answered, stale, client.usage.line()), sep="\n")
     return OK
 
@@ -259,12 +259,14 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     )
     s.add_argument(
         "--kind",
-        default="",
+        action="append",
+        default=[],
         choices=config.AUDIT_KINDS,
         metavar="KIND",
-        help="print the open lines of one kind only (one of: "
+        help="ask and print only this kind; repeat for more (one of: "
         + ", ".join(f'"{k}"' for k in config.AUDIT_KINDS)
-        + ")",
+        + '); without it, every kind but "jev flow", which fell short on maps its '
+        "threshold was not chosen on",
     )
     s.set_defaults(func=lambda args: cmd_audit(_rooted(args)))
 
