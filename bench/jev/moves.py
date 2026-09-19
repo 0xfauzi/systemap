@@ -186,5 +186,94 @@ def score() -> None:
         print(f"   {who}: {right} renames found, {wrong} wrong pairings, {missed} renames missed")
 
 
+def file_at(repo, sha: str, path: str) -> str:
+    out = subprocess.run(
+        ["git", "-C", str(repo.root), "show", f"{sha}:{path}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return out.stdout
+
+
+def label_item(d: dict, answer: dict) -> dict:
+    """One pairing for a person to judge: the old file, the new one and the diff between them."""
+    import difflib
+
+    name, rest = d["id"].split("@", 1)
+    sha = rest.split(":", 1)[0]
+    repo = load(name)
+    full = subprocess.run(
+        ["git", "-C", str(repo.root), "rev-parse", sha], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    old_path = d["state"]["old_module"]["file"]
+    new_path = d["questions"]["became"]["criteria"][answer["choice"]].split(":", 1)[0]
+    old, new = file_at(repo, f"{full}^", old_path), file_at(repo, full, new_path)
+    diff = "".join(
+        difflib.unified_diff(old.splitlines(True), new.splitlines(True), old_path, new_path, n=2)
+    )
+    return {
+        "id": d["id"],
+        "set": "moves",
+        "old": old_path,
+        "new": new_path,
+        "confidence": answer["confidence"],
+        "similarity": round(difflib.SequenceMatcher(None, old, new).ratio(), 2),
+        "diff": diff[:12000],
+        "truncated": len(diff) > 12000,
+    }
+
+
+def pick() -> None:
+    """Every pairing Jev made that git's rename detection does not share."""
+    from score import results, rows
+
+    data, res = rows("moves"), results("moves")
+    items = [
+        label_item(d, res[i]["answers"]["became"])
+        for i, d in data.items()
+        if i in res
+        and res[i]["answers"]["became"]["choice"] not in (NOT_MOVED, d["label"]["became"])
+    ]
+    (DATA / "label-moves.json").write_text(json.dumps(items, indent=1))
+    print(f"picked {len(items)} pairings git does not share")
+
+
+def score_labels(path: str) -> None:
+    """labels.json: {item id: "successor" | "unrelated" | "unsure"}. The truth becomes git's
+    renames plus every pairing a person called a successor."""
+    from score import results, rows
+
+    labels = json.loads(open(path).read())
+    data, res = rows("moves"), results("moves")
+    both = [(d, res[i]["answers"]["became"]) for i, d in data.items() if i in res]
+
+    def truth(d, a) -> str:
+        return a["choice"] if labels.get(d["id"]) == "successor" else d["label"]["became"]
+
+    print(
+        f"== test 8: {sum(v == 'successor' for v in labels.values())} successors, "
+        f"{sum(v == 'unrelated' for v in labels.values())} unrelated, {sum(v == 'unsure' for v in labels.values())} unsure"
+    )
+    base = tally([(d["label"]["delta"], truth(d, a)) for d, a in both])
+    print(f"   delta alone: {base[0]} found, {base[1]} wrong, {base[2]} missed")
+    for t in (0.8, 0.9, 0.95):
+        right, wrong, missed = tally([(hybrid(d, a, t), truth(d, a)) for d, a in both])
+        added = [
+            (d, a)
+            for d, a in both
+            if d["label"]["delta"] == NOT_MOVED
+            and a["confidence"] >= t
+            and a["choice"] != NOT_MOVED
+        ]
+        good = sum(a["choice"] == truth(d, a) for d, a in added)
+        print(
+            f"   delta then Jev at {t}: {right} found (+{right - base[0]}), {wrong} wrong; "
+            f"Jev's additions right {good}/{len(added)} (pass: +8 or more at 90% right)"
+        )
+
+
 if __name__ == "__main__":
-    {"build": build, "score": score}[sys.argv[1]]()
+    {"build": build, "score": score, "pick": pick, "labels": lambda: score_labels(sys.argv[2])}[
+        sys.argv[1]
+    ]()

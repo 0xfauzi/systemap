@@ -1,0 +1,294 @@
+<title>Drift and Moves Labels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #f4f5f2;
+    --panel: #ffffff;
+    --ink: #1c2229;
+    --muted: #5d6670;
+    --rule: #d9ddd6;
+    --accent: #2f5d8a;
+    --add-bg: #e3f1e4;
+    --add-ink: #1f5a2c;
+    --del-bg: #f7e3e1;
+    --del-ink: #8a2a22;
+    --hunk: #6b5a9a;
+    --holds: #2e6b3f;
+    --stale: #a2472e;
+    --unsure: #7a6a2c;
+    --chip: #e9ece6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #151a1f; --panel: #1d242b; --ink: #e4e8ec; --muted: #9aa4ae; --rule: #313a43;
+      --accent: #86b3dc; --add-bg: #1d3325; --add-ink: #9ed7ab; --del-bg: #3a2220; --del-ink: #f0aaa1;
+      --hunk: #b7a7e6; --holds: #8fd1a1; --stale: #f0a58c; --unsure: #e3cf86; --chip: #27303a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #151a1f; --panel: #1d242b; --ink: #e4e8ec; --muted: #9aa4ae; --rule: #313a43;
+    --accent: #86b3dc; --add-bg: #1d3325; --add-ink: #9ed7ab; --del-bg: #3a2220; --del-ink: #f0aaa1;
+    --hunk: #b7a7e6; --holds: #8fd1a1; --stale: #f0a58c; --unsure: #e3cf86; --chip: #27303a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font: 15px/1.5 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    padding-inline: 16px; padding-block: 20px 40px;
+  }
+  main { max-width: 980px; margin: 0 auto; display: grid; gap: 16px; }
+  header { display: grid; gap: 6px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+  .lede { color: var(--muted); margin: 0; max-width: 68ch; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tab {
+    font: inherit; font-weight: 500; border: 1px solid var(--rule); background: var(--panel); color: var(--ink);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; gap: 8px; align-items: baseline;
+  }
+  .tab[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+  .count { font: 12px "IBM Plex Mono", ui-monospace, monospace; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .item { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .pos { font: 13px "IBM Plex Mono", ui-monospace, monospace; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chip { font: 12px "IBM Plex Mono", ui-monospace, monospace; background: var(--chip); padding: 2px 8px; border-radius: 4px; overflow-wrap: anywhere; }
+  .question { font-weight: 600; margin: 0; }
+  blockquote { margin: 0; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--ground); max-width: 80ch; }
+  .card-id { font: 500 13px "IBM Plex Mono", ui-monospace, monospace; color: var(--accent); display: block; margin-bottom: 4px; }
+  .paths { display: grid; gap: 4px; font: 13px "IBM Plex Mono", ui-monospace, monospace; overflow-wrap: anywhere; }
+  .paths b { font-weight: 500; color: var(--muted); display: inline-block; min-width: 3.5em; }
+  .diff { border: 1px solid var(--rule); border-radius: 6px; max-height: 58vh; overflow: auto; background: var(--ground); }
+  .diff pre { margin: 0; font: 12.5px/1.45 "IBM Plex Mono", ui-monospace, monospace; }
+  .diff .l { display: block; padding: 0 10px; white-space: pre; min-width: max-content; }
+  .diff .add { background: var(--add-bg); color: var(--add-ink); }
+  .diff .del { background: var(--del-bg); color: var(--del-ink); }
+  .diff .hunk { color: var(--hunk); }
+  .diff .file { color: var(--muted); font-weight: 500; }
+  .note { font-size: 13px; color: var(--muted); margin: 0; }
+  .answers { display: flex; flex-wrap: wrap; gap: 8px; }
+  .answer {
+    font: inherit; font-weight: 500; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--rule); background: var(--panel); color: var(--ink); display: flex; gap: 8px; align-items: center;
+  }
+  .answer kbd { font: 11px "IBM Plex Mono", ui-monospace, monospace; border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; color: var(--muted); }
+  .answer[data-v="holds"][aria-pressed="true"], .answer[data-v="successor"][aria-pressed="true"] { border-color: var(--holds); color: var(--holds); box-shadow: inset 0 0 0 1px var(--holds); }
+  .answer[data-v="stale"][aria-pressed="true"], .answer[data-v="unrelated"][aria-pressed="true"] { border-color: var(--stale); color: var(--stale); box-shadow: inset 0 0 0 1px var(--stale); }
+  .answer[data-v="unsure"][aria-pressed="true"] { border-color: var(--unsure); color: var(--unsure); box-shadow: inset 0 0 0 1px var(--unsure); }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav button { font: inherit; background: none; border: 1px solid var(--rule); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .status { font-size: 13px; color: var(--muted); min-height: 1.5em; margin: 0; }
+  .status.bad { color: var(--stale); }
+</style>
+
+<main>
+  <header>
+    <h1>Drift and moves: your labels</h1>
+    <p class="lede">Two sets for testing Jev on systemap. Read each change and answer the question. Jev's answers are hidden so your labels stay independent. Every answer saves as soon as you click it.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-drift" aria-selected="true" data-set="drift">Card sentences <span class="count" id="count-drift">0/0</span></button>
+    <button class="tab" role="tab" id="tab-moves" aria-selected="false" data-set="moves">Moved files <span class="count" id="count-moves">0/0</span></button>
+  </div>
+  <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+
+  <section class="item" id="item" aria-live="polite">
+    <p class="note">Loading the items.</p>
+  </section>
+
+  <div class="nav">
+    <button id="prev">Previous <span class="count">k</span></button>
+    <button id="next">Next <span class="count">j</span></button>
+    <button id="skip">Next without an answer</button>
+  </div>
+  <p class="status" id="status"></p>
+</main>
+
+<script>
+(() => {
+  const QUESTIONS = {
+    drift: {
+      ask: "After this change, is the card's sentence still true?",
+      help: "Answer for the sentence as written. A sentence that is still true but now leaves out something important counts as out of date.",
+      answers: [["holds", "Still true", "1"], ["stale", "Out of date", "2"], ["unsure", "Can't tell", "3"]],
+    },
+    moves: {
+      ask: "Is the new file the old file continued: moved or renamed, perhaps heavily edited?",
+      help: "Yes if the map's card that named the old file should now name the new one. No if they are different pieces of code.",
+      answers: [["successor", "Same code, moved", "1"], ["unrelated", "Different code", "2"], ["unsure", "Can't tell", "3"]],
+    },
+  };
+  const state = { items: { drift: [], moves: [] }, labels: {}, set: "drift", index: { drift: 0, moves: 0 }, db: null, writable: true };
+  const $ = (id) => document.getElementById(id);
+
+  function setStatus(text, bad) {
+    $("status").textContent = text;
+    $("status").classList.toggle("bad", !!bad);
+  }
+
+  function diffLines(text) {
+    const pre = document.createElement("pre");
+    for (const line of text.split("\n")) {
+      const span = document.createElement("span");
+      span.className = "l" + (line.startsWith("diff --git") || line.startsWith("+++") || line.startsWith("---") || line.startsWith("index ") ? " file"
+        : line.startsWith("@@") ? " hunk" : line.startsWith("+") ? " add" : line.startsWith("-") ? " del" : "");
+      span.textContent = line || " ";
+      pre.appendChild(span);
+    }
+    return pre;
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function counts() {
+    for (const set of ["drift", "moves"]) {
+      const done = state.items[set].filter((it) => state.labels[it.id]).length;
+      $("count-" + set).textContent = `${done}/${state.items[set].length}`;
+    }
+    const items = state.items[state.set];
+    const done = items.filter((it) => state.labels[it.id]).length;
+    $("bar").style.width = items.length ? `${(100 * done) / items.length}%` : "0";
+  }
+
+  function render() {
+    const items = state.items[state.set];
+    const box = $("item");
+    box.replaceChildren();
+    if (!items.length) { box.appendChild(el("p", "note", "No items in this set.")); return; }
+    const i = state.index[state.set];
+    const it = items[i];
+    const q = QUESTIONS[state.set];
+
+    const meta = el("div", "meta");
+    meta.appendChild(el("span", "pos", `${i + 1} of ${items.length}`));
+    meta.appendChild(el("span", "chip", state.set === "drift" ? it.title : `text alike: ${Math.round(it.similarity * 100)}%`));
+    box.appendChild(meta);
+
+    if (state.set === "drift") {
+      const quote = el("blockquote");
+      quote.appendChild(el("span", "card-id", it.card));
+      quote.appendChild(document.createTextNode(it.sentence));
+      box.appendChild(quote);
+    } else {
+      const paths = el("div", "paths");
+      const a = el("div"); a.appendChild(el("b", null, "old")); a.appendChild(document.createTextNode(" " + it.old));
+      const b = el("div"); b.appendChild(el("b", null, "new")); b.appendChild(document.createTextNode(" " + it.new));
+      paths.append(a, b);
+      box.appendChild(paths);
+    }
+
+    const diff = el("div", "diff");
+    diff.tabIndex = 0;
+    diff.setAttribute("aria-label", "the change");
+    diff.appendChild(diffLines(it.diff));
+    box.appendChild(diff);
+    if (it.truncated) box.appendChild(el("p", "note", "The change is longer than this; it was cut at 12,000 characters, as Jev saw it."));
+
+    box.appendChild(el("p", "question", q.ask));
+    box.appendChild(el("p", "note", q.help));
+    const answers = el("div", "answers");
+    for (const [v, label, key] of q.answers) {
+      const btn = el("button", "answer");
+      btn.dataset.v = v;
+      btn.setAttribute("aria-pressed", String(state.labels[it.id] === v));
+      btn.disabled = !state.writable;
+      btn.appendChild(document.createTextNode(label));
+      btn.appendChild(el("kbd", null, key));
+      btn.addEventListener("click", () => answer(v));
+      answers.appendChild(btn);
+    }
+    box.appendChild(answers);
+    counts();
+  }
+
+  async function answer(value) {
+    const it = state.items[state.set][state.index[state.set]];
+    if (!it || !state.db || !state.writable) return;
+    const prev = state.labels[it.id];
+    state.labels[it.id] = value;
+    render();
+    try {
+      await state.db.doc("labels/" + it.id.replace(/[^A-Za-z0-9_\-.~:@+]/g, "_")).set({ item: it.id, set: state.set, value, at: new Date().toISOString() });
+      setStatus("Saved.");
+      move(1, true);
+    } catch (e) {
+      state.labels[it.id] = prev;
+      render();
+      if (e && e.code === "invalid_argument") { state.writable = false; render(); setStatus("You can read these items but not label them.", true); }
+      else setStatus("That answer was not saved. Check the connection and click it again.", true);
+    }
+  }
+
+  function move(step, toUnlabelled) {
+    const items = state.items[state.set];
+    if (!items.length) return;
+    let i = state.index[state.set];
+    if (toUnlabelled) {
+      for (let k = 1; k <= items.length; k++) {
+        const j = (i + k) % items.length;
+        if (!state.labels[items[j].id]) { i = j; break; }
+        if (k === items.length) i = Math.min(i + 1, items.length - 1);
+      }
+    } else {
+      i = Math.max(0, Math.min(items.length - 1, i + step));
+    }
+    state.index[state.set] = i;
+    render();
+  }
+
+  function selectSet(set) {
+    state.set = set;
+    for (const s of ["drift", "moves"]) $("tab-" + s).setAttribute("aria-selected", String(s === set));
+    try { localStorage.setItem("label-set", set); } catch (e) {}
+    render();
+  }
+
+  $("tab-drift").addEventListener("click", () => selectSet("drift"));
+  $("tab-moves").addEventListener("click", () => selectSet("moves"));
+  $("prev").addEventListener("click", () => move(-1));
+  $("next").addEventListener("click", () => move(1));
+  $("skip").addEventListener("click", () => move(1, true));
+  document.addEventListener("keydown", (ev) => {
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    const q = QUESTIONS[state.set];
+    const hit = q.answers.find(([, , key]) => key === ev.key);
+    if (hit) { answer(hit[0]); ev.preventDefault(); }
+    else if (ev.key === "j") move(1);
+    else if (ev.key === "k") move(-1);
+  });
+
+  async function start() {
+    try {
+      const res = await fetch("items.json");
+      const data = await res.json();
+      state.items = { drift: data.drift, moves: data.moves };
+    } catch (e) {
+      $("item").replaceChildren(el("p", "note", "The items did not load. Reload the page."));
+      return;
+    }
+    try { const s = localStorage.getItem("label-set"); if (s === "drift" || s === "moves") state.set = s; } catch (e) {}
+    selectSet(state.set);
+    const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+    if (!db) { state.writable = false; render(); setStatus("Labels can't be saved in this view. Open the page on claude.ai to label.", true); return; }
+    state.db = db;
+    db.collection("labels").limit(1000).onSnapshot(
+      (snap) => {
+        const labels = {};
+        for (const d of snap.docs) { const v = d.data(); if (v && v.item) labels[v.item] = v.value; }
+        state.labels = labels;
+        render();
+      },
+      () => setStatus("Saved labels stopped updating. Reload the page to see the latest.", true),
+    );
+  }
+  start();
+})();
+</script>
