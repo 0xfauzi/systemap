@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- `delta` asks Jev on its own when `TYPESAFE_API_KEY` is set: modules renamed
+  and rewritten at once are paired, and each unclaimed module gets the card it
+  reads like. `--no-jev` sends nothing; `--jev` asks and says why it cannot.
+  What Jev cost goes to stderr, and only when a question was asked.
+- Without a key, `judgement` says on stderr what `audit` would add, and `delta`
+  does when a module was removed and another added, each with its measured
+  figure. `[jev] enabled = false` turns off the hints and delta's asking.
+- `check` and `judgement` still never ask, and `suggest --jev` stays a flag:
+  it saved nothing on the first map it was benchmarked on.
+
 ## 1.1.0
 
 A second opinion, opt-in. Everything below needs `TYPESAFE_API_KEY`; nothing

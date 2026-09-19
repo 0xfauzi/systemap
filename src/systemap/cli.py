@@ -512,6 +512,7 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     result = judgement.apply_answers(lines, mine)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     say(*judgement.report(result, detail, args.kind or ""))
+    jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say("answer every line in [judgement] answered in systemap.toml, or act on it")
         return STALE
@@ -540,12 +541,14 @@ def cmd_delta(args: argparse.Namespace) -> int:
     compared = delta.merge_base(root, base_sha, head_sha)
     head = delta.facts_at(p.cfg, head_sha)
     base = delta.facts_at(p.cfg, compared)
-    client, told, extra = _jev_moves(p, base, head) if args.jev else (None, {}, [])
+    asked = jev_cli.uses_jev(p.cfg, args.jev)
+    client, told, extra = _jev_moves(p, base, head) if asked else (None, {}, [])
     d = delta.compute_tree(
         p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head, told=told
     )
     if client is not None:
         extra += _delta_jev(p, head, d, client)
+        jev_cli.usage_to_stderr(client)
     if args.format == "markdown":
         sys.stdout.write(delta.markdown(d, delta.figure_url(p.cfg, head_sha)))
         if extra:
@@ -553,6 +556,8 @@ def cmd_delta(args: argparse.Namespace) -> int:
             sys.stdout.write(f"\n**Jev on the unclaimed modules**\n\n{listed}\n")
     else:
         say(*delta.report(d), *extra)
+    if args.jev is None and d.added and d.removed:
+        jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
     return STALE if d.open else OK
 
 
@@ -578,7 +583,7 @@ def _delta_jev(p: Project, head: dict[str, Any], d: delta.Delta, client: jev.Jev
         lines, _ = jev_cli.run_or_explain(
             lambda: jev_cli.owner_suggestions(p.cfg, p.tree, head, modules, client), "delta --jev"
         )
-    return [*lines, client.usage.line()]
+    return lines
 
 
 # ---- suggest ---------------------------------------------------------------
@@ -982,10 +987,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument(
         "--jev",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="ask Jev which new module each module that disappeared became, where delta's "
         "own rules pair none (a pairing is reported as a move, like delta's own), and which "
-        "card each unclaimed module reads like (needs TYPESAFE_API_KEY)",
+        "card each unclaimed module reads like; on by default when TYPESAFE_API_KEY is set "
+        "and [jev] enabled is not false; --no-jev sends nothing",
     )
     s.set_defaults(func=cmd_delta)
 

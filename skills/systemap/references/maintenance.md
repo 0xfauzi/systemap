@@ -13,7 +13,7 @@ on the change alone.
    read out of git, never from the working copy, and compared in the
    map's terms: one line per thing the change did, each naming its fix.
    Exit 0 when nothing needs a decision; exit 1 while a line does.
-   With `TYPESAFE_API_KEY` set, `delta --base <ref> --jev` also pairs a
+   With `TYPESAFE_API_KEY` set, `delta --base <ref>` also pairs a
    module renamed and rewritten at once (a `moved:` line that says Jev
    read them as one, with its confidence; read both files before
    renaming the claim) and names the card each unclaimed module reads

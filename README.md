@@ -207,10 +207,14 @@ On three maps no threshold was chosen on, the figures held within 10 points
 flow check, which is asked only on request. Every run and threshold is in
 [bench/jev](bench/jev).
 
-It is opt-in and off the path CI takes. It needs `TYPESAFE_API_KEY`, adds no
-dependency, sends module names, docstrings, card sentences and the source
-lines where two cards meet (`audit --dry-run` says exactly what), and caches
-every answer, so an unchanged map costs nothing the second time.
+It needs `TYPESAFE_API_KEY`. With the key set, `delta` asks Jev on its own
+(`--no-jev` sends nothing); without it, `judgement` and `delta` say on stderr
+what Jev would add, with the measured figure. `check` and `judgement` never
+ask, so CI stays offline unless you give it the key. It adds no dependency,
+sends module names, docstrings, card sentences and the source lines where
+two cards meet (`audit --dry-run` says exactly what), and caches every
+answer, so an unchanged map costs nothing the second time. `[jev] enabled =
+false` in `systemap.toml` turns off both the asking and the hints.
 
 ## Commands
 
@@ -226,8 +230,8 @@ every answer, so an unchanged map costs nothing the second time.
 | `systemap refresh` | extract, check, render, and every configured figure |
 | `systemap describe` | what a look at the picture would tell an agent that cannot look |
 | `systemap delta` | what a change did to the map |
-| `systemap audit` | a second opinion from Jev on the map's judgement calls (opt-in) |
-| `systemap triage` | the cards an issue's fix will most likely change (opt-in) |
+| `systemap audit` | a second opinion from Jev on the map's judgement calls (needs `TYPESAFE_API_KEY`) |
+| `systemap triage` | the cards an issue's fix will most likely change (needs `TYPESAFE_API_KEY`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
 | `systemap serve` | serve the page on the loopback address |
 | `systemap skill` | reinstall the skill directory |

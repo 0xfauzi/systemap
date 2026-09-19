@@ -64,6 +64,44 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
     return facts
 
 
+# ---- when a command asks Jev on its own, and what it says when it cannot ---------
+
+# What the commands that stay offline say Jev would add, when no key is set.
+# Each figure is measured (bench/jev) and quoted as measured.
+JUDGEMENT_HINT = (
+    "hint: with a TypeSafe key in TYPESAFE_API_KEY, systemap audit adds Jev's second "
+    "opinion on meaning: it caught 95% of modules moved into a neighbouring card, where "
+    "the word rule behind possible mis-fold caught 32% (bench/jev). "
+    "[jev] enabled = false in systemap.toml silences this."
+)
+DELTA_HINT = (
+    "hint: with a TypeSafe key in TYPESAFE_API_KEY, delta also asks Jev which new module "
+    "each removed one became: on renames in five repositories that found 82 where delta "
+    "alone found 66, 16 of its 17 additions right (bench/jev). "
+    "[jev] enabled = false in systemap.toml silences this."
+)
+
+
+def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
+    """`--jev` or `--no-jev` when given; else Jev when a key is set and `[jev]` allows it."""
+    if flag is not None:
+        return flag
+    return cfg.jev_enabled and jev.has_key()
+
+
+def usage_to_stderr(client: jev.Jev) -> None:
+    """What the run cost, on stderr, so the report and the pull-request comment
+    stay the report; nothing when no question was asked."""
+    if client.usage.sent or client.usage.cached:
+        print(client.usage.line(), file=sys.stderr)
+
+
+def hint(cfg: config.Config, text: str) -> None:
+    """What Jev would add, on stderr, when no key is set and `[jev]` allows it."""
+    if cfg.jev_enabled and not jev.has_key():
+        print(text, file=sys.stderr)
+
+
 # ---- audit -------------------------------------------------------------------------
 
 

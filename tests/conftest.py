@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from systemap import extract
+from systemap import extract, jev
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -24,6 +24,14 @@ from systemap.model import (
     Step,
     all_layers,
 )
+
+
+@pytest.fixture(autouse=True)
+def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test sends to Jev: delta asks it on its own when a key is set, so the
+    maintainer's key is removed; a test that means to ask sets its own and a
+    recorded transport (jev_replay reads the real key at import, for recording)."""
+    monkeypatch.delenv(jev.KEY_ENV, raising=False)
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:

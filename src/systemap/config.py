@@ -104,7 +104,7 @@ KNOWN_KEYS = {
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
-JEV_KEYS = {"model", "cache"}
+JEV_KEYS = {"model", "cache", "enabled"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
@@ -215,6 +215,8 @@ class Config:
     observed_by: tuple[str, ...] = ()
     jev_model: str = "jev-latest"
     jev_cache: str = ".systemap/jev-cache.json"
+    # false: delta does not ask Jev on its own, and no command says what Jev would add
+    jev_enabled: bool = True
     source: str = ""
 
     @property
@@ -575,8 +577,9 @@ def _flows(raw: dict[str, Any], where: str) -> tuple[str, ...]:
     return tuple(name.strip() for name in names)
 
 
-def _jev(raw: dict[str, Any], where: str) -> dict[str, str]:
-    """The `[jev]` table: which model the Jev commands ask, and where answers are cached."""
+def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
+    """The `[jev]` table: which model the Jev commands ask, where answers are cached,
+    and whether delta asks it on its own when a key is set."""
     jev = raw.get("jev", {})
     if not isinstance(jev, dict):
         raise ConfigError(f"{where}: jev must be a table")
@@ -587,7 +590,10 @@ def _jev(raw: dict[str, Any], where: str) -> dict[str, str]:
     cache = _str(jev, "cache", ".systemap/jev-cache.json", f"{where}: jev").strip()
     if not model or not cache:
         raise ConfigError(f"{where}: jev.model and jev.cache must not be empty")
-    return {"jev_model": model, "jev_cache": cache}
+    enabled = jev.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise ConfigError(f"{where}: jev.enabled must be true or false")
+    return {"jev_model": model, "jev_cache": cache, "jev_enabled": enabled}
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
