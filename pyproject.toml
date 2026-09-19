@@ -58,6 +58,8 @@ select = ["E", "F", "I", "B", "UP", "W"]
 "src/systemap/scaffold.py" = ["E501"]
 # The map's model is prose held in strings; a sentence is not wrapped.
 "map/model.py" = ["E501"]
+# The Jev experiments hold their questions as prose in strings, like the model.
+"bench/jev/*.py" = ["E501"]
 "tests/**" = ["E501"]
 
 [tool.mypy]

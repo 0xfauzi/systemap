@@ -1,0 +1,8 @@
+[project]
+name = "jev-systemap-experiments"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["typesafe-sdk", "systemap"]
+
+[tool.uv.sources]
+systemap = { path = "../..", editable = true }

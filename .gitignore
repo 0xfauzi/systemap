@@ -10,3 +10,7 @@ dist/
 **/.DS_Store
 
 bench/scratch/
+
+# Jev experiment inputs: rebuilt by bench/jev/build.py from bench/scratch and git
+bench/jev/data/
+bench/jev/.venv/
