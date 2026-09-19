@@ -38,6 +38,7 @@ from typing import Any
 
 from systemap import (
     __version__,
+    audit,
     change,
     check,
     config,
@@ -45,6 +46,8 @@ from systemap import (
     describe,
     extract,
     figure,
+    jev,
+    jev_cli,
     judgement,
     nest,
     page,
@@ -505,9 +508,11 @@ def cmd_judgement(args: argparse.Namespace) -> int:
         judgement.sdk_list(p.cfg.model_sdks),
         p.cfg.observed_by,
     )
-    result = judgement.apply_answers(lines, p.cfg.judgement_answered)
+    mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
+    result = judgement.apply_answers(lines, mine)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     say(*judgement.report(result, detail, args.kind or ""))
+    jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say("answer every line in [judgement] answered in systemap.toml, or act on it")
         return STALE
@@ -534,19 +539,51 @@ def cmd_delta(args: argparse.Namespace) -> int:
     base_sha = delta.resolve(root, args.base)
     head_sha = delta.resolve(root, args.head)
     compared = delta.merge_base(root, base_sha, head_sha)
+    head = delta.facts_at(p.cfg, head_sha)
+    base = delta.facts_at(p.cfg, compared)
+    asked = jev_cli.uses_jev(p.cfg, args.jev)
+    client, told, extra = _jev_moves(p, base, head) if asked else (None, {}, [])
     d = delta.compute_tree(
-        p.cfg,
-        p.tree,
-        delta.facts_at(p.cfg, compared),
-        delta.facts_at(p.cfg, head_sha),
-        base_ref=args.base,
-        head_ref=args.head,
+        p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head, told=told
     )
+    if client is not None:
+        extra += _delta_jev(p, head, d, client)
+        jev_cli.usage_to_stderr(client)
     if args.format == "markdown":
         sys.stdout.write(delta.markdown(d, delta.figure_url(p.cfg, head_sha)))
+        if extra:
+            listed = "\n".join(f"- {x}" for x in extra)
+            sys.stdout.write(f"\n**Jev on the unclaimed modules**\n\n{listed}\n")
     else:
-        say(*delta.report(d))
+        say(*delta.report(d), *extra)
+    if args.jev is None and d.added and d.removed:
+        jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
     return STALE if d.open else OK
+
+
+def _jev_moves(
+    p: Project, base: dict[str, Any], head: dict[str, Any]
+) -> tuple[jev.Jev | None, dict[str, tuple[str, str]], list[str]]:
+    """`delta --jev`, first half: the client, and the moves Jev finds that delta's
+    own questions missed. Without a key, or when Jev fails, delta runs without them
+    and says so."""
+    try:
+        client = jev.from_env(p.cfg.jev_model, p.cfg.jev_cache_path)
+        return client, jev_cli.jev_moves(base, head, client), []
+    except jev.JevError as exc:
+        return None, {}, [f"delta --jev: {exc}"]
+
+
+def _delta_jev(p: Project, head: dict[str, Any], d: delta.Delta, client: jev.Jev) -> list[str]:
+    """`delta --jev`, second half: the card each unclaimed module reads like. The exit
+    code is delta's."""
+    modules = jev_cli.unclaimed_in([line.text for line in d.lines])
+    lines: list[str] = []
+    if modules:
+        lines, _ = jev_cli.run_or_explain(
+            lambda: jev_cli.owner_suggestions(p.cfg, p.tree, head, modules, client), "delta --jev"
+        )
+    return lines
 
 
 # ---- suggest ---------------------------------------------------------------
@@ -563,6 +600,17 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     if not facts:
         say(f"no facts at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
+    if args.jev:
+        try:
+            client = jev.from_env(cfg.jev_model, cfg.jev_cache_path)
+        except jev.JevError as exc:
+            say(f"suggest --jev: {exc}")
+            return STALE
+        lines, code = jev_cli.run_or_explain(
+            lambda: jev_cli.suggest_groups(cfg, facts, client), "suggest --jev"
+        )
+        say(*lines, client.usage.line())
+        return code
     say(*suggest_mod.lines(facts))
     if cfg.model_path.is_file():
         tree = nest.load(cfg)
@@ -937,6 +985,15 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="markdown prints the report as a pull-request comment with the committed map",
     )
+    s.add_argument(
+        "--jev",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="ask Jev which new module each module that disappeared became, where delta's "
+        "own rules pair none (a pairing is reported as a move, like delta's own), and which "
+        "card each unclaimed module reads like; on by default when TYPESAFE_API_KEY is set "
+        "and [jev] enabled is not false; --no-jev sends nothing",
+    )
     s.set_defaults(func=cmd_delta)
 
     s = sub.add_parser(
@@ -946,6 +1003,12 @@ def build_parser() -> argparse.ArgumentParser:
         "proposals, from the facts alone",
     )
     add_root(s)
+    s.add_argument(
+        "--jev",
+        action="store_true",
+        help="group modules from Jev's answers about module pairs instead of by package "
+        "(needs TYPESAFE_API_KEY)",
+    )
     s.set_defaults(func=cmd_suggest)
 
     s = sub.add_parser(
@@ -979,6 +1042,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--print", action="store_true", help="write SKILL.md to stdout instead")
     s.set_defaults(func=cmd_skill)
+    jev_cli.add_parsers(sub, add_root)
     return parser
 
 

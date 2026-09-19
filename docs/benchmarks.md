@@ -36,6 +36,8 @@ turns and dollars below are the reverted one.
 | https://github.com/0xfauzi/kstrl | maintenance, medium (PR 213, 17 files) | 111 | 0.11.0 | claude-opus-5[1m] | 63 | 11.3 | 4.39 | - | clean | clean | finished | yes | 2026-08-26 |
 | https://github.com/0xfauzi/kstrl | maintenance, large (PR 184, 20 files) | 111 | 0.11.0 | claude-opus-5[1m] | 46 | 5.8 | 2.5 | - | clean | clean | finished | yes | 2026-08-26 |
 | https://github.com/Textualize/rich | first-map | 103 | 0.9.0 | claude-opus-5[1m] | 118 | 26.7 | 14.37 | 0.14 | clean | clean | finished | yes | 2026-08-26 |
+| https://github.com/httpie/cli | first-map | 78 | 1.1.0 | claude-opus-5[1m] | 46 | 4.8 | 3.43 | 0.044 | clean | clean | finished | yes | 2026-09-19 |
+| https://github.com/httpie/cli | first-map-jev | 78 | 1.1.0 | claude-opus-5[1m] | 54 | 5.5 | 3.61 | 0.046 | clean | clean | finished | yes | 2026-09-19 |
 | https://github.com/mealie-recipes/mealie | first-map | 460 | 0.11.0 | claude-opus-5[1m] | 167 | 32.9 | 23.76 | 0.052 | clean | clean | finished | yes | 2026-08-26 |
 | https://github.com/paperless-ngx/paperless-ngx | first-map | 341 | 0.9.0 | claude-opus-5[1m] | 151 | 36 | 24.24 | 0.071 | clean | clean | finished | yes | 2026-08-26 |
 | https://github.com/python-poetry/poetry | first-map | 192 | 0.9.0 | claude-opus-5[1m] | 174 | 35.9 | 20.82 | 0.108 | clean | clean | finished | yes | 2026-08-26 |

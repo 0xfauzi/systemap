@@ -71,6 +71,59 @@ or more modules, and the imports between proposals) as a starting point
 to argue with, never the answer; the skill's target is three to ten
 modules per component, N/10 to N/3 cards for N modules.
 
+## A second opinion from Jev
+
+`systemap audit` is optional and off the path CI takes. It asks TypeSafe's
+Jev model narrow questions about meaning, where `judgement` reads names and
+imports, and prints a line where Jev's answer disagrees with the map. Each
+threshold was chosen on five mapped repositories (`bench/jev`), then checked
+on three maps no threshold was chosen on (systemap's own, scorecard, and a
+first map of httpie). The figures are what they measured, not a promise for
+yours:
+
+| line | what it asks | development maps | holdout maps |
+|---|---|---|---|
+| jev mis-fold | which card each claimed module belongs to; a line when its own card gets P < 0.05 | 95% of modules planted in a neighbouring card caught, 4% of correctly placed modules flagged; the word rule behind `possible mis-fold` caught 32% | 93% caught, 1% flagged |
+| jev owner | the same question for a module no card claims; one card when the confidence is 0.9 or more, else the closest three | 56% of modules get one card, 98% of those right | 60%, 100% right |
+| jev sentence | does a card's sentence describe its modules; a line under P 0.2 | 67% of wrong sentences caught, 1% of right ones flagged; it catches a sentence that is wrong, not one that is slightly stale | 61% caught, 2% flagged |
+| jev flow | does the code where two cards' modules use each other carry the flow's claim; a line under P 0.2; **asked only with `--kind "jev flow"`** | 66% of wrong claims caught, 2% of real ones flagged; a call made through an instance is not in the evidence, so such a flow can be doubted for that alone | 54% caught, 4% flagged: more than 10 points under the development figure, the bar a kind had to clear to be asked by default |
+| jev governs | does an invariant govern a card it does not name; a line at P 0.8 or more | 31% of governed cards found, 1% of the rest suggested | 38% found, 1% suggested |
+
+Nothing is sent without `TYPESAFE_API_KEY`; `audit --dry-run` counts the
+questions and says what would leave the machine (module names, docstrings,
+public names, internal imports, card ids and sentences, invariants, flow
+sentences, and the source lines where two cards' modules meet). Every answer
+is cached in `.systemap/jev-cache.json` by model, release date, state and
+question, so an unchanged map costs nothing the second time and a new
+release of the model asks again. A line is answered in `[judgement]
+answered` like any other (`item`, `items`, or `kind = "jev flow"`); `audit`
+reads only the answers that name the kinds it asked, so an answer about
+`jev flow` is not called stale by a run that did not ask it, and `judgement`
+ignores them all.
+
+`systemap triage "<issue>"` names the three cards an issue's fix will most
+likely change, with their modules and neighbours on the map: on 80 closed
+issues of two repositories, the card the fixing pull request touched was
+Jev's first pick 80% of the time and in its top three 88%. With the key
+set, `delta` asks Jev on its own (`--jev` asks and says why it cannot,
+`--no-jev` sends nothing): for each module that disappeared and that delta's own three questions
+(same source, same public names, a file name that reads the same) left
+unpaired, which new module it became, and reports a pick at confidence 0.8
+or more as a move, `(read as the same module by Jev, confidence 0.94)`, like
+delta's own: on the renames in five repositories that found 82 real renames
+against delta's 66, and 16 of the 17 pairings it added were right (labelled
+blind from the commits, `bench/jev`). A move changes the report and so can
+change its exit code, as a move delta found would. It then adds the card
+each unclaimed module reads like. `suggest --jev` groups modules from Jev's answers about
+pairs (import-joined, and neighbours in one package): it beat one card per
+package on three development maps of five and lost on two, and saved no
+turns on the one first map benchmarked with it, so it stays a flag.
+
+Without a key, `judgement` says on stderr what `audit` would add, and
+`delta` does the same when a module was removed and another added; each
+hint quotes the measured figure. `[jev] enabled = false` turns off both
+the hints and delta's asking.
+
 ## Past forty cards
 
 One canvas cannot hold a large repository legibly, and past about forty
@@ -159,10 +212,12 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 | `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
 | `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); `--map ID` draws the map inside a card; a `.svg` name writes the bare drawing |
 | `systemap refresh` | extract, check, render one page per map, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
-| `systemap suggest` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone; with a model, when a map is past forty cards and which cards hold the most modules, the candidates to open a map inside |
+| `systemap suggest [--jev]` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone; with a model, when a map is past forty cards and which cards hold the most modules, the candidates to open a map inside; `--jev` groups modules from Jev's answers about module pairs instead |
 | `systemap judgement [--strict] [--kind KIND] [--verbose]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow (one line per pair of cards, counting the modules; `--verbose` lists the imports under it), flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; `--kind KIND` prints one kind when the list runs long; exit 0, or 1 with `--strict` while a line is open |
-| `systemap delta --base REF [--head REF] [--format markdown]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a decision, 1 when something does; `--format markdown` is the pull-request comment |
+| `systemap delta --base REF [--head REF] [--format markdown] [--jev \| --no-jev]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a decision, 1 when something does; `--format markdown` is the pull-request comment; with `TYPESAFE_API_KEY` set (or `--jev`) it also pairs modules renamed and rewritten at once, where Jev reads them as one (the section above), and adds the card each unclaimed module reads like; `--no-jev` sends nothing; what Jev cost goes to stderr |
 | `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned, placed, and positioned for the look only, cards per region, the region order and what the drawing costs under it (bends and length; label collisions and refused routes when there are any), bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading |
+| `systemap audit [--dry-run] [--kind KIND]...` | a second opinion from Jev on the map: `jev mis-fold`, `jev owner`, `jev sentence` and `jev governs` lines, and `jev flow` lines when asked with `--kind "jev flow"` (the section above); `--kind`, repeatable, asks only those kinds; answers cached; needs `TYPESAFE_API_KEY`; a report, exit 0, or 1 when it could not run |
+| `systemap triage TEXT` | the three cards an issue's fix will most likely change, with their modules and neighbours; `-` reads the text from stdin; the text is cut at 2,000 characters; needs `TYPESAFE_API_KEY` |
 | `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
 | `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
 
@@ -188,6 +243,7 @@ not the current directory.
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`, or `module = "pkg.sub.*"` for a subtree; an ignore needs a reason; an empty package marker needs none |
 | `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads; a leading `-` removes a built-in name (`"-google.adk"`) |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: the mechanisms other than an import that join the repository's parts; a flow whose sentence or artifact names one is observed by it rather than declared |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported; `audit` lines are answered here too, with `kind = "jev flow"` and the other `jev` kinds |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | the model `audit`, `triage`, `delta` and `suggest --jev` ask, and where their answers are cached; `enabled = false` stops `delta` asking on its own and silences the hints |
 | `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |

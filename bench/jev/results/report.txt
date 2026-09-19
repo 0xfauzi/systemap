@@ -1,0 +1,112 @@
+== owner (ideas 1+2): which card claims this module?
+   n=200 tokens in median 2354 (max 3438), out median 322; latency p50 0.28s p90 0.38s
+   Jev top-1       83% (166/200) {'kstrl': '31/40', 'mealie': '38/40', 'paperless': '30/40', 'poetry': '33/40', 'rich': '34/40'}
+   Jev top-3       95% (190/200)
+   baseline pkg    56% (113/200) (leave-one-out package majority)
+   baseline words  22% (43/200)
+   confidence when right 0.98, when wrong 0.52
+   suggest at confidence >= 0.8: answers 68%, right 95%
+   suggest at confidence >= 0.9: answers 56%, right 98%
+   suggest at confidence >= 0.95: answers 50%, right 100%
+   mis-fold, module planted in a random wrong card (n=200):
+     Jev AUC (1 - P(current owner)) = 0.988
+     Jev flag P<0.05: catches 98% of planted, flags 4% of correct
+     Jev flag P<0.1: catches 100% of planted, flags 8% of correct
+     Jev flag P<0.2: catches 100% of planted, flags 12% of correct
+   mis-fold, module planted in a neighbouring card (n=195):
+     Jev AUC (1 - P(current owner)) = 0.982
+     Jev flag P<0.05: catches 95% of planted, flags 4% of correct
+     Jev flag P<0.1: catches 96% of planted, flags 8% of correct
+     Jev flag P<0.2: catches 98% of planted, flags 11% of correct
+     current word rule: catches 39% planted at random, 32% planted next door; flags 1% of correct
+
+== where (N1): which card does this described behaviour live in?
+   n=150 tokens in median 2211 (max 2773), out median 322; latency p50 0.27s p90 0.37s
+   Jev top-1       47% (70/150) {'kstrl': '12/30', 'mealie': '11/30', 'paperless': '9/30', 'poetry': '16/30', 'rich': '22/30'}
+   Jev top-3       65% (98/150)
+   baseline words  26% (39/150)
+
+== pairs (N10): do two modules make one part?
+   n=299 tokens in median 610 (max 1247), out median 20; latency p50 0.26s p90 0.32s
+   Jev AUC same vs all-different  0.785
+   Jev AUC same vs same-package   0.713  (the hard case)
+   baseline same-package AUC      0.506
+   baseline on the hard case      0.255
+
+== flowkind (N6): does the flow's kind match its sentence?
+   n=200 tokens in median 595 (max 765), out median 38; latency p50 0.26s p90 0.31s
+   Jev accuracy        74% (147/200) {'kstrl': '20/40', 'mealie': '27/40', 'paperless': '32/40', 'poetry': '31/40', 'rich': '37/40'}
+   baseline majority   58% (116/200)
+   disagreements (map kind -> Jev): {'control->data': 27, 'data->control': 8, 'measure->data': 5, 'data->record': 3, 'control->measure': 3, 'data->measure': 3, 'data->context': 2, 'record->data': 1, 'context->data': 1}
+
+== flowverify (idea 4): does the code carry the flow the sentence claims?
+   n=160 tokens in median 700 (max 1323), out median 20; latency p50 0.27s p90 0.35s
+   Jev AUC 0.903   (n pos 80, neg 80)
+   median P(yes): true 0.51, false 0.14
+   at 0.5: accepts 51% of true, 9% of false
+
+== crossing (idea 5): is this crossing import an edge the reader needs?
+   n=916 tokens in median 591 (max 1459), out median 18; latency p50 0.26s p90 0.32s
+   Jev AUC 0.693  (edge drawn 399, answered as incidental 517)
+   per repo: {'kstrl': '0.63', 'mealie': '0.74', 'paperless': '0.75', 'poetry': '0.75', 'rich': '0.78'}
+   baseline AUC (how many modules import) 0.522
+   answering the lowest-scored 75% as incidental would wrongly drop 59% of drawn edges and clear 86% of answered lines
+   answering the lowest-scored 50% as incidental would wrongly drop 33% of drawn edges and clear 63% of answered lines
+
+== sentence (N4): does the card's sentence describe its modules?
+   n=158 tokens in median 850 (max 2264), out median 22; latency p50 0.27s p90 0.35s
+   Jev AUC 0.972   (n pos 79, neg 79)
+   median P(yes): true 0.72, false 0.13
+   at 0.5: accepts 90% of true, 6% of false
+
+== drift (the PR idea): does the card's sentence still hold after this diff?
+   n=79 tokens in median 1837 (max 4506), out median 107; latency p50 0.26s p90 0.33s
+   does: AUC 0.769 (sentence rewritten 7, kept 72)
+   interface: AUC 0.500 (rewritten 4, kept 75)
+   rewritten cases:
+     kstrl-maint@40254Z:ControlDir: P(still holds) 0.15, kind removed responsibility
+     systemap@20fd733:FactsExtractor: P(still holds) 0.64, kind extends its job
+     systemap@5ea4c0d:Model: P(still holds) 0.74, kind interface change
+     systemap@77299ab:Check: P(still holds) 0.27, kind removed responsibility
+     systemap@91f4da3:Judgement: P(still holds) 0.45, kind extends its job
+     systemap@9dc83f8:Model: P(still holds) 0.55, kind extends its job
+     systemap@d516b5b:Placer: P(still holds) 0.31, kind extends its job
+   kept sentences Jev doubts most (candidates for missed drift, or false alarms):
+     systemap@91f4da3:CLI: P(still holds) 0.13, kind extends its job
+     systemap@01ea324:CLI: P(still holds) 0.15, kind extends its job
+     systemap@20fd733:CLI: P(still holds) 0.17, kind extends its job
+     systemap@5ea4c0d:CLI: P(still holds) 0.32, kind extends its job
+     systemap@77299ab:CLI: P(still holds) 0.34, kind removed responsibility
+     systemap@9dc83f8:Check: P(still holds) 0.39, kind extends its job
+   change kind distribution: Counter({'extends its job': 35, 'removed responsibility': 18, 'internal refactor': 10, 'no behaviour change': 10, 'interface change': 6})
+
+== issues (N5): which card will the fix for this real bug report change?
+   n=80 tokens in median 2287 (max 2784), out median 264; latency p50 0.27s p90 0.35s
+   Jev top-1       80% (64/80) {'poetry': '29/40', 'rich': '35/40'}
+   Jev top-3       88% (70/80)
+   baseline words  11% (9/80)
+
+== cardkind (N7): what kind of card are these modules?
+   n=158 tokens in median 958 (max 2440), out median 52; latency p50 0.26s p90 0.33s
+   Jev accuracy 87% (137/158)  baseline all-component 85% (135/158)
+   (map kind, Jev kind): {'component->component': 128, 'store->component': 11, 'store->store': 6, 'component->agent': 3, 'component->store': 3, 'context->component': 2, 'context->context': 2, 'agent->agent': 1, 'tool->agent': 1, 'component->context': 1}
+
+== governs (N3): does this invariant govern this card?
+   n=531 tokens in median 412 (max 464), out median 22; latency p50 0.27s p90 0.37s
+   Jev AUC 0.901   (n pos 177, neg 354)
+   median P(yes): true 0.72, false 0.23
+   at 0.5: accepts 81% of true, 16% of false
+
+== answerfit (N8): does a recorded answer cover this crossing import?
+   n=200 tokens in median 552 (max 851), out median 20; latency p50 0.27s p90 0.34s
+   Jev AUC 0.746   (n pos 100, neg 100)
+   median P(yes): true 0.48, false 0.34
+   at 0.5: accepts 47% of true, 13% of false
+
+== moves (idea 3): 301 disappeared modules, 86 of them renamed per git
+   delta: 65 renames found, 4 wrong pairings, 21 renames missed
+   jev: 75 renames found, 32 wrong pairings, 5 renames missed
+   delta then Jev at conf>=0.0: 81 renames found, 30 wrong pairings, 4 renames missed
+   delta then Jev at conf>=0.8: 71 renames found, 15 wrong pairings, 15 renames missed
+   delta then Jev at conf>=0.9: 68 renames found, 12 wrong pairings, 18 renames missed
+   delta then Jev at conf>=0.95: 66 renames found, 10 wrong pairings, 20 renames missed

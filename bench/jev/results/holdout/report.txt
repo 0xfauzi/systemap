@@ -1,0 +1,48 @@
+== owner (ideas 1+2): which card claims this module?
+   n=106 tokens in median 1754 (max 2480), out median 156; latency p50 0.28s p90 0.57s
+   Jev top-1       92% (97/106) {'httpie': '36/40', 'scorecard': '36/40', 'systemap': '25/26'}
+   Jev top-3       98% (104/106)
+   baseline pkg    50% (53/106) (leave-one-out package majority)
+   baseline words  35% (37/106)
+   confidence when right 0.97, when wrong 0.61
+   suggest at confidence >= 0.8: answers 76%, right 98%
+   suggest at confidence >= 0.9: answers 60%, right 100%
+   suggest at confidence >= 0.95: answers 50%, right 100%
+   mis-fold, module planted in a random wrong card (n=106):
+     Jev AUC (1 - P(current owner)) = 0.995
+     Jev flag P<0.05: catches 99% of planted, flags 1% of correct
+     Jev flag P<0.1: catches 99% of planted, flags 3% of correct
+     Jev flag P<0.2: catches 100% of planted, flags 5% of correct
+   mis-fold, module planted in a neighbouring card (n=96):
+     Jev AUC (1 - P(current owner)) = 0.992
+     Jev flag P<0.05: catches 93% of planted, flags 1% of correct
+     Jev flag P<0.1: catches 95% of planted, flags 2% of correct
+     Jev flag P<0.2: catches 100% of planted, flags 4% of correct
+     current word rule: catches 35% planted at random, 38% planted next door; flags 1% of correct
+
+== sentence (N4): does the card's sentence describe its modules?
+   n=88 tokens in median 804 (max 1616), out median 22; latency p50 0.25s p90 0.32s
+   Jev AUC 0.972   (n pos 44, neg 44)
+   median P(yes): true 0.72, false 0.17
+   at 0.5: accepts 86% of true, 7% of false
+   shipped, flag P<0.2: catches 61% of false, flags 2% of true
+
+== flowverify (idea 4): does the code carry the flow the sentence claims?
+   n=96 tokens in median 722 (max 1517), out median 20; latency p50 0.26s p90 0.33s
+   Jev AUC 0.899   (n pos 48, neg 48)
+   median P(yes): true 0.47, false 0.18
+   at 0.5: accepts 44% of true, 6% of false
+   shipped, flag P<0.2: catches 54% of false, flags 4% of true
+
+== governs (N3): does this invariant govern this card?
+   n=174 tokens in median 413 (max 493), out median 22; latency p50 0.25s p90 0.30s
+   Jev AUC 0.856   (n pos 58, neg 116)
+   median P(yes): true 0.73, false 0.35
+   at 0.5: accepts 84% of true, 28% of false
+   shipped, suggest P>=0.8: finds 38% of true, suggests 1% of false
+
+== issues (N5): which card will the fix for this real bug report change?
+   n=39 tokens in median 1192 (max 1626), out median 129; latency p50 0.25s p90 0.29s
+   Jev top-1       79% (31/39) {'httpie': '31/39'}
+   Jev top-3       97% (38/39)
+   baseline words  38% (15/39)

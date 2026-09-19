@@ -57,12 +57,13 @@ import re
 import subprocess
 import tarfile
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
-from difflib import SequenceMatcher
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from systemap import evidence, extract, nest
+from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
 from systemap.judgement import answers, crossing_line, crossing_pairs
@@ -74,7 +75,6 @@ from systemap.model import (
     defines_entry,
     is_symbol,
     module_matches,
-    public_names,
     symbol_claims,
 )
 
@@ -83,16 +83,6 @@ NEXT = "systemap refresh && systemap check && systemap judgement --strict"
 # Past this share of the cards, the skill says to run the full loop instead
 # of acting line by line.
 FULL_LOOP_SHARE = 1 / 3
-# What the last question asks of a module renamed and edited at once:
-# how much of its public surface it kept, and how alike the two file
-# names read. Measured over every python rename git reports in kstrl,
-# rich, poetry, mealie and paperless-ngx. 0.8 of the surface is the
-# loosest value that costs nothing: at 0.6, mealie gains two wrong
-# pairings. 0.6 of the file name buys two more real renames for one
-# wrong one, and is what recognises route.py -> routing.py, which
-# reads 0.78 alike.
-SURFACE_OVERLAP = 0.8
-NAME_ALIKE = 0.6
 
 
 class DeltaError(Exception):
@@ -227,127 +217,6 @@ class Delta:
         return self.cards > 0 and len(self.named) > self.cards * FULL_LOOP_SHARE
 
 
-def _path(record: dict[str, Any]) -> PurePosixPath:
-    """Where a module's file sits, as the facts recorded it."""
-    return PurePosixPath(str(record.get("file", "")))
-
-
-def _affinity(old: dict[str, Any], cand: dict[str, Any]) -> tuple[int, int, int]:
-    """How alike two modules' files are: the tail of the path first, then
-    how alike the two file names read, then the head of the path.
-
-    The middle term is the one that earns its place. A package that
-    renumbers its migrations offers a file per number with the same one
-    class in each, so every other signal ties, and only `0003_widget.py`
-    reading like `0004_widget.py` says which became which.
-    """
-    a, b = _path(old).parts, _path(cand).parts
-    tail = 0
-    for x, y in zip(reversed(a), reversed(b), strict=False):
-        if x != y:
-            break
-        tail += 1
-    head = 0
-    for x, y in zip(a, b, strict=False):
-        if x != y:
-            break
-        head += 1
-    return (tail, int(_alike(a[-1] if a else "", b[-1] if b else "") * 1000), head)
-
-
-def _first(score: tuple[int, int, int]) -> tuple[int, int, int]:
-    """The sort key that puts the likeliest pairing first."""
-    return (-score[0], -score[1], -score[2])
-
-
-def _alike(a: str, b: str) -> float:
-    """How alike two file names read, between 0 and 1."""
-    return SequenceMatcher(None, a, b).ratio()
-
-
-def _overlap(a: set[str], b: set[str]) -> float:
-    """The share of the two surfaces' names that both of them have."""
-    union = a | b
-    return len(a & b) / len(union) if union else 0.0
-
-
-def _moves(
-    base: dict[str, Any], head: dict[str, Any], gone: list[str], new: list[str]
-) -> dict[str, tuple[str, str]]:
-    """old module -> (new module, how it was recognised), for every move.
-
-    Three questions, the strongest first: the same source (the extractor's
-    sha), then the same public names, then a file name that reads the same
-    and most of the same names. Each new module is matched once.
-
-    Every pairing a question admits is scored by `_affinity` and the best
-    is taken, because a question can admit a great many at once. When a
-    package moves to a src layout, every empty `__init__.py` in it has the
-    same source as every other, and pairing each old module with the first
-    free candidate walks the whole set one place along, so each card is
-    told to rename its claim to its neighbour's module. Measured on the
-    renames git reports in five repositories, taking the best pairing
-    rather than the first turned 27 such wrong lines into 12.
-    """
-    surface = {m: public_names(r) for m, r in list(base.items()) + list(head.items())}
-    out: dict[str, tuple[str, str]] = {}
-    taken: set[str] = set()
-
-    def assign(pairs: list[tuple[tuple[int, int, int], str, str]], how: str) -> None:
-        for _score, old, cand in sorted(pairs, key=lambda p: (_first(p[0]), p[1], p[2])):
-            if old in out or cand in taken:
-                continue
-            out[old] = (cand, how)
-            taken.add(cand)
-
-    def left() -> list[str]:
-        return [m for m in gone if m not in out]
-
-    def right() -> list[str]:
-        return [m for m in new if m not in taken]
-
-    # The same source is strong evidence, except where there is no source
-    # to speak of: two empty modules are alike for a reason that says
-    # nothing about which is which, so their file names must agree.
-    assign(
-        [
-            (_affinity(base[o], head[c]), o, c)
-            for o in left()
-            for c in right()
-            if base[o]["sha"] == head[c]["sha"]
-            and (surface[o] or _path(base[o]).name == _path(head[c]).name)
-        ],
-        "same content",
-    )
-    assign(
-        [
-            (_affinity(base[o], head[c]), o, c)
-            for o in left()
-            if surface[o]
-            for c in right()
-            if surface[c] == surface[o]
-        ],
-        "same public names",
-    )
-    # A module renamed and edited in the same commit answers neither
-    # question above: its source changed and so did its surface. What is
-    # left is how much of the surface survived and how alike the two file
-    # names read.
-    assign(
-        [
-            (_affinity(base[o], head[c]), o, c)
-            for o in left()
-            if surface[o]
-            for c in right()
-            if surface[c]
-            and _alike(_path(base[o]).name, _path(head[c]).name) >= NAME_ALIKE
-            and _overlap(surface[o], surface[c]) >= SURFACE_OVERLAP
-        ],
-        "a file name that reads the same and most of the same names",
-    )
-    return out
-
-
 def _mapped(pattern: str, mapping: dict[str, str]) -> str:
     """One `implemented_by` entry with a moved module renamed; patterns stay."""
     if is_symbol(pattern):
@@ -386,6 +255,7 @@ def compute(
     model_file: str = "",
     within: str = "",
     prefix: str = "",
+    told: Mapping[str, tuple[str, str]] = moves_mod.NO_MOVES,
 ) -> Delta:
     """What the change from `base` to `head` does to the map the model draws.
 
@@ -393,13 +263,13 @@ def compute(
     empty); `within` names the card a sub-map is inside, whose claims
     bound what a new module may be ignored from; `prefix` is what the
     sub-map's judgement lines carry, so an answered crossing import is
-    matched as printed.
+    matched as printed; `told` holds moves found elsewhere (`delta --jev`).
     """
     b: dict[str, Any] = base.get("components", {})
     h: dict[str, Any] = head.get("components", {})
     gone = sorted(set(b) - set(h))
     new = sorted(set(h) - set(b))
-    moves = _moves(b, h, gone, new)
+    moves = moves_mod.with_told(moves_mod.find(b, h, gone, new), told, gone, new)
     renamed = {old: new_name for old, (new_name, _how) in moves.items()}
     inverse = {new_name: old for old, new_name in renamed.items()}
     model_file = model_file or cfg.model
@@ -633,6 +503,7 @@ def compute_tree(
     head: dict[str, Any],
     base_ref: str = "",
     head_ref: str = "",
+    told: Mapping[str, tuple[str, str]] = moves_mod.NO_MOVES,
 ) -> Delta:
     """The change on every map of the tree, as one report.
 
@@ -644,12 +515,13 @@ def compute_tree(
     counts are the top map's; the cards named are every map's, a
     sub-map's under `<map>/<card>`.
     """
-    top = compute(cfg, tree.top.model, tree.top.meaning, base, head, base_ref, head_ref)
+    top = compute(cfg, tree.top.model, tree.top.meaning, base, head, base_ref, head_ref, told=told)
     b: dict[str, Any] = base.get("components", {})
     h: dict[str, Any] = head.get("components", {})
     gone = sorted(set(b) - set(h))
     new = sorted(set(h) - set(b))
-    renamed = {old: new_name for old, (new_name, _how) in _moves(b, h, gone, new).items()}
+    moves = moves_mod.with_told(moves_mod.find(b, h, gone, new), told, gone, new)
+    renamed = {old: new_name for old, (new_name, _how) in moves.items()}
     inverse = {new_name: old for old, new_name in renamed.items()}
     lines = list(top.lines)
     cards = top.cards
@@ -670,6 +542,7 @@ def compute_tree(
             model_file=m.rel,
             within=card.id,
             prefix=m.prefix,
+            told=told,
         )
         cards += sub.cards
         lines += [

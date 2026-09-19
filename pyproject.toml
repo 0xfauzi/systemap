@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "1.0.3"
+version = "1.1.0"
 description = "The map your coding agent draws of your system: facts read out of the code, meaning authored by the agent, a checker that refuses an incomplete or stale map."
 readme = "README.md"
 license = "MIT"
@@ -58,6 +58,8 @@ select = ["E", "F", "I", "B", "UP", "W"]
 "src/systemap/scaffold.py" = ["E501"]
 # The map's model is prose held in strings; a sentence is not wrapped.
 "map/model.py" = ["E501"]
+# The Jev experiments hold their questions as prose in strings, like the model.
+"bench/jev/*.py" = ["E501"]
 "tests/**" = ["E501"]
 
 [tool.mypy]

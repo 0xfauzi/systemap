@@ -1,0 +1,14 @@
+cli: the draft is the model after 0 edits of the first write
+kstrl: the draft is the model after 0 edits of the first write
+mealie: the draft is the model after 0 edits of the first write
+paperless-ngx: the draft is the model after 1 edits of the first write
+poetry: the draft is the model after 0 edits of the first write
+rich: the draft is the model after 0 edits of the first write
+jev: 0 sent, 1067 from the cache; 0 input and 0 output tokens; no model called
+cli            modules   69, cards draft/final 13/13, judged   69 (100%); moved after draft 0%; agent draft 100%, Jev 90%, Jev>=0.9 else draft 100%; Jev confident on 58%, right 100%; Jev says none 4
+kstrl          modules  107, cards draft/final 37/37, judged  107 (100%); moved after draft 0%; agent draft 100%, Jev 86%, Jev>=0.9 else draft 100%; Jev confident on 59%, right 100%; Jev says none 6
+mealie         modules  436, cards draft/final 30/29, judged  432 (99%); moved after draft 1%; agent draft 99%, Jev 91%, Jev>=0.9 else draft 98%; Jev confident on 77%, right 97%; Jev says none 8
+paperless-ngx  modules  180, cards draft/final 36/36, judged  178 (99%); moved after draft 1%; agent draft 99%, Jev 85%, Jev>=0.9 else draft 98%; Jev confident on 54%, right 97%; Jev says none 6
+poetry         modules  173, cards draft/final 33/32, judged  169 (98%); moved after draft 2%; agent draft 98%, Jev 85%, Jev>=0.9 else draft 96%; Jev confident on 59%, right 97%; Jev says none 9
+rich           modules  102, cards draft/final 24/24, judged  102 (100%); moved after draft 0%; agent draft 100%, Jev 76%, Jev>=0.9 else draft 99%; Jev confident on 36%, right 97%; Jev says none 16
+all            judged 1057; moved after draft 1%; agent draft 99%, Jev 87%, Jev>=0.9 else draft 98%; Jev confident on 63%, right 98%

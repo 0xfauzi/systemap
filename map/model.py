@@ -60,7 +60,7 @@ REGIONS = (
     Region("gather", "GATHER", (678, 80, 190, 204), container="systemap"),
     Region("mean", "MEAN", (250, 320, 190, 204), container="systemap"),
     Region("draw", "DRAW", (678, 320, 380, 204), container="systemap"),
-    Region("keep", "KEEP TRUE", (250, 560, 190, 296), container="systemap"),
+    Region("keep", "KEEP TRUE", (250, 560, 380, 296), container="systemap"),
 )
 
 COMPONENTS = (
@@ -88,6 +88,14 @@ COMPONENTS = (
         container="outside",
         x=36,
         y=504,
+    ),
+    Component(
+        id="TypeSafe",
+        does="The Jev model behind TypeSafe's HTTP API: answers typed questions about the map when a maintainer has set a key.",
+        kind="actor",
+        container="outside",
+        x=36,
+        y=276,
     ),
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
@@ -137,7 +145,7 @@ COMPONENTS = (
         id="ChangeDetector",
         does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports. systemap delta reads the facts at two commits out of git and says what the change did to the map, one line per thing with its fix.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
-        implemented_by=("systemap.change", "systemap.delta"),
+        implemented_by=("systemap.change", "systemap.delta", "systemap.moves"),
         entry="compute",
         region="gather",
         x=698,
@@ -238,6 +246,16 @@ COMPONENTS = (
         y=600,
     ),
     Component(
+        id="SecondOpinion",
+        does="The questions judgement cannot read from names and imports, put to the Jev model one at a time: a module that reads like another card, a card for an unclaimed module, a sentence that may not describe its modules, a flow the code may not carry, an invariant that may govern a card it does not name, the cards an issue will change. Opt-in and cached; never a gate.",
+        interface="run(tree, facts, cfg, jev) -> lines; always exit 0",
+        implemented_by=("systemap.audit", "systemap.jev_cli", "systemap.jev"),
+        entry="run",
+        region="keep",
+        x=460,
+        y=600,
+    ),
+    Component(
         id="Describe",
         does="What a look at the picture would tell an agent that cannot look: cards per region, bends and length per edge worst first, seats used per gutter, cards and edges per reading. A description, never a rule.",
         interface="run(model, meaning, theme, facts) -> lines; always exit 0",
@@ -266,6 +284,7 @@ FLOWS = (
     Flow("CLI", "Figures", "figure", "control"),
     Flow("CLI", "Judgement", "judgement", "control"),
     Flow("CLI", "Describe", "describe", "control"),
+    Flow("CLI", "SecondOpinion", "audit, triage, --jev", "control"),
     Flow("Check", "Page", "render to compare", "control"),
     Flow("Check", "Figures", "render to compare", "control"),
     Flow("Check", "ChangeDetector", "interface rule", "control"),
@@ -277,6 +296,11 @@ FLOWS = (
     Flow("Config", "Figures", "figures table", "data"),
     Flow("Config", "Check", "ignores", "data"),
     Flow("Config", "Judgement", "answers, sdks", "data"),
+    Flow("Config", "SecondOpinion", "answers, model, cache", "data"),
+    Flow("FactsExtractor", "SecondOpinion", "map.json", "data"),
+    Flow("SecondOpinion", "TypeSafe", "questions", "data"),
+    Flow("TypeSafe", "SecondOpinion", "typed answers", "data"),
+    Flow("SecondOpinion", "ChangeDetector", "moves Jev read", "data"),
     Flow("Scaffold", "Model", "starter", "data"),
     Flow("FactsExtractor", "Check", "map.json", "data"),
     Flow("FactsExtractor", "Schematic", "map.json", "data"),
@@ -310,6 +334,8 @@ FLOWS = (
     Flow("Model", "Judgement", "model", "judge"),
     Flow("Judgement", "Agent", "second-pass list", "judge"),
     Flow("Judgement", "Maintainer", "judgement answers", "judge"),
+    Flow("Model", "SecondOpinion", "cards, sentences", "judge"),
+    Flow("SecondOpinion", "Agent", "jev lines", "judge"),
 )
 
 FLOW_KINDS = ("judge",)
@@ -340,7 +366,7 @@ INVARIANTS = (
     Invariant(
         5,
         "Positions are fixed in the model, written once by systemap place or by hand, and the checker decides, so the same system always draws the same picture (README, Principles).",
-        governs=("Model", "Placer", "Router", "Check"),
+        governs=("Model", "Placer", "Router", "Check", "Schematic"),
     ),
     Invariant(
         6,
@@ -366,6 +392,11 @@ INVARIANTS = (
         10,
         "Every ignored module needs a reason (tests/test_coverage.py: test_ignore_without_reason_is_a_config_error).",
         governs=("Config", "Check"),
+    ),
+    Invariant(
+        11,
+        "check and judgement never reach the network; asking Jev is a separate command that sends nothing without a key (src/systemap/jev_cli.py, docstring).",
+        governs=("Check", "Judgement", "SecondOpinion"),
     ),
 )
 
@@ -400,6 +431,8 @@ PLAIN = {
     "Check": "what refuses",
     "Judgement": "what asks",
     "Describe": "what the picture shows",
+    "SecondOpinion": "what asks Jev",
+    "TypeSafe": "the model asked",
 }
 
 # The page derives Structure, System context, Data flow and Control flow.
@@ -416,212 +449,72 @@ LAYERS = (
 
 LAYER_OF_KIND = {"judge": "judge"}
 
-RELATIONS = {
-    (
-        "Agent",
-        "CLI",
-    ): "The agent drives everything through the commands; it never imports the package.",
-    ("CI", "CLI"): "The workflow init writes runs the check on every push and pull request.",
-    (
-        "CLI",
-        "Scaffold",
-    ): "init hands the scaffold the project's name and package roots; the scaffold writes what does not exist yet.",
-    (
-        "CLI",
-        "Skill",
-    ): "init installs the skill directory beside the project, and skill reinstalls it; an upgrade of the package refreshes it.",
-    (
-        "CLI",
-        "Placer",
-    ): "place computes a position for every card without one, or with --all for every card not pinned, and writes it into the model; describe places them for one look without writing.",
-    (
-        "Router",
-        "Placer",
-    ): "The placer routes every shortlisted region order with the router and the label pass, and keeps the order with the fewest label collisions, refused routes, bends and length.",
-    (
-        "Schematic",
-        "Placer",
-    ): "The placer scores a candidate layout on the drawing's own geometry (the card boxes, the headers and empty containers as walls, what a label may not sit on) and reads the header measurements so a box it lays out holds its header.",
-    (
-        "Placer",
-        "Describe",
-    ): "Describe reads the region order off the map as placed and the score of the drawing under it, and says how many orders place tried when it chose the order for the look.",
-    (
-        "CLI",
-        "FactsExtractor",
-    ): "extract, and the first step of refresh, run the extractor over the configured package roots.",
-    (
-        "CLI",
-        "ChangeDetector",
-    ): "render --base and figure --base ask the change detector what a git range moved; delta asks it what a change did to the map, from the facts at two commits.",
-    (
-        "CLI",
-        "Check",
-    ): "check runs every rule and prints each failure with its fix; refresh runs the same rules before it renders.",
-    ("CLI", "Page"): "render, and refresh, build the page from the facts and the model.",
-    (
-        "CLI",
-        "Figures",
-    ): "figure draws one figure to a file; refresh draws every figure the configuration lists.",
-    (
-        "CLI",
-        "Judgement",
-    ): "judgement prints the list to act on or answer; with --strict it exits 1 while a line is open.",
-    (
-        "CLI",
-        "Describe",
-    ): "describe draws the map the way the page does and prints what the drawing shows, in numbers.",
-    (
-        "Check",
-        "Page",
-    ): "The stale rule renders the page from the stored facts and compares it with the committed one.",
-    (
-        "Check",
-        "Figures",
-    ): "The stale rule renders every configured figure and compares it with the committed one.",
-    (
-        "Check",
-        "ChangeDetector",
-    ): "delta judges an interface name that vanished by the check's own interface rule, so the two cannot disagree about what a line may start with.",
-    (
-        "Config",
-        "CLI",
-    ): "The configuration tells the commands where the packages, the model and the output are.",
-    (
-        "Config",
-        "FactsExtractor",
-    ): "The package roots and the tests directory say what the extractor walks.",
-    (
-        "Config",
-        "ChangeDetector",
-    ): "The package roots and the tests directory say which changed files are modules and which are tests.",
-    (
-        "Config",
-        "Page",
-    ): "The page takes its title, its footer paths and the label for actors outside every region from the configuration.",
-    (
-        "Config",
-        "Figures",
-    ): "The [[figures]] table says which figures refresh regenerates, in which mode, to which file.",
-    (
-        "Config",
-        "Check",
-    ): "An ignore with a reason takes a module out of the coverage rule, on record.",
-    (
-        "Config",
-        "Judgement",
-    ): "The answers under [judgement] suppress the lines they cover, and [facts] model_sdks extends or reduces the SDK list the model sdk line reads.",
-    (
-        "Scaffold",
-        "Model",
-    ): "The starter model is the smallest map that passes every check; the agent replaces its words.",
-    (
-        "FactsExtractor",
-        "Check",
-    ): "The facts are what the check judges coverage, entry and staleness against.",
-    (
-        "FactsExtractor",
-        "Schematic",
-    ): "The facts file, written by extract and read back by every command, says which modules each card stands for and which flows an import backs.",
-    (
-        "FactsExtractor",
-        "Judgement",
-    ): "The entry points in the facts are what the judgement asks journeys for; the imports are what it walks for crossing edges.",
-    (
-        "FactsExtractor",
-        "ChangeDetector",
-    ): "The change detector reads a module's public surface with the extractor's parser, on both sides of the diff, so the two cannot disagree about what a module exports.",
-    (
-        "ChangeDetector",
-        "Page",
-    ): "With --base, the page carries a change map: what moved, what it reached.",
-    (
-        "ChangeDetector",
-        "Figures",
-    ): "A change figure marks what a git range changed; a reach figure marks what a plan will.",
-    (
-        "Model",
-        "Placer",
-    ): "The placer reads the cards, their regions and the flows between them; a card with x and y is kept, and with --all only a pinned card is.",
-    (
-        "Placer",
-        "Model",
-    ): "The placer writes the positions, the boxes and the canvas into map/model.py in place; the rest of the file is kept byte for byte.",
-    (
-        "Model",
-        "FactsExtractor",
-    ): "The extractor reads the model's claims to warn about a module the tree no longer has.",
-    (
-        "Model",
-        "ChangeDetector",
-    ): "The change detector attributes changed modules to the components that claim them.",
-    (
-        "Model",
-        "Schematic",
-    ): "The model is the topology the schematic draws and the meaning it prints on the wheel.",
-    (
-        "Model",
-        "Check",
-    ): "The check reads the model's own contradictions first; nothing else is judged until they are gone.",
-    (
-        "Router",
-        "Schematic",
-    ): "The router hands back the routes and the seated labels, and reports what could not be placed cleanly, with the fix that applies.",
-    (
-        "Router",
-        "Describe",
-    ): "The router's gutters and seat counts are what describe reports per gutter.",
-    (
-        "Schematic",
-        "Page",
-    ): "The page embeds the SVG and the detail JSON the interaction script reads.",
-    ("Schematic", "Figures"): "A figure is the same SVG in a figure element, or bare for an image.",
-    (
-        "Schematic",
-        "Check",
-    ): "The check renders once and reads the geometry back: routes, labels, type size, wheels.",
-    (
-        "Schematic",
-        "Describe",
-    ): "describe renders once and reads the geometry back as a description: regions, edges, gutters, readings.",
-    (
-        "Describe",
-        "Agent",
-    ): "An agent that cannot open the page reads the picture in numbers after every refresh.",
-    (
-        "Page",
-        "Maintainer",
-    ): "The maintainer opens the page: readings, click, journeys, pan and zoom.",
-    (
-        "Check",
-        "Agent",
-    ): "Every failure names its fix; the agent edits until coverage is complete and the layout is clean.",
-    ("Check", "CI"): "Exit 1 fails the pull request; the message says what to run.",
-    (
-        "Skill",
-        "Agent",
-    ): "The skill gives the agent the loop, the schema, a worked example, the second pass, and what to hand back.",
-    (
-        "Agent",
-        "Model",
-    ): "The agent writes map/model.py: the groupings, the flows, the sentences, the journeys, the invariants.",
-    (
-        "Maintainer",
-        "Model",
-    ): "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
-    (
-        "Model",
-        "Judgement",
-    ): "The judgement reads the model for the calls that could have gone another way.",
-    (
-        "Judgement",
-        "Agent",
-    ): "In the second pass the agent walks every crossing import and every entry point without a journey, and changes the model or answers the line.",
-    (
-        "Judgement",
-        "Maintainer",
-    ): "The maintainer reads the agent's answers, line by line; the list is mechanical to produce, so the review cannot be skipped.",
+# One sentence per flow, keyed "from -> to".
+_RELATIONS = {
+    "Agent -> CLI": "The agent drives everything through the commands; it never imports the package.",
+    "CI -> CLI": "The workflow init writes runs the check on every push and pull request.",
+    "CLI -> Scaffold": "init hands the scaffold the project's name and package roots; the scaffold writes what does not exist yet.",
+    "CLI -> Skill": "init installs the skill directory beside the project, and skill reinstalls it; an upgrade of the package refreshes it.",
+    "CLI -> Placer": "place computes a position for every card without one, or with --all for every card not pinned, and writes it into the model; describe places them for one look without writing.",
+    "Router -> Placer": "The placer routes every shortlisted region order with the router and the label pass, and keeps the order with the fewest label collisions, refused routes, bends and length.",
+    "Schematic -> Placer": "The placer scores a candidate layout on the drawing's own geometry (the card boxes, the headers and empty containers as walls, what a label may not sit on) and reads the header measurements so a box it lays out holds its header.",
+    "Placer -> Describe": "Describe reads the region order off the map as placed and the score of the drawing under it, and says how many orders place tried when it chose the order for the look.",
+    "CLI -> FactsExtractor": "extract, and the first step of refresh, run the extractor over the configured package roots.",
+    "CLI -> ChangeDetector": "render --base and figure --base ask the change detector what a git range moved; delta asks it what a change did to the map, from the facts at two commits.",
+    "CLI -> Check": "check runs every rule and prints each failure with its fix; refresh runs the same rules before it renders.",
+    "CLI -> Page": "render, and refresh, build the page from the facts and the model.",
+    "CLI -> Figures": "figure draws one figure to a file; refresh draws every figure the configuration lists.",
+    "CLI -> Judgement": "judgement prints the list to act on or answer; with --strict it exits 1 while a line is open.",
+    "CLI -> Describe": "describe draws the map the way the page does and prints what the drawing shows, in numbers.",
+    "Check -> Page": "The stale rule renders the page from the stored facts and compares it with the committed one.",
+    "Check -> Figures": "The stale rule renders every configured figure and compares it with the committed one.",
+    "Check -> ChangeDetector": "delta judges an interface name that vanished by the check's own interface rule, so the two cannot disagree about what a line may start with.",
+    "Config -> CLI": "The configuration tells the commands where the packages, the model and the output are.",
+    "Config -> FactsExtractor": "The package roots and the tests directory say what the extractor walks.",
+    "Config -> ChangeDetector": "The package roots and the tests directory say which changed files are modules and which are tests.",
+    "Config -> Page": "The page takes its title, its footer paths and the label for actors outside every region from the configuration.",
+    "Config -> Figures": "The [[figures]] table says which figures refresh regenerates, in which mode, to which file.",
+    "Config -> Check": "An ignore with a reason takes a module out of the coverage rule, on record.",
+    "Config -> Judgement": "The answers under [judgement] suppress the lines they cover, and [facts] model_sdks extends or reduces the SDK list the model sdk line reads.",
+    "Scaffold -> Model": "The starter model is the smallest map that passes every check; the agent replaces its words.",
+    "FactsExtractor -> Check": "The facts are what the check judges coverage, entry and staleness against.",
+    "FactsExtractor -> Schematic": "The facts file, written by extract and read back by every command, says which modules each card stands for and which flows an import backs.",
+    "FactsExtractor -> Judgement": "The entry points in the facts are what the judgement asks journeys for; the imports are what it walks for crossing edges.",
+    "FactsExtractor -> ChangeDetector": "The change detector reads a module's public surface with the extractor's parser, on both sides of the diff, so the two cannot disagree about what a module exports.",
+    "ChangeDetector -> Page": "With --base, the page carries a change map: what moved, what it reached.",
+    "ChangeDetector -> Figures": "A change figure marks what a git range changed; a reach figure marks what a plan will.",
+    "Model -> Placer": "The placer reads the cards, their regions and the flows between them; a card with x and y is kept, and with --all only a pinned card is.",
+    "Placer -> Model": "The placer writes the positions, the boxes and the canvas into map/model.py in place; the rest of the file is kept byte for byte.",
+    "Model -> FactsExtractor": "The extractor reads the model's claims to warn about a module the tree no longer has.",
+    "Model -> ChangeDetector": "The change detector attributes changed modules to the components that claim them.",
+    "Model -> Schematic": "The model is the topology the schematic draws and the meaning it prints on the wheel.",
+    "Model -> Check": "The check reads the model's own contradictions first; nothing else is judged until they are gone.",
+    "Router -> Schematic": "The router hands back the routes and the seated labels, and reports what could not be placed cleanly, with the fix that applies.",
+    "Router -> Describe": "The router's gutters and seat counts are what describe reports per gutter.",
+    "Schematic -> Page": "The page embeds the SVG and the detail JSON the interaction script reads.",
+    "Schematic -> Figures": "A figure is the same SVG in a figure element, or bare for an image.",
+    "Schematic -> Check": "The check renders once and reads the geometry back: routes, labels, type size, wheels.",
+    "Schematic -> Describe": "describe renders once and reads the geometry back as a description: regions, edges, gutters, readings.",
+    "Describe -> Agent": "An agent that cannot open the page reads the picture in numbers after every refresh.",
+    "Page -> Maintainer": "The maintainer opens the page: readings, click, journeys, pan and zoom.",
+    "Check -> Agent": "Every failure names its fix; the agent edits until coverage is complete and the layout is clean.",
+    "Check -> CI": "Exit 1 fails the pull request; the message says what to run.",
+    "Skill -> Agent": "The skill gives the agent the loop, the schema, a worked example, the second pass, and what to hand back.",
+    "Agent -> Model": "The agent writes map/model.py: the groupings, the flows, the sentences, the journeys, the invariants.",
+    "Maintainer -> Model": "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
+    "Model -> Judgement": "The judgement reads the model for the calls that could have gone another way.",
+    "Judgement -> Agent": "In the second pass the agent walks every crossing import and every entry point without a journey, and changes the model or answers the line.",
+    "Judgement -> Maintainer": "The maintainer reads the agent's answers, line by line; the list is mechanical to produce, so the review cannot be skipped.",
+    "CLI -> SecondOpinion": "audit, triage and the --jev flags hand their questions to the second opinion; check and judgement never do.",
+    "Config -> SecondOpinion": "The configuration names the model, where its answers are cached, and the answers that suppress a jev line.",
+    "FactsExtractor -> SecondOpinion": "The facts give each question its state: a module's docstring, names and imports, and the lines where two cards meet.",
+    "SecondOpinion -> TypeSafe": "One typed question at a time goes over HTTPS with the maintainer's key; nothing goes without it.",
+    "TypeSafe -> SecondOpinion": "Jev sends back a probability or a choice with its distribution, which is cached by model release and question.",
+    "SecondOpinion -> ChangeDetector": "For delta --jev, the modules delta's own rules left unpaired go to Jev, and the new module it reads each as becomes one more move in delta's report.",
+    "Model -> SecondOpinion": "The model's cards, sentences, flows and invariants are what the questions ask about.",
+    "SecondOpinion -> Agent": "The agent gets a jev line where the answer disagrees with the map, to act on or answer like a judgement line.",
 }
+RELATIONS = {(k.split(" -> ")[0], k.split(" -> ")[1]): v for k, v in _RELATIONS.items()}
 
 VERBS = {
     "control": ("runs", "is run by"),
@@ -651,6 +544,42 @@ VERB_OVERRIDES = {
 }
 
 JOURNEYS = (
+    Journey(
+        id="second-opinion",
+        label="A second opinion: systemap audit, and triage for an issue",
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="With a key set and the judgement clean, the agent runs systemap audit; a maintainer with an issue in hand runs systemap triage.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("Model", "SecondOpinion"),
+                say="The second opinion reads the cards, sentences, flows and invariants, and the facts behind them, into one narrow question each.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("SecondOpinion", "TypeSafe"),
+                say="Questions the cache cannot answer go to Jev over HTTPS; audit --dry-run says what would leave the machine first.",
+            ),
+            Step(
+                acts=("TypeSafe",),
+                measures=(),
+                edge=("TypeSafe", "SecondOpinion"),
+                say="Jev answers each with a probability or a choice, and every answer is cached by the model's release.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=("Agent",),
+                edge=("SecondOpinion", "Agent"),
+                say="A jev line where the answer disagrees with the map, or triage's three likeliest cards; the agent acts on a line or answers it under [judgement].",
+            ),
+        ),
+    ),
     Journey(
         id="first-map",
         label="The first map: systemap init, extract, a draft, check",

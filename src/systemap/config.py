@@ -100,9 +100,11 @@ KNOWN_KEYS = {
     "facts",
     "judgement",
     "flows",
+    "jev",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
+JEV_KEYS = {"model", "cache", "enabled"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
@@ -120,6 +122,8 @@ LINE_KINDS = (
     "declared flow",
     "model sdk",
 )
+# The kinds of line `systemap audit` prints; answered in the same list.
+AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev governs")
 
 
 class ConfigError(Exception):
@@ -209,6 +213,10 @@ class Config:
     judgement_answered: tuple[Answer, ...] = ()
     model_sdks: tuple[str, ...] = ()
     observed_by: tuple[str, ...] = ()
+    jev_model: str = "jev-latest"
+    jev_cache: str = ".systemap/jev-cache.json"
+    # false: delta does not ask Jev on its own, and no command says what Jev would add
+    jev_enabled: bool = True
     source: str = ""
 
     @property
@@ -218,6 +226,10 @@ class Config:
     @property
     def out_path(self) -> Path:
         return self.root / self.out_dir
+
+    @property
+    def jev_cache_path(self) -> Path:
+        return self.root / self.jev_cache
 
     @property
     def facts_path(self) -> Path:
@@ -490,6 +502,7 @@ def load(root: Path) -> Config:
         judgement_answered=_judgement_answered(raw, where),
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
+        **_jev(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
         package_roots=package_roots,
@@ -564,6 +577,25 @@ def _flows(raw: dict[str, Any], where: str) -> tuple[str, ...]:
     return tuple(name.strip() for name in names)
 
 
+def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
+    """The `[jev]` table: which model the Jev commands ask, where answers are cached,
+    and whether delta asks it on its own when a key is set."""
+    jev = raw.get("jev", {})
+    if not isinstance(jev, dict):
+        raise ConfigError(f"{where}: jev must be a table")
+    bad = sorted(set(jev) - JEV_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: jev has unknown key: {', '.join(bad)}")
+    model = _str(jev, "model", "jev-latest", f"{where}: jev").strip()
+    cache = _str(jev, "cache", ".systemap/jev-cache.json", f"{where}: jev").strip()
+    if not model or not cache:
+        raise ConfigError(f"{where}: jev.model and jev.cache must not be empty")
+    enabled = jev.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise ConfigError(f"{where}: jev.enabled must be true or false")
+    return {"jev_model": model, "jev_cache": cache, "jev_enabled": enabled}
+
+
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     """The `[judgement] answered` list; an entry without a reason is refused."""
     judgement = raw.get("judgement", {})
@@ -636,9 +668,10 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
             else:
                 crossing_from = value.strip()
         elif form == "kind":
-            if not isinstance(value, str) or value.strip() not in LINE_KINDS:
+            if not isinstance(value, str) or value.strip() not in (*LINE_KINDS, *AUDIT_KINDS):
                 raise ConfigError(
-                    f"{where}: judgement.answered[{k}] kind must be one of {', '.join(LINE_KINDS)}"
+                    f"{where}: judgement.answered[{k}] kind must be one of "
+                    f"{', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
                 )
             kind = value.strip()
         else:

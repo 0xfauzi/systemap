@@ -1,0 +1,10 @@
+== test 7: 12 stale, 48 hold, 0 unsure
+   AUC 0.957  (pass: 0.85 or more)
+   flag P(holds)<0.3: catches 50% of stale, alarms on 0% of cards that hold
+   flag P(holds)<0.4: catches 75% of stale, alarms on 4% of cards that hold
+   flag P(holds)<0.5: catches 100% of stale, alarms on 38% of cards that hold
+== test 8: 20 successors, 12 unrelated, 0 unsure
+   delta alone: 66 found, 3 wrong, 40 missed
+   delta then Jev at 0.8: 82 found (+16), 4 wrong; Jev's additions right 16/17 (pass: +8 or more at 90% right)
+   delta then Jev at 0.9: 76 found (+10), 4 wrong; Jev's additions right 10/11 (pass: +8 or more at 90% right)
+   delta then Jev at 0.95: 72 found (+6), 4 wrong; Jev's additions right 6/7 (pass: +8 or more at 90% right)

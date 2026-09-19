@@ -7,19 +7,26 @@ compatibility: Requires Python 3.11+ and the systemap package (uv tool install s
 
 # Mapping a repository with systemap
 
-You are drawing a map of this repository's system. systemap draws it from
-two inputs. The facts (which modules exist, what each exports, which tests
-import it, where a run starts) are read out of the code by `systemap
-extract`; nothing you write changes them. The model (which modules together
-make one thing a reader would point at and name, what moves between things,
-what each connection means) takes judgement, and that is your job here. You
-draft it; the maintainer reviews every call before it is trusted.
+You are drawing a map of this repository's system from two inputs. The
+facts (modules, what each exports, which tests import it, where a run
+starts) are read out of the code by `systemap extract`; nothing you write
+changes them. The model (which modules make one thing a reader would name,
+what moves between things, what each connection means) takes judgement:
+you draft it, and the maintainer reviews every call before it is trusted.
 
 The model is one Python module, by default `map/model.py`, exporting `MODEL`
 and `MEANING`, built from the dataclasses `systemap` exports. Run every
 command from the repository root (`--root DIR` names another project);
 `systemap` and `uv run systemap` both resolve when the tool is installed.
 If there is no `systemap.toml`, run `systemap init` first.
+
+## Jev first
+
+Use the Jev version of a command: `suggest --jev`, `audit` after
+`judgement`, `delta` (it asks Jev itself), `triage` for an issue. Each needs
+`TYPESAFE_API_KEY`; when it is unset or a Jev command fails, run the plain
+version and tell the user: "Jev was not used (<the reason printed>); these
+results come from systemap's rules alone. Set TYPESAFE_API_KEY for Jev."
 
 ## The loop
 
@@ -41,9 +48,9 @@ contradictions, not omissions; the second pass is the point of this skill.
    and who imports it; `--imports NAME`, what a module imports and what
    imports it. Every module must end up claimed by one component, except
    the empty package markers the summary lists.
-2. **draft**: `systemap suggest` prints a first grouping from the facts
-   alone, one proposal per package with two or more modules and the
-   imports between proposals: a starting point to argue with, never the
+2. **draft**: `systemap suggest --jev` (fallback: `systemap suggest`)
+   prints a first grouping, from Jev's answers about module pairs or one
+   proposal per package, and the imports between: to argue with, never the
    answer. Then write `map/model.py` from the facts and the repository's
    own words: its README, AGENTS.md, CLAUDE.md, docs/. Write the
    components and the flows with no `x` and `y`, then run `systemap
@@ -56,12 +63,10 @@ contradictions, not omissions; the second pass is the point of this skill.
    `references/schema.md` has every field; `references/example.md` is a
    complete small model; `references/layout.md`, what you still decide.
 3. **check**: `systemap check && systemap judgement --strict`, together,
-   every round. Fix every line the check prints and act on or answer every
-   judgement line; repeat until only `stale` remains (the page has not
-   been rendered yet) and the judgement exits 0. Together, because a
-   layout fix that drops an edge reopens the crossing-import lines that
-   edge answered, and only the judgement sees that; run in the same
-   round, a fix on one side cannot quietly undo the other.
+   every round: fix every check line, act on or answer every judgement
+   line, until only `stale` remains (the page is not rendered yet) and the
+   judgement exits 0. Dropping an edge reopens the crossing-import lines
+   it answered, and only the judgement sees that.
 4. **judgement**: `systemap judgement`. Act on every line, or answer it in
    `[judgement] answered` in `systemap.toml` with a reason: one table per
    answer, one form each (`references/second-pass.md` shows them written):
@@ -88,6 +93,8 @@ contradictions, not omissions; the second pass is the point of this skill.
    | `crossing import` | modules of one card import modules of another and no flow joins the two; one line per pair, counting the modules (`--verbose` lists the imports) | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
    | `declared flow` | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by` | find the import and fix the claims; name the mechanism in the sentence and list it under `[flows] observed_by`; or remove the flow. Answer only an edge that is real and joined by nothing in the tree |
    | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |
+
+   Then `systemap audit`: act on or answer its `jev ...` lines the same way.
 5. **render**: `systemap refresh`, then `systemap describe`: the picture in
    numbers (cards per region, bends per edge worst first, seats per gutter,
    what each reading lights). Open the page only if you can: `systemap
@@ -104,7 +111,7 @@ contradictions, not omissions; the second pass is the point of this skill.
    being found govern parts that are not in the tree. Expect to find
    missed edges and wrong groupings. Go to 3.
 7. **stop**: when check is clean, `judgement --strict` exits 0 (every
-   remaining line answered in the configuration), a full second pass
+   line answered, `systemap audit` too with a Jev key), a second pass
    changed nothing, and the documents left unread govern nothing in the
    tree.
 8. **hand back**: the answers are in `systemap.toml`; add the coverage line
@@ -112,8 +119,7 @@ contradictions, not omissions; the second pass is the point of this skill.
 
 Turn budgets, per step: extract 2, draft 10, place and check 15,
 judgement 10, second pass 20. Budgets, not limits: a step that overruns
-is finished, and the overrun is named in the hand-back with the step
-that ate it, so a run that cost more than expected says where.
+is finished, and the hand-back names the step that overran.
 
 ## When the code changed
 
@@ -122,7 +128,8 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 
 1. `systemap delta --base <the base branch>`: what the change did to the
    map, one line per thing with its fix, from the facts at both commits
-   read out of git; exit 1 while a line needs a decision.
+   read out of git; exit 1 while a line needs a decision. It asks Jev
+   itself; a `hint:` or `delta --jev:` line means it did not: say so.
 2. Act only on those lines, in `map/model.py` and `systemap.toml`.
 3. `systemap refresh`, then `systemap check && systemap judgement --strict`.
 4. When `delta` names more than about a third of the cards, it says so:
@@ -158,15 +165,10 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 - Journeys: one per entry point that matters, tracing the components it
   passes through. Invariants: rules the repository states about itself,
   each citing its source. `references/journeys-and-invariants.md`.
-- Positions: leave `x` and `y` out and run `systemap place`. It lays the
-  regions out on a two-column grid with corridors between them (an edge
-  may not cross a region it does not belong to), in the region order its
-  search scores best, and puts every card on the grid inside its region,
-  the parts that talk together; after adding or removing a card,
-  `systemap place --all` lays every card out again, keeping only the
-  cards marked `pinned=True`. You decide which region a card is in and
-  which cards to pin; the region order only with `--keep-order`
-  (`references/layout.md`). An artifact label is a noun phrase of
+- Positions: leave `x` and `y` out and run `systemap place` (step 2); it
+  keeps corridors between regions, since an edge may not cross a region
+  it does not belong to. You decide a card's region and which cards to
+  pin (`references/layout.md`). An artifact label is a noun phrase of
   one to three words, never a sentence. The check decides.
 - A card whose modules exceed ten, or any card once a map is past forty
   cards, may open a map of its own: `map="gateway.py"` names a second
@@ -183,9 +185,10 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap facts` | the facts read back, one view at a time: `--modules` (first sentence and counts per module), `--docstrings`, `--module NAME` (one record, rendered), `--names NAME` (public names with kinds), `--entry-points` (with targets), `--external`, `--imports NAME`; never open the JSON |
 | `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too, in the region order the search scores best (every order tried, the best routed; the chosen order and its score are printed); `--keep-order` lays the regions as listed; `--print` prints instead |
 | `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
-| `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open |
-| `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI; `--kind KIND` prints one kind when the list runs long; `--verbose` lists the imports behind each crossing-import line |
-| `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; exit 1 while a line needs a decision; `--format markdown` for a pull-request comment |
+| `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open; `--jev` (use it first) groups modules from Jev's answers about module pairs instead (needs `TYPESAFE_API_KEY`) |
+| `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI; `--kind KIND` prints one kind when the list runs long; `--verbose` lists the imports behind each crossing-import line; `systemap audit` (needs `TYPESAFE_API_KEY`) asks the Jev model about meaning, answered the same way (`references/second-pass.md`) |
+| `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; exit 1 while a line needs a decision; `--format markdown` for a pull-request comment; with `TYPESAFE_API_KEY` set it also asks Jev to pair modules renamed and rewritten at once, and names a card for each unclaimed module (`--no-jev` sends nothing) |
+| `systemap triage "<issue>"` | the three cards an issue's fix will most likely change, by Jev, with their modules and neighbours |
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, `--map ID` for the map inside a card, or `--components A,B` for a plan's reach |
@@ -194,9 +197,8 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 
 ## What to hand back
 
-1. Every `systemap judgement` line you did not act on, answered in
-   `[judgement] answered` in `systemap.toml` with its reason (in the
-   repository, not in a chat); `judgement` then prints `nothing to confirm`.
+1. Every `judgement` and `audit` line you did not act on, answered in
+   `[judgement] answered` in `systemap.toml` with its reason, not in a chat.
 2. The coverage line from `systemap check` and its last line, and the
    step that overran its turn budget, if one did.
 3. The groupings that could go another way. The edges the facts do not
@@ -209,9 +211,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 - The map draws what exists today: every module a component names is in
   the facts; nothing on the map is a plan.
 - Prose is for emphasis; the relationships live on the edges.
-- Run `systemap check && systemap judgement --strict` after every move:
-  the check refuses, it does not warn, and the judgement sees what a
-  layout fix reopened.
+- After every move, `systemap check && systemap judgement --strict`.
 
 ## References
 

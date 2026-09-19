@@ -1,5 +1,59 @@
 # Changelog
 
+## Unreleased
+
+- `delta` asks Jev on its own when `TYPESAFE_API_KEY` is set: modules renamed
+  and rewritten at once are paired, and each unclaimed module gets the card it
+  reads like. `--no-jev` sends nothing; `--jev` asks and says why it cannot.
+  What Jev cost goes to stderr, and only when a question was asked.
+- Without a key, `judgement` says on stderr what `audit` would add, and `delta`
+  does when a module was removed and another added, each with its measured
+  figure. `[jev] enabled = false` turns off the hints and delta's asking.
+- The skill uses the Jev version of each command first (`suggest --jev`,
+  `audit` after `judgement`, `delta`, `triage`) and falls back to the plain
+  one when `TYPESAFE_API_KEY` is unset or a Jev call fails, telling the user
+  that Jev was not used and why.
+- `check` and `judgement` still never ask, and `suggest` keeps `--jev` as a
+  flag: it saved nothing on the first map it was benchmarked on.
+
+## 1.1.0
+
+A second opinion, opt-in. Everything below needs `TYPESAFE_API_KEY`; nothing
+is sent without it, `check` and `judgement` never call it, and no dependency
+was added: the HTTP API is spoken with `urllib`.
+
+- `systemap audit` asks TypeSafe's Jev model five kinds of question and
+  prints a line where its answer disagrees with the map: `jev mis-fold`,
+  `jev owner`, `jev sentence`, `jev flow` and `jev governs`. The thresholds
+  were chosen on the five first maps in `bench/scratch` and each is quoted in
+  `audit.py` with what it measured; `bench/jev` holds every experiment, its
+  labels, the answers and the report, beside the heuristic systemap used.
+  Each kind was then checked on three maps no threshold was chosen on
+  (`JEV_SET=holdout`): all held within 10 points of the development figures
+  but `jev flow` (54% of wrong flows caught against 66%), which is asked only
+  with `--kind "jev flow"`. `--kind` repeats, and asks only the kinds named.
+  A line is answered in `[judgement] answered`; `audit` reads only the answers
+  that name its lines, and `judgement` ignores them. `--dry-run` counts the
+  questions and says what would leave the machine.
+- `systemap triage "<issue>"` names the three cards a fix will most likely
+  change, with their modules and neighbours on the map.
+- `delta --jev` asks Jev which new module each module that disappeared
+  became, where delta's own questions paired none, and reports a pick at
+  confidence 0.8 or more as a move: on renames in five repositories it found
+  82 against delta's 66, 16 of its 17 additions right (labelled blind by an
+  agent from the commits; `bench/jev`). It then adds the card each
+  unclaimed module reads like. `suggest --jev` groups modules from Jev's answers
+  about module pairs; on the development maps it beat one card per package on
+  three of five and lost on two, and says so when it runs. On httpie, a first
+  map told to start from it took 54 turns, $3.61 and 5.5 minutes against 46,
+  $3.43 and 4.8 for the plain recipe (one run each, so the spread between
+  runs is not measured); it stays opt-in, and the recipe does not use it.
+- Answers are cached in `.systemap/jev-cache.json` by model, release date,
+  state and question: an unchanged map costs nothing the second time, and a
+  new release of the model asks again. `[jev]` in the configuration names the
+  model and the cache.
+- `typesafe_sdk` joined the model SDK list the `model sdk` line reads.
+
 ## 1.0.3
 
 - The version badge reads PyPI rather than pypi, and its address changed with

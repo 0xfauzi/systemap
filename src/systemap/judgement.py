@@ -105,6 +105,7 @@ MODEL_SDKS: tuple[str, ...] = (
     "llama_index",
     "mistralai",
     "cohere",
+    "typesafe_sdk",
     "vertexai",
 )
 

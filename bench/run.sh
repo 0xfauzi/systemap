@@ -4,6 +4,13 @@
 #
 #   bench/run.sh <repo-url-or-path> first-map   [--ref REF] [options]
 #   bench/run.sh <repo-url-or-path> maintenance --base REF [--ref REF] [options]
+#   bench/run.sh <repo-url-or-path> first-map-jev [--ref REF] [options]
+#
+# first-map-jev is the first map with one change to the sentence: the agent
+# starts the grouping from `systemap suggest --jev` (Jev's answers about
+# module pairs) instead of `systemap suggest`. It needs TYPESAFE_API_KEY in
+# the environment, and exists to measure whether that grouping saves a first
+# map turns or dollars against a first-map run of the same repository.
 #
 # What it does, in order: puts a checkout of the repository under a scratch
 # directory (a git worktree for a local path, a clone for a URL: shallow for
@@ -26,7 +33,7 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 
 usage() {
   cat <<'USAGE'
-Usage: bench/run.sh <repo-url-or-path> <first-map|maintenance> [options]
+Usage: bench/run.sh <repo-url-or-path> <first-map|maintenance|first-map-jev> [options]
 
   --ref REF          the commit, branch or tag to check out (default: HEAD of
                      the source; a shallow clone takes a branch or a tag)
@@ -67,8 +74,8 @@ while [ $# -gt 0 ]; do
 done
 if [ -z "$repo" ] || [ -z "$mode" ]; then usage >&2; exit 2; fi
 case "$mode" in
-  first-map|maintenance) ;;
-  *) echo "bench: mode must be first-map or maintenance, not $mode" >&2; exit 2 ;;
+  first-map|maintenance|first-map-jev) ;;
+  *) echo "bench: mode must be first-map, maintenance or first-map-jev, not $mode" >&2; exit 2 ;;
 esac
 if [ "$mode" = "maintenance" ] && [ -z "$base" ]; then
   echo "bench: maintenance needs --base REF" >&2; exit 2
@@ -98,7 +105,7 @@ echo "bench: checkout at $tree"
 
 if [ "$kind" = worktree ]; then
   git -C "$repo" worktree add --quiet --detach "$tree" "${ref:-HEAD}"
-elif [ "$mode" = first-map ]; then
+elif [ "$mode" != maintenance ]; then
   if [ -n "$ref" ]; then git clone --quiet --depth 1 --branch "$ref" "$repo" "$tree"
   else git clone --quiet --depth 1 "$repo" "$tree"; fi
 else
@@ -120,6 +127,8 @@ systemap init | sed 's/^/bench: init: /'
 
 if [ "$mode" = first-map ]; then
   sentence="Map this repository with systemap. Follow the systemap skill."
+elif [ "$mode" = first-map-jev ]; then
+  sentence="Map this repository with systemap. Follow the systemap skill, and for the first grouping run systemap suggest --jev instead of systemap suggest."
 else
   sentence="The code changed. Update the map with systemap: follow the systemap skill's maintenance path, with base $base."
 fi
