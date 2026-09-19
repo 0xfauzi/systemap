@@ -9,8 +9,12 @@
 - Without a key, `judgement` says on stderr what `audit` would add, and `delta`
   does when a module was removed and another added, each with its measured
   figure. `[jev] enabled = false` turns off the hints and delta's asking.
-- `check` and `judgement` still never ask, and `suggest --jev` stays a flag:
-  it saved nothing on the first map it was benchmarked on.
+- The skill uses the Jev version of each command first (`suggest --jev`,
+  `audit` after `judgement`, `delta`, `triage`) and falls back to the plain
+  one when `TYPESAFE_API_KEY` is unset or a Jev call fails, telling the user
+  that Jev was not used and why.
+- `check` and `judgement` still never ask, and `suggest` keeps `--jev` as a
+  flag: it saved nothing on the first map it was benchmarked on.
 
 ## 1.1.0
 
