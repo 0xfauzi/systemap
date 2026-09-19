@@ -14,13 +14,9 @@ import asyncio
 import gzip
 import json
 import time
-from pathlib import Path
 
+from common import DATA, RESULTS
 from typesafe_sdk import AsyncTypeSafeClient, TypeSafeAPIError
-
-HERE = Path(__file__).parent
-DATA, RESULTS = HERE / "data", HERE / "results"
-RESULTS.mkdir(exist_ok=True)
 
 
 def done(exp: str) -> set[str]:

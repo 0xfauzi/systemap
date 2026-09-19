@@ -248,8 +248,43 @@ def issue_rows(name: str, gh_repo: str, per_repo: int) -> list[dict]:
     return rows
 
 
+ISSUE_SOURCES = {
+    "rich": "Textualize/rich",
+    "poetry": "python-poetry/poetry",
+    "httpie": "httpie/cli",
+}
+
+
+def fetch_prs(name: str, gh_repo: str, limit: int = 400) -> None:
+    """The merged PRs with the issues they close and the files they touch, once."""
+    path = DATA / f"raw-prs-{name}.json"
+    if path.exists():
+        return
+    out = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "-R",
+            gh_repo,
+            "--state",
+            "merged",
+            "--limit",
+            str(limit),
+            "--json",
+            "number,title,files,closingIssuesReferences",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    path.write_text(out.stdout)
+
+
 def build_issues(per_repo: int = 40) -> None:
-    sources = (("rich", "Textualize/rich"), ("poetry", "python-poetry/poetry"))
+    sources = [(n, gh) for n, gh in ISSUE_SOURCES.items() if n in REPOS]
+    for name, gh in sources:
+        fetch_prs(name, gh)
     write("issues", [x for name, gh in sources for x in issue_rows(name, gh, per_repo)])
 
 

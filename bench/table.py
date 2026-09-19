@@ -23,7 +23,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results.jsonl"
 OUT = ROOT / "docs" / "benchmarks.md"
-MODES = ("first-map", "maintenance")
+MODES = ("first-map", "maintenance", "first-map-jev")
 COLUMNS = (
     "repository",
     "mode",
@@ -104,7 +104,8 @@ def _cell(value: Any) -> str:
 
 def _per_module(row: dict[str, Any]) -> Any:
     dollars, modules = row.get("dollars"), row.get("modules")
-    if row.get("mode") != "first-map" or not isinstance(dollars, int | float) or not modules:
+    first = row.get("mode") in ("first-map", "first-map-jev")
+    if not first or not isinstance(dollars, int | float) or not modules:
         return None
     return round(dollars / modules, 3)
 

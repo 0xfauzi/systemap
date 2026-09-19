@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 from dataclasses import dataclass
 from functools import cache
@@ -14,17 +15,41 @@ from systemap.extract import is_empty_marker
 from systemap.model import Meaning, Model, claimed
 
 HERE = Path(__file__).parent
-DATA = HERE / "data"
 SYSTEMAP = HERE.parents[1]
 SCRATCH = SYSTEMAP / "bench/scratch"
 
-REPOS = {
+
+def _latest(pattern: str) -> Path | None:
+    """The newest finished benchmark run matching `pattern` (it wrote summary.json)."""
+    found = sorted(d for d in SCRATCH.glob(pattern) if (d / "summary.json").exists())
+    return found[-1] / "repo" if found else None
+
+
+# The development set: the maps every threshold in systemap's audit was chosen on.
+DEV_REPOS = {
     "kstrl": SCRATCH / "kstrl-first-map-20260826T114300Z/repo",
     "mealie": SCRATCH / "mealie-first-map-20260826T142022Z/repo",
     "paperless": SCRATCH / "paperless-ngx-first-map-20260826T125316Z/repo",
     "poetry": SCRATCH / "poetry-first-map-20260826T121716Z/repo",
     "rich": SCRATCH / "rich-first-map-20260826T132926Z/repo",
 }
+# The holdout set: maps no threshold was chosen on. JEV_SET=holdout builds, runs
+# and scores against these, with data and results in holdout/ subdirectories.
+HOLDOUT_REPOS = {
+    "systemap": SYSTEMAP,
+    "scorecard": SYSTEMAP.parent / "scorecard",
+    "httpie": _latest("cli-first-map-2*"),
+}
+SET = os.environ.get("JEV_SET", "dev")
+if SET not in ("dev", "holdout"):
+    raise SystemExit(f"JEV_SET is dev or holdout, not {SET}")
+REPOS: dict[str, Path] = (
+    DEV_REPOS if SET == "dev" else {k: v for k, v in HOLDOUT_REPOS.items() if v is not None}
+)
+DATA = HERE / "data" / ("" if SET == "dev" else "holdout")
+RESULTS = HERE / "results" / ("" if SET == "dev" else "holdout")
+DATA.mkdir(parents=True, exist_ok=True)
+RESULTS.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
@@ -54,7 +79,7 @@ class Repo:
 
 @cache
 def load(name: str) -> Repo:
-    root = REPOS[name] if name in REPOS else SYSTEMAP
+    root = REPOS[name]
     cfg = config.load(root)
     tree = nest.load(cfg)
     cache_file = DATA / f"facts-{name}.json"

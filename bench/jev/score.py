@@ -13,22 +13,20 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from common import load
+from common import DATA, RESULTS, load
 
+from systemap import audit
 from systemap.judgement import package_of, share_a_package, share_a_word, words
 
 HERE = Path(__file__).parent
 
 
 def rows(exp: str) -> dict[str, dict]:
-    return {
-        r["id"]: r
-        for r in map(json.loads, (HERE / "data" / f"{exp}.jsonl").read_text().splitlines())
-    }
+    return {r["id"]: r for r in map(json.loads, (DATA / f"{exp}.jsonl").read_text().splitlines())}
 
 
 def results(exp: str) -> dict[str, dict]:
-    path = HERE / "results" / f"{exp}.jsonl.gz"
+    path = RESULTS / f"{exp}.jsonl.gz"
     out = {}
     if path.exists():
         with gzip.open(path, "rt") as fh:
@@ -286,7 +284,22 @@ def score_flowkind():
     )
 
 
-def score_noul(exp: str, q: str, label: str, title: str):
+def shipped_line(pos: list[float], neg: list[float], below: float = 0.0, at: float = 0.0) -> str:
+    """The figures at the threshold systemap audit ships with."""
+    if below:
+        caught, flagged = sum(p < below for p in neg), sum(p < below for p in pos)
+        return (
+            f"   shipped, flag P<{below}: catches {caught / len(neg):.0%} of false, "
+            f"flags {flagged / len(pos):.0%} of true"
+        )
+    found, extra = sum(p >= at for p in pos), sum(p >= at for p in neg)
+    return (
+        f"   shipped, suggest P>={at}: finds {found / len(pos):.0%} of true, "
+        f"suggests {extra / len(neg):.0%} of false"
+    )
+
+
+def score_noul(exp: str, q: str, label: str, title: str, below: float = 0.0, at: float = 0.0):
     data, res = rows(exp), results(exp)
     pos = [r["answers"][q]["noul"] for i, r in res.items() if data[i]["label"][label]]
     neg = [r["answers"][q]["noul"] for i, r in res.items() if not data[i]["label"][label]]
@@ -301,6 +314,8 @@ def score_noul(exp: str, q: str, label: str, title: str):
             print(
                 f"   at {t}: accepts {sum(p >= t for p in pos) / len(pos):.0%} of true, {sum(p >= t for p in neg) / len(neg):.0%} of false"
             )
+        if below or at:
+            print(shipped_line(pos, neg, below, at))
     return data, res
 
 
@@ -432,6 +447,7 @@ SCORERS = {
         "holds",
         "holds",
         "== flowverify (idea 4): does the code carry the flow the sentence claims?",
+        below=audit.FLOW_BELOW,
     ),
     "crossing": score_crossing,
     "sentence": lambda: score_noul(
@@ -439,12 +455,17 @@ SCORERS = {
         "describes",
         "describes",
         "== sentence (N4): does the card's sentence describe its modules?",
+        below=audit.SENTENCE_BELOW,
     ),
     "drift": score_drift,
     "issues": score_issues,
     "cardkind": score_cardkind,
     "governs": lambda: score_noul(
-        "governs", "governs", "governs", "== governs (N3): does this invariant govern this card?"
+        "governs",
+        "governs",
+        "governs",
+        "== governs (N3): does this invariant govern this card?",
+        at=audit.GOVERNS_AT,
     ),
     "answerfit": lambda: score_noul(
         "answerfit",

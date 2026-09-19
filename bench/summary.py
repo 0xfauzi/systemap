@@ -31,7 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-MODES = ("first-map", "maintenance")
+MODES = ("first-map", "maintenance", "first-map-jev")
 
 
 def events(lines: Iterable[str]) -> list[dict[str, Any]]:

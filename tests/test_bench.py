@@ -221,7 +221,9 @@ def test_run_script_parses_and_prints_its_usage() -> None:
     assert subprocess.run(["bash", "-n", str(script)], capture_output=True).returncode == 0
     proc = subprocess.run(["bash", str(script), "--help"], capture_output=True, text=True)
     assert proc.returncode == 0
-    assert proc.stdout.startswith("Usage: bench/run.sh <repo-url-or-path> <first-map|maintenance>")
+    assert proc.stdout.startswith(
+        "Usage: bench/run.sh <repo-url-or-path> <first-map|maintenance|first-map-jev>"
+    )
     for flag in ("--ref REF", "--base REF", "--from SPEC", "--model NAME", "--max-turns N"):
         assert flag in proc.stdout, flag
     proc = subprocess.run(["bash", str(script)], capture_output=True, text=True)
