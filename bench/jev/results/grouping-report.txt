@@ -1,0 +1,15 @@
+== grouping (test 9): pairwise F1 against the finished map
+   calls per repo: {'kstrl': 547, 'mealie': 2031, 'paperless': 542, 'poetry': 599, 'rich': 480}
+   kstrl      package 0.25 (P 0.16 R 0.58); Jev>=0.1 0.16 (P 0.09 R 1.00); Jev>=0.2 0.26 (P 0.15 R 0.99); Jev>=0.3 0.31 (P 0.75 R 0.20); Jev>=0.4 0.13 (P 1.00 R 0.07); Jev>=0.5 0.08 (P 1.00 R 0.04)
+   mealie     package 0.23 (P 0.92 R 0.13); Jev>=0.1 0.18 (P 0.10 R 0.91); Jev>=0.2 0.20 (P 0.11 R 0.88); Jev>=0.3 0.69 (P 0.96 R 0.54); Jev>=0.4 0.56 (P 1.00 R 0.38); Jev>=0.5 0.28 (P 1.00 R 0.16)
+   paperless  package 0.48 (P 0.35 R 0.76); Jev>=0.1 0.13 (P 0.07 R 0.89); Jev>=0.2 0.16 (P 0.09 R 0.89); Jev>=0.3 0.25 (P 0.15 R 0.79); Jev>=0.4 0.68 (P 0.69 R 0.67); Jev>=0.5 0.58 (P 0.98 R 0.41)
+   poetry     package 0.47 (P 0.39 R 0.61); Jev>=0.1 0.06 (P 0.03 R 1.00); Jev>=0.2 0.06 (P 0.03 R 0.99); Jev>=0.3 0.35 (P 0.23 R 0.80); Jev>=0.4 0.45 (P 0.75 R 0.32); Jev>=0.5 0.13 (P 0.94 R 0.07)
+   rich       package 0.19 (P 0.11 R 0.84); Jev>=0.1 0.15 (P 0.08 R 1.00); Jev>=0.2 0.15 (P 0.08 R 1.00); Jev>=0.3 0.15 (P 0.08 R 0.94); Jev>=0.4 0.69 (P 0.69 R 0.69); Jev>=0.5 0.68 (P 0.83 R 0.57)
+   mean F1: package 0.33, Jev>=0.1 0.14, Jev>=0.2 0.17, Jev>=0.3 0.35, Jev>=0.4 0.50, Jev>=0.5 0.35
+   best Jev threshold Jev>=0.4: +0.18 over package grouping (pass: +0.10)
+   held out kstrl     : threshold chosen on the others Jev>=0.4, F1 0.13 vs package 0.25 (-0.12)
+   held out mealie    : threshold chosen on the others Jev>=0.4, F1 0.56 vs package 0.23 (+0.33)
+   held out paperless : threshold chosen on the others Jev>=0.4, F1 0.68 vs package 0.48 (+0.20)
+   held out poetry    : threshold chosen on the others Jev>=0.4, F1 0.45 vs package 0.47 (-0.02)
+   held out rich      : threshold chosen on the others Jev>=0.4, F1 0.69 vs package 0.19 (+0.50)
+   held-out mean gain +0.18; repos where Jev loses: 2 of 5
