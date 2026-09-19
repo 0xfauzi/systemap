@@ -553,6 +553,7 @@ def test_model_sdk_lines() -> None:
     )
     assert judgement.sdk_of("google.adk.tools", judgement.MODEL_SDKS) == "google.adk"
     assert judgement.sdk_of("googles", judgement.MODEL_SDKS) == ""
+    assert judgement.sdk_of("typesafe_sdk", judgement.MODEL_SDKS) == "typesafe_sdk"
     assert "boto3" not in judgement.MODEL_SDKS
     assert judgement.model_sdk_imports(model, {}) == []
 
