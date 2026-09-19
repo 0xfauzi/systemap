@@ -80,3 +80,29 @@ Claude subagent reading the full commits in git, blind to Jev's answers
   P(holds)<0.4, 75% of stale sentences caught and 0.4 false alarms per 10
   cards. It would pass the bar, but **it is not a measurement**: drift
   detection stays unbuilt until about 15 human labels confirm the agent's.
+
+## Jev in the first map (turns.py, draft.py)
+
+Could Jev assign modules to cards during the first map, with the agent
+writing only the cards? Two measurements on the six first maps in
+bench/scratch, before building anything (`results/draft/`):
+
+- `turns.py`: where the tool calls go. The first write of the model
+  already claimed every module in all six runs (no `unmapped:` line at the
+  first check), and later edits touching `implemented_by` were 1% of the
+  calls. Reading and planning were 31%, reading after the draft 32%, the
+  check and judgement loop 25%. Assigning modules is not where a first map
+  spends its turns.
+- `draft.py`: the owner question asked over each run's first loadable
+  draft's cards, for every module, scored against the finished map. 1% of
+  modules changed card between the draft and the finished map, so the
+  agent's draft agrees with the finished map on 99%; Jev agrees on 87%, and
+  on 98% of the 63% it is confident about. The finished map is the agent's
+  own, so this is agreement, not truth; of the 22 confident disagreements,
+  most are cards the agent split in the draft and merged later, and a few
+  read like real mis-folds (mealie's `auth_cache` under HttpApi).
+
+Verdict: nothing to save in assigning modules, and no evidence Jev would
+assign them better than the agent's draft, so it was not built and the
+first-map benchmark was not run. `audit`'s mis-fold line already asks the
+question that finds the few real mis-folds.
