@@ -147,3 +147,23 @@ Stop when all three hold:
 
 Then hand back (SKILL.md, "What to hand back"): the answers are already in
 `systemap.toml`.
+
+## A second opinion from Jev
+
+When `TYPESAFE_API_KEY` is set, `systemap audit` asks the Jev model the
+questions judgement cannot read from names and imports, and prints a line
+where its answer disagrees with the map. Run it once check and judgement
+are clean, before stopping. Each line is a question, not a verdict:
+
+| line | what to do |
+|---|---|
+| `jev mis-fold: CARD claims M, which reads like OTHER` | read M; move it to the card whose job it does, or answer why it belongs |
+| `jev owner: M is claimed by no card; ...` | claim M in the named card or one of the closest three, or ignore it under `[coverage]` with a reason |
+| `jev sentence: CARD's sentence may not describe its modules` | reread the modules and rewrite the sentence, or answer why it holds |
+| `jev flow: A -> B ('x'): ...` | find the call that carries it; a call through an instance is not in Jev's evidence, so a real flow can be doubted for that alone; fix the sentence, or answer |
+| `jev governs: invariant N may govern CARD, ...` | add CARD to the invariant's `governs` when a change to it could break the rule, or answer |
+
+Answer in `[judgement] answered` like a judgement line: `item` for one line,
+`kind = "jev flow"` (or another `jev` kind) for a family, always with a
+reason. `audit --dry-run` says what would be sent; answers are cached, so a
+second run over an unchanged map costs nothing.

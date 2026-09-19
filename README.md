@@ -187,6 +187,28 @@ Six repositories have been mapped this way end to end, four of them written by
 somebody else, each finishing unattended with both commands clean. The rows are
 in [docs/benchmarks.md](docs/benchmarks.md).
 
+## A second opinion, if you want one
+
+The checker reads names and imports, so it can say that a module shares no
+word with its card and cannot say that it does a different job. `systemap
+audit` asks TypeSafe's Jev model that kind of question, one narrow judgement
+at a time, and prints a line where the answer disagrees with the map: a
+module that reads like another card, a card sentence that does not describe
+its code, a flow the code where two cards meet may not carry, an invariant
+that may govern a card it does not name. `systemap triage "<issue>"` names
+the three cards a bug report's fix will most likely change.
+
+Measured on five mapped repositories before it was built: modules moved into
+a neighbouring card were caught 95% of the time, against 32% for the word
+rule, with 4% of correctly placed modules flagged; for 80 closed issues, the
+card the fixing pull request touched was the first pick 80% of the time.
+Every run and threshold is in [bench/jev](bench/jev).
+
+It is opt-in and off the path CI takes. It needs `TYPESAFE_API_KEY`, adds no
+dependency, sends module names, docstrings, card sentences and the source
+lines where two cards meet (`audit --dry-run` says exactly what), and caches
+every answer, so an unchanged map costs nothing the second time.
+
 ## Commands
 
 | command | what it does |
@@ -201,6 +223,8 @@ in [docs/benchmarks.md](docs/benchmarks.md).
 | `systemap refresh` | extract, check, render, and every configured figure |
 | `systemap describe` | what a look at the picture would tell an agent that cannot look |
 | `systemap delta` | what a change did to the map |
+| `systemap audit` | a second opinion from Jev on the map's judgement calls (opt-in) |
+| `systemap triage` | the cards an issue's fix will most likely change (opt-in) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
 | `systemap serve` | serve the page on the loopback address |
 | `systemap skill` | reinstall the skill directory |

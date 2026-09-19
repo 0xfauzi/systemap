@@ -13,6 +13,9 @@ on the change alone.
    read out of git, never from the working copy, and compared in the
    map's terms: one line per thing the change did, each naming its fix.
    Exit 0 when nothing needs a decision; exit 1 while a line does.
+   With `TYPESAFE_API_KEY` set, `delta --base <ref> --jev` also names
+   the card each unclaimed module reads like (`jev owner: ...`), with
+   its confidence; the claim is still yours to write.
 2. Act only on the lines under `needs a decision`, in `map/model.py` and
    `systemap.toml`. Do not redraw the map, regroup cards the lines do not
    name, or move a card by hand; a card added for a new module is

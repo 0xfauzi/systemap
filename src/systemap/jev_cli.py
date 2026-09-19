@@ -155,7 +155,7 @@ def owner_suggestions(
     if not modules:
         return []
     plan = audit.Plan()
-    audit.plan_owner(plan, tree.top, head, modules, cfg.name)
+    audit.plan_owner(plan, tree.top, head, modules, cfg.name, placed_too=False)
     answered = client.ask(plan.asks)
     out = []
     for ask in plan.asks:

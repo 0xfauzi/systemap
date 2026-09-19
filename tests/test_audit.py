@@ -363,6 +363,12 @@ def test_unclaimed_modules_are_read_off_delta_lines() -> None:
     assert jev_cli.unclaimed_in(lines) == ["pkg.new", "pkg.gate.x", "pkg.b"]
 
 
+def test_delta_asks_only_about_the_unclaimed_modules(sample: Sample) -> None:
+    plan = audit.Plan()
+    audit.plan_owner(plan, tree_of(sample).top, sample.facts, ["pkg"], "sample", placed_too=False)
+    assert [a.key for a in plan.asks] == ["|owner|pkg"]
+
+
 def test_groups_are_connected_components_largest_first() -> None:
     mods = ["a", "b", "c", "d", "e"]
     assert jev_cli.groups(mods, [("a", "b"), ("b", "c"), ("d", "e")]) == [

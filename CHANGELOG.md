@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.0
+
+A second opinion, opt-in. Everything below needs `TYPESAFE_API_KEY`; nothing
+is sent without it, `check` and `judgement` never call it, and no dependency
+was added: the HTTP API is spoken with `urllib`.
+
+- `systemap audit` asks TypeSafe's Jev model five kinds of question and
+  prints a line where its answer disagrees with the map: `jev mis-fold`,
+  `jev owner`, `jev sentence`, `jev flow` and `jev governs`. The thresholds
+  were chosen on the five first maps in `bench/scratch` and each is quoted in
+  `audit.py` with what it measured; `bench/jev` holds every experiment, its
+  labels, the answers and the report, beside the heuristic systemap used.
+  A line is answered in `[judgement] answered`; `audit` reads only the answers
+  that name its lines, and `judgement` ignores them. `--dry-run` counts the
+  questions and says what would leave the machine.
+- `systemap triage "<issue>"` names the three cards a fix will most likely
+  change, with their modules and neighbours on the map.
+- `delta --jev` adds the card each unclaimed module reads like to the report;
+  the exit code is delta's. `suggest --jev` groups modules from Jev's answers
+  about module pairs; on the development maps it beat one card per package on
+  three of five and lost on two, and says so when it runs.
+- Answers are cached in `.systemap/jev-cache.json` by model, release date,
+  state and question: an unchanged map costs nothing the second time, and a
+  new release of the model asks again. `[jev]` in the configuration names the
+  model and the cache.
+- `typesafe_sdk` joined the model SDK list the `model sdk` line reads.
+
 ## 1.0.3
 
 - The version badge reads PyPI rather than pypi, and its address changed with

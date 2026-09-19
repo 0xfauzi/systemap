@@ -194,9 +194,16 @@ def unclaimed(model: Model, facts: dict[str, Any], ignores: Iterable[str]) -> li
 
 
 def plan_owner(
-    plan: Plan, m: nest.Map, facts: dict[str, Any], extra: list[str], system: str
+    plan: Plan,
+    m: nest.Map,
+    facts: dict[str, Any],
+    extra: list[str],
+    system: str,
+    placed_too: bool = True,
 ) -> None:
-    by = modules_by_card(m.model, facts)
+    """One owner question per claimed module (the mis-fold check) and per module in
+    `extra` (no card claims it); `placed_too=False` asks about `extra` alone."""
+    by = modules_by_card(m.model, facts) if placed_too else {}
     question = {"owner": owner_question(m.model, m.meaning)}
     placed = [(mod, cid) for cid, ms in by.items() for mod in ms]
     placed = [(mod, cid) for mod, cid in placed if m.model.component(cid).kind != "actor"]
