@@ -12,6 +12,9 @@
   `docs/reference.md`, `docs/benchmarks.md`, `bench/jev/README.md`,
   `explain.py`, `page.py` and the skill are rewritten to the same rules. No
   check rule, judgement line or delta line changed its text.
+- Every heading in `README.md` and `docs/reference.md` is now a question
+  the section answers, and both pages say what they cover, and in what
+  order, before the first detail.
 
 ## 1.2.0 - 2026-09-20
 

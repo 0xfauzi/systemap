@@ -1,8 +1,13 @@
 # Reference
 
-Every rule, command and configuration key, in full. [README.md](README.md) is the short version.
+Every rule, command and configuration key, in full. [README.md](README.md)
+is the short version.
 
-## What the check refuses
+The rules come first, then the commands, then the configuration keys. A
+failing check is the usual reason to open this page, and the rule that
+failed is what you need.
+
+## What does `systemap check` refuse?
 
 `systemap check` runs every rule below, prints each failure under its rule
 with the fix, and exits 1 if any rule failed.
@@ -48,7 +53,7 @@ computed from the facts at render and at check time, never authored:
 | `external` | an actor is at either end: the edge is outside the code | a solid line; the panel says `external: outside the code` |
 | `declared` | nothing in the facts joins the two | a dashed line on the page and in every figure; the panel says `declared: no import behind it`; `systemap judgement` prints a `declared flow` line until the agent finds the evidence, names the mechanism in the sentence, or removes the edge |
 
-## The second pass
+## What does the second pass look for?
 
 The check refuses contradictions; it cannot refuse omissions. `systemap
 judgement` finds those mechanically, so what was missed is found rather
@@ -83,7 +88,7 @@ or more modules, and the imports between proposals) as a starting point
 a starting point to revise, not the answer; the skill's target is three to ten
 modules per component, N/10 to N/3 cards for N modules.
 
-## What Jev is asked
+## What is Jev asked?
 
 `systemap audit` is optional and off the path CI takes. It asks TypeSafe's
 Jev model narrow questions about meaning, where `judgement` reads names and
@@ -136,7 +141,7 @@ Without a key, `judgement` says on stderr what `audit` would add, and
 hint quotes the measured figure. `[jev] enabled = false` turns off both
 the hints and delta's asking.
 
-## Past forty cards
+## What do you do past forty cards?
 
 One canvas cannot hold a large repository legibly, and past about forty
 cards each layer includes nearly every card, so switching layers separates nothing. A component may carry
@@ -170,7 +175,7 @@ worked example is the fixture in
 [`tests/test_nested.py`](tests/test_nested.py): one top map of five
 cards, two of which open a map.
 
-## The model in one screen
+## What does a model look like?
 
 The agent writes one Python module. Everything in it is a frozen dataclass.
 This is an excerpt of systemap's own model, two cards and one edge; the
@@ -212,7 +217,7 @@ example of every part, is in the skill
 the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 [`references/`](src/systemap/skill/references/).
 
-## Commands
+## Which command do you need?
 
 Every command takes `--root DIR`, before or after the command, to name a
 project that is not the current directory. Exit codes are the same
@@ -449,7 +454,7 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 - `--dir PATH` writes it somewhere else.
 - `--print` writes `SKILL.md` to stdout instead.
 
-## Configuration
+## What can you configure?
 
 `systemap.toml` at the repository root, or a `[tool.systemap]` table in
 `pyproject.toml`. Every key is optional; unknown keys are refused.

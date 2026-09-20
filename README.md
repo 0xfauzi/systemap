@@ -22,8 +22,12 @@ from your code. A checker then refuses to let that page go out of date, and
 every pull request tells you which parts and connections it changed before
 you merge it.
 
+This page defines the three words the map uses, then shows how to get one,
+then shows what stops it going out of date. The words come first because
+nothing else here reads without them.
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching between views, clicking a card to light up what it reaches, walking a journey step by step" width="100%">
+  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching between views, clicking a card to highlight what it connects to, walking a journey step by step" width="100%">
 </p>
 
 <p align="center">
@@ -31,7 +35,7 @@ you merge it.
   systemap's map of itself.
 </p>
 
-## The three words the map uses
+## What is a card, a line and a journey?
 
 **A card is one part of your system.** A few modules that together do one job
 you would name out loud: the part that reads the code, the part that sends
@@ -41,7 +45,8 @@ mail, the part that talks to the database. Not a file and not a folder. A job.
 label says what: a request, a recipe, a file on disk.
 
 **A journey is one trip through the system**, step by step. A request arrives
-here, is checked there, is written down over there. The page shows one step at a time.
+here, is checked there, is written down over there. The page shows one step
+at a time.
 
 That is the whole notation. No other symbols to learn.
 
@@ -52,14 +57,14 @@ That is the whole notation. No other symbols to learn.
 The picture above is systemap's own map with the lines hidden, so you can see
 the parts and how they group. Turn the lines on and you can ask one question
 at a time: what crosses the boundary of the system, what data moves, who
-calls whom. Click a card and the page highlights only the cards it connects to, each one
-labelled with what it does for that card.
+calls whom. Click a card and the page highlights only the cards it connects
+to, each one labelled with what it does for that card.
 
-One more thing the picture tells you, which no hand-drawn diagram can. A solid
-line means an import in your code really joins those two parts. A dashed line means no import joins them, so the line is a claim the code
-does not support.
-You can see which is which without reading any code, and so can your
-reviewer.
+The picture tells you one more thing no hand-drawn diagram can. A solid line
+means an import in your code really joins those two parts. A dashed line
+means no import joins them, so the line is a claim the code does not
+support. You can see which is which without reading any code, and so can
+your reviewer.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
@@ -67,7 +72,7 @@ reviewer.
   <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/paper.png" alt="the paper scheme" width="32%">
 </p>
 
-## Start
+## How do you start?
 
     uv tool install systemap        # or: uv add --dev systemap
     systemap init                   # --no-ci to skip the workflow
@@ -91,16 +96,17 @@ Using Claude Code? The repository is its own plugin marketplace:
 
 Any agent that can read instructions and run a command works the same way.
 
-## Why let an agent draw it
+## Why let an agent draw it?
 
 Half of a map is mechanical: which modules exist, what each one exports, which
 tests cover it. A script reads that out of your code in a second and never
 gets it wrong.
 
 The other half is judgement. Which four modules are really one part? What is
-the line between two parts actually for? A script cannot answer that. An import graph lists every import and still
-does not say which modules form one part. A person can answer it,
-but rarely has the patience to keep answering it through every refactor.
+the line between two parts actually for? A script cannot answer that. An
+import graph lists every import and still does not say which modules form
+one part. A person can answer it, but rarely has the patience to keep
+answering it through every refactor.
 
 An agent can do both halves, on two conditions. It follows a written
 procedure, so it decides the same way every time. And something checks its
@@ -108,7 +114,7 @@ work and rejects it when it is wrong. systemap supplies both: the procedure
 your agent follows, and the commands that reject a map that does not match
 the code.
 
-## It cannot go out of date without telling you
+## How does the map stay true to the code?
 
 Two commands, and your agent runs both until neither reports anything.
 
@@ -131,7 +137,7 @@ Six repositories have been mapped this way from start to finish, four of them
 written by somebody else, each finishing unattended with both commands quiet
 ([docs/benchmarks.md](docs/benchmarks.md)).
 
-## Every pull request says what it changed about your system
+## What did this pull request change about your system?
 
 Git tells you which lines of code changed. `systemap delta --base main` tells
 you which parts, connections and claims changed, one line per thing, each
@@ -154,7 +160,7 @@ Your agent then fixes those lines instead of redrawing the whole map. On three
 real merged pull requests that path cost 2.31, 4.39 and 2.50 dollars, against
 between 3 and 26 dollars to map a repository from scratch.
 
-## The other commands
+## What else can it tell you?
 
 - **Ask why.** Every line systemap prints comes with two more: why it matters
   and what to do. `systemap explain "<kind>"` prints any of them in full.
@@ -175,7 +181,7 @@ features that failed their test were written down rather than shipped
 ([bench/jev](bench/jev)). `systemap --help` lists every command, and
 [docs/reference.md](docs/reference.md) has every option, rule and setting.
 
-## What it is not
+## What is systemap not?
 
 It reads Python and only Python. It is not a call graph: the map shows the
 lines your agent declared and defended, not every function call. It is not a
@@ -183,7 +189,7 @@ dependency diagram: modules are not parts, and the map shows parts. It is not
 a UML tool: one picture, one layout, and nothing to learn beyond card, line
 and journey.
 
-## Development
+## How do you work on systemap itself?
 
     uv sync
     uv run pytest -q
