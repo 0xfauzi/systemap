@@ -162,29 +162,6 @@ def test_what_walks_through_a_flow_and_what_governs_a_card() -> None:
     assert [r.n for r in graph.rules_on(MODEL)["Reader"]] == [2]
 
 
-def test_a_journey_that_jumps_is_named_by_its_step_number() -> None:
-    assert graph.gaps(WALKED) == []
-    jumpy = Journey(
-        id="j",
-        label="j",
-        steps=(
-            Step(("Reader",), (), ("Reader", "Parser"), "one"),
-            Step(("Store",), (), ("Store", "Report"), "two"),
-        ),
-    )
-    assert graph.gaps(jumpy) == [1]
-    # two things leaving one card, or arriving at one card, carry on
-    fan = Journey(
-        id="f",
-        label="f",
-        steps=(
-            Step(("Reader",), (), ("Reader", "Parser"), "one"),
-            Step(("Reader",), (), ("Reader", "Report"), "two"),
-        ),
-    )
-    assert graph.gaps(fan) == []
-
-
 # ---- the teaching -----------------------------------------------------------------
 
 

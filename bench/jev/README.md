@@ -106,3 +106,41 @@ Verdict: nothing to save in assigning modules, and no evidence Jev would
 assign them better than the agent's draft, so it was not built and the
 first-map benchmark was not run. `audit`'s mis-fold line already asks the
 question that finds the few real mis-folds.
+
+## Journeys: what the structure can and cannot decide (2026-09-20)
+
+Two questions about journeys were measured on the seven maps (the six in
+`bench/scratch` and systemap's own) before anything shipped.
+
+**Finding the ways in.** `systemap.ways_in` reads routes, commands, tasks
+and plugin hooks out of the syntax tree. Ways in found, before and after:
+
+| map | before | after | what the new ones are |
+|---|---|---|---|
+| paperless-ngx | 0 | 98 | 59 Django routes, 22 Celery tasks, 17 management commands |
+| poetry | 3 | 44 | 41 cleo commands |
+| mealie | 8 | 203 | 195 FastAPI routes |
+| kstrl | 7 | 38 | 31 click commands |
+| rich | 6 | 6 | none; its `@group()` is not a command |
+| httpie, systemap | 5, 19 | 5, 19 | neither uses a framework this reads |
+
+A hand-checked sample of 30 of the new records was 29 real and 1 wrong
+(rich's `@group()`, which is why a command decorator must now be called on
+something). The bar was 90%.
+
+**Judging whether a journey holds together: nothing shipped.** Three rules
+were written for "does step k carry on from step k-1", and each was measured
+on the same seven maps:
+
+| rule | steps flagged | real, by hand review |
+|---|---|---|
+| the edges join | 30 | 0 |
+| the actors acted the step before | 46 | not reviewed; worse by inspection |
+| the actors appeared anywhere earlier | 27 | not reviewed; the same shapes |
+
+The bar was 80% real. A journey is written as a sequence of scenes, not one
+chain: a walk fans out into a sub-call and returns to the card that has been
+driving it, and that reads perfectly while its edges do not join. Continuity
+is not something the structure can decide, so no `journey gap` line exists.
+What did ship is `journey start`: a journey names the way in it starts at,
+and the line says when the facts have no such way in. That one is exact.

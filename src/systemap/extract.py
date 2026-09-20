@@ -21,12 +21,12 @@ import json
 import re
 import subprocess
 import sys
-import tomllib
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from systemap import ways_in
 from systemap.config import Config
 from systemap.model import Model, is_symbol, module_matches, public_names
 
@@ -607,13 +607,7 @@ def subcommands(raw: str) -> list[str]:
 
 def console_scripts(repo: Path) -> dict[str, tuple[str, str]]:
     """name -> (module, function) from `[project.scripts]` in pyproject.toml."""
-    path = repo / "pyproject.toml"
-    if not path.is_file():
-        return {}
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
+    data = ways_in.read_pyproject(repo)
     scripts = data.get("project", {}).get("scripts", {})
     out: dict[str, tuple[str, str]] = {}
     if isinstance(scripts, dict):
@@ -624,6 +618,24 @@ def console_scripts(repo: Path) -> dict[str, tuple[str, str]]:
     return out
 
 
+def _plain_ways(module: str, record: dict[str, Any], is_root: bool) -> list[dict[str, str]]:
+    """The ways in that need no framework: a `__main__`, a `main`, a root's public names."""
+    out: list[dict[str, str]] = []
+    if module.endswith(".__main__"):
+        pkg = module[: -len(".__main__")]
+        out.append(
+            {"kind": "main_module", "name": f"python -m {pkg}", "module": module, "target": ""}
+        )
+    if any(f["name"] == "main" for f in record["functions"]):
+        out.append({"kind": "main_function", "name": "main", "module": module, "target": "main"})
+    if is_root:
+        out += [
+            {"kind": "public_function", "name": f["name"], "module": module, "target": ""}
+            for f in record["functions"]
+        ]
+    return out
+
+
 def entry_points(
     repo: Path, prefixes: set[str], components: dict[str, Any], sources: dict[str, str]
 ) -> list[dict[str, str]]:
@@ -631,10 +643,12 @@ def entry_points(
 
     Console scripts in pyproject.toml, `__main__` modules, `main`
     functions, argparse subcommands where detectable, and the public
-    functions of each package root. Every one is a walk a reader may
-    need; `systemap judgement` asks about each that has no journey.
-    A subcommand carries the console script that reaches its module, so
-    the judgement can name it the way a person types it.
+    functions of each package root. `systemap.ways_in` adds the ones a
+    framework registers: web routes, click, typer, cleo and Django
+    commands, background tasks, and published plugin hooks. Every one is
+    a walk a reader may need; `systemap judgement` asks about each that
+    has no journey. A subcommand carries the console script that reaches
+    its module, so the judgement can name it the way a person types it.
     """
     scripts = {
         name: (module, func)
@@ -646,30 +660,31 @@ def entry_points(
     for name, (module, func) in scripts.items():
         out.append({"kind": "console_script", "name": name, "module": module, "target": func})
     for module, record in sorted(components.items()):
-        if module.endswith(".__main__"):
-            pkg = module[: -len(".__main__")]
-            out.append(
-                {"kind": "main_module", "name": f"python -m {pkg}", "module": module, "target": ""}
-            )
-        if any(f["name"] == "main" for f in record["functions"]):
-            out.append(
-                {"kind": "main_function", "name": "main", "module": module, "target": "main"}
-            )
-        for sub in subcommands(sources.get(module, "")):
-            out.append(
-                {
-                    "kind": "subcommand",
-                    "name": sub,
-                    "module": module,
-                    "target": script_of_module.get(module, ""),
-                }
-            )
-        if module in prefixes:
-            for f in record["functions"]:
-                out.append(
-                    {"kind": "public_function", "name": f["name"], "module": module, "target": ""}
-                )
-    return out
+        out += _plain_ways(module, record, module in prefixes)
+        out += [
+            {
+                "kind": "subcommand",
+                "name": sub,
+                "module": module,
+                "target": script_of_module.get(module, ""),
+            }
+            for sub in subcommands(sources.get(module, ""))
+        ]
+        out += ways_in.in_source(module, sources.get(module, ""))
+    out += ways_in.in_pyproject(ways_in.read_pyproject(repo), components)
+    return _once_each(out)
+
+
+def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:
+    """The ways in, each named once: two readers can find the same one."""
+    seen: set[tuple[str, str, str]] = set()
+    kept = []
+    for point in points:
+        key = (point["kind"], point["name"], point["module"])
+        if key not in seen:
+            seen.add(key)
+            kept.append(point)
+    return kept
 
 
 def entry_label(point: dict[str, str]) -> str:
@@ -683,7 +698,7 @@ def entry_label(point: dict[str, str]) -> str:
         return f"main() in {module}"
     if kind == "subcommand":
         return f"{target} {name} (subcommand)" if target else f"{name} (subcommand in {module})"
-    return f"{name}() in {module}"
+    return ways_in.label(point) or f"{name}() in {module}"
 
 
 def build(cfg: Config) -> dict[str, Any]:

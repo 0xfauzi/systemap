@@ -232,6 +232,11 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
 _owner_of = owners
 
 
+# Past this many uncovered ways in of one kind into one card, they are asked
+# about together: a hundred routes into one card is one question, not a hundred.
+TOGETHER_AT = 4
+
+
 def _journey_text(meaning: Meaning) -> str:
     """Every word the journeys say: ids, labels and step sentences, in one string."""
     parts: list[str] = []
@@ -256,32 +261,81 @@ def entry_points_without_journey(
     a subcommand by its word, a function by its name. A `main` function
     a console script targets, and a `__main__` module that imports a
     console script's module, are that script under another name and
-    are not asked about twice. `text` is the journeys to read, every
-    map's when the model is one of a tree; `skip` the modules another
-    map asks about.
+    are not asked about twice. A journey that names the way in under
+    `starts` covers it whatever its sentences say. `text` is the
+    journeys to read, every map's when the model is one of a tree;
+    `skip` the modules another map asks about.
+
+    Ways in of one kind into one card are asked about together once
+    there are more than a few: a card that takes a hundred routes needs
+    a journey through the card, not a hundred walks.
     """
     points: list[dict[str, str]] = facts.get("entry_points", [])
     text = _journey_text(meaning) if text is None else text
     scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
     components = facts.get("components", {})
     owner = _owner_of(model, facts)
-    out: list[str] = []
+    started = {j.starts for j in meaning.journeys if j.starts}
+    open_points = [
+        p
+        for p in points
+        if p["module"] not in skip
+        and not _same_script(p, scripts, components)
+        and not (p["name"] in started or entry_label(p) in started or mentioned(p["name"], text))
+    ]
+    return _entry_lines(open_points, owner)
+
+
+def _same_script(
+    p: dict[str, str], scripts: dict[str, dict[str, str]], components: dict[str, Any]
+) -> bool:
+    """Is this way in a console script under another name?"""
+    module = p["module"]
+    if p["kind"] == "main_function":
+        return scripts.get(module, {}).get("target") == "main"
+    if p["kind"] == "main_module":
+        return any(m in scripts for m in components.get(module, {}).get("uses", {}))
+    return False
+
+
+def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[str]:
+    """One line per way in, or one line per card for the kinds that come in crowds.
+
+    The order the facts list them in is kept, so a report does not reshuffle
+    itself when one way in is answered.
+    """
+    crowds: dict[tuple[str, str], list[dict[str, str]]] = {}
     for p in points:
-        module = p["module"]
-        if module in skip:
-            continue
-        if p["kind"] == "main_function" and scripts.get(module, {}).get("target") == "main":
-            continue
-        if p["kind"] == "main_module":
-            imported = set(components.get(module, {}).get("uses", {}))
-            if any(m in scripts for m in imported):
-                continue
-        if mentioned(p["name"], text):
-            continue
-        who = owner.get(module)
+        crowds.setdefault((p["kind"], owner.get(p["module"], "")), []).append(p)
+    out: list[str] = []
+    said: set[tuple[str, str]] = set()
+    for p in points:
+        key = (p["kind"], owner.get(p["module"], ""))
+        found, who = crowds[key], key[1]
         where = f" (component {who})" if who else ""
-        out.append(f"entry point {entry_label(p)} has no journey{where}")
+        if len(found) <= TOGETHER_AT or not who:
+            out.append(f"entry point {entry_label(p)} has no journey{where}")
+            continue
+        if key not in said:
+            said.add(key)
+            out.append(f"entry point {len(found)} {p['kind']}s into {who} have no journey{where}")
     return out
+
+
+def journey_problems(meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+    """Where a journey starts at a way in the facts do not have.
+
+    Naming the way in is what lets the map say which ways in are walked and
+    which are not, so a name nothing matches leaves a real way in looking
+    covered.
+    """
+    ways = {p["name"] for p in facts.get("entry_points", [])}
+    ways |= {entry_label(p) for p in facts.get("entry_points", [])}
+    return [
+        f"journey start: {j.id} starts at {j.starts}, which the facts have no way in for"
+        for j in meaning.journeys
+        if j.starts and j.starts not in ways
+    ]
 
 
 Pair = tuple[str, str]
@@ -466,6 +520,7 @@ def run(
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
         + entry_points_without_journey(model, meaning, facts, text=journeys_text, skip=skip)
+        + journey_problems(meaning, facts)
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + model_sdk_imports(model, facts, sdks, skip=skip)

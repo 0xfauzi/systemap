@@ -193,9 +193,18 @@ class Step:
 
 @dataclass(frozen=True)
 class Journey:
+    """One walk through the system, as a reader would take it.
+
+    `starts` names the entry point the walk begins at, as the facts name it
+    (a console script, a route, a command, a task). It is what ties the walk
+    to a real way in, so `systemap judgement` can say which ways in still
+    have no journey without reading the sentences for the name.
+    """
+
     id: str
     label: str
     steps: tuple[Step, ...]
+    starts: str = ""
 
 
 @dataclass(frozen=True)

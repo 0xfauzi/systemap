@@ -3,6 +3,15 @@
 The model holds more than a list of parts. Each flow says that a named
 artifact moves from one card to another; each journey step traces one of
 those flows; each invariant names the cards whose code must keep it true.
+
+One thing it deliberately does not do is judge whether a journey's steps
+join up. Three rules for that were written and measured on the seven maps in
+bench/scratch: comparing neighbouring edges flagged 30 steps and a hand
+review found none real, asking that a step's actors acted the step before
+flagged 46, and asking that they appeared anywhere earlier flagged 27, still
+almost all of them walks that fan out and come back. A journey is written as
+a sequence of scenes, not as one chain, so continuity is not something the
+structure can decide. Nothing was shipped from it.
 Together they answer the question a reader of a change actually has: if
 this part changed, what else does that reach, and what does it mean for
 someone using the system?
@@ -142,21 +151,4 @@ def rules_over(model: Model, cards: Iterable[str]) -> list[tuple[Invariant, list
         named = sorted(wanted & set(rule.governs))
         if named:
             out.append((rule, named))
-    return out
-
-
-def gaps(journey: Journey) -> list[int]:
-    """The step numbers where a journey jumps: step k does not carry on from k-1.
-
-    A step carries on when it starts where the one before it ended, or when it
-    leaves the same card (two things sent from one place), or when it ends
-    where the one before it ended (two things arriving at one place). Anything
-    else means the reader is asked to jump, and a step is probably missing.
-    """
-    out = []
-    for k in range(1, len(journey.steps)):
-        before, now = journey.steps[k - 1].edge, journey.steps[k].edge
-        carries_on = now[0] == before[1] or now[0] == before[0] or now[1] == before[1]
-        if not carries_on:
-            out.append(k)
     return out

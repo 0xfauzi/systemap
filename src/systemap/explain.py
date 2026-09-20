@@ -95,6 +95,17 @@ JUDGEMENT = {
             "answer why this way in does not matter to a reader."
         ),
     ),
+    "journey start": Lesson(
+        means="A journey says it starts at a way in the facts do not have.",
+        why=(
+            "The point of naming the way in is that the map can say which ways in are walked "
+            "and which are not. A name nothing matches leaves a real way in looking covered."
+        ),
+        do=(
+            "Name the way in as the facts name it (`systemap facts --entry-points` lists them), "
+            "or leave `starts` empty."
+        ),
+    ),
     "crossing import": Lesson(
         means=(
             "Modules of one card import modules of another, and no flow on the map joins those "

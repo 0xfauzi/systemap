@@ -120,6 +120,7 @@ LINE_KINDS = (
     "no sentence",
     "thin layer",
     "entry point",
+    "journey start",
     "crossing import",
     "declared flow",
     "model sdk",
