@@ -13,20 +13,14 @@
   <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
-If you have a coding agent working in your repository, you have probably
-noticed the thing nobody warns you about. It writes faster than you read. You
-review the diff in front of you, you merge it, and somewhere along the way the
-picture you had of how the system fits together stopped matching the system.
+Your coding agent writes faster than you read. You review the diff, you merge
+it, and the picture you had of how the system fits together quietly stops
+matching the system.
 
 **systemap keeps that picture. Your agent draws the map out of your code, a
 checker refuses to let it be incomplete or older than the tree, and every pull
-request says what it did to the shape of the system before you merge it.** The
-map lives beside the code, so seeing what your agents have built is one page
-rather than an afternoon of reading. It is not an import graph with a language
-model on top: an import graph knows that one module imports another, and not
-that three of them together are the Router, that the Router owns one job, or
-that a journey is meant to cross it in a particular order. It reads Python and
-only Python.
+request says what it did to the shape of the system before you merge it.** It
+reads Python and only Python, and it has no dependencies.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching readings, clicking a component to light what it reaches, stepping a journey" width="100%">
@@ -34,100 +28,45 @@ only Python.
 
 <p align="center">
   <a href="https://0xfauzi.github.io/systemap/map/"><b>Open the live map</b></a>, which is
-  systemap's map of itself, drawn by the command you are about to run.
+  systemap's map of itself.
 </p>
-
-## Why the agent draws it
-
-You could draw this yourself. The reason not to is the same reason the picture
-went stale: a map takes two kinds of knowledge, and they do not come from the
-same place.
-
-The first is mechanical: which modules exist, what each one exports, which
-tests import it, where a run starts. A script reads that out of the syntax tree
-in a second and never gets it wrong.
-
-The second is judgement. Which modules together make one thing a reader would
-point at and name? What does the line between two parts actually mean? Which
-question does a reading answer? No script has that, and the person who does
-rarely has the patience to keep it true through every refactor. So you end up
-with one of two maps: a script's, which is complete and meaningless because a
-module is not a part, or a person's, which is meaningful and drifting, because
-nothing announces that a part moved.
-
-An agent has both kinds, once two things are true. It follows a written
-procedure, so the same judgement is applied the same way every time. And
-something refuses its output when a module is mapped by nobody, when a route
-crosses a card it does not connect, or when the page is older than the model.
-systemap is that procedure and that checker. The agent does the work, and hands
-you back a short list of the calls it had to make, each with its answer.
 
 ## Start
 
     uv tool install systemap        # or: uv add --dev systemap
     systemap init                   # --no-ci to skip the workflow
 
-`init` writes the configuration, an empty starter model, the agent's skill
-under `.claude/skills/systemap/`, and a CI workflow. Then it prints the one
-sentence you give your agent:
+`init` writes the configuration, a starter model, the agent's skill under
+`.claude/skills/systemap/`, and a CI workflow. Then it prints the one sentence
+you give your agent:
 
 > Map this repository with systemap. Follow the systemap skill.
 
-That is the whole of your side. The agent reads the facts, drafts the model,
-lays it out, runs the check until every module is mapped and the layout passes,
-renders, and then goes round again looking for what it missed. When it stops,
-you read its answers, correct what you disagree with, commit `docs/map/`, and
-turn on GitHub Pages from the `docs/` directory.
+That is your side of it. The agent reads the facts, drafts the model, lays it
+out, runs the check until every module is mapped and the layout passes, and
+then goes round again looking for what it missed. When it stops, you read its
+answers, correct what you disagree with, and commit `docs/map/`.
 
-Using Claude Code? The repository is also a plugin and its own marketplace, so
-you can skip `init` for the skill:
+Using Claude Code? The repository is its own plugin marketplace:
 
     /plugin marketplace add 0xfauzi/systemap
     /plugin install systemap@systemap
 
 Any agent that reads a skill directory and runs a command works the same way.
-The skill is plain text in the Agent Skills format, with nothing
-vendor-specific in it.
 
-## What this pull request did to the system
+## Why an agent, and not a script
 
-Git tells you what changed in the code. systemap tells you what changed in the
-system.
+A map takes two kinds of knowledge. The mechanical kind is which modules
+exist, what each exports, which tests import it: a script reads that out of
+the syntax tree in a second and never gets it wrong. The other kind is
+judgement. Which modules together make one thing a reader would point at and
+name? What does the line between two parts mean?
 
-Reading a diff tells you which lines changed. It does not tell you that a
-module moved out of the part that owned it, that a new import now crosses two
-components with nothing between them on the map, or that the entry point a card
-names has quietly gone.
-
-`systemap delta --base main` reads the facts at both commits out of git and
-says exactly that, in the map's own terms, one line per thing, each with its
-fix:
-
-    moved: pkg.old -> pkg.new (same content); Gateway names pkg.old in
-      implemented_by: rename it in map/model.py
-    added: pkg.thing, claimed by no card
-    entry vanished: Gateway names entry serve, which its modules no longer define
-    evidence lost: Emitter -> Contracts (slide tree) was observed at the base
-      and nothing backs it now
-
-It ends with the cards next to the change: the ones a flow joins to the card
-holding most of what changed. That is context, not a warning. Measured over
-359 merged pull requests, it names 6 cards at the median and one the change
-really touched about seven times in ten, where following the imports instead
-names 20. Neither is good enough to say what else broke, so it does not
-pretend to.
-
-The workflow `init` writes posts that report as one comment on every pull
-request and keeps it updated as you push, so the review you do on your agent's
-work starts with what the change did to the system rather than with 400 lines
-of diff. It exits 0 when nothing needs a decision and 1 when something does, so
-CI can hold the line while you are not looking.
-
-Then your agent acts on those lines alone rather than redrawing the map.
-Measured on three real merged pull requests, that path cost 2.31, 4.39 and 2.50
-dollars, against between 3 and 26 dollars for a first map of a whole
-repository (78 to 460 modules). Every run, with the model that produced it, is in
-[docs/benchmarks.md](docs/benchmarks.md).
+A script has none of that, so its map is complete and meaningless. A person
+has it, but rarely the patience to keep it true through every refactor. An
+agent has both, once it follows a written procedure and something refuses its
+output when a module is mapped by nobody or the page is older than the model.
+systemap is that procedure and that checker.
 
 ## One model, several ways to read it
 
@@ -135,26 +74,16 @@ repository (78 to 460 modules). Every run, with the model that produced it, is i
   <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/map/figures/structure.svg" alt="systemap's map of itself: the Structure reading, every part in its region, no edges" width="100%">
 </p>
 
-One committed model, drawn several ways, which is how you look at a system
-rather than at a file. The one above is Structure, every part in its place and
-not one arrow. Switch, and the edges arrive: System
-context draws what crosses the boundary, Data flow what moves, Control flow who
-drives whom. A repository with agents in it gets three more, for the agents,
-what enters their context, and what they can call.
+One committed model, drawn several ways. Above is Structure: every part in its
+place, not one arrow. Switch and the edges arrive, for what crosses the
+boundary, what moves, and who drives whom. Click a part and its neighbours
+light up, each spoke carrying the verb for that direction. Step a journey and
+the map walks you along it. Past forty cards, a card can hold a map of its own.
 
-Click a component and its neighbours light up on the reading you are in, each
-spoke carrying the verb for that direction, with one sentence saying what the
-part you clicked is to it. Step a journey and the map walks you along it one
-edge at a time. Past forty cards, a card can hold a map of its own, which opens
-in place with a way back.
-
-Every edge also says whether the code backs it. Where an import joins the two
-ends the line is solid, and where nothing in the facts does the line is dashed
-and the panel says so, so a picture somebody wished were true looks different
-from one the code agrees with.
-
-Three colour schemes ship, and the picker in the header remembers the one you
-chose.
+Every edge says whether the code backs it: solid where an import joins the two
+ends, dashed where nothing in the facts does. A picture somebody wished were
+true looks different from one the code agrees with. Three colour schemes ship,
+and the header remembers the one you chose.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
@@ -164,217 +93,86 @@ chose.
 
 ## What stops it lying
 
-`systemap check` runs eleven rules and exits 1 on the first failure, naming the
-fix. It refuses a module no component claims, an entry or an interface line
-naming something the code does not define, a route through a card it does not
-connect, a label that touches another, text under 11 px, a map inside a card
-that claims the wrong modules, and a page older than the model. The full table
-is in [docs/reference.md](docs/reference.md).
+`systemap check` runs eleven rules and exits 1 naming the fix. It refuses a
+module no component claims, an entry naming something the code does not
+define, a route through a card it does not connect, a label that touches
+another, and a page older than the model.
 
-The check catches contradictions. It cannot catch omissions, so
-`systemap judgement` goes looking for those: a component claiming one module, a
-module folded into a part it shares no name with, an entry point no journey
-covers, an import crossing two cards with no edge between them. Each line is
-either acted on or answered with a reason in `systemap.toml`, so the answers
-live in the repository and nobody is asked the same question twice.
-
-An answer can cover a family rather than a line, which is what keeps the list
-short on a large map: `crossing_into = "Ledger"` answers every import into that
-card at once. It also means the next import into that card arrives without a
-question, here and in a delta. So answer a family when the reason is about the
-card, and a line when it is about the pair.
-
-`systemap delta` asks these same questions of one change rather than of the
-whole map, which is why a pull request's comment carries what that change
-introduced instead of everything still open.
+The check catches contradictions, not omissions, so `systemap judgement` goes
+looking for those: a component claiming one module, an entry point no journey
+covers, an import crossing two cards with nothing drawn between them. Each
+line is acted on or answered with a reason in `systemap.toml`, so nobody is
+asked the same question twice.
 
     systemap check && systemap judgement --strict
 
-Six repositories have been mapped this way end to end, four of them written by
-somebody else, each finishing unattended with both commands clean. The rows are
-in [docs/benchmarks.md](docs/benchmarks.md).
+Six repositories have been mapped this way end to end, four of them somebody
+else's, each finishing unattended with both commands clean
+([docs/benchmarks.md](docs/benchmarks.md)).
 
-## A second opinion, if you want one
+## What this pull request did to the system
 
-The checker reads names and imports, so it can say that a module shares no
-word with its card and cannot say that it does a different job. `systemap
-audit` asks TypeSafe's Jev model that kind of question, one narrow judgement
-at a time, and prints a line where the answer disagrees with the map: a
-module that reads like another card, a card sentence that does not describe
-its code, an invariant that may govern a card it does not name, and, when
-asked, a flow the code where two cards meet may not carry. `systemap triage "<issue>"` names
-the three cards a bug report's fix will most likely change.
+Git says which lines changed. `systemap delta --base main` says what changed
+in the system, from the facts at both commits, one line per thing, each with
+its fix:
 
-Measured on five mapped repositories before it was built: modules moved into
-a neighbouring card were caught 95% of the time, against 32% for the word
-rule, with 4% of correctly placed modules flagged; for 80 closed issues, the
-card the fixing pull request touched was the first pick 80% of the time.
-On three maps no threshold was chosen on, the figures held within 10 points
-(93% caught, 1% flagged; 79% first pick for 39 httpie issues), except the
-flow check, which is asked only on request. Every run and threshold is in
-[bench/jev](bench/jev).
+    moved: pkg.old -> pkg.new (same content); Gateway names pkg.old in
+      implemented_by: rename it in map/model.py
+    added: pkg.thing, claimed by no card
+    entry vanished: Gateway names entry serve, which its modules no longer define
 
-It needs `TYPESAFE_API_KEY`. With the key set, `delta` asks Jev on its own
-(`--no-jev` sends nothing); without it, `judgement` and `delta` say on stderr
-what Jev would add, with the measured figure. `check` and `judgement` never
-ask, so CI stays offline unless you give it the key. It adds no dependency,
-sends module names, docstrings, card sentences and the source lines where
-two cards meet (`audit --dry-run` says exactly what), and caches every
-answer, so an unchanged map costs nothing the second time. `[jev] enabled =
-false` in `systemap.toml` turns off both the asking and the hints.
+The workflow `init` writes posts that as one comment per pull request and
+keeps it updated, so review starts with what the change did to the system
+rather than with 400 lines of diff. It exits 1 when something needs a
+decision, so CI holds the line while you are not looking.
 
-## A walk for every way in
+Your agent then acts on those lines alone instead of redrawing the map. On
+three real merged pull requests that path cost 2.31, 4.39 and 2.50 dollars,
+against between 3 and 26 dollars for a first map of a whole repository
+([docs/benchmarks.md](docs/benchmarks.md)).
 
-A journey is the walk a reader takes through the system when a run starts at
-one way in: which parts it passes through, in order, and what happens at each
-step. `systemap extract` finds the ways in a framework registers, routes and
-commands and queue tasks alike, and `systemap judgement` asks for a journey
-from each one that has none.
+## The rest, briefly
 
-`systemap journeys` writes them. It hands the agent named under `[agent]
-command` in `systemap.toml` one way in, the cards with their sentences and
-the flows already drawn, and asks it to read the code and answer with the
-walk. Every step is checked against the map first: a step tracing a flow the
-map does not draw, or naming a card that is not there, comes back as a line
-to fix rather than as a journey. What holds is written into the model marked
-`drafted=True`, and `judgement` keeps saying so until you have read it
-against the code and removed the mark.
+- **It teaches while it refuses.** Under the first line of each kind, `check`,
+  `judgement` and `delta` say why it matters and what to do. `--brief` turns
+  that off; `systemap explain "<kind>"` prints one in full.
+- **`systemap journeys`** has an agent write the walk through the system for a
+  way in that no journey starts from, and checks every step against the map
+  before writing it.
+- **`systemap history --since "1 year ago"`** samples the tree back through
+  time and says what moved in each window, with the commits that moved it.
+- **`systemap plan "<task>"`** names the cards a piece of work will most
+  likely change, and afterwards compares that with the cards it did change.
+- **`systemap audit`** and **`triage`** ask TypeSafe's Jev model the questions
+  a name-and-import checker cannot answer. They need `TYPESAFE_API_KEY`;
+  `check` and `judgement` never ask, so CI stays offline unless you hand it
+  the key.
 
-One card often takes a crowd of ways in: 190 routes into mealie's API, a
-dozen subcommands into one card of Poetry. Those get one walk between them,
-not one each, and that walk names the card rather than any single route.
-Covering mealie is two runs rather than sixty-five. Of nine crowds measured
-across three repositories, eight came back as a walk the map could hold.
-
-The walk was proposed from the imports first, and measured: the cards it
-named overlapped the ones people wrote by 0.28 where the bar was 0.60,
-because the module behind a command line imports most of the system. So the
-agent reads the code instead. Without an agent command, `systemap journeys`
-lists the ways in with no walk and writes nothing.
-
-## A plan, and what the work actually did
-
-Before you start, say what you are about to do:
-
-    systemap plan "make the reader stream its input instead of buffering it"
-
-Jev reads that against every card's purpose, and the cards it gives real
-weight to are the projection. Around each one the map prints what it sits in:
-the flows that leave and reach it, the walks that pass through it, and the
-rules that govern it. That last part is what a plan usually leaves out.
-
-Afterwards, `systemap plan --check <id> --base <ref>` compares the projection
-with the cards the code actually changed. A card that changed and was not
-projected is the finding: the work reached a part of the system the plan did
-not see. That is worth reading before the pull request is opened.
-
-The cut is measured, not chosen by taste. Over 80 real bug reports with the
-cards their fixing pull request touched, it covered 86% of those cards while
-naming 2.1 cards per report; on 39 issues of a repository no threshold was
-chosen on, 71% while naming 2.1. The bar, set before the run, was 70% covered
-with at most 2 extra cards. Every run is in [bench/jev](bench/jev).
-
-## How the system got here
-
-A map is the system today. `systemap history` is the year behind it:
-
-    systemap history --since "1 year ago" --every 14
-
-One commit is sampled per fortnight, the facts at each are read out of git,
-and every sample is read in today's cards, so a module that moved still
-counts as the card whose job it does. Each window says what moved: the cards
-that grew, the imports that began crossing a boundary, the ways in added or
-removed, and the commits that wrote the modules which appeared. A number
-always leads back to the work behind it.
-
-Measured on a year of mealie before it was built: 25 samples took 29 seconds
-the first time and under a second once the facts were cached, against a bar
-of five minutes; and of the five largest windows, all five named a change a
-person can find in that window's commits, against a bar of three.
-
-## It teaches while it refuses
-
-A line systemap prints is short, because it has to be quoted word for word
-when you answer it. Short is not the same as clear, so under the first line
-of each kind, `check`, `judgement`, `delta` and `audit` print two more rows:
-why this matters to your view of the system, and what to do about it.
-
-    judgement: 3 items for the maintainer to confirm
-      single module: Reader is only pkg.reader
-          why: A map whose cards are files is a directory listing with corners.
-               It teaches a reader nothing they could not get from the tree.
-          do:  Keep the card if a reader would point at it and name it on its
-               own. Otherwise fold the module into the card whose job it serves.
-
-The line itself never changes, so answers written against it keep working.
-`--brief` leaves the rows out once you know them, and `systemap explain
-"<kind>"` prints one in full whenever you want it back.
-
-## Commands
-
-| command | what it does |
-|---|---|
-| `systemap init` | the configuration, a starter model, the skill, a workflow |
-| `systemap extract` | read the facts out of the tree |
-| `systemap facts` | read those facts back, one view at a time |
-| `systemap place` | a position for every card, and the region order that draws best |
-| `systemap render` | build the page from the facts and the model |
-| `systemap check` | does the map still match the code? exit 1, with each fix named |
-| `systemap judgement` | what the check cannot catch: the second-pass list |
-| `systemap suggest` | a first grouping to argue with, from the facts alone |
-| `systemap refresh` | extract, check, render, and every configured figure |
-| `systemap describe` | what a look at the picture would tell you, in numbers |
-| `systemap delta` | what a change did to the map, from the facts at two commits |
-| `systemap audit` | a second opinion from Jev on the map's judgement calls (needs `TYPESAFE_API_KEY`) |
-| `systemap triage` | the cards an issue's fix will most likely change (needs `TYPESAFE_API_KEY`) |
-| `systemap plan` | the cards a piece of work will touch, and afterwards what it actually touched (needs `TYPESAFE_API_KEY`) |
-| `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
-| `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
-| `systemap serve` | serve the output directory over HTTP, so the page can run |
-| `systemap history` | how the system got here: what moved over a year, and the work that moved it |
-| `systemap explain` | one kind of line in full: what it means, why it matters, what to do |
-| `systemap skill` | reinstall the skill directory |
-
-Every option and every configuration key is in
-[docs/reference.md](docs/reference.md).
+Every threshold in those was measured before the feature was built, and the
+features that failed their bar were recorded rather than shipped
+([bench/jev](bench/jev)). `systemap --help` lists every command;
+[docs/reference.md](docs/reference.md) has every option, rule and key.
 
 ## What it is not
 
-It reads Python and only Python. No other language is planned, so if your
-system is mostly TypeScript, this is not your tool.
-
-It is not a call graph, because the facts hold imports and public surfaces
-while the map draws the flows the agent declared rather than every call. It is
-not a dependency visualiser, because modules are not cards and components are.
-It is not a UML tool, since there is one diagram, one fixed layout, and no
-notation beyond card, line, label and a mark per kind.
+It reads Python and only Python. It is not a call graph: the map draws the
+flows the agent declared, not every call. It is not a dependency visualiser:
+modules are not cards, components are. It is not a UML tool: one diagram, one
+layout, and no notation beyond card, line, label and a mark per kind.
 
 ## Development
 
     uv sync
     uv run pytest -q
-    uv run mypy src --strict
-    uv run ruff check .
-    uv run systemap check              # this repository's own map must stay current
-    uv run systemap judgement --strict
+    uv run systemap check && uv run systemap judgement --strict
 
 The workflow runs the suite, the types and the linter on Linux, macOS and
-Windows with Python 3.11 and 3.13, installs the built wheel into an empty
-virtual environment on each of those six and runs `init`, `extract`,
-`refresh`, `check` and `judgement` against a copy of this repository's map,
-and installs the plugin from the checkout with the Claude Code CLI.
-[docs/reference.md](docs/reference.md) has the rest, including how the skill's
-two copies are kept identical.
-
-Releases: push a tag that names the version. `.github/workflows/workflow.yml`
-builds the package and uploads it through PyPI's trusted publishing, where
-GitHub proves the build came from this repository and no long-lived token
-exists to be stolen. `scripts/publish.sh` is the manual path for a release
-made from a laptop, taking the token from `UV_PUBLISH_TOKEN` or, on macOS,
-from the login keychain.
+Windows with Python 3.11 and 3.13, and installs the built wheel into an empty
+environment on each to run the commands against a copy of this repository's
+own map.
 
 MIT licensed.
 
 Map something with it, and whatever gets in your way is worth an issue. Every
-version so far was written from somebody's log of where they got stuck, most of
-them an agent's.
+version so far was written from somebody's log of where they got stuck, most
+of them an agent's.
