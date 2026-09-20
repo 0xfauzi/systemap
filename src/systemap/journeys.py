@@ -32,6 +32,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from systemap import judgement
 from systemap.agent import Agent
 from systemap.extract import entry_label
 from systemap.model import Journey, Meaning, Model, Step
@@ -68,9 +69,8 @@ class Draft:
 
 
 def uncovered(meaning: Meaning, facts: dict[str, Any]) -> list[dict[str, str]]:
-    """The ways in no journey names in `starts`."""
-    walked = {j.starts for j in meaning.journeys if j.starts}
-    return [p for p in facts.get("entry_points", []) if p["name"] not in walked]
+    """The ways in no journey walks from, by the rule `systemap judgement` uses."""
+    return judgement.ways_in_without_journey(meaning, facts)
 
 
 def context(

@@ -270,20 +270,34 @@ def entry_points_without_journey(
     there are more than a few: a card that takes a hundred routes needs
     a journey through the card, not a hundred walks.
     """
+    open_points = ways_in_without_journey(meaning, facts, text, skip)
+    return _entry_lines(open_points, _owner_of(model, facts))
+
+
+def ways_in_without_journey(
+    meaning: Meaning,
+    facts: dict[str, Any],
+    text: str | None = None,
+    skip: Collection[str] = (),
+) -> list[dict[str, str]]:
+    """The ways in no journey walks from, as the facts record them.
+
+    The rule is the one above, and it lives here alone so that the
+    judgement line, `systemap describe` and `systemap journeys` never
+    disagree about which ways in are covered.
+    """
     points: list[dict[str, str]] = facts.get("entry_points", [])
     text = _journey_text(meaning) if text is None else text
     scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
     components = facts.get("components", {})
-    owner = _owner_of(model, facts)
     started = {j.starts for j in meaning.journeys if j.starts}
-    open_points = [
+    return [
         p
         for p in points
         if p["module"] not in skip
         and not _same_script(p, scripts, components)
         and not (p["name"] in started or entry_label(p) in started or mentioned(p["name"], text))
     ]
-    return _entry_lines(open_points, owner)
 
 
 def _same_script(

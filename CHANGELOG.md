@@ -20,6 +20,13 @@
   hooks. A hand-check of 30 of the new records across the seven maps found 29
   real. `judgement` asks for a journey from each, grouped into one line per
   card once a card takes four or more of a kind.
+- `systemap describe` ends with the journeys: each walk's steps, where it
+  starts, the steps no import backs ("on trust"), whether an agent wrote it
+  and nobody has read it, and how many ways into the system a journey walks
+  from. The page says the same under each step of a walk.
+- Which ways in count as walked is now decided in one place, so `judgement`,
+  `describe` and `journeys` cannot disagree: a journey covers a way in by
+  naming it in `starts`, or by naming it as a whole word as before.
 - A `Journey` can name the way in it starts from (`starts="GET /recipes"`),
   which `judgement` reads: a journey covers that way in, and a `journey start`
   line says when the facts have no such way in.

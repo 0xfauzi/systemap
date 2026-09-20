@@ -247,3 +247,48 @@ def test_a_way_in_the_extractor_finds_is_the_one_the_agent_is_asked_about(
     facts = json.loads(two_cards.facts_path.read_text())
     points = [extract.entry_label(p) for p in facts["entry_points"]]
     assert "GET /read (route)" in points
+
+
+# ---- what the description says about them ------------------------------------------
+
+
+def test_describe_says_where_each_walk_starts_and_how_many_ways_in_are_walked(
+    sample: Any,
+) -> None:
+    from systemap import describe
+
+    out = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
+    section = out[out.index("journeys: the walks a reader can take through the system") :]
+    assert section[1].startswith("  input-to-record: 4 steps")
+    # the sample package registers no way in at all, and the line says that
+    # rather than counting nothing out of nothing
+    assert not sample.facts["entry_points"]
+    assert "  ways in: none in the facts, so no walk can be asked for" in section
+
+
+def test_describe_names_the_steps_the_code_does_not_back(sample: Any) -> None:
+    from systemap import describe
+
+    out = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
+    trust = [line for line in out if "on trust:" in line]
+    assert trust and "no import backs" in trust[0]
+
+
+def test_a_journey_that_names_its_way_in_in_a_sentence_still_covers_it(sample: Any) -> None:
+    """The word rule and `starts` are one rule, so no two commands disagree."""
+    facts = {
+        "entry_points": [
+            {"kind": "main_function", "name": "read", "module": "pkg.reader", "target": "read"}
+        ],
+        "components": {"pkg.reader": {"uses": {}}},
+    }
+    silent = Journey(id="r", label="a walk through it", steps=(), starts="")
+    assert [
+        p["name"] for p in journeys.uncovered(Meaning(plain={}, journeys=(silent,)), facts)
+    ] == ["read"]
+    # naming it in the label covers it, as judgement has always read a journey
+    named = Journey(id="r", label="read one thing", steps=(), starts="")
+    assert journeys.uncovered(Meaning(plain={}, journeys=(named,)), facts) == []
+    # and naming it in starts covers it whatever the sentences say
+    starts = Journey(id="r", label="a walk through it", steps=(), starts="read")
+    assert journeys.uncovered(Meaning(plain={}, journeys=(starts,)), facts) == []
