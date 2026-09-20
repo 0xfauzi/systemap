@@ -165,3 +165,45 @@ the module's did not help, because a command line dispatches through a table.
 The proposal is not shipped. `bench/jev/propose.py` keeps the code and
 `paths.py` scores it. `systemap journeys` asks the agent to read the code
 from the way in, and checks every step it answers with against the map.
+
+## Ripple: what the map's graph adds to the imports (2026-09-20)
+
+`systemap ripple` would answer "you changed these cards, which others does
+this reach". It is not built, because the walk did not beat what systemap can
+already say from imports alone.
+
+**The truth had to change first.** The plan was to pair a pull request with
+the pull request that fixed it within thirty days. Over 2,406 merged pull
+requests across rich, poetry, mealie, paperless-ngx and httpie, a rule strict
+enough to exclude release rollups (the later one says fixes, reverts,
+regression or broken by, names at most three pull requests, and both touch
+Python) found **6 such pairs**. A ten point difference cannot be seen in six
+cases, so the truth used is co-change: from the card holding the file a pull
+request changed most, which other cards of that same pull request does the
+rule find? 366 pull requests over six maps qualified.
+
+    uv run --project bench/jev python bench/jev/ripple.py
+
+| rule | recall | precision | cards named | share of the map |
+|---|---|---|---|---|
+| the cards the flows leave to, one hop | 0.00 | 0.00 | 2 | 0.06 |
+| the same, three hops | 0.50 | 0.07 | 13 | 0.37 |
+| the cards a flow joins either way, one hop | 0.50 | 0.17 | 5 | 0.14 |
+| the same, two hops | 1.00 | 0.09 | 19 | 0.54 |
+| one hop either way, plus the journeys through the card | 0.67 | 0.11 | 10 | 0.29 |
+| every module the imports reach, as cards | 1.00 | 0.05 | 20 | 0.57 |
+
+Medians, on maps holding 35 cards at the median.
+
+The bar, stated before the run: recall within 10 points of the import
+closure, at no more than half its size. **Nothing passed.** Two hops either
+way matches the imports' recall but is 95% of their size; one hop is a
+quarter of the size but half the recall; adding the journeys through the card
+reaches 0.67 at half the size, still 33 points behind.
+
+What the table also shows is that the baseline wins its recall by naming 20
+of 35 cards: 57% of the map, at 0.05 precision. The one-hop walk is three
+times more precise at a quarter of the size. That is an argument about what
+the right question is, not a pass, and the bar was set before the run, so
+ripple does not ship. Anything built here later needs a question a reader
+would act on and a bar set before it is measured.
