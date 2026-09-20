@@ -15,11 +15,23 @@ with the fix, and exits 1 if any rule failed.
 | nesting | the map inside a card claiming a module the card does not, leaving one of the card's modules unclaimed, claiming one twice, or naming an actor that is not a card of the map above; an actor that opens a map |
 | placement | a card outside its band, two cards overlapping, a flow of a kind neither standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an agent nor `calls_model`, a flow or invariant naming something the model does not have, two invariants with one number |
 | routes | a route through a card it does not connect, or across a band it neither starts nor ends in |
-| labels | a label that touches a card, a header or another label (both labels named, and the fix that applies: the gutter is full, named by its neighbours and the region to open up, or the label is wider than its seat); a container or region header wider than its box, a `sub` that needs more than two lines, or a header touching a card; a card whose name or plain word does not fit its budget, stated in the refusal (nothing on the map is elided) |
+| labels | text that does not fit, or touches something it should not: see below |
 | type size | any text below 11 px at native scale |
 | meaning | a sentence, verb, override or journey step naming something the model does not have, a flow with no sentence, a custom layer taking a standard id |
 | wheel | a relationship wheel whose labels touch each other or the centre |
 | stale | a facts file, a page (one per map) or a figure older than the tree or the model |
+
+The labels rule refuses three things, because a label a reader cannot read
+is worse than no label:
+
+- A label that touches a card, a header, or another label. Both labels are
+  named, with the fix that applies: either the gutter is full, in which case
+  the refusal names its neighbours and the region to open up, or the label is
+  wider than its seat.
+- A container or region header wider than its box, a `sub` that needs more
+  than two lines, or a header touching a card.
+- A card whose name or plain word does not fit its budget. The refusal states
+  the budget. Nothing on the map is ever shortened with an ellipsis.
 
 Exit codes: `0` current, `1` a check failed, `2` the configuration or the
 model cannot be used. A module that genuinely has no place on the map is
@@ -202,31 +214,240 @@ the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 
 ## Commands
 
-| command | what it does |
-|---|---|
-| `systemap init [--no-ci]` | write the config, an empty starter model, the skill directory, and a workflow pinned to this version; never overwrites; prints the sentence for the agent |
-| `systemap extract [--check]` | read the facts out of the tree into `docs/map/map.json`: every module's surface, public names (a package `__init__` lists what it re-exports), imports inside and outside the package, tests, entry points; `--check` exits 1 when they no longer match the tree |
-| `systemap facts` | read the facts back one view at a time, so nobody opens the JSON: `--modules` (one line per module: the first sentence of its docstring, then public names, imports and tests counted), `--docstrings` (the first sentence alone), `--module NAME` (its record, rendered: docstring, names with kinds, imports, imported by, external, test count; never a test's name), `--names NAME` (its public names with kinds), `--entry-points` (each with its target), `--external` (every third-party import and who imports it), `--imports NAME` (what it imports and what imports it) |
-| `systemap place [--all] [--print] [--keep-order]` | a position for every card without one, written into the model in place (only the `x=` and `y=` values, the boxes and the canvas move), on every map of the tree: regions on a two-column grid with the corridors the router needs, in the region order the search scores best (every order tried when there are at most six regions, a greedy start and pairwise swaps past that; each laid out and estimated by the bends its edges need, the twelve best and the order as listed routed with the real router and scored by label collisions, then refused routes, then bends, then length; the chosen order and its score printed: `region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed`), cards on the grid inside, ordered by barycentre sweeps over the flows; a card with `x` and `y` is kept; `--all` lays every card out again and keeps only the cards marked `pinned=True`; `--keep-order` lays the regions as listed and skips the search; deterministic, stdlib only; `--print` prints instead |
-| `systemap check [--brief]` | every rule in the table above, on every map of the tree; exit 1 with each fix named; under each failing rule, two rows say why it matters and what to do, which `--brief` leaves out |
-| `systemap render [--check] [--base REF]` | the page; `--check` exits 1 when it is stale; `--base` adds a change map against a ref |
-| `systemap figure --out FILE` | one figure from the same generator: the system, a plan's reach (`--components A,B`), or a change (`--base REF`); `--layer ID` draws one reading only (that layer's edges, every card, the legend reduced to it); `--map ID` draws the map inside a card; a `.svg` name writes the bare drawing |
-| `systemap refresh` | extract, check, render one page per map, and every configured figure, then check what it wrote; "already current: the page matches the model's rendered fields and the facts" when there is nothing to do; exit 1 when the check fails |
-| `systemap suggest [--jev]` | a first grouping to argue with, never the answer: one proposed card per package with two or more modules, its modules, and the crossing imports between proposals, from the facts alone; with a model, when a map is past forty cards and which cards hold the most modules, the candidates to open a map inside; `--jev` groups modules from Jev's answers about module pairs instead |
-| `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]` | the second-pass list: thin components, odd folds, edges without a sentence, thin layers, entry points without a journey, crossing imports without a flow (one line per pair of cards, counting the modules; `--verbose` lists the imports under it), flows no import backs, model SDK imports outside an agent; answered lines suppressed and counted; `--kind KIND` prints one kind when the list runs long; under the first line of each kind, two rows say why it matters and what to do, which `--brief` leaves out; exit 0, or 1 with `--strict` while a line is open |
-| `systemap delta --base REF [--head REF] [--format markdown] [--jev \| --no-jev]` | what a change did to the map, from the facts at two commits read out of git: modules moved, added and removed with the card each belongs to (on every map it is drawn on, and the map's file), a new module no card claims, entry and interface names that vanished, new imports across a card boundary with no flow, flows the code stopped backing; each line names its fix; exit 0 when nothing needs a decision, 1 when something does; then, as context and not as a finding, the cards a flow joins to the card holding most of what changed (`next to the change`), left out when that card is joined to more than a third of the map; `--format markdown` is the pull-request comment; with `TYPESAFE_API_KEY` set (or `--jev`) it also pairs modules renamed and rewritten at once, where Jev reads them as one (the section above), and adds the card each unclaimed module reads like; `--no-jev` sends nothing; what Jev cost goes to stderr |
-| `systemap describe` | what a look at the picture would tell an agent that cannot look: how many cards are pinned, placed, and positioned for the look only, cards per region, the region order and what the drawing costs under it (bends and length; label collisions and refused routes when there are any), bends and length per edge worst first with the gutter each label sits in, seats used of seats available per gutter (each named by the cards on either side and its coordinates), edges observed, external and declared, cards and edges per reading; then the journeys: each walk's steps, where it starts, the steps no import backs, whether an agent wrote it and nobody has read it, and how many ways into the system a journey walks from |
-| `systemap audit [--dry-run] [--kind KIND]...` | a second opinion from Jev on the map: `jev mis-fold`, `jev owner`, `jev sentence` and `jev governs` lines, and `jev flow` lines when asked with `--kind "jev flow"` (the section above); `--kind`, repeatable, asks only those kinds; answers cached; needs `TYPESAFE_API_KEY`; a report, exit 0, or 1 when it could not run |
-| `systemap plan "<task>" [--check ID] [--base REF]` | the cards a piece of work will most likely change, before it is done: Jev reads the task against every card's purpose and the cards it gives at least 0.05 of the probability are the projection, each printed with the flows, walks and rules it sits in (six of each, then a count); the projection is written to `.systemap/plans/<id>.json`; `--check ID` compares it with the cards the code changed since `--base` (default `origin/main`) and exits 1 while a card changed that the plan did not name; `-` reads the task from stdin; needs `TYPESAFE_API_KEY`; the cut is the measured one (`bench/jev/plan_eval.py`) |
-| `systemap triage TEXT` | the three cards an issue's fix will most likely change, with their modules and neighbours; `-` reads the text from stdin; the text is cut at 2,000 characters; needs `TYPESAFE_API_KEY` |
-| `systemap journeys [--limit N] [--dry-run]` | write a walk through the system for a way in that no journey starts from, and one walk for a whole crowd where a card takes more than a few ways in of one kind (that walk names the card in `starts`, and every way in the card claims counts as walked): the agent named under `[agent] command` reads the code from that way in and answers with the cards a run passes through and a sentence each; a step tracing a flow the map does not draw is refused and printed as a line to fix, not written; what holds is written into the model marked `drafted=True`, which `judgement` prints as a `drafted journey` line until you read it and remove the mark; three walks a run by default; `--dry-run` lists the ways in and writes nothing; with no `[agent] command` it lists them and says so |
-| `systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]` | how the system got here: one commit is sampled per window back to `--since` (default `1 year ago`, one every 14 days), the facts at each are read out of git and cached under `.systemap/facts/<sha>.json`, and each window is what moved between two samples: modules and ways in gained or lost, the cards that grew or shrank, the imports that began crossing a card boundary, and the commits that wrote the modules which appeared; the largest windows first, `--top` of them; every sample is read in today's cards, so a module that moved still counts as the card whose job it does |
-| `systemap explain [KIND]` | one kind of line in full: what it means, why it matters to your view of the system, and what to do about it; with no kind, every kind systemap prints with its one-line meaning; exit 1 when the kind is not one systemap prints |
-| `systemap serve [--port 8765]` | serve the output directory over HTTP on the loopback address and print the URL; the page's script does not run from a `file://` address |
-| `systemap skill [--dir PATH] [--print]` | reinstall the skill directory, or print `SKILL.md` |
+Every command takes `--root DIR`, before or after the command, to name a
+project that is not the current directory. Exit codes are the same
+everywhere: 0 the map is current, 1 the map is stale or a check failed, 2
+the configuration or the model cannot be used.
 
-`--root DIR`, before or after the command, names the project when it is
-not the current directory.
+### `systemap init [--no-ci]`
+
+Writes what a map needs beside the code: `systemap.toml`, a starter model,
+the skill directory an agent reads, and a GitHub workflow pinned to this
+version. It never overwrites a file that exists. It ends by printing the one
+sentence to give your agent. `--no-ci` leaves the workflow out.
+
+### `systemap extract [--check]`
+
+Reads the facts out of the tree into `docs/map/map.json`: each module's
+surface, its public names (for a package `__init__`, what it re-exports),
+its imports inside and outside the package, the tests that name it, and
+where a run can start. Everything else reads that file.
+
+- `--check` exits 1 when the stored facts no longer match the tree.
+
+### `systemap facts`
+
+Prints the facts one view at a time, so nobody has to open the JSON. With no
+option, the summary `extract` prints.
+
+- `--modules`: a line per module, with the first sentence of its docstring
+  and its names, imports and tests counted.
+- `--docstrings`: the first sentence alone.
+- `--module NAME`: one module in full: docstring, names with kinds, imports,
+  imported by, external imports, test count. Never a test's name.
+- `--names NAME`: that module's public names, with kinds.
+- `--entry-points`: where a run can start, each with its target.
+- `--external`: every third-party import, and who imports it.
+- `--imports NAME`: what a module imports, and what imports it.
+
+### `systemap place [--all] [--print] [--keep-order]`
+
+A card with no position cannot be drawn. This writes one for every card that
+lacks it, on every map of the tree, and leaves the cards that have one alone.
+Only the `x=` and `y=` values change, plus the boxes and the canvas.
+
+The regions go on a two-column grid, with the corridors the router needs, in
+the order the search scores best. Cards go on the grid inside, ordered by
+barycentre sweeps over the flows. The search tries every order when there
+are six regions or fewer, and a greedy start with pairwise swaps past that.
+Each order is estimated by the bends its edges would need; the best twelve,
+and the order as written, are routed for real and scored on label
+collisions, then refused routes, then bends, then length. The order it
+chose is printed with its score:
+
+    region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed
+
+It is deterministic and uses the standard library alone.
+
+- `--all`: lay every card out again, keeping only the cards marked
+  `pinned=True`. Run it after adding or removing a card.
+- `--keep-order`: lay the regions as the model lists them, and skip the search.
+- `--print`: print the positions and write nothing.
+
+### `systemap render [--check] [--base REF]`
+
+Writes the page from the facts and the model.
+
+- `--check` exits 1 when the page is stale.
+- `--base REF` adds a change map against that ref.
+
+### `systemap check [--brief]`
+
+Runs every rule in the table above, on every map of the tree, and exits 1
+with each fix named. Under each failing rule it prints two rows: why the
+rule matters, and what to do about it.
+
+- `--brief` leaves those two rows out.
+
+### `systemap figure --out FILE`
+
+Draws one figure with the generator the page uses, so a figure in a document
+cannot drift from the page.
+
+- `--components A,B`: the reach of a plan.
+- `--base REF`: a change.
+- `--layer ID`: one reading only: that layer's edges, every card, and the
+  legend reduced to it.
+- `--map ID`: the map inside a card.
+- An `--out` name ending in `.svg` writes the drawing alone, with no frame.
+
+### `systemap refresh`
+
+The four commands in the order they depend on each other: extract, check,
+render one page per map, and draw every figure the configuration lists.
+Then it checks what it wrote. When there is nothing to do it says so:
+"already current: the page matches the model's rendered fields and the
+facts". It exits 1 when the check fails, and renders nothing in that case.
+
+### `systemap suggest [--jev]`
+
+A first grouping to argue with, never the answer. From the facts alone it
+proposes one card per package with two or more modules, lists that card's
+modules, and prints the imports that cross between proposals. With a model
+it also says when a map is past forty cards, and which cards hold the most
+modules: the candidates for a map of their own.
+
+- `--jev` groups modules from Jev's answers about module pairs instead of by
+  package. Needs `TYPESAFE_API_KEY`.
+
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]`
+
+The second-pass list: what the check cannot settle. Thin components, odd
+folds, edges without a sentence, thin layers, entry points without a
+journey, crossing imports without a flow, flows no import backs, and model
+SDK imports outside an agent. A crossing import is one line per pair of
+cards, counting the modules. Lines answered under `[judgement] answered`
+are suppressed and counted. Under the first line of each kind it prints why
+it matters and what to do.
+
+- `--strict` exits 1 while any line is open, for CI. Otherwise it exits 0.
+- `--kind KIND` prints one kind, for when the list runs long.
+- `--verbose` lists the imports under each crossing-import line.
+- `--brief` leaves out the two teaching rows.
+
+### `systemap delta --base REF [--head REF] [--format markdown] [--jev | --no-jev]`
+
+What a change did to the map, from the facts at two commits read out of git.
+It names modules moved, added and removed, with the card each belongs to and
+the map's file; a new module no card claims; entry and interface names that
+vanished; new imports across a card boundary with no flow; and flows the
+code stopped backing. Each line names its fix. It exits 0 when nothing needs
+a decision, 1 when something does.
+
+It ends with the cards next to the change: the ones a flow joins to the card
+holding most of what changed. That is context, not a finding, and it is left
+out when that card is joined to more than a third of the map.
+
+- `--format markdown` prints the pull-request comment.
+- With `TYPESAFE_API_KEY` set, or `--jev`, it also asks Jev to pair modules
+  that were renamed and rewritten at once, and names the card each unclaimed
+  module reads like. `--no-jev` sends nothing. What Jev cost goes to stderr.
+
+### `systemap describe`
+
+What a look at the picture would tell you, for an agent that cannot look.
+How many cards are pinned, placed, and positioned for the look alone; cards
+per region; the region order and what the drawing costs under it; bends and
+length per edge, worst first, with the gutter each label sits in; seats used
+of seats available per gutter; edges observed, external and declared; and
+cards and edges per reading.
+
+Then the journeys: each walk's steps, where it starts, the steps no import
+backs, whether an agent wrote it and nobody has read it yet, and how many
+ways into the system a journey walks from.
+
+### `systemap audit [--dry-run] [--kind KIND]...`
+
+Jev's second opinion on the calls the map makes about meaning: `jev
+mis-fold`, `jev owner`, `jev sentence` and `jev governs` lines, and `jev
+flow` lines when asked for with `--kind "jev flow"`. Answers are cached.
+It is a report: exit 0, or 1 when it could not run. Needs
+`TYPESAFE_API_KEY`.
+
+- `--kind KIND`, repeatable, asks only those kinds.
+- `--dry-run` says what it would send and sends nothing.
+
+### `systemap plan "<task>" [--check ID] [--base REF]`
+
+The cards a piece of work will most likely change, before it is done. Jev
+reads the task against every card's purpose, and the cards it gives at least
+0.05 of the probability are the projection. Each is printed with the flows,
+walks and rules it sits in: six of each, then a count. The projection is
+saved to `.systemap/plans/<id>.json`. The 0.05 cut is the measured one
+(`bench/jev/plan_eval.py`). Needs `TYPESAFE_API_KEY`.
+
+- `--check ID --base REF` compares the projection with the cards the code
+  changed since `REF` (default `origin/main`), and exits 1 while a card
+  changed that the plan did not name.
+- `-` in place of the task reads it from stdin.
+
+### `systemap triage TEXT`
+
+The three cards an issue's fix will most likely change, each with its
+modules and its neighbours on the map. `-` reads the text from stdin. The
+text is cut at 2,000 characters. Needs `TYPESAFE_API_KEY`.
+
+### `systemap journeys [--limit N] [--dry-run]`
+
+Writes a walk through the system for a way in that no journey starts from.
+Where a card takes more than a few ways in of one kind, it writes one walk
+for the whole crowd: that walk names the card in `starts`, and every way in
+the card claims counts as walked.
+
+The agent named under `[agent] command` reads the code from that way in and
+answers with the cards a run passes through and a sentence each. A step
+tracing a flow the map does not draw is refused and printed as a line to
+fix, not written. What holds is written into the model marked
+`drafted=True`, which `judgement` prints as a `drafted journey` line until
+you read it and remove the mark. Three walks a run by default.
+
+- `--limit N` writes at most N.
+- `--dry-run` lists what it would write and writes nothing. With no
+  `[agent] command` set it does the same, and says why.
+
+### `systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]`
+
+How the system got here. One commit is sampled per window back to `--since`
+(default `1 year ago`, one every 14 days), the facts at each are read out of
+git and cached under `.systemap/facts/<sha>.json`, and each window is what
+moved between two samples: modules and ways in gained or lost, the cards
+that grew or shrank, the imports that began crossing a card boundary, and
+the commits that wrote the modules which appeared. The largest windows come
+first, `--top` of them (default 5). Every sample is read in today's cards,
+so a module that moved still counts as the card whose job it does.
+
+- `--ref REF` samples back from that branch or commit instead of `HEAD`.
+
+### `systemap explain [KIND]`
+
+One kind of line in full: what it means, why it matters to your view of the
+system, and what to do about it. With no kind, every kind systemap prints,
+with its one-line meaning. It exits 1 when the kind is not one systemap
+prints.
+
+### `systemap serve [--port 8765]`
+
+Serves the output directory over HTTP on the loopback address and prints the
+URL. The page loads its data with a script, and a script does not run from a
+`file://` address.
+
+### `systemap skill [--dir PATH] [--print]`
+
+Reinstalls the skill directory that `init` writes: `SKILL.md` and
+`references/`.
+
+- `--dir PATH` writes it somewhere else.
+- `--print` writes `SKILL.md` to stdout instead.
 
 ## Configuration
 

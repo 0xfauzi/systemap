@@ -110,6 +110,13 @@ fix:
     evidence lost: Emitter -> Contracts (slide tree) was observed at the base
       and nothing backs it now
 
+It ends with the cards next to the change: the ones a flow joins to the card
+holding most of what changed. That is context, not a warning. Measured over
+359 merged pull requests, it names 6 cards at the median and one the change
+really touched about seven times in ten, where following the imports instead
+names 20. Neither is good enough to say what else broke, so it does not
+pretend to.
+
 The workflow `init` writes posts that report as one comment on every pull
 request and keeps it updated as you push, so the review you do on your agent's
 work starts with what the change did to the system rather than with 400 lines
@@ -232,6 +239,12 @@ map does not draw, or naming a card that is not there, comes back as a line
 to fix rather than as a journey. What holds is written into the model marked
 `drafted=True`, and `judgement` keeps saying so until you have read it
 against the code and removed the mark.
+
+One card often takes a crowd of ways in: 190 routes into mealie's API, a
+dozen subcommands into one card of Poetry. Those get one walk between them,
+not one each, and that walk names the card rather than any single route.
+Covering mealie is two runs rather than sixty-five. Of nine crowds measured
+across three repositories, eight came back as a walk the map could hold.
 
 The walk was proposed from the imports first, and measured: the cards it
 named overlapped the ones people wrote by 0.28 where the bar was 0.60,
