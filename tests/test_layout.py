@@ -323,7 +323,7 @@ def test_gutters_are_named_from_the_card_grid() -> None:
 def test_describe_reads_the_picture_back(sample: Sample) -> None:
     lines = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
     text = "\n".join(lines)
-    assert lines[0] == "canvas 900 x 400: 5 cards, 5 edges, 2 regions, 6 readings"
+    assert lines[0] == "canvas 900 x 400: 5 cards, 5 edges, 2 regions, 6 layers"
     assert "  work: 2 cards (Reader, Parser)" in lines
     assert "  keep: 2 cards (Ledger, Writer)" in lines
     assert "  in a container only: 1 card (User)" in lines
@@ -356,10 +356,10 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     capsys.readouterr()
     assert run("--root", str(tmp_path), "describe") == 0
     out = capsys.readouterr().out
-    assert re.match(r"canvas \d+ x \d+: 4 cards, 6 edges, 4 regions, 4 readings\n", out)
+    assert re.match(r"canvas \d+ x \d+: 4 cards, 6 edges, 4 regions, 4 layers\n", out)
     assert "positions: 0 pinned, 4 placed\n" in out
     assert "  a: 1 card (A)\n" in out and "  d: 1 card (D)\n" in out
-    assert "gutters: seats used" in out and "readings: the cards and edges each lights" in out
+    assert "gutters: seats used" in out and "layers: the cards and edges each one shows" in out
     # A model that contradicts itself cannot be drawn: the same refusal as check.
     model = tmp_path / "map/model.py"
     text = model.read_text()

@@ -36,12 +36,13 @@ agent invokes, and a `context` is a store whose content enters an agent's
 window. Drawing a store as if it were a processing step is the most common
 lie in architecture diagrams.
 
-Layers are readings of the map. Three are derived from the model with no
+A layer is one question the map answers, and the edges that answer it.
+Three are derived from the model with no
 authoring (Structure, System context, and Agents when the model has an
 agent or a `calls_model` component), four belong to the standard flow
 kinds (data, control, context, tool; the last two likewise), and the rest
-are the model's own, one per custom kind. The Agents reading is agents
-only; the Context and Tools readings light every context and tool flow,
+are the model's own, one per custom kind. The Agents layer shows agents
+only; the Context and Tools layers show every context and tool flow,
 whichever end runs the model.
 """
 

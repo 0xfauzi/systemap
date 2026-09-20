@@ -1,6 +1,6 @@
 """A figure of one reading: the layer's edges, every card, the legend reduced.
 
-The page switches between readings by hiding edges; a figure of one
+The page switches between layers by hiding edges; a figure of one
 reading leaves the other edges out entirely. Both read the same table
 (`model.reading`), so the two cannot disagree about which edges a layer
 has.
@@ -108,7 +108,7 @@ def test_the_legend_and_caption_reduce_to_the_layer(sample: Sample) -> None:
     assert "Control flow</span>" in html
     assert "Data flow</span>" not in html and "Record</span>" not in html
     assert "Control flow: Who drives whom?" in html
-    assert "One reading of the system" in html
+    assert "One layer of the system" in html
     html, _ = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, layer="structure"
     )
@@ -134,7 +134,7 @@ def test_unknown_layer_exits_2_with_the_fix_named(
     )
     err = capsys.readouterr().err
     assert "unknown layer id: nope" in err
-    assert "structure, system, data, control" in err, "the fix names the readings that exist"
+    assert "structure, system, data, control" in err, "the fix names the layers that exist"
     assert not out.exists()
     assert (
         run("--root", str(tmp_path), "figure", "--static", "--layer", "data", "--out", str(out))

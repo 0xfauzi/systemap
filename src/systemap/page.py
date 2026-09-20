@@ -1,17 +1,17 @@
-"""Render the system map as one page that teaches the system in layers.
+"""Render the system map as one page a reader can learn the system from.
 
 The page is the map, at full width. It opens at Fit (the whole map across
 the column) and the reader zooms with the wheel, a pinch, or the Fit / 100%
-/ + / - controls, and pans by dragging; selecting a component frames what
-it lights (the card, the edges of it the reading shows, their other ends)
-in the part of the map on screen beside the drawer, and Escape returns the
-view. Above it, a layer switch (one map, several readings), the journeys a
+/ + / - controls, and pans by dragging. Selecting a component scrolls the
+part of the map beside the drawer to hold that card, the edges of it the
+layer shows and their other ends; Escape undoes the selection. Above the
+map: a layer switch, since one map has several layers, the journeys a
 reader can step through, and a slim strip carrying the active layer's
-question and its components. Click a
-component and the focus panel opens as a drawer over the map, docked on the
-side away from the component: it leads with the plain word, draws the
-relationship wheel, and reads the sentence for whichever spoke the reader
-touches. Below the map, a one-line index of every component
+question and its components. Click a component and the focus panel opens
+as a drawer over the map, docked on the side away from the component. It
+leads with the plain word, then draws the card at the centre of a ring of
+the cards it connects to, and shows the sentence for whichever of them the
+reader touches. Below the map, a one-line index of every component
 by region and the invariants. Nothing about the code is shown beyond the
 single "lives in" line; the counts stay in the facts file for the change
 detector.
@@ -426,22 +426,23 @@ def build(
         "system: something a reader would point at and name. Every card is code in the tree "
         "today, and the check refuses one whose modules or entry are not in the facts. A "
         "<b>line</b> is something moving from one part to another, labelled with what it "
-        "carries. A <b>reading</b> colours the lines that answer one question, so the same map "
-        "can be looked at several ways. A <b>journey</b> walks the map one step at a time, the "
-        "way a run does.</p>"
+        "carries. A <b>layer</b> shows only the lines that answer one question, so the same "
+        "map can be looked at several ways. A <b>journey</b> is one trip through the system, "
+        "shown one step at a time.</p>"
     )
     o.append(
         '<p class="key"><b>What the marks mean.</b> A dashed card is an actor outside the code. '
         "A dot in a card's top corner marks a note, which the panel shows. A dashed line is a "
         "declared flow: no import in the facts joins its two ends, so the map is claiming it "
         "rather than observing it; the panel says of every flow whether it is observed, "
-        "external or declared. A card standing on a second card holds a map of its own, and "
-        "the panel opens it in place over this page.</p>"
+        "external or declared. A card drawn with a second card behind it holds a map of its "
+        "own, and the panel opens that map in place over this page.</p>"
     )
     o.append(
-        '<p class="key"><b>How to drive it.</b> Click a component to light what it reaches. '
-        "Escape clears the selection and returns the view. The arrow keys switch readings, or "
-        "step a journey while one is on. Double-click a region's name to frame that region. "
+        '<p class="key"><b>How to use it.</b> Click a component to highlight it and everything '
+        "it connects to. Escape clears the selection. The arrow keys switch layers, or step a "
+        "journey while one is on. Double-click a region's name to fit that region to the "
+        "screen. "
         "Text is drawn at 11px and never smaller: at Fit it is scaled down, and zoom brings "
         "it back.</p>"
     )
@@ -477,7 +478,7 @@ def build(
     # ---------------- invariants ----------------
     o.append(
         '<section class="list" id="invariants"><h2>Invariants <span>the rules the '
-        "chips in the panel point at</span></h2>"
+        "panel names under each card</span></h2>"
     )
     o.append('<ol class="rules">')
     for inv in sorted(model.invariants, key=lambda i: i.n):
@@ -963,8 +964,8 @@ JS = r"""
   // ---- keyboard ---------------------------------------------------------
   // The page from the keyboard: Tab moves across the cards in reading
   // order (they are written in that order and each takes focus), Enter on
-  // a card opens its wheel, Escape closes it and returns the view, the
-  // left and right arrows switch readings, or step the journey while one
+  // a card opens its panel, Escape closes it and clears the selection, the
+  // left and right arrows switch layers, or step the journey while one
   // is on. A control that takes arrows itself (the journey select) keeps
   // them.
   function stepLayer(d){

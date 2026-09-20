@@ -29,7 +29,7 @@ goes, and the theme.
                    `[theme.<scheme>]` lays tokens over one scheme
     [[figures]]    figures `systemap refresh` regenerates: out, mode
                    ("system" or "reach"), components, caption, interactive,
-                   layer (one reading's id: only that layer's edges), map
+                   layer (a layer's id: only that layer's edges), map
                    (the id of a map inside a card, for a figure of it)
     [coverage]     ignore = [{module = "pkg.mod", reason = "..."}]: modules
                    the coverage rule of `systemap check` may leave unmapped;

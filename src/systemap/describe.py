@@ -1,9 +1,9 @@
-"""What a look at the picture would tell an agent that cannot look.
+"""What the picture shows, in numbers, for an agent that cannot see it.
 
 The agent that draws the map often cannot open the page: it runs headless,
 and a figure is bytes it cannot see. What a person takes from one look
 (this region is crowded, that edge snakes across the whole map, the
-gutter under the second row is full, the Control reading lights almost
+gutter under the second row is full, the Control layer shows almost
 nothing) is read here out of the same geometry the drawing has, and
 printed as numbers:
 
@@ -22,7 +22,7 @@ printed as numbers:
     evidence .... how many edges are observed, external and declared
     gutters ..... the bands between card rows and columns: how many label
                   seats each has and how many are used at its fullest
-    readings .... how many cards and edges each layer lights
+    layers ...... how many cards and edges each one shows
     journeys .... each walk: its steps, where it starts, whether the code
                   backs every step, and whether an agent wrote it and
                   nobody has read it yet; then how many ways into the
@@ -215,7 +215,7 @@ def lines(
     out = [
         f"canvas {w} x {h}: {_plural(len(model.components), 'card')}, "
         f"{_plural(len(model.flows), 'edge')}, {_plural(len(model.regions), 'region')}, "
-        f"{_plural(len(layers), 'reading')}"
+        f"{_plural(len(layers), 'layer')}"
     ]
     placed_ids = list(placed)
     pinned = sum(1 for c in model.components if c.pinned and c.id not in placed_ids)
@@ -286,7 +286,7 @@ def lines(
         "in the facts does)"
     )
 
-    out.append("readings: the cards and edges each lights")
+    out.append("layers: the cards and edges each one shows")
     for lay in layers:
         edges, subjects = reading(model, meaning, lay.id)
         lit = set(subjects)

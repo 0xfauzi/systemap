@@ -39,8 +39,8 @@ JUDGEMENT = {
     "single module": Lesson(
         means="A card claims one module, so the card and the file say the same thing.",
         why=(
-            "A map whose cards are files is a directory listing with corners. It teaches a "
-            "reader nothing they could not get from the tree, and it grows as fast as the code."
+            "A card per file tells a reader nothing the file tree does not already tell "
+            "them, and the map then grows as fast as the code does."
         ),
         do=(
             "Keep the card if a reader would point at it and name it on its own. Otherwise fold "
@@ -73,13 +73,13 @@ JUDGEMENT = {
         ),
     ),
     "thin layer": Lesson(
-        means="A reading of the map lights fewer than two cards, so it shows almost nothing.",
+        means="A layer of the map holds fewer than two cards, so it shows almost nothing.",
         why=(
-            "Each reading is a promise that the system can be looked at that way. A reading with "
-            "one card in it makes the promise and breaks it in the same breath."
+            "A layer is a promise that the system can be looked at that way. A layer with one "
+            "card in it makes that promise and does not keep it."
         ),
         do=(
-            "Add the flows that reading is for, or answer that this system does not have that "
+            "Add the flows that layer is for, or answer that this system does not have that "
             "view, which is itself worth knowing."
         ),
     ),
@@ -123,7 +123,8 @@ JUDGEMENT = {
             "two cards."
         ),
         why=(
-            "The code has a connection the map denies. Every reader who trusts the map will be "
+            "The code has a connection the map does not show. Every reader who trusts the map "
+            "will be "
             "surprised by it, and every change that follows it will look unrelated."
         ),
         do=(
@@ -137,8 +138,8 @@ JUDGEMENT = {
             "would carry it."
         ),
         why=(
-            "A map that draws connections it cannot show evidence for is a wish list. Once one "
-            "edge is a wish, a reader cannot tell which of the others are real."
+            "A map that draws connections it has no evidence for is asking to be believed. "
+            "Once one edge is unsupported, a reader cannot tell which of the others are real."
         ),
         do=(
             "Find the code that carries it, or name the mechanism (a queue, a file, a "
@@ -149,7 +150,7 @@ JUDGEMENT = {
     "model sdk": Lesson(
         means="A module calls a model SDK, and its card is not marked as one that calls a model.",
         why=(
-            "Where a system talks to a model is the thing a reader most wants marked. Unmarked, "
+            "Where a system calls a model is the thing a reader most wants marked. Unmarked, "
             "the cost, the latency and the failure mode of that call are invisible on the map."
         ),
         do=(
@@ -173,8 +174,9 @@ DELTA = {
     "added": Lesson(
         means="A module is new since the base commit.",
         why=(
-            "A module no card claims is a part of the system the map does not show. It is how a "
-            "map goes from accurate to almost accurate, which is where trust in it ends."
+            "A module no card claims is a part of the system the map does not show. It is how "
+            "a map stops being complete, and a map that is nearly complete is one a reader has "
+            "to check."
         ),
         do=(
             "Name it in the card whose job it carries out, or ignore it with a reason under "
@@ -196,7 +198,8 @@ DELTA = {
         ),
         why=(
             "A diff shows the code that changed. It does not show what sits against it, and "
-            "the parts that break are usually the parts that were already talking to it. This "
+            "the parts that break are usually the ones that already exchanged something with "
+            "it. This "
             "is the short version of that question: 6 cards at the median over 359 pull "
             "requests, holding a card the change really touched in 72% of them."
         ),
@@ -245,11 +248,11 @@ DELTA = {
     ),
 }
 
-# ---- the lines `systemap audit` prints (Jev's second opinion) ----------------------
+# ---- the lines `systemap audit` prints, from Jev's answers ------------------------
 
 AUDIT = {
     "jev mis-fold": Lesson(
-        means="Jev reads this module as doing the job of a different card.",
+        means="Jev answers that this module does the job of a different card.",
         why=(
             "The word rule behind `possible mis-fold` only sees names. Jev read the code, so it "
             "catches a module that was folded in by habit rather than by purpose."
@@ -268,7 +271,7 @@ AUDIT = {
         ),
     ),
     "jev sentence": Lesson(
-        means="Jev doubts that the card's sentence describes the modules it claims.",
+        means="Jev answers that the card's sentence probably does not describe its modules.",
         why=(
             "The sentence is what a reader believes without opening the code. A sentence that "
             "drifted from its modules teaches them something untrue."
@@ -276,7 +279,10 @@ AUDIT = {
         do="Reread the modules and rewrite the sentence, or answer why it still holds.",
     ),
     "jev flow": Lesson(
-        means="Jev doubts that the code where these two cards meet carries what the flow claims.",
+        means=(
+            "Jev answers that the code where these two cards meet probably does not carry "
+            "what the flow claims."
+        ),
         why=(
             "An edge that the code does not carry is a connection the reader will look for and "
             "not find."
@@ -287,7 +293,7 @@ AUDIT = {
         ),
     ),
     "jev governs": Lesson(
-        means="Jev thinks this rule governs a card the rule does not name.",
+        means="Jev answers that this rule governs a card the rule does not name.",
         why=(
             "A rule lists the cards whose code must keep it true. A card missing from that list "
             "can break the rule with nobody warned."
@@ -317,7 +323,8 @@ CHECK = {
         means="A card, label, region or route breaks a rule the drawing has to keep.",
         why=(
             "The picture is read at a glance. Text too small to read, or an edge crossing a "
-            "region it has nothing to do with, teaches the wrong thing faster than words can fix."
+            "region it has nothing to do with, teaches the wrong thing before any caption can "
+            "correct it."
         ),
         do="Run `systemap place` after adding or removing a card, then fix what the check names.",
     ),
@@ -353,7 +360,7 @@ CHECK = {
     ),
     "stale": Lesson(
         means="The rendered page or the facts no longer match the model or the tree.",
-        why="A map that is not rebuilt is a map of a system that has moved on.",
+        why="A map that is not rebuilt describes the code as it was, not as it is.",
         do="Run `systemap refresh`, then commit the output directory.",
     ),
 }

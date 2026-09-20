@@ -1,8 +1,13 @@
 # Reference
 
-Every rule, command and configuration key, in full. [README.md](README.md) is the short version.
+Every rule, command and configuration key, in full. [README.md](README.md)
+is the short version.
 
-## How it refuses to lie
+The rules come first, then the commands, then the configuration keys. A
+failing check is the usual reason to open this page, and the rule that
+failed is what you need.
+
+## What does `systemap check` refuse?
 
 `systemap check` runs every rule below, prints each failure under its rule
 with the fix, and exits 1 if any rule failed.
@@ -48,7 +53,7 @@ computed from the facts at render and at check time, never authored:
 | `external` | an actor is at either end: the edge is outside the code | a solid line; the panel says `external: outside the code` |
 | `declared` | nothing in the facts joins the two | a dashed line on the page and in every figure; the panel says `declared: no import behind it`; `systemap judgement` prints a `declared flow` line until the agent finds the evidence, names the mechanism in the sentence, or removes the edge |
 
-## The second pass
+## What does the second pass look for?
 
 The check refuses contradictions; it cannot refuse omissions. `systemap
 judgement` finds those mechanically, so what was missed is found rather
@@ -60,17 +65,17 @@ either changes the model or writes down why not:
 | single module | a component that claims one module: a real part, or an over-split? |
 | possible mis-fold | a module whose dotted path shares no word with its component's id, `does`, plain word or `interface`, in a component of several modules, and whose package holds none of the others: folded into the wrong part? |
 | no sentence | a flow with no relation sentence |
-| thin layer | a reading that lights fewer than two components, including a standard kind never used |
+| thin layer | a layer that includes fewer than two components, counting a standard kind never used |
 | entry point X has no journey | an entry point in the facts (a console script, a subcommand, a main, a public function of the package root) that no journey names |
 | crossing import | module A of component P imports module B of component Q and no flow joins P and Q, in either direction: an edge the code has and the map does not |
 | declared flow | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by`: an edge the map has and the code does not; find the evidence, name the mechanism, or remove it |
 | model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended or reduced by `[facts] model_sdks`) and its component is neither an agent nor marked `calls_model` |
 
 A report, not a gate: it exits 0, or 1 with `--strict` while any line is
-open, for CI. The list has memory: a line answered under `[judgement]
+open, for CI. Answers are kept, so a question is asked once: a line answered under `[judgement]
 answered` in `systemap.toml` is suppressed and counted (`judgement: 3
 items for the maintainer to confirm, 21 answered`), and an answer that
-matches no line is reported as stale, so answers cannot rot. An answer
+matches no line is reported as stale, so an answer that no longer applies is found rather than left in place. An answer
 names the exact line (`item`, or `items` for several) or a family with
 one reason: `crossing = ["A", "B", ...]` for every crossing import between
 any two of the ids, `crossing_into = "A"` for every one into A,
@@ -80,10 +85,10 @@ any two of the ids, `crossing_into = "A"` for every one into A,
 live beside the model. Before any of it, `systemap suggest` prints a
 first grouping from the facts alone (one proposal per package with two
 or more modules, and the imports between proposals) as a starting point
-to argue with, never the answer; the skill's target is three to ten
+a starting point to revise, not the answer; the skill's target is three to ten
 modules per component, N/10 to N/3 cards for N modules.
 
-## A second opinion from Jev
+## What is Jev asked?
 
 `systemap audit` is optional and off the path CI takes. It asks TypeSafe's
 Jev model narrow questions about meaning, where `judgement` reads names and
@@ -98,7 +103,7 @@ yours:
 | jev mis-fold | which card each claimed module belongs to; a line when its own card gets P < 0.05 | 95% of modules planted in a neighbouring card caught, 4% of correctly placed modules flagged; the word rule behind `possible mis-fold` caught 32% | 93% caught, 1% flagged |
 | jev owner | the same question for a module no card claims; one card when the confidence is 0.9 or more, else the closest three | 56% of modules get one card, 98% of those right | 60%, 100% right |
 | jev sentence | does a card's sentence describe its modules; a line under P 0.2 | 67% of wrong sentences caught, 1% of right ones flagged; it catches a sentence that is wrong, not one that is slightly stale | 61% caught, 2% flagged |
-| jev flow | does the code where two cards' modules use each other carry the flow's claim; a line under P 0.2; **asked only with `--kind "jev flow"`** | 66% of wrong claims caught, 2% of real ones flagged; a call made through an instance is not in the evidence, so such a flow can be doubted for that alone | 54% caught, 4% flagged: more than 10 points under the development figure, the bar a kind had to clear to be asked by default |
+| jev flow | does the code where two cards' modules use each other carry the flow's claim; a line under P 0.2; **asked only with `--kind "jev flow"`** | 66% of wrong claims caught, 2% of real ones flagged; a call made through an instance is not in the evidence, so such a flow can be doubted for that alone | 54% caught, 4% flagged: more than 10 points under the development figure, the threshold a kind had to meet to be asked by default |
 | jev governs | does an invariant govern a card it does not name; a line at P 0.8 or more | 31% of governed cards found, 1% of the rest suggested | 38% found, 1% suggested |
 
 Nothing is sent without `TYPESAFE_API_KEY`; `audit --dry-run` counts the
@@ -136,17 +141,17 @@ Without a key, `judgement` says on stderr what `audit` would add, and
 hint quotes the measured figure. `[jev] enabled = false` turns off both
 the hints and delta's asking.
 
-## Past forty cards
+## What do you do past forty cards?
 
 One canvas cannot hold a large repository legibly, and past about forty
-cards the readings stop being readings. A component may carry
+cards each layer includes nearly every card, so switching layers separates nothing. A component may carry
 `map="gateway.py"`, a path relative to its model file naming a second
 model module that exports `MODEL` and `MEANING` like any model. The map
 inside draws that one card: its cards claim exactly the modules the
 card claims, no more and no fewer, each once (symbol claims allowed,
 empty package markers left out), and its actors are cards of the map
 above, the ones around the card, so its edges to the outside have
-somewhere to land. The card claims the modules once for coverage; the
+an endpoint inside the sub-map. The card claims the modules once for coverage; the
 check's nesting rule holds the map inside to them and refuses any
 difference with the modules named, and a sub-map's actor that is not a
 card above.
@@ -170,12 +175,12 @@ worked example is the fixture in
 [`tests/test_nested.py`](tests/test_nested.py): one top map of five
 cards, two of which open a map.
 
-## The model in one screen
+## What does a model look like?
 
 The agent writes one Python module. Everything in it is a frozen dataclass.
 This is an excerpt of systemap's own model, two cards and one edge; the
 standard kinds need no declaring and the page derives the standard
-readings:
+layers:
 
 ```python
 from systemap import Component, Flow, Meaning, Model, Region
@@ -212,7 +217,7 @@ example of every part, is in the skill
 the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
 [`references/`](src/systemap/skill/references/).
 
-## Commands
+## Which command do you need?
 
 Every command takes `--root DIR`, before or after the command, to name a
 project that is not the current directory. Exit codes are the same
@@ -292,12 +297,12 @@ rule matters, and what to do about it.
 ### `systemap figure --out FILE`
 
 Draws one figure with the generator the page uses, so a figure in a document
-cannot drift from the page.
+cannot become inconsistent with the page.
 
 - `--components A,B`: the reach of a plan.
 - `--base REF`: a change.
-- `--layer ID`: one reading only: that layer's edges, every card, and the
-  legend reduced to it.
+- `--layer ID`: one layer only: its edges, every card, and the legend
+  reduced to it.
 - `--map ID`: the map inside a card.
 - An `--out` name ending in `.svg` writes the drawing alone, with no frame.
 
@@ -311,7 +316,7 @@ facts". It exits 1 when the check fails, and renders nothing in that case.
 
 ### `systemap suggest [--jev]`
 
-A first grouping to argue with, never the answer. From the facts alone it
+A first grouping to revise, not the answer. From the facts alone it
 proposes one card per package with two or more modules, lists that card's
 modules, and prints the imports that cross between proposals. With a model
 it also says when a map is past forty cards, and which cards hold the most
@@ -355,12 +360,12 @@ out when that card is joined to more than a third of the map.
 
 ### `systemap describe`
 
-What a look at the picture would tell you, for an agent that cannot look.
+The layout measured rather than looked at, for an agent that cannot see the page.
 How many cards are pinned, placed, and positioned for the look alone; cards
 per region; the region order and what the drawing costs under it; bends and
 length per edge, worst first, with the gutter each label sits in; seats used
 of seats available per gutter; edges observed, external and declared; and
-cards and edges per reading.
+cards and edges per layer.
 
 Then the journeys: each walk's steps, where it starts, the steps no import
 backs, whether an agent wrote it and nobody has read it yet, and how many
@@ -401,7 +406,7 @@ text is cut at 2,000 characters. Needs `TYPESAFE_API_KEY`.
 
 Writes a walk through the system for a way in that no journey starts from.
 Where a card takes more than a few ways in of one kind, it writes one walk
-for the whole crowd: that walk names the card in `starts`, and every way in
+for all of them at once: that journey names the card in `starts`, and every way in
 the card claims counts as walked.
 
 The agent named under `[agent] command` reads the code from that way in and
@@ -449,7 +454,7 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 - `--dir PATH` writes it somewhere else.
 - `--print` writes `SKILL.md` to stdout instead.
 
-## Configuration
+## What can you configure?
 
 `systemap.toml` at the repository root, or a `[tool.systemap]` table in
 `pyproject.toml`. Every key is optional; unknown keys are refused.
@@ -472,4 +477,4 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | the model `audit`, `triage`, `delta` and `suggest --jev` ask, and where their answers are cached; `enabled = false` stops `delta` asking on its own and silences the hints |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | the command `systemap journeys` runs to have a walk written, given the question on standard input (for example `command = "claude -p --output-format json"`); with no command nothing runs and the reason is printed |
 | `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
-| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (one reading's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |
+| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (a layer's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |

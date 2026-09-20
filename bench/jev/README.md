@@ -34,7 +34,7 @@ Each experiment, its label source and what it measures:
 | answerfit | the answer that covers the crossing line | does this recorded reason cover this import |
 | moves | git's rename detection at 50% | which new module is the old one |
 
-## The holdout set
+## Which repositories are held out, and why?
 
 `JEV_SET=holdout` builds, runs and scores on maps no threshold was chosen
 on: systemap's own map, scorecard (`../scorecard`), and the newest finished
@@ -64,7 +64,7 @@ and 5.5 minutes against 46, $3.43 and 4.8 for the plain first map, one run
 each (`bench/results.jsonl`). No saving was measured, so `suggest --jev`
 stays opt-in and out of the recipe.
 
-## Tests 7 and 8 on agent labels
+## What did tests 7 and 8 measure?
 
 The maintainer chose not to hand-label. Each set was labelled once by a
 Claude subagent reading the full commits in git, blind to Jev's answers
@@ -81,7 +81,7 @@ Claude subagent reading the full commits in git, blind to Jev's answers
   cards. It would pass the bar, but **it is not a measurement**: drift
   detection stays unbuilt until about 15 human labels confirm the agent's.
 
-## Jev in the first map (turns.py, draft.py)
+## Does Jev make the first map cheaper? (turns.py, draft.py)
 
 Could Jev assign modules to cards during the first map, with the agent
 writing only the cards? Two measurements on the six first maps in
@@ -107,7 +107,7 @@ assign them better than the agent's draft, so it was not built and the
 first-map benchmark was not run. `audit`'s mis-fold line already asks the
 question that finds the few real mis-folds.
 
-## Journeys: what the structure can and cannot decide (2026-09-20)
+## What can the structure decide about a journey? (2026-09-20)
 
 Two questions about journeys were measured on the seven maps (the six in
 `bench/scratch` and systemap's own) before anything shipped.
@@ -139,8 +139,8 @@ on the same seven maps:
 | the actors appeared anywhere earlier | 27 | not reviewed; the same shapes |
 
 The bar was 80% real. A journey is written as a sequence of scenes, not one
-chain: a walk fans out into a sub-call and returns to the card that has been
-driving it, and that reads perfectly while its edges do not join. Continuity
+chain: a walk fans out into a sub-call and returns to the card that
+started it, and that reads perfectly while its edges do not join. Continuity
 is not something the structure can decide, so no `journey gap` line exists.
 What did ship is `journey start`: a journey names the way in it starts at,
 and the line says when the facts have no such way in. That one is exact.
@@ -166,7 +166,7 @@ The proposal is not shipped. `bench/jev/propose.py` keeps the code and
 `paths.py` scores it. `systemap journeys` asks the agent to read the code
 from the way in, and checks every step it answers with against the map.
 
-## Ripple: what the map's graph adds to the imports (2026-09-20)
+## What does the map's graph add to the imports? (2026-09-20)
 
 `systemap ripple` would answer "you changed these cards, which others does
 this reach". It is not built, because the walk did not beat what systemap can
@@ -208,7 +208,7 @@ the right question is, not a pass, and the bar was set before the run, so
 ripple does not ship. Anything built here later needs a question a reader
 would act on and a bar set before it is measured.
 
-## A plan projected onto the map (2026-09-20)
+## How well does a plan project onto the map? (2026-09-20)
 
 `systemap plan` asks one question: given this task in the maintainer's own
 words, which card will the work most likely have to change? The truth is the
@@ -237,11 +237,11 @@ whole curve is scored offline from the answers already recorded for triage.
 that is the one `systemap plan` ships with: it names 2.1 cards per task on
 either set. The gap between the two sets is wider here than elsewhere in this
 directory (15 points at the shipped cut against the 10 points the audit
-thresholds held to), and the holdout is one repository, so the honest reading
-is that the projection is better on some systems than others. It names two
+thresholds held to), and the holdout is one repository, so what this
+supports is that the projection is better on some systems than others. It names two
 cards; a maintainer can check two cards.
 
-## A year of the system, read in today's cards (2026-09-20)
+## What does a year of the system look like in today's cards? (2026-09-20)
 
 `systemap history` samples the tree back through time and says what moved.
 Two bars, set before it was built: 26 samples over a year of mealie must
@@ -256,7 +256,7 @@ commits.
 | mealie | 25 | 29.3s | 0.3s | 24 of 24 |
 | rich | 8 | 5.8s | 0.0s | 1 of 7 |
 
-Both pass the time bar with room to spare, because the facts at a commit
+Both finish well inside the time allowed, because the facts at a commit
 never change and are cached under `.systemap/facts/`.
 
 The five largest mealie windows, and the commit each led back to:
@@ -275,10 +275,11 @@ of the window: a fortnight of mealie is mostly dependency bumps, and a trend
 read against those looks like noise whether it is real or not. `systemap
 history` prints those same commits under each window for the same reason.
 
-rich's year is quiet: one window moved, and it was the unicode width tables
-being regenerated. A quiet year printing almost nothing is the right answer.
+rich barely changed in a year: one window moved, and it was the unicode width
+tables being regenerated. Printing almost nothing for a year in which almost
+nothing happened is the right answer.
 
-## What changed for the people using it: measured, and not built (2026-09-20)
+## Can Jev say what changed for the people using it? (2026-09-20)
 
 The plan was a section in `delta`'s pull-request comment: for each journey
 step through a card the change touched, whether the step's sentence still
@@ -322,28 +323,28 @@ step, both cards, the commit subjects, the file list and the capped diff:
 | below 0.7 | 12 of 15 | 12 |
 | below 0.8 | 15 of 15 | 15 |
 
-Jev's answers run from 0.43 to 0.75. Nothing is confidently anything, and
+Jev's answers run from 0.43 to 0.75. No answer is confident either way, and
 because every case is a negative, every alarm at every threshold is a false
 one. There is no threshold that buys a reader anything here: the cautious end
 reports two wrong lines per fifteen steps, and the generous end reports
 twelve.
 
 **So it is not built.** A pull-request comment that says "this is what
-changed for the people using it" would, on this month's evidence, have told
-four maintainers something false and nothing true. Two caveats, because both
+changed for the people using it" would, on this month's evidence, have printed
+four false lines to four maintainers and not one correct one. Two caveats, because both
 would have to be answered before anyone tries again: the diff Jev sees is
 capped, and a fuller or better-selected diff might sharpen it; and a set with
 no positives in it measures false alarms only, so nothing here says whether
 real drift would be caught. What it does say is that real drift is rare
 enough that the question may not be worth asking per pull request.
 
-## What the measurements suggest next (2026-09-20)
+## What do the measurements suggest next? (2026-09-20)
 
 Three things in this directory came back with numbers that point at work worth
 doing. Each is written here with the bar it has to clear, before anyone starts,
 so the decision is the same shape as the ones above.
 
-### 1. The neighbourhood of a change, built on precision
+### 1. The cards one flow from a change, chosen for precision
 
 The ripple run failed a bar about recall, but it measured something else on the
 way. Over the same 366 pull requests, medians:
@@ -384,10 +385,11 @@ ripple run got, and the reason this ships as context rather than as a claim
 about what else broke.
 
 Fourteen cards at the ninetieth percentile is still too long, and the cause is
-a hub: a card a flow joins to most of the map has no neighbourhood. `delta`
+a card joined by flows to most of the map: the cards one flow from it are
+almost the whole map, which tells a reader nothing. `delta`
 prints nothing when the seed is joined to more than a third of the cards, which
 is the threshold the skill already uses for running the full loop rather than
-acting line by line. That silences 18% of the pull requests; the rest hold 5
+acting line by line. That prints nothing for 18% of the pull requests; the rest hold 5
 cards at the median and 8 at the ninetieth, and the hit falls 3 points to 0.69.
 
 ### 2. Where the system is growing
@@ -399,9 +401,9 @@ read per window, answers a question a maintainer asks out loud. On mealie:
     ImportWorkflow +17   SchemaMigrations +7   QueryFilter +4   Translations +3
 
 and not one card shrank in twelve months. A card that grows every quarter and
-never loses a module is either the system's centre of gravity or the place
-everything gets dropped, and the map is the only thing that can tell a reader
-which.
+never loses a module is either the part everything else is built on, or the
+part modules land in when nobody decided where they belong. The map is the
+only thing that can tell a reader which.
 
 **The bar, before the work:** on four repositories, the three fastest-growing
 cards must each trace to at least one commit a person can name as a feature,
@@ -421,17 +423,20 @@ of the four repositories passed, where the bar asked for three.
 Where a system grew, the aggregate named the work that grew it, exactly as the
 windows did. Where it did not grow, there was nothing to name: poetry gained
 one module in a year of the map's view, and rich's twenty-three are generated
-unicode tables added in a commit whose subject is three words of nothing.
+unicode tables added in a commit whose subject is three words that name
+nothing.
 
 A rule that reported only cards past some size would pass, and that rule was
 not the one written down before the run, so it is not the one being judged.
 The finding this leaves is smaller and worth keeping: on the two repositories
 that did grow, every one of the three cards traced to named work, which is what
-`history`'s windows already print. The aggregate adds a view, not an answer.
+`history`'s windows already print. The aggregate restates what the windows say
+and adds no answer of its own.
 
 The instrument was changed once during the run, before any judging: it first
-showed the newest commits touching each card's new files, which over a year is
-a list of fixes to a thing rather than the thing. `--diff-filter=A` asks for
+showed the newest commits touching each card's new files, which over a year
+lists the fixes made to a file rather than the commit that added it.
+`--diff-filter=A` asks for
 the commit that added each file instead. Both readings are in the git history
 of `by_card.py`.
 

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- The words, against the writing rules in `AGENTS.md`: every metaphor
+  standing in for a plain phrase is replaced with the phrase, and every term
+  is defined where it is first used. The map's filtered views are called
+  layers throughout, in the page, `describe`, `figure` and the skill; they
+  were called readings in some places and layers in others, and only one of
+  those words is defined anywhere. `systemap suggest`'s first line now reads
+  `a first grouping to revise, not the answer`. `README.md`,
+  `docs/reference.md`, `docs/benchmarks.md`, `bench/jev/README.md`,
+  `explain.py`, `page.py` and the skill are rewritten to the same rules. No
+  check rule, judgement line or delta line changed its text.
+- Every heading in `README.md` and `docs/reference.md` is now a question
+  the section answers, and both pages say what they cover, and in what
+  order, before the first detail.
+
 ## 1.2.0 - 2026-09-20
 
 The commands that read the map rather than draw it: a walk an agent writes, a

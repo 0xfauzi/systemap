@@ -1,8 +1,8 @@
-"""`systemap suggest`: a first grouping from the facts alone, to argue with.
+"""`systemap suggest`: a first grouping from the facts alone, to revise.
 
 Nothing said how many components a map should have; the skill now states
 a target, and this command prints a starting point from the package
-structure and the import graph, never the answer.
+structure and the import graph, not the answer.
 """
 
 from __future__ import annotations
@@ -65,8 +65,8 @@ def test_proposals_on_the_workspace_fixture() -> None:
     placed = [m for p in groups for m in p.modules] + alone
     assert len(placed) == len(set(placed)) == 144 - 18
     lines = suggest.lines(facts)
-    assert lines[0] == "suggest: a first grouping to argue with, never the answer"
-    assert "never the answer" in lines[0] and "three to ten modules" in lines[1]
+    assert lines[0] == "suggest: a first grouping to revise, not the answer"
+    assert "not the answer" in lines[0] and "three to ten modules" in lines[1]
     assert "N/10 and N/3" in lines[1]
     assert lines[2] == (
         "proposals: 15, from 144 modules (2 alone in their package, 18 empty package "
@@ -122,7 +122,7 @@ def test_suggest_command_lists_crossings_between_proposals(
     capsys.readouterr()
     assert run("--root", str(tmp_path), "suggest") == 0
     out = capsys.readouterr().out
-    assert out.startswith("suggest: a first grouping to argue with, never the answer\n")
+    assert out.startswith("suggest: a first grouping to revise, not the answer\n")
     assert (
         "proposals: 2, from 8 modules (1 alone in their package, 3 empty package markers "
         "left out)\n"
@@ -137,7 +137,7 @@ def test_suggest_command_lists_crossings_between_proposals(
 def test_the_skill_states_the_target_and_runs_suggest_and_the_check_together() -> None:
     text = skill.text()
     assert "three to ten" in text and "N/10 and N/3" in text
-    assert "`systemap suggest`" in text and "never the\n   answer" in text
+    assert "`systemap suggest`" in text and "a starting point to\n   revise, not the answer" in text
     assert "| `systemap suggest` |" in text
     # The check step runs the check and the strict judgement together, and says why.
     step = text[text.index("3. **check**") : text.index("4. **judgement**")]
