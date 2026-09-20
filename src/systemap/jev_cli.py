@@ -264,8 +264,8 @@ def _would_write(left: list[journeys.Group], cfg: config.Config) -> list[str]:
     the way `systemap judgement` counts it as one line to answer.
     """
     total = sum(len(g.ways_in) for g in left)
-    ways = "way" if total == 1 else "ways"
-    head = f"journeys: {total} {ways} into the system with no walk from them"
+    ways, them = ("way", "it") if total == 1 else ("ways", "them")
+    head = f"journeys: {total} {ways} into the system with no walk from {them}"
     if len(left) < total:
         walks = "walk" if len(left) == 1 else "walks"
         head += f", {len(left)} {walks} to write: a card's crowd is walked once"

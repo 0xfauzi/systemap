@@ -190,7 +190,7 @@ def test_the_route_with_no_walk_is_listed_and_nothing_is_written(
     before = (two_cards.model_path).read_text()
     assert cmd_journeys(args_for(two_cards, dry_run=True)) == 0
     out = capsys.readouterr().out
-    assert "1 way into the system with no walk from them" in out
+    assert "1 way into the system with no walk from it" in out
     assert "GET /read (route)" in out
     assert (two_cards.model_path).read_text() == before
 
