@@ -270,8 +270,8 @@ def entry_points_without_journey(
     there are more than a few: a card that takes a hundred routes needs
     a journey through the card, not a hundred walks.
     """
-    open_points = ways_in_without_journey(meaning, facts, text, skip)
-    return _entry_lines(open_points, _owner_of(model, facts))
+    owner = _owner_of(model, facts)
+    return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner), owner)
 
 
 def ways_in_without_journey(
@@ -279,12 +279,19 @@ def ways_in_without_journey(
     facts: dict[str, Any],
     text: str | None = None,
     skip: Collection[str] = (),
+    owner: dict[str, str] | None = None,
 ) -> list[dict[str, str]]:
     """The ways in no journey walks from, as the facts record them.
 
     The rule is the one above, and it lives here alone so that the
     judgement line, `systemap describe` and `systemap journeys` never
     disagree about which ways in are covered.
+
+    A journey whose `starts` names a card, rather than one way in, walks
+    for every way in that card claims. That is what a crowd needs: a walk
+    standing for a hundred routes cannot name one of them under `starts`
+    without claiming to be about that one. `owner` says which card claims
+    each module; with none, only the named ways in are covered.
     """
     points: list[dict[str, str]] = facts.get("entry_points", [])
     text = _journey_text(meaning) if text is None else text
@@ -297,6 +304,7 @@ def ways_in_without_journey(
         if p["module"] not in skip
         and not _same_script(p, scripts, components)
         and not (p["name"] in started or entry_label(p) in started or mentioned(p["name"], text))
+        and (owner or {}).get(p["module"], "") not in started
     ]
 
 
@@ -336,7 +344,9 @@ def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[st
     return out
 
 
-def journey_problems(meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+def journey_problems(
+    meaning: Meaning, facts: dict[str, Any], cards: Collection[str] = ()
+) -> list[str]:
     """A journey nobody has confirmed, and a journey that starts at nothing.
 
     Naming the way in is what lets the map say which ways in are walked and
@@ -350,6 +360,8 @@ def journey_problems(meaning: Meaning, facts: dict[str, Any]) -> list[str]:
     ]
     ways = {p["name"] for p in facts.get("entry_points", [])}
     ways |= {entry_label(p) for p in facts.get("entry_points", [])}
+    # A card is a way in too, for a walk that stands for every way in it takes.
+    ways |= set(cards)
     return drafted + [
         f"journey start: {j.id} starts at {j.starts}, which the facts have no way in for"
         for j in meaning.journeys
@@ -539,7 +551,7 @@ def run(
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
         + entry_points_without_journey(model, meaning, facts, text=journeys_text, skip=skip)
-        + journey_problems(meaning, facts)
+        + journey_problems(meaning, facts, [c.id for c in model.components])
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + model_sdk_imports(model, facts, sdks, skip=skip)

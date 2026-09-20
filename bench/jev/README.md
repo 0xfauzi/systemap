@@ -449,6 +449,47 @@ flow the model draws) in 70% of attempts or more, and the ways in with no walk
 must fall from about two hundred to under fifteen lines. This one costs agent
 runs, so it is the most expensive of the three and the last to start.
 
+**Measured (2026-09-20, `bench/jev/group_journeys.py`): passed, and built.**
+Eight of nine crowds over mealie, paperless-ngx and poetry came back as a walk
+the map can hold, which is 89% against a bar of 70%. On the two repositories
+the bar names, four of five. The one refusal was a step tracing MediaFiles ->
+Assets, a flow mealie's map does not draw, which is the check doing its job:
+it was printed as a line to fix and nothing was written.
+
+| repo | ways in in crowds | crowds | walks the map can hold |
+|---|---|---|---|
+| mealie | 195 | 2 | 1 |
+| paperless | 86 | 3 | 3 |
+| poetry | 27 | 4 | 4 |
+
+The second half of the bar was already true before the work and the bar was
+wrong to ask for it: `judgement` has grouped crowds since the entry-point work,
+so mealie's 195 open ways in print as 2 lines and paperless's 98 as 15. What
+was not true is that a walk could be written per line. `systemap journeys`
+wrote one per way in, three to a run, so covering mealie meant sixty-five runs.
+It now writes one per crowd: two runs for mealie, three for paperless.
+
+A crowd's walk records the card in `starts` rather than one of the hundred
+routes, because a walk standing for all of them cannot name one without
+claiming to be about that one, and `judgement` reads a card there as covering
+every way in that card claims.
+
+An earlier run of this script scored 19 of 19, and that number is not the one
+above. It asked about single ways in as well as crowds, and it carried its own
+copy of the question rather than the one `journeys` sends. Both were corrected:
+the script now calls `journeys.gather`, `journeys.context` and
+`journeys.read_answer`, so what is measured is the code that runs.
+
+What this does not measure is whether a walk is true of the code. Every one of
+the eight is a journey the map can hold, and holding is a low bar: read as
+sequences, they fan out rather than joining up (of seven consecutive pairs, two
+to four start where the one before ended), and two answered with nine steps
+where the question asked for four to eight. Nothing checks either, because the
+continuity rules that were tried flagged thirty steps and a hand review found
+none of them real (`src/systemap/graph.py` records that). A generated walk is
+written `drafted=True` and prints as a `drafted journey` line until a person
+reads it, which is the standard the per-way-in walks already ship under.
+
 ### Not on this list
 
 `plan --check` in the pull-request workflow, because the claim worth testing

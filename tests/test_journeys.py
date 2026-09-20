@@ -61,6 +61,11 @@ def route(name: str) -> dict[str, str]:
     return {"kind": "route", "name": name, "module": "pkg.reader", "target": "read"}
 
 
+def alone(point: dict[str, str], card: str = "Reader") -> journeys.Group:
+    """One way in, asked about on its own."""
+    return journeys.Group((point,), card)
+
+
 def test_a_way_in_a_journey_already_starts_from_is_not_asked_about() -> None:
     facts = facts_with([route("GET /a"), route("GET /b")])
     walk = Journey(id="a", label="read one", steps=(), starts="GET /a")
@@ -70,7 +75,7 @@ def test_a_way_in_a_journey_already_starts_from_is_not_asked_about() -> None:
 
 def test_the_agent_is_told_the_cards_the_flows_and_where_to_read(sample: Any) -> None:
     where = route("GET /a")
-    told = journeys.context(sample.model, sample.meaning, facts_with([where]), where)
+    told = journeys.context(sample.model, sample.meaning, facts_with([where]), alone(where))
     assert told["way_in"] == {
         "named": "GET /a (route)",
         "kind": "route",
@@ -106,7 +111,7 @@ def two_card_model() -> Model:
 
 def read(answer: dict[str, Any] | str) -> journeys.Draft:
     text = answer if isinstance(answer, str) else json.dumps(answer)
-    return journeys.read_answer(text, two_card_model(), route("GET /a"))
+    return journeys.read_answer(text, two_card_model(), alone(route("GET /a")))
 
 
 def test_a_walk_the_map_can_hold_becomes_a_journey_marked_as_a_draft() -> None:
@@ -292,3 +297,61 @@ def test_a_journey_that_names_its_way_in_in_a_sentence_still_covers_it(sample: A
     # and naming it in starts covers it whatever the sentences say
     starts = Journey(id="r", label="a walk through it", steps=(), starts="read")
     assert journeys.uncovered(Meaning(plain={}, journeys=(starts,)), facts) == []
+
+
+# ---- a crowd of ways in, walked once -----------------------------------------------
+
+
+def crowd(n: int) -> dict[str, Any]:
+    """A card with more ways in of one kind than anyone will walk one at a time."""
+    return facts_with([route(f"GET /{k}") for k in range(n)])
+
+
+def test_a_card_with_a_crowd_of_ways_in_is_one_walk_to_write(sample: Any) -> None:
+    found = journeys.gather(sample.model, sample.meaning, crowd(9))
+    assert len(found) == 1, "nine routes into one card is one question"
+    group = found[0]
+    assert group.whole and group.card == "Reader"
+    assert group.label == "9 routes into Reader"
+    assert group.starts == "Reader", "the walk records the card, not one of the nine"
+
+
+def test_a_few_ways_in_are_still_asked_about_one_at_a_time(sample: Any) -> None:
+    found = journeys.gather(sample.model, sample.meaning, crowd(3))
+    assert [g.label for g in found] == ["GET /0 (route)", "GET /1 (route)", "GET /2 (route)"]
+    assert not any(g.whole for g in found)
+
+
+def test_the_agent_is_shown_the_crowd_and_a_sample_of_it(sample: Any) -> None:
+    facts = crowd(20)
+    group = journeys.gather(sample.model, sample.meaning, facts)[0]
+    told = journeys.context(sample.model, sample.meaning, facts, group)["way_in"]
+    assert told["a_group"] == "20 routes into Reader"
+    assert told["into_card"] == "Reader" and told["how_many"] == 20
+    assert len(told["each"]) == journeys.SHOWN, "a list of twenty is not read"
+    assert told["each"][0]["file"] == "pkg/reader.py"
+
+
+def test_a_walk_written_for_the_card_covers_every_way_in_it_takes(sample: Any) -> None:
+    """The whole point: one walk, and the crowd stops being asked about."""
+    facts = crowd(9)
+    walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
+    owner = {"pkg.reader": "Reader"}
+    assert journeys.uncovered(walks, facts, owner) == []
+    assert journeys.uncovered(walks, facts) != [], "without the cards, only names cover"
+
+
+def test_a_journey_starting_at_a_card_is_not_reported_as_starting_at_nothing(sample: Any) -> None:
+    from systemap import judgement
+
+    walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
+    cards = [c.id for c in sample.model.components]
+    assert judgement.journey_problems(walks, crowd(9), cards) == []
+    assert (
+        "starts at Nowhere"
+        in judgement.journey_problems(
+            Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Nowhere"),)),
+            crowd(9),
+            cards,
+        )[0]
+    )

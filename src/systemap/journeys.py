@@ -34,6 +34,7 @@ from typing import Any
 
 from systemap import judgement
 from systemap.agent import Agent
+from systemap.evidence import owners
 from systemap.extract import entry_label
 from systemap.model import Journey, Meaning, Model, Step
 
@@ -59,6 +60,52 @@ Rules:
 """
 
 
+# The same question, for a crowd. This is the wording measured in
+# `bench/jev/group_journeys.py`: 19 crowds over mealie, paperless-ngx and
+# poetry, and every answer came back as a walk the map could hold.
+GROUP_QUESTION = QUESTION.replace(
+    "Read the code from the way in named below.",
+    "Below is a group of ways in of one kind, all of them into the same part of "
+    "the system. Write ONE journey that stands for the whole group: the walk "
+    "they share, not the special case of any one of them. Read the code behind "
+    "two or three of them first.",
+)
+
+
+@dataclass(frozen=True)
+class Group:
+    """What one walk is asked for: a way in, or a crowd of them into one card."""
+
+    ways_in: tuple[dict[str, str], ...]
+    card: str = ""
+
+    @property
+    def one(self) -> dict[str, str]:
+        return self.ways_in[0]
+
+    @property
+    def whole(self) -> bool:
+        """Is this a crowd, walked once for the card rather than once each?"""
+        return bool(self.card) and len(self.ways_in) > judgement.TOGETHER_AT
+
+    @property
+    def label(self) -> str:
+        if not self.whole:
+            return entry_label(self.one)
+        return f"{len(self.ways_in)} {self.one['kind']}s into {self.card}"
+
+    @property
+    def starts(self) -> str:
+        """What the journey records as the way in it walks from.
+
+        A crowd is recorded as the card, because a walk that stands for a
+        hundred routes cannot name one of them without claiming to be about
+        that one. `systemap judgement` reads a card here as covering every way
+        in of that kind the card claims.
+        """
+        return self.card if self.whole else self.one["name"]
+
+
 @dataclass
 class Draft:
     """What came back for one way in: a journey, or the reasons it was refused."""
@@ -68,24 +115,35 @@ class Draft:
     problems: tuple[str, ...] = ()
 
 
-def uncovered(meaning: Meaning, facts: dict[str, Any]) -> list[dict[str, str]]:
+def uncovered(
+    meaning: Meaning, facts: dict[str, Any], owner: dict[str, str] | None = None
+) -> list[dict[str, str]]:
     """The ways in no journey walks from, by the rule `systemap judgement` uses."""
-    return judgement.ways_in_without_journey(meaning, facts)
+    return judgement.ways_in_without_journey(meaning, facts, owner=owner)
 
 
-def context(
-    model: Model, meaning: Meaning, facts: dict[str, Any], entry: dict[str, str]
-) -> dict[str, Any]:
+def gather(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[Group]:
+    """The ways in with no walk, as the questions to ask: crowds first.
+
+    A card that takes a hundred routes is one question, not a hundred, which
+    is how `systemap judgement` already prints it. Everything else is asked
+    about on its own.
+    """
+    owner = owners(model, facts)
+    held: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for point in uncovered(meaning, facts, owner):
+        held.setdefault((point["kind"], owner.get(point["module"], "")), []).append(point)
+    out: list[Group] = []
+    for (_kind, card), found in held.items():
+        group = Group(tuple(found), card)
+        out.append(group) if group.whole else out.extend(Group((p,), card) for p in found)
+    return sorted(out, key=lambda g: (-len(g.ways_in), g.label))
+
+
+def context(model: Model, meaning: Meaning, facts: dict[str, Any], group: Group) -> dict[str, Any]:
     """What the agent is told: the way in, the cards, the flows, and where to read."""
-    record = facts.get("components", {}).get(entry["module"], {})
     return {
-        "way_in": {
-            "named": entry_label(entry),
-            "kind": entry["kind"],
-            "module": entry["module"],
-            "file": record.get("file", ""),
-            "function": entry.get("target") or entry.get("name", ""),
-        },
+        "way_in": _asked(facts, group),
         "cards": {
             c.id: " ".join(filter(None, [meaning.plain.get(c.id, ""), c.does]))
             for c in model.components
@@ -94,6 +152,36 @@ def context(
             [f.src, f.dst, f.artifact, meaning.relations.get(f.edge, "")] for f in model.flows
         ],
         "journeys_already_written": [j.label for j in meaning.journeys],
+    }
+
+
+# How many of a crowd's ways in the agent is shown. A list of a hundred and
+# ninety routes is not read, and the point of a crowd is that they are the
+# same kind of thing.
+SHOWN = 14
+
+
+def _asked(facts: dict[str, Any], group: Group) -> dict[str, Any]:
+    """The way in, or the crowd, as the agent is told about it."""
+    records = facts.get("components", {})
+
+    def one(p: dict[str, str]) -> dict[str, Any]:
+        return {
+            "named": entry_label(p),
+            "kind": p["kind"],
+            "module": p["module"],
+            "file": records.get(p["module"], {}).get("file", ""),
+            "function": p.get("target") or p.get("name", ""),
+        }
+
+    if not group.whole:
+        return one(group.one)
+    return {
+        "a_group": f"{len(group.ways_in)} {group.one['kind']}s into {group.card}",
+        "kind": group.one["kind"],
+        "into_card": group.card,
+        "how_many": len(group.ways_in),
+        "each": [one(p) for p in group.ways_in[:SHOWN]],
     }
 
 
@@ -117,8 +205,9 @@ def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
     return tuple(out)
 
 
-def read_answer(text: str, model: Model, entry: dict[str, str]) -> Draft:
+def read_answer(text: str, model: Model, group: Group) -> Draft:
     """The agent's answer as a journey, or the reasons it cannot be one."""
+    entry = group.one
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end < start:
         return Draft(entry=entry, problems=("the agent did not answer with JSON",))
@@ -133,20 +222,21 @@ def read_answer(text: str, model: Model, entry: dict[str, str]) -> Draft:
         return Draft(entry=entry, problems=tuple(problems))
     journey = Journey(
         id=str(raw.get("id") or entry["name"]).strip(),
-        label=str(raw.get("label") or entry_label(entry)).strip(),
+        label=str(raw.get("label") or group.label).strip(),
         steps=steps,
-        starts=entry["name"],
+        starts=group.starts,
         drafted=True,
     )
     return Draft(entry=entry, journey=journey, problems=tuple(problems))
 
 
 def write_one(
-    agent: Agent, model: Model, meaning: Meaning, facts: dict[str, Any], entry: dict[str, str]
+    agent: Agent, model: Model, meaning: Meaning, facts: dict[str, Any], group: Group
 ) -> Draft:
-    """Ask the agent for the walk from one way in, and check what comes back."""
-    answer = agent.ask(QUESTION, context(model, meaning, facts, entry))
-    return read_answer(answer, model, entry)
+    """Ask the agent for the walk, one way in or a crowd, and check what comes back."""
+    question = GROUP_QUESTION if group.whole else QUESTION
+    answer = agent.ask(question, context(model, meaning, facts, group))
+    return read_answer(answer, model, group)
 
 
 ANCHORS = ("JOURNEYS = (", "journeys=(")

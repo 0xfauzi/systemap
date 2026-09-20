@@ -1,0 +1,109 @@
+[
+ {
+  "map": "mealie",
+  "ways_in_open": 195,
+  "groups": 2,
+  "tries": [
+   {
+    "kind": "route",
+    "card": "HttpApi",
+    "of": 190,
+    "passed": true,
+    "steps": 8,
+    "label": "A request comes in on an API route",
+    "problems": []
+   },
+   {
+    "kind": "route",
+    "card": "MediaFiles",
+    "of": 5,
+    "passed": false,
+    "steps": 6,
+    "label": "A picture in a recipe is fetched",
+    "problems": [
+     "step 6 traces MediaFiles -> Assets, which is not a flow"
+    ]
+   }
+  ],
+  "usage": "agent: 2 run, 0 from the cache; 42.0s; claude -p"
+ },
+ {
+  "map": "paperless",
+  "ways_in_open": 86,
+  "groups": 3,
+  "tries": [
+   {
+    "kind": "route",
+    "card": "WebRouting",
+    "of": 59,
+    "passed": true,
+    "steps": 8,
+    "label": "A click in the web application is answered",
+    "problems": []
+   },
+   {
+    "kind": "task",
+    "card": "TaskQueue",
+    "of": 15,
+    "passed": true,
+    "steps": 8,
+    "label": "A background job runs on the timetable",
+    "problems": []
+   },
+   {
+    "kind": "command",
+    "card": "AdminCommands",
+    "of": 12,
+    "passed": true,
+    "steps": 8,
+    "label": "An operator runs a manage.py command on the server",
+    "problems": []
+   }
+  ],
+  "usage": "agent: 3 run, 0 from the cache; 116.2s; claude -p"
+ },
+ {
+  "map": "poetry",
+  "ways_in_open": 27,
+  "groups": 4,
+  "tries": [
+   {
+    "kind": "command",
+    "card": "EnvCommands",
+    "of": 8,
+    "passed": true,
+    "steps": 9,
+    "label": "poetry env use: choosing the interpreter a project runs in",
+    "problems": []
+   },
+   {
+    "kind": "command",
+    "card": "SelfCommands",
+    "of": 8,
+    "passed": true,
+    "steps": 8,
+    "label": "poetry self: Poetry works on its own installation",
+    "problems": []
+   },
+   {
+    "kind": "command",
+    "card": "SettingsCommands",
+    "of": 6,
+    "passed": true,
+    "steps": 9,
+    "label": "poetry config, source and cache: changing what Poetry remembers",
+    "problems": []
+   },
+   {
+    "kind": "command",
+    "card": "DependencyCommands",
+    "of": 5,
+    "passed": true,
+    "steps": 8,
+    "label": "poetry add, remove, sync, show, search: changing or reporting the dependency set",
+    "problems": []
+   }
+  ],
+  "usage": "agent: 4 run, 0 from the cache; 109.4s; claude -p"
+ }
+]

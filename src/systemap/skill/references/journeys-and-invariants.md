@@ -33,10 +33,17 @@ step's sentence as a whole word still counts, for maps written before
 `starts` existed. A console script's `main` and a `__main__` that imports
 it count as the script.
 
+A card that takes a crowd of ways in of one kind, a hundred routes or a
+dozen subcommands, gets one journey for the crowd rather than one each:
+name the card in `starts` (`starts="HttpApi"`), and every way in that
+card claims counts as walked. `systemap judgement` asks about a crowd as
+one line for the same reason.
+
 `systemap journeys` writes one for you, when `[agent] command` names a
-coding agent: the agent reads the code from that way in and answers with
-the walk, and systemap refuses a step that traces a flow the map does not
-draw or names a card that is not there. What it writes is marked
+coding agent: the agent reads the code from that way in, or from two or
+three of a crowd, and answers with the walk, and systemap refuses a step
+that traces a flow the map does not draw or names a card that is not
+there. What it writes is marked
 `drafted=True` and prints as a `drafted journey` judgement line. Read each
 step against the code, fix what is wrong, then remove the mark. A drafted
 journey nobody has read is not knowledge of the system.

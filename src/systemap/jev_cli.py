@@ -247,7 +247,7 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     if facts is None:
         return STALE
     top = nest.load(cfg).top
-    left = journeys.uncovered(top.meaning, facts)
+    left = journeys.gather(top.model, top.meaning, facts)
     if not left:
         print("journeys: every way into the system already has a walk from it")
         return OK
@@ -257,11 +257,20 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     return _write_journeys(cfg, top, facts, left[: args.limit], run_command)
 
 
-def _would_write(left: list[dict[str, str]], cfg: config.Config) -> list[str]:
-    """What there is to write, and what it would take, without writing it."""
-    ways = "way" if len(left) == 1 else "ways"
-    out = [f"journeys: {len(left)} {ways} into the system with no walk from them:"]
-    out += [f"  {extract.entry_label(p)}" for p in left[:20]]
+def _would_write(left: list[journeys.Group], cfg: config.Config) -> list[str]:
+    """What there is to write, and what it would take, without writing it.
+
+    A crowd of ways in of one kind into one card counts as one walk to write,
+    the way `systemap judgement` counts it as one line to answer.
+    """
+    total = sum(len(g.ways_in) for g in left)
+    ways = "way" if total == 1 else "ways"
+    head = f"journeys: {total} {ways} into the system with no walk from them"
+    if len(left) < total:
+        walks = "walk" if len(left) == 1 else "walks"
+        head += f", {len(left)} {walks} to write: a card's crowd is walked once"
+    out = [head + ":"]
+    out += [f"  {g.label}" for g in left[:20]]
     if len(left) > 20:
         out.append(f"  and {len(left) - 20} more")
     if not agent.has_agent(cfg):
@@ -273,7 +282,7 @@ def _write_journeys(
     cfg: config.Config,
     top: nest.Map,
     facts: dict[str, Any],
-    take: list[dict[str, str]],
+    take: list[journeys.Group],
     run_command: agent.Run | None,
 ) -> int:
     """Ask the agent for each walk, check it, and write the ones that hold."""
@@ -285,13 +294,13 @@ def _write_journeys(
     source = top.path.read_text(encoding="utf-8")
     written: list[str] = []
     out: list[str] = []
-    for point in take:
+    for group in take:
         try:
-            draft = journeys.write_one(writer, top.model, top.meaning, facts, point)
+            draft = journeys.write_one(writer, top.model, top.meaning, facts, group)
         except agent.AgentError as exc:
             out.append(f"journeys: {exc}")
             break
-        label = extract.entry_label(point)
+        label = group.label
         if draft.journey is None:
             out.append(f"journeys: no walk written for {label}")
             out += [f"      {p}" for p in draft.problems]
