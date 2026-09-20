@@ -580,11 +580,12 @@ def _check_lines(
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
     s = sub.add_parser(
         "audit",
-        help="a second opinion from TypeSafe's Jev on the map's judgement calls: modules "
-        "that read like another card, a card for each unclaimed module, card sentences that "
-        "may not describe their modules, flows the code may not carry, invariants that may "
-        "govern a card they do not name; sends the facts and model text to the API, needs "
-        "TYPESAFE_API_KEY, caches every answer; a report, exit 0",
+        help="Jev's second opinion on the calls the map makes about meaning",
+        description="A second opinion from TypeSafe's Jev on the calls the map makes about "
+        "meaning: modules that read like another card, a card for each unclaimed module, card "
+        "sentences that may not describe their modules, flows the code may not carry, and "
+        "invariants that may govern a card they do not name. It sends the facts and the model "
+        "text to the API, so it needs TYPESAFE_API_KEY.",
     )
     add_root(s)
     s.add_argument(
@@ -611,10 +612,12 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
 
     s = sub.add_parser(
         "journeys",
-        help="write a walk through the system for a way in that has none: the agent named "
-        "under [agent] reads the code from that way in and answers with the cards a run "
-        "passes through and a sentence each; the walk is checked against the map and written "
-        "into the model as a draft for you to confirm",
+        help="write a walk through the system for a way in that no journey starts from",
+        description="A way into the system with no journey is a path through it nobody has "
+        "written down. This asks the agent named under [agent] to read the code from that way "
+        "in, and to answer with the cards a run passes through and a sentence for each step. "
+        "The walk is checked against the map, then written into the model as a draft for you to "
+        "confirm.",
     )
     add_root(s)
     s.add_argument(
@@ -630,10 +633,12 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
 
     s = sub.add_parser(
         "plan",
-        help="the cards a piece of work will most likely change, before you do it: Jev "
-        "reads the task against every card's purpose, and around each card it names, the "
-        "map prints the flows, walks and rules it sits in; the projection is saved, and "
-        "--check compares it with what the code actually changed; needs TYPESAFE_API_KEY",
+        help="the cards a piece of work will change, and afterwards what it did change",
+        description="Which cards a piece of work will touch is easier to say before the work than "
+        "after. Jev reads the task against every card's purpose, and around each card it names, "
+        "the map prints the flows, walks and rules that card sits in. The projection is saved, "
+        "so --check can later compare it with what the code actually changed. Needs "
+        "TYPESAFE_API_KEY.",
     )
     add_root(s)
     s.add_argument("task", nargs="?", help="the work in your own words, or - to read stdin")
@@ -647,9 +652,11 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
 
     s = sub.add_parser(
         "triage",
-        help="which card an issue's fix will most likely change, by Jev: the top three "
-        "cards with their modules and neighbours; the text as an argument, or - for stdin; "
-        "needs TYPESAFE_API_KEY",
+        help="the cards an issue's fix will most likely change",
+        description="An issue usually names no files. Jev reads it against every card's purpose "
+        "and names the three cards whose code the fix will most likely change, each with its "
+        "modules and neighbours. Give the text as an argument, or - to read it from stdin. "
+        "Needs TYPESAFE_API_KEY.",
     )
     add_root(s)
     s.add_argument("text", help="the issue's title and body, or - to read them from stdin")
