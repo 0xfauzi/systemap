@@ -1,0 +1,762 @@
+{
+ "map": "mealie",
+ "samples": 25,
+ "cold_seconds": 0.3,
+ "warm_seconds": 0.3,
+ "windows": [
+  {
+   "from": "9e5a54477f7c51d2d9e6db64f5f66dd8fe11001e",
+   "to": "57d259a7a35f06ea15caff2e2f76f747fe59e95b",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "57d259a7a35f06ea15caff2e2f76f747fe59e95b",
+   "to": "6c87f7fe33133bd53a9967da16d38ec1527d6189",
+   "new_files": [
+    "mealie/services/migrations/cookn.py"
+   ],
+   "modules": 1,
+   "ways_in": 0,
+   "new_crossings": [
+    [
+     "Importers",
+     "IngredientParser"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "Importers": 1
+   }
+  },
+  {
+   "from": "6c87f7fe33133bd53a9967da16d38ec1527d6189",
+   "to": "735162d042ac3ec3b803317bf224bd98e8819d72",
+   "new_files": [
+    "mealie/alembic/versions/2025-09-10-19.21.48_1d9a002d7234_add_referenced_recipe_to_ingredients.py"
+   ],
+   "modules": 1,
+   "ways_in": 0,
+   "new_crossings": [
+    [
+     "ApiSchemas",
+     "Translations"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1
+   }
+  },
+  {
+   "from": "735162d042ac3ec3b803317bf224bd98e8819d72",
+   "to": "9826f3483e32ab94bd9202a6779a05bd9f5a57ec",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "9826f3483e32ab94bd9202a6779a05bd9f5a57ec",
+   "to": "eb093a755b3390d90566da9727f918ab4b12b2ee",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "eb093a755b3390d90566da9727f918ab4b12b2ee",
+   "to": "6f3a5c6c8ff681c28eb51d4fa018cbe812e3eb97",
+   "new_files": [
+    "mealie/scripts/reprocess_images.py"
+   ],
+   "modules": 0,
+   "ways_in": 1,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "ApiSchemas": -1,
+    "Scripts": 1
+   }
+  },
+  {
+   "from": "6f3a5c6c8ff681c28eb51d4fa018cbe812e3eb97",
+   "to": "3166060644e21798d2a87c5dc5c46e2de611a533",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "3166060644e21798d2a87c5dc5c46e2de611a533",
+   "to": "08666e6c2106e9b72759f8351f7ea3e22312a9b2",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "08666e6c2106e9b72759f8351f7ea3e22312a9b2",
+   "to": "0dc7337972a4f6a0aadec60209e57eadcc19452d",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "0dc7337972a4f6a0aadec60209e57eadcc19452d",
+   "to": "b64f14aaaebca3e3766dd3231b1c16cf7109c26e",
+   "new_files": [
+    "mealie/schema/openai/general.py",
+    "mealie/services/query_filter/__init__.py",
+    "mealie/services/query_filter/builder.py",
+    "mealie/services/query_filter/keywords.py",
+    "mealie/services/query_filter/operators.py"
+   ],
+   "modules": 4,
+   "ways_in": 0,
+   "new_crossings": [
+    [
+     "AiService",
+     "ApiSchemas"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "QueryFilter": 4
+   }
+  },
+  {
+   "from": "b64f14aaaebca3e3766dd3231b1c16cf7109c26e",
+   "to": "8059cc731f23e0d8590546b9aaaa5dd12eb25697",
+   "new_files": [
+    "mealie/lang/locale_config.py",
+    "mealie/middleware/__init__.py",
+    "mealie/middleware/locale_context.py"
+   ],
+   "modules": 3,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "Translations": 3
+   }
+  },
+  {
+   "from": "8059cc731f23e0d8590546b9aaaa5dd12eb25697",
+   "to": "d3d339a4aa3610db7a7f2db8076396e78afd1d08",
+   "new_files": [
+    "mealie/alembic/versions/2026-02-21-17.59.01_a39c7f1826e3_add_unit_standardization_fields.py",
+    "mealie/services/parser_services/parser_utils/unit_utils.py"
+   ],
+   "modules": 1,
+   "ways_in": -1,
+   "new_crossings": [
+    [
+     "AiService",
+     "Translations"
+    ],
+    [
+     "IngredientParser",
+     "Translations"
+    ],
+    [
+     "Repositories",
+     "Translations"
+    ],
+    [
+     "SchemaMigrations",
+     "Repositories"
+    ],
+    [
+     "SchemaMigrations",
+     "Seeder"
+    ],
+    [
+     "SchemaMigrations",
+     "Translations"
+    ],
+    [
+     "Scraper",
+     "Auth"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1,
+    "Scripts": -1,
+    "IngredientParser": 1
+   }
+  },
+  {
+   "from": "d3d339a4aa3610db7a7f2db8076396e78afd1d08",
+   "to": "b0328ad9264a2bdc82913601f2ccbb0233dad674",
+   "new_files": [],
+   "modules": -1,
+   "ways_in": 2,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "Scraper": -1
+   }
+  },
+  {
+   "from": "b0328ad9264a2bdc82913601f2ccbb0233dad674",
+   "to": "fe491bbe566928bdac7aff836198555182a11c39",
+   "new_files": [
+    "mealie/alembic/versions/2026-03-26-20.48.28_cdc93edaf73d_add_mealplan_updated_and_deleted_to_.py"
+   ],
+   "modules": 1,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1
+   }
+  },
+  {
+   "from": "fe491bbe566928bdac7aff836198555182a11c39",
+   "to": "3db94d876c020cf9cc7e7da6350c7251b4a74af8",
+   "new_files": [
+    "mealie/alembic/versions/2026-03-27-20.19.07_4395a04f7784_add_announcements.py",
+    "mealie/routes/spa/manifest.py"
+   ],
+   "modules": 2,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1,
+    "WebAppHost": 1
+   }
+  },
+  {
+   "from": "3db94d876c020cf9cc7e7da6350c7251b4a74af8",
+   "to": "f2b087730e426a307adc8b11c951dbd09dd1ee54",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "f2b087730e426a307adc8b11c951dbd09dd1ee54",
+   "to": "c8ff75c02a01fec162c5e86b269481340ab9897d",
+   "new_files": [
+    "mealie/alembic/versions/2026-05-10-18.44.53_c7427796f7b6_more_aggresive_normalization.py"
+   ],
+   "modules": 1,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1
+   }
+  },
+  {
+   "from": "c8ff75c02a01fec162c5e86b269481340ab9897d",
+   "to": "f025bbce579727c1afe1291981b10f13cdbbcd08",
+   "new_files": [
+    "mealie/alembic/versions/2026-05-18-16.27.05_2187537c52b8_add_table_for_ai_providers.py",
+    "mealie/db/models/_filterable_column.py",
+    "mealie/db/models/group/ai_providers.py",
+    "mealie/db/models/recipe/labels.py",
+    "mealie/repos/repository_ai_provider.py",
+    "mealie/routes/admin/admin_management_ai_providers.py",
+    "mealie/routes/groups/controller_group_ai_providers.py",
+    "mealie/schema/group/ai_providers.py"
+   ],
+   "modules": 7,
+   "ways_in": 7,
+   "new_crossings": [
+    [
+     "AiService",
+     "Repositories"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1,
+    "ApiSchemas": 1,
+    "DbModels": 2,
+    "Repositories": 1,
+    "HttpApi": 2
+   }
+  },
+  {
+   "from": "f025bbce579727c1afe1291981b10f13cdbbcd08",
+   "to": "fcba5216bcd668903d6168a6ba3936208016170a",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "fcba5216bcd668903d6168a6ba3936208016170a",
+   "to": "c2d7c7a3a775ea602f9260d06c3d150a60108a4c",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "c2d7c7a3a775ea602f9260d06c3d150a60108a4c",
+   "to": "9700cf1774a02c36eb440c5995c181a2c591ba71",
+   "new_files": [],
+   "modules": 0,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {}
+  },
+  {
+   "from": "9700cf1774a02c36eb440c5995c181a2c591ba71",
+   "to": "24149a751fafcf3206f93afa120f2cfc98759091",
+   "new_files": [
+    "mealie/pkgs/safehttp/fetch.py",
+    "mealie/pkgs/safehttp/flaresolverr.py"
+   ],
+   "modules": 2,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "Scraper": 2
+   }
+  },
+  {
+   "from": "24149a751fafcf3206f93afa120f2cfc98759091",
+   "to": "68512c52b65149165997d423f8428cf8f4ebf5a7",
+   "new_files": [
+    "mealie/schema/openai/compiled_source.py",
+    "mealie/schema/openai/organizers.py",
+    "mealie/services/matching.py",
+    "mealie/services/openai/content.py",
+    "mealie/services/openai/transcription.py",
+    "mealie/services/recipe/ai_recipe_service.py",
+    "mealie/services/recipe/import_workflow/__init__.py",
+    "mealie/services/recipe/import_workflow/base.py",
+    "mealie/services/recipe/import_workflow/compilers/__init__.py",
+    "mealie/services/recipe/import_workflow/compilers/base.py",
+    "mealie/services/recipe/import_workflow/compilers/image.py",
+    "mealie/services/recipe/import_workflow/compilers/structured_data.py",
+    "mealie/services/recipe/import_workflow/compilers/transcription.py",
+    "mealie/services/recipe/import_workflow/compilers/web_page.py",
+    "mealie/services/recipe/import_workflow/context.py",
+    "mealie/services/recipe/import_workflow/exceptions.py",
+    "mealie/services/recipe/import_workflow/recipe_conversion.py",
+    "mealie/services/recipe/import_workflow/steps/__init__.py",
+    "mealie/services/recipe/import_workflow/steps/build_recipe.py",
+    "mealie/services/recipe/import_workflow/steps/compile_source.py",
+    "mealie/services/recipe/import_workflow/steps/resolve_organizers.py",
+    "mealie/services/recipe/import_workflow/steps/translate_recipe.py",
+    "mealie/services/recipe/import_workflow/workflow.py",
+    "mealie/services/recipe/organizer_resolver.py",
+    "mealie/services/scraper/fetch.py"
+   ],
+   "modules": 25,
+   "ways_in": 4,
+   "new_crossings": [
+    [
+     "HttpApi",
+     "ImportWorkflow"
+    ],
+    [
+     "ImportWorkflow",
+     "ApiSchemas"
+    ],
+    [
+     "ImportWorkflow",
+     "Auth"
+    ],
+    [
+     "ImportWorkflow",
+     "Repositories"
+    ],
+    [
+     "ImportWorkflow",
+     "Settings"
+    ],
+    [
+     "ImportWorkflow",
+     "Translations"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "Scraper": 1,
+    "ApiSchemas": 2,
+    "AiService": 2,
+    "ImportWorkflow": 17,
+    "RecipeService": 2,
+    "IngredientParser": 1
+   }
+  },
+  {
+   "from": "68512c52b65149165997d423f8428cf8f4ebf5a7",
+   "to": "c6fba73f10860097e5fdce490e2cd71fd9896f8f",
+   "new_files": [
+    "mealie/alembic/versions/2026-08-24-16.31.43_69e942bab3aa_add_tokens_valid_after_column_to_users.py",
+    "mealie/core/security/tokens.py"
+   ],
+   "modules": 2,
+   "ways_in": 2,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1,
+    "Auth": 1
+   }
+  }
+ ],
+ "top": [
+  {
+   "from": "24149a751fafcf3206f93afa120f2cfc98759091",
+   "to": "68512c52b65149165997d423f8428cf8f4ebf5a7",
+   "new_files": [
+    "mealie/schema/openai/compiled_source.py",
+    "mealie/schema/openai/organizers.py",
+    "mealie/services/matching.py",
+    "mealie/services/openai/content.py",
+    "mealie/services/openai/transcription.py",
+    "mealie/services/recipe/ai_recipe_service.py",
+    "mealie/services/recipe/import_workflow/__init__.py",
+    "mealie/services/recipe/import_workflow/base.py",
+    "mealie/services/recipe/import_workflow/compilers/__init__.py",
+    "mealie/services/recipe/import_workflow/compilers/base.py",
+    "mealie/services/recipe/import_workflow/compilers/image.py",
+    "mealie/services/recipe/import_workflow/compilers/structured_data.py",
+    "mealie/services/recipe/import_workflow/compilers/transcription.py",
+    "mealie/services/recipe/import_workflow/compilers/web_page.py",
+    "mealie/services/recipe/import_workflow/context.py",
+    "mealie/services/recipe/import_workflow/exceptions.py",
+    "mealie/services/recipe/import_workflow/recipe_conversion.py",
+    "mealie/services/recipe/import_workflow/steps/__init__.py",
+    "mealie/services/recipe/import_workflow/steps/build_recipe.py",
+    "mealie/services/recipe/import_workflow/steps/compile_source.py",
+    "mealie/services/recipe/import_workflow/steps/resolve_organizers.py",
+    "mealie/services/recipe/import_workflow/steps/translate_recipe.py",
+    "mealie/services/recipe/import_workflow/workflow.py",
+    "mealie/services/recipe/organizer_resolver.py",
+    "mealie/services/scraper/fetch.py"
+   ],
+   "modules": 25,
+   "ways_in": 4,
+   "new_crossings": [
+    [
+     "HttpApi",
+     "ImportWorkflow"
+    ],
+    [
+     "ImportWorkflow",
+     "ApiSchemas"
+    ],
+    [
+     "ImportWorkflow",
+     "Auth"
+    ],
+    [
+     "ImportWorkflow",
+     "Repositories"
+    ],
+    [
+     "ImportWorkflow",
+     "Settings"
+    ],
+    [
+     "ImportWorkflow",
+     "Translations"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "Scraper": 1,
+    "ApiSchemas": 2,
+    "AiService": 2,
+    "ImportWorkflow": 17,
+    "RecipeService": 2,
+    "IngredientParser": 1
+   }
+  },
+  {
+   "from": "c8ff75c02a01fec162c5e86b269481340ab9897d",
+   "to": "f025bbce579727c1afe1291981b10f13cdbbcd08",
+   "new_files": [
+    "mealie/alembic/versions/2026-05-18-16.27.05_2187537c52b8_add_table_for_ai_providers.py",
+    "mealie/db/models/_filterable_column.py",
+    "mealie/db/models/group/ai_providers.py",
+    "mealie/db/models/recipe/labels.py",
+    "mealie/repos/repository_ai_provider.py",
+    "mealie/routes/admin/admin_management_ai_providers.py",
+    "mealie/routes/groups/controller_group_ai_providers.py",
+    "mealie/schema/group/ai_providers.py"
+   ],
+   "modules": 7,
+   "ways_in": 7,
+   "new_crossings": [
+    [
+     "AiService",
+     "Repositories"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1,
+    "ApiSchemas": 1,
+    "DbModels": 2,
+    "Repositories": 1,
+    "HttpApi": 2
+   }
+  },
+  {
+   "from": "8059cc731f23e0d8590546b9aaaa5dd12eb25697",
+   "to": "d3d339a4aa3610db7a7f2db8076396e78afd1d08",
+   "new_files": [
+    "mealie/alembic/versions/2026-02-21-17.59.01_a39c7f1826e3_add_unit_standardization_fields.py",
+    "mealie/services/parser_services/parser_utils/unit_utils.py"
+   ],
+   "modules": 1,
+   "ways_in": -1,
+   "new_crossings": [
+    [
+     "AiService",
+     "Translations"
+    ],
+    [
+     "IngredientParser",
+     "Translations"
+    ],
+    [
+     "Repositories",
+     "Translations"
+    ],
+    [
+     "SchemaMigrations",
+     "Repositories"
+    ],
+    [
+     "SchemaMigrations",
+     "Seeder"
+    ],
+    [
+     "SchemaMigrations",
+     "Translations"
+    ],
+    [
+     "Scraper",
+     "Auth"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "SchemaMigrations": 1,
+    "Scripts": -1,
+    "IngredientParser": 1
+   }
+  },
+  {
+   "from": "0dc7337972a4f6a0aadec60209e57eadcc19452d",
+   "to": "b64f14aaaebca3e3766dd3231b1c16cf7109c26e",
+   "new_files": [
+    "mealie/schema/openai/general.py",
+    "mealie/services/query_filter/__init__.py",
+    "mealie/services/query_filter/builder.py",
+    "mealie/services/query_filter/keywords.py",
+    "mealie/services/query_filter/operators.py"
+   ],
+   "modules": 4,
+   "ways_in": 0,
+   "new_crossings": [
+    [
+     "AiService",
+     "ApiSchemas"
+    ]
+   ],
+   "gone_crossings": [],
+   "grew": {
+    "QueryFilter": 4
+   }
+  },
+  {
+   "from": "b64f14aaaebca3e3766dd3231b1c16cf7109c26e",
+   "to": "8059cc731f23e0d8590546b9aaaa5dd12eb25697",
+   "new_files": [
+    "mealie/lang/locale_config.py",
+    "mealie/middleware/__init__.py",
+    "mealie/middleware/locale_context.py"
+   ],
+   "modules": 3,
+   "ways_in": 0,
+   "new_crossings": [],
+   "gone_crossings": [],
+   "grew": {
+    "Translations": 3
+   }
+  }
+ ],
+ "commits": {
+  "68512c52b65149165997d423f8428cf8f4ebf5a7": [
+   "dev: Shopping list unit test (#7969)",
+   "feat: Jump from toast (#7986)",
+   "fix: prevent recipe tags from hiding card actions (#8028)",
+   "feat: Refine AI import page (#8067)",
+   "feat: Update ingredient parsing text (#8066)",
+   "fix: Allow psycopg2-binary to be optional again (#8065)",
+   "fix: improve IntegrityError message for unique constraint violations (#8050)",
+   "fix: fix public check for recipe sharing (#8055)",
+   "feat: skip expiring share link for fully-public groups/households (#7941)",
+   "dev: bind-mount dev postgres data to dev/data/postgres (#8046)",
+   "feat: Unified AI recipe page (#8043)",
+   "feat: add native OIDC endpoints for mobile/desktop clients (#7804)",
+   "dev: fix all the warning in pytest (#8033)",
+   "fix: revalidate stale group/household preferences cache and settings forms (#8022)",
+   "fix: recipe image lost after using \"Get\" (fetch by URL) then saving (#8021)"
+  ],
+  "f025bbce579727c1afe1291981b10f13cdbbcd08": [
+   "fix: default ingredient_references on RecipeInstruction init (#7732)",
+   "fix: harden recipe content against stored XSS (chips, instructions, asset media) (#7719)",
+   "fix: support CSV/TXT upload and add validation for Plan to Eat import (#6360) (#7622)",
+   "chore: drop unused python dependencies aniso8601 and appdirs (#7717)",
+   "chore: add 5-day dependency cooling period for supply-chain hardening (#7718)",
+   "feat: Added version info to backup file (#7416)",
+   "feat: warn when deleting foods used in recipes (#7117)",
+   "dev: Improve support for front end unit tests (#7163)",
+   "feat: Enhanced PR Lint/Validation (#7329)",
+   "fix: add missing dependencies in package.json (#7709)",
+   "chore: bump version to v3.19.2",
+   "fix: Ensure secret key is not empty (#7701)",
+   "dev: Set renovarte bot PRs to \"immediate\" (#7690)",
+   "chore: bump version to v3.19.1",
+   "fix: Make most recipe action columns filterable (#7689)",
+   "dev: Disable approvals for lockfile maintenance PR creation (#7666)",
+   "chore: bump version to v3.19.0",
+   "fix: Prevent swiping AND scrolling on shopping list (#7659)",
+   "feat: In-app AI Provider Configuration (#7650)",
+   "fix: enforce organize-group-data permission on food/tag/category mutations (#7651)",
+   "fix: Protect sensitive data in query filter API (GHSA-8m57-7cv5-rjp8) (#7629)",
+   "fix: Inconsistent \"from an image\" vs \"from images\" translation (#7642)",
+   "chore: bump version to v3.18.0"
+  ],
+  "d3d339a4aa3610db7a7f2db8076396e78afd1d08": [
+   "fix: Restore original recipe description string (#7221)",
+   "fix: Allow more precise standard quantities in unit data management (#7218)",
+   "feat: Add social media video import (YouTube, TikTok, Instagram) (#6764)",
+   "feat: Unit standardization / conversion (#7121)",
+   "fix: migrate RecipeRating component to script setup and defineModel (#7203)",
+   "chore(auto): Update pre-commit hooks (#7209)",
+   "chore: bump version to v3.12.0",
+   "fix: Added mealie.log rotations to excluded files for backup (#7138)",
+   "fix: Restore missing description for household's new recipe settings (#7204)",
+   "fix: Logic to unset-rating when currentrating is selected (#7182)",
+   "dev: Add backend translations to auto-approval (#7196)",
+   "feat: replace python script with curl (#7192)",
+   "feat: include extra ingredients + amounts in NLP parser output (#7191)",
+   "fix: Updated get_ts_locales to resolve issues with Automatic Locale Sync workflow (#7181)",
+   "chore(auto): Update pre-commit hooks (#7168)",
+   "feat: Improve auto-form layout (#7150)",
+   "fix: data management food edit / create (#7148)"
+  ],
+  "b64f14aaaebca3e3766dd3231b1c16cf7109c26e": [
+   "feat: Dynamic Placeholders UI (#7034)",
+   "fix: handle numeric recipeCategory from LLM/site to prevent import failure (#7026)",
+   "chore: bump version to v3.10.2",
+   "fix: OIDC caching (#7009)",
+   "chore: Upgrade to ruff 15.0.0 (#7003)",
+   "fix: use BASE_URL config for redirect_url  if available (#6995)",
+   "chore: bump version to v3.10.1",
+   "fix: Button overflow on main page filters (#6992)",
+   "docs: Typo (#6993)",
+   "chore: bump version to v3.10.0",
+   "fix: Flaky $NOW tests (#6990)",
+   "docs: Misc. cleanup (#6988)",
+   "feat: Query relative dates (#6984)",
+   "fix: Re-enable some style tags (#6982)",
+   "feat: Add range of dates to shopping list from meal planner (#6981)",
+   "dev: Switch to Mealie bot for auto-merging (#6978)",
+   "dev: Switch approver for automated i18n merges (#6976)",
+   "dev: Allow locale sync path in auto merge (#6974)",
+   "dev: Increase locale merge limit to 300 and allow PRs from Mealie bot (#6972)",
+   "dev: Fix token vars (#6970)",
+   "dev: Switch to bot token for locale sync (#6969)",
+   "feat: Migrate OpenAI implementation to use structured outputs (#6964)",
+   "fix: service-worker precache manifest entries not generated correctly (#6815)",
+   "fix: Remove deprecated warning from shopping list editor (#6963)",
+   "fix: Disable context hover (#6962)",
+   "feat: Improve recipe assets preview (#6602)",
+   "dev: Improve caching in taskfile (#6798)",
+   "dev: Add tasks for e2e tests (#6797)",
+   "fix: recipe context menu (#6782)",
+   "fix: disable invitations when password login is disabled (#6781)",
+   "fix: sub-recipes in multi group setup (#6652) (#6663)",
+   "feat: Customizable OpenAI prompts (#5146) (#6588)",
+   "feat: Added Option to Import Recipe Category During Recipe Import (#6523)",
+   "dev: Skip Trivy on merge queue (#6957)",
+   "fix: Seed data - en-US only - correct [some] plural names and add [some] accented characters (#6405)",
+   "feat: Add \"sprig\" as a unit. (#6934)",
+   "dev: Bunch of GH workflow fixes (#6956)",
+   "fix: dispose AlchemyExporter engine after restore completes (#6942)",
+   "fix: Keep ingredient headers in cook mode (#6946)",
+   "dev: Enable CI on merge queues (#6955)"
+  ],
+  "8059cc731f23e0d8590546b9aaaa5dd12eb25697": [
+   "dev: add AI/LLM Assistance section to PR template (#7144)",
+   "fix: Ensure recipe ingredients have a valid reference_id (#7139)",
+   "chore: refactor data management pages (#7107)",
+   "fix: Include unmade recipes when filtering by last made (#7130)",
+   "chore(auto): Update pre-commit hooks (#7122)",
+   "docs: Remove redoc API generation (#7109)",
+   "docs: Add missing release tags to OpenAI docs (#7102)",
+   "feat: Auto-adjust shopping list item autofocus (#7096)",
+   "chore: bump version to v3.11.0",
+   "fix: Exclude docs/redoc from  (#7082)",
+   "chore(auto): Update pre-commit hooks (#7080)",
+   "fix: Show minimum value for quantity (#7077)",
+   "fix: #6263 remove reserved prefix  (#7033)",
+   "feat: Further improve recipe filter search and shopping list and recipe ingredient editor (#7063)",
+   "feat: Improve recipe filter search ordering (#7061)",
+   "fix: Search bar width (#7060)",
+   "feat: Customize Ingredient Plural Handling (#7057)",
+   "feat: Add Docker metadata to published images (#7052)"
+  ]
+ },
+ "caused_by": {
+  "68512c52b65149165997d423f8428cf8f4ebf5a7": [
+   "feat: Refine AI import page (#8067)",
+   "feat: Unified AI recipe page (#8043)"
+  ],
+  "f025bbce579727c1afe1291981b10f13cdbbcd08": [
+   "feat: In-app AI Provider Configuration (#7650)",
+   "fix: Protect sensitive data in query filter API (GHSA-8m57-7cv5-rjp8) (#7629)"
+  ],
+  "d3d339a4aa3610db7a7f2db8076396e78afd1d08": [
+   "feat: Unit standardization / conversion (#7121)"
+  ],
+  "b64f14aaaebca3e3766dd3231b1c16cf7109c26e": [
+   "feat: Dynamic Placeholders UI (#7034)",
+   "feat: Query relative dates (#6984)",
+   "feat: Migrate OpenAI implementation to use structured outputs (#6964)"
+  ],
+  "8059cc731f23e0d8590546b9aaaa5dd12eb25697": [
+   "feat: Customize Ingredient Plural Handling (#7057)"
+  ]
+ }
+}

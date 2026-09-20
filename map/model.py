@@ -20,17 +20,17 @@ describe` says what the picture shows.
 
 from __future__ import annotations
 
+import journeys  # the walks, beside this file: map/journeys.py
+
 from systemap import (
     Component,
     Container,
     Flow,
     Invariant,
-    Journey,
     Layer,
     Meaning,
     Model,
     Region,
-    Step,
 )
 
 # Every position, box and the canvas below were written by `systemap place`:
@@ -143,13 +143,14 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports. systemap delta reads the facts at two commits out of git and says what the change did to the map, one line per thing with its fix.",
+        does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports. systemap delta reads the facts at two commits out of git and says what the change did to the map, one line per thing with its fix; systemap history reads many commits and says what moved between them.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
             "systemap.change",
             "systemap.delta",
             "systemap.moves",
             "systemap.history",
+            "systemap.trend",
         ),
         entry="compute",
         region="gather",
@@ -347,12 +348,14 @@ FLOWS = (
     Flow("Describe", "Agent", "the picture in numbers", "data"),
     Flow("Page", "Maintainer", "the page", "data"),
     Flow("Check", "Agent", "the fix", "data"),
+    Flow("ChangeDetector", "Agent", "what moved, and when", "data"),
     Flow("Check", "CI", "verdict", "data"),
     # judge: where the meaning comes from, and who confirms it
     Flow("Skill", "Agent", "procedure", "judge"),
     Flow("Agent", "Model", "map/model.py", "judge"),
     Flow("Maintainer", "Model", "corrections", "judge"),
     Flow("Model", "Judgement", "model", "judge"),
+    Flow("Judgement", "Check", "the teaching under each line", "judge"),
     Flow("Judgement", "Agent", "second-pass list", "judge"),
     Flow("Judgement", "Maintainer", "judgement answers", "judge"),
     Flow("Model", "SecondOpinion", "cards, sentences", "judge"),
@@ -527,6 +530,8 @@ _RELATIONS = {
     "Judgement -> SecondOpinion": "Which ways into the system a journey walks from is one rule, and it lives in the judgement; the writer of journeys asks it what is left, so the two cannot disagree about what is covered.",
     "SecondOpinion -> Describe": "Describe asks the writer of journeys how many ways into the system have no walk from them, and names the first few.",
     "FactsExtractor -> Describe": "Describe names each way in the way a person would name it, which the extractor decides.",
+    "ChangeDetector -> Agent": "delta hands back what a change did to the map, one line per thing with its fix; history hands back what moved over a year, the largest windows first with the commits that wrote them.",
+    "Judgement -> Check": "The lesson under each kind of line lives with the judgement, because that is where most kinds come from; the check reads it to say why a failing rule matters and what to do.",
     "Judgement -> Agent": "In the second pass the agent walks every crossing import and every entry point without a journey, and changes the model or answers the line.",
     "Judgement -> Maintainer": "The maintainer reads the agent's answers, line by line; the list is mechanical to produce, so the review cannot be skipped.",
     "CLI -> SecondOpinion": "audit, triage and the --jev flags hand their questions to the second opinion; check and judgement never do.",
@@ -567,213 +572,7 @@ VERB_OVERRIDES = {
     ("Check", "ChangeDetector"): ("lends its rule to", "judges by"),
 }
 
-JOURNEYS = (
-    Journey(
-        id="plan-then-check",
-        label="A plan: the cards the work will touch, then what it actually touched",
-        starts="plan (subcommand in systemap.jev_cli)",
-        steps=(
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "CLI"),
-                say="Before the work, the agent or the maintainer runs systemap plan with the task in plain words.",
-            ),
-            Step(
-                acts=("SecondOpinion",),
-                measures=(),
-                edge=("Model", "SecondOpinion"),
-                say="The projection reads every card's purpose out of the model, so the question is asked in the map's own vocabulary.",
-            ),
-            Step(
-                acts=("SecondOpinion",),
-                measures=(),
-                edge=("SecondOpinion", "TypeSafe"),
-                say="One question goes to Jev: which component will this work most likely have to change?",
-            ),
-            Step(
-                acts=("TypeSafe",),
-                measures=(),
-                edge=("TypeSafe", "SecondOpinion"),
-                say="Jev answers with a weight for every card, and the cards above the measured cut are the projection.",
-            ),
-            Step(
-                acts=("SecondOpinion",),
-                measures=(),
-                edge=("SecondOpinion", "Agent"),
-                say="Around each card named, the map prints the flows, walks and rules it sits in, and the projection is written under .systemap/plans.",
-            ),
-            Step(
-                acts=("ChangeDetector",),
-                measures=("SecondOpinion",),
-                edge=("FactsExtractor", "ChangeDetector"),
-                say="After the work, systemap plan --check reads the facts where the work started and the facts now, and names every card that changed outside the plan.",
-            ),
-        ),
-    ),
-    Journey(
-        id="second-opinion",
-        label="A second opinion: systemap audit, and triage for an issue",
-        steps=(
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "CLI"),
-                say="With a key set and the judgement clean, the agent runs systemap audit; a maintainer with an issue in hand runs systemap triage.",
-            ),
-            Step(
-                acts=("SecondOpinion",),
-                measures=(),
-                edge=("Model", "SecondOpinion"),
-                say="The second opinion reads the cards, sentences, flows and invariants, and the facts behind them, into one narrow question each.",
-            ),
-            Step(
-                acts=("SecondOpinion",),
-                measures=(),
-                edge=("SecondOpinion", "TypeSafe"),
-                say="Questions the cache cannot answer go to Jev over HTTPS; audit --dry-run says what would leave the machine first.",
-            ),
-            Step(
-                acts=("TypeSafe",),
-                measures=(),
-                edge=("TypeSafe", "SecondOpinion"),
-                say="Jev answers each with a probability or a choice, and every answer is cached by the model's release.",
-            ),
-            Step(
-                acts=("SecondOpinion",),
-                measures=("Agent",),
-                edge=("SecondOpinion", "Agent"),
-                say="A jev line where the answer disagrees with the map, or triage's three likeliest cards; the agent acts on a line or answers it under [judgement].",
-            ),
-        ),
-    ),
-    Journey(
-        id="first-map",
-        label="The first map: systemap init, extract, a draft, check",
-        steps=(
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "CLI"),
-                say="The agent runs systemap init: configuration, starter model, the workflow.",
-            ),
-            Step(
-                acts=("CLI",),
-                measures=(),
-                edge=("CLI", "Skill"),
-                say="init installs the skill directory beside the project; systemap skill reinstalls it later.",
-            ),
-            Step(
-                acts=("Skill",),
-                measures=(),
-                edge=("Skill", "Agent"),
-                say="The skill gives the agent the loop: extract, draft, check, judgement, render, second pass.",
-            ),
-            Step(
-                acts=("FactsExtractor",),
-                measures=(),
-                edge=("CLI", "FactsExtractor"),
-                say="systemap extract reads every module, its surface, its imports and the entry points out of the tree.",
-            ),
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "Model"),
-                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, a journey per entry point, and no positions.",
-            ),
-            Step(
-                acts=("Placer",),
-                measures=(),
-                edge=("Placer", "Model"),
-                say="systemap place lays the regions out on a grid with corridors between them, puts every card on it, and writes the positions into the file.",
-            ),
-            Step(
-                acts=("Check",),
-                measures=("Check",),
-                edge=("Check", "Agent"),
-                say="systemap check names each failure and its fix; the agent edits until coverage is N/N and the layout is clean.",
-            ),
-        ),
-    ),
-    Journey(
-        id="second-pass",
-        label="The second pass: judgement, then refresh",
-        steps=(
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "CLI"),
-                say="The agent runs systemap judgement.",
-            ),
-            Step(
-                acts=("Judgement",),
-                measures=(),
-                edge=("FactsExtractor", "Judgement"),
-                say="The judgement walks the imports in the facts for edges the model lacks, and the entry points for journeys it lacks.",
-            ),
-            Step(
-                acts=("Judgement",),
-                measures=("Judgement",),
-                edge=("Judgement", "Agent"),
-                say="One line per crossing import, per entry point without a journey, per thin layer: the agent changes the model or answers the line.",
-            ),
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "Model"),
-                say="The agent adds the missed edges, regroups what was grouped by directory, and reruns check; a full pass that changes nothing is the stop.",
-            ),
-            Step(
-                acts=("Page",),
-                measures=(),
-                edge=("CLI", "Page"),
-                say="systemap refresh renders the page and every configured figure; systemap describe says what the picture shows, and systemap serve opens the page for anyone who can look.",
-            ),
-            Step(
-                acts=("Judgement",),
-                measures=("Maintainer",),
-                edge=("Judgement", "Maintainer"),
-                say="The agent answers the remaining judgement lines in systemap.toml, under [judgement] answered, singly or by family; judgement --strict exits 0, and the maintainer reads the answers and commits docs/map.",
-            ),
-        ),
-    ),
-    Journey(
-        id="refactor",
-        label="A refactor moves a module: the maintenance path",
-        steps=(
-            Step(
-                acts=("CI",),
-                measures=(),
-                edge=("CI", "CLI"),
-                say="A pull request moves a module; the workflow runs systemap delta --base against the base branch and posts what the change did to the map as one comment.",
-            ),
-            Step(
-                acts=("ChangeDetector",),
-                measures=(),
-                edge=("CLI", "ChangeDetector"),
-                say="The detector reads the facts at both commits out of git, never from the working copy, and names the card that still names the old path, with the rename that fixes it.",
-            ),
-            Step(
-                acts=("Check",),
-                measures=("CI",),
-                edge=("Check", "CI"),
-                say="The job fails while a line needs a decision; the comment names each fix, so the map is maintained in the pull request that changed the code.",
-            ),
-            Step(
-                acts=("Agent",),
-                measures=(),
-                edge=("Agent", "CLI"),
-                say="The agent follows the maintenance path: acts on the delta's lines alone, never redrawing the map, then runs refresh, check and judgement --strict, and commits docs/map.",
-            ),
-            Step(
-                acts=("Page",),
-                measures=("Maintainer",),
-                edge=("Page", "Maintainer"),
-                say="The maintainer reads the page: the moved part is where the code now says it is.",
-            ),
-        ),
-    ),
-)
+JOURNEYS = journeys.JOURNEYS
 
 MEANING = Meaning(
     plain=PLAIN,

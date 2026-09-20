@@ -261,6 +261,24 @@ naming 2.1 cards per report; on 39 issues of a repository no threshold was
 chosen on, 71% while naming 2.1. The bar, set before the run, was 70% covered
 with at most 2 extra cards. Every run is in [bench/jev](bench/jev).
 
+## How the system got here
+
+A map is the system today. `systemap history` is the year behind it:
+
+    systemap history --since "1 year ago" --every 14
+
+One commit is sampled per fortnight, the facts at each are read out of git,
+and every sample is read in today's cards, so a module that moved still
+counts as the card whose job it does. Each window says what moved: the cards
+that grew, the imports that began crossing a boundary, the ways in added or
+removed, and the commits that wrote the modules which appeared. A number
+always leads back to the work behind it.
+
+Measured on a year of mealie before it was built: 25 samples took 29 seconds
+the first time and under a second once the facts were cached, against a bar
+of five minutes; and of the five largest windows, all five named a change a
+person can find in that window's commits, against a bar of three.
+
 ## It teaches while it refuses
 
 A line systemap prints is short, because it has to be quoted word for word
@@ -299,6 +317,7 @@ The line itself never changes, so answers written against it keep working.
 | `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
 | `systemap serve` | serve the page on the loopback address |
+| `systemap history` | how the system got here: what moved over a year, and the work that moved it |
 | `systemap explain` | one kind of line in full: what it means, why it matters, what to do |
 | `systemap skill` | reinstall the skill directory |
 

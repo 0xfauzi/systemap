@@ -48,6 +48,7 @@ interactive = false
 # every crossing import between two components.
 [judgement]
 answered = [
+    { item = "entry point systemap explain (subcommand) has no journey (component CLI)", reason = "explain prints a constant: the lesson for one kind of line. Nothing is read, nothing is drawn, no part of the system is touched, so there is no walk to trace" },
     { kind = "single module", reason = "a small package with one module per part: each card is a thing a reader would point at and name, and folding two of them would draw one card for two jobs" },
     { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names, the version, and the placement check it runs before it renders; MODEL and MEANING reach the commands through Config (the settings edge), which is where the map draws them" },
     { crossing = ["Config", "Model"], reason = "load_model imports the schema only to check that MODEL and MEANING are the right types; the model flows on to the commands as settings, not back into the configuration" },

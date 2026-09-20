@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
+from pathlib import Path
 
 import pytest
 from conftest import sample_model
 
+from systemap import config
 from systemap.model import (
     BUILT,
     STANDARD_KINDS,
@@ -256,3 +259,41 @@ def test_build_state_has_one_value() -> None:
     comp = Component("A", "does a", implemented_by=("p.a",), entry="run")
     assert build_state(comp, {"components": {}}) == BUILT == "built"
     assert "tracker" not in {f.name for f in dataclasses.fields(Component)}
+
+
+def test_a_model_may_import_a_module_beside_it(tmp_path: Path) -> None:
+    """A map outgrows one file, so the model's own directory is on the path
+    while it runs, and nothing it imported is left in the module table."""
+    folder = tmp_path / "map"
+    folder.mkdir()
+    (folder / "walks.py").write_text(
+        "from systemap import Journey, Step\n\n"
+        'JOURNEYS = (Journey(id="w", label="one walk", steps=()),)\n',
+        encoding="utf-8",
+    )
+    (folder / "model.py").write_text(
+        "import walks\n"
+        "from systemap import Component, Container, Meaning, Model, Region\n\n"
+        "MODEL = Model(\n"
+        "    canvas=(600, 300),\n"
+        '    containers=(Container(id="s", label="S", box=(0, 0, 600, 300)),),\n'
+        '    regions=(Region(id="r", label="R", box=(10, 10, 580, 280), container="s"),),\n'
+        '    components=(Component(id="A", does="does a job.", region="r"),),\n'
+        "    flows=(),\n"
+        "    flow_kinds=(),\n"
+        ")\n"
+        "MEANING = Meaning(plain={}, journeys=walks.JOURNEYS)\n",
+        encoding="utf-8",
+    )
+    model, meaning = config.load_model(folder / "model.py")
+    assert [c.id for c in model.components] == ["A"]
+    assert [j.id for j in meaning.journeys] == ["w"]
+    assert "walks" not in sys.modules, "nothing beside the model is kept for the next run"
+    # and the next run reads what is on disk, not what was loaded before
+    (folder / "walks.py").write_text(
+        "from systemap import Journey\n\n"
+        'JOURNEYS = (Journey(id="w2", label="another walk", steps=()),)\n',
+        encoding="utf-8",
+    )
+    _model, again = config.load_model(folder / "model.py")
+    assert [j.id for j in again.journeys] == ["w2"]

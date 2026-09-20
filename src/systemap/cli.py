@@ -47,6 +47,7 @@ from systemap import (
     explain,
     extract,
     figure,
+    history,
     jev,
     jev_cli,
     judgement,
@@ -55,6 +56,7 @@ from systemap import (
     place,
     scaffold,
     skill,
+    trend,
 )
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
@@ -625,6 +627,29 @@ def cmd_suggest(args: argparse.Namespace) -> int:
 # ---- describe --------------------------------------------------------------
 
 
+def cmd_history(args: argparse.Namespace) -> int:
+    """How the system got here: what moved between commits sampled back through time."""
+    p = _project(args)
+    if _empty(p):
+        return STALE
+    try:
+        shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
+    except delta.DeltaError as exc:
+        say(f"history: {exc}")
+        return STALE
+    if len(shas) < 2:
+        say(f"history: only {len(shas)} commit since {args.since}; ask for a longer time")
+        return OK
+    say(f"history: reading the facts at {len(shas)} commits; the first run is the slow one")
+    try:
+        windows = trend.walk(p.cfg, p.tree.top.model, shas)
+    except delta.DeltaError as exc:
+        say(f"history: {exc}")
+        return STALE
+    say(*trend.report(windows, p.cfg.root, args.since, args.every, args.top))
+    return OK
+
+
 def cmd_explain(args: argparse.Namespace) -> int:
     """One kind of line in full, or the kinds there are."""
     if not args.kind:
@@ -1053,6 +1078,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_root(s)
     s.set_defaults(func=cmd_describe)
+
+    s = sub.add_parser(
+        "history",
+        help="how the system got here: the tree sampled back through time, each sample read "
+        "in today's cards, and what moved between them; the largest windows first, each with "
+        "the commits that wrote the modules which appeared; the facts at a commit are cached "
+        "under .systemap/facts, so the second run is quick",
+    )
+    add_root(s)
+    s.add_argument(
+        "--since", default="1 year ago", help="how far back to sample (default: 1 year ago)"
+    )
+    s.add_argument("--every", type=int, default=14, help="days between samples (default: 14)")
+    s.add_argument("--top", type=int, default=5, help="how many windows to print (default: 5)")
+    s.add_argument("--ref", default="HEAD", help="the branch or commit to sample back from")
+    s.set_defaults(func=cmd_history)
 
     s = sub.add_parser(
         "explain",

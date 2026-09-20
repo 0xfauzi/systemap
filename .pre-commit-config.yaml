@@ -107,7 +107,7 @@ repos:
       # OCR misreads (the misread IS the measurement), and E40's manual results
       # quote source documents verbatim, truncated mid-word to fit a table.
       - id: codespell
-        exclude: '^scripts/precommit/|^experiments/(taste-spike|walking-skeleton)/out/|^fixtures/sources/|^experiments/(E[0-9]+|render-probes)/results.*\.json$|^experiments/E40/manual-results\.md$'
+        exclude: '^scripts/precommit/|^experiments/(taste-spike|walking-skeleton)/out/|^fixtures/sources/|^experiments/(E[0-9]+|render-probes)/results.*\.json$|^experiments/E40/manual-results\.md$|^bench/jev/(results|data)/'
 
   - repo: https://github.com/jendrikseipp/vulture
     rev: v2.16

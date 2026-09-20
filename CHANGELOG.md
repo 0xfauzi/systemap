@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- A model module may import modules beside it: its own directory is on the
+  path while it runs, and anything it imported is dropped afterwards, so the
+  next run reads what is on disk. A map that outgrew one file can keep its
+  journeys, or one region's cards, next to the model. systemap's own map does.
+
+- `systemap history --since --every` says how the system got here: one commit
+  sampled per window, the facts at each read out of git and cached, and every
+  sample read in today's cards. Each window names what moved and the commits
+  that wrote the modules which appeared. Measured on a year of mealie before
+  it was built: 25 samples in 29 seconds cold and under a second warm against
+  a five minute bar, and five of the five largest windows named a change a
+  person can find in that window's commits, against a bar of three
+  (`bench/jev/history_eval.py`).
+
 - `check`, `judgement`, `delta` and `audit` teach while they refuse: under
   the first line of each kind, two rows say why it matters to your view of
   the system and what to do about it. The lines themselves are unchanged, so

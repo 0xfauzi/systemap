@@ -64,12 +64,14 @@ nothing would be worse than a refusal.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 import subprocess
 import sys
 import tomllib
 import types
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -732,6 +734,27 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     return tuple(out)
 
 
+@contextlib.contextmanager
+def _beside(folder: Path) -> Iterator[None]:
+    """The model's own directory on the path while it runs, and nothing kept after.
+
+    A map outgrows one file, and `import journeys` beside the model is how a
+    person would split it. Afterwards the directory comes off the path and
+    what it imported is dropped, so the next run reads what is on disk.
+    """
+    sys.path.insert(0, str(folder))
+    held = set(sys.modules)
+    try:
+        yield
+    finally:
+        with contextlib.suppress(ValueError):
+            sys.path.remove(str(folder))
+        for name in set(sys.modules) - held:
+            found = getattr(sys.modules[name], "__file__", None) or ""
+            if found and Path(found).resolve().parent == folder:
+                del sys.modules[name]
+
+
 def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     """Import the model module by path and return its MODEL and MEANING.
 
@@ -741,13 +764,12 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     the fix: the starter imports every schema name, and an agent that
     trims the import and then uses `Layer` gets one line, not a traceback.
 
-    The source is compiled and run directly rather than through the
-    import system's loader: that loader keeps bytecode under
-    `__pycache__` keyed by the source's size and whole-second mtime, so an
-    edit that changes neither (a moved card, one name for another of the
-    same length, within the same second as the last run) would be read
-    back as the old model. An agent runs the check after every edit;
-    the model it checks must be the one on disk.
+    The source is compiled and run directly rather than through the import
+    system's loader: that loader keeps bytecode keyed by the source's size
+    and whole-second mtime, so an edit that changes neither (one name for
+    another of the same length, within the same second) would be read back
+    as the old model. An agent runs the check after every edit; the model it
+    checks must be the one on disk.
     """
     if not path.is_file():
         raise ConfigError(f"model module not found: {path}")
@@ -756,9 +778,11 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     module = types.ModuleType(name)
     module.__file__ = str(path)
     sys.modules[name] = module
+    beside = path.parent.resolve()
     try:
         source = path.read_text(encoding="utf-8")
-        exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - the model is code
+        with _beside(beside):
+            exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - it is code
     except (ImportError, NameError) as exc:
         raise ConfigError(
             f"{label} failed to import: {exc}; add the missing name to the import from systemap"

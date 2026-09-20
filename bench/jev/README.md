@@ -240,3 +240,40 @@ directory (15 points at the shipped cut against the 10 points the audit
 thresholds held to), and the holdout is one repository, so the honest reading
 is that the projection is better on some systems than others. It names two
 cards; a maintainer can check two cards.
+
+## A year of the system, read in today's cards (2026-09-20)
+
+`systemap history` samples the tree back through time and says what moved.
+Two bars, set before it was built: 26 samples over a year of mealie must
+take at most five minutes with the facts cached, and of the five largest
+windows at least three must name a change a person can find in that window's
+commits.
+
+    uv run --project bench/jev python bench/jev/history_eval.py --repo mealie
+
+| repository | samples | cold | warm | windows that moved |
+|---|---|---|---|---|
+| mealie | 25 | 29.3s | 0.3s | 24 of 24 |
+| rich | 8 | 5.8s | 0.0s | 1 of 7 |
+
+Both pass the time bar with room to spare, because the facts at a commit
+never change and are cached under `.systemap/facts/`.
+
+The five largest mealie windows, and the commit each led back to:
+
+| what the trend said | the work behind it |
+|---|---|
+| ImportWorkflow +17 modules, 5 new crossing imports | feat: Unified AI recipe page (#8043) |
+| ways in +7, AiService -> Repositories | feat: In-app AI Provider Configuration (#7650) |
+| IngredientParser +1, four crossings into Translations | feat: Unit standardization / conversion (#7121) |
+| QueryFilter +4 | feat: Query relative dates (#6984) |
+| Translations +3 | feat: Customize Ingredient Plural Handling (#7057) |
+
+Five of five, against a bar of three. What made this checkable was naming
+the commits that wrote the modules which appeared, rather than the commits
+of the window: a fortnight of mealie is mostly dependency bumps, and a trend
+read against those looks like noise whether it is real or not. `systemap
+history` prints those same commits under each window for the same reason.
+
+rich's year is quiet: one window moved, and it was the unicode width tables
+being regenerated. A quiet year printing almost nothing is the right answer.
