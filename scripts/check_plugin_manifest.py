@@ -69,7 +69,12 @@ def main(argv: list[str]) -> int:
         data = json.loads(done.stdout)
     except ValueError:
         print(done.stdout or done.stderr, file=sys.stderr)
-        print(f"could not read the validator's report for {target}", file=sys.stderr)
+        print(
+            f"could not read the validator's report for {target}. "
+            "It needs a Claude Code CLI with `plugin validate --json`, which "
+            "2.1.246 does not have and 2.1.278 does.",
+            file=sys.stderr,
+        )
         return 1
     found = problems(data)
     excused = any(allowed(r) and r.get("warnings") for r in (data.get("contents") or []))

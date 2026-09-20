@@ -260,7 +260,7 @@ jobs:
       - name: Install the Claude Code CLI
         # A global tool has no lockfile to install from; the version is the
         # one the plugin was validated with locally, bumped on purpose.
-        run: npm install -g @anthropic-ai/claude-code@2.1.246 # zizmor: ignore[adhoc-packages]
+        run: npm install -g @anthropic-ai/claude-code@2.1.278 # zizmor: ignore[adhoc-packages]
 
       - name: plugin manifest
         # Strict, through a script that allows one warning and no others:
