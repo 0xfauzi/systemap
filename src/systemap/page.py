@@ -419,19 +419,31 @@ def build(
         "</i>measures</span>"
     )
     o.append("</div>")
+    # The first thing a new reader needs is the vocabulary, then the marks,
+    # then the controls. Each is its own paragraph so none of them is a wall.
     o.append(
-        '<p class="key">Every card is code in the tree today: the check refuses a component '
-        "whose modules or entry are not in the facts. A dashed card is an actor outside the "
-        "code. A dot in a card's top corner marks a note; the panel shows it. Every line "
-        "carries what it moves and is coloured by the layer it belongs to. A dashed line "
-        "is a declared flow: no import in the facts joins its two ends; the panel says "
-        "of every flow whether it is observed, external or declared. A card standing on "
-        "a second card opens a map of its own; the panel shows a preview of it and a button "
-        "that opens it in place, over this page. "
-        "Click a component; press Escape to clear it and return the view; the arrow keys switch "
-        "readings, or step a journey while one is on; double-click a region's name to frame "
-        "the region. Text is drawn at 11px "
-        "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"
+        '<p class="key"><b>What you are looking at.</b> A <b>card</b> is one part of this '
+        "system: something a reader would point at and name. Every card is code in the tree "
+        "today, and the check refuses one whose modules or entry are not in the facts. A "
+        "<b>line</b> is something moving from one part to another, labelled with what it "
+        "carries. A <b>reading</b> colours the lines that answer one question, so the same map "
+        "can be looked at several ways. A <b>journey</b> walks the map one step at a time, the "
+        "way a run does.</p>"
+    )
+    o.append(
+        '<p class="key"><b>What the marks mean.</b> A dashed card is an actor outside the code. '
+        "A dot in a card's top corner marks a note, which the panel shows. A dashed line is a "
+        "declared flow: no import in the facts joins its two ends, so the map is claiming it "
+        "rather than observing it; the panel says of every flow whether it is observed, "
+        "external or declared. A card standing on a second card holds a map of its own, and "
+        "the panel opens it in place over this page.</p>"
+    )
+    o.append(
+        '<p class="key"><b>How to drive it.</b> Click a component to light what it reaches. '
+        "Escape clears the selection and returns the view. The arrow keys switch readings, or "
+        "step a journey while one is on. Double-click a region's name to frame that region. "
+        "Text is drawn at 11px and never smaller: at Fit it is scaled down, and zoom brings "
+        "it back.</p>"
     )
     o.append("</section>")
 

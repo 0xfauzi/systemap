@@ -1,5 +1,11 @@
 """The `systemap` command: what the agent runs.
 
+Each command answers one question about the system. `check` asks whether the
+map still matches the code. `judgement` asks what only a person can decide.
+`delta` asks what a change did to it, and `history` what a year did. Every
+one of them prints its findings as lines a person can quote back, and under
+the first line of each kind, why it matters and what to do.
+
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
     systemap facts [--modules ...]     read the facts back, one view at a time (never the JSON)
@@ -13,6 +19,10 @@
     systemap delta --base REF          what a change did to the map, each line with its fix
     systemap suggest                   a first grouping from the facts, to argue with
     systemap describe                  what a look at the picture would tell you, in numbers
+    systemap journeys                  a walk written for a way in that has none
+    systemap plan "<task>"             the cards a piece of work will most likely change
+    systemap history --since WHEN      what moved over a year, and the work that moved it
+    systemap explain KIND              one kind of line: what it means, why, what to do
     systemap serve [--port N]          serve the output directory over HTTP, print the URL
     systemap skill [--dir PATH|--print] reinstall the skill directory, or print SKILL.md
 
