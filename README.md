@@ -152,13 +152,16 @@ Gateway is a card. `implemented_by` is the list of modules a card claims, and
 `entry` is the one function it tells a newcomer to start reading at.
 
 The workflow `init` writes posts exactly that as one comment on the pull
-request and keeps it up to date as you push. So review starts with what the change
-did to the parts and their connections, rather than with four hundred lines of
-diff, and CI fails while anything on that list still needs a decision.
+request and keeps it up to date as you push. So review starts with what the
+change did to the parts and their connections, rather than with four hundred
+lines of diff, and CI fails while anything on that list still needs a
+decision.
 
-Your agent then fixes those lines instead of redrawing the whole map. On three
-real merged pull requests that path cost 2.31, 4.39 and 2.50 dollars, against
-between 3 and 26 dollars to map a repository from scratch.
+Your agent then fixes those lines instead of redrawing the whole map. On
+three merged pull requests of one 111-module repository, that path cost 2.31,
+4.39 and 2.50 dollars, against between 3 and 26 dollars to map a repository
+from scratch. Three pull requests of one repository is a small sample, and
+[docs/benchmarks.md](docs/benchmarks.md) has each run.
 
 ## What else can it tell you?
 
