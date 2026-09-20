@@ -278,26 +278,61 @@ history` prints those same commits under each window for the same reason.
 rich's year is quiet: one window moved, and it was the unicode width tables
 being regenerated. A quiet year printing almost nothing is the right answer.
 
-## What changed for the people using it: not built (2026-09-20)
+## What changed for the people using it: measured, and not built (2026-09-20)
 
 The plan was a section in `delta`'s pull-request comment: for each journey
 step through a card the change touched, whether the step's sentence still
 holds, and an agent's rewrite of the ones that do not. It is not built, and
-the reason is that its gate cannot be met honestly.
+now there is a measurement rather than an argument.
 
-The drift question was measured once already (test 7, `drift.jsonl`): asked
-whether a card's `does` still described it after a diff, Jev scored AUC 0.957
-against labels written by a coding agent. That is agreement between two
-models, not truth, and the maintainer declined to label the set by hand.
+**The set.** Fifteen journey steps from the bench maps, taken from the real
+situation the feature is for: a map drawn on 2026-08-23/26, and the code at
+each repository's origin on 2026-09-20. A step qualified when the files
+behind the two cards its edge joins had moved by at least twenty lines; the
+largest few per repository were kept, at most four each. kstrl, paperless,
+mealie and poetry contributed; rich and httpie contributed nothing, because
+nothing behind their steps changed. `bench/jev/label_set.py` builds it into
+`data/label-drift-cases.json`.
 
-The proxy the plan allowed was a planted test: swap a step's sentence with
-another step's and see whether the answer flips. Measured or not, it answers
-a different question. It would show that Jev can tell a step's own sentence
-from a foreign one given the code, which is close to the `jev sentence`
-check that already ships. It would not show that Jev notices when a real
-change makes a true sentence false, which is the whole claim of the feature.
+**The labels.** Written by reading the code at both commits, not by reading
+the diff excerpt: fifteen of fifteen sentences still hold. Each label carries
+the reason in the file. Examples: paperless deleted a 610-line query
+translation module, and "Tantivy returns ranked hits with the matching text
+highlighted" is still exactly what the backend does; mealie removed 194 lines
+from the recipe repository, and they were `find_suggested_recipes`, while the
+group and household stamping the step names is untouched; kstrl added 3,584
+lines to its verifier, and `run_mechanical_verification` still says "All
+checks run even if earlier ones fail".
 
-So nothing ships. A section that tells a reader "this is what changed for
-your users" has to be right more often than not, and there is currently no
-measurement that says whether it would be. About fifteen hand-labelled
-examples, drawn from real pull requests, would settle it.
+That is the first finding, and it is about journeys rather than about Jev: a
+step sentence is written at the level of roles ("the controller hands the
+address to the scraper"), and a month of real change underneath does not
+reach that level. The labels are the author's, not a maintainer's, so the
+figure is 15 of 15 as read by a model that looked at the code.
+
+**What Jev said.** Asked the same question about the same fifteen, with the
+step, both cards, the commit subjects, the file list and the capped diff:
+
+    uv run --project bench/jev python bench/jev/drift_steps.py
+
+| where delta would draw the line | steps it would report | how many would be wrong |
+|---|---|---|
+| below 0.5 | 2 of 15 | 2 |
+| below 0.6 | 6 of 15 | 6 |
+| below 0.7 | 12 of 15 | 12 |
+| below 0.8 | 15 of 15 | 15 |
+
+Jev's answers run from 0.43 to 0.75. Nothing is confidently anything, and
+because every case is a negative, every alarm at every threshold is a false
+one. There is no threshold that buys a reader anything here: the cautious end
+reports two wrong lines per fifteen steps, and the generous end reports
+twelve.
+
+**So it is not built.** A pull-request comment that says "this is what
+changed for the people using it" would, on this month's evidence, have told
+four maintainers something false and nothing true. Two caveats, because both
+would have to be answered before anyone tries again: the diff Jev sees is
+capped, and a fuller or better-selected diff might sharpen it; and a set with
+no positives in it measures false alarms only, so nothing here says whether
+real drift would be caught. What it does say is that real drift is rare
+enough that the question may not be worth asking per pull request.
