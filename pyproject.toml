@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "1.1.0"
+version = "1.2.0"
 description = "The map your coding agent draws of your system: facts read out of the code, meaning authored by the agent, a checker that refuses an incomplete or stale map."
 readme = "README.md"
 license = "MIT"
@@ -79,4 +79,6 @@ paths = ['src']
 # closest-match suggestion ("closest: read", "unknown key: nam"). Correcting
 # them would break the tests. nd is a Dijkstra variable in route.py.
 ignore-words-list = "nam,nd,raed,recrod"
-skip = "uv.lock,*/package-lock.json,.git"
+# bench/jev/results holds captured commit subjects and model answers: another
+# project's typo in a commit message is evidence, not something to correct.
+skip = "uv.lock,*/package-lock.json,.git,bench/jev/results,bench/jev/data"

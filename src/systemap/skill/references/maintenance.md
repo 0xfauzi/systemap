@@ -62,6 +62,26 @@ An agent given a mapped repository after a change is told:
 > The code changed. Update the map with systemap: follow the systemap
 > skill's maintenance path, with base <ref>.
 
+## Before the work: project it onto the map
+
+With `TYPESAFE_API_KEY` set, say what you are about to do before you do it:
+
+    systemap plan "make the reader stream its input instead of buffering it"
+
+Jev reads the task against every card's purpose and names the cards the work
+will most likely change; around each, the map prints the flows, walks and
+rules it sits in. Read those before writing code: a rule that governs the
+card, or a journey that passes through it, is what the work usually breaks.
+The projection is written under `.systemap/plans/`, and when the work is
+done, `systemap plan --check <id> --base <ref>` names every card that changed
+and was not projected. That is not a failure; it is where the system did
+something the plan did not see, and it is worth a sentence in the pull
+request.
+
+The cut is measured: over 80 real bug reports the projection covered 86% of
+the cards their fix touched while naming 2.1 cards, and 71% on a repository
+no threshold was chosen on (`bench/jev`).
+
 ## In a pull request
 
 The workflow `systemap init` writes runs `delta --base <the base commit>

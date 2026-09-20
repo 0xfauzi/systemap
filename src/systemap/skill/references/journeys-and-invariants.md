@@ -9,21 +9,44 @@ repository already states, and both cite where.
 `systemap extract` records every place a run can start, under
 `entry_points` in the facts file:
 
-- console scripts from `[project.scripts]` in `pyproject.toml`
+- console scripts from `[project.scripts]` in `pyproject.toml`, Poetry's
+  `[tool.poetry.scripts]`, and the plugin hooks under `[project.entry-points]`
 - `__main__` modules
 - `main` functions
 - argparse subcommands, where `add_parser("name", ...)` is written with a
   literal name
 - the public functions of the package root
+- routes a framework registers: `@app.get("/x")` and its relatives, Flask's
+  `@app.route`, and Django's `urlpatterns`
+- commands: click and typer's `@cli.command()`, cleo's command classes, and
+  Django's `management/commands/*`
+- background tasks: `@shared_task` and `@app.task`
 
 Write one journey per entry point that matters, tracing the components it
 passes through: the actor that starts it, the component that takes the
 input, each hand-off, and where the result lands. Each `Step` names what
 acts, what measures (or `()`), the flow it traces, and one sentence. Name
-the entry point in the journey's label or a step's sentence, as a whole
-word (`pkg init`, `render`, `main`): that is how `systemap judgement`
-knows the entry point has a journey. A console script's `main` and a
-`__main__` that imports it count as the script.
+the way in in `starts`, exactly as `systemap facts --entry-points`
+prints its name (`starts="GET /recipes"`): that is how `systemap
+judgement` knows the way in has a journey. Naming it in the label or a
+step's sentence as a whole word still counts, for maps written before
+`starts` existed. A console script's `main` and a `__main__` that imports
+it count as the script.
+
+A card that takes a crowd of ways in of one kind, a hundred routes or a
+dozen subcommands, gets one journey for the crowd rather than one each:
+name the card in `starts` (`starts="HttpApi"`), and every way in that
+card claims counts as walked. `systemap judgement` asks about a crowd as
+one line for the same reason.
+
+`systemap journeys` writes one for you, when `[agent] command` names a
+coding agent: the agent reads the code from that way in, or from two or
+three of a crowd, and answers with the walk, and systemap refuses a step
+that traces a flow the map does not draw or names a card that is not
+there. What it writes is marked
+`drafted=True` and prints as a `drafted journey` judgement line. Read each
+step against the code, fix what is wrong, then remove the mark. A drafted
+journey nobody has read is not knowledge of the system.
 
 Not every entry point matters. A debugging hook, a public function that
 only tests call, a subcommand that prints a version: leave those without

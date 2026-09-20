@@ -915,6 +915,10 @@ def render(
         {
             "id": j.id,
             "label": j.label,
+            # Where the walk begins, as the facts name that way in, and
+            # whether it is still a draft nobody has read against the code.
+            "starts": j.starts,
+            "drafted": j.drafted,
             "steps": [
                 {
                     "acts": list(s.acts),

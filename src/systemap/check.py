@@ -65,7 +65,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import extract, figure, nest, page
+from systemap import explain, extract, figure, nest, page
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
@@ -798,20 +798,42 @@ def coverage_line(cov: Coverage) -> str:
 
 
 def report(
-    model: Model, result: Result, model_file: str = "the model", prefix: str = ""
+    model: Model,
+    result: Result,
+    model_file: str = "the model",
+    prefix: str = "",
+    teach: bool = True,
 ) -> list[str]:
     """The lines the CLI prints for one check run: each failing rule with
     its findings and the fix under them. `prefix` is what a sub-map's
-    lines carry in front, its id and a colon."""
-    return [prefix + line for line in _report(model, result, model_file)]
+    lines carry in front, its id and a colon.
+
+    `teach` adds why a failing rule matters and what to do, from
+    `systemap.explain`, under the rule's own line. A rule that passed is
+    one line and needs no teaching; `--brief` turns it off everywhere."""
+    lines = _report(model, result, model_file)
+    return [prefix + line for line in (_taught(lines) if teach else lines)]
 
 
-def report_stale(lines: list[str]) -> list[str]:
+def _taught(lines: list[str]) -> list[str]:
+    """Each failing group with its lesson under it. A group has failed when
+    findings are listed under it, which is how this report is written."""
+    out: list[str] = []
+    for k, line in enumerate(lines):
+        out.append(line)
+        failed = k + 1 < len(lines) and lines[k + 1].startswith(" ")
+        if failed:
+            out += explain.rows(line.split(":")[0])
+    return out
+
+
+def report_stale(lines: list[str], teach: bool = True) -> list[str]:
     """The stale group, printed once for the whole tree after every map's rules."""
     if not lines:
         return []
     return [
         f"stale: {_plural(len(lines), 'problem')}",
+        *(explain.rows("stale") if teach else []),
         *(f"  {line}" for line in lines),
         "  fix: run: systemap refresh, then commit the output directory",
     ]

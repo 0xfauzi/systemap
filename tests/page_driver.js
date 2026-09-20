@@ -614,6 +614,12 @@ function keyboard(page) {
     const count = doc.getElementById('jcount');
     j.started = count.textContent;
     j.stripHidden = doc.getElementById('strip').hidden;
+    // The line under the sentence: where the walk starts, what backs this
+    // step in the code, and whether an agent wrote it and nobody has read it.
+    j.foot = doc.getElementById('stripfoot').textContent;
+    j.stepEvidence = A.edges[journeys[0].steps[0].edge].evidence_says;
+    j.starts = journeys[0].starts || '';
+    j.drafted = journeys[0].drafted === true;
     key('ArrowRight'); j.afterRight = count.textContent;
     j.layerUnchanged = A.state.layer === report.layers[0];
     key('ArrowLeft'); j.afterLeft = count.textContent;

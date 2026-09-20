@@ -64,12 +64,14 @@ nothing would be worse than a refusal.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 import subprocess
 import sys
 import tomllib
 import types
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -101,10 +103,12 @@ KNOWN_KEYS = {
     "judgement",
     "flows",
     "jev",
+    "agent",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
 JEV_KEYS = {"model", "cache", "enabled"}
+AGENT_KEYS = {"command", "cache", "timeout"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
@@ -118,6 +122,8 @@ LINE_KINDS = (
     "no sentence",
     "thin layer",
     "entry point",
+    "journey start",
+    "drafted journey",
     "crossing import",
     "declared flow",
     "model sdk",
@@ -217,6 +223,11 @@ class Config:
     jev_cache: str = ".systemap/jev-cache.json"
     # false: delta does not ask Jev on its own, and no command says what Jev would add
     jev_enabled: bool = True
+    # The command that writes the prose systemap asks for; none by default, and
+    # then the commands that would ask print their structure and say so.
+    agent_command: str = ""
+    agent_cache: str = ".systemap/agent-cache.json"
+    agent_timeout: float = 300.0
     source: str = ""
 
     @property
@@ -230,6 +241,10 @@ class Config:
     @property
     def jev_cache_path(self) -> Path:
         return self.root / self.jev_cache
+
+    @property
+    def agent_cache_path(self) -> Path:
+        return self.root / self.agent_cache
 
     @property
     def facts_path(self) -> Path:
@@ -503,6 +518,7 @@ def load(root: Path) -> Config:
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
         **_jev(raw, where),
+        **_agent(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
         package_roots=package_roots,
@@ -594,6 +610,25 @@ def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
     if not isinstance(enabled, bool):
         raise ConfigError(f"{where}: jev.enabled must be true or false")
     return {"jev_model": model, "jev_cache": cache, "jev_enabled": enabled}
+
+
+def _agent(raw: dict[str, Any], where: str) -> dict[str, Any]:
+    """The `[agent]` table: the command that writes prose, where its answers are
+    cached, and how long it may take."""
+    agent = raw.get("agent", {})
+    if not isinstance(agent, dict):
+        raise ConfigError(f"{where}: agent must be a table")
+    bad = sorted(set(agent) - AGENT_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: agent has unknown key: {', '.join(bad)}")
+    command = _str(agent, "command", "", f"{where}: agent").strip()
+    cache = _str(agent, "cache", ".systemap/agent-cache.json", f"{where}: agent").strip()
+    timeout = agent.get("timeout", 300.0)
+    if not isinstance(timeout, int | float) or isinstance(timeout, bool) or timeout <= 0:
+        raise ConfigError(f"{where}: agent.timeout must be a number of seconds above zero")
+    if not cache:
+        raise ConfigError(f"{where}: agent.cache must not be empty")
+    return {"agent_command": command, "agent_cache": cache, "agent_timeout": float(timeout)}
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
@@ -699,6 +734,27 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     return tuple(out)
 
 
+@contextlib.contextmanager
+def _beside(folder: Path) -> Iterator[None]:
+    """The model's own directory on the path while it runs, and nothing kept after.
+
+    A map outgrows one file, and `import journeys` beside the model is how a
+    person would split it. Afterwards the directory comes off the path and
+    what it imported is dropped, so the next run reads what is on disk.
+    """
+    sys.path.insert(0, str(folder))
+    held = set(sys.modules)
+    try:
+        yield
+    finally:
+        with contextlib.suppress(ValueError):
+            sys.path.remove(str(folder))
+        for name in set(sys.modules) - held:
+            found = getattr(sys.modules[name], "__file__", None) or ""
+            if found and Path(found).resolve().parent == folder:
+                del sys.modules[name]
+
+
 def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     """Import the model module by path and return its MODEL and MEANING.
 
@@ -708,13 +764,12 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     the fix: the starter imports every schema name, and an agent that
     trims the import and then uses `Layer` gets one line, not a traceback.
 
-    The source is compiled and run directly rather than through the
-    import system's loader: that loader keeps bytecode under
-    `__pycache__` keyed by the source's size and whole-second mtime, so an
-    edit that changes neither (a moved card, one name for another of the
-    same length, within the same second as the last run) would be read
-    back as the old model. An agent runs the check after every edit;
-    the model it checks must be the one on disk.
+    The source is compiled and run directly rather than through the import
+    system's loader: that loader keeps bytecode keyed by the source's size
+    and whole-second mtime, so an edit that changes neither (one name for
+    another of the same length, within the same second) would be read back
+    as the old model. An agent runs the check after every edit; the model it
+    checks must be the one on disk.
     """
     if not path.is_file():
         raise ConfigError(f"model module not found: {path}")
@@ -723,9 +778,11 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     module = types.ModuleType(name)
     module.__file__ = str(path)
     sys.modules[name] = module
+    beside = path.parent.resolve()
     try:
         source = path.read_text(encoding="utf-8")
-        exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - the model is code
+        with _beside(beside):
+            exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - it is code
     except (ImportError, NameError) as exc:
         raise ConfigError(
             f"{label} failed to import: {exc}; add the missing name to the import from systemap"

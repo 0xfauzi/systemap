@@ -48,6 +48,7 @@ interactive = false
 # every crossing import between two components.
 [judgement]
 answered = [
+    { item = "entry point systemap explain (subcommand) has no journey (component CLI)", reason = "explain prints a constant: the lesson for one kind of line. Nothing is read, nothing is drawn, no part of the system is touched, so there is no walk to trace" },
     { kind = "single module", reason = "a small package with one module per part: each card is a thing a reader would point at and name, and folding two of them would draw one card for two jobs" },
     { crossing = ["CLI", "Model"], reason = "the CLI imports the schema for type names, the version, and the placement check it runs before it renders; MODEL and MEANING reach the commands through Config (the settings edge), which is where the map draws them" },
     { crossing = ["Config", "Model"], reason = "load_model imports the schema only to check that MODEL and MEANING are the right types; the model flows on to the commands as settings, not back into the configuration" },
@@ -62,5 +63,9 @@ answered = [
     { item = "jev flow: Config -> Figures ('figures table'): the code where they meet may not carry it", reason = "config parses [[figures]] into Figure records and refresh hands each one to figure.render; the figures module imports the Figure type only, so the lines Jev saw show the type and not the table travelling" },
     { item = "jev flow: FactsExtractor -> SecondOpinion ('map.json'): the code where they meet may not carry it", reason = "jev_cli reads the facts through extract.read_facts(cfg.facts_path), the map.json extract wrote; the lines Jev saw name read_facts and is_empty_marker, not the file" },
     { item = "jev flow: Scaffold -> Model ('starter'): the code where they meet may not carry it", reason = "the scaffold writes the starter map/model.py as a file, once, and never imports the schema to do it; the artifact is the file" },
+    { items = [
+        "jev mis-fold: SecondOpinion claims systemap.journeys, which reads like Skill",
+        "jev mis-fold: SecondOpinion claims systemap.plan, which reads like none of the cards",
+    ], reason = "SecondOpinion is the card for asking something outside the code and checking the answer against the map: Jev for a plan's cards, a coding agent for a walk. Both modules do exactly that, and both hand what comes back to the check before it is written. Skill is the procedure a person's agent follows, which neither module reads or writes" },
     { item = "jev governs: invariant 5 may govern Scaffold, which it does not name", reason = "the starter's region boxes are the hand-written positions the rule allows, written once and never overwritten; the scaffold never moves a card" },
 ]

@@ -2,6 +2,106 @@
 
 ## Unreleased
 
+## 1.2.0 - 2026-09-20
+
+The commands that read the map rather than draw it: a walk an agent writes, a
+plan checked against the work, a year of the system, and every line teaching
+what it means. Two features were measured and not built, and their runs are in
+`bench/jev/README.md` with the numbers.
+
+- `delta` ends with the cards next to the change: the ones a flow joins to the
+  card holding most of what changed. It is context, not a claim about what
+  else broke. Measured over 359 merged pull requests before it was built: 6
+  cards at the median, holding a card the change really touched in 72% of
+  them, where following that card's imports gives 20 cards for 77%. Nothing is
+  named when the card is joined to more than a third of the map, which quiets
+  18% of pull requests and costs 3 points (`bench/jev/near.py`).
+- `systemap journeys` writes one walk for a whole crowd where a card takes
+  more than a few ways in of one kind, rather than one walk each. That walk
+  names the card in `starts`, and every way in the card claims counts as
+  walked. Covering mealie is two agent runs rather than sixty-five. Measured
+  before it was wired in: eight of nine crowds over mealie, paperless-ngx and
+  poetry came back as a walk the map can hold, against a bar of seven in ten
+  (`bench/jev/group_journeys.py`).
+- `systemap history --by-card` was measured and not built. On four
+  repositories, each of the three fastest-growing cards had to trace to a
+  commit a person can name as a feature, on at least three of them; two
+  passed. Where a system grew the aggregate named the work, and where it did
+  not there was nothing to name (`bench/jev/by_card.py`).
+- `systemap --help` lists one sentence per command. What each command does in
+  full, and what its options do, moved into that command's own `--help`, and
+  `docs/reference.md` now describes each command in short sentences rather
+  than in one long table cell.
+
+- A model module may import modules beside it: its own directory is on the
+  path while it runs, and anything it imported is dropped afterwards, so the
+  next run reads what is on disk. A map that outgrew one file can keep its
+  journeys, or one region's cards, next to the model. systemap's own map does.
+
+- `systemap history --since --every` says how the system got here: one commit
+  sampled per window, the facts at each read out of git and cached, and every
+  sample read in today's cards. Each window names what moved and the commits
+  that wrote the modules which appeared. Measured on a year of mealie before
+  it was built: 25 samples in 29 seconds cold and under a second warm against
+  a five minute bar, and five of the five largest windows named a change a
+  person can find in that window's commits, against a bar of three
+  (`bench/jev/history_eval.py`).
+
+- `check`, `judgement`, `delta` and `audit` teach while they refuse: under
+  the first line of each kind, two rows say why it matters to your view of
+  the system and what to do about it. The lines themselves are unchanged, so
+  answers written against them keep working, and each kind is taught once per
+  report rather than once per line. `--brief` leaves the rows out.
+- `systemap explain "<kind>"` prints one kind in full: what it means, why it
+  matters, what to do. With no kind it lists every kind systemap prints.
+- The pull-request comment carries the same teaching once per kind, folded
+  into a details block under the lines.
+- `AGENTS.md` says how systemap's own words are written, and how a feature is
+  decided: state the number before building, and record what failed.
+
+- `systemap plan "<task>"` names the cards a piece of work will most likely
+  change, before it is done, and prints what each sits in: the flows, the
+  walks and the rules around it. `--check <id> --base <ref>` compares that
+  projection with the cards the code actually changed and names every card
+  that changed outside the plan. The cut is measured: over 80 real bug
+  reports with the cards their fix touched, it covered 86% of them while
+  naming 2.1 cards; on a repository no threshold was chosen on, 71% while
+  naming 2.1. The bar, set before the run, was 70% with at most 2 extra
+  cards (`bench/jev/plan_eval.py`).
+- `systemap ripple` was measured and not built. From the card holding the
+  file a pull request changed most, no walk over the map found the other
+  cards of that pull request within 10 points of what following the imports
+  found, at half the size. Five walks were tried over 366 pull requests
+  (`bench/jev/ripple.py`).
+
+- `systemap journeys` writes a walk through the system for a way in that no
+  journey starts from. The agent named under `[agent] command` reads the code
+  from that way in and answers with the cards a run passes through and a
+  sentence each; systemap checks every step against the map and refuses one
+  that traces a flow the map does not draw or names a card that is not there.
+  What holds is written into the model marked `drafted=True`, and `judgement`
+  prints a `drafted journey` line until the mark is removed. With no command
+  set, nothing runs and the ways in with no walk are listed instead.
+- The walk was first proposed from the imports and measured against the
+  journeys people wrote: the cards overlapped by 0.28 where the bar was 0.60,
+  because the module behind a command line imports the whole system. That
+  proposal is not shipped; `bench/jev/propose.py` and `paths.py` keep it.
+- `systemap extract` finds the ways in a framework registers: routes
+  (FastAPI, Flask, Django's `urlpatterns`), commands (click, typer, cleo,
+  Django's management commands), tasks (Celery), Poetry scripts and plugin
+  hooks. A hand-check of 30 of the new records across the seven maps found 29
+  real. `judgement` asks for a journey from each, grouped into one line per
+  card once a card takes four or more of a kind.
+- `systemap describe` ends with the journeys: each walk's steps, where it
+  starts, the steps no import backs ("on trust"), whether an agent wrote it
+  and nobody has read it, and how many ways into the system a journey walks
+  from. The page says the same under each step of a walk.
+- Which ways in count as walked is now decided in one place, so `judgement`,
+  `describe` and `journeys` cannot disagree: a journey covers a way in by
+  naming it in `starts`, or by naming it as a whole word as before.
+- A `Journey` can name the way in it starts from (`starts="GET /recipes"`),
+  which `judgement` reads: a journey covers that way in, and a `journey start`
+  line says when the facts have no such way in.
 - `delta` asks Jev on its own when `TYPESAFE_API_KEY` is set: modules renamed
   and rewritten at once are paired, and each unclaimed module gets the card it
   reads like. `--no-jev` sends nothing; `--jev` asks and says why it cannot.
@@ -16,7 +116,10 @@
 - `check` and `judgement` still never ask, and `suggest` keeps `--jev` as a
   flag: it saved nothing on the first map it was benchmarked on.
 
-## 1.1.0
+## 1.1.0 - not published
+
+Prepared, then overtaken before it was tagged. Everything below ships in
+1.2.0.
 
 A second opinion, opt-in. Everything below needs `TYPESAFE_API_KEY`; nothing
 is sent without it, `check` and `judgement` never call it, and no dependency

@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import nest
+from systemap import explain, nest
 from systemap.config import AUDIT_KINDS, Answer, Config
 from systemap.evidence import owners
 from systemap.extract import is_empty_marker
@@ -431,7 +431,15 @@ def apply(
     return open_lines, len(found) - len(open_lines), stale
 
 
-def report(open_lines: list[Line], answered: int, stale: list[str], usage: str) -> list[str]:
+def report(
+    open_lines: list[Line],
+    answered: int,
+    stale: list[str],
+    usage: str,
+    teach: bool = True,
+) -> list[str]:
+    """The lines the CLI prints. `teach` says why each kind matters and what
+    to do, once under the first line of that kind; `--brief` turns it off."""
     tail = (f", {answered} answered" if answered else "") + (
         f", {len(stale)} stale" if stale else ""
     )
@@ -440,12 +448,23 @@ def report(open_lines: list[Line], answered: int, stale: list[str], usage: str) 
     else:
         noun = "item" if len(open_lines) == 1 else "items"
         head = f"audit: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
-    out = [head]
+    out = [head, *_taught(open_lines, teach)]
+    out += [f"  stale answer: {s}" for s in stale]
+    out.append(usage)
+    return out
+
+
+def _taught(open_lines: list[Line], teach: bool) -> list[str]:
+    """Each line with what it stands for, and its kind taught once."""
+    out: list[str] = []
+    taught: set[str] = set()
     for line in open_lines:
         out.append(f"  {line.text}")
         out += [f"      {d}" for d in line.detail]
-    out += [f"  stale answer: {s}" for s in stale]
-    out.append(usage)
+        kind = _bare(line.text).split(": ", 1)[0]
+        if teach and kind not in taught:
+            taught.add(kind)
+            out += explain.rows(kind)
     return out
 
 

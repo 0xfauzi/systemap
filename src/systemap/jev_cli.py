@@ -12,9 +12,23 @@ import argparse
 import re
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
-from systemap import audit, config, extract, jev, moves, nest
+from systemap import (
+    agent,
+    audit,
+    config,
+    delta,
+    evidence,
+    extract,
+    history,
+    jev,
+    journeys,
+    moves,
+    nest,
+)
+from systemap import plan as plan_mod
 from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
@@ -128,7 +142,10 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     open_lines, answered, stale = audit.apply(found, cfg.judgement_answered, kinds)
     open_lines = [x for x in open_lines if audit._bare(x.text).split(": ", 1)[0] in kinds]
-    print(*audit.report(open_lines, answered, stale, client.usage.line()), sep="\n")
+    print(
+        *audit.report(open_lines, answered, stale, client.usage.line(), not args.brief),
+        sep="\n",
+    )
     return OK
 
 
@@ -214,6 +231,102 @@ def owner_suggestions(
         if line is not None:
             out.append(f"{line.text} ({'; '.join(line.detail)})")
     return out
+
+
+# ---- journeys: a walk written for a way in nothing walks from yet ------------------
+
+# How many walks one run writes without being asked for more: a maintainer
+# reads what comes back, and a dozen drafts at once is not reading.
+JOURNEY_CAP = 3
+
+
+def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None) -> int:
+    """Write a journey for a way into the system that no journey walks from."""
+    cfg = config.load(args.root_path)
+    facts = _facts(cfg)
+    if facts is None:
+        return STALE
+    top = nest.load(cfg).top
+    left = journeys.gather(top.model, top.meaning, facts)
+    if not left:
+        print("journeys: every way into the system already has a walk from it")
+        return OK
+    if args.dry_run or not agent.has_agent(cfg):
+        print(*_would_write(left, cfg), sep="\n")
+        return OK
+    return _write_journeys(cfg, top, facts, left[: args.limit], run_command)
+
+
+def _would_write(left: list[journeys.Group], cfg: config.Config) -> list[str]:
+    """What there is to write, and what it would take, without writing it.
+
+    A crowd of ways in of one kind into one card counts as one walk to write,
+    the way `systemap judgement` counts it as one line to answer.
+    """
+    total = sum(len(g.ways_in) for g in left)
+    ways, them = ("way", "it") if total == 1 else ("ways", "them")
+    head = f"journeys: {total} {ways} into the system with no walk from {them}"
+    if len(left) < total:
+        walks = "walk" if len(left) == 1 else "walks"
+        head += f", {len(left)} {walks} to write: a card's crowd is walked once"
+    out = [head + ":"]
+    out += [f"  {g.label}" for g in left[:20]]
+    if len(left) > 20:
+        out.append(f"  and {len(left) - 20} more")
+    if not agent.has_agent(cfg):
+        out.append(f"  {agent.NO_AGENT}")
+    return out
+
+
+def _write_journeys(
+    cfg: config.Config,
+    top: nest.Map,
+    facts: dict[str, Any],
+    take: list[journeys.Group],
+    run_command: agent.Run | None,
+) -> int:
+    """Ask the agent for each walk, check it, and write the ones that hold."""
+    try:
+        writer = agent.from_cfg(cfg, run_command)
+    except agent.AgentError as exc:
+        print(f"journeys: {exc}")
+        return STALE
+    source = top.path.read_text(encoding="utf-8")
+    written: list[str] = []
+    out: list[str] = []
+    for group in take:
+        try:
+            draft = journeys.write_one(writer, top.model, top.meaning, facts, group)
+        except agent.AgentError as exc:
+            out.append(f"journeys: {exc}")
+            break
+        label = group.label
+        if draft.journey is None:
+            out.append(f"journeys: no walk written for {label}")
+            out += [f"      {p}" for p in draft.problems]
+            continue
+        grown = journeys.add_to_source(source, draft.journey)
+        if grown is None:
+            out.append(f"journeys: {cfg.rel(top.path)} has no journeys to add to; paste this in:")
+            out += journeys.as_source(draft.journey)
+            continue
+        source = grown
+        written.append(draft.journey.id)
+        out.append(f"journeys: wrote {draft.journey.id} ({draft.journey.label}) for {label}")
+        out += [f"      {p}" for p in draft.problems]
+    if written:
+        top.path.write_text(source, encoding="utf-8")
+        out.append(f"  {len(written)} written into {cfg.rel(top.path)}, each marked drafted=True")
+        out.append("  read each one against the code, then remove the drafted line")
+        out.append("  run: systemap check && systemap judgement")
+    print(*out, sep="\n")
+    writer_usage(writer)
+    return OK
+
+
+def writer_usage(writer: agent.Agent) -> None:
+    if writer.usage.called or writer.usage.cached:
+        print(writer.usage.line(), file=sys.stderr)
 
 
 # ---- delta --jev: which new module a module that disappeared became ---------------
@@ -353,17 +466,135 @@ def run_or_explain(fn: Callable[[], list[str]], label: str) -> tuple[list[str], 
         return [f"{label}: {exc}"], STALE
 
 
+# ---- plan: the work projected onto the map, then checked against what happened ------
+
+
+def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
+    """The cards a piece of work will most likely change, and what each sits in."""
+    cfg = config.load(args.root_path)
+    if args.check:
+        return _check_plan(cfg, args)
+    text = sys.stdin.read() if args.task == "-" else (args.task or "")
+    if not text.strip():
+        print("plan: give the task in your own words, or - to read it from stdin")
+        return STALE
+    top = nest.load(cfg).top
+    try:
+        client = _client(cfg, send)
+        answer = client.ask([Ask("plan", _plan_state(cfg, text), _plan_question(top))])
+    except JevError as exc:
+        print(f"plan: {exc}")
+        return STALE
+    spread = answer["plan"]["where"].get("probabilities", {})
+    made = plan_mod.project(top.model, top.meaning, text.strip(), spread)
+    # A projection that names nothing is not written down: there would be
+    # nothing to check it against later.
+    where = plan_mod.save(cfg, made) if made.cards else None
+    print(*_plan_lines(made, cfg, where), sep="\n")
+    usage_to_stderr(client)
+    return OK
+
+
+def _plan_state(cfg: config.Config, text: str) -> dict[str, Any]:
+    return {"system": cfg.name, "task": text[: plan_mod.TEXT_CAP]}
+
+
+def _plan_question(top: nest.Map) -> dict[str, Any]:
+    return {
+        "where": {
+            "type": "choice",
+            "instructions": plan_mod.PLAN_Q,
+            "criteria": audit.owner_criteria(top.model, top.meaning),
+        }
+    }
+
+
+def _plan_lines(made: plan_mod.Projection, cfg: config.Config, where: Path | None) -> list[str]:
+    """The projection as a person reads it: each card, then what it sits in."""
+    if not made.cards:
+        return [
+            "plan: no card stands out for this work",
+            "  say what the work touches in the system's own words, or run: systemap triage",
+        ]
+    out = [f"plan {made.id}: {len(made.cards)} cards this work will most likely change"]
+    for one in made.around:
+        out.append(f"  {one.card} ({made.weights.get(one.card, 0):.2f})")
+        out += _some("flow", one.flows)
+        out += _some("walk", one.journeys)
+        out += _some("rule", one.rules)
+    out.append(f"  written to {cfg.rel(where)}" if where else "  not written down")
+    out.append(f"  after the work: systemap plan --check {made.id} --base <ref>")
+    return out
+
+
+# How much of a card's surroundings one plan prints. A hub card sits on a
+# dozen flows, and a list that long is read as noise rather than as context.
+AROUND_CAP = 6
+
+
+def _some(word: str, found: tuple[str, ...]) -> list[str]:
+    """A card's surroundings, cut where a reader stops reading."""
+    out = [f"      {word}: {x}" for x in found[:AROUND_CAP]]
+    if len(found) > AROUND_CAP:
+        out.append(f"      {word}: and {len(found) - AROUND_CAP} more")
+    return out
+
+
+def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
+    """What changed and was not projected, and what was projected and did not change."""
+    found = plan_mod.load(cfg, args.check)
+    if found is None:
+        known = ", ".join(plan_mod.saved(cfg)) or "none yet"
+        print(f"plan: no plan named {args.check} (written here: {known})")
+        return STALE
+    try:
+        base_facts, head_facts = _plan_facts(cfg, args.base)
+    except delta.DeltaError as exc:
+        print(f"plan: {exc}")
+        return STALE
+    top = nest.load(cfg).top
+    owner = evidence.owners(top.model, head_facts)
+    changed = plan_mod.touched(base_facts, head_facts, owner)
+    missed, untouched = plan_mod.check(list(found.get("cards", [])), changed)
+    print(*_check_lines(found, changed, missed, untouched, args.base), sep="\n")
+    return STALE if missed else OK
+
+
+def _plan_facts(cfg: config.Config, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The facts where the work started, and the facts in the tree now."""
+    sha = delta.merge_base(cfg.root, base, "HEAD")
+    return history.facts_at(cfg, sha), extract.build(cfg)
+
+
+def _check_lines(
+    found: dict[str, Any], changed: set[str], missed: list[str], untouched: list[str], base: str
+) -> list[str]:
+    out = [
+        f"plan {found.get('id', '')} against the code since {base}: "
+        f"{len(changed)} cards changed, {len(found.get('cards', []))} were projected"
+    ]
+    for cid in missed:
+        out.append(f"  not in the plan: {cid} changed and the plan did not name it")
+    out += [f"  in the plan, untouched: {cid}" for cid in untouched]
+    if missed:
+        out.append("  read each one: the work reached a part the plan did not see")
+    elif not untouched:
+        out.append("  the work landed where it was projected to")
+    return out
+
+
 # ---- the parsers -------------------------------------------------------------------
 
 
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
     s = sub.add_parser(
         "audit",
-        help="a second opinion from TypeSafe's Jev on the map's judgement calls: modules "
-        "that read like another card, a card for each unclaimed module, card sentences that "
-        "may not describe their modules, flows the code may not carry, invariants that may "
-        "govern a card they do not name; sends the facts and model text to the API, needs "
-        "TYPESAFE_API_KEY, caches every answer; a report, exit 0",
+        help="Jev's second opinion on the calls the map makes about meaning",
+        description="A second opinion from TypeSafe's Jev on the calls the map makes about "
+        "meaning: modules that read like another card, a card for each unclaimed module, card "
+        "sentences that may not describe their modules, flows the code may not carry, and "
+        "invariants that may govern a card they do not name. It sends the facts and the model "
+        "text to the API, so it needs TYPESAFE_API_KEY.",
     )
     add_root(s)
     s.add_argument(
@@ -380,13 +611,61 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         + '); without it, every kind but "jev flow", which fell short on maps its '
         "threshold was not chosen on",
     )
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what to do; "
+        "systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=lambda args: cmd_audit(_rooted(args)))
 
     s = sub.add_parser(
+        "journeys",
+        help="write a walk through the system for a way in that no journey starts from",
+        description="A way into the system with no journey is a path through it nobody has "
+        "written down. This asks the agent named under [agent] to read the code from that way "
+        "in, and to answer with the cards a run passes through and a sentence for each step. "
+        "The walk is checked against the map, then written into the model as a draft for you to "
+        "confirm.",
+    )
+    add_root(s)
+    s.add_argument(
+        "--limit",
+        type=int,
+        default=JOURNEY_CAP,
+        help=f"how many walks to write in one run (default {JOURNEY_CAP})",
+    )
+    s.add_argument(
+        "--dry-run", action="store_true", help="list the ways in that have no walk, and write none"
+    )
+    s.set_defaults(func=lambda args: cmd_journeys(_rooted(args)))
+
+    s = sub.add_parser(
+        "plan",
+        help="the cards a piece of work will change, and afterwards what it did change",
+        description="Which cards a piece of work will touch is easier to say before the work than "
+        "after. Jev reads the task against every card's purpose, and around each card it names, "
+        "the map prints the flows, walks and rules that card sits in. The projection is saved, "
+        "so --check can later compare it with what the code actually changed. Needs "
+        "TYPESAFE_API_KEY.",
+    )
+    add_root(s)
+    s.add_argument("task", nargs="?", help="the work in your own words, or - to read stdin")
+    s.add_argument("--check", metavar="ID", help="compare a saved plan with what changed")
+    s.add_argument(
+        "--base",
+        default="origin/main",
+        help="with --check, the ref the work started from (default origin/main)",
+    )
+    s.set_defaults(func=lambda args: cmd_plan(_rooted(args)))
+
+    s = sub.add_parser(
         "triage",
-        help="which card an issue's fix will most likely change, by Jev: the top three "
-        "cards with their modules and neighbours; the text as an argument, or - for stdin; "
-        "needs TYPESAFE_API_KEY",
+        help="the cards an issue's fix will most likely change",
+        description="An issue usually names no files. Jev reads it against every card's purpose "
+        "and names the three cards whose code the fix will most likely change, each with its "
+        "modules and neighbours. Give the text as an argument, or - to read it from stdin. "
+        "Needs TYPESAFE_API_KEY.",
     )
     add_root(s)
     s.add_argument("text", help="the issue's title and body, or - to read them from stdin")

@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import delta
+from systemap import config, delta, nest
 from systemap.cli import main
 from systemap.moves import find as find_moves
 
@@ -220,7 +220,7 @@ def repo(tmp_path: Path) -> Path:
 
 def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     base = git(repo, "rev-parse", "HEAD~1")[:7]
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--brief"]) == 1
     out = capsys.readouterr().out
     lines = out.splitlines()
     assert lines[0] == (
@@ -265,6 +265,15 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     # Spare is told to drop its module, not also that its entry vanished.
     assert "entry vanished: Spare" not in out
     assert delta.FULL_LOOP in lines
+    # without --brief each kind is taught once, under the first line of that kind
+    capsys.readouterr()
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
+    taught = capsys.readouterr().out.splitlines()
+    whys = [line for line in taught if line.startswith("      why: ")]
+    assert len(whys) == len(set(whys)), "no kind is taught twice"
+    assert any("this is the moment an architecture changes" in line.lower() for line in whys)
+    first = taught.index("  " + expected_open[0])
+    assert taught[first + 1].startswith("      why: "), "the teaching sits under its line"
     assert lines[-1] == (
         "act on each line above, then run: systemap refresh && systemap check && "
         "systemap judgement --strict"
@@ -422,3 +431,49 @@ def test_two_empty_modules_with_different_names_are_not_joined() -> None:
         ["pkg.b.thing"],
     )
     assert moves["pkg.a.thing"][0] == "pkg.b.thing"
+
+
+def test_the_cards_next_to_the_change_are_printed_as_context(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The card holding most of what changed, and what a flow joins it to."""
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
+    out = capsys.readouterr().out
+    assert "next to the change:" in out
+    said = next(line for line in out.splitlines() if "one flow away" in line)
+    assert said.strip().startswith("Writer holds most of what changed")
+    assert said.strip().endswith("one flow away sit Ledger")
+    assert "Read it as context, not as a warning." in out, "the teaching is under it"
+
+
+def test_the_context_is_in_the_pull_request_comment_once(repo: Path) -> None:
+    cfg = config.load(repo)
+    top = nest.load(cfg).top
+    base = delta.facts_at(cfg, delta.resolve(repo, "HEAD~1"))
+    head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
+    d = delta.compute(cfg, top.model, top.meaning, base, head, "HEAD~1", "HEAD")
+    text = delta.markdown(d)
+    assert text.count("**Next to the change**") == 1
+    assert "Writer holds most of what changed; one flow away sit Ledger." in text
+
+
+def test_a_card_joined_to_a_third_of_the_map_names_none() -> None:
+    """A hub has no neighbourhood: the list would be the map, so it is not printed."""
+    d = delta.Delta(
+        base="a", head="b", base_ref="HEAD~1", head_ref="HEAD",
+        changed=1, added=0, removed=0, moved=0, cards=6,
+        lines=(), seed="Hub", near=("A", "B", "C"),
+    )  # fmt: skip
+    lines = delta.near_lines(d)
+    assert lines[1].strip() == (
+        "Hub holds most of what changed, and a flow joins it to 3 of the 6 cards, "
+        "so naming them would say nothing"
+    )
+    assert not any("why:" in line for line in lines), "nothing to teach when nothing is named"
+
+
+def test_the_seed_is_the_card_with_the_most_changed_modules() -> None:
+    owner = {"pkg.a": "One", "pkg.b": "Two", "pkg.c": "Two", "pkg.d": ""}
+    assert delta._seed({"pkg.a", "pkg.b", "pkg.c"}, owner) == "Two"
+    assert delta._seed({"pkg.a", "pkg.b"}, owner) == "One", "a tie goes to the first by name"
+    assert delta._seed({"pkg.d"}, owner) == "", "an unclaimed module seeds nothing"

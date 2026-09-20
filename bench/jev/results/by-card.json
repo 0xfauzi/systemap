@@ -1,0 +1,258 @@
+[
+ {
+  "map": "kstrl",
+  "samples": 8,
+  "shrank": [],
+  "cards": [
+   {
+    "card": "RunViews",
+    "gained": 28,
+    "files": [
+     "kstrl/tui/screens/__init__.py",
+     "kstrl/tui/screens/checkpoint.py",
+     "kstrl/tui/screens/component.py",
+     "kstrl/tui/screens/config.py",
+     "kstrl/tui/screens/decompose.py",
+     "kstrl/tui/screens/evolve.py",
+     "kstrl/tui/screens/home.py",
+     "kstrl/tui/screens/init_wizard.py",
+     "kstrl/tui/screens/launch.py",
+     "kstrl/tui/screens/options.py",
+     "kstrl/tui/screens/overview.py",
+     "kstrl/tui/screens/quit.py"
+    ],
+    "commits": [
+     "feat(inbox): R8.3 exception inbox - one surface for human decisions (#150)",
+     "design: second pass - the D-wave screens get looked at",
+     "feat: launch sessions, launcher forms, retry surface",
+     "feat: init wizard + shared form widgets",
+     "feat: evolve screen - proposals, patterns, trends",
+     "feat: config screen over the precomputed report"
+    ]
+   },
+   {
+    "card": "Dashboard",
+    "gained": 12,
+    "files": [
+     "kstrl/tui/app.py",
+     "kstrl/tui/bridge.py",
+     "kstrl/tui/dispatch.py",
+     "kstrl/tui/embed.py",
+     "kstrl/tui/home.py",
+     "kstrl/tui/home_data.py",
+     "kstrl/tui/messages.py",
+     "kstrl/tui/runcontext.py",
+     "kstrl/tui/runs.py",
+     "kstrl/tui/session.py",
+     "kstrl/tui/state.py",
+     "kstrl/tui/tail.py"
+    ],
+    "commits": [
+     "feat: launch sessions, launcher forms, retry surface",
+     "feat: home run summaries + quick stats",
+     "feat: home shell - bare ks, RunContext, Mode.HOME, HomeScreen",
+     "feat: decompose rich screens + kind dispatch + status TTY board",
+     "rename: PR 1/4 - package ralph_py -> kstrl, CLI ks/kstrl, tooling (0.2.0) (#122)"
+    ]
+   },
+   {
+    "card": "AgentAdapter",
+    "gained": 10,
+    "files": [
+     "kstrl/agents/__init__.py",
+     "kstrl/agents/base.py",
+     "kstrl/agents/claude_code.py",
+     "kstrl/agents/claude_sdk.py",
+     "kstrl/agents/codex.py",
+     "kstrl/agents/custom.py",
+     "kstrl/agents/logging.py",
+     "kstrl/agents/proc.py",
+     "kstrl/agents/sdk_runner.py",
+     "kstrl/sandbox.py"
+    ],
+    "commits": [
+     "refactor: extract the feature flow to feature_cmd.run_feature",
+     "rename: PR 1/4 - package ralph_py -> kstrl, CLI ks/kstrl, tooling (0.2.0) (#122)"
+    ]
+   }
+  ]
+ },
+ {
+  "map": "mealie",
+  "samples": 25,
+  "shrank": [],
+  "cards": [
+   {
+    "card": "ImportWorkflow",
+    "gained": 17,
+    "files": [
+     "mealie/services/recipe/import_workflow/__init__.py",
+     "mealie/services/recipe/import_workflow/base.py",
+     "mealie/services/recipe/import_workflow/compilers/__init__.py",
+     "mealie/services/recipe/import_workflow/compilers/base.py",
+     "mealie/services/recipe/import_workflow/compilers/image.py",
+     "mealie/services/recipe/import_workflow/compilers/structured_data.py",
+     "mealie/services/recipe/import_workflow/compilers/transcription.py",
+     "mealie/services/recipe/import_workflow/compilers/web_page.py",
+     "mealie/services/recipe/import_workflow/context.py",
+     "mealie/services/recipe/import_workflow/exceptions.py",
+     "mealie/services/recipe/import_workflow/recipe_conversion.py",
+     "mealie/services/recipe/import_workflow/steps/__init__.py"
+    ],
+    "commits": [
+     "feat: Refine AI import page (#8067)",
+     "feat: Unified AI recipe page (#8043)"
+    ]
+   },
+   {
+    "card": "SchemaMigrations",
+    "gained": 7,
+    "files": [
+     "mealie/alembic/versions/2025-09-10-19.21.48_1d9a002d7234_add_referenced_recipe_to_ingredients.py",
+     "mealie/alembic/versions/2026-02-21-17.59.01_a39c7f1826e3_add_unit_standardization_fields.py",
+     "mealie/alembic/versions/2026-03-26-20.48.28_cdc93edaf73d_add_mealplan_updated_and_deleted_to_.py",
+     "mealie/alembic/versions/2026-03-27-20.19.07_4395a04f7784_add_announcements.py",
+     "mealie/alembic/versions/2026-05-10-18.44.53_c7427796f7b6_more_aggresive_normalization.py",
+     "mealie/alembic/versions/2026-05-18-16.27.05_2187537c52b8_add_table_for_ai_providers.py",
+     "mealie/alembic/versions/2026-08-24-16.31.43_69e942bab3aa_add_tokens_valid_after_column_to_users.py"
+    ],
+    "commits": [
+     "feat: add token refresh, fix remember me, and fix Safari token expiration (#8200)",
+     "feat: In-app AI Provider Configuration (#7650)",
+     "fix: Update backend normalization to match search normalization logic (#7603)",
+     "feat: Announcements (#7431)",
+     "fix: publish all mealplan create, update, and delete events (#7015)",
+     "feat: Unit standardization / conversion (#7121)"
+    ]
+   },
+   {
+    "card": "QueryFilter",
+    "gained": 4,
+    "files": [
+     "mealie/services/query_filter/__init__.py",
+     "mealie/services/query_filter/builder.py",
+     "mealie/services/query_filter/keywords.py",
+     "mealie/services/query_filter/operators.py"
+    ],
+    "commits": [
+     "feat: Query relative dates (#6984)"
+    ]
+   }
+  ]
+ },
+ {
+  "map": "paperless",
+  "samples": 21,
+  "shrank": [
+   "DocumentStore",
+   "MailRules"
+  ],
+  "cards": [
+   {
+    "card": "AppConfig",
+    "gained": 11,
+    "files": [
+     "src/paperless/migrations/0005_applicationconfiguration_ai_enabled_and_more.py",
+     "src/paperless/migrations/0006_applicationconfiguration_barcode_tag_split.py",
+     "src/paperless/migrations/0007_optimize_integer_field_sizes.py",
+     "src/paperless/migrations/0008_replace_skip_archive_file.py",
+     "src/paperless/migrations/0009_alter_applicationconfiguration_options.py",
+     "src/paperless/migrations/0010_alter_applicationconfiguration_llm_embedding_backend.py",
+     "src/paperless/migrations/0011_applicationconfiguration_llm_embedding_chunk_size.py",
+     "src/paperless/migrations/0012_applicationconfiguration_llm_output_language.py",
+     "src/paperless/migrations/0013_applicationconfiguration_llm_request_timeout.py",
+     "src/paperless/migrations/0014_applicationconfiguration_remote_ocr_api_key_and_more.py",
+     "src/paperless/migrations/0015_applicationconfiguration_remote_ocr_mode.py"
+    ],
+    "commits": [
+     "Allow parsers to declare uses remote, and remote ocr_mode (#13634)",
+     "Enhancement: support using remote OCR engines selectively (#13633)",
+     "Enhancement (beta): support LLM timeout config (#13002)",
+     "Enhancement (beta): add direct LLM language setting (#12906)",
+     "Enhancement: AI LLM chunk size and context window config (#12891)",
+     "Enhancement: support ollama embeddings (#12753)"
+    ]
+   },
+   {
+    "card": "SearchIndex",
+    "gained": 7,
+    "files": [
+     "src/documents/search/__init__.py",
+     "src/documents/search/_backend.py",
+     "src/documents/search/_dates.py",
+     "src/documents/search/_query.py",
+     "src/documents/search/_schema.py",
+     "src/documents/search/_tokenizer.py",
+     "src/documents/search/_translate.py"
+    ],
+    "commits": [
+     "Fix (beta): restore v2 (Whoosh) advanced-search query compatibility (#13010)",
+     "Feature: Replace Whoosh with tantivy search backend (#12471)"
+    ]
+   },
+   {
+    "card": "FileParsers",
+    "gained": 5,
+    "files": [
+     "src/paperless/parsers/mail.py",
+     "src/paperless/parsers/remote.py",
+     "src/paperless/parsers/tesseract.py",
+     "src/paperless/parsers/text.py",
+     "src/paperless/parsers/tika.py"
+    ],
+    "commits": [
+     "Chore: Convert Tesseract parser to plugin style (#12403)",
+     "Chore: Convert mail parser to plugin style (#12397)",
+     "Feature: Convert remote AI parser to plugin system (#12334)",
+     "Feature: Convert Tika parser to the plugin system (#12333)",
+     "Feature: Initial document parser plugin framework (#12294)"
+    ]
+   }
+  ]
+ },
+ {
+  "map": "poetry",
+  "samples": 18,
+  "shrank": [],
+  "cards": [
+   {
+    "card": "HttpAccess",
+    "gained": 1,
+    "files": [
+     "src/poetry/utils/download.py"
+    ],
+    "commits": [
+     "perf: defer the requests imports in poetry.utils.helpers (#11004)"
+    ]
+   }
+  ]
+ },
+ {
+  "map": "rich",
+  "samples": 8,
+  "shrank": [],
+  "cards": [
+   {
+    "card": "Measure",
+    "gained": 23,
+    "files": [
+     "rich/_unicode_data/__init__.py",
+     "rich/_unicode_data/_versions.py",
+     "rich/_unicode_data/unicode10-0-0.py",
+     "rich/_unicode_data/unicode11-0-0.py",
+     "rich/_unicode_data/unicode12-0-0.py",
+     "rich/_unicode_data/unicode12-1-0.py",
+     "rich/_unicode_data/unicode13-0-0.py",
+     "rich/_unicode_data/unicode14-0-0.py",
+     "rich/_unicode_data/unicode15-0-0.py",
+     "rich/_unicode_data/unicode15-1-0.py",
+     "rich/_unicode_data/unicode16-0-0.py",
+     "rich/_unicode_data/unicode17-0-0.py"
+    ],
+    "commits": [
+     "f string path"
+    ]
+   }
+  ]
+ }
+]

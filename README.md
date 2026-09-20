@@ -110,6 +110,13 @@ fix:
     evidence lost: Emitter -> Contracts (slide tree) was observed at the base
       and nothing backs it now
 
+It ends with the cards next to the change: the ones a flow joins to the card
+holding most of what changed. That is context, not a warning. Measured over
+359 merged pull requests, it names 6 cards at the median and one the change
+really touched about seven times in ten, where following the imports instead
+names 20. Neither is good enough to say what else broke, so it does not
+pretend to.
+
 The workflow `init` writes posts that report as one comment on every pull
 request and keeps it updated as you push, so the review you do on your agent's
 work starts with what the change did to the system rather than with 400 lines
@@ -216,6 +223,93 @@ two cards meet (`audit --dry-run` says exactly what), and caches every
 answer, so an unchanged map costs nothing the second time. `[jev] enabled =
 false` in `systemap.toml` turns off both the asking and the hints.
 
+## A walk for every way in
+
+A journey is the walk a reader takes through the system when a run starts at
+one way in: which parts it passes through, in order, and what happens at each
+step. `systemap extract` finds the ways in a framework registers, routes and
+commands and queue tasks alike, and `systemap judgement` asks for a journey
+from each one that has none.
+
+`systemap journeys` writes them. It hands the agent named under `[agent]
+command` in `systemap.toml` one way in, the cards with their sentences and
+the flows already drawn, and asks it to read the code and answer with the
+walk. Every step is checked against the map first: a step tracing a flow the
+map does not draw, or naming a card that is not there, comes back as a line
+to fix rather than as a journey. What holds is written into the model marked
+`drafted=True`, and `judgement` keeps saying so until you have read it
+against the code and removed the mark.
+
+One card often takes a crowd of ways in: 190 routes into mealie's API, a
+dozen subcommands into one card of Poetry. Those get one walk between them,
+not one each, and that walk names the card rather than any single route.
+Covering mealie is two runs rather than sixty-five. Of nine crowds measured
+across three repositories, eight came back as a walk the map could hold.
+
+The walk was proposed from the imports first, and measured: the cards it
+named overlapped the ones people wrote by 0.28 where the bar was 0.60,
+because the module behind a command line imports most of the system. So the
+agent reads the code instead. Without an agent command, `systemap journeys`
+lists the ways in with no walk and writes nothing.
+
+## A plan, and what the work actually did
+
+Before you start, say what you are about to do:
+
+    systemap plan "make the reader stream its input instead of buffering it"
+
+Jev reads that against every card's purpose, and the cards it gives real
+weight to are the projection. Around each one the map prints what it sits in:
+the flows that leave and reach it, the walks that pass through it, and the
+rules that govern it. That last part is what a plan usually leaves out.
+
+Afterwards, `systemap plan --check <id> --base <ref>` compares the projection
+with the cards the code actually changed. A card that changed and was not
+projected is the finding: the work reached a part of the system the plan did
+not see. That is worth reading before the pull request is opened.
+
+The cut is measured, not chosen by taste. Over 80 real bug reports with the
+cards their fixing pull request touched, it covered 86% of those cards while
+naming 2.1 cards per report; on 39 issues of a repository no threshold was
+chosen on, 71% while naming 2.1. The bar, set before the run, was 70% covered
+with at most 2 extra cards. Every run is in [bench/jev](bench/jev).
+
+## How the system got here
+
+A map is the system today. `systemap history` is the year behind it:
+
+    systemap history --since "1 year ago" --every 14
+
+One commit is sampled per fortnight, the facts at each are read out of git,
+and every sample is read in today's cards, so a module that moved still
+counts as the card whose job it does. Each window says what moved: the cards
+that grew, the imports that began crossing a boundary, the ways in added or
+removed, and the commits that wrote the modules which appeared. A number
+always leads back to the work behind it.
+
+Measured on a year of mealie before it was built: 25 samples took 29 seconds
+the first time and under a second once the facts were cached, against a bar
+of five minutes; and of the five largest windows, all five named a change a
+person can find in that window's commits, against a bar of three.
+
+## It teaches while it refuses
+
+A line systemap prints is short, because it has to be quoted word for word
+when you answer it. Short is not the same as clear, so under the first line
+of each kind, `check`, `judgement`, `delta` and `audit` print two more rows:
+why this matters to your view of the system, and what to do about it.
+
+    judgement: 3 items for the maintainer to confirm
+      single module: Reader is only pkg.reader
+          why: A map whose cards are files is a directory listing with corners.
+               It teaches a reader nothing they could not get from the tree.
+          do:  Keep the card if a reader would point at it and name it on its
+               own. Otherwise fold the module into the card whose job it serves.
+
+The line itself never changes, so answers written against it keep working.
+`--brief` leaves the rows out once you know them, and `systemap explain
+"<kind>"` prints one in full whenever you want it back.
+
 ## Commands
 
 | command | what it does |
@@ -224,16 +318,21 @@ false` in `systemap.toml` turns off both the asking and the hints.
 | `systemap extract` | read the facts out of the tree |
 | `systemap facts` | read those facts back, one view at a time |
 | `systemap place` | a position for every card, and the region order that draws best |
-| `systemap check` | every rule, with the fix named |
+| `systemap render` | build the page from the facts and the model |
+| `systemap check` | does the map still match the code? exit 1, with each fix named |
 | `systemap judgement` | what the check cannot catch: the second-pass list |
 | `systemap suggest` | a first grouping to argue with, from the facts alone |
 | `systemap refresh` | extract, check, render, and every configured figure |
-| `systemap describe` | what a look at the picture would tell an agent that cannot look |
-| `systemap delta` | what a change did to the map |
+| `systemap describe` | what a look at the picture would tell you, in numbers |
+| `systemap delta` | what a change did to the map, from the facts at two commits |
 | `systemap audit` | a second opinion from Jev on the map's judgement calls (needs `TYPESAFE_API_KEY`) |
 | `systemap triage` | the cards an issue's fix will most likely change (needs `TYPESAFE_API_KEY`) |
+| `systemap plan` | the cards a piece of work will touch, and afterwards what it actually touched (needs `TYPESAFE_API_KEY`) |
+| `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
-| `systemap serve` | serve the page on the loopback address |
+| `systemap serve` | serve the output directory over HTTP, so the page can run |
+| `systemap history` | how the system got here: what moved over a year, and the work that moved it |
+| `systemap explain` | one kind of line in full: what it means, why it matters, what to do |
 | `systemap skill` | reinstall the skill directory |
 
 Every option and every configuration key is in

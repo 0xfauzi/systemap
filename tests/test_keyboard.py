@@ -100,6 +100,17 @@ def check_counts(report: dict[str, object]) -> None:
     ), "some reading lists an actor, so the actor phrase is exercised"
 
 
+def check_journey_foot(j: dict[str, object]) -> None:
+    """Under the sentence: where the walk starts, what backs this step, and
+    whether an agent wrote it and nobody has read it against the code."""
+    foot = j["foot"]
+    assert isinstance(foot, str)
+    assert j["stepEvidence"] and str(j["stepEvidence"]) in foot
+    if j["starts"]:
+        assert str(j["starts"]) in foot, "the walk says which way in it begins at"
+    assert ("not yet confirmed" in foot) is j["drafted"]
+
+
 def check_keyboard(report: dict[str, object]) -> None:
     layers = report["layers"]
     assert isinstance(layers, list) and len(layers) >= 3
@@ -154,6 +165,7 @@ def check_keyboard(report: dict[str, object]) -> None:
     assert j["layerUnchanged"] is True, "the arrows step the journey, not the reading"
     assert j["afterLeft"] == f"1/{steps}" and j["afterLeftAtStart"] == f"1/{steps}"
     assert j["stepButtons"] == steps
+    check_journey_foot(j)
     assert j["ended"] == "" and j["stripHiddenAfter"] is True
     assert j["selectReset"] == "" and j["journeyState"] is None
 

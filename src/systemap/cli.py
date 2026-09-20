@@ -1,5 +1,11 @@
 """The `systemap` command: what the agent runs.
 
+Each command answers one question about the system. `check` asks whether the
+map still matches the code. `judgement` asks what only a person can decide.
+`delta` asks what a change did to it, and `history` what a year did. Every
+one of them prints its findings as lines a person can quote back, and under
+the first line of each kind, why it matters and what to do.
+
     systemap init [--no-ci]            configuration, starter model, the skill, a workflow
     systemap extract [--check]         read the facts out of the tree
     systemap facts [--modules ...]     read the facts back, one view at a time (never the JSON)
@@ -13,6 +19,10 @@
     systemap delta --base REF          what a change did to the map, each line with its fix
     systemap suggest                   a first grouping from the facts, to argue with
     systemap describe                  what a look at the picture would tell you, in numbers
+    systemap journeys                  a walk written for a way in that has none
+    systemap plan "<task>"             the cards a piece of work will most likely change
+    systemap history --since WHEN      what moved over a year, and the work that moved it
+    systemap explain KIND              one kind of line: what it means, why, what to do
     systemap serve [--port N]          serve the output directory over HTTP, print the URL
     systemap skill [--dir PATH|--print] reinstall the skill directory, or print SKILL.md
 
@@ -44,8 +54,10 @@ from systemap import (
     config,
     delta,
     describe,
+    explain,
     extract,
     figure,
+    history,
     jev,
     jev_cli,
     judgement,
@@ -54,6 +66,7 @@ from systemap import (
     place,
     scaffold,
     skill,
+    trend,
 )
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
@@ -332,12 +345,14 @@ def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
     return check.run_tree(p.tree, facts, p.cfg.coverage_ignore, p.cfg.observed_by)
 
 
-def _report_tree(p: Project, results: dict[str, check.Result], stale: list[str]) -> list[str]:
+def _report_tree(
+    p: Project, results: dict[str, check.Result], stale: list[str], teach: bool = True
+) -> list[str]:
     """Every map's report in tree order, then the stale group once."""
     out: list[str] = []
     for m in p.tree.maps:
-        out += check.report(m.model, results[m.id], m.rel, m.prefix)
-    return out + check.report_stale(stale)
+        out += check.report(m.model, results[m.id], m.rel, m.prefix, teach)
+    return out + check.report_stale(stale, teach)
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -348,7 +363,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
-    say(*_report_tree(p, results, stale))
+    say(*_report_tree(p, results, stale, not args.brief))
     if not check.tree_ok(results) or stale:
         say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
         return STALE
@@ -511,7 +526,7 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
     result = judgement.apply_answers(lines, mine)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
-    say(*judgement.report(result, detail, args.kind or ""))
+    say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say("answer every line in [judgement] answered in systemap.toml, or act on it")
@@ -555,7 +570,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
             listed = "\n".join(f"- {x}" for x in extra)
             sys.stdout.write(f"\n**Jev on the unclaimed modules**\n\n{listed}\n")
     else:
-        say(*delta.report(d), *extra)
+        say(*delta.report(d, teach=not args.brief), *extra)
     if args.jev is None and d.added and d.removed:
         jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
     return STALE if d.open else OK
@@ -620,6 +635,42 @@ def cmd_suggest(args: argparse.Namespace) -> int:
 
 
 # ---- describe --------------------------------------------------------------
+
+
+def cmd_history(args: argparse.Namespace) -> int:
+    """How the system got here: what moved between commits sampled back through time."""
+    p = _project(args)
+    if _empty(p):
+        return STALE
+    try:
+        shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
+    except delta.DeltaError as exc:
+        say(f"history: {exc}")
+        return STALE
+    if len(shas) < 2:
+        say(f"history: only {len(shas)} commit since {args.since}; ask for a longer time")
+        return OK
+    say(f"history: reading the facts at {len(shas)} commits; the first run is the slow one")
+    try:
+        windows = trend.walk(p.cfg, p.tree.top.model, shas)
+    except delta.DeltaError as exc:
+        say(f"history: {exc}")
+        return STALE
+    say(*trend.report(windows, p.cfg.root, args.since, args.every, args.top))
+    return OK
+
+
+def cmd_explain(args: argparse.Namespace) -> int:
+    """One kind of line in full, or the kinds there are."""
+    if not args.kind:
+        say("explain: the kinds of line systemap prints, and what each is for")
+        for kind in sorted(explain.LESSONS):
+            say(f"  {kind}: {explain.LESSONS[kind].means}")
+        say('  run: systemap explain "<kind>" for why it matters and what to do')
+        return OK
+    lines = explain.whole(args.kind)
+    say(*lines)
+    return OK if explain.lesson(args.kind) else STALE
 
 
 def cmd_describe(args: argparse.Namespace) -> int:
@@ -781,7 +832,12 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--root", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
 
     s = sub.add_parser(
-        "init", help="write systemap.toml, a starter model, the agent skill and a workflow"
+        "init",
+        help="start a map here: the configuration, a starter model, the skill, a workflow",
+        description="A map needs three things beside the code: a configuration, a model to edit, "
+        "and a skill so an agent can work on the map the way you do. This writes all three, and "
+        "a GitHub workflow that fails a pull request which leaves the map stale and comments on "
+        "it with what the change did to the map. Run it once, at the root of the project.",
     )
     add_root(s)
     s.add_argument(
@@ -795,18 +851,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.set_defaults(func=cmd_init)
 
-    s = sub.add_parser("extract", help="read the facts out of the tree")
+    s = sub.add_parser(
+        "extract",
+        help="read the facts out of the tree: modules, names, imports, tests, ways in",
+        description="Every other command reads the facts, so this runs first. It parses the tree "
+        "and records, for each module, the first sentence of its docstring, its public names, "
+        "what it imports, how many tests name it, and where a run can start. None of it is a "
+        "judgement: the facts say what the code contains, and the model says what it means.",
+    )
     add_root(s)
     s.add_argument("--check", action="store_true", help="exit 1 if the stored facts are stale")
     s.set_defaults(func=cmd_extract)
 
     s = sub.add_parser(
         "facts",
-        help="read the facts back one view at a time: --modules (one line per module: the "
-        "docstring's first sentence, then public names, imports and tests counted), "
-        "--docstrings (the first sentence only), --module NAME (its record, rendered), "
-        "--names NAME (its public names with kinds), --entry-points (with targets), "
-        "--external, --imports NAME; with no option, the extract summary",
+        help="read those facts back, one view at a time, so nobody opens the JSON",
+        description="The facts are stored as JSON, and nobody should have to read JSON to answer "
+        "a question about the code. Each option prints one view of them. With no option, the "
+        "summary extract prints.",
     )
     add_root(s)
     view = s.add_mutually_exclusive_group()
@@ -855,13 +917,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "place",
-        help="write a position into the model for every card without one, keeping every "
-        "card that has one; --all lays every card out again and keeps only the cards "
-        "marked pinned=True (run it after adding or removing a card); with no card kept, "
-        "the regions, containers and canvas are laid out too, and the order of the regions "
-        "on the grid is searched: every order tried, the best routed, the one with the "
-        "fewest label collisions, refused routes, bends and length chosen; --keep-order "
-        "lays them as the model lists them; --print prints instead of writing",
+        help="give every card a position, and lay the regions out so the map draws well",
+        description="A card with no position cannot be drawn. This writes one for every card that "
+        "lacks it, and leaves the cards that already have one alone. Use --all after adding or "
+        "removing a card: it lays every card out again, keeping only the cards marked "
+        "pinned=True. When no card is kept, the regions, containers and canvas are laid out "
+        "too, and the order of the regions on the grid is searched: every order is tried, and "
+        "the one that routes best, with the fewest label collisions, refused routes, bends and "
+        "length, is chosen.",
     )
     add_root(s)
     s.add_argument(
@@ -877,7 +940,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.set_defaults(func=cmd_place)
 
-    s = sub.add_parser("render", help="render the page from the facts and the model")
+    s = sub.add_parser(
+        "render",
+        help="build the page from the facts and the model",
+        description="The page is generated, never edited by hand, so that it cannot disagree with "
+        "the facts. This reads the facts and the model and writes the page.",
+    )
     add_root(s)
     s.add_argument("--check", action="store_true", help="exit 1 if the page is stale")
     s.add_argument("--base", default="", help="also draw a change map of HEAD against this ref")
@@ -887,13 +955,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "check",
-        help="every rule: placement, routes, labels, type size, meaning, wheels, coverage, "
-        "nesting, entry, stale outputs, on every map; exit 1 with each fix named",
+        help="does the map still match the code? exit 1, with each fix named",
+        description="A map is worth having only while it still matches the code. This runs every "
+        "rule over every map: placement, routes, labels, type size, meaning, wheels, coverage, "
+        "nesting, entry, and stale outputs. It exits 1 with each fix named. Under each line it "
+        "says why that line matters and what to do about it; --brief prints the lines alone.",
     )
     add_root(s)
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what "
+        "to do; systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=cmd_check)
 
-    s = sub.add_parser("figure", help="draw one figure with the same generator")
+    s = sub.add_parser(
+        "figure",
+        help="draw one figure with the generator the page uses",
+        description="A figure drawn for a document by some other tool will drift from the page. "
+        "This draws one with the generator the page itself uses, so the two cannot disagree.",
+    )
     add_root(s)
     kind = s.add_mutually_exclusive_group()
     kind.add_argument("--interactive", action="store_true", help="carry the focus interaction")
@@ -931,20 +1013,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.set_defaults(func=cmd_figure)
 
-    s = sub.add_parser("refresh", help="extract, check, render, and draw the configured figures")
+    s = sub.add_parser(
+        "refresh",
+        help="extract, check, render, and draw every figure the configuration lists",
+        description="The four commands, in the order they depend on each other: extract, check, "
+        "render, and a drawing for every figure the configuration lists. This is what a pull "
+        "request should run.",
+    )
     add_root(s)
     s.add_argument("--quiet", action="store_true")
     s.set_defaults(func=cmd_refresh)
 
     s = sub.add_parser(
         "judgement",
-        help="print the list the maintainer must confirm: thin components, odd folds, "
-        "flows without a sentence, thin layers, entry points without a journey, imports "
-        "across a boundary with no flow, flows no import backs, model sdk imports outside "
-        "an agent; lines "
-        "answered under [judgement] in the configuration are suppressed and counted; "
-        "exit 0, or 1 with --strict while any line is open; --kind KIND prints one kind, "
-        "--verbose lists the imports behind each crossing-import line",
+        help="the list only a person can settle: what the check cannot catch",
+        description="Some questions a rule cannot settle: whether a thin card earns its place, "
+        "whether a fold is odd, whether a name still fits. This prints them, so a person can "
+        "decide once. A line answered under [judgement] in the configuration is suppressed and "
+        "counted from then on. The kinds are thin components, odd folds, flows without a "
+        "sentence, thin layers, entry points without a journey, imports across a boundary with "
+        "no flow, flows no import backs, and model sdk imports outside an agent. It exits 0, or "
+        "1 with --strict while any line is open.",
     )
     add_root(s)
     s.add_argument(
@@ -964,15 +1053,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="under each crossing-import line, the imports it counts, one per line",
     )
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what "
+        "to do; systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(
         "delta",
-        help="what a change did to the map, from the facts at two commits read out of git: "
-        "modules added, removed and moved with the card each belongs to, entry and interface "
-        "names that vanished, new imports across a card boundary with no flow, flows the "
-        "code stopped backing; each line names its fix; exit 0 when nothing needs a decision, "
-        "1 when something does",
+        help="what a change did to the map, from the facts at two commits",
+        description="A pull request changes the code. This says what it changed about the map, "
+        "from the facts at two commits read out of git: modules added, removed and moved, with "
+        "the card each belongs to; entry and interface names that vanished; new imports across "
+        "a card boundary with no flow; and flows the code stopped backing. Each line names its "
+        "fix. It exits 0 when nothing needs a decision, 1 when something does.",
     )
     add_root(s)
     s.add_argument(
@@ -994,13 +1090,20 @@ def build_parser() -> argparse.ArgumentParser:
         "card each unclaimed module reads like; on by default when TYPESAFE_API_KEY is set "
         "and [jev] enabled is not false; --no-jev sends nothing",
     )
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what "
+        "to do; systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=cmd_delta)
 
     s = sub.add_parser(
         "suggest",
-        help="a first grouping to argue with, never the answer: one proposed card per "
-        "package with two or more modules, its modules, and the crossing imports between "
-        "proposals, from the facts alone",
+        help="a first grouping to argue with, from the facts alone",
+        description="A first grouping to argue with, never the answer. From the facts alone, it "
+        "proposes one card per package with two or more modules, lists that card's modules, and "
+        "prints the imports that cross between proposals.",
     )
     add_root(s)
     s.add_argument(
@@ -1013,17 +1116,49 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "describe",
-        help="what a look at the picture would tell you, in numbers: cards per region, "
-        "the region order and its score, bends and length per edge (worst first), seats "
-        "per gutter, cards and edges per reading; for an agent that cannot open the page",
+        help="what a look at the picture would tell you, in numbers",
+        description="An agent cannot open the page, and a person at a terminal may not want to. "
+        "This says in numbers what a look at the picture would tell you: cards per region, the "
+        "region order and its score, bends and length per edge with the worst first, seats per "
+        "gutter, and cards and edges per reading.",
     )
     add_root(s)
     s.set_defaults(func=cmd_describe)
 
     s = sub.add_parser(
+        "history",
+        help="how the system got here: what moved over a year, and the work that moved it",
+        description="A map says what the system is now. This says how it got here. The tree is "
+        "sampled back through time, each sample is read in today's cards, and each window is "
+        "what moved between two samples. The largest windows come first, each with the commits "
+        "that wrote the modules which appeared. The facts at a commit never change, so they are "
+        "cached under .systemap/facts and the second run is quick.",
+    )
+    add_root(s)
+    s.add_argument(
+        "--since", default="1 year ago", help="how far back to sample (default: 1 year ago)"
+    )
+    s.add_argument("--every", type=int, default=14, help="days between samples (default: 14)")
+    s.add_argument("--top", type=int, default=5, help="how many windows to print (default: 5)")
+    s.add_argument("--ref", default="HEAD", help="the branch or commit to sample back from")
+    s.set_defaults(func=cmd_history)
+
+    s = sub.add_parser(
+        "explain",
+        help="one kind of line in full: what it means, why it matters, what to do",
+        description="Every line systemap prints has a kind, named in the line itself. This prints "
+        "one kind in full: what it means, why it matters to your view of the system, and what "
+        "to do about it. With no kind, every kind systemap prints.",
+    )
+    s.add_argument("kind", nargs="?", default="", help="the kind, as the line names it")
+    s.set_defaults(func=cmd_explain)
+
+    s = sub.add_parser(
         "serve",
-        help="serve the output directory over HTTP on the loopback address and print the "
-        "URL; the page's script does not run from a file:// address",
+        help="serve the output directory over HTTP, so the page can run",
+        description="The page loads its data with a script, and a script does not run from a "
+        "file:// address. This serves the output directory over HTTP on the loopback address "
+        "and prints the URL.",
     )
     add_root(s)
     s.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"default {DEFAULT_PORT}")
@@ -1031,8 +1166,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "skill",
-        help="reinstall the agent skill directory (SKILL.md and references/) init installs, "
-        "or print SKILL.md",
+        help="reinstall the skill directory beside the project, or print SKILL.md",
+        description="An agent works on the map through the skill directory init installs: "
+        "SKILL.md and references/. This reinstalls it, after an upgrade or an accidental edit, "
+        "or prints SKILL.md with --print.",
     )
     add_root(s)
     s.add_argument(

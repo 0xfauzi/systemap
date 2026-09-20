@@ -260,13 +260,17 @@ jobs:
       - name: Install the Claude Code CLI
         # A global tool has no lockfile to install from; the version is the
         # one the plugin was validated with locally, bumped on purpose.
-        run: npm install -g @anthropic-ai/claude-code@2.1.246 # zizmor: ignore[adhoc-packages]
+        run: npm install -g @anthropic-ai/claude-code@2.1.278 # zizmor: ignore[adhoc-packages]
 
       - name: plugin manifest
-        run: claude plugin validate .claude-plugin/plugin.json --strict
+        # Strict, through a script that allows one warning and no others:
+        # the CLI advises against a CLAUDE.md at the plugin root, which is
+        # advice for a repository that is only a plugin. scripts/check_plugin_manifest.py
+        # says why, and fails on anything else the validator reports.
+        run: python3 scripts/check_plugin_manifest.py .claude-plugin/plugin.json
 
       - name: marketplace manifest
-        run: claude plugin validate .claude-plugin/marketplace.json --strict
+        run: python3 scripts/check_plugin_manifest.py .claude-plugin/marketplace.json
 
       - name: skills
         run: claude plugin validate skills --strict

@@ -23,6 +23,10 @@ printed as numbers:
     gutters ..... the bands between card rows and columns: how many label
                   seats each has and how many are used at its fullest
     readings .... how many cards and edges each layer lights
+    journeys .... each walk: its steps, where it starts, whether the code
+                  backs every step, and whether an agent wrote it and
+                  nobody has read it yet; then how many ways into the
+                  system a journey walks from
 
 Nothing here is a rule; `systemap check` refuses, this describes. A
 crowded gutter is a thing to look at, not a failure, until a label cannot
@@ -35,8 +39,11 @@ import json
 from collections.abc import Iterable
 from typing import Any
 
-from systemap.evidence import STATES
-from systemap.model import Meaning, Model, all_layers, reading
+from systemap import journeys as journeys_mod
+from systemap.evidence import DECLARED, STATES, owners
+from systemap.evidence import of_model as evidence_of
+from systemap.extract import entry_label
+from systemap.model import Edge, Journey, Meaning, Model, all_layers, reading
 from systemap.place import Score, grid_order
 from systemap.route import Gutter, gutters, locate, seats
 from systemap.schematic import LABEL_H
@@ -124,6 +131,64 @@ def drawn_score(meta: dict[str, Any], flows: int) -> Score:
         bends=sum(bends(paths.get(str(i), [])) for i in range(flows)),
         length=int(round(sum(length(paths.get(str(i), [])) for i in range(flows)))),
     )
+
+
+def journey_lines(
+    model: Model, meaning: Meaning, facts: dict[str, Any], observed_by: Iterable[str] = ()
+) -> list[str]:
+    """Each walk through the system, and how many ways in have one.
+
+    A journey is what a reader follows to understand the system, so what
+    matters about it here is where it starts, how far it goes, and whether
+    the code backs every step it claims. A step over a flow no import backs
+    is a step the reader is asked to take on trust.
+    """
+    if not meaning.journeys:
+        return ["journeys: none written; run: systemap journeys, or write one per way in"]
+    states = evidence_of(model, meaning, facts, observed_by)
+    out = ["journeys: the walks a reader can take through the system"]
+    for j in meaning.journeys:
+        out += _walk_lines(j, states)
+    return out + _ways_in_lines(model, meaning, facts)
+
+
+def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
+    """One walk: how far it goes, where from, and the steps nothing backs."""
+    where = f", from {j.starts}" if j.starts else ""
+    note = " (an agent wrote it; nobody has read it yet)" if j.drafted else ""
+    out = [f"  {j.id}: {_plural(len(j.steps), 'step')}{where}{note}"]
+    thin = [f"{a} -> {b}" for a, b in (s.edge for s in j.steps) if _unbacked(states, (a, b))]
+    if thin:
+        out.append(f"    on trust: {', '.join(thin)}; no import backs {_word(len(thin))}")
+    return out
+
+
+def _ways_in_lines(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+    """How many ways into the system a journey walks from, and which do not.
+
+    The cards are passed so that a walk written for a whole crowd, which
+    names its card rather than one of its hundred routes, counts here as it
+    counts in `systemap judgement`.
+    """
+    ways = len(facts.get("entry_points", []))
+    if not ways:
+        return ["  ways in: none in the facts, so no walk can be asked for"]
+    left = journeys_mod.uncovered(meaning, facts, owners(model, facts))
+    out = [f"  ways in: {ways - len(left)} of {ways} walked from"]
+    if left:
+        named = ", ".join(entry_label(p) for p in left[:5])
+        more = f", and {len(left) - 5} more" if len(left) > 5 else ""
+        out.append(f"    with no walk: {named}{more}; run: systemap journeys")
+    return out
+
+
+def _unbacked(states: dict[Edge, Any], edge: Edge) -> bool:
+    found = states.get(edge)
+    return found is not None and found.state == DECLARED
+
+
+def _word(n: int) -> str:
+    return "it" if n == 1 else "them"
 
 
 def lines(
@@ -251,4 +316,9 @@ def run(
     """Draw once, the way the page does, and describe what was drawn."""
     _svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
     meta = json.loads(detail)["_meta"]
-    return lines(model, meaning, meta, placed, searched)
+    out = lines(model, meaning, meta, placed, searched)
+    walks = journey_lines(model, meaning, facts, observed_by)
+    # What the check refuses stays the last line: it is the one that names a fix.
+    if out and out[-1].startswith("and what the check refuses"):
+        return out[:-1] + walks + out[-1:]
+    return out + walks

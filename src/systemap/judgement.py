@@ -80,7 +80,7 @@ from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import evidence, nest
+from systemap import evidence, explain, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
 from systemap.extract import entry_label
@@ -232,6 +232,11 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
 _owner_of = owners
 
 
+# Past this many uncovered ways in of one kind into one card, they are asked
+# about together: a hundred routes into one card is one question, not a hundred.
+TOGETHER_AT = 4
+
+
 def _journey_text(meaning: Meaning) -> str:
     """Every word the journeys say: ids, labels and step sentences, in one string."""
     parts: list[str] = []
@@ -256,32 +261,122 @@ def entry_points_without_journey(
     a subcommand by its word, a function by its name. A `main` function
     a console script targets, and a `__main__` module that imports a
     console script's module, are that script under another name and
-    are not asked about twice. `text` is the journeys to read, every
-    map's when the model is one of a tree; `skip` the modules another
-    map asks about.
+    are not asked about twice. A journey that names the way in under
+    `starts` covers it whatever its sentences say. `text` is the
+    journeys to read, every map's when the model is one of a tree;
+    `skip` the modules another map asks about.
+
+    Ways in of one kind into one card are asked about together once
+    there are more than a few: a card that takes a hundred routes needs
+    a journey through the card, not a hundred walks.
+    """
+    owner = _owner_of(model, facts)
+    return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner), owner)
+
+
+def ways_in_without_journey(
+    meaning: Meaning,
+    facts: dict[str, Any],
+    text: str | None = None,
+    skip: Collection[str] = (),
+    owner: dict[str, str] | None = None,
+) -> list[dict[str, str]]:
+    """The ways in no journey walks from, as the facts record them.
+
+    The rule is the one above, and it lives here alone so that the
+    judgement line, `systemap describe` and `systemap journeys` never
+    disagree about which ways in are covered.
+
+    A journey whose `starts` names a card, rather than one way in, walks
+    for every way in that card claims. That is what a crowd needs: a walk
+    standing for a hundred routes cannot name one of them under `starts`
+    without claiming to be about that one. `owner` says which card claims
+    each module; with none, only the named ways in are covered.
     """
     points: list[dict[str, str]] = facts.get("entry_points", [])
     text = _journey_text(meaning) if text is None else text
     scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
     components = facts.get("components", {})
-    owner = _owner_of(model, facts)
-    out: list[str] = []
+    started = {j.starts for j in meaning.journeys if j.starts}
+    return [
+        p
+        for p in points
+        if p["module"] not in skip
+        and not _same_script(p, scripts, components)
+        and not (p["name"] in started or entry_label(p) in started or mentioned(p["name"], text))
+        and (owner or {}).get(p["module"], "") not in started
+    ]
+
+
+def _same_script(
+    p: dict[str, str], scripts: dict[str, dict[str, str]], components: dict[str, Any]
+) -> bool:
+    """Is this way in a console script under another name?"""
+    module = p["module"]
+    if p["kind"] == "main_function":
+        return scripts.get(module, {}).get("target") == "main"
+    if p["kind"] == "main_module":
+        return any(m in scripts for m in components.get(module, {}).get("uses", {}))
+    return False
+
+
+def crowd_label(how_many: int, kind: str, card: str) -> str:
+    """A crowd of ways in, named: `190 routes into HttpApi`.
+
+    `systemap journeys` names a crowd the same way, so the walk it writes and
+    the line it answers read as the same thing.
+    """
+    return f"{how_many} {kind}s into {card}"
+
+
+def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[str]:
+    """One line per way in, or one line per card for the kinds that come in crowds.
+
+    The order the facts list them in is kept, so a report does not reshuffle
+    itself when one way in is answered.
+    """
+    crowds: dict[tuple[str, str], list[dict[str, str]]] = {}
     for p in points:
-        module = p["module"]
-        if module in skip:
-            continue
-        if p["kind"] == "main_function" and scripts.get(module, {}).get("target") == "main":
-            continue
-        if p["kind"] == "main_module":
-            imported = set(components.get(module, {}).get("uses", {}))
-            if any(m in scripts for m in imported):
-                continue
-        if mentioned(p["name"], text):
-            continue
-        who = owner.get(module)
+        crowds.setdefault((p["kind"], owner.get(p["module"], "")), []).append(p)
+    out: list[str] = []
+    said: set[tuple[str, str]] = set()
+    for p in points:
+        key = (p["kind"], owner.get(p["module"], ""))
+        found, who = crowds[key], key[1]
         where = f" (component {who})" if who else ""
-        out.append(f"entry point {entry_label(p)} has no journey{where}")
+        if len(found) <= TOGETHER_AT or not who:
+            out.append(f"entry point {entry_label(p)} has no journey{where}")
+            continue
+        if key not in said:
+            said.add(key)
+            said_as = crowd_label(len(found), p["kind"], who)
+            out.append(f"entry point {said_as} have no journey{where}")
     return out
+
+
+def journey_problems(
+    meaning: Meaning, facts: dict[str, Any], cards: Collection[str] = ()
+) -> list[str]:
+    """A journey nobody has confirmed, and a journey that starts at nothing.
+
+    Naming the way in is what lets the map say which ways in are walked and
+    which are not, so a name nothing matches leaves a real way in looking
+    covered.
+    """
+    drafted = [
+        f"drafted journey: {j.id} ({j.label}) was written by an agent and not yet confirmed"
+        for j in meaning.journeys
+        if j.drafted
+    ]
+    ways = {p["name"] for p in facts.get("entry_points", [])}
+    ways |= {entry_label(p) for p in facts.get("entry_points", [])}
+    # A card is a way in too, for a walk that stands for every way in it takes.
+    ways |= set(cards)
+    return drafted + [
+        f"journey start: {j.id} starts at {j.starts}, which the facts have no way in for"
+        for j in meaning.journeys
+        if j.starts and j.starts not in ways
+    ]
 
 
 Pair = tuple[str, str]
@@ -466,6 +561,7 @@ def run(
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
         + entry_points_without_journey(model, meaning, facts, text=journeys_text, skip=skip)
+        + journey_problems(meaning, facts, [c.id for c in model.components])
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + model_sdk_imports(model, facts, sdks, skip=skip)
@@ -582,10 +678,20 @@ def of_kind(lines: list[str], kind: str) -> list[str]:
     return [line for line in lines if unprefixed(line).startswith(KIND_PREFIX[kind])]
 
 
+def kind_of(line: str) -> str:
+    """Which kind of line this is, by the prefix it was printed with."""
+    bare = unprefixed(line)
+    for kind, prefix in KIND_PREFIX.items():
+        if bare.startswith(prefix):
+            return kind
+    return ""
+
+
 def report(
     lines: list[str] | Answered,
     detail: dict[str, list[str]] | None = None,
     kind: str = "",
+    teach: bool = True,
 ) -> list[str]:
     """The lines the CLI prints.
 
@@ -593,31 +699,50 @@ def report(
     it: the imports behind a crossing-import line. `kind` (from `--kind`)
     prints the open lines of that kind alone; the head still counts them
     all, since the exit code does.
+
+    `teach` prints why the kind matters and what to do about it, from
+    `systemap.explain`, under the first line of each kind rather than
+    under every one: the same two sentences ten times over is noise, and
+    a report a reader skips teaches nothing. `--brief` turns it off.
     """
     result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
-    open_lines = result.open
+    shown = of_kind(result.open, kind) if kind else result.open
+    out = [_head(result, kind, len(shown))]
+    out += _shown(shown, detail, teach)
+    out += [
+        f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
+        for item in result.stale
+    ]
+    return out
+
+
+def _head(result: Answered, kind: str, showing: int) -> str:
+    """The first line: what is open, what was answered, and what is being shown."""
     tail = ""
     if result.answered:
         tail += f", {result.answered} answered"
     if result.stale:
         tail += f", {len(result.stale)} stale"
-    if not open_lines:
+    if not result.open:
         head = f"judgement: nothing to confirm{tail}"
     else:
-        noun = "item" if len(open_lines) == 1 else "items"
-        head = f"judgement: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
-    shown = open_lines
+        noun = "item" if len(result.open) == 1 else "items"
+        head = f"judgement: {len(result.open)} {noun} for the maintainer to confirm{tail}"
     if kind:
-        shown = of_kind(open_lines, kind)
-        noun = "line" if len(shown) == 1 else "lines"
-        head += f"; showing the {len(shown)} {kind} {noun}"
-    out = [head]
+        head += f"; showing the {showing} {kind} {'line' if showing == 1 else 'lines'}"
+    return head
+
+
+def _shown(shown: list[str], detail: dict[str, list[str]] | None, teach: bool) -> list[str]:
+    """Each line, what it stands for with `--verbose`, and its kind taught once."""
+    out: list[str] = []
+    taught: set[str] = set()
     for line in shown:
         out.append(f"  {line}")
         if detail:
             out += [f"    {item}" for item in detail.get(line, [])]
-    out += [
-        f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
-        for item in result.stale
-    ]
+        here = kind_of(line)
+        if teach and here and here not in taught:
+            taught.add(here)
+            out += explain.rows(here)
     return out

@@ -377,7 +377,10 @@ def build(
         )
     o.append('<div class="strip" id="strip" hidden><span class="strip__n" id="stripn"></span>')
     o.append('<span class="strip__say" id="stripsay"></span>')
-    o.append('<span class="strip__meas" id="stripmeas"></span></div>')
+    o.append('<span class="strip__meas" id="stripmeas"></span>')
+    # Under the sentence: where the walk begins, what backs this step in the
+    # code, and a word when nobody has read the walk against the code yet.
+    o.append('<span class="strip__foot" id="stripfoot"></span></div>')
     o.append('<div class="legend">')
     for _lid, colour, label in layer_rows(T, model, meaning, variables=True):
         o.append(
@@ -416,19 +419,31 @@ def build(
         "</i>measures</span>"
     )
     o.append("</div>")
+    # The first thing a new reader needs is the vocabulary, then the marks,
+    # then the controls. Each is its own paragraph so none of them is a wall.
     o.append(
-        '<p class="key">Every card is code in the tree today: the check refuses a component '
-        "whose modules or entry are not in the facts. A dashed card is an actor outside the "
-        "code. A dot in a card's top corner marks a note; the panel shows it. Every line "
-        "carries what it moves and is coloured by the layer it belongs to. A dashed line "
-        "is a declared flow: no import in the facts joins its two ends; the panel says "
-        "of every flow whether it is observed, external or declared. A card standing on "
-        "a second card opens a map of its own; the panel shows a preview of it and a button "
-        "that opens it in place, over this page. "
-        "Click a component; press Escape to clear it and return the view; the arrow keys switch "
-        "readings, or step a journey while one is on; double-click a region's name to frame "
-        "the region. Text is drawn at 11px "
-        "and never smaller: at Fit it is scaled down, and zoom brings it back.</p>"
+        '<p class="key"><b>What you are looking at.</b> A <b>card</b> is one part of this '
+        "system: something a reader would point at and name. Every card is code in the tree "
+        "today, and the check refuses one whose modules or entry are not in the facts. A "
+        "<b>line</b> is something moving from one part to another, labelled with what it "
+        "carries. A <b>reading</b> colours the lines that answer one question, so the same map "
+        "can be looked at several ways. A <b>journey</b> walks the map one step at a time, the "
+        "way a run does.</p>"
+    )
+    o.append(
+        '<p class="key"><b>What the marks mean.</b> A dashed card is an actor outside the code. '
+        "A dot in a card's top corner marks a note, which the panel shows. A dashed line is a "
+        "declared flow: no import in the facts joins its two ends, so the map is claiming it "
+        "rather than observing it; the panel says of every flow whether it is observed, "
+        "external or declared. A card standing on a second card holds a map of its own, and "
+        "the panel opens it in place over this page.</p>"
+    )
+    o.append(
+        '<p class="key"><b>How to drive it.</b> Click a component to light what it reaches. '
+        "Escape clears the selection and returns the view. The arrow keys switch readings, or "
+        "step a journey while one is on. Double-click a region's name to frame that region. "
+        "Text is drawn at 11px and never smaller: at Fit it is scaled down, and zoom brings "
+        "it back.</p>"
     )
     o.append("</section>")
 
@@ -618,6 +633,9 @@ border-left:3px solid var(--accent);font-size:13.5px;color:var(--ink)}}
 .strip__n{{font-family:var(--fm);font-size:11px;color:var(--accent);letter-spacing:.06em}}
 .strip__meas{{font-family:var(--fm);font-size:11px;color:var(--steel);margin-left:auto}}
 .strip__meas.none{{color:var(--bad)}}
+.strip__foot{{flex:1 0 100%;font-family:var(--fm);font-size:11px;color:var(--ink-3)}}
+.strip__foot b{{color:var(--ink-2);font-weight:600}}
+.strip__foot .draft{{color:var(--bad)}}
 .legend{{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:.6rem 0 .2rem;align-items:center;
 font-family:var(--fm);font-size:11px;color:var(--ink-3)}}
 .lg{{display:inline-flex;align-items:center;gap:.4rem}}
@@ -807,6 +825,7 @@ JS = r"""
   var strip = document.getElementById('strip');
   var stripN = document.getElementById('stripn'), stripSay = document.getElementById('stripsay');
   var stripMeas = document.getElementById('stripmeas');
+  var stripFoot = document.getElementById('stripfoot');
   var cur = {j:-1, s:0};
   function journeyStrip(j){
     // The strip during a journey: every step as the edge it traces, the
@@ -825,6 +844,18 @@ JS = r"""
       b.addEventListener('click', function(){ cur.s = +b.dataset.step; showStep(); });
     });
   }
+  function footOf(j, step){
+    // Where the walk begins, what backs the step the reader is on, and a
+    // word when an agent wrote the walk and nobody has confirmed it.
+    var parts = [];
+    if(j.starts){ parts.push('starts at <b>' + esc(j.starts) + '</b>'); }
+    var e = A.edges[step.edge];
+    if(e && e.evidence_says){ parts.push(esc(e.evidence_says)); }
+    if(j.drafted){
+      parts.push('<span class="draft">written by an agent, not yet confirmed</span>');
+    }
+    return parts.join(' &middot; ');
+  }
   function showStep(){
     var j = A.journeys[cur.j];
     if(!j){ return; }
@@ -840,6 +871,7 @@ JS = r"""
       stripMeas.textContent = m.length ? 'measured by ' + m.join(', ')
         : 'nothing measures this step';
       stripMeas.classList.toggle('none', !m.length);
+      stripFoot.innerHTML = footOf(j, step);
     }
     if(count){ count.textContent = (cur.s + 1) + '/' + j.steps.length; }
     prev.disabled = cur.s === 0; next.disabled = cur.s >= j.steps.length - 1;
