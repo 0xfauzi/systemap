@@ -92,7 +92,7 @@ class Group:
     def label(self) -> str:
         if not self.whole:
             return entry_label(self.one)
-        return f"{len(self.ways_in)} {self.one['kind']}s into {self.card}"
+        return judgement.crowd_label(len(self.ways_in), self.one["kind"], self.card)
 
     @property
     def starts(self) -> str:
@@ -177,7 +177,7 @@ def _asked(facts: dict[str, Any], group: Group) -> dict[str, Any]:
     if not group.whole:
         return one(group.one)
     return {
-        "a_group": f"{len(group.ways_in)} {group.one['kind']}s into {group.card}",
+        "a_group": group.label,
         "kind": group.one["kind"],
         "into_card": group.card,
         "how_many": len(group.ways_in),

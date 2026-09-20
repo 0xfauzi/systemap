@@ -675,12 +675,12 @@ def near_lines(d: Delta, teach: bool = True) -> list[str]:
         ]
     out = [
         "next to the change:",
-        f"  {d.seed} holds most of what changed; one flow away sit {_some(d.near)}",
+        f"  {d.seed} holds most of what changed; one flow away sit {_all_named(d.near)}",
     ]
     return out + (explain.rows("next to the change") if teach else [])
 
 
-def _some(cards: tuple[str, ...]) -> str:
+def _all_named(cards: tuple[str, ...]) -> str:
     """The cards as a sentence ends them: all of them, however many there are."""
     if len(cards) == 1:
         return cards[0]

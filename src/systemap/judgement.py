@@ -320,6 +320,15 @@ def _same_script(
     return False
 
 
+def crowd_label(how_many: int, kind: str, card: str) -> str:
+    """A crowd of ways in, named: `190 routes into HttpApi`.
+
+    `systemap journeys` names a crowd the same way, so the walk it writes and
+    the line it answers read as the same thing.
+    """
+    return f"{how_many} {kind}s into {card}"
+
+
 def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[str]:
     """One line per way in, or one line per card for the kinds that come in crowds.
 
@@ -340,7 +349,8 @@ def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[st
             continue
         if key not in said:
             said.add(key)
-            out.append(f"entry point {len(found)} {p['kind']}s into {who} have no journey{where}")
+            said_as = crowd_label(len(found), p["kind"], who)
+            out.append(f"entry point {said_as} have no journey{where}")
     return out
 
 

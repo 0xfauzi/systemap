@@ -40,7 +40,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap import journeys as journeys_mod
-from systemap.evidence import DECLARED, STATES
+from systemap.evidence import DECLARED, STATES, owners
 from systemap.evidence import of_model as evidence_of
 from systemap.extract import entry_label
 from systemap.model import Edge, Journey, Meaning, Model, all_layers, reading
@@ -149,7 +149,7 @@ def journey_lines(
     out = ["journeys: the walks a reader can take through the system"]
     for j in meaning.journeys:
         out += _walk_lines(j, states)
-    return out + _ways_in_lines(meaning, facts)
+    return out + _ways_in_lines(model, meaning, facts)
 
 
 def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
@@ -163,12 +163,17 @@ def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
     return out
 
 
-def _ways_in_lines(meaning: Meaning, facts: dict[str, Any]) -> list[str]:
-    """How many ways into the system a journey walks from, and which do not."""
+def _ways_in_lines(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+    """How many ways into the system a journey walks from, and which do not.
+
+    The cards are passed so that a walk written for a whole crowd, which
+    names its card rather than one of its hundred routes, counts here as it
+    counts in `systemap judgement`.
+    """
     ways = len(facts.get("entry_points", []))
     if not ways:
         return ["  ways in: none in the facts, so no walk can be asked for"]
-    left = journeys_mod.uncovered(meaning, facts)
+    left = journeys_mod.uncovered(meaning, facts, owners(model, facts))
     out = [f"  ways in: {ways - len(left)} of {ways} walked from"]
     if left:
         named = ", ".join(entry_label(p) for p in left[:5])

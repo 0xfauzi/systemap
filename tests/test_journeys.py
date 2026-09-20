@@ -355,3 +355,15 @@ def test_a_journey_starting_at_a_card_is_not_reported_as_starting_at_nothing(sam
             cards,
         )[0]
     )
+
+
+def test_describe_and_judgement_agree_that_a_crowd_is_walked(sample: Any) -> None:
+    """One rule, three readers: the line, the picture in numbers, and the writer."""
+    from systemap import describe, judgement
+
+    facts = crowd(9)
+    walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
+    assert judgement.entry_points_without_journey(sample.model, walks, facts) == []
+    told = describe.journey_lines(sample.model, walks, facts)
+    assert "  ways in: 9 of 9 walked from" in told
+    assert journeys.gather(sample.model, walks, facts) == []
