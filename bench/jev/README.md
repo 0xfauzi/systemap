@@ -34,7 +34,7 @@ Each experiment, its label source and what it measures:
 | answerfit | the answer that covers the crossing line | does this recorded reason cover this import |
 | moves | git's rename detection at 50% | which new module is the old one |
 
-## The holdout set
+## Which repositories are held out, and why?
 
 `JEV_SET=holdout` builds, runs and scores on maps no threshold was chosen
 on: systemap's own map, scorecard (`../scorecard`), and the newest finished
@@ -64,7 +64,7 @@ and 5.5 minutes against 46, $3.43 and 4.8 for the plain first map, one run
 each (`bench/results.jsonl`). No saving was measured, so `suggest --jev`
 stays opt-in and out of the recipe.
 
-## Tests 7 and 8 on agent labels
+## What did tests 7 and 8 measure?
 
 The maintainer chose not to hand-label. Each set was labelled once by a
 Claude subagent reading the full commits in git, blind to Jev's answers
@@ -81,7 +81,7 @@ Claude subagent reading the full commits in git, blind to Jev's answers
   cards. It would pass the bar, but **it is not a measurement**: drift
   detection stays unbuilt until about 15 human labels confirm the agent's.
 
-## Jev in the first map (turns.py, draft.py)
+## Does Jev make the first map cheaper? (turns.py, draft.py)
 
 Could Jev assign modules to cards during the first map, with the agent
 writing only the cards? Two measurements on the six first maps in
@@ -107,7 +107,7 @@ assign them better than the agent's draft, so it was not built and the
 first-map benchmark was not run. `audit`'s mis-fold line already asks the
 question that finds the few real mis-folds.
 
-## Journeys: what the structure can and cannot decide (2026-09-20)
+## What can the structure decide about a journey? (2026-09-20)
 
 Two questions about journeys were measured on the seven maps (the six in
 `bench/scratch` and systemap's own) before anything shipped.
@@ -166,7 +166,7 @@ The proposal is not shipped. `bench/jev/propose.py` keeps the code and
 `paths.py` scores it. `systemap journeys` asks the agent to read the code
 from the way in, and checks every step it answers with against the map.
 
-## Ripple: what the map's graph adds to the imports (2026-09-20)
+## What does the map's graph add to the imports? (2026-09-20)
 
 `systemap ripple` would answer "you changed these cards, which others does
 this reach". It is not built, because the walk did not beat what systemap can
@@ -208,7 +208,7 @@ the right question is, not a pass, and the bar was set before the run, so
 ripple does not ship. Anything built here later needs a question a reader
 would act on and a bar set before it is measured.
 
-## A plan projected onto the map (2026-09-20)
+## How well does a plan project onto the map? (2026-09-20)
 
 `systemap plan` asks one question: given this task in the maintainer's own
 words, which card will the work most likely have to change? The truth is the
@@ -241,7 +241,7 @@ thresholds held to), and the holdout is one repository, so what this
 supports is that the projection is better on some systems than others. It names two
 cards; a maintainer can check two cards.
 
-## A year of the system, read in today's cards (2026-09-20)
+## What does a year of the system look like in today's cards? (2026-09-20)
 
 `systemap history` samples the tree back through time and says what moved.
 Two bars, set before it was built: 26 samples over a year of mealie must
@@ -279,7 +279,7 @@ rich barely changed in a year: one window moved, and it was the unicode width
 tables being regenerated. Printing almost nothing for a year in which almost
 nothing happened is the right answer.
 
-## What changed for the people using it: measured, and not built (2026-09-20)
+## Can Jev say what changed for the people using it? (2026-09-20)
 
 The plan was a section in `delta`'s pull-request comment: for each journey
 step through a card the change touched, whether the step's sentence still
@@ -338,7 +338,7 @@ no positives in it measures false alarms only, so nothing here says whether
 real drift would be caught. What it does say is that real drift is rare
 enough that the question may not be worth asking per pull request.
 
-## What the measurements suggest next (2026-09-20)
+## What do the measurements suggest next? (2026-09-20)
 
 Three things in this directory came back with numbers that point at work worth
 doing. Each is written here with the bar it has to clear, before anyone starts,
