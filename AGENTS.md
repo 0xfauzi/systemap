@@ -5,7 +5,7 @@ can remember in full. Everything here serves that: the map is the artefact,
 the commands keep it matching the code, and the words are how a reader learns
 what the map says.
 
-## How the words are written
+## How should the words be written?
 
 systemap talks to someone who is learning the system, not to someone who
 already knows it. That means:
@@ -32,7 +32,7 @@ A reader needs the explanation as much as the finding, so when a new kind of
 line is added, add its entry to `explain.py`. A test fails when a kind of line
 has no entry there.
 
-## How a feature is decided
+## How is a feature decided?
 
 - **A number chosen after the run is chosen to pass, so state it first.**
   Write the acceptance number in the experiment's own docstring, then run it.
@@ -46,16 +46,18 @@ has no entry there.
   command cannot do what was asked, it says so and exits, rather than doing
   something else without saying.
 
-## The gates that run here
+## Which gates must pass?
 
 `uv run pytest`, `uv run pre-commit run --all-files`. Between them they
-enforce: ruff, mypy, cognitive complexity at 15 for anything this commit adds or
-worsens, cyclomatic complexity that never grows, no file past 800 lines,
+enforce: ruff, mypy, cognitive complexity at 15 for anything this commit adds
+or worsens, cyclomatic complexity that never grows, no file past 800 lines,
 `SKILL.md` at 240 lines, no em dashes, and the three copies of the skill
-directory identical. No test sends anything to Jev, the TypeSafe model systemap asks for
-judgement calls the facts cannot settle, and no test runs a coding agent: both
-are
-injected, and recorded answers are replayed.
+directory identical.
+
+Jev is the TypeSafe model systemap asks for the judgement calls the facts
+cannot settle. No test sends anything to Jev, and no test runs a coding
+agent. Both are injected, and recorded answers are replayed, so the suite
+costs nothing and cannot fail because a service was slow.
 
 This repository is mapped with systemap. After changing the source, run
 `systemap refresh`, `systemap check` and `systemap judgement`, and name any
