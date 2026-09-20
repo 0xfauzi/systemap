@@ -189,6 +189,22 @@ DELTA = {
         ),
         do="Drop the claim from the card, or remove the card if its job left with the module.",
     ),
+    "next to the change": Lesson(
+        means=(
+            "The cards one flow away from the card this change landed in most, whichever way "
+            "the artifact travels."
+        ),
+        why=(
+            "A diff shows the code that changed. It does not show what sits against it, and "
+            "the parts that break are usually the parts that were already talking to it. This "
+            "is the short version of that question: 6 cards at the median over 359 pull "
+            "requests, holding a card the change really touched in 72% of them."
+        ),
+        do=(
+            "Read it as context, not as a warning. If something is wrong after this change, "
+            "look here first; if nothing is, there is nothing to do."
+        ),
+    ),
     "entry vanished": Lesson(
         means="A card names an entry that its modules no longer define.",
         why=(

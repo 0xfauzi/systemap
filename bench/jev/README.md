@@ -364,6 +364,32 @@ at most 6 cards at the median, and must contain at least one card the pull
 request really touched in 50% of them or more. Below either, nothing ships, and
 the rule joins the two above it. Cost: the dataset exists; a run and a reading.
 
+**Measured (2026-09-20, `bench/jev/near.py`): passed, and built.** The rule as
+measured seeds from the card holding the file with the most changed lines: 5
+cards at the median, a hit in 70%. `delta` reads the facts at two commits and
+not the diff, so it cannot count lines; it seeds from the card holding the most
+changed modules instead, and that was measured too, over the 359 pull requests
+where it applies:
+
+| what would be printed | cards (median) | ninetieth | holds a touched card |
+|---|---|---|---|
+| one hop from the seed card | 6 | 14 | 0.72 |
+| one hop from every changed card | 14 | 21 | not scored: every touched card is a seed |
+| every module that card imports | 20 | 32 | 0.77 |
+
+The union of every changed card's neighbours is the obvious shape and it is the
+one not built: fourteen cards at the median is not a short list. The imports
+find five points more at three times the length, which is the same result the
+ripple run got, and the reason this ships as context rather than as a claim
+about what else broke.
+
+Fourteen cards at the ninetieth percentile is still too long, and the cause is
+a hub: a card a flow joins to most of the map has no neighbourhood. `delta`
+prints nothing when the seed is joined to more than a third of the cards, which
+is the threshold the skill already uses for running the full loop rather than
+acting line by line. That silences 18% of the pull requests; the rest hold 5
+cards at the median and 8 at the ninetieth, and the hit falls 3 points to 0.69.
+
 ### 2. Where the system is growing
 
 `history` proved its windows trace to real work (five of the five largest named

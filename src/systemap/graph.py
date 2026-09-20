@@ -59,6 +59,23 @@ def in_flows(model: Model) -> dict[str, list[Flow]]:
     return out
 
 
+def neighbours(model: Model, card: str) -> list[str]:
+    """The cards one flow away from this one, whichever way the artifact travels.
+
+    A change is felt by what a card feeds and by what feeds it, and the arrow
+    says only which way the artifact moves, so this ignores the direction.
+    Measured over 359 pull requests, seeded the way `delta` seeds it: this list
+    holds 6 cards at the median and at least one card the change really touched
+    in 72% of them. Following that card's imports instead holds 20 cards for a
+    77% hit: five points better, and three times as much to read. Neither is
+    good enough to be a claim about what else broke, which is why `delta`
+    prints this as context (`bench/jev/near.py`).
+    """
+    found = {f.dst for f in model.flows if f.src == card}
+    found |= {f.src for f in model.flows if f.dst == card}
+    return sorted(found - {card})
+
+
 def steps_on(meaning: Meaning) -> dict[Edge, list[tuple[Journey, int]]]:
     """For each edge, the journey steps that trace it, as (journey, step number)."""
     out: dict[Edge, list[tuple[Journey, int]]] = {}

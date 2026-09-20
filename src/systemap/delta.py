@@ -62,7 +62,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, explain, extract, nest
+from systemap import evidence, explain, extract, graph, nest
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
@@ -205,6 +205,8 @@ class Delta:
     moved: int
     cards: int
     lines: tuple[Line, ...]
+    seed: str = ""
+    near: tuple[str, ...] = ()
 
     @property
     def open(self) -> list[Line]:
@@ -485,7 +487,7 @@ def compute(
                 )
             )
 
-    changed = sum(1 for m in set(b) & set(h) if b[m].get("sha") != h[m].get("sha"))
+    changed, seed, near = _around(model, b, h, new, owner_written)
     return Delta(
         base=base.get("built_at_commit", ""),
         head=head.get("built_at_commit", ""),
@@ -497,7 +499,36 @@ def compute(
         moved=len(moves),
         cards=sum(1 for c in model.components if c.kind != "actor"),
         lines=tuple(lines),
+        seed=seed,
+        near=near,
     )
+
+
+def _around(
+    model: Model,
+    b: dict[str, Any],
+    h: dict[str, Any],
+    new: list[str],
+    owner: dict[str, str],
+) -> tuple[int, str, tuple[str, ...]]:
+    """How many modules were rewritten, the card most of them belong to, and its neighbours."""
+    rewritten = {m for m in set(b) & set(h) if b[m].get("sha") != h[m].get("sha")}
+    seed = _seed(rewritten | set(new), owner)
+    return len(rewritten), seed, tuple(graph.neighbours(model, seed)) if seed else ()
+
+
+def _seed(touched: set[str], owner: dict[str, str]) -> str:
+    """The card the change is most of: the one claiming the most changed modules.
+
+    Ties go to the first card by name, so two runs of the same change print
+    the same card.
+    """
+    counted: dict[str, int] = {}
+    for module in touched:
+        card = owner.get(module, "")
+        if card:
+            counted[card] = counted.get(card, 0) + 1
+    return max(sorted(counted), key=lambda c: counted[c]) if counted else ""
 
 
 def _view(facts: dict[str, Any], modules: set[str]) -> dict[str, Any]:
@@ -614,6 +645,7 @@ def report(d: Delta, teach: bool = True) -> list[str]:
     if d.quiet:
         out.append(f"changed, nothing to do ({len(d.quiet)}):")
         out += _lines_taught(d.quiet, teach, taught)
+    out += near_lines(d, teach)
     if d.past_a_third:
         out.append(FULL_LOOP)
     if d.open:
@@ -621,6 +653,47 @@ def report(d: Delta, teach: bool = True) -> list[str]:
     else:
         out.append("nothing to decide: the map already covers this change. run: systemap refresh")
     return out
+
+
+def near_lines(d: Delta, teach: bool = True) -> list[str]:
+    """The cards beside the change, which is context and not a finding.
+
+    It is printed even when nothing needs a decision, because the question it
+    answers ("what sits against what I changed") is asked most often then.
+    """
+    if not (d.seed and d.near):
+        return []
+    if len(d.near) > d.cards * FULL_LOOP_SHARE:
+        # A card joined to a third of the map has no neighbourhood: the list
+        # would be the map. Measured over 359 pull requests, this silences
+        # 18% of them and the rest hold 5 cards at the median, 8 at the
+        # ninetieth (`bench/jev/near.py`).
+        return [
+            "next to the change:",
+            f"  {d.seed} holds most of what changed, and a flow joins it to "
+            f"{len(d.near)} of the {d.cards} cards, so naming them would say nothing",
+        ]
+    out = [
+        "next to the change:",
+        f"  {d.seed} holds most of what changed; one flow away sit {_some(d.near)}",
+    ]
+    return out + (explain.rows("next to the change") if teach else [])
+
+
+def _some(cards: tuple[str, ...]) -> str:
+    """The cards as a sentence ends them: all of them, however many there are."""
+    if len(cards) == 1:
+        return cards[0]
+    return ", ".join(cards[:-1]) + f" and {cards[-1]}"
+
+
+def _near_markdown(d: Delta) -> list[str]:
+    """The same neighbourhood, in a pull-request comment, said once."""
+    lines = near_lines(d, teach=False)
+    if not lines:
+        return []
+    said = lines[1].strip()
+    return ["**Next to the change**", "", f"{said[0].upper()}{said[1:]}.", ""]
 
 
 def _why_each_kind(lines: list[Line]) -> list[str]:
@@ -670,6 +743,7 @@ def markdown(d: Delta, figure: str = "") -> str:
         out += [f"**Changed, nothing to do ({len(d.quiet)})**", ""]
         out += [f"- `{line.text}`" for line in d.quiet]
         out.append("")
+    out += _near_markdown(d)
     if d.past_a_third:
         out += [f"> {FULL_LOOP[0].upper()}{FULL_LOOP[1:]}.", ""]
     head_short = d.head[:7] or d.head_ref
