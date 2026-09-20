@@ -277,3 +277,27 @@ history` prints those same commits under each window for the same reason.
 
 rich's year is quiet: one window moved, and it was the unicode width tables
 being regenerated. A quiet year printing almost nothing is the right answer.
+
+## What changed for the people using it: not built (2026-09-20)
+
+The plan was a section in `delta`'s pull-request comment: for each journey
+step through a card the change touched, whether the step's sentence still
+holds, and an agent's rewrite of the ones that do not. It is not built, and
+the reason is that its gate cannot be met honestly.
+
+The drift question was measured once already (test 7, `drift.jsonl`): asked
+whether a card's `does` still described it after a diff, Jev scored AUC 0.957
+against labels written by a coding agent. That is agreement between two
+models, not truth, and the maintainer declined to label the set by hand.
+
+The proxy the plan allowed was a planted test: swap a step's sentence with
+another step's and see whether the answer flips. Measured or not, it answers
+a different question. It would show that Jev can tell a step's own sentence
+from a foreign one given the code, which is close to the `jev sentence`
+check that already ships. It would not show that Jev notices when a real
+change makes a true sentence false, which is the whole claim of the feature.
+
+So nothing ships. A section that tells a reader "this is what changed for
+your users" has to be right more often than not, and there is currently no
+measurement that says whether it would be. About fifteen hand-labelled
+examples, drawn from real pull requests, would settle it.
