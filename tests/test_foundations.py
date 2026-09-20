@@ -186,3 +186,37 @@ def test_explain_prints_one_entry_whole_and_names_the_kinds_it_knows() -> None:
     assert any("why it matters" in line for line in out)
     missing = explain.whole("nonsense")
     assert "there is no line kind" in missing[0] and "crossing import" in missing[1]
+
+
+# ---- the teaching, under the lines and on its own ----------------------------------
+
+
+def test_explain_lists_every_kind_and_prints_one_whole(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from systemap.cli import main
+
+    assert main(["--root", str(tmp_path), "explain"]) == 0
+    out = capsys.readouterr().out
+    assert "the kinds of line systemap prints" in out
+    for kind in ("crossing import", "coverage", "jev owner", "new crossing import"):
+        assert f"  {kind}: " in out
+    assert main(["--root", str(tmp_path), "explain", "crossing import"]) == 0
+    whole = capsys.readouterr().out
+    assert whole.startswith("crossing import\n")
+    assert "why it matters:" in whole and "what to do:" in whole
+    # a kind nobody prints is refused, and the refusal names the ones there are
+    assert main(["--root", str(tmp_path), "explain", "nonsense"]) == 1
+    assert "there is no line kind" in capsys.readouterr().out
+
+
+def test_a_failing_check_group_is_taught_and_a_passing_one_is_not() -> None:
+    from systemap import check as check_mod
+
+    clean = ["map routes: 0 edges through a card they do not connect"]
+    assert check_mod._taught(clean) == clean, "a rule that passed is one line"
+    failing = ["coverage: 1 module is claimed by no card", "  pkg.extra"]
+    taught = check_mod._taught(failing)
+    assert taught[0] == failing[0]
+    assert taught[1].startswith("      why: ") and taught[2].startswith("      do:  ")
+    assert taught[3] == "  pkg.extra"

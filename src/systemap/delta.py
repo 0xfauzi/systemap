@@ -62,7 +62,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, extract, nest
+from systemap import evidence, explain, extract, nest
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
@@ -596,25 +596,58 @@ FULL_LOOP = (
 )
 
 
-def report(d: Delta) -> list[str]:
-    """The lines the CLI prints: the header, each group, and what to run."""
+def report(d: Delta, teach: bool = True) -> list[str]:
+    """The lines the CLI prints: the header, each group, and what to run.
+
+    `teach` says why each kind of line matters and what to do, once under
+    the first line of that kind; `--brief` turns it off."""
     span = f"{_label(d.base_ref, d.base)} -> {_label(d.head_ref, d.head)}"
     if not d.has_change:
         pair = f"{_label(d.base_ref, d.base)} and {_label(d.head_ref, d.head)}"
         return [f"delta: no module changed between {pair}; the map is unaffected"]
     out = [f"delta: {span}: {_counts(d)}"]
+    # One report teaches a kind once, whichever group it first appears in.
+    taught: set[str] = set()
     if d.open:
         out.append(f"needs a decision ({len(d.open)}):")
-        out += [f"  {line.text}" for line in d.open]
+        out += _lines_taught(d.open, teach, taught)
     if d.quiet:
         out.append(f"changed, nothing to do ({len(d.quiet)}):")
-        out += [f"  {line.text}" for line in d.quiet]
+        out += _lines_taught(d.quiet, teach, taught)
     if d.past_a_third:
         out.append(FULL_LOOP)
     if d.open:
         out.append(f"act on each line above, then run: {NEXT}")
     else:
         out.append("nothing to decide: the map already covers this change. run: systemap refresh")
+    return out
+
+
+def _why_each_kind(lines: list[Line]) -> list[str]:
+    """In a pull-request comment the teaching is said once per kind, under the
+    group, so a comment with a dozen lines does not repeat itself a dozen times."""
+    kinds: list[str] = []
+    for line in lines:
+        if line.kind not in kinds and explain.lesson(line.kind) is not None:
+            kinds.append(line.kind)
+    if not kinds:
+        return []
+    out = ["<details><summary>Why these matter, and what to do</summary>", ""]
+    for kind in kinds:
+        found = explain.lesson(kind)
+        assert found is not None
+        out += [f"- **{kind}**: {found.why} {found.do}"]
+    return [*out, "", "</details>", ""]
+
+
+def _lines_taught(lines: list[Line], teach: bool, taught: set[str]) -> list[str]:
+    """Each line, with its kind taught once under the first line of that kind."""
+    out: list[str] = []
+    for line in lines:
+        out.append(f"  {line.text}")
+        if teach and line.kind not in taught:
+            taught.add(line.kind)
+            out += explain.rows(line.kind)
     return out
 
 
@@ -632,7 +665,7 @@ def markdown(d: Delta, figure: str = "") -> str:
     if d.open:
         out += [f"**Needs a decision ({len(d.open)})**", ""]
         out += [f"- `{line.text}`" for line in d.open]
-        out.append("")
+        out += ["", *_why_each_kind(d.open)]
     if d.quiet:
         out += [f"**Changed, nothing to do ({len(d.quiet)})**", ""]
         out += [f"- `{line.text}`" for line in d.quiet]

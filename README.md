@@ -261,6 +261,24 @@ naming 2.1 cards per report; on 39 issues of a repository no threshold was
 chosen on, 71% while naming 2.1. The bar, set before the run, was 70% covered
 with at most 2 extra cards. Every run is in [bench/jev](bench/jev).
 
+## It teaches while it refuses
+
+A line systemap prints is short, because it has to be quoted word for word
+when you answer it. Short is not the same as clear, so under the first line
+of each kind, `check`, `judgement`, `delta` and `audit` print two more rows:
+why this matters to your view of the system, and what to do about it.
+
+    judgement: 3 items for the maintainer to confirm
+      single module: Reader is only pkg.reader
+          why: A map whose cards are files is a directory listing with corners.
+               It teaches a reader nothing they could not get from the tree.
+          do:  Keep the card if a reader would point at it and name it on its
+               own. Otherwise fold the module into the card whose job it serves.
+
+The line itself never changes, so answers written against it keep working.
+`--brief` leaves the rows out once you know them, and `systemap explain
+"<kind>"` prints one in full whenever you want it back.
+
 ## Commands
 
 | command | what it does |
@@ -281,6 +299,7 @@ with at most 2 extra cards. Every run is in [bench/jev](bench/jev).
 | `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
 | `systemap serve` | serve the page on the loopback address |
+| `systemap explain` | one kind of line in full: what it means, why it matters, what to do |
 | `systemap skill` | reinstall the skill directory |
 
 Every option and every configuration key is in

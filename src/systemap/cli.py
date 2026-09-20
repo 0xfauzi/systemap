@@ -44,6 +44,7 @@ from systemap import (
     config,
     delta,
     describe,
+    explain,
     extract,
     figure,
     jev,
@@ -332,12 +333,14 @@ def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
     return check.run_tree(p.tree, facts, p.cfg.coverage_ignore, p.cfg.observed_by)
 
 
-def _report_tree(p: Project, results: dict[str, check.Result], stale: list[str]) -> list[str]:
+def _report_tree(
+    p: Project, results: dict[str, check.Result], stale: list[str], teach: bool = True
+) -> list[str]:
     """Every map's report in tree order, then the stale group once."""
     out: list[str] = []
     for m in p.tree.maps:
-        out += check.report(m.model, results[m.id], m.rel, m.prefix)
-    return out + check.report_stale(stale)
+        out += check.report(m.model, results[m.id], m.rel, m.prefix, teach)
+    return out + check.report_stale(stale, teach)
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -348,7 +351,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
-    say(*_report_tree(p, results, stale))
+    say(*_report_tree(p, results, stale, not args.brief))
     if not check.tree_ok(results) or stale:
         say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
         return STALE
@@ -511,7 +514,7 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
     result = judgement.apply_answers(lines, mine)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
-    say(*judgement.report(result, detail, args.kind or ""))
+    say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say("answer every line in [judgement] answered in systemap.toml, or act on it")
@@ -555,7 +558,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
             listed = "\n".join(f"- {x}" for x in extra)
             sys.stdout.write(f"\n**Jev on the unclaimed modules**\n\n{listed}\n")
     else:
-        say(*delta.report(d), *extra)
+        say(*delta.report(d, teach=not args.brief), *extra)
     if args.jev is None and d.added and d.removed:
         jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
     return STALE if d.open else OK
@@ -620,6 +623,19 @@ def cmd_suggest(args: argparse.Namespace) -> int:
 
 
 # ---- describe --------------------------------------------------------------
+
+
+def cmd_explain(args: argparse.Namespace) -> int:
+    """One kind of line in full, or the kinds there are."""
+    if not args.kind:
+        say("explain: the kinds of line systemap prints, and what each is for")
+        for kind in sorted(explain.LESSONS):
+            say(f"  {kind}: {explain.LESSONS[kind].means}")
+        say('  run: systemap explain "<kind>" for why it matters and what to do')
+        return OK
+    lines = explain.whole(args.kind)
+    say(*lines)
+    return OK if explain.lesson(args.kind) else STALE
 
 
 def cmd_describe(args: argparse.Namespace) -> int:
@@ -891,6 +907,12 @@ def build_parser() -> argparse.ArgumentParser:
         "nesting, entry, stale outputs, on every map; exit 1 with each fix named",
     )
     add_root(s)
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what "
+        "to do; systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=cmd_check)
 
     s = sub.add_parser("figure", help="draw one figure with the same generator")
@@ -964,6 +986,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="under each crossing-import line, the imports it counts, one per line",
     )
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what "
+        "to do; systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(
@@ -994,6 +1022,12 @@ def build_parser() -> argparse.ArgumentParser:
         "card each unclaimed module reads like; on by default when TYPESAFE_API_KEY is set "
         "and [jev] enabled is not false; --no-jev sends nothing",
     )
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what "
+        "to do; systemap explain KIND prints one in full",
+    )
     s.set_defaults(func=cmd_delta)
 
     s = sub.add_parser(
@@ -1019,6 +1053,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_root(s)
     s.set_defaults(func=cmd_describe)
+
+    s = sub.add_parser(
+        "explain",
+        help="one kind of line in full: what it means, why it matters to your view of the "
+        "system, and what to do about it; with no kind, every kind systemap prints",
+    )
+    s.add_argument("kind", nargs="?", default="", help="the kind, as the line names it")
+    s.set_defaults(func=cmd_explain)
 
     s = sub.add_parser(
         "serve",

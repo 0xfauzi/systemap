@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- `check`, `judgement`, `delta` and `audit` teach while they refuse: under
+  the first line of each kind, two rows say why it matters to your view of
+  the system and what to do about it. The lines themselves are unchanged, so
+  answers written against them keep working, and each kind is taught once per
+  report rather than once per line. `--brief` leaves the rows out.
+- `systemap explain "<kind>"` prints one kind in full: what it means, why it
+  matters, what to do. With no kind it lists every kind systemap prints.
+- The pull-request comment carries the same teaching once per kind, folded
+  into a details block under the lines.
+- `AGENTS.md` says how systemap's own words are written, and how a feature is
+  decided: state the number before building, and record what failed.
+
 - `systemap plan "<task>"` names the cards a piece of work will most likely
   change, before it is done, and prints what each sits in: the flows, the
   walks and the rules around it. `--check <id> --base <ref>` compares that

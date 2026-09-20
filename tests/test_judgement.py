@@ -505,7 +505,7 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     assert judgement.CROSSING_LINE.match(lines[0]).groups() == ("CLI", "Ledger")  # type: ignore[union-attr]
     # The report prints the detail under the line with --verbose, and one
     # kind alone with --kind, the head still counting every open line.
-    printed = judgement.report(lines, detail)
+    printed = judgement.report(lines, detail, teach=False)
     assert printed == [
         "judgement: 2 items for the maintainer to confirm",
         f"  {lines[0]}",
@@ -517,10 +517,14 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     ]
     mixed = ["single module: Reader is only pkg.reader", *lines, "Sub: " + lines[0]]
     assert judgement.of_kind(mixed, "crossing import") == [*lines, "Sub: " + lines[0]]
-    assert judgement.report(mixed, kind="single module") == [
+    assert judgement.report(mixed, kind="single module", teach=False) == [
         "judgement: 4 items for the maintainer to confirm; showing the 1 single module line",
         "  single module: Reader is only pkg.reader",
     ]
+    # with the teaching on, the kind is explained once under its first line
+    taught = judgement.report(mixed, kind="single module")
+    assert taught[1] == "  single module: Reader is only pkg.reader"
+    assert taught[2].startswith("      why: ") and taught[3].startswith("      do:  ")
     assert judgement.report(mixed, kind="no sentence")[0].endswith(
         "showing the 0 no sentence lines"
     )
@@ -709,9 +713,14 @@ def test_crossing_into_and_from_in_the_configuration(
     assert into_reader in out and into_writer in out
     # --verbose lists the imports under each line; --kind prints one kind and
     # the head still counts every open line; an unknown kind is refused.
-    assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
+    assert main(["--root", str(tmp_path), "judgement", "--verbose", "--brief"]) == 0
     out = capsys.readouterr().out
     assert f"  {into_reader}\n    pkg.extra imports pkg.reader\n  {into_writer}\n" in out
+    # without --brief the kind is taught once, under the first line of that kind
+    assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("      why: The code has a connection the map denies.") == 1
+    assert f"  {into_reader}\n    pkg.extra imports pkg.reader\n      why: " in out
     assert main(["--root", str(tmp_path), "judgement", "--kind", "crossing import"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("judgement: ") and "; showing the 2 crossing import lines\n" in out

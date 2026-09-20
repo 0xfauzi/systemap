@@ -220,7 +220,7 @@ def repo(tmp_path: Path) -> Path:
 
 def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     base = git(repo, "rev-parse", "HEAD~1")[:7]
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--brief"]) == 1
     out = capsys.readouterr().out
     lines = out.splitlines()
     assert lines[0] == (
@@ -265,6 +265,15 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     # Spare is told to drop its module, not also that its entry vanished.
     assert "entry vanished: Spare" not in out
     assert delta.FULL_LOOP in lines
+    # without --brief each kind is taught once, under the first line of that kind
+    capsys.readouterr()
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
+    taught = capsys.readouterr().out.splitlines()
+    whys = [line for line in taught if line.startswith("      why: ")]
+    assert len(whys) == len(set(whys)), "no kind is taught twice"
+    assert any("this is the moment an architecture changes" in line.lower() for line in whys)
+    first = taught.index("  " + expected_open[0])
+    assert taught[first + 1].startswith("      why: "), "the teaching sits under its line"
     assert lines[-1] == (
         "act on each line above, then run: systemap refresh && systemap check && "
         "systemap judgement --strict"

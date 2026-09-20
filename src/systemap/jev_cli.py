@@ -142,7 +142,10 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     open_lines, answered, stale = audit.apply(found, cfg.judgement_answered, kinds)
     open_lines = [x for x in open_lines if audit._bare(x.text).split(": ", 1)[0] in kinds]
-    print(*audit.report(open_lines, answered, stale, client.usage.line()), sep="\n")
+    print(
+        *audit.report(open_lines, answered, stale, client.usage.line(), not args.brief),
+        sep="\n",
+    )
     return OK
 
 
@@ -597,6 +600,12 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         + ", ".join(f'"{k}"' for k in config.AUDIT_KINDS)
         + '); without it, every kind but "jev flow", which fell short on maps its '
         "threshold was not chosen on",
+    )
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="the lines alone, without the two rows that say why each matters and what to do; "
+        "systemap explain KIND prints one in full",
     )
     s.set_defaults(func=lambda args: cmd_audit(_rooted(args)))
 

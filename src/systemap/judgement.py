@@ -80,7 +80,7 @@ from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import evidence, nest
+from systemap import evidence, explain, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
 from systemap.extract import entry_label
@@ -656,10 +656,20 @@ def of_kind(lines: list[str], kind: str) -> list[str]:
     return [line for line in lines if unprefixed(line).startswith(KIND_PREFIX[kind])]
 
 
+def kind_of(line: str) -> str:
+    """Which kind of line this is, by the prefix it was printed with."""
+    bare = unprefixed(line)
+    for kind, prefix in KIND_PREFIX.items():
+        if bare.startswith(prefix):
+            return kind
+    return ""
+
+
 def report(
     lines: list[str] | Answered,
     detail: dict[str, list[str]] | None = None,
     kind: str = "",
+    teach: bool = True,
 ) -> list[str]:
     """The lines the CLI prints.
 
@@ -667,31 +677,50 @@ def report(
     it: the imports behind a crossing-import line. `kind` (from `--kind`)
     prints the open lines of that kind alone; the head still counts them
     all, since the exit code does.
+
+    `teach` prints why the kind matters and what to do about it, from
+    `systemap.explain`, under the first line of each kind rather than
+    under every one: the same two sentences ten times over is noise, and
+    a report a reader skips teaches nothing. `--brief` turns it off.
     """
     result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
-    open_lines = result.open
+    shown = of_kind(result.open, kind) if kind else result.open
+    out = [_head(result, kind, len(shown))]
+    out += _shown(shown, detail, teach)
+    out += [
+        f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
+        for item in result.stale
+    ]
+    return out
+
+
+def _head(result: Answered, kind: str, showing: int) -> str:
+    """The first line: what is open, what was answered, and what is being shown."""
     tail = ""
     if result.answered:
         tail += f", {result.answered} answered"
     if result.stale:
         tail += f", {len(result.stale)} stale"
-    if not open_lines:
+    if not result.open:
         head = f"judgement: nothing to confirm{tail}"
     else:
-        noun = "item" if len(open_lines) == 1 else "items"
-        head = f"judgement: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
-    shown = open_lines
+        noun = "item" if len(result.open) == 1 else "items"
+        head = f"judgement: {len(result.open)} {noun} for the maintainer to confirm{tail}"
     if kind:
-        shown = of_kind(open_lines, kind)
-        noun = "line" if len(shown) == 1 else "lines"
-        head += f"; showing the {len(shown)} {kind} {noun}"
-    out = [head]
+        head += f"; showing the {showing} {kind} {'line' if showing == 1 else 'lines'}"
+    return head
+
+
+def _shown(shown: list[str], detail: dict[str, list[str]] | None, teach: bool) -> list[str]:
+    """Each line, what it stands for with `--verbose`, and its kind taught once."""
+    out: list[str] = []
+    taught: set[str] = set()
     for line in shown:
         out.append(f"  {line}")
         if detail:
             out += [f"    {item}" for item in detail.get(line, [])]
-    out += [
-        f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
-        for item in result.stale
-    ]
+        here = kind_of(line)
+        if teach and here and here not in taught:
+            taught.add(here)
+            out += explain.rows(here)
     return out
