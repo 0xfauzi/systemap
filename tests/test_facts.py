@@ -313,19 +313,27 @@ def test_the_skill_reads_the_facts_through_the_command() -> None:
     text = skill.text()
     step = text[text.index("1. **extract**") : text.index("2. **draft**")]
     assert "systemap facts" in step and "never the JSON" in step
-    # Every view, and what each gives, in the step.
+    # The step names the views the draft needs, and sends the agent to the
+    # table for the rest, so the seven are written out once.
     for view in (
-        "`--modules`, one line per module with the first\n   sentence of its docstring",
-        "`--docstrings`, the first sentence alone, for `does`",
-        "`--module NAME`,\n   one record rendered",
-        "`--names NAME`, its public names with\n   kinds, for `entry` and `interface`",
-        "`--entry-points`, where a run\n   starts, each with its target",
-        "`--external`, every third-party import\n   and who imports it",
-        "`--imports NAME`, what a module imports and what\n   imports it",
+        "`--docstrings` for `does`",
+        "`--names NAME` for `entry` and `interface`",
+        "`--entry-points` for the journeys",
+        "`--module NAME` for one record in\n   full",
     ):
         assert view in step, view
+    assert "the command table below lists them" in step
+    # Every view, and what each gives, in the table.
     row = text[text.index("| `systemap facts` |") :].split("\n")[0]
-    for view in ("--modules", "--docstrings", "--module NAME", "--names NAME", "--entry-points"):
+    for view in (
+        "`--modules` (first sentence and counts per module)",
+        "`--docstrings`",
+        "`--module NAME` (one record, rendered)",
+        "`--names NAME` (public names with kinds)",
+        "`--entry-points` (with targets)",
+        "`--external`",
+        "`--imports NAME`",
+    ):
         assert view in row, view
     assert "`systemap.toml` exists but\n   the facts file does not" in step
     assert "| `systemap facts` |" in text

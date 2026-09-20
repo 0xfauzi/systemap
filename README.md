@@ -305,18 +305,19 @@ The line itself never changes, so answers written against it keep working.
 | `systemap extract` | read the facts out of the tree |
 | `systemap facts` | read those facts back, one view at a time |
 | `systemap place` | a position for every card, and the region order that draws best |
-| `systemap check` | every rule, with the fix named |
+| `systemap render` | build the page from the facts and the model |
+| `systemap check` | does the map still match the code? exit 1, with each fix named |
 | `systemap judgement` | what the check cannot catch: the second-pass list |
 | `systemap suggest` | a first grouping to argue with, from the facts alone |
 | `systemap refresh` | extract, check, render, and every configured figure |
-| `systemap describe` | what a look at the picture would tell an agent that cannot look |
-| `systemap delta` | what a change did to the map |
+| `systemap describe` | what a look at the picture would tell you, in numbers |
+| `systemap delta` | what a change did to the map, from the facts at two commits |
 | `systemap audit` | a second opinion from Jev on the map's judgement calls (needs `TYPESAFE_API_KEY`) |
 | `systemap triage` | the cards an issue's fix will most likely change (needs `TYPESAFE_API_KEY`) |
 | `systemap plan` | the cards a piece of work will touch, and afterwards what it actually touched (needs `TYPESAFE_API_KEY`) |
 | `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
-| `systemap serve` | serve the page on the loopback address |
+| `systemap serve` | serve the output directory over HTTP, so the page can run |
 | `systemap history` | how the system got here: what moved over a year, and the work that moved it |
 | `systemap explain` | one kind of line in full: what it means, why it matters, what to do |
 | `systemap skill` | reinstall the skill directory |

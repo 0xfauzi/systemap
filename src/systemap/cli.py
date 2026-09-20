@@ -836,8 +836,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="start a map here: the configuration, a starter model, the skill, a workflow",
         description="A map needs three things beside the code: a configuration, a model to edit, "
         "and a skill so an agent can work on the map the way you do. This writes all three, and "
-        "a GitHub workflow that refreshes the map and fails a pull request that leaves it "
-        "stale. Run it once, at the root of the project.",
+        "a GitHub workflow that fails a pull request which leaves the map stale and comments on "
+        "it with what the change did to the map. Run it once, at the root of the project.",
     )
     add_root(s)
     s.add_argument(

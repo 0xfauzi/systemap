@@ -38,16 +38,11 @@ contradictions, not omissions; the second pass is the point of this skill.
 1. **extract**: `systemap extract`, also when `systemap.toml` exists but
    the facts file does not. Then read the facts through `systemap facts`,
    never the JSON (hundreds of kilobytes on a real tree). Each view
-   answers one question: `--modules`, one line per module with the first
-   sentence of its docstring and its names, imports and tests counted;
-   `--docstrings`, the first sentence alone, for `does`; `--module NAME`,
-   one record rendered (docstring, names with kinds, imports, imported
-   by, external, test count); `--names NAME`, its public names with
-   kinds, for `entry` and `interface`; `--entry-points`, where a run
-   starts, each with its target; `--external`, every third-party import
-   and who imports it; `--imports NAME`, what a module imports and what
-   imports it. Every module must end up claimed by one component, except
-   the empty package markers the summary lists.
+   answers one question, and the command table below lists them:
+   `--docstrings` for `does`, `--names NAME` for `entry` and `interface`,
+   `--entry-points` for the journeys, `--module NAME` for one record in
+   full. Every module must end up claimed by one component, except the
+   empty package markers the summary lists.
 2. **draft**: `systemap suggest --jev` (fallback: `systemap suggest`)
    prints a first grouping, from Jev's answers about module pairs or one
    proposal per package, and the imports between: to argue with, never the
@@ -186,6 +181,7 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
 | `systemap facts` | the facts read back, one view at a time: `--modules` (first sentence and counts per module), `--docstrings`, `--module NAME` (one record, rendered), `--names NAME` (public names with kinds), `--entry-points` (with targets), `--external`, `--imports NAME`; never open the JSON |
 | `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too, in the region order the search scores best (every order tried, the best routed; the chosen order and its score are printed); `--keep-order` lays the regions as listed; `--print` prints instead |
+| `systemap render` | the page, from the facts and the model; `--check` exits 1 when it is stale; `refresh` runs it for you |
 | `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
 | `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; to argue with, never the answer; with a model, when a map is past forty cards and which cards to open; `--jev` (use it first) groups modules from Jev's answers about module pairs instead (needs `TYPESAFE_API_KEY`) |
 | `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI; `--kind KIND` prints one kind when the list runs long; `--verbose` lists the imports behind each crossing-import line; `systemap audit` (needs `TYPESAFE_API_KEY`) asks the Jev model about meaning, answered the same way (`references/second-pass.md`) |
@@ -194,6 +190,10 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 | `systemap describe` | what a look at the picture would tell you: cards per region, bends and length per edge, seats per gutter, cards and edges per reading |
 | `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
 | `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one reading, `--map ID` for the map inside a card, or `--components A,B` for a plan's reach |
+| `systemap journeys` | a walk written for a way into the system that no journey starts from: the agent under `[agent] command` reads the code from that way in; a step tracing a flow the map does not draw is refused and printed, not written; what holds is written `drafted=True`, which `judgement` prints until you confirm it and remove the mark |
+| `systemap plan "<task>"` | the cards a piece of work will most likely change, by Jev, each with the flows, walks and rules it sits in; the projection is saved, so `--check ID --base REF` later compares it with the cards the code changed (needs `TYPESAFE_API_KEY`) |
+| `systemap history` | how the system got here: the tree sampled back through time, every sample read in today's cards, the largest windows first, each with the commits that wrote the modules which appeared |
+| `systemap explain KIND` | one kind of line in full: what it means, why it matters, what to do about it; `check`, `judgement` and `delta` print those rows under the first line of each kind, and `--brief` leaves them out |
 | `systemap serve` | serve the output directory over HTTP and print the URL; the page does not run from a file:// address |
 | `systemap skill` | reinstall this directory; `--print` writes SKILL.md to stdout |
 
@@ -217,20 +217,19 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
 
 ## References, each read when the loop reaches it
 
-- `references/schema.md`: every dataclass and field, one paragraph each,
-  and the rules the check applies. Read before the draft.
-- `references/example.md`: one complete worked model that passes the
-  check, with the configuration beside it. Read with the schema.
+- `references/schema.md`: every dataclass and field, and the rules the
+  check applies. Read before the draft.
+- `references/example.md`: one worked model that passes the check, with
+  its configuration. Read with the schema.
 - `references/layout.md`: what `systemap place` does, what is still yours
-  to decide (a card's region, the regions' order, when to pin), and how
-  to read `systemap describe`. Read before the draft, and again when the
-  check names a route or a label.
-- `references/layers.md`: the derived layers, the standard kinds, adding a
-  kind of your own, and agentic systems. Read when choosing a flow's kind
-  or a component's kind.
+  to decide (a card's region, the regions' order, when to pin), and how to
+  read `systemap describe`. Read before the draft, and when the check
+  names a route or a label.
+- `references/layers.md`: the derived layers, the standard kinds, adding
+  one of your own, agentic systems. Read when choosing a kind.
 - `references/journeys-and-invariants.md`: where journeys and invariants
-  come from and how each cites its source. Read at the draft and again at
-  the second pass.
+  come from, and how each cites its source. Read at the draft and at the
+  second pass.
 - `references/second-pass.md`: the review loop and the stop condition.
   Read at step 6, every time round.
 - `references/pitfalls.md`: mistakes seen on first drafts. Read before the
