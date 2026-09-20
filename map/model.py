@@ -145,7 +145,12 @@ COMPONENTS = (
         id="ChangeDetector",
         does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports. systemap delta reads the facts at two commits out of git and says what the change did to the map, one line per thing with its fix.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
-        implemented_by=("systemap.change", "systemap.delta", "systemap.moves"),
+        implemented_by=(
+            "systemap.change",
+            "systemap.delta",
+            "systemap.moves",
+            "systemap.history",
+        ),
         entry="compute",
         region="gather",
         x=698,
@@ -176,7 +181,13 @@ COMPONENTS = (
         id="Model",
         does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has, reads from the facts whether an import backs each flow (observed, external or declared), and loads the tree of maps when a card opens a map of its own.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
-        implemented_by=("systemap.model", "systemap", "systemap.evidence", "systemap.nest"),
+        implemented_by=(
+            "systemap.model",
+            "systemap",
+            "systemap.evidence",
+            "systemap.nest",
+            "systemap.graph",
+        ),
         entry="Model",
         kind="store",
         region="mean",
@@ -239,7 +250,7 @@ COMPONENTS = (
         id="Judgement",
         does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict. Before any of it, systemap suggest proposes a first grouping from the facts, to argue with.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
-        implemented_by=("systemap.judgement", "systemap.suggest"),
+        implemented_by=("systemap.judgement", "systemap.suggest", "systemap.explain"),
         entry="run",
         region="keep",
         x=270,
@@ -247,9 +258,14 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        does="The questions judgement cannot read from names and imports, put to the Jev model one at a time: a module that reads like another card, a card for an unclaimed module, a sentence that may not describe its modules, a flow the code may not carry, an invariant that may govern a card it does not name, the cards an issue will change. Opt-in and cached; never a gate.",
+        does="Help from outside this process, asked one narrow question at a time and cached: the Jev model for what judgement cannot read from names and imports (a module that reads like another card, a card for an unclaimed module, a sentence that may not describe its modules, a flow the code may not carry, an invariant that may govern a card it does not name, the cards an issue will change), and a coding agent named in the configuration for prose only a reader of the code can write. Opt-in; never a gate.",
         interface="run(tree, facts, cfg, jev) -> lines; always exit 0",
-        implemented_by=("systemap.audit", "systemap.jev_cli", "systemap.jev"),
+        implemented_by=(
+            "systemap.audit",
+            "systemap.jev_cli",
+            "systemap.jev",
+            "systemap.agent",
+        ),
         entry="run",
         region="keep",
         x=460,
@@ -431,7 +447,7 @@ PLAIN = {
     "Check": "what refuses",
     "Judgement": "what asks",
     "Describe": "what the picture shows",
-    "SecondOpinion": "what asks Jev",
+    "SecondOpinion": "what asks for a second opinion",
     "TypeSafe": "the model asked",
 }
 
@@ -512,7 +528,7 @@ _RELATIONS = {
     "TypeSafe -> SecondOpinion": "Jev sends back a probability or a choice with its distribution, which is cached by model release and question.",
     "SecondOpinion -> ChangeDetector": "For delta --jev, the modules delta's own rules left unpaired go to Jev, and the new module it reads each as becomes one more move in delta's report.",
     "Model -> SecondOpinion": "The model's cards, sentences, flows and invariants are what the questions ask about.",
-    "SecondOpinion -> Agent": "The agent gets a jev line where the answer disagrees with the map, to act on or answer like a judgement line.",
+    "SecondOpinion -> Agent": "The agent gets a jev line where the answer disagrees with the map, to act on or answer like a judgement line; when the configuration names an agent command, it is also asked the questions whose answer is prose.",
 }
 RELATIONS = {(k.split(" -> ")[0], k.split(" -> ")[1]): v for k, v in _RELATIONS.items()}
 

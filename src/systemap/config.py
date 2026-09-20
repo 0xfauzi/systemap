@@ -101,10 +101,12 @@ KNOWN_KEYS = {
     "judgement",
     "flows",
     "jev",
+    "agent",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
 JEV_KEYS = {"model", "cache", "enabled"}
+AGENT_KEYS = {"command", "cache", "timeout"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
@@ -217,6 +219,11 @@ class Config:
     jev_cache: str = ".systemap/jev-cache.json"
     # false: delta does not ask Jev on its own, and no command says what Jev would add
     jev_enabled: bool = True
+    # The command that writes the prose systemap asks for; none by default, and
+    # then the commands that would ask print their structure and say so.
+    agent_command: str = ""
+    agent_cache: str = ".systemap/agent-cache.json"
+    agent_timeout: float = 300.0
     source: str = ""
 
     @property
@@ -230,6 +237,10 @@ class Config:
     @property
     def jev_cache_path(self) -> Path:
         return self.root / self.jev_cache
+
+    @property
+    def agent_cache_path(self) -> Path:
+        return self.root / self.agent_cache
 
     @property
     def facts_path(self) -> Path:
@@ -503,6 +514,7 @@ def load(root: Path) -> Config:
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
         **_jev(raw, where),
+        **_agent(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
         package_roots=package_roots,
@@ -594,6 +606,25 @@ def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
     if not isinstance(enabled, bool):
         raise ConfigError(f"{where}: jev.enabled must be true or false")
     return {"jev_model": model, "jev_cache": cache, "jev_enabled": enabled}
+
+
+def _agent(raw: dict[str, Any], where: str) -> dict[str, Any]:
+    """The `[agent]` table: the command that writes prose, where its answers are
+    cached, and how long it may take."""
+    agent = raw.get("agent", {})
+    if not isinstance(agent, dict):
+        raise ConfigError(f"{where}: agent must be a table")
+    bad = sorted(set(agent) - AGENT_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: agent has unknown key: {', '.join(bad)}")
+    command = _str(agent, "command", "", f"{where}: agent").strip()
+    cache = _str(agent, "cache", ".systemap/agent-cache.json", f"{where}: agent").strip()
+    timeout = agent.get("timeout", 300.0)
+    if not isinstance(timeout, int | float) or isinstance(timeout, bool) or timeout <= 0:
+        raise ConfigError(f"{where}: agent.timeout must be a number of seconds above zero")
+    if not cache:
+        raise ConfigError(f"{where}: agent.cache must not be empty")
+    return {"agent_command": command, "agent_cache": cache, "agent_timeout": float(timeout)}
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:

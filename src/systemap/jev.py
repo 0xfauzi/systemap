@@ -131,11 +131,15 @@ def cache_key(model: str, release: str, ask: Ask) -> str:
 
 
 class Cache:
-    """Answers on disk, by `cache_key`. Written whole, through a temporary file."""
+    """Answers on disk, by `cache_key`. Written whole, through a temporary file.
+
+    `systemap.agent` keeps its prose here too, so a cache holds whatever the
+    thing that wrote it put there; each reader knows the shape of its own.
+    """
 
     def __init__(self, path: Path | None) -> None:
         self.path = path
-        self.entries: dict[str, Answers] = {}
+        self.entries: dict[str, Any] = {}
         if path is not None and path.exists():
             try:
                 self.entries = json.loads(path.read_text(encoding="utf-8")).get("entries", {})

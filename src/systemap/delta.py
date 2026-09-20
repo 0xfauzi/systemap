@@ -78,6 +78,16 @@ from systemap.model import (
     symbol_claims,
 )
 
+# Every kind of line this module prints, for the teaching in `systemap.explain`.
+KINDS = (
+    "moved",
+    "added",
+    "removed",
+    "entry vanished",
+    "interface vanished",
+    "new crossing import",
+    "evidence lost",
+)
 MARKER = "<!-- systemap delta -->"
 NEXT = "systemap refresh && systemap check && systemap judgement --strict"
 # Past this share of the cards, the skill says to run the full loop instead
