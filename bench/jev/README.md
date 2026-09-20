@@ -336,3 +336,69 @@ capped, and a fuller or better-selected diff might sharpen it; and a set with
 no positives in it measures false alarms only, so nothing here says whether
 real drift would be caught. What it does say is that real drift is rare
 enough that the question may not be worth asking per pull request.
+
+## What the measurements suggest next (2026-09-20)
+
+Three things in this directory came back with numbers that point at work worth
+doing. Each is written here with the bar it has to clear, before anyone starts,
+so the decision is the same shape as the ones above.
+
+### 1. The neighbourhood of a change, built on precision
+
+The ripple run failed a bar about recall, but it measured something else on the
+way. Over the same 366 pull requests, medians:
+
+| rule | cards named | share of the map | precision |
+|---|---|---|---|
+| one hop either way over the flows | 5 | 0.14 | 0.17 |
+| every module the imports reach | 20 | 0.57 | 0.05 |
+
+The map's edges name a quarter as many cards and are three times as likely to
+name one the change actually touched. That is a poor prediction and a good
+short list, which is a different feature: `delta` would print "these cards sit
+next to what you changed", as context beside the lines it already prints, never
+as a claim about what else broke.
+
+**The bar, before the work:** on the same 366 pull requests, the list must name
+at most 6 cards at the median, and must contain at least one card the pull
+request really touched in 50% of them or more. Below either, nothing ships, and
+the rule joins the two above it. Cost: the dataset exists; a run and a reading.
+
+### 2. Where the system is growing
+
+`history` proved its windows trace to real work (five of the five largest named
+the commit that caused them). The same walk, summed over a year rather than
+read per window, answers a question a maintainer asks out loud. On mealie:
+
+    ImportWorkflow +17   SchemaMigrations +7   QueryFilter +4   Translations +3
+
+and not one card shrank in twelve months. A card that grows every quarter and
+never loses a module is either the system's centre of gravity or the place
+everything gets dropped, and the map is the only thing that can tell a reader
+which.
+
+**The bar, before the work:** on four repositories, the three fastest-growing
+cards must each trace to at least one commit a person can name as a feature,
+on at least three of the four. `systemap history --by-card` is an aggregation
+of numbers `trend.walk` already computes, so the cost is small.
+
+### 3. A journey per crowd, not per way in
+
+Finding the ways a framework registers took paperless-ngx from 0 to 203 and
+mealie to 195, against four written journeys each. `judgement` already groups
+them: one line per card once a card takes four or more of a kind. `systemap
+journeys` does not: it writes one walk per way in, three to a run, which would
+take sixty runs to cover paperless.
+
+**The bar, before the work:** for the crowded cards of mealie and paperless,
+a generated walk per group must pass the map's own check (every step tracing a
+flow the model draws) in 70% of attempts or more, and the ways in with no walk
+must fall from about two hundred to under fifteen lines. This one costs agent
+runs, so it is the most expensive of the three and the last to start.
+
+### Not on this list
+
+`plan --check` in the pull-request workflow, because the claim worth testing
+(work that lands outside its plan predicts a later fix) needs fix pull requests,
+and the whole corpus of five repositories holds six of them. It cannot be
+measured, so it is not scheduled.
