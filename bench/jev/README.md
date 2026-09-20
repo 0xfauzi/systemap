@@ -408,6 +408,33 @@ cards must each trace to at least one commit a person can name as a feature,
 on at least three of the four. `systemap history --by-card` is an aggregation
 of numbers `trend.walk` already computes, so the cost is small.
 
+**Measured (2026-09-20, `bench/jev/by_card.py`): failed, and not built.** Two
+of the four repositories passed, where the bar asked for three.
+
+| repo | the three fastest-growing cards | traces to |
+|---|---|---|
+| mealie | ImportWorkflow +17, SchemaMigrations +7, QueryFilter +4 | all three: "feat: Unified AI recipe page", "feat: Announcements", "feat: Query relative dates" |
+| paperless | AppConfig +11, SearchIndex +7, FileParsers +5 | all three: "support ollama embeddings", "Replace Whoosh with tantivy search backend", "Initial document parser plugin framework" |
+| poetry | HttpAccess +1, and no other card grew at all | one perf commit, and nothing to rank |
+| rich | Measure +23, and no other card grew | one commit titled "f string path", which names nothing |
+
+Where a system grew, the aggregate named the work that grew it, exactly as the
+windows did. Where it did not grow, there was nothing to name: poetry gained
+one module in a year of the map's view, and rich's twenty-three are generated
+unicode tables added in a commit whose subject is three words of nothing.
+
+A rule that reported only cards past some size would pass, and that rule was
+not the one written down before the run, so it is not the one being judged.
+The finding this leaves is smaller and worth keeping: on the two repositories
+that did grow, every one of the three cards traced to named work, which is what
+`history`'s windows already print. The aggregate adds a view, not an answer.
+
+The instrument was changed once during the run, before any judging: it first
+showed the newest commits touching each card's new files, which over a year is
+a list of fixes to a thing rather than the thing. `--diff-filter=A` asks for
+the commit that added each file instead. Both readings are in the git history
+of `by_card.py`.
+
 ### 3. A journey per crowd, not per way in
 
 Finding the ways a framework registers took paperless-ngx from 0 to 203 and
