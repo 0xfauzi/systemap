@@ -207,3 +207,36 @@ times more precise at a quarter of the size. That is an argument about what
 the right question is, not a pass, and the bar was set before the run, so
 ripple does not ship. Anything built here later needs a question a reader
 would act on and a bar set before it is measured.
+
+## A plan projected onto the map (2026-09-20)
+
+`systemap plan` asks one question: given this task in the maintainer's own
+words, which card will the work most likely have to change? The truth is the
+issue set built for triage: a real bug report, and the cards the pull request
+that fixed it touched (`data/issues.jsonl`, `label.owners`). The input is the
+report alone, written before anyone did the work, which is what a plan is.
+
+The bar, set before the run: cover 70% of the cards the fix touched, with at
+most 2 extra cards per issue. Jev's answer is a weight on every card, so the
+whole curve is scored offline from the answers already recorded for triage.
+
+    uv run --project bench/jev python bench/jev/plan_eval.py
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/plan_eval.py
+
+| cut | covered (dev) | extra | covered (holdout) | extra |
+|---|---|---|---|---|
+| 0.50 | 0.69 | 0.16 | 0.46 | 0.13 |
+| 0.30 | 0.79 | 0.26 | 0.58 | 0.33 |
+| 0.20 | 0.82 | 0.42 | 0.63 | 0.36 |
+| 0.10 | 0.86 | 0.69 | 0.66 | 0.59 |
+| **0.05** | **0.86** | **1.15** | **0.71** | **0.90** |
+| 0.02 | 0.88 | 1.91 | 0.74 | 1.31 |
+
+80 issues on the development set (rich, poetry, kstrl, mealie, paperless),
+39 on the holdout (httpie). The cut that passes the bar on both is 0.05, and
+that is the one `systemap plan` ships with: it names 2.1 cards per task on
+either set. The gap between the two sets is wider here than elsewhere in this
+directory (15 points at the shipped cut against the 10 points the audit
+thresholds held to), and the holdout is one repository, so the honest reading
+is that the projection is better on some systems than others. It names two
+cards; a maintainer can check two cards.

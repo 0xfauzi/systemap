@@ -266,6 +266,7 @@ COMPONENTS = (
             "systemap.jev",
             "systemap.agent",
             "systemap.journeys",
+            "systemap.plan",
         ),
         entry="run",
         region="keep",
@@ -318,6 +319,9 @@ FLOWS = (
     Flow("SecondOpinion", "TypeSafe", "questions", "data"),
     Flow("TypeSafe", "SecondOpinion", "typed answers", "data"),
     Flow("SecondOpinion", "ChangeDetector", "moves Jev read", "data"),
+    Flow("Judgement", "SecondOpinion", "the ways in with no walk", "data"),
+    Flow("SecondOpinion", "Describe", "the ways in with no walk", "data"),
+    Flow("FactsExtractor", "Describe", "entry points", "data"),
     Flow("Scaffold", "Model", "starter", "data"),
     Flow("FactsExtractor", "Check", "map.json", "data"),
     Flow("FactsExtractor", "Schematic", "map.json", "data"),
@@ -520,6 +524,9 @@ _RELATIONS = {
     "Agent -> Model": "The agent writes map/model.py: the groupings, the flows, the sentences, the journeys, the invariants.",
     "Maintainer -> Model": "The maintainer corrects the calls they disagree with; the model is theirs once reviewed.",
     "Model -> Judgement": "The judgement reads the model for the calls that could have gone another way.",
+    "Judgement -> SecondOpinion": "Which ways into the system a journey walks from is one rule, and it lives in the judgement; the writer of journeys asks it what is left, so the two cannot disagree about what is covered.",
+    "SecondOpinion -> Describe": "Describe asks the writer of journeys how many ways into the system have no walk from them, and names the first few.",
+    "FactsExtractor -> Describe": "Describe names each way in the way a person would name it, which the extractor decides.",
     "Judgement -> Agent": "In the second pass the agent walks every crossing import and every entry point without a journey, and changes the model or answers the line.",
     "Judgement -> Maintainer": "The maintainer reads the agent's answers, line by line; the list is mechanical to produce, so the review cannot be skipped.",
     "CLI -> SecondOpinion": "audit, triage and the --jev flags hand their questions to the second opinion; check and judgement never do.",
@@ -561,6 +568,49 @@ VERB_OVERRIDES = {
 }
 
 JOURNEYS = (
+    Journey(
+        id="plan-then-check",
+        label="A plan: the cards the work will touch, then what it actually touched",
+        starts="plan (subcommand in systemap.jev_cli)",
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="Before the work, the agent or the maintainer runs systemap plan with the task in plain words.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("Model", "SecondOpinion"),
+                say="The projection reads every card's purpose out of the model, so the question is asked in the map's own vocabulary.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("SecondOpinion", "TypeSafe"),
+                say="One question goes to Jev: which component will this work most likely have to change?",
+            ),
+            Step(
+                acts=("TypeSafe",),
+                measures=(),
+                edge=("TypeSafe", "SecondOpinion"),
+                say="Jev answers with a weight for every card, and the cards above the measured cut are the projection.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("SecondOpinion", "Agent"),
+                say="Around each card named, the map prints the flows, walks and rules it sits in, and the projection is written under .systemap/plans.",
+            ),
+            Step(
+                acts=("ChangeDetector",),
+                measures=("SecondOpinion",),
+                edge=("FactsExtractor", "ChangeDetector"),
+                say="After the work, systemap plan --check reads the facts where the work started and the facts now, and names every card that changed outside the plan.",
+            ),
+        ),
+    ),
     Journey(
         id="second-opinion",
         label="A second opinion: systemap audit, and triage for an issue",

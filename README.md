@@ -239,6 +239,28 @@ because the module behind a command line imports most of the system. So the
 agent reads the code instead. Without an agent command, `systemap journeys`
 lists the ways in with no walk and writes nothing.
 
+## A plan, and what the work actually did
+
+Before you start, say what you are about to do:
+
+    systemap plan "make the reader stream its input instead of buffering it"
+
+Jev reads that against every card's purpose, and the cards it gives real
+weight to are the projection. Around each one the map prints what it sits in:
+the flows that leave and reach it, the walks that pass through it, and the
+rules that govern it. That last part is what a plan usually leaves out.
+
+Afterwards, `systemap plan --check <id> --base <ref>` compares the projection
+with the cards the code actually changed. A card that changed and was not
+projected is the finding: the work reached a part of the system the plan did
+not see. That is worth reading before the pull request is opened.
+
+The cut is measured, not chosen by taste. Over 80 real bug reports with the
+cards their fixing pull request touched, it covered 86% of those cards while
+naming 2.1 cards per report; on 39 issues of a repository no threshold was
+chosen on, 71% while naming 2.1. The bar, set before the run, was 70% covered
+with at most 2 extra cards. Every run is in [bench/jev](bench/jev).
+
 ## Commands
 
 | command | what it does |
@@ -255,6 +277,7 @@ lists the ways in with no walk and writes nothing.
 | `systemap delta` | what a change did to the map |
 | `systemap audit` | a second opinion from Jev on the map's judgement calls (needs `TYPESAFE_API_KEY`) |
 | `systemap triage` | the cards an issue's fix will most likely change (needs `TYPESAFE_API_KEY`) |
+| `systemap plan` | the cards a piece of work will touch, and afterwards what it actually touched (needs `TYPESAFE_API_KEY`) |
 | `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
 | `systemap serve` | serve the page on the loopback address |

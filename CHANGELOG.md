@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- `systemap plan "<task>"` names the cards a piece of work will most likely
+  change, before it is done, and prints what each sits in: the flows, the
+  walks and the rules around it. `--check <id> --base <ref>` compares that
+  projection with the cards the code actually changed and names every card
+  that changed outside the plan. The cut is measured: over 80 real bug
+  reports with the cards their fix touched, it covered 86% of them while
+  naming 2.1 cards; on a repository no threshold was chosen on, 71% while
+  naming 2.1. The bar, set before the run, was 70% with at most 2 extra
+  cards (`bench/jev/plan_eval.py`).
+- `systemap ripple` was measured and not built. From the card holding the
+  file a pull request changed most, no walk over the map found the other
+  cards of that pull request within 10 points of what following the imports
+  found, at half the size. Five walks were tried over 366 pull requests
+  (`bench/jev/ripple.py`).
+
 - `systemap journeys` writes a walk through the system for a way in that no
   journey starts from. The agent named under `[agent] command` reads the code
   from that way in and answers with the cards a run passes through and a

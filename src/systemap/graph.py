@@ -12,19 +12,19 @@ flagged 46, and asking that they appeared anywhere earlier flagged 27, still
 almost all of them walks that fan out and come back. A journey is written as
 a sequence of scenes, not as one chain, so continuity is not something the
 structure can decide. Nothing was shipped from it.
-Together they answer the question a reader of a change actually has: if
-this part changed, what else does that reach, and what does it mean for
-someone using the system?
 
-This module is the walk itself, and nothing else: it reads a model and a
-meaning and returns plain data, so the commands that ask (`ripple`, the
-journey checks, `plan`) all follow the same structure and can be tested
-without a repository.
+The walk itself was measured too, as the answer to "you changed this card,
+what else does that reach", against 366 pull requests. It found half the
+cards those changes actually touched where following the imports found all
+of them, so no `ripple` command exists; `bench/jev/ripple.py` holds the run.
+What the walk is used for is context, not prediction: `systemap plan` prints
+the flows, journeys and rules around each card it names, because a plan that
+names a card and not the walks through it is a plan with a hole in it.
 
-The walk follows flows in the direction they carry their artifact: a change
-in the card that sends something can reach the card that receives it. It
-does not walk backwards, because a reader of a change is asking what this
-change affects, not what could have affected it.
+This module reads a model and a meaning and returns plain data, so everything
+that asks follows the same structure and can be tested without a repository.
+The walk follows flows in the direction they carry their artifact, and does
+not walk backwards.
 """
 
 from __future__ import annotations

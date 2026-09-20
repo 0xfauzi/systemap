@@ -12,9 +12,23 @@ import argparse
 import re
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
-from systemap import agent, audit, config, extract, jev, journeys, moves, nest
+from systemap import (
+    agent,
+    audit,
+    config,
+    delta,
+    evidence,
+    extract,
+    history,
+    jev,
+    journeys,
+    moves,
+    nest,
+)
+from systemap import plan as plan_mod
 from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
@@ -440,6 +454,123 @@ def run_or_explain(fn: Callable[[], list[str]], label: str) -> tuple[list[str], 
         return [f"{label}: {exc}"], STALE
 
 
+# ---- plan: the work projected onto the map, then checked against what happened ------
+
+
+def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
+    """The cards a piece of work will most likely change, and what each sits in."""
+    cfg = config.load(args.root_path)
+    if args.check:
+        return _check_plan(cfg, args)
+    text = sys.stdin.read() if args.task == "-" else (args.task or "")
+    if not text.strip():
+        print("plan: give the task in your own words, or - to read it from stdin")
+        return STALE
+    top = nest.load(cfg).top
+    try:
+        client = _client(cfg, send)
+        answer = client.ask([Ask("plan", _plan_state(cfg, text), _plan_question(top))])
+    except JevError as exc:
+        print(f"plan: {exc}")
+        return STALE
+    spread = answer["plan"]["where"].get("probabilities", {})
+    made = plan_mod.project(top.model, top.meaning, text.strip(), spread)
+    # A projection that names nothing is not written down: there would be
+    # nothing to check it against later.
+    where = plan_mod.save(cfg, made) if made.cards else None
+    print(*_plan_lines(made, cfg, where), sep="\n")
+    usage_to_stderr(client)
+    return OK
+
+
+def _plan_state(cfg: config.Config, text: str) -> dict[str, Any]:
+    return {"system": cfg.name, "task": text[: plan_mod.TEXT_CAP]}
+
+
+def _plan_question(top: nest.Map) -> dict[str, Any]:
+    return {
+        "where": {
+            "type": "choice",
+            "instructions": plan_mod.PLAN_Q,
+            "criteria": audit.owner_criteria(top.model, top.meaning),
+        }
+    }
+
+
+def _plan_lines(made: plan_mod.Projection, cfg: config.Config, where: Path | None) -> list[str]:
+    """The projection as a person reads it: each card, then what it sits in."""
+    if not made.cards:
+        return [
+            "plan: no card stands out for this work",
+            "  say what the work touches in the system's own words, or run: systemap triage",
+        ]
+    out = [f"plan {made.id}: {len(made.cards)} cards this work will most likely change"]
+    for one in made.around:
+        out.append(f"  {one.card} ({made.weights.get(one.card, 0):.2f})")
+        out += _some("flow", one.flows)
+        out += _some("walk", one.journeys)
+        out += _some("rule", one.rules)
+    out.append(f"  written to {cfg.rel(where)}" if where else "  not written down")
+    out.append(f"  after the work: systemap plan --check {made.id} --base <ref>")
+    return out
+
+
+# How much of a card's surroundings one plan prints. A hub card sits on a
+# dozen flows, and a list that long is read as noise rather than as context.
+AROUND_CAP = 6
+
+
+def _some(word: str, found: tuple[str, ...]) -> list[str]:
+    """A card's surroundings, cut where a reader stops reading."""
+    out = [f"      {word}: {x}" for x in found[:AROUND_CAP]]
+    if len(found) > AROUND_CAP:
+        out.append(f"      {word}: and {len(found) - AROUND_CAP} more")
+    return out
+
+
+def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
+    """What changed and was not projected, and what was projected and did not change."""
+    found = plan_mod.load(cfg, args.check)
+    if found is None:
+        known = ", ".join(plan_mod.saved(cfg)) or "none yet"
+        print(f"plan: no plan named {args.check} (written here: {known})")
+        return STALE
+    try:
+        base_facts, head_facts = _plan_facts(cfg, args.base)
+    except delta.DeltaError as exc:
+        print(f"plan: {exc}")
+        return STALE
+    top = nest.load(cfg).top
+    owner = evidence.owners(top.model, head_facts)
+    changed = plan_mod.touched(base_facts, head_facts, owner)
+    missed, untouched = plan_mod.check(list(found.get("cards", [])), changed)
+    print(*_check_lines(found, changed, missed, untouched, args.base), sep="\n")
+    return STALE if missed else OK
+
+
+def _plan_facts(cfg: config.Config, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The facts where the work started, and the facts in the tree now."""
+    sha = delta.merge_base(cfg.root, base, "HEAD")
+    return history.facts_at(cfg, sha), extract.build(cfg)
+
+
+def _check_lines(
+    found: dict[str, Any], changed: set[str], missed: list[str], untouched: list[str], base: str
+) -> list[str]:
+    out = [
+        f"plan {found.get('id', '')} against the code since {base}: "
+        f"{len(changed)} cards changed, {len(found.get('cards', []))} were projected"
+    ]
+    for cid in missed:
+        out.append(f"  not in the plan: {cid} changed and the plan did not name it")
+    out += [f"  in the plan, untouched: {cid}" for cid in untouched]
+    if missed:
+        out.append("  read each one: the work reached a part the plan did not see")
+    elif not untouched:
+        out.append("  the work landed where it was projected to")
+    return out
+
+
 # ---- the parsers -------------------------------------------------------------------
 
 
@@ -487,6 +618,23 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "--dry-run", action="store_true", help="list the ways in that have no walk, and write none"
     )
     s.set_defaults(func=lambda args: cmd_journeys(_rooted(args)))
+
+    s = sub.add_parser(
+        "plan",
+        help="the cards a piece of work will most likely change, before you do it: Jev "
+        "reads the task against every card's purpose, and around each card it names, the "
+        "map prints the flows, walks and rules it sits in; the projection is saved, and "
+        "--check compares it with what the code actually changed; needs TYPESAFE_API_KEY",
+    )
+    add_root(s)
+    s.add_argument("task", nargs="?", help="the work in your own words, or - to read stdin")
+    s.add_argument("--check", metavar="ID", help="compare a saved plan with what changed")
+    s.add_argument(
+        "--base",
+        default="origin/main",
+        help="with --check, the ref the work started from (default origin/main)",
+    )
+    s.set_defaults(func=lambda args: cmd_plan(_rooted(args)))
 
     s = sub.add_parser(
         "triage",
