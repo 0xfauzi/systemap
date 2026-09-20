@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+## 1.2.0 - 2026-09-20
+
+The commands that read the map rather than draw it: a walk an agent writes, a
+plan checked against the work, a year of the system, and every line teaching
+what it means. Two features were measured and not built, and their runs are in
+`bench/jev/README.md` with the numbers.
+
+- `delta` ends with the cards next to the change: the ones a flow joins to the
+  card holding most of what changed. It is context, not a claim about what
+  else broke. Measured over 359 merged pull requests before it was built: 6
+  cards at the median, holding a card the change really touched in 72% of
+  them, where following that card's imports gives 20 cards for 77%. Nothing is
+  named when the card is joined to more than a third of the map, which quiets
+  18% of pull requests and costs 3 points (`bench/jev/near.py`).
+- `systemap journeys` writes one walk for a whole crowd where a card takes
+  more than a few ways in of one kind, rather than one walk each. That walk
+  names the card in `starts`, and every way in the card claims counts as
+  walked. Covering mealie is two agent runs rather than sixty-five. Measured
+  before it was wired in: eight of nine crowds over mealie, paperless-ngx and
+  poetry came back as a walk the map can hold, against a bar of seven in ten
+  (`bench/jev/group_journeys.py`).
+- `systemap history --by-card` was measured and not built. On four
+  repositories, each of the three fastest-growing cards had to trace to a
+  commit a person can name as a feature, on at least three of them; two
+  passed. Where a system grew the aggregate named the work, and where it did
+  not there was nothing to name (`bench/jev/by_card.py`).
+- `systemap --help` lists one sentence per command. What each command does in
+  full, and what its options do, moved into that command's own `--help`, and
+  `docs/reference.md` now describes each command in short sentences rather
+  than in one long table cell.
+
 - A model module may import modules beside it: its own directory is on the
   path while it runs, and anything it imported is dropped afterwards, so the
   next run reads what is on disk. A map that outgrew one file can keep its
@@ -85,7 +116,10 @@
 - `check` and `judgement` still never ask, and `suggest` keeps `--jev` as a
   flag: it saved nothing on the first map it was benchmarked on.
 
-## 1.1.0
+## 1.1.0 - not published
+
+Prepared, then overtaken before it was tagged. Everything below ships in
+1.2.0.
 
 A second opinion, opt-in. Everything below needs `TYPESAFE_API_KEY`; nothing
 is sent without it, `check` and `judgement` never call it, and no dependency
