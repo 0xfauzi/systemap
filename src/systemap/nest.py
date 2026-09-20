@@ -1,7 +1,7 @@
 """Nested maps: a card that opens a map of its own, and the tree they form.
 
 One canvas cannot hold a large repository legibly, and past forty cards
-the readings stop being readings. A component may carry `map`, a path
+the layers stop separating anything. A component may carry `map`, a path
 relative to its model file naming a sub-model module that exports `MODEL`
 and `MEANING` like any model. The sub-map draws the inside of that one
 card: its cards claim exactly the modules the card claims (symbol claims
@@ -178,7 +178,7 @@ def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:
     The link is relative to the map's own page (`<card>/index.html`); a
     figure, which may be embedded anywhere, is given none. `preview` is
     the drawing the page fills in (`page.nesting_of`, the sub-map's
-    Structure reading as a small SVG); empty here and in a figure.
+    Structure layer as a small SVG); empty here and in a figure.
     """
     return {
         child.card: {

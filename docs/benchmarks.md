@@ -9,24 +9,26 @@ judgement --strict` run after the session; `run` says whether the session
 finished on its own or was cut off; `skill first` whether its first tool
 call was the systemap skill, as the recipe requires.
 
-Before any of it was built, two numbers were set to be failed against: a
-first map at most 0.15 dollars per module, and a maintenance run at most
-15 turns and 2 dollars on a medium pull request. The rows below are what
-happened. Four of the six first maps came in under 0.15 and two did
-not (0.159 and 0.177). The maintenance runs came in at 2.31, 4.39 and
-2.50 dollars, over the 2 dollar line, and at 51, 63 and 46 turns, well
-over the 15 the target named, because the maintenance path runs delta,
-refresh, check and judgement rather than the two steps that number
-assumed. Neither target was moved after the fact.
+Two numbers were written down before any of this was built, so that a
+result could fail them: a first map at most 0.15 dollars per module, and
+a maintenance run at most 15 turns and 2 dollars on a medium pull
+request. The rows below are what happened. Four of the six first maps
+came in under 0.15 and two did not, at 0.159 and 0.177. The maintenance
+runs cost 2.31, 4.39 and 2.50 dollars, above the 2 dollars allowed, and
+took 51, 63 and 46 turns, far above the 15 allowed. The turn count was
+wrong because the maintenance path runs delta, refresh, check and
+judgement, and the number assumed two steps. Neither number was changed
+after the results came in.
 
-A note on which direction a maintenance run reads. These runs were set up
-by reverting a merged pull request and leaving the map as it was, so the
-code had lost structure the map still claimed. That exercises the lines
-that fire when something goes: `entry vanished`, `interface vanished` and
-`evidence lost`. The workflow `init` writes reads the other way, from a
-pull request's base to its head, where the line that fires is `new
-crossing import`. Both directions are covered by the test suite; the
-turns and dollars below are the reverted one.
+A maintenance run can be read in either direction, and these were read
+backwards. Each one reverts a merged pull request and leaves the map
+alone, so the code has lost structure the map still claims. That produces
+the lines systemap prints when something the map names is gone: `entry
+vanished`, `interface vanished` and `evidence lost`. The workflow that
+`init` writes reads forwards instead, from a pull request's base to its
+head, where the line printed is `new crossing import`. The test suite
+covers both directions. The turns and dollars below are the backwards
+run.
 
 | repository | mode | modules | systemap | model | turns | minutes | dollars | dollars per module | check | judgement | run | skill first | date |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|

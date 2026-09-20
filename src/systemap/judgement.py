@@ -20,8 +20,8 @@ thing to look at:
     no sentence ........ a flow with no relation sentence, or a blank one
     thin layer ......... a flow layer (data, control, the agent kinds, or
                          the model's own) that lights fewer than two
-                         components: it may not be a reading of the map at
-                         all, or a standard kind was never used
+                         components: the map may not be worth looking at
+                         that way at all, or a standard kind was never used
     entry point ........ an entry point in the facts (a console script, a
                          subcommand, a main, a public function of the
                          package root) that no journey mentions: a walk

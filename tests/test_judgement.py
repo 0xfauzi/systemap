@@ -719,7 +719,7 @@ def test_crossing_into_and_from_in_the_configuration(
     # without --brief the kind is taught once, under the first line of that kind
     assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
     out = capsys.readouterr().out
-    assert out.count("      why: The code has a connection the map denies.") == 1
+    assert out.count("      why: The code has a connection the map does not show.") == 1
     assert f"  {into_reader}\n    pkg.extra imports pkg.reader\n      why: " in out
     assert main(["--root", str(tmp_path), "judgement", "--kind", "crossing import"]) == 0
     out = capsys.readouterr().out

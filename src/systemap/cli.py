@@ -678,7 +678,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
     The drawing is made the way the page makes it and read back: cards
     per region, bends and length per edge (worst first), seats per
-    gutter, cards and edges per reading. A model that contradicts itself
+    gutter, cards and edges per layer. A model that contradicts itself
     cannot be drawn, so that is reported instead, as `check` reports it.
     """
     p = _project(args)
@@ -993,7 +993,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--layer",
         default="",
         metavar="ID",
-        help="one reading only: that layer's edges, every card, the legend reduced to it "
+        help="one layer only: its edges, every card, the legend reduced to it "
         "(structure, system, data, control, or a layer of the model's own)",
     )
     s.add_argument(
@@ -1101,7 +1101,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser(
         "suggest",
         help="a first grouping to argue with, from the facts alone",
-        description="A first grouping to argue with, never the answer. From the facts alone, it "
+        description="A first grouping to revise, not the answer. From the facts alone, it "
         "proposes one card per package with two or more modules, lists that card's modules, and "
         "prints the imports that cross between proposals.",
     )
@@ -1120,7 +1120,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="An agent cannot open the page, and a person at a terminal may not want to. "
         "This says in numbers what a look at the picture would tell you: cards per region, the "
         "region order and its score, bends and length per edge with the worst first, seats per "
-        "gutter, and cards and edges per reading.",
+        "gutter, and cards and edges per layer.",
     )
     add_root(s)
     s.set_defaults(func=cmd_describe)

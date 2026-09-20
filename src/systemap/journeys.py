@@ -7,8 +7,8 @@ into the model.
 
 What systemap supplies is the map's own vocabulary: the cards with their
 sentences, the flows already drawn, and the way in with the module behind
-it. What the agent supplies is the reading: which cards a run really passes
-through, in what order, and one sentence per step.
+it. What the agent supplies is the judgement: which cards a run really
+passes through, in what order, and one sentence per step.
 
 What systemap refuses is a walk the map cannot hold: a step tracing a flow
 that is not there, or naming a card that does not exist. Those come back as

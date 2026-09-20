@@ -38,7 +38,7 @@ CONTAINERS = (
 )
 
 REGIONS = (
-    # Soft bands inside the system: the phase that works, the phase that keeps.
+    # Soft bands inside the system: the region that processes, the one that stores.
     Region("work", "WORK", (240, 50, 626, 130), container="system"),
     Region("keep", "KEEP", (240, 210, 626, 130), container="system"),
 )
@@ -129,7 +129,7 @@ PLAIN = {
     "Writer": "the part that writes",
 }
 
-# The model's own readings, after Structure, System context, Data flow and
+# The model's own layers, after Structure, System context, Data flow and
 # Control flow, which the page derives. Each is the question it answers.
 LAYERS = (
     Layer("record", "Record", question="What is written down?"),
@@ -149,7 +149,8 @@ RELATIONS = {
     ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
 }
 
-# The verb on a spoke of the wheel: (when the clicked card is the source,
+# The verb on one arm of the panel's ring of connected cards: (when the
+# clicked card is the source,
 # when it is the target), per layer, and per edge where one edge differs.
 # The standard layers have verbs already; data is given better ones here.
 VERBS = {

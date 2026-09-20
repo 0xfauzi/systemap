@@ -52,7 +52,7 @@ out_dir = "docs/map"
 # Figures `systemap refresh` regenerates beside the page. mode is "system"
 # (nothing marked) or "reach" (the named components marked as a plan's reach);
 # layer = "structure" (or "system", "data", "control", a layer of your own)
-# draws one reading only, with every card and none of the other edges. An
+# draws one layer only, with every card and none of the other edges. An
 # out ending in .svg is the bare drawing, for a README or a document.
 [[figures]]
 out = "figures/structure.svg"

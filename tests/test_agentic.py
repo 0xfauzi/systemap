@@ -197,10 +197,10 @@ def test_the_references_carry_calls_model_and_the_optional_entry() -> None:
     schema = skill.files()["references/schema.md"]
     assert "calls_model=False, map=None)`" in schema
     assert "entry: none (a namespace)" in schema
-    assert "The Agents reading stays agents only" in schema
+    assert "The Agents layer stays agents only" in schema
     layers = skill.files()["references/layers.md"]
     assert "`calls_model=True` on a component" in layers
-    assert "the Agents reading leaves it out" in layers
+    assert "the Agents layer leaves it out" in layers
     second = skill.files()["references/second-pass.md"]
     assert "Five outcomes" in second and "set `calls_model=True` on it" in second
     unused = Flow  # the schema name the tests above build flows with

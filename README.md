@@ -19,7 +19,7 @@ of your own Python project fit together.
 
 **systemap gives you one page that shows how they fit.** Your agent draws it
 from your code. A checker then refuses to let that page go out of date, and
-every pull request tells you what it did to the shape of your system before
+every pull request tells you which parts and connections it changed before
 you merge it.
 
 <p align="center">
@@ -31,7 +31,7 @@ you merge it.
   systemap's map of itself.
 </p>
 
-## Three words, and you can read any of it
+## The three words the map uses
 
 **A card is one part of your system.** A few modules that together do one job
 you would name out loud: the part that reads the code, the part that sends
@@ -41,8 +41,7 @@ mail, the part that talks to the database. Not a file and not a folder. A job.
 label says what: a request, a recipe, a file on disk.
 
 **A journey is one trip through the system**, step by step. A request arrives
-here, is checked there, is written down over there. The page walks you along
-it one line at a time.
+here, is checked there, is written down over there. The page shows one step at a time.
 
 That is the whole notation. No other symbols to learn.
 
@@ -53,13 +52,14 @@ That is the whole notation. No other symbols to learn.
 The picture above is systemap's own map with the lines hidden, so you can see
 the parts and how they group. Turn the lines on and you can ask one question
 at a time: what crosses the boundary of the system, what data moves, who
-calls whom. Click a card and only its neighbours light up, each one labelled
-with what it does for that card.
+calls whom. Click a card and the page highlights only the cards it connects to, each one
+labelled with what it does for that card.
 
 One more thing the picture tells you, which no hand-drawn diagram can. A solid
-line means an import in your code really joins those two parts. A dashed line
-means nothing in the code backs it: somebody drew a line they wished existed.
-You can see the difference at a glance, and so can your reviewer.
+line means an import in your code really joins those two parts. A dashed line means no import joins them, so the line is a claim the code
+does not support.
+You can see which is which without reading any code, and so can your
+reviewer.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
@@ -78,9 +78,9 @@ one sentence you hand to your agent:
 
 > Map this repository with systemap. Follow the systemap skill.
 
-That is your whole side of it. The agent reads your code, decides which
+That is all you have to do. The agent reads your code, decides which
 modules belong to which card, writes the lines between them, runs the checker
-until it stops complaining, and then goes round again looking for what it
+until it reports no failures, and then goes round again looking for what it
 missed. When it stops, you read the handful of calls it had to make, change
 the ones you disagree with, and commit the page.
 
@@ -98,29 +98,32 @@ tests cover it. A script reads that out of your code in a second and never
 gets it wrong.
 
 The other half is judgement. Which four modules are really one part? What is
-the line between two parts actually for? A script cannot answer that, which is
-why an import graph is complete and tells you nothing. A person can answer it,
+the line between two parts actually for? A script cannot answer that. An import graph lists every import and still
+does not say which modules form one part. A person can answer it,
 but rarely has the patience to keep answering it through every refactor.
 
-An agent has both halves, on two conditions: it follows a written procedure,
-so it decides the same way every time, and something refuses its work when the
-work is wrong. systemap is the procedure and the refusal.
+An agent can do both halves, on two conditions. It follows a written
+procedure, so it decides the same way every time. And something checks its
+work and rejects it when it is wrong. systemap supplies both: the procedure
+your agent follows, and the commands that reject a map that does not match
+the code.
 
-## It cannot quietly go out of date
+## It cannot go out of date without telling you
 
-Two commands, and your agent runs both until they are silent.
+Two commands, and your agent runs both until neither reports anything.
 
-**`systemap check` is a spell-checker for the map.** It fails when a module
+**`systemap check` compares the map with the code.** It fails when a module
 belongs to no card, when a card points at a function the code no longer has,
 when a line runs through a card it does not connect, when two labels overlap,
 or when the page is older than the code. Eleven rules, and every failure names
 the fix.
 
-**`systemap judgement` asks what a spell-checker cannot settle.** This card
-holds a single module, is it really a part of its own? Here is a way into your
-system that no journey covers. These two cards import each other and your map
-draws no line between them. Each one you either fix, or answer once with a
-reason that is kept in `systemap.toml`, so nobody is asked it twice.
+**`systemap judgement` prints the questions a rule cannot answer.** This card
+holds a single module, so is it really a part of its own? Here is a way into
+your system that no journey covers. These two cards import each other and your
+map draws no line between them. You either change the map, or write the reason
+it is correct as it stands into `systemap.toml`, where it stays, so the same
+question is not asked twice.
 
     systemap check && systemap judgement --strict
 
@@ -128,11 +131,11 @@ Six repositories have been mapped this way from start to finish, four of them
 written by somebody else, each finishing unattended with both commands quiet
 ([docs/benchmarks.md](docs/benchmarks.md)).
 
-## Every pull request says what it did to your system
+## Every pull request says what it changed about your system
 
 Git tells you which lines of code changed. `systemap delta --base main` tells
-you what changed about the shape of the system, one line per thing, each with
-the fix:
+you which parts, connections and claims changed, one line per thing, each
+with the fix:
 
     moved: pkg.old -> pkg.new (same content); Gateway names pkg.old in
       implemented_by: rename it in map/model.py
@@ -143,29 +146,29 @@ Gateway is a card. `implemented_by` is the list of modules a card claims, and
 `entry` is the one function it tells a newcomer to start reading at.
 
 The workflow `init` writes posts exactly that as one comment on the pull
-request and keeps it up to date as you push. So review starts with what the
-change did to your system, rather than with four hundred lines of diff, and CI
-fails while anything on that list still needs a decision.
+request and keeps it up to date as you push. So review starts with what the change
+did to the parts and their connections, rather than with four hundred lines of
+diff, and CI fails while anything on that list still needs a decision.
 
 Your agent then fixes those lines instead of redrawing the whole map. On three
 real merged pull requests that path cost 2.31, 4.39 and 2.50 dollars, against
 between 3 and 26 dollars to map a repository from scratch.
 
-## There is more, if you want it
+## The other commands
 
 - **Ask why.** Every line systemap prints comes with two more: why it matters
   and what to do. `systemap explain "<kind>"` prints any of them in full.
 - **Let an agent write a journey** for a way into your system that nobody has
   written one for. Each step is checked against the map before it is kept.
-- **Look at the year behind the map.** `systemap history` samples your
-  repository back through time and says which parts grew, and which commits
-  grew them.
+- **See how the system changed over the past year.** `systemap history`
+  samples your repository back through time and says which parts grew, and
+  which commits grew them.
 - **Say what you are about to do.** `systemap plan "<task>"` names the parts
   the work will most likely touch, and afterwards compares that with the parts
   it did touch.
-- **Get a second opinion** from TypeSafe's Jev model on the judgement calls a
-  name-and-import checker cannot make. Needs `TYPESAFE_API_KEY`; `check` and
-  `judgement` never call out, so CI stays offline unless you hand it the key.
+- **Have TypeSafe's Jev model check** the judgement calls a name-and-import
+  checker cannot make. It needs `TYPESAFE_API_KEY`. `check` and `judgement`
+  make no network requests, so CI runs offline unless you set that variable.
 
 Every threshold in there was measured before the feature was built, and the
 features that failed their test were written down rather than shipped
@@ -176,7 +179,7 @@ features that failed their test were written down rather than shipped
 
 It reads Python and only Python. It is not a call graph: the map shows the
 lines your agent declared and defended, not every function call. It is not a
-dependency diagram: modules are not parts, and parts are the point. It is not
+dependency diagram: modules are not parts, and the map shows parts. It is not
 a UML tool: one picture, one layout, and nothing to learn beyond card, line
 and journey.
 
@@ -192,6 +195,6 @@ on each one to run the commands against a copy of this repository's own map.
 
 MIT licensed.
 
-Map something with it, and whatever gets in your way is worth an issue. Every
+Map something with it. If something blocks you, open an issue. Every
 version so far came out of somebody's log of where they got stuck, most of
 them an agent's.

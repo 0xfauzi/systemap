@@ -1,7 +1,7 @@
-# Layers: the standard readings, then the model's own
+# Layers: the standard ones, then the model's own
 
-A layer is one reading of the map: the page shows one at a time, and each
-answers a question. Most are derived; you declare only the ones the
+A layer is one question the map answers, and the edges that answer it. The
+page shows one layer at a time. Most are derived; you declare only the ones the
 repository's own vocabulary supports.
 
 ## The two derived layers
@@ -39,12 +39,12 @@ control flow at all gets a judgement line asking whether one was missed.
 
 ## A kind of your own
 
-When the repository's vocabulary has a reading of its own (`measure`,
+When the repository's vocabulary has a question of its own (`measure`,
 `feedback`, `record`), declare the kind in `flow_kinds`, give it a `Layer`
 in `Meaning.layers` written as the question it answers, and map it in
 `layer_of_kind`. Give it a verb pair in `verbs`. Move a single edge to
 another layer with `layer_overrides` when its kind's layer is the wrong
-reading for that one edge. Custom layers follow the standard ones in the
+layer for that one edge. Custom layers follow the standard ones in the
 page order and take the theme's palette in turn.
 
 Page order: Structure, System context, Data flow, Control flow, then
@@ -63,7 +63,7 @@ do. Three component kinds and two flow kinds exist for that.
   imports <sdk> and its component P is not an agent` for a built-in list
   of model SDKs and agent frameworks (extend it with `[facts] model_sdks`
   in `systemap.toml`; an entry with a leading `-` removes a built-in
-  name). The list matches import prefixes, so a framework fires for its
+  name). The list matches import prefixes, so a framework matches for its
   tool and session modules too. When the repository defines what counts
   as an agent, in an AGENTS.md or a design rule, that definition wins
   over the prompt: a part that calls a model once and is not an agent by
@@ -73,9 +73,9 @@ do. Three component kinds and two flow kinds exist for that.
 - `calls_model=True` on a component: a single-shot call site, a part
   that calls a model once and is not an agent by the repository's rule.
   Its context and tool flows are drawn like an agent's, the Context and
-  Tools readings light them, the panel says `calls a model`, and the
+  Tools layers show them, the panel says `calls a model`, and the
   `model sdk` line for its modules is answered by the flag. It is not an
-  agent: the Agents reading leaves it out.
+  agent: the Agents layer leaves it out.
 - `kind="context"`: a store whose content enters an agent's window: a
   system prompt, a prompt template, a memory file, retrieved knowledge,
   injected facts, a conversation log. Find them by what is read before or
@@ -89,14 +89,14 @@ do. Three component kinds and two flow kinds exist for that.
   `src` is the source of the content, `dst` the agent or the
   `calls_model` component. The check refuses a context flow whose
   destination is neither. Layer "Context": "What enters each agent's
-  window, and from where?" It lights every context flow.
+  window, and from where?" It shows every context flow.
 - `Flow(src, dst, artifact, "tool")`: an agent invoking a tool. `src` is
   the agent or the `calls_model` component, `dst` the tool; the artifact
   is the call or its result. The check refuses a tool flow whose source
   is neither. Layer "Tools": "What can each agent do, and through what?"
-  It lights every tool flow.
+  It shows every tool flow.
 
-The three agent readings appear with the first agent or `calls_model`
+The three agent layers appear with the first agent or `calls_model`
 component. Agents is agents only: every agent card and every edge that
 touches an agent, in one hue. Question: "Which parts run a model, and
 what do they reach?"

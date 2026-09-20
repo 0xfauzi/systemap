@@ -35,7 +35,7 @@ from systemap.model import claimed
 SPLIT_ABOVE = 10
 
 HEADER = (
-    "suggest: a first grouping to argue with, never the answer",
+    "suggest: a first grouping to revise, not the answer",
     "  one proposal per package with two or more modules, from the package structure; "
     "the imports between proposals, from the import graph. A component is what a reader "
     "would point at and name: split a proposal that does two things, fold two that do "

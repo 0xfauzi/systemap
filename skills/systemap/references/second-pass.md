@@ -16,7 +16,7 @@ the exception.
    things: change the model, or answer it in `[judgement] answered` in
    `systemap.toml` with a reason. An answered line is suppressed and
    counted in the header; an answer that matches no line is reported as
-   stale, so remove it. Never pass a line over in silence. Seven forms,
+   stale, so remove it. Never leave a line unanswered. Seven forms,
    each one table with one reason, one row each below:
 
    ```toml
@@ -48,7 +48,7 @@ the exception.
    imports Q in N modules and no flow joins them`, one line per ordered
    pair of cards; `systemap judgement --verbose` lists the imports under
    it (`module A imports module B`). Open A, find the import, and ask
-   what travels or who drives whom. Three outcomes:
+   what travels, or which side calls the other. Three outcomes:
    - an edge the reader needs: add a `Flow` with its artifact and kind, and
      its sentence in `relations`;
    - an import the reader does not need on the map (a type imported for an
@@ -85,13 +85,13 @@ the exception.
    (change its kind, and give it context and tool flows); P calls a model
    once and is deliberately not an agent, by the repository's own rule
    (set `calls_model=True` on it: the flag answers the line, its context
-   and tool flows draw, and the Agents reading leaves it out); the import
+   and tool flows draw, and the Agents layer leaves it out); the import
    is a client the reader should see as a tool flow; it is dead; or the
    line is answered in the configuration, citing the rule. When the
    repository defines what counts as an agent (an AGENTS.md, a design
    rule), that definition wins over the SDK prompt. The built-in list
    matches import prefixes,
-   so a framework such as `google.adk` fires for its non-model parts;
+   so a framework such as `google.adk` matches for its non-model parts;
    `[facts] model_sdks = ["-google.adk"]` removes the entry, and
    `module_sdk = "google.adk"` answers every line it raised.
 
@@ -109,8 +109,8 @@ the exception.
    edge), and the page: `systemap serve` prints its URL. Look for: a
    route that passes close to a card it does not connect; a label sitting
    in the wrong gutter; a region holding one card (is it a region?); a
-   component whose plain words repeat its id; a layer that lights almost
-   nothing (is it a reading?); a journey that jumps across the map
+   component whose plain words repeat its id; a layer that holds almost no
+   cards (does it answer a question?); a journey that jumps across the map
    between steps (a missing step?); a dashed edge (a declared flow the
    list above has not settled).
 

@@ -8,7 +8,8 @@ adding or removing a card, run `place --all`. What it does, so that you
 do not do it by hand:
 
 - Regions go on a two-column grid inside their container, in the order
-  the search below chooses, with the corridors the router needs already
+  the search below chooses, with the corridors, the gaps kept clear
+  between region boxes so edges have somewhere to run, already
   there: 48 units between the region columns, 36 between the region
   rows. An edge may not cross a region it does not belong to, and on
   this grid every pair of regions is joined by a corridor.
@@ -18,7 +19,7 @@ do not do it by hand:
   bends its edges need at least and their length, and the best twelve
   by that estimate, plus the order the model lists, are routed with
   the real router and scored by label collisions, then routes that had
-  to cross a foreign region, then bends, then length. The least wins;
+  to cross a foreign region, then bends, then length. The lowest score wins;
   a tie goes to the order listed first. `place` prints the order it
   chose and the score (`region order: gateway, contracts, ...; 40
   bends, 7,909 units; 720 orders tried, 13 routed`), and `describe`
@@ -27,10 +28,11 @@ do not do it by hand:
 - Cards go on the grid inside their region, columns 190 apart and rows
   92 apart, three deep before the region takes a second column. A
   region's box follows its card count and a container's box its
-  regions. An actor, or any card in a container and no region, stands
-  in a column beside the regions, level with the cards it talks to.
+  regions. An actor, or any card in a container and no region, sits
+  in a column beside the regions, level with the cards it exchanges
+  something with.
 - The cards of a region are ordered by a few barycentre sweeps over the
-  flows, so the parts that talk sit together.
+  flows, so the parts that exchange something sit together.
 - The positions are written into `map/model.py` in place, as the values
   of `x` and `y`, and the boxes and the canvas with them; nothing else in
   the file changes. `systemap place --print` prints them instead.
@@ -43,7 +45,7 @@ always gets the same positions, and a second run changes nothing. When
 ## What you decide
 
 - **Which region a card is in.** A region is a phase, a concern or a
-  team; the parts that talk most belong in one region or in adjacent
+  team; the parts that exchange the most belong in one region or in adjacent
   ones. This is the placement decision that carries meaning, and
   `place` never makes it.
 - **The order of the regions.** Only when you must: `place` searches
@@ -66,15 +68,16 @@ always gets the same positions, and a second run changes nothing. When
   label cannot be seated the check says which fix applies, from the
   router's own seat counts: `gutter between the row of A, B and the row
   of C (y 160 to 226) holds 3 of 3 seats: move a card or raise the row
-  pitch of region X` (the room across the gutter is used up: pin a card
+  pitch of region X` (no label seat is left in that gutter: pin a card
   elsewhere, or give that region's cards positions 110 or 130 apart and
   grow its box), or `label is 41 units wider than its seat: shorten the
   artifact` (no run of the path is long enough for the words).
 
 ## When to open a map inside a card
 
-One canvas holds about forty cards; past that the readings stop being
-readings and no placement leaves a corridor. `systemap suggest` says
+One canvas holds about forty cards. Past that every layer holds nearly
+every card, so switching layers separates nothing, and no placement leaves
+a corridor. `systemap suggest` says
 when a map is past forty and names the cards with the most modules as
 the candidates; a card whose modules exceed ten is a candidate on any
 map. To open one:
@@ -100,7 +103,7 @@ same way; its id is `Gateway/Routes`.
 
 ## Reading the picture without opening it
 
-`systemap describe` prints what a look at the page would tell you: how
+`systemap describe` prints, as numbers, what the page shows: how
 many cards are pinned (the flag), how many `place` wrote, and how many
 it positioned for the look only; the
 cards each region holds; every edge with its bends and length, worst
@@ -109,8 +112,8 @@ on either side of it and its coordinates (`between the row of A, B and
 the row of C (y 160 to 226)`), with the seats used at its fullest point
 of the seats it has (a seat is one label across the gutter, 13 units
 with a 2-unit gap and 3 units clear of the cards); how many edges are
-observed, external and declared; and the cards and edges each reading
-lights. Run it after every check, and open the page (`systemap serve`)
+observed, external and declared; and the cards and edges each layer
+shows. Run it after every check, and open the page (`systemap serve`)
 only if you can. A gutter at its seat count, an edge with five bends, a
-reading that lights two cards: each is a thing to fix (a card in another
+layer that holds two cards: each is a thing to fix (a card in another
 region, the regions reordered, a card pinned) before the second pass.

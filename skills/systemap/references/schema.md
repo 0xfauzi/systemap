@@ -76,11 +76,11 @@ line counts them among the mapped: `coverage: 144 of 144 modules mapped,
 5 of them ignored with a reason, 9 of them empty package markers`.
 
 A third form claims one public name inside a module another card owns:
-`"pkg.mod:name"`, a symbol claim, for a part that lives in its neighbour's
-file (a tool defined beside the agent that invokes it; see
+`"pkg.mod:name"`, a symbol claim, for a part defined in a module another
+card claims (a tool defined beside the agent that invokes it; see
 `references/layers.md`). A symbol claim counts for no module in the
-coverage rule and conflicts with no claim: the module's owner is whoever
-claims the module. The check refuses a symbol claim of a module the facts
+coverage rule and conflicts with no claim: the module belongs to the card
+that names it in `implemented_by`. The check refuses a symbol claim of a module the facts
 do not have, of a name the module does not define, or of a module nobody
 claims.
 
@@ -92,7 +92,8 @@ symbols, the entry is one of them. The panel shows it as `entry: name
 entry no claimed module or symbol defines and a component that names no
 module. Two exceptions: an actor claims no code, and a `store` or
 `context` card may leave `entry` empty (a constants table, a namespace
-with no way in), when its modules alone say it exists and the panel
+with no entry point), when the modules it claims are enough to show it is
+real code, and the panel
 reads `entry: none (a namespace)`; an entry it does give is checked like
 any other.
 
@@ -130,9 +131,9 @@ corner on the map and in every figure, with the note as its hover text.
 `calls_model` marks a single-shot call site: a component that calls a
 model once and is not an agent by the repository's own rule. A context
 flow may end at it and a tool flow start from it, the Context and Tools
-readings light those flows, the panel reads `component, calls a model`,
+layers show those flows, the panel reads `component, calls a model`,
 and the `model sdk` judgement line for its modules is answered by the
-flag. The Agents reading stays agents only.
+flag. The Agents layer stays agents only.
 
 `map` opens a map of the card's own, for a card whose modules exceed ten
 or any card once a map is past forty (`references/layout.md`, "When to
@@ -142,11 +143,11 @@ open a map inside a card"): a path relative to the model file
 alone: its cards claim exactly the modules the card claims, no more and
 no fewer, each once (a symbol claim counts for no module, an empty
 package marker is left out); its actors are cards of the map it is
-inside, the ones around the card, so its edges to the outside have
-somewhere to land. The card claims the modules once, for coverage; the
+inside, the ones around the card, so every edge leaving the card has an
+endpoint inside the map inside. The card claims the modules once, for coverage; the
 check's nesting rule holds the map inside to them, naming each module
-that differs. On the page the card stands on a second card, its panel
-reads `opens: Gateway (5 cards)` over a preview of the map inside and a
+that differs. On the page the card is drawn with a second card behind it.
+Its panel reads `opens: Gateway (5 cards)` over a preview of the map inside and a
 button that opens it in place (a double-click on the card or a second
 Enter does the same), and the map's own page at
 `docs/map/Gateway/index.html` links back to it for whoever opens it
@@ -198,7 +199,8 @@ and the panel of a governed component points at them.
 
 `Journey(id, label, steps)`
 
-An ordered walk through the map a reader steps through one edge at a time.
+An ordered walk through the map. The reader steps through it one edge at a
+time.
 `label` is what the selector shows. Write one per entry point that
 matters; `systemap judgement` names the entry points no journey mentions.
 
@@ -215,7 +217,7 @@ happens there.
 
 `Layer(id, label, question="", sub="")`
 
-One reading of the map the reader can switch to, best written as the
+One layer the reader can switch to, best written as the
 question it answers. Only the model's own layers are declared here; the
 standard layers are derived and their ids (`structure`, `system`, `data`,
 `control`, `agents`, `context`, `tools`) and `all` may not be reused.

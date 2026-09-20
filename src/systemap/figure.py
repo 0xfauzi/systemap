@@ -15,11 +15,11 @@ Three sources for what is marked:
     component ids         what a plan reaches, no git consulted (mode change)
     mode system           nothing marked: the plain system figure
 
-And one reading or all of them: `layer` draws only the edges the page's
+And one layer or all of them: `layer` draws only the edges the page's
 layer switch shows for that layer (its own filter, `model.reading`), with
 every card, the legend reduced to that layer and the layer's question as
 the title. Structure has no edges at all; the whole map with every layer
-at once is too many arrows for a document, and a reading is the page's
+at once is too many arrows for a document, and one layer is the page's
 own answer to that.
 
 An interactive figure carries the map's focus interaction as a
@@ -91,7 +91,7 @@ def figure(
     layer: str = "",
 ) -> str:
     """The figure element. A detail JSON makes it interactive; a layer id
-    reduces the line legend to that one reading."""
+    reduces the line legend to that one layer."""
     swatches = "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
@@ -221,7 +221,7 @@ def make(
     component ids are given and "system" otherwise. Unknown component ids
     are a ConfigError; an empty git range is a FigureError. `bare` returns
     the SVG alone, on its ground, instead of the figure element. `layer`
-    is one reading's id; an id the page does not have is a ConfigError
+    is a layer's id; an id the page does not have is a ConfigError
     naming the ones it does. `map_id` names the map inside a card when
     the figure draws one (the caption cites its page), and `opens` is
     what the panel prints for each card that opens a map.
@@ -274,7 +274,7 @@ def make(
         sub = reading.sub[:1].upper() + reading.sub[1:] if reading.sub else ""
         caption = caption or (
             f"{inside}{reading.label}: {reading.question} {sub + '. ' if sub else ''}"
-            f"One reading of the system; the page at <code>{page_url}</code> has them "
+            f"One layer of the system; the page at <code>{page_url}</code> has them "
             f"all. Drawn by <code>{GENERATOR}</code> from <code>{facts_url}</code>; "
             f"every card is code in the tree today."
         )
@@ -322,9 +322,9 @@ def make(
 def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
     """The layer a figure is restricted to, or None for the whole map.
 
-    The ids are the page's: the standard readings, the agent readings when
+    The ids are the page's: the standard layers, the agent layers when
     the model has an agent, then the model's own. A wrong id is refused
-    with the right ones named, since a figure of a reading that is not on
+    with the right ones named, since a figure of a layer that is not on
     the page would be a picture the page cannot back.
     """
     if not layer:
@@ -334,7 +334,7 @@ def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
         if lay.id == layer:
             return lay
     raise ConfigError(
-        f"unknown layer id: {layer}; the readings the page has are "
+        f"unknown layer id: {layer}; the layers the page has are "
         f"{', '.join(lay.id for lay in layers)}"
     )
 

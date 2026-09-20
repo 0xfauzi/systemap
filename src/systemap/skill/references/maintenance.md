@@ -35,7 +35,7 @@ on the change alone.
    hand-back and run the full loop in SKILL.md instead, from its step 1.
 
 Budget: 15 turns for a small or a medium change. An overrun is named in
-the hand-back, with the step that ate it.
+the hand-back, with the step that used them.
 
 ## The lines
 
@@ -45,7 +45,7 @@ the hand-back, with the step that ate it.
 | `added: M, claimed by CARD` | a new module a `pkg.*` pattern already claims | nothing |
 | `added: M, claimed by no card` | a new module with no place on the map: coverage lost | name it in the card it serves, or ignore it with a reason under `[coverage]` |
 | `removed: M; CARD names it` | a module is gone and a card still names it | drop it from `implemented_by`; a card left with no module goes too, with its flows and sentences |
-| `removed: M; the [coverage] ignore that names it is stale` | the ignore outlived the module | remove the ignore |
+| `removed: M; the [coverage] ignore that names it is stale` | the module went and the ignore stayed | remove the ignore |
 | `entry vanished` | the card's `entry` is no longer defined by its modules | set `entry` to a public name they define |
 | `interface vanished` | the name the interface line starts with is gone | start the line with a name they define, or leave it empty |
 | `new crossing import` | an import now crosses a card boundary and no flow joins the two cards | add the flow with its sentence, or answer it under `[judgement] answered`, as in the second pass |

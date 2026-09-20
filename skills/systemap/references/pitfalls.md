@@ -5,7 +5,8 @@ again when `systemap judgement` runs long.
 
 ## A module is not a component
 
-One card per module is a dependency graph with prose on it. A component is
+One card per module gives a dependency graph with sentences attached, not
+a map. A component is
 something a reader would point at and name: "the part that reads input",
 "the ledger". It usually holds several modules; a module that does two
 things belongs with the one it is for. The judgement line `single module`
@@ -54,10 +55,10 @@ disagree.
 ## Placing the cards by hand
 
 A third of a first map's turns once went on positions: a card off the
-grid closing a corridor, regions tiling their container, a route that
-snakes. Leave `x` and `y` out and run `systemap place`; it lays the
+grid closing a corridor, regions tiling their container, a route with many
+bends. Leave `x` and `y` out and run `systemap place`; it lays the
 regions out with the corridors and puts every card on the grid, the
-parts that talk together; after adding or removing a card, run `systemap
+parts that exchange something side by side; after adding or removing a card, run `systemap
 place --all`, which lays every card out again and keeps only the pinned
 ones. Pin a card (`pinned=True`, with its `x` and `y`) only when the
 check names a fix that is a card moved. `references/layout.md` says what
@@ -66,8 +67,8 @@ like. `map routes: 0 edges through a card` is the line to reach.
 
 ## A map past forty cards
 
-Sixty cards on one canvas is a poster, not a map: every reading lights
-everything, and no placement leaves a corridor. When `systemap suggest`
+Sixty cards on one canvas cannot be read: every layer holds nearly every
+card, and no placement leaves a corridor. When `systemap suggest`
 says a map is past forty cards, or a card holds more than ten modules,
 open a map inside that card (`map=` on the card; `references/layout.md`
 says how) instead of squeezing the grid. The card stays on the top map
@@ -94,10 +95,10 @@ refused by the check; a name that is there but is not the way in (a
 helper, a dataclass) passes the check and misleads the reader. Pick the one
 a caller uses.
 
-## Layers that are not readings
+## Layers that answer no question
 
 A layer answers a question a reader asks. A layer with one edge, or one
-that mirrors a directory, is not a reading. The standard layers (Structure,
+that mirrors a directory, answers no question. The standard layers (Structure,
 System context, Data flow, Control flow) are derived; add one of your own
 only when the repository's vocabulary has it.
 
@@ -114,7 +115,7 @@ is the finding.
 repository says so. Cite the source in the text. What the repository does
 not state goes in your list for the maintainer.
 
-## Answers that live in a chat
+## Answers written in a message instead of the file
 
 An answer to a judgement line written in a message is gone by the next
 run; the line comes back and is answered again. Answers go in
