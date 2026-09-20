@@ -121,6 +121,7 @@ LINE_KINDS = (
     "thin layer",
     "entry point",
     "journey start",
+    "drafted journey",
     "crossing import",
     "declared flow",
     "model sdk",

@@ -106,6 +106,17 @@ JUDGEMENT = {
             "or leave `starts` empty."
         ),
     ),
+    "drafted journey": Lesson(
+        means="`systemap journeys` wrote this walk, and nobody has read it yet.",
+        why=(
+            "An agent read the code and wrote what it found. It is a draft, and a draft that "
+            "nobody checks is how a map starts saying things its maintainer never agreed to."
+        ),
+        do=(
+            "Walk it against the code. Fix what is wrong, then set `drafted=False` on it, or "
+            "answer the line with what you checked."
+        ),
+    ),
     "crossing import": Lesson(
         means=(
             "Modules of one card import modules of another, and no flow on the map joins those "

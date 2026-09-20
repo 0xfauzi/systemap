@@ -205,6 +205,8 @@ class Journey:
     label: str
     steps: tuple[Step, ...]
     starts: str = ""
+    # written by `systemap journeys` and not yet read by the maintainer
+    drafted: bool = False
 
 
 @dataclass(frozen=True)

@@ -216,6 +216,29 @@ two cards meet (`audit --dry-run` says exactly what), and caches every
 answer, so an unchanged map costs nothing the second time. `[jev] enabled =
 false` in `systemap.toml` turns off both the asking and the hints.
 
+## A walk for every way in
+
+A journey is the walk a reader takes through the system when a run starts at
+one way in: which parts it passes through, in order, and what happens at each
+step. `systemap extract` finds the ways in a framework registers, routes and
+commands and queue tasks alike, and `systemap judgement` asks for a journey
+from each one that has none.
+
+`systemap journeys` writes them. It hands the agent named under `[agent]
+command` in `systemap.toml` one way in, the cards with their sentences and
+the flows already drawn, and asks it to read the code and answer with the
+walk. Every step is checked against the map first: a step tracing a flow the
+map does not draw, or naming a card that is not there, comes back as a line
+to fix rather than as a journey. What holds is written into the model marked
+`drafted=True`, and `judgement` keeps saying so until you have read it
+against the code and removed the mark.
+
+The walk was proposed from the imports first, and measured: the cards it
+named overlapped the ones people wrote by 0.28 where the bar was 0.60,
+because the module behind a command line imports most of the system. So the
+agent reads the code instead. Without an agent command, `systemap journeys`
+lists the ways in with no walk and writes nothing.
+
 ## Commands
 
 | command | what it does |
@@ -232,6 +255,7 @@ false` in `systemap.toml` turns off both the asking and the hints.
 | `systemap delta` | what a change did to the map |
 | `systemap audit` | a second opinion from Jev on the map's judgement calls (needs `TYPESAFE_API_KEY`) |
 | `systemap triage` | the cards an issue's fix will most likely change (needs `TYPESAFE_API_KEY`) |
+| `systemap journeys` | a walk written for a way into the system that no journey starts from (needs `[agent] command`) |
 | `systemap figure` | one figure: a reading, a map inside a card, a plan's reach, a change |
 | `systemap serve` | serve the page on the loopback address |
 | `systemap skill` | reinstall the skill directory |

@@ -1,0 +1,432 @@
+[
+ {
+  "map": "systemap",
+  "journey": "second-opinion",
+  "entry": "systemap (console script)",
+  "written": [
+   "Agent",
+   "CLI",
+   "SecondOpinion",
+   "Model",
+   "TypeSafe"
+  ],
+  "proposed": [
+   "CLI",
+   "Model",
+   "SecondOpinion",
+   "ChangeDetector",
+   "Check",
+   "Config",
+   "Describe",
+   "FactsExtractor"
+  ],
+  "overlap": 0.3,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "systemap",
+  "journey": "first-map",
+  "entry": "systemap (console script)",
+  "written": [
+   "Agent",
+   "CLI",
+   "Skill",
+   "FactsExtractor",
+   "Model",
+   "Placer",
+   "Check"
+  ],
+  "proposed": [
+   "CLI",
+   "Model",
+   "SecondOpinion",
+   "ChangeDetector",
+   "Check",
+   "Config",
+   "Describe",
+   "FactsExtractor"
+  ],
+  "overlap": 0.36363636363636365,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "systemap",
+  "journey": "second-pass",
+  "entry": "systemap (console script)",
+  "written": [
+   "Agent",
+   "CLI",
+   "Judgement",
+   "FactsExtractor",
+   "Model",
+   "Page",
+   "Maintainer"
+  ],
+  "proposed": [
+   "CLI",
+   "Model",
+   "SecondOpinion",
+   "ChangeDetector",
+   "Check",
+   "Config",
+   "Describe",
+   "FactsExtractor"
+  ],
+  "overlap": 0.25,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "systemap",
+  "journey": "refactor",
+  "entry": "systemap (console script)",
+  "written": [
+   "CI",
+   "CLI",
+   "ChangeDetector",
+   "Check",
+   "Agent",
+   "Page",
+   "Maintainer"
+  ],
+  "proposed": [
+   "CLI",
+   "Model",
+   "SecondOpinion",
+   "ChangeDetector",
+   "Check",
+   "Config",
+   "Describe",
+   "FactsExtractor"
+  ],
+  "overlap": 0.25,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "cli",
+  "journey": "http-request",
+  "entry": "python -m httpie",
+  "written": [
+   "User",
+   "Program",
+   "Plugins",
+   "ArgParser",
+   "RequestItems",
+   "Client",
+   "Sessions",
+   "WebServer",
+   "Output"
+  ],
+  "proposed": [
+   "Program",
+   "ArgParser",
+   "RequestItems",
+   "Client",
+   "Environment",
+   "Downloader",
+   "UpdateCheck",
+   "Output"
+  ],
+  "overlap": 0.4166666666666667,
+  "missing_flows": 4,
+  "hops": 7
+ },
+ {
+  "map": "cli",
+  "journey": "httpie-manager",
+  "entry": "python -m httpie.manager",
+  "written": [
+   "User",
+   "Manager",
+   "Program",
+   "PackageIndex",
+   "Plugins"
+  ],
+  "proposed": [
+   "Manager",
+   "ArgParser",
+   "Environment",
+   "Program",
+   "Formatters",
+   "Plugins",
+   "Client",
+   "TerminalUI"
+  ],
+  "overlap": 0.3,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "kstrl",
+  "journey": "spec-to-merge",
+  "entry": "ks (console script)",
+  "written": [
+   "Operator",
+   "CommandLine",
+   "Architect",
+   "Manifest",
+   "Scheduler",
+   "Worktrees",
+   "EngineerLoop",
+   "AgentAdapter",
+   "Pipeline",
+   "MechanicalVerifier",
+   "Reviewer",
+   "SecurityReviewer",
+   "Findings",
+   "Knowledge",
+   "PullRequests",
+   "GitHub",
+   "ContractTester",
+   "AutonomyLadder"
+  ],
+  "proposed": [
+   "CommandLine",
+   "TestOracle",
+   "AgentAdapter",
+   "AutonomyLadder",
+   "LoopGuards",
+   "Configuration",
+   "ContractTester",
+   "Architect"
+  ],
+  "overlap": 0.23809523809523808,
+  "missing_flows": 7,
+  "hops": 7
+ },
+ {
+  "map": "kstrl",
+  "journey": "issue-to-run",
+  "entry": "ks (console script)",
+  "written": [
+   "GitHubIntake",
+   "GitHub",
+   "WorkQueue",
+   "ServeDaemon",
+   "Inbox",
+   "Scheduler"
+  ],
+  "proposed": [
+   "CommandLine",
+   "TestOracle",
+   "AgentAdapter",
+   "AutonomyLadder",
+   "LoopGuards",
+   "Configuration",
+   "ContractTester",
+   "Architect"
+  ],
+  "overlap": 0.0,
+  "missing_flows": 7,
+  "hops": 7
+ },
+ {
+  "map": "kstrl",
+  "journey": "watching",
+  "entry": "ks (console script)",
+  "written": [
+   "Pipeline",
+   "EventBus",
+   "Reducer",
+   "Dashboard",
+   "RunViews",
+   "Operator"
+  ],
+  "proposed": [
+   "CommandLine",
+   "TestOracle",
+   "AgentAdapter",
+   "AutonomyLadder",
+   "LoopGuards",
+   "Configuration",
+   "ContractTester",
+   "Architect"
+  ],
+  "overlap": 0.0,
+  "missing_flows": 7,
+  "hops": 7
+ },
+ {
+  "map": "kstrl",
+  "journey": "calibrating",
+  "entry": "compare (subcommand in kstrl.calibration)",
+  "written": [
+   "Calibration",
+   "Operator"
+  ],
+  "proposed": [
+   "Calibration"
+  ],
+  "overlap": 0.5,
+  "missing_flows": 0,
+  "hops": 0
+ },
+ {
+  "map": "mealie",
+  "journey": "startup",
+  "entry": "mealie (console script)",
+  "written": [
+   "Settings",
+   "AppServer",
+   "DbSetup",
+   "SchemaMigrations",
+   "Seeder",
+   "Scheduler",
+   "HttpApi"
+  ],
+  "proposed": [
+   "AppServer",
+   "Settings",
+   "DbSetup",
+   "Translations",
+   "HttpApi",
+   "MediaFiles",
+   "WebAppHost",
+   "Scheduler"
+  ],
+  "overlap": 0.5,
+  "missing_flows": 5,
+  "hops": 7
+ },
+ {
+  "map": "poetry",
+  "journey": "install",
+  "entry": "poetry (console script)",
+  "written": [
+   "Developer",
+   "Cli",
+   "ProjectLoader",
+   "DependencyCommands",
+   "Installer",
+   "Solver",
+   "VersionSolver",
+   "RepositoryPool",
+   "LockFile",
+   "Executor",
+   "ArtifactCache",
+   "EnvManager"
+  ],
+  "proposed": [
+   "Cli",
+   "ProjectLoader",
+   "SelfCommands",
+   "ConsoleOutput",
+   "Installer",
+   "Plugins",
+   "EnvManager",
+   "FileHelpers"
+  ],
+  "overlap": 0.25,
+  "missing_flows": 4,
+  "hops": 7
+ },
+ {
+  "map": "poetry",
+  "journey": "publish",
+  "entry": "poetry (console script)",
+  "written": [
+   "Developer",
+   "Cli",
+   "PackagingCommands",
+   "Builders",
+   "Executor",
+   "Publisher",
+   "HttpAccess",
+   "PackageIndex"
+  ],
+  "proposed": [
+   "Cli",
+   "ProjectLoader",
+   "SelfCommands",
+   "ConsoleOutput",
+   "Installer",
+   "Plugins",
+   "EnvManager",
+   "FileHelpers"
+  ],
+  "overlap": 0.06666666666666667,
+  "missing_flows": 4,
+  "hops": 7
+ },
+ {
+  "map": "rich",
+  "journey": "print",
+  "entry": "print_json() in rich",
+  "written": [
+   "Application",
+   "RichAPI",
+   "Console",
+   "Markup",
+   "Text",
+   "Measure",
+   "Segment",
+   "FileOutput",
+   "Terminal"
+  ],
+  "proposed": [
+   "RichAPI",
+   "Pretty",
+   "Console",
+   "Traceback",
+   "Text",
+   "Measure",
+   "Markup",
+   "Jupyter"
+  ],
+  "overlap": 0.4166666666666667,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "rich",
+  "journey": "inspect",
+  "entry": "inspect() in rich",
+  "written": [
+   "Application",
+   "RichAPI",
+   "Pretty",
+   "Markup",
+   "Console"
+  ],
+  "proposed": [
+   "RichAPI",
+   "Pretty",
+   "Console",
+   "Segment",
+   "Markup",
+   "Jupyter",
+   "Panel",
+   "Table"
+  ],
+  "overlap": 0.4444444444444444,
+  "missing_flows": 3,
+  "hops": 7
+ },
+ {
+  "map": "rich",
+  "journey": "demo",
+  "entry": "python -m rich",
+  "written": [
+   "RichAPI",
+   "Console",
+   "Table",
+   "FileOutput"
+  ],
+  "proposed": [
+   "RichAPI",
+   "Panel",
+   "Color",
+   "Console",
+   "Markdown",
+   "Measure",
+   "Pretty",
+   "Segment"
+  ],
+  "overlap": 0.2,
+  "missing_flows": 7,
+  "hops": 7
+ }
+]

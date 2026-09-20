@@ -81,7 +81,7 @@ contradictions, not omissions; the second pass is the point of this skill.
 
    An answered line is suppressed and counted; an answer that matches no
    line is reported as stale, so remove it. Never pass a line over in
-   silence. The nine kinds of line:
+   silence. The ten kinds of line:
 
    | kind | what it says | what to do |
    |---|---|---|
@@ -91,6 +91,7 @@ contradictions, not omissions; the second pass is the point of this skill.
    | `thin layer` | a reading lights fewer than two cards; a standard kind never used counts | add the flows the reading is for, or answer that the system has none |
    | `entry point` | an entry point in the facts that no journey names | write the journey, or answer why it does not matter to a reader |
    | `journey start` | a journey names a way in the facts do not have | name it as `systemap facts --entry-points` does, or leave `starts` empty |
+   | `drafted journey` | an agent wrote this walk; nobody has read it against the code | read each step, fix what is wrong, then remove its `drafted=True` line |
    | `crossing import` | modules of one card import modules of another and no flow joins the two; one line per pair, counting the modules (`--verbose` lists the imports) | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
    | `declared flow` | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by` | find the import and fix the claims; name the mechanism in the sentence and list it under `[flows] observed_by`; or remove the flow. Answer only an edge that is real and joined by nothing in the tree |
    | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |

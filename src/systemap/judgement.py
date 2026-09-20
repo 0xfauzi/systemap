@@ -323,15 +323,20 @@ def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[st
 
 
 def journey_problems(meaning: Meaning, facts: dict[str, Any]) -> list[str]:
-    """Where a journey starts at a way in the facts do not have.
+    """A journey nobody has confirmed, and a journey that starts at nothing.
 
     Naming the way in is what lets the map say which ways in are walked and
     which are not, so a name nothing matches leaves a real way in looking
     covered.
     """
+    drafted = [
+        f"drafted journey: {j.id} ({j.label}) was written by an agent and not yet confirmed"
+        for j in meaning.journeys
+        if j.drafted
+    ]
     ways = {p["name"] for p in facts.get("entry_points", [])}
     ways |= {entry_label(p) for p in facts.get("entry_points", [])}
-    return [
+    return drafted + [
         f"journey start: {j.id} starts at {j.starts}, which the facts have no way in for"
         for j in meaning.journeys
         if j.starts and j.starts not in ways

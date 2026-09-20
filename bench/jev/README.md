@@ -144,3 +144,24 @@ driving it, and that reads perfectly while its edges do not join. Continuity
 is not something the structure can decide, so no `journey gap` line exists.
 What did ship is `journey start`: a journey names the way in it starts at,
 and the line says when the facts have no such way in. That one is exact.
+
+**Proposing the walk from the imports: not shipped (paths.py, propose.py).**
+Before `systemap journeys` asked an agent to read the code, the walk was
+proposed from the facts alone: follow the imports out of the way in, map each
+module to the card that claims it, and keep the card-to-card hops the map
+draws a flow for. The bar, set before the run: the proposed cards had to
+overlap the cards of a hand-written journey by a median of 0.60.
+
+    uv run --project bench/jev python bench/jev/paths.py
+
+| maps | journeys matched to a way in | median overlap |
+|---|---|---|
+| systemap and the six first maps | 16 | 0.28 |
+
+Far below the bar, and the reason is structural: the module behind a console
+script imports the whole system, so the proposal names almost every card and
+the journey names four. Reading the entry function's own imports instead of
+the module's did not help, because a command line dispatches through a table.
+The proposal is not shipped. `bench/jev/propose.py` keeps the code and
+`paths.py` scores it. `systemap journeys` asks the agent to read the code
+from the way in, and checks every step it answers with against the map.

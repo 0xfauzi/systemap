@@ -265,6 +265,7 @@ COMPONENTS = (
             "systemap.jev_cli",
             "systemap.jev",
             "systemap.agent",
+            "systemap.journeys",
         ),
         entry="run",
         region="keep",

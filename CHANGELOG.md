@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- `systemap journeys` writes a walk through the system for a way in that no
+  journey starts from. The agent named under `[agent] command` reads the code
+  from that way in and answers with the cards a run passes through and a
+  sentence each; systemap checks every step against the map and refuses one
+  that traces a flow the map does not draw or names a card that is not there.
+  What holds is written into the model marked `drafted=True`, and `judgement`
+  prints a `drafted journey` line until the mark is removed. With no command
+  set, nothing runs and the ways in with no walk are listed instead.
+- The walk was first proposed from the imports and measured against the
+  journeys people wrote: the cards overlapped by 0.28 where the bar was 0.60,
+  because the module behind a command line imports the whole system. That
+  proposal is not shipped; `bench/jev/propose.py` and `paths.py` keep it.
+- `systemap extract` finds the ways in a framework registers: routes
+  (FastAPI, Flask, Django's `urlpatterns`), commands (click, typer, cleo,
+  Django's management commands), tasks (Celery), Poetry scripts and plugin
+  hooks. A hand-check of 30 of the new records across the seven maps found 29
+  real. `judgement` asks for a journey from each, grouped into one line per
+  card once a card takes four or more of a kind.
+- A `Journey` can name the way in it starts from (`starts="GET /recipes"`),
+  which `judgement` reads: a journey covers that way in, and a `journey start`
+  line says when the facts have no such way in.
 - `delta` asks Jev on its own when `TYPESAFE_API_KEY` is set: modules renamed
   and rewritten at once are paired, and each unclaimed module gets the card it
   reads like. `--no-jev` sends nothing; `--jev` asks and says why it cannot.

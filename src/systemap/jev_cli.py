@@ -14,7 +14,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from systemap import audit, config, extract, jev, moves, nest
+from systemap import agent, audit, config, extract, jev, journeys, moves, nest
 from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
@@ -216,6 +216,93 @@ def owner_suggestions(
     return out
 
 
+# ---- journeys: a walk written for a way in nothing walks from yet ------------------
+
+# How many walks one run writes without being asked for more: a maintainer
+# reads what comes back, and a dozen drafts at once is not reading.
+JOURNEY_CAP = 3
+
+
+def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None) -> int:
+    """Write a journey for a way into the system that no journey walks from."""
+    cfg = config.load(args.root_path)
+    facts = _facts(cfg)
+    if facts is None:
+        return STALE
+    top = nest.load(cfg).top
+    left = journeys.uncovered(top.meaning, facts)
+    if not left:
+        print("journeys: every way into the system already has a walk from it")
+        return OK
+    if args.dry_run or not agent.has_agent(cfg):
+        print(*_would_write(left, cfg), sep="\n")
+        return OK
+    return _write_journeys(cfg, top, facts, left[: args.limit], run_command)
+
+
+def _would_write(left: list[dict[str, str]], cfg: config.Config) -> list[str]:
+    """What there is to write, and what it would take, without writing it."""
+    ways = "way" if len(left) == 1 else "ways"
+    out = [f"journeys: {len(left)} {ways} into the system with no walk from them:"]
+    out += [f"  {extract.entry_label(p)}" for p in left[:20]]
+    if len(left) > 20:
+        out.append(f"  and {len(left) - 20} more")
+    if not agent.has_agent(cfg):
+        out.append(f"  {agent.NO_AGENT}")
+    return out
+
+
+def _write_journeys(
+    cfg: config.Config,
+    top: nest.Map,
+    facts: dict[str, Any],
+    take: list[dict[str, str]],
+    run_command: agent.Run | None,
+) -> int:
+    """Ask the agent for each walk, check it, and write the ones that hold."""
+    try:
+        writer = agent.from_cfg(cfg, run_command)
+    except agent.AgentError as exc:
+        print(f"journeys: {exc}")
+        return STALE
+    source = top.path.read_text(encoding="utf-8")
+    written: list[str] = []
+    out: list[str] = []
+    for point in take:
+        try:
+            draft = journeys.write_one(writer, top.model, top.meaning, facts, point)
+        except agent.AgentError as exc:
+            out.append(f"journeys: {exc}")
+            break
+        label = extract.entry_label(point)
+        if draft.journey is None:
+            out.append(f"journeys: no walk written for {label}")
+            out += [f"      {p}" for p in draft.problems]
+            continue
+        grown = journeys.add_to_source(source, draft.journey)
+        if grown is None:
+            out.append(f"journeys: {cfg.rel(top.path)} has no journeys to add to; paste this in:")
+            out += journeys.as_source(draft.journey)
+            continue
+        source = grown
+        written.append(draft.journey.id)
+        out.append(f"journeys: wrote {draft.journey.id} ({draft.journey.label}) for {label}")
+        out += [f"      {p}" for p in draft.problems]
+    if written:
+        top.path.write_text(source, encoding="utf-8")
+        out.append(f"  {len(written)} written into {cfg.rel(top.path)}, each marked drafted=True")
+        out.append("  read each one against the code, then remove the drafted line")
+        out.append("  run: systemap check && systemap judgement")
+    print(*out, sep="\n")
+    writer_usage(writer)
+    return OK
+
+
+def writer_usage(writer: agent.Agent) -> None:
+    if writer.usage.called or writer.usage.cached:
+        print(writer.usage.line(), file=sys.stderr)
+
+
 # ---- delta --jev: which new module a module that disappeared became ---------------
 
 
@@ -381,6 +468,25 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "threshold was not chosen on",
     )
     s.set_defaults(func=lambda args: cmd_audit(_rooted(args)))
+
+    s = sub.add_parser(
+        "journeys",
+        help="write a walk through the system for a way in that has none: the agent named "
+        "under [agent] reads the code from that way in and answers with the cards a run "
+        "passes through and a sentence each; the walk is checked against the map and written "
+        "into the model as a draft for you to confirm",
+    )
+    add_root(s)
+    s.add_argument(
+        "--limit",
+        type=int,
+        default=JOURNEY_CAP,
+        help=f"how many walks to write in one run (default {JOURNEY_CAP})",
+    )
+    s.add_argument(
+        "--dry-run", action="store_true", help="list the ways in that have no walk, and write none"
+    )
+    s.set_defaults(func=lambda args: cmd_journeys(_rooted(args)))
 
     s = sub.add_parser(
         "triage",
