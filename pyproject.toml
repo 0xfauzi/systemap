@@ -21,7 +21,10 @@ classifiers = [
     "Topic :: Documentation",
     "Topic :: Software Development :: Documentation",
 ]
-dependencies = [
+dependencies = []
+
+[project.optional-dependencies]
+typescript = [
     "tree-sitter>=0.25,<0.27",
     "tree-sitter-typescript>=0.23,<0.24",
 ]
@@ -46,6 +49,8 @@ dev = [
     "pre-commit>=4,<5",
     "pytest>=8",
     "ruff>=0.5",
+    "tree-sitter>=0.25,<0.27",
+    "tree-sitter-typescript>=0.23,<0.24",
 ]
 
 [tool.pytest.ini_options]

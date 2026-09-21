@@ -491,7 +491,9 @@ wheels = [
 name = "systemap"
 version = "1.2.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+typescript = [
     { name = "tree-sitter" },
     { name = "tree-sitter-typescript" },
 ]
@@ -502,13 +504,16 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-typescript" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "tree-sitter", specifier = ">=0.25,<0.27" },
-    { name = "tree-sitter-typescript", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter", marker = "extra == 'typescript'", specifier = ">=0.25,<0.27" },
+    { name = "tree-sitter-typescript", marker = "extra == 'typescript'", specifier = ">=0.23,<0.24" },
 ]
+provides-extras = ["typescript"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -516,6 +521,8 @@ dev = [
     { name = "pre-commit", specifier = ">=4,<5" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.5" },
+    { name = "tree-sitter", specifier = ">=0.25,<0.27" },
+    { name = "tree-sitter-typescript", specifier = ">=0.23,<0.24" },
 ]
 
 [[package]]

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import ways_in
-from systemap.config import Config
+from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
 from systemap.model import Model, is_symbol, module_matches, public_names
 
@@ -67,6 +67,7 @@ class PythonLanguage:
         module: str,
         prefixes: frozenset[str],
         known: set[str],
+        paths: dict[str, Path],
     ) -> dict[str, Any] | None:
         return collect_module(path, repo, module, prefixes)
 
@@ -77,10 +78,19 @@ class PythonLanguage:
         known: set[str],
         module: str = "",
         is_package: bool = False,
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
     ) -> dict[str, set[str]]:
         return internal_uses(raw, prefixes, known, module, is_package)
 
-    def external_imports(self, raw: str, prefixes: set[str]) -> list[str]:
+    def external_imports(
+        self,
+        raw: str,
+        prefixes: set[str],
+        module: str = "",
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
+    ) -> list[str]:
         return external_imports(raw, prefixes)
 
     def collect_tests(
@@ -121,7 +131,14 @@ def language_for(cfg: Config) -> LanguageAdapter:
     if cfg.language == PYTHON.name:
         return PYTHON
     if cfg.language == "typescript":
-        from systemap.typescript import TYPESCRIPT
+        try:
+            from systemap.typescript import TYPESCRIPT
+        except ModuleNotFoundError as exc:
+            if exc.name not in {"tree_sitter", "tree_sitter_typescript"}:
+                raise
+            raise ConfigError(
+                "TypeScript support is not installed; install systemap[typescript]"
+            ) from exc
 
         return TYPESCRIPT
     raise ValueError(f"unsupported language: {cfg.language}")
@@ -801,14 +818,21 @@ def build(cfg: Config) -> dict[str, Any]:
         for path in language.source_paths(pkg_dir):
             if any(p in SKIP_PARTS for p in path.parts):
                 continue
-            paths[language.module_of(path, pkg_dir, pkg_name)] = path
+            module = language.module_of(path, pkg_dir, pkg_name)
+            if module in paths and paths[module] != path:
+                first = paths[module].relative_to(repo).as_posix()
+                second = path.relative_to(repo).as_posix()
+                raise ConfigError(
+                    f"module id {module} is shared by {first} and {second}; rename one file"
+                )
+            paths[module] = path
     known = set(paths)
 
     components: dict[str, Any] = {}
     imports: dict[str, set[str]] = {}
     sources: dict[str, str] = {}
     for module, path in sorted(paths.items()):
-        record = language.collect_module(path, repo, module, frozenset(prefixes), known)
+        record = language.collect_module(path, repo, module, frozenset(prefixes), known, paths)
         if record is None:
             continue
         record["id"] = module
@@ -820,14 +844,22 @@ def build(cfg: Config) -> dict[str, Any]:
             raw = ""
         sources[module] = raw
         uses = language.internal_uses(
-            raw, prefixes, known, module=module, is_package=path.name == "__init__.py"
+            raw,
+            prefixes,
+            known,
+            module=module,
+            is_package=path.name == "__init__.py",
+            repo=repo,
+            paths=paths,
         )
         uses.pop(module, None)
         record["uses"] = {
             target: [WHOLE_MODULE] if WHOLE_MODULE in names else sorted(names)
             for target, names in sorted(uses.items())
         }
-        record["external"] = language.external_imports(raw, prefixes)
+        record["external"] = language.external_imports(
+            raw, prefixes, module=module, repo=repo, paths=paths
+        )
         imports[module] = set(uses)
         components[module] = record
 

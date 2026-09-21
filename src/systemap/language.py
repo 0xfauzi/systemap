@@ -32,6 +32,7 @@ class LanguageAdapter(Protocol):
         module: str,
         prefixes: frozenset[str],
         known: set[str],
+        paths: dict[str, Path],
     ) -> dict[str, Any] | None: ...
 
     def internal_uses(
@@ -41,9 +42,18 @@ class LanguageAdapter(Protocol):
         known: set[str],
         module: str = "",
         is_package: bool = False,
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
     ) -> dict[str, set[str]]: ...
 
-    def external_imports(self, raw: str, prefixes: set[str]) -> list[str]: ...
+    def external_imports(
+        self,
+        raw: str,
+        prefixes: set[str],
+        module: str = "",
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
+    ) -> list[str]: ...
 
     def collect_tests(
         self,

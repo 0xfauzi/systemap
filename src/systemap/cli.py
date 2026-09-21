@@ -135,6 +135,8 @@ def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
     python_roots = config.discover_roots(root)
     typescript_roots = config.discover_typescript_roots(root)
+    if python_roots and typescript_roots:
+        raise ConfigError("both Python and TypeScript source found; set language in systemap.toml")
     language = "typescript" if typescript_roots and not python_roots else "python"
     roots = typescript_roots if language == "typescript" else python_roots
     package = roots[0][1] if roots else "mypackage"

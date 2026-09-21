@@ -1,0 +1,6 @@
+{
+  "name": "@acme/web",
+  "bin": {
+    "web": "src/cli.ts"
+  }
+}

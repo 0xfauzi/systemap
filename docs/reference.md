@@ -461,7 +461,7 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 
 | key | default | meaning |
 |---|---|---|
-| `language` | `python` | source language: `python` or `typescript`; `init` detects an unambiguous TypeScript repository |
+| `language` | `python` | source language: `python` or `typescript`; `init` detects an unambiguous TypeScript repository; TypeScript needs the `systemap[typescript]` extra |
 | `name` | `[project] name`, then the git repository's directory, then the directory name | the page title |
 | `[package_roots]` | Python packages; for TypeScript, `src` then the repository root | `"path" = "module name"` |
 | `tests_dir` | every directory named `tests` or `test` | one directory or a list; tests that import a module count as its guards |

@@ -13,6 +13,8 @@ from typing import Any
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
+from systemap.config import ConfigError
+
 SOURCE_SUFFIXES = (".ts", ".tsx")
 TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
 SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
@@ -67,7 +69,17 @@ def _without_script_suffix(specifier: str) -> str:
     return specifier
 
 
-def _resolve(specifier: str, module: str, known: set[str]) -> str | None:
+def _resolve(
+    specifier: str,
+    module: str,
+    known: set[str],
+    repo: Path | None = None,
+    paths: dict[str, Path] | None = None,
+) -> str | None:
+    if repo is not None and paths is not None and module in paths:
+        resolved = _target_from_path(specifier, paths[module], paths, repo)
+        if resolved:
+            return resolved
     specifier = _without_script_suffix(specifier)
     if specifier.startswith("."):
         parts = module.split(".")[:-1]
@@ -272,15 +284,67 @@ def _is_test_path(path: Path) -> bool:
     return text.startswith("test_") or text.endswith(TEST_SUFFIXES)
 
 
-def _target_from_path(specifier: str, importer: Path, paths: dict[str, Path]) -> str | None:
-    if not specifier.startswith("."):
-        normalized = _module_name(_without_script_suffix(specifier))
-        return next((m for m in (normalized, f"{normalized}.index") if m in paths), None)
-    target = importer.parent / _without_script_suffix(specifier)
+def _path_choices(target: Path) -> list[Path]:
+    if target.suffix in SOURCE_SUFFIXES:
+        return [target]
     choices = [target.with_suffix(s) for s in SOURCE_SUFFIXES]
     choices += [(target / "index").with_suffix(s) for s in SOURCE_SUFFIXES]
+    return choices
+
+
+def _alias_targets(specifier: str, repo: Path) -> list[Path]:
+    config = repo / "tsconfig.json"
+    try:
+        data = json.loads(config.read_text(encoding="utf-8")) if config.is_file() else {}
+    except (OSError, json.JSONDecodeError):
+        return []
+    compiler = data.get("compilerOptions", {}) if isinstance(data, dict) else {}
+    if not isinstance(compiler, dict):
+        return []
+    base = repo / str(compiler.get("baseUrl", "."))
+    aliases = compiler.get("paths", {})
+    out: list[Path] = []
+    if isinstance(aliases, dict):
+        for pattern, targets in aliases.items():
+            if not isinstance(pattern, str) or not isinstance(targets, list):
+                continue
+            before, marker, after = pattern.partition("*")
+            if marker and specifier.startswith(before) and specifier.endswith(after):
+                matched = specifier[len(before) : len(specifier) - len(after) if after else None]
+            elif not marker and specifier == pattern:
+                matched = ""
+            else:
+                continue
+            for target in targets:
+                if isinstance(target, str):
+                    out.append(base / target.replace("*", matched))
+    return [*out, base / specifier]
+
+
+def _target_from_path(
+    specifier: str,
+    importer: Path,
+    paths: dict[str, Path],
+    repo: Path | None = None,
+) -> str | None:
+    if specifier.startswith("."):
+        targets = [importer.parent / _without_script_suffix(specifier)]
+    else:
+        normalized = _module_name(_without_script_suffix(specifier))
+        named = next((m for m in (normalized, f"{normalized}.index") if m in paths), None)
+        if named:
+            return named
+        targets = _alias_targets(specifier, repo) if repo is not None else []
     resolved = {p.resolve(): module for module, p in paths.items()}
-    return next((resolved[p.resolve()] for p in choices if p.resolve() in resolved), None)
+    return next(
+        (
+            resolved[choice.resolve()]
+            for target in targets
+            for choice in _path_choices(target)
+            if choice.resolve() in resolved
+        ),
+        None,
+    )
 
 
 class TypeScriptLanguage:
@@ -318,6 +382,7 @@ class TypeScriptLanguage:
         module: str,
         prefixes: frozenset[str],
         known: set[str],
+        paths: dict[str, Path],
     ) -> dict[str, Any] | None:
         try:
             raw = path.read_text(encoding="utf-8")
@@ -325,11 +390,11 @@ class TypeScriptLanguage:
             return None
         surface = parse_surface(raw, path.as_posix())
         if surface is None:
-            return None
+            raise ConfigError(f"{path.relative_to(repo).as_posix()}: could not parse TypeScript")
         for entry in surface["names"]:
             if entry.get("kind") != "reexport":
                 continue
-            target = _resolve(entry["reexport_of"], module, known)
+            target = _resolve(entry["reexport_of"], module, known, repo, paths)
             if target:
                 entry["reexport_of"] = target
         return {
@@ -347,18 +412,27 @@ class TypeScriptLanguage:
         known: set[str],
         module: str = "",
         is_package: bool = False,
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
     ) -> dict[str, set[str]]:
         root = _root(raw)
         if root is None:
             return {}
         uses: dict[str, set[str]] = defaultdict(set)
         for specifier, names in _imports(root):
-            target = _resolve(specifier, module, known)
+            target = _resolve(specifier, module, known, repo, paths)
             if target:
                 uses[target].update(names)
         return dict(uses)
 
-    def external_imports(self, raw: str, prefixes: set[str]) -> list[str]:
+    def external_imports(
+        self,
+        raw: str,
+        prefixes: set[str],
+        module: str = "",
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
+    ) -> list[str]:
         root = _root(raw)
         if root is None:
             return []
@@ -366,6 +440,7 @@ class TypeScriptLanguage:
             specifier
             for specifier, _names in _imports(root)
             if not specifier.startswith(".")
+            and _resolve(specifier, module, set(paths or {}), repo, paths) is None
             and not any(
                 _module_name(specifier) == prefix
                 or _module_name(specifier).startswith(prefix + ".")
@@ -403,7 +478,7 @@ class TypeScriptLanguage:
             targets = {
                 target
                 for specifier, _names in _imports(root)
-                if (target := _target_from_path(specifier, path, paths))
+                if (target := _target_from_path(specifier, path, paths, repo))
             }
             stem = path.name.split(".", 1)[0].removeprefix("test_")
             for target in targets:

@@ -326,9 +326,19 @@ def _typescript_name(root: Path) -> str:
 
 
 def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
-    """The conventional TypeScript source root, when it contains source."""
+    """The conventional TypeScript source root for a configured TS project."""
+    if not (root / "tsconfig.json").is_file():
+        return []
     for candidate in (root / "src", root):
-        if any(candidate.glob("*.ts")) or any(candidate.glob("*.tsx")):
+        sources = (
+            path
+            for path in candidate.rglob("*")
+            if path.is_file()
+            and path.suffix in {".ts", ".tsx"}
+            and not path.name.endswith(".d.ts")
+            and not any(part in SKIP_DIRS for part in path.parts)
+        )
+        if next(sources, None) is not None:
             return [(candidate.relative_to(root).as_posix() or ".", _typescript_name(root))]
     return []
 
