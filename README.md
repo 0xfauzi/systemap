@@ -10,12 +10,12 @@
   <a href="https://pypi.org/project/systemap/"><img alt="the version on PyPI" src="https://img.shields.io/pypi/v/systemap?label=PyPI&color=e0a458&labelColor=121417"></a>
   <a href="https://pypi.org/project/systemap/"><img alt="the Python versions it runs on" src="https://img.shields.io/pypi/pyversions/systemap?color=b3b1aa&labelColor=121417"></a>
   <a href="LICENSE"><img alt="the licence" src="https://img.shields.io/pypi/l/systemap?color=8fbfa6&labelColor=121417"></a>
-  <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
+  <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-2-b3b1aa?labelColor=121417">
 </p>
 
 Your coding agent writes code faster than you can read it. You review the
 diff, you merge, and one day you notice you are no longer sure how the pieces
-of your own Python project fit together.
+of your own Python or TypeScript project fit together.
 
 **systemap gives you one page that shows how they fit.** Your agent draws it
 from your code. A checker then refuses to let that page go out of date, and
@@ -186,8 +186,10 @@ features that failed their test were written down rather than shipped
 
 ## What is systemap not?
 
-It reads Python and only Python. It is not a call graph: the map shows the
-lines your agent declared and defended, not every function call. It is not a
+It reads Python, TypeScript and TSX. TypeScript support reads exported names,
+imports, tests and package binaries; framework-specific routes and configured
+path aliases are not read yet. It is not a call graph: the map shows the lines
+your agent declared and defended, not every function call. It is not a
 dependency diagram: modules are not parts, and the map shows parts. It is not
 a UML tool: one picture, one layout, and nothing to learn beyond card, line
 and journey.

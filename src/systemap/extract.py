@@ -22,12 +22,13 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from systemap import ways_in
 from systemap.config import Config
+from systemap.language import LanguageAdapter
 from systemap.model import Model, is_symbol, module_matches, public_names
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
@@ -37,6 +38,94 @@ FORMAT = 2
 TESTS_KEPT = 25
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
+
+
+class PythonLanguage:
+    """Python syntax as the language-neutral extractor asks to read it."""
+
+    name = "python"
+
+    def source_paths(self, root: Path) -> Iterable[Path]:
+        return root.rglob("*.py")
+
+    def module_of(self, path: Path, root: Path, name: str) -> str:
+        return module_of(path, root, name)
+
+    def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
+        if not path.endswith(".py"):
+            return None
+        absolute = repo / path
+        for package, name in roots:
+            if absolute.is_relative_to(package):
+                return module_of(absolute, package, name)
+        return None
+
+    def collect_module(
+        self,
+        path: Path,
+        repo: Path,
+        module: str,
+        prefixes: frozenset[str],
+        known: set[str],
+    ) -> dict[str, Any] | None:
+        return collect_module(path, repo, module, prefixes)
+
+    def internal_uses(
+        self,
+        raw: str,
+        prefixes: set[str],
+        known: set[str],
+        module: str = "",
+        is_package: bool = False,
+    ) -> dict[str, set[str]]:
+        return internal_uses(raw, prefixes, known, module, is_package)
+
+    def external_imports(self, raw: str, prefixes: set[str]) -> list[str]:
+        return external_imports(raw, prefixes)
+
+    def collect_tests(
+        self,
+        repo: Path,
+        tests_dirs: tuple[str, ...],
+        prefixes: set[str],
+        paths: dict[str, Path],
+    ) -> dict[str, list[dict[str, Any]]]:
+        return collect_tests(repo, tests_dirs, prefixes, set(paths))
+
+    def entry_points(
+        self,
+        repo: Path,
+        prefixes: set[str],
+        components: dict[str, Any],
+        sources: dict[str, str],
+    ) -> list[dict[str, str]]:
+        return entry_points(repo, prefixes, components, sources)
+
+    def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
+        return parse_surface(raw)
+
+    def test_names(self, raw: str) -> list[str]:
+        return test_names(raw)
+
+    def is_test_file(self, path: str, tests_dirs: tuple[str, ...]) -> bool:
+        if not path.endswith(".py") or not path.split("/")[-1].startswith("test_"):
+            return False
+        return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
+
+
+PYTHON = PythonLanguage()
+
+
+def language_for(cfg: Config) -> LanguageAdapter:
+    """The one source-language reader configured for this repository."""
+    if cfg.language == PYTHON.name:
+        return PYTHON
+    if cfg.language == "typescript":
+        from systemap.typescript import TYPESCRIPT
+
+        return TYPESCRIPT
+    raise ValueError(f"unsupported language: {cfg.language}")
+
 
 # Every field the extractor writes: (scope, field, what it holds). The
 # scopes are the file itself, each module record under `components`, and
@@ -705,20 +794,21 @@ def build(cfg: Config) -> dict[str, Any]:
     """The facts for the tree at `cfg.root`, ready to be written as JSON."""
     repo = cfg.root
     roots = cfg.roots
+    language = language_for(cfg)
     prefixes = {name for _, name in roots}
     paths: dict[str, Path] = {}
     for pkg_dir, pkg_name in roots:
-        for path in pkg_dir.rglob("*.py"):
+        for path in language.source_paths(pkg_dir):
             if any(p in SKIP_PARTS for p in path.parts):
                 continue
-            paths[module_of(path, pkg_dir, pkg_name)] = path
+            paths[language.module_of(path, pkg_dir, pkg_name)] = path
     known = set(paths)
 
     components: dict[str, Any] = {}
     imports: dict[str, set[str]] = {}
     sources: dict[str, str] = {}
     for module, path in sorted(paths.items()):
-        record = collect_module(path, repo, module, frozenset(prefixes))
+        record = language.collect_module(path, repo, module, frozenset(prefixes), known)
         if record is None:
             continue
         record["id"] = module
@@ -729,7 +819,7 @@ def build(cfg: Config) -> dict[str, Any]:
         except OSError:
             raw = ""
         sources[module] = raw
-        uses = internal_uses(
+        uses = language.internal_uses(
             raw, prefixes, known, module=module, is_package=path.name == "__init__.py"
         )
         uses.pop(module, None)
@@ -737,7 +827,7 @@ def build(cfg: Config) -> dict[str, Any]:
             target: [WHOLE_MODULE] if WHOLE_MODULE in names else sorted(names)
             for target, names in sorted(uses.items())
         }
-        record["external"] = external_imports(raw, prefixes)
+        record["external"] = language.external_imports(raw, prefixes)
         imports[module] = set(uses)
         components[module] = record
 
@@ -753,7 +843,7 @@ def build(cfg: Config) -> dict[str, Any]:
         record["imported_by"] = sorted(importers.get(module, set()))
 
     tests_dirs = cfg.test_dirs
-    guards = collect_tests(repo, tests_dirs, prefixes, known)
+    guards = language.collect_tests(repo, tests_dirs, prefixes, paths)
     for module, record in components.items():
         seen: set[str] = set()
         unique: list[dict[str, Any]] = []
@@ -777,7 +867,7 @@ def build(cfg: Config) -> dict[str, Any]:
         "packages": sorted(prefixes),
         "tests_dirs": list(tests_dirs),
         "spec_sections": spec_sections(repo, cfg.spec_path),
-        "entry_points": entry_points(repo, prefixes, components, sources),
+        "entry_points": language.entry_points(repo, prefixes, components, sources),
         "components": components,
     }
 

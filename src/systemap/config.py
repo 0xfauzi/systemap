@@ -5,13 +5,13 @@ itself holds no literal that belongs to one project: where the packages
 are, where the tests are, where the model module is, where the output
 goes, and the theme.
 
+    language       source language: "python" (default) or "typescript"
     name           the page title; defaults to [project] name in
                    pyproject.toml, then the name of the directory holding
                    the git repository (the main checkout, even from a
                    worktree), then the directory's name
-    package_roots  table of path = import name; default: every top-level
-                   directory (or src/<dir>) that holds an __init__.py, in
-                   the root and in every [tool.uv.workspace] member
+    package_roots  table of path = import name; Python defaults to every
+                   package directory; TypeScript defaults to src, then root
     tests_dir      where test_*.py files live: one directory or a list;
                    default: every directory named tests or test under the
                    root, outside the skipped directories
@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import json
 import os
 import subprocess
 import sys
@@ -87,6 +88,7 @@ TEST_DIR_NAMES = ("tests", "test")
 CANDIDATE_DEPTH = 4
 
 KNOWN_KEYS = {
+    "language",
     "name",
     "package_roots",
     "tests_dir",
@@ -206,6 +208,7 @@ class Config:
     root: Path
     name: str
     package_roots: tuple[tuple[str, str], ...]
+    language: str = "python"
     tests_dirs: tuple[str, ...] = ()
     model: str = "map/model.py"
     out_dir: str = "docs/map"
@@ -302,6 +305,32 @@ def _pyproject(root: Path) -> dict[str, Any]:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
         return {}
+
+
+def _package_json(root: Path) -> dict[str, Any]:
+    path = root / "package.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return dict(data) if isinstance(data, dict) else {}
+
+
+def _typescript_name(root: Path) -> str:
+    name = _package_json(root).get("name")
+    if not isinstance(name, str) or not name.strip():
+        return root.name.replace("-", "_")
+    return name.strip().removeprefix("@").replace("/", ".").replace("-", "_")
+
+
+def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
+    """The conventional TypeScript source root, when it contains source."""
+    for candidate in (root / "src", root):
+        if any(candidate.glob("*.ts")) or any(candidate.glob("*.tsx")):
+            return [(candidate.relative_to(root).as_posix() or ".", _typescript_name(root))]
+    return []
 
 
 def workspace_members(root: Path) -> list[Path]:
@@ -458,9 +487,16 @@ def load(root: Path) -> Config:
             f"{where}: unknown key{'s' if len(unknown) > 1 else ''}: {', '.join(unknown)}"
         )
 
+    language = _str(raw, "language", "python", where)
+    if language not in ("python", "typescript"):
+        raise ConfigError(f'{where}: language must be "python" or "typescript"')
+
     roots_raw = raw.get("package_roots")
     if roots_raw is None:
-        package_roots = tuple(discover_roots(root))
+        discovered = (
+            discover_typescript_roots(root) if language == "typescript" else discover_roots(root)
+        )
+        package_roots = tuple(discovered)
     elif isinstance(roots_raw, dict) and all(
         isinstance(k, str) and isinstance(v, str) for k, v in roots_raw.items()
     ):
@@ -522,6 +558,7 @@ def load(root: Path) -> Config:
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
         package_roots=package_roots,
+        language=language,
         tests_dirs=tests_dirs,
         model=_str(raw, "model", "map/model.py", where),
         out_dir=_str(raw, "out_dir", "docs/map", where),

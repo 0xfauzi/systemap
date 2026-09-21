@@ -133,10 +133,13 @@ MAINTENANCE_SENTENCE = (
 
 def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
-    roots = config.discover_roots(root)
+    python_roots = config.discover_roots(root)
+    typescript_roots = config.discover_typescript_roots(root)
+    language = "typescript" if typescript_roots and not python_roots else "python"
+    roots = typescript_roots if language == "typescript" else python_roots
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root)
-    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci))
+    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci, language=language))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
@@ -153,6 +156,11 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def _require_roots(p: Project) -> None:
     if not p.cfg.roots:
+        if p.cfg.language == "typescript":
+            raise ConfigError(
+                "no package roots found; set [package_roots] in systemap.toml "
+                '("path" = "module name"); no .ts or .tsx source in src or the repository root'
+            )
         found = config.candidate_packages(p.cfg.root)
         where = (
             "directories holding an __init__.py: " + ", ".join(found)

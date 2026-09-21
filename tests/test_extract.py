@@ -45,6 +45,24 @@ def test_extract_finds_modules_and_public_surface(tmp_path: Path) -> None:
     assert reader["imported_by"] == ["pkg.writer"]
 
 
+def test_language_defaults_to_python_and_may_be_stated(tmp_path: Path) -> None:
+    write_tree(tmp_path, TINY_PACKAGE)
+    default = config.load(tmp_path)
+    assert default.language == "python"
+    assert extract.language_for(default) is extract.PYTHON
+
+    (tmp_path / "systemap.toml").write_text('language = "python"\n', encoding="utf-8")
+    stated = config.load(tmp_path)
+    assert stated.language == "python"
+    assert extract.build(stated) == extract.build(default)
+
+
+def test_unknown_language_is_refused(tmp_path: Path) -> None:
+    write_tree(tmp_path, {"systemap.toml": 'language = "go"\n'})
+    with pytest.raises(config.ConfigError, match='language must be "python" or "typescript"'):
+        config.load(tmp_path)
+
+
 def test_extract_attributes_tests_to_modules(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     facts = extract.build(config.load(tmp_path))
