@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 from conftest import write_tree
 
-from systemap import change, config, extract
+from systemap import change, config, delta, extract, history, nest
 from systemap.cli import main
 from systemap.typescript import TYPESCRIPT, parse_surface
 from systemap.typescript import test_names as names_of_tests
@@ -36,6 +37,17 @@ TREE = {
         'describe("service", () => { test("serves a user", () => serve("1")) });\n'
     ),
 }
+
+
+def git(root: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return proc.stdout.strip()
 
 
 def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Path) -> None:
@@ -69,7 +81,8 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
         {"name": "serve", "kind": "function", "reexport_of": "web.service"}
     ]
     assert facts["entry_points"] == [
-        {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""}
+        {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""},
+        {"kind": "public_function", "name": "serve", "module": "web.index", "target": ""},
     ]
 
 
@@ -77,15 +90,33 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
     write_tree(
         tmp_path,
         {
-            "package.json": '{"name":"@acme/web"}',
+            "package.json": (
+                '{"name":"@acme/web","exports":{".":"./src/index.ts","./api":"./src/api.ts"}}'
+            ),
             "tsconfig.json": '{"compilerOptions":{}}',
             "systemap.toml": 'language = "typescript"\n',
+            "src/api.ts": "export function request(): void {}\n",
             "src/index.ts": "export const app = () => 1;\n",
         },
     )
     cfg = config.load(tmp_path)
     assert cfg.package_roots == (("src", "acme.web"),)
-    assert sorted(extract.build(cfg)["components"]) == ["acme.web.index"]
+    facts = extract.build(cfg)
+    assert sorted(facts["components"]) == ["acme.web.api", "acme.web.index"]
+    assert facts["entry_points"] == [
+        {
+            "kind": "public_function",
+            "name": "request",
+            "module": "acme.web.api",
+            "target": "",
+        },
+        {
+            "kind": "public_function",
+            "name": "app",
+            "module": "acme.web.index",
+            "target": "",
+        },
+    ]
 
 
 def test_init_detects_a_typescript_repository(tmp_path: Path) -> None:
@@ -152,6 +183,100 @@ def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(
     assert (tmp_path / "docs/map/map.json").is_file()
     assert (tmp_path / "docs/map/index.html").is_file()
     capsys.readouterr()
+
+
+def test_typescript_delta_and_history_read_committed_trees(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "typescript-app"
+    shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
+    write_tree(tmp_path, {"src/legacy.ts": "export function legacy(): void {}\n"})
+    model = tmp_path / "map/model.py"
+    model.write_text(
+        model.read_text(encoding="utf-8").replace(
+            '            "acme.web.index",',
+            '            "acme.web.index",\n            "acme.web.legacy",',
+        ),
+        encoding="utf-8",
+    )
+    git(tmp_path, "init", "-q", "-b", "main")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "base")
+    base = git(tmp_path, "rev-parse", "HEAD")
+
+    (tmp_path / "src/cli.ts").rename(tmp_path / "src/command.ts")
+    (tmp_path / "src/legacy.ts").unlink()
+    write_tree(
+        tmp_path,
+        {
+            "src/jobs.ts": "export function runJob(): void {}\n",
+            "src/service.ts": (
+                'import { fetchUser, type User } from "@/client";\n'
+                "export function serve(id: number): User { return fetchUser(String(id)); }\n"
+            ),
+            "tests/service.test.ts": (
+                'import { serve } from "@/service";\n'
+                'test("serves a user", () => serve(1));\n'
+                'test("serves another user", () => serve(2));\n'
+            ),
+            "package.json": '{"name":"@acme/web","bin":{"web":"src/command.ts"}}',
+        },
+    )
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "head")
+    head = git(tmp_path, "rev-parse", "HEAD")
+
+    cfg = config.load(tmp_path)
+    base_facts = delta.facts_at(cfg, base)
+    head_facts = history.facts_at(cfg, head)
+    assert base_facts["components"]["acme.web.service"]["functions"][0]["signature"] == (
+        "function serve(id: string): User"
+    )
+    assert head_facts["components"]["acme.web.service"]["functions"][0]["signature"] == (
+        "function serve(id: number): User"
+    )
+    assert head_facts["components"]["acme.web.service"]["tests"] == [
+        "serves a user",
+        "serves another user",
+    ]
+    assert head_facts["entry_points"][0]["module"] == "acme.web.command"
+    assert (history.cache_dir(cfg) / f"{head}.json").is_file()
+
+    assert main(["--root", str(tmp_path), "delta", "--base", base, "--brief"]) == 1
+    out = capsys.readouterr().out
+    assert "moved: acme.web.cli -> acme.web.command (same content)" in out
+    assert "added: acme.web.jobs, claimed by no card" in out
+    assert "removed: acme.web.legacy" in out
+
+
+def test_typescript_change_attributes_changed_tsx_tests(tmp_path: Path) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "typescript-app"
+    shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
+    test_path = tmp_path / "tests/service.test.ts"
+    tsx_path = test_path.with_suffix(".tsx")
+    test_path.rename(tsx_path)
+    tsx_path.write_text(
+        'import { serve } from "@/service";\n'
+        'test("serves a user", () => <main>{serve("1").id}</main>);\n',
+        encoding="utf-8",
+    )
+    git(tmp_path, "init", "-q", "-b", "main")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "base")
+    tsx_path.write_text(
+        tsx_path.read_text(encoding="utf-8")
+        + 'test("serves another user", () => <main>{serve("2").id}</main>);\n',
+        encoding="utf-8",
+    )
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "head")
+
+    cfg = config.load(tmp_path)
+    found = change.compute(cfg, nest.load(cfg).top.model, "HEAD~1", extract.build(cfg))
+    assert found["direct"] == {"Application"}
+    assert found["per_component"]["Application"]["surface"]["tests_added"] == [
+        "serves another user"
+    ]
 
 
 def test_typescript_parse_failure_is_not_an_empty_module(tmp_path: Path) -> None:

@@ -194,6 +194,15 @@ def compute(
     # the test file imports, the same rule collect_tests uses for guards.
     prefixes = set(facts.get("packages", []))
     known = set(facts.get("components", {})) | modules
+    paths = {
+        module: repo / record["file"]
+        for module, record in facts.get("components", {}).items()
+        if record.get("file")
+    }
+    for path in files:
+        module = language.module_for_path(repo, path, roots)
+        if module:
+            paths.setdefault(module, repo / path)
     tests_added: dict[str, set[str]] = {}
     tests_removed: dict[str, set[str]] = {}
     for path in files:
@@ -201,12 +210,24 @@ def compute(
             continue
         base_raw = _show(repo, merge_base, path)
         head_raw = _show(repo, head, path)
-        before_t, after_t = set(language.test_names(base_raw)), set(language.test_names(head_raw))
+        before_t = set(language.test_names(base_raw, path))
+        after_t = set(language.test_names(head_raw, path))
         if before_t == after_t:
             continue
         targets: set[str] = set()
+        importer = f"__test__:{path}"
+        context_paths = {**paths, importer: repo / path}
         for raw in (base_raw, head_raw):
-            targets |= set(language.internal_uses(raw, prefixes, known))
+            targets |= set(
+                language.internal_uses(
+                    raw,
+                    prefixes,
+                    known,
+                    module=importer,
+                    repo=repo,
+                    paths=context_paths,
+                )
+            )
         for target in targets:
             tests_added.setdefault(target, set()).update(after_t - before_t)
             tests_removed.setdefault(target, set()).update(before_t - after_t)

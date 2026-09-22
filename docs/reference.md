@@ -343,6 +343,8 @@ it matters and what to do.
 ### `systemap delta --base REF [--head REF] [--format markdown] [--jev | --no-jev]`
 
 What a change did to the map, from the facts at two commits read out of git.
+Python and TypeScript commits use the same configured language adapter as the
+working tree.
 It names modules moved, added and removed, with the card each belongs to and
 the map's file; a new module no card claims; entry and interface names that
 vanished; new imports across a card boundary with no flow; and flows the
@@ -430,6 +432,8 @@ that grew or shrank, the imports that began crossing a card boundary, and
 the commits that wrote the modules which appeared. The largest windows come
 first, `--top` of them (default 5). Every sample is read in today's cards,
 so a module that moved still counts as the card whose job it does.
+TypeScript samples include `.ts` and `.tsx` modules, their tests and package
+entry points.
 
 - `--ref REF` samples back from that branch or commit instead of `HEAD`.
 

@@ -191,9 +191,11 @@ features that failed their test were written down rather than shipped
 ## What is systemap not?
 
 It reads Python, TypeScript and TSX. TypeScript support reads exported names,
-imports, tests, package binaries and configured `tsconfig.json` path aliases;
-framework-specific routes are not read yet. It is not a call graph: the map shows the lines
-your agent declared and defended, not every function call. It is not a
+imports, tests, package binaries, package export roots and configured
+`tsconfig.json` path aliases. `delta` and `history` read the same TypeScript
+facts from committed trees. Framework-specific routes are not read yet. It is
+not a call graph: the map shows the lines your agent declared and defended,
+not every function call. It is not a
 dependency diagram: modules are not parts, and the map shows parts. It is not
 a UML tool: one picture, one layout, and nothing to learn beyond card, line
 and journey.

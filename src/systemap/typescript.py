@@ -262,8 +262,8 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     }
 
 
-def test_names(raw: str) -> list[str]:
-    root = _root(raw)
+def test_names(raw: str, path: str = "") -> list[str]:
+    root = _root(raw, path)
     if root is None:
         return []
     out: list[str] = []
@@ -415,7 +415,8 @@ class TypeScriptLanguage:
         repo: Path | None = None,
         paths: dict[str, Path] | None = None,
     ) -> dict[str, set[str]]:
-        root = _root(raw)
+        source_path = (paths or {}).get(module)
+        root = _root(raw, source_path.as_posix() if source_path else "")
         if root is None:
             return {}
         uses: dict[str, set[str]] = defaultdict(set)
@@ -433,7 +434,8 @@ class TypeScriptLanguage:
         repo: Path | None = None,
         paths: dict[str, Path] | None = None,
     ) -> list[str]:
-        root = _root(raw)
+        source_path = (paths or {}).get(module)
+        root = _root(raw, source_path.as_posix() if source_path else "")
         if root is None:
             return []
         out = {
@@ -484,7 +486,8 @@ class TypeScriptLanguage:
             for target in targets:
                 primary = stem == target.rsplit(".", 1)[-1]
                 guards[target] += [
-                    {"name": name, "primary": primary} for name in test_names(raw)[:TESTS_KEPT]
+                    {"name": name, "primary": primary}
+                    for name in test_names(raw, path.as_posix())[:TESTS_KEPT]
                 ]
         return guards
 
@@ -501,11 +504,11 @@ class TypeScriptLanguage:
             data = json.loads(package.read_text(encoding="utf-8")) if package.is_file() else {}
         except (OSError, json.JSONDecodeError):
             data = {}
+        by_file = {record["file"]: module for module, record in components.items()}
         bins = data.get("bin", {}) if isinstance(data, dict) else {}
         if isinstance(bins, str):
             bins = {str(data.get("name", repo.name)): bins}
         if isinstance(bins, dict):
-            by_file = {record["file"]: module for module, record in components.items()}
             for name, target in sorted(bins.items()):
                 if not isinstance(target, str):
                     continue
@@ -519,9 +522,26 @@ class TypeScriptLanguage:
                             "target": "",
                         }
                     )
-        for prefix in sorted(prefixes):
-            root_module = f"{prefix}.index"
-            for function in components.get(root_module, {}).get("functions", []):
+        root_modules = {f"{prefix}.index" for prefix in prefixes}
+
+        def export_targets(value: Any) -> Iterator[str]:
+            if isinstance(value, str) and "*" not in value:
+                yield value.removeprefix("./")
+            elif isinstance(value, dict):
+                for nested in value.values():
+                    yield from export_targets(nested)
+            elif isinstance(value, list):
+                for nested in value:
+                    yield from export_targets(nested)
+
+        exports = data.get("exports") if isinstance(data, dict) else None
+        root_modules.update(
+            by_file[target] for target in export_targets(exports) if target in by_file
+        )
+        for root_module in sorted(root_modules):
+            for function in components.get(root_module, {}).get("names", []):
+                if function.get("kind") != "function":
+                    continue
                 out.append(
                     {
                         "kind": "public_function",
@@ -535,8 +555,8 @@ class TypeScriptLanguage:
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw, path)
 
-    def test_names(self, raw: str) -> list[str]:
-        return test_names(raw)
+    def test_names(self, raw: str, path: str = "") -> list[str]:
+        return test_names(raw, path)
 
     def is_test_file(self, path: str, tests_dirs: tuple[str, ...]) -> bool:
         return _is_test_path(Path(path))

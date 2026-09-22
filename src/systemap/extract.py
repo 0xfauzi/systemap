@@ -114,7 +114,7 @@ class PythonLanguage:
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw)
 
-    def test_names(self, raw: str) -> list[str]:
+    def test_names(self, raw: str, path: str = "") -> list[str]:
         return test_names(raw)
 
     def is_test_file(self, path: str, tests_dirs: tuple[str, ...]) -> bool:
