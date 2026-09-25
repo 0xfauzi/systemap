@@ -364,6 +364,19 @@ def test_no_roots_names_the_candidate_directories(
     assert "still" not in err, "five deep is past the depth the error searches"
 
 
+def test_duplicate_python_module_ids_are_refused_across_roots(tmp_path: Path) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "systemap.toml": ('[package_roots]\n"left" = "common"\n"right" = "common"\n'),
+            "left/__init__.py": "",
+            "right/__init__.py": "",
+        },
+    )
+    with pytest.raises(config.ConfigError, match="module id common is shared by left/__init__.py"):
+        extract.build(config.load(tmp_path))
+
+
 def test_name_defaults_to_pyproject_then_the_repository_directory(tmp_path: Path) -> None:
     main_dir = tmp_path / "main"
     write_tree(main_dir, {"pkg/__init__.py": "", "README.md": "x\n"})
@@ -397,10 +410,16 @@ def test_name_defaults_to_pyproject_then_the_repository_directory(tmp_path: Path
 def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
     """The extractor's table is what it writes, and the schema reference is the table."""
     write_tree(tmp_path, {**TINY_PACKAGE, **ENTRY_TREE})
-    facts = extract.build(config.load(tmp_path))
-    assert set(facts) == extract.fields_of("facts")
+    cfg = config.load(tmp_path)
+    facts = extract.build(cfg)
+    assert set(facts) <= extract.fields_of("facts")
+    assert extract.fields_of("facts") - set(facts) == {
+        "entry_point_issues",
+        "test_file_issues",
+    }
     for record in facts["components"].values():
-        assert set(record) == extract.fields_of("module"), record["id"]
+        assert set(record) <= extract.fields_of("module"), record["id"]
+        assert extract.fields_of("module") - set(record) == {"unknown"}, record["id"]
     assert facts["entry_points"], "the tree has entry points to compare"
     for point in facts["entry_points"]:
         assert set(point) == extract.fields_of("entry point")

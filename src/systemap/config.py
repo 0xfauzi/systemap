@@ -12,9 +12,9 @@ goes, and the theme.
                    worktree), then the directory's name
     package_roots  table of path = import name; Python defaults to every
                    package directory; TypeScript defaults to src, then root
-    tests_dir      where test_*.py files live: one directory or a list;
-                   default: every directory named tests or test under the
-                   root, outside the skipped directories
+    tests_dir      one directory or list for test_*.py files; by default,
+                   every tests/test directory under the root, outside skips
+    test_patterns  additional source-language test-file globs
     model          the module exporting MODEL and MEANING (default
                    "map/model.py")
     out_dir        where the facts, the page and the figures are written
@@ -66,7 +66,6 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
-import json
 import os
 import subprocess
 import sys
@@ -77,6 +76,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap.language_config import package_roots, tests_directories
 from systemap.model import Meaning, Model
 
 CONFIG_FILE = "systemap.toml"
@@ -92,6 +92,7 @@ KNOWN_KEYS = {
     "name",
     "package_roots",
     "tests_dir",
+    "test_patterns",
     "model",
     "out_dir",
     "facts_file",
@@ -129,6 +130,7 @@ LINE_KINDS = (
     "crossing import",
     "declared flow",
     "model sdk",
+    "unknown surface",
 )
 # The kinds of line `systemap audit` prints; answered in the same list.
 AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev governs")
@@ -210,6 +212,7 @@ class Config:
     package_roots: tuple[tuple[str, str], ...]
     language: str = "python"
     tests_dirs: tuple[str, ...] = ()
+    test_patterns: tuple[str, ...] = ()
     model: str = "map/model.py"
     out_dir: str = "docs/map"
     facts_file: str = "map.json"
@@ -305,42 +308,6 @@ def _pyproject(root: Path) -> dict[str, Any]:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
         return {}
-
-
-def _package_json(root: Path) -> dict[str, Any]:
-    path = root / "package.json"
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return dict(data) if isinstance(data, dict) else {}
-
-
-def _typescript_name(root: Path) -> str:
-    name = _package_json(root).get("name")
-    if not isinstance(name, str) or not name.strip():
-        return root.name.replace("-", "_")
-    return name.strip().removeprefix("@").replace("/", ".").replace("-", "_")
-
-
-def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
-    """The conventional TypeScript source root for a configured TS project."""
-    if not (root / "tsconfig.json").is_file():
-        return []
-    for candidate in (root / "src", root):
-        sources = (
-            path
-            for path in candidate.rglob("*")
-            if path.is_file()
-            and path.suffix in {".ts", ".tsx"}
-            and not path.name.endswith(".d.ts")
-            and not any(part in SKIP_DIRS for part in path.parts)
-        )
-        if next(sources, None) is not None:
-            return [(candidate.relative_to(root).as_posix() or ".", _typescript_name(root))]
-    return []
 
 
 def workspace_members(root: Path) -> list[Path]:
@@ -501,18 +468,11 @@ def load(root: Path) -> Config:
     if language not in ("python", "typescript"):
         raise ConfigError(f'{where}: language must be "python" or "typescript"')
 
-    roots_raw = raw.get("package_roots")
-    if roots_raw is None:
-        discovered = (
-            discover_typescript_roots(root) if language == "typescript" else discover_roots(root)
-        )
-        package_roots = tuple(discovered)
-    elif isinstance(roots_raw, dict) and all(
-        isinstance(k, str) and isinstance(v, str) for k, v in roots_raw.items()
-    ):
-        package_roots = tuple((k, v) for k, v in roots_raw.items())
-    else:
-        raise ConfigError(f'{where}: package_roots must be a table of "path" = "name"')
+    try:
+        roots = package_roots(root, language, raw.get("package_roots"), where)
+        tests_dirs = tests_directories(raw.get("tests_dir", []), where)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
 
     theme = raw.get("theme", {})
     if not isinstance(theme, dict):
@@ -550,14 +510,6 @@ def load(root: Path) -> Config:
             )
         )
 
-    tests_raw = raw.get("tests_dir", [])
-    if isinstance(tests_raw, str):
-        tests_dirs: tuple[str, ...] = (tests_raw,) if tests_raw else ()
-    elif isinstance(tests_raw, list) and all(isinstance(v, str) for v in tests_raw):
-        tests_dirs = tuple(tests_raw)
-    else:
-        raise ConfigError(f"{where}: tests_dir must be a directory or a list of directories")
-
     return Config(
         coverage_ignore=_coverage_ignore(raw, where),
         judgement_answered=_judgement_answered(raw, where),
@@ -567,9 +519,10 @@ def load(root: Path) -> Config:
         **_agent(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
-        package_roots=package_roots,
+        package_roots=roots,
         language=language,
         tests_dirs=tests_dirs,
+        test_patterns=_str_list(raw, "test_patterns", where),
         model=_str(raw, "model", "map/model.py", where),
         out_dir=_str(raw, "out_dir", "docs/map", where),
         facts_file=_str(raw, "facts_file", "map.json", where),

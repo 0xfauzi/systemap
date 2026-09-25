@@ -121,9 +121,13 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        does="systemap.toml, or [tool.systemap] in pyproject.toml, resolved with defaults: package roots and tests directories discovered, judgement answers kept with their reasons. Unknown keys, ignores and answers without a reason are refused.",
-        interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING)",
-        implemented_by=("systemap.config",),
+        does="systemap.toml, or [tool.systemap] in pyproject.toml, resolved with defaults: package roots, test directories and test-file patterns, source-language settings discovered, judgement answers kept with their reasons. Unknown keys, ignores and answers without a reason are refused.",
+        interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
+        implemented_by=(
+            "systemap.config",
+            "systemap.language_config",
+            "systemap.typescript_config",
+        ),
         entry="load",
         kind="store",
         region="operate",
@@ -133,13 +137,14 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        does="Walks the package's syntax tree and writes the facts: every module, its public surface and every public name, what it imports inside and outside the package, the tests that import it, and where a run can start. Nothing anyone writes changes what it finds; systemap facts reads them back one view at a time.",
+        does="Walks the package's syntax tree and writes the facts: every module, its public surface and every public name, what it imports inside and outside the package, the tests that import it, and where a run can start. TypeScript syntax it cannot parse or classify is marked unknown. Nothing anyone writes changes what it finds; systemap facts reads them back one view at a time.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> what no longer matches",
         implemented_by=(
             "systemap.extract",
             "systemap.facts",
             "systemap.language",
             "systemap.typescript",
+            "systemap.typescript_surface",
             "systemap.ways_in",
         ),
         entry="build",
@@ -245,7 +250,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        does="Every rule that refuses a lie: coverage, entry, interface, placement, routes, labels and card text, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
+        does="Every rule that refuses a lie: coverage, entry, interface, unknown TypeScript surface, placement, routes, labels and card text, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, model, meaning, theme) -> lines",
         implemented_by=("systemap.check",),
         entry="run",
@@ -255,7 +260,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict. Before any of it, systemap suggest proposes a first grouping from the facts, to argue with.",
+        does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent, and unknown TypeScript surface. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict. Before any of it, systemap suggest proposes a first grouping from the facts, to argue with.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=("systemap.judgement", "systemap.suggest", "systemap.explain"),
         entry="run",

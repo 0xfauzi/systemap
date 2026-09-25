@@ -45,8 +45,25 @@ class PythonLanguage:
 
     name = "python"
 
-    def source_paths(self, root: Path) -> Iterable[Path]:
+    def source_paths(
+        self,
+        root: Path,
+        repo: Path,
+        tests_dirs: tuple[str, ...],
+        test_patterns: tuple[str, ...],
+    ) -> Iterable[Path]:
+        del repo, tests_dirs, test_patterns
         return root.rglob("*.py")
+
+    def context(
+        self,
+        repo: Path,
+        paths: dict[str, Path],
+        tests_dirs: tuple[str, ...],
+        test_patterns: tuple[str, ...],
+    ) -> None:
+        del repo, paths, tests_dirs, test_patterns
+        return None
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         return module_of(path, root, name)
@@ -68,7 +85,9 @@ class PythonLanguage:
         prefixes: frozenset[str],
         known: set[str],
         paths: dict[str, Path],
+        context: Any,
     ) -> dict[str, Any] | None:
+        del known, paths, context
         return collect_module(path, repo, module, prefixes)
 
     def internal_uses(
@@ -80,7 +99,9 @@ class PythonLanguage:
         is_package: bool = False,
         repo: Path | None = None,
         paths: dict[str, Path] | None = None,
+        context: Any = None,
     ) -> dict[str, set[str]]:
+        del repo, paths, context
         return internal_uses(raw, prefixes, known, module, is_package)
 
     def external_imports(
@@ -90,7 +111,9 @@ class PythonLanguage:
         module: str = "",
         repo: Path | None = None,
         paths: dict[str, Path] | None = None,
+        context: Any = None,
     ) -> list[str]:
+        del module, repo, paths, context
         return external_imports(raw, prefixes)
 
     def collect_tests(
@@ -99,7 +122,9 @@ class PythonLanguage:
         tests_dirs: tuple[str, ...],
         prefixes: set[str],
         paths: dict[str, Path],
+        context: Any,
     ) -> dict[str, list[dict[str, Any]]]:
+        del context
         return collect_tests(repo, tests_dirs, prefixes, set(paths))
 
     def entry_points(
@@ -108,8 +133,10 @@ class PythonLanguage:
         prefixes: set[str],
         components: dict[str, Any],
         sources: dict[str, str],
-    ) -> list[dict[str, str]]:
-        return entry_points(repo, prefixes, components, sources)
+        context: Any,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        del context
+        return entry_points(repo, prefixes, components, sources), []
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw)
@@ -117,7 +144,10 @@ class PythonLanguage:
     def test_names(self, raw: str, path: str = "") -> list[str]:
         return test_names(raw)
 
-    def is_test_file(self, path: str, tests_dirs: tuple[str, ...]) -> bool:
+    def is_test_file(
+        self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()
+    ) -> bool:
+        del test_patterns
         if not path.endswith(".py") or not path.split("/")[-1].startswith("test_"):
             return False
         return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
@@ -172,6 +202,18 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ),
     ("facts", "spec_sections", "the `##` headings of `spec_path`, each with `level` and `title`"),
     ("facts", "entry_points", "where a run can start: one record per point, fields below"),
+    (
+        "facts",
+        "entry_point_issues",
+        "TypeScript-only: package `bin` or `exports` targets that could not be mapped back to a "
+        "source module; empty when none",
+    ),
+    (
+        "facts",
+        "test_file_issues",
+        "TypeScript-only: test files that could not be parsed for their imports and names; "
+        "empty when none",
+    ),
     ("facts", "components", "one record per module, keyed by its dotted name, fields below"),
     ("module", "id", "the dotted module name"),
     ("module", "file", "the path relative to the root"),
@@ -192,11 +234,18 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "names",
         "every public module-level name in source order, with its `kind`: `function`, "
-        "`class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, "
-        "such as `app` or `root_agent`). A package `__init__` also lists every name it "
+        "`class`, `error`, `constant` (UPPER_CASE), `object` (any other assignment, "
+        "such as `app` or `root_agent`), or TypeScript `unknown` when the kind cannot be "
+        "determined. A package `__init__` also lists every name it "
         "imports from the package's own modules, with `reexport_of` naming the module "
         "that defines it and the kind that module gives it (`module` for a submodule "
         "imported whole). A component's `entry` and `interface` may name any of them",
+    ),
+    (
+        "module",
+        "unknown",
+        "TypeScript-only surface entries the parser could not read or classify; each has a source "
+        "line, reason and short source excerpt",
     ),
     (
         "module",
@@ -460,19 +509,60 @@ def resolve_reexports(components: dict[str, Any]) -> None:
     define (imported from elsewhere in turn, or from a module the facts
     lack) keeps `reexport_of` and takes the kind `object`.
     """
-    for record in components.values():
+    _expand_star_exports(components)
+    _resolve_named_reexports(components)
+
+
+def _expand_star_exports(components: dict[str, Any]) -> None:
+    for module, record in components.items():
+        expanded: list[dict[str, Any]] = []
         for entry in record.get("names", []):
-            if entry.get("kind") != "reexport":
+            if not entry.get("star"):
+                expanded.append(entry)
                 continue
             source = entry["reexport_of"]
-            original = entry.pop("defined_as", entry["name"])
-            as_module = f"{source}.{original}"
-            if as_module in components:
-                entry["reexport_of"] = as_module
-                entry["kind"] = "module"
-                continue
-            defined = {n["name"]: n["kind"] for n in components.get(source, {}).get("names", [])}
-            entry["kind"] = defined.get(original, "object")
+            expanded.extend(
+                {
+                    "name": item["name"],
+                    "kind": "reexport",
+                    "reexport_of": source,
+                    "defined_as": item["name"],
+                }
+                for item in _star_names(source, components, {module})
+            )
+        record["names"] = expanded
+
+
+def _resolve_named_reexports(components: dict[str, Any]) -> None:
+    for record in components.values():
+        for entry in record.get("names", []):
+            if entry.get("kind") == "reexport":
+                _resolve_named_reexport(entry, components)
+
+
+def _resolve_named_reexport(entry: dict[str, Any], components: dict[str, Any]) -> None:
+    source = entry["reexport_of"]
+    original = entry.pop("defined_as", entry["name"])
+    as_module = f"{source}.{original}"
+    if as_module in components:
+        entry["reexport_of"] = as_module
+        entry["kind"] = "module"
+        return
+    defined = {n["name"]: n["kind"] for n in components.get(source, {}).get("names", [])}
+    entry["kind"] = defined.get(original, "object")
+
+
+def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
+    """The public names reached through local `export *` statements."""
+    if module not in components or module in visited:
+        return []
+    out: list[dict[str, Any]] = []
+    for entry in components[module].get("names", []):
+        if entry.get("star"):
+            out.extend(_star_names(entry["reexport_of"], components, visited | {module}))
+        elif entry.get("name") != "default":
+            out.append(entry)
+    return out
 
 
 def collect_module(
@@ -807,15 +897,34 @@ def entry_label(point: dict[str, str]) -> str:
     return ways_in.label(point) or f"{name}() in {module}"
 
 
-def build(cfg: Config) -> dict[str, Any]:
-    """The facts for the tree at `cfg.root`, ready to be written as JSON."""
+def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
+    """The TypeScript facts this extractor could not fully read or connect."""
+    out: list[str] = []
+    for module, record in sorted(facts.get("components", {}).items()):
+        file = record.get("file", module)
+        for issue in record.get("unknown", []):
+            line = issue.get("line", 0)
+            location = f"{file}:{line}" if line else file
+            out.append(f"unknown surface: module {module} ({location}): {issue['reason']}")
+    for issue in facts.get("entry_point_issues", []):
+        out.append(
+            f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
+            f"{issue['reason']}"
+        )
+    for issue in facts.get("test_file_issues", []):
+        problem = issue["problem"]
+        out.append(
+            f"unknown surface: test file {issue['file']}:{problem.get('line', 0)}: "
+            f"{problem['reason']}"
+        )
+    return out
+
+
+def _source_paths(cfg: Config, language: LanguageAdapter) -> dict[str, Path]:
     repo = cfg.root
-    roots = cfg.roots
-    language = language_for(cfg)
-    prefixes = {name for _, name in roots}
     paths: dict[str, Path] = {}
-    for pkg_dir, pkg_name in roots:
-        for path in language.source_paths(pkg_dir):
+    for pkg_dir, pkg_name in cfg.roots:
+        for path in language.source_paths(pkg_dir, repo, cfg.test_dirs, cfg.test_patterns):
             if any(p in SKIP_PARTS for p in path.parts):
                 continue
             module = language.module_of(path, pkg_dir, pkg_name)
@@ -826,46 +935,75 @@ def build(cfg: Config) -> dict[str, Any]:
                     f"module id {module} is shared by {first} and {second}; rename one file"
                 )
             paths[module] = path
-    known = set(paths)
+    return paths
 
+
+def _module_facts(
+    cfg: Config,
+    language: LanguageAdapter,
+    module: str,
+    path: Path,
+    prefixes: set[str],
+    known: set[str],
+    paths: dict[str, Path],
+    context: Any,
+) -> tuple[dict[str, Any], str, set[str]] | None:
+    record = language.collect_module(
+        path, cfg.root, module, frozenset(prefixes), known, paths, context
+    )
+    if record is None:
+        return None
+    record["id"] = module
+    record["package"] = module.split(".")[0]
+    record["plane"] = plane_of(module, cfg.planes)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        raw = ""
+    uses = language.internal_uses(
+        raw,
+        prefixes,
+        known,
+        module=module,
+        is_package=path.name == "__init__.py",
+        repo=cfg.root,
+        paths=paths,
+        context=context,
+    )
+    uses.pop(module, None)
+    record["uses"] = {
+        target: [WHOLE_MODULE] if WHOLE_MODULE in names else sorted(names)
+        for target, names in sorted(uses.items())
+    }
+    record["external"] = language.external_imports(
+        raw, prefixes, module=module, repo=cfg.root, paths=paths, context=context
+    )
+    return record, raw, set(uses)
+
+
+def _collect_modules(
+    cfg: Config,
+    language: LanguageAdapter,
+    paths: dict[str, Path],
+    prefixes: set[str],
+    context: Any,
+) -> tuple[dict[str, Any], dict[str, set[str]], dict[str, str]]:
+    known = set(paths)
     components: dict[str, Any] = {}
     imports: dict[str, set[str]] = {}
     sources: dict[str, str] = {}
     for module, path in sorted(paths.items()):
-        record = language.collect_module(path, repo, module, frozenset(prefixes), known, paths)
-        if record is None:
+        facts = _module_facts(cfg, language, module, path, prefixes, known, paths, context)
+        if facts is None:
             continue
-        record["id"] = module
-        record["package"] = module.split(".")[0]
-        record["plane"] = plane_of(module, cfg.planes)
-        try:
-            raw = path.read_text(encoding="utf-8")
-        except OSError:
-            raw = ""
+        record, raw, uses = facts
         sources[module] = raw
-        uses = language.internal_uses(
-            raw,
-            prefixes,
-            known,
-            module=module,
-            is_package=path.name == "__init__.py",
-            repo=repo,
-            paths=paths,
-        )
-        uses.pop(module, None)
-        record["uses"] = {
-            target: [WHOLE_MODULE] if WHOLE_MODULE in names else sorted(names)
-            for target, names in sorted(uses.items())
-        }
-        record["external"] = language.external_imports(
-            raw, prefixes, module=module, repo=repo, paths=paths
-        )
-        imports[module] = set(uses)
+        imports[module] = uses
         components[module] = record
+    return components, imports, sources
 
-    # Every module is parsed before a re-export can be given the kind its
-    # defining module records.
-    resolve_reexports(components)
+
+def _link_importers(components: dict[str, Any], imports: dict[str, set[str]]) -> None:
     importers: dict[str, set[str]] = defaultdict(set)
     for module, deps in imports.items():
         for dep in deps:
@@ -874,8 +1012,8 @@ def build(cfg: Config) -> dict[str, Any]:
         record["imports"] = sorted(imports.get(module, set()))
         record["imported_by"] = sorted(importers.get(module, set()))
 
-    tests_dirs = cfg.test_dirs
-    guards = language.collect_tests(repo, tests_dirs, prefixes, paths)
+
+def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[str, Any]]]) -> None:
     for module, record in components.items():
         seen: set[str] = set()
         unique: list[dict[str, Any]] = []
@@ -892,16 +1030,53 @@ def build(cfg: Config) -> dict[str, Any]:
         # Names only: the sentence is derived where it is displayed.
         record["tests"] = [t["name"] for t in unique[:TESTS_KEPT]]
 
-    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True)
-    return {
+
+def _facts_file(
+    cfg: Config,
+    prefixes: set[str],
+    components: dict[str, Any],
+    tests_dirs: tuple[str, ...],
+    points: list[dict[str, str]],
+    entry_issues: list[dict[str, str]],
+    context: Any,
+) -> dict[str, Any]:
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=cfg.root, capture_output=True, text=True
+    )
+    facts = {
         "version": FORMAT,
         "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
         "packages": sorted(prefixes),
         "tests_dirs": list(tests_dirs),
-        "spec_sections": spec_sections(repo, cfg.spec_path),
-        "entry_points": language.entry_points(repo, prefixes, components, sources),
+        "spec_sections": spec_sections(cfg.root, cfg.spec_path),
+        "entry_points": points,
         "components": components,
     }
+    if entry_issues:
+        facts["entry_point_issues"] = entry_issues
+    test_issues = getattr(context, "test_issues", [])
+    if cfg.language == "typescript":
+        facts["entry_point_issues"] = entry_issues
+        facts["test_file_issues"] = test_issues
+    return facts
+
+
+def build(cfg: Config) -> dict[str, Any]:
+    """The facts for the tree at `cfg.root`, ready to be written as JSON."""
+    repo = cfg.root
+    language = language_for(cfg)
+    roots = cfg.roots
+    prefixes = {name for _, name in roots}
+    paths = _source_paths(cfg, language)
+    context = language.context(repo, paths, cfg.test_dirs, cfg.test_patterns)
+    components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context)
+    # Re-export kinds require every defining module to have been parsed.
+    resolve_reexports(components)
+    _link_importers(components, imports)
+    guards = language.collect_tests(repo, cfg.test_dirs, prefixes, paths, context)
+    _attach_test_facts(components, guards)
+    points, issues = language.entry_points(repo, prefixes, components, sources, context)
+    return _facts_file(cfg, prefixes, components, cfg.test_dirs, points, issues, context)
 
 
 def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:

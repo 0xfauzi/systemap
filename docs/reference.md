@@ -469,6 +469,7 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 | `name` | `[project] name`, then the git repository's directory, then the directory name | the page title |
 | `[package_roots]` | Python packages; for TypeScript, `src` then the repository root | `"path" = "module name"` |
 | `tests_dir` | every directory named `tests` or `test` | one directory or a list; tests that import a module count as its guards |
+| `test_patterns` | none | additional repository-relative glob patterns for source-language test files; extraction and `delta` use the same patterns |
 | `model` | `map/model.py` | the module exporting `MODEL` and `MEANING`; its own directory is on the path while it runs, so a long map can keep its journeys or a region's cards in a module beside it (`import journeys`) and nothing it imports is kept between runs |
 | `out_dir` | `docs/map` | where the facts, the page and the figures go |
 | `facts_file` | `map.json` | the facts file's name inside `out_dir` |

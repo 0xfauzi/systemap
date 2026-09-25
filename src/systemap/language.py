@@ -17,7 +17,21 @@ class LanguageAdapter(Protocol):
 
     name: str
 
-    def source_paths(self, root: Path) -> Iterable[Path]: ...
+    def source_paths(
+        self,
+        root: Path,
+        repo: Path,
+        tests_dirs: tuple[str, ...],
+        test_patterns: tuple[str, ...],
+    ) -> Iterable[Path]: ...
+
+    def context(
+        self,
+        repo: Path,
+        paths: dict[str, Path],
+        tests_dirs: tuple[str, ...],
+        test_patterns: tuple[str, ...],
+    ) -> Any: ...
 
     def module_of(self, path: Path, root: Path, name: str) -> str: ...
 
@@ -33,6 +47,7 @@ class LanguageAdapter(Protocol):
         prefixes: frozenset[str],
         known: set[str],
         paths: dict[str, Path],
+        context: Any,
     ) -> dict[str, Any] | None: ...
 
     def internal_uses(
@@ -44,6 +59,7 @@ class LanguageAdapter(Protocol):
         is_package: bool = False,
         repo: Path | None = None,
         paths: dict[str, Path] | None = None,
+        context: Any = None,
     ) -> dict[str, set[str]]: ...
 
     def external_imports(
@@ -53,6 +69,7 @@ class LanguageAdapter(Protocol):
         module: str = "",
         repo: Path | None = None,
         paths: dict[str, Path] | None = None,
+        context: Any = None,
     ) -> list[str]: ...
 
     def collect_tests(
@@ -61,6 +78,7 @@ class LanguageAdapter(Protocol):
         tests_dirs: tuple[str, ...],
         prefixes: set[str],
         paths: dict[str, Path],
+        context: Any,
     ) -> dict[str, list[dict[str, Any]]]: ...
 
     def entry_points(
@@ -69,10 +87,13 @@ class LanguageAdapter(Protocol):
         prefixes: set[str],
         components: dict[str, Any],
         sources: dict[str, str],
-    ) -> list[dict[str, str]]: ...
+        context: Any,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]: ...
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None: ...
 
     def test_names(self, raw: str, path: str = "") -> list[str]: ...
 
-    def is_test_file(self, path: str, tests_dirs: tuple[str, ...]) -> bool: ...
+    def is_test_file(
+        self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()
+    ) -> bool: ...

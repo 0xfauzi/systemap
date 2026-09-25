@@ -104,7 +104,7 @@ def surface_delta(
     """
     base = language.parse_surface(base_raw, path) if base_raw else _empty_surface()
     head = language.parse_surface(head_raw, path) if head_raw else _empty_surface()
-    if base is None or head is None:
+    if base is None or head is None or base.get("unknown") or head.get("unknown"):
         return None
     before, after = _identity(base), _identity(head)
     delta: dict[str, Any] = {"added": {}, "removed": {}, "changed": {}}
@@ -128,6 +128,90 @@ def _touched_names(delta: dict[str, Any]) -> set[str]:
         for names in delta[part].values()
         for name in names
     }
+
+
+def _paths_for_change(
+    cfg: Config,
+    language: LanguageAdapter,
+    files: list[str],
+    facts: dict[str, Any],
+) -> dict[str, Path]:
+    paths = {
+        module: cfg.root / record["file"]
+        for module, record in facts.get("components", {}).items()
+        if record.get("file")
+    }
+    for path in files:
+        module = language.module_for_path(cfg.root, path, cfg.roots)
+        if module:
+            paths.setdefault(module, cfg.root / path)
+    return paths
+
+
+def _test_file_changes(
+    cfg: Config,
+    language: LanguageAdapter,
+    path: str,
+    base: str,
+    head: str,
+    prefixes: set[str],
+    known: set[str],
+    paths: dict[str, Path],
+    context: Any,
+) -> tuple[set[str], set[str], set[str]] | None:
+    base_raw = _show(cfg.root, base, path)
+    head_raw = _show(cfg.root, head, path)
+    before = set(language.test_names(base_raw, path))
+    after = set(language.test_names(head_raw, path))
+    added, removed = after - before, before - after
+    if not added and not removed:
+        return None
+    importer = f"__test__:{path}"
+    context_paths = {**paths, importer: cfg.root / path}
+    targets: set[str] = set()
+    for raw in (base_raw, head_raw):
+        targets.update(
+            language.internal_uses(
+                raw,
+                prefixes,
+                known,
+                module=importer,
+                repo=cfg.root,
+                paths=context_paths,
+                context=context,
+            )
+        )
+    return targets, added, removed
+
+
+def _changed_test_deltas(
+    cfg: Config,
+    language: LanguageAdapter,
+    files: list[str],
+    facts: dict[str, Any],
+    modules: set[str],
+    base: str,
+    head: str,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    prefixes = set(facts.get("packages", []))
+    known = set(facts.get("components", {})) | modules
+    paths = _paths_for_change(cfg, language, files, facts)
+    context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
+    tests_added: dict[str, set[str]] = {}
+    tests_removed: dict[str, set[str]] = {}
+    for path in files:
+        if not language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
+            continue
+        changes = _test_file_changes(
+            cfg, language, path, base, head, prefixes, known, paths, context
+        )
+        if changes is None:
+            continue
+        targets, added, removed = changes
+        for target in targets:
+            tests_added.setdefault(target, set()).update(added)
+            tests_removed.setdefault(target, set()).update(removed)
+    return tests_added, tests_removed
 
 
 def compute(
@@ -179,7 +263,7 @@ def compute(
     unparsed: list[str] = []
     for path in files:
         module = language.module_for_path(repo, path, roots)
-        if not module or language.is_test_file(path, cfg.test_dirs):
+        if not module or language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
             continue
         delta = surface_delta(
             _show(repo, merge_base, path), _show(repo, head, path), language, path
@@ -190,47 +274,9 @@ def compute(
         deltas[module] = delta
     modules = set(deltas) | set(unparsed)
 
-    # Changed test files: added and removed tests, attributed to every module
-    # the test file imports, the same rule collect_tests uses for guards.
-    prefixes = set(facts.get("packages", []))
-    known = set(facts.get("components", {})) | modules
-    paths = {
-        module: repo / record["file"]
-        for module, record in facts.get("components", {}).items()
-        if record.get("file")
-    }
-    for path in files:
-        module = language.module_for_path(repo, path, roots)
-        if module:
-            paths.setdefault(module, repo / path)
-    tests_added: dict[str, set[str]] = {}
-    tests_removed: dict[str, set[str]] = {}
-    for path in files:
-        if not language.is_test_file(path, cfg.test_dirs):
-            continue
-        base_raw = _show(repo, merge_base, path)
-        head_raw = _show(repo, head, path)
-        before_t = set(language.test_names(base_raw, path))
-        after_t = set(language.test_names(head_raw, path))
-        if before_t == after_t:
-            continue
-        targets: set[str] = set()
-        importer = f"__test__:{path}"
-        context_paths = {**paths, importer: repo / path}
-        for raw in (base_raw, head_raw):
-            targets |= set(
-                language.internal_uses(
-                    raw,
-                    prefixes,
-                    known,
-                    module=importer,
-                    repo=repo,
-                    paths=context_paths,
-                )
-            )
-        for target in targets:
-            tests_added.setdefault(target, set()).update(after_t - before_t)
-            tests_removed.setdefault(target, set()).update(before_t - after_t)
+    tests_added, tests_removed = _changed_test_deltas(
+        cfg, language, files, facts, modules, merge_base, head
+    )
 
     direct: set[str] = set()
     per_component: dict[str, dict[str, Any]] = {}

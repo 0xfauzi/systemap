@@ -81,6 +81,20 @@ For a TypeScript repository, install the parser extra:
 
     uv tool install 'systemap[typescript]'
 
+The TypeScript adapter reads `.ts` and `.tsx` modules, named and default
+exports, local re-exports, imports, and package `bin` and `exports` entries.
+It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
+`rootDir` map compiled package entries back to source files. Common test names
+are recognized by extraction and change analysis; add repository-specific
+globs with `test_patterns = ["**/*.check.ts"]`. If TypeScript syntax cannot be
+parsed or a package target cannot be mapped, the facts keep an explicit
+unknown and `systemap check` and `systemap judgement` report it.
+
+By default, TypeScript discovery uses `src/`, then the repository root. In a
+monorepo or a repository without `src/`, set `[package_roots]` to the
+application packages you want mapped so scripts and fixtures do not become
+application modules.
+
 `init` writes a configuration file, an empty map for your agent to fill in,
 the instructions your agent will follow, and a CI workflow. Then it prints the
 one sentence you hand to your agent:
