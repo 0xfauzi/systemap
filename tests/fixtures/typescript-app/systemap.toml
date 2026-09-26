@@ -1,0 +1,6 @@
+language = "typescript"
+name = "TypeScript fixture"
+tests_dir = "tests"
+
+[package_roots]
+"src" = "acme.web"

@@ -343,6 +343,8 @@ it matters and what to do.
 ### `systemap delta --base REF [--head REF] [--format markdown] [--jev | --no-jev]`
 
 What a change did to the map, from the facts at two commits read out of git.
+Python and TypeScript commits use the same configured language adapter as the
+working tree.
 It names modules moved, added and removed, with the card each belongs to and
 the map's file; a new module no card claims; entry and interface names that
 vanished; new imports across a card boundary with no flow; and flows the
@@ -430,6 +432,8 @@ that grew or shrank, the imports that began crossing a card boundary, and
 the commits that wrote the modules which appeared. The largest windows come
 first, `--top` of them (default 5). Every sample is read in today's cards,
 so a module that moved still counts as the card whose job it does.
+TypeScript samples include `.ts` and `.tsx` modules, their tests and package
+entry points.
 
 - `--ref REF` samples back from that branch or commit instead of `HEAD`.
 
@@ -461,9 +465,11 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 
 | key | default | meaning |
 |---|---|---|
+| `language` | `python` | source language: `python` or `typescript`; `init` detects an unambiguous TypeScript repository; TypeScript needs the `systemap[typescript]` extra |
 | `name` | `[project] name`, then the git repository's directory, then the directory name | the page title |
-| `[package_roots]` | every top-level package or `src/<pkg>`, in the root and in every `[tool.uv.workspace]` member | `"path" = "import name"` |
+| `[package_roots]` | Python packages; for TypeScript, `src` then the repository root | `"path" = "module name"` |
 | `tests_dir` | every directory named `tests` or `test` | one directory or a list; tests that import a module count as its guards |
+| `test_patterns` | none | additional repository-relative glob patterns for source-language test files; extraction and `delta` use the same patterns |
 | `model` | `map/model.py` | the module exporting `MODEL` and `MEANING`; its own directory is on the path while it runs, so a long map can keep its journeys or a region's cards in a module beside it (`import journeys`) and nothing it imports is kept between runs |
 | `out_dir` | `docs/map` | where the facts, the page and the figures go |
 | `facts_file` | `map.json` | the facts file's name inside `out_dir` |
@@ -477,4 +483,11 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | the model `audit`, `triage`, `delta` and `suggest --jev` ask, and where their answers are cached; `enabled = false` stops `delta` asking on its own and silences the hints |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | the command `systemap journeys` runs to have a walk written, given the question on standard input (for example `command = "claude -p --output-format json"`); with no command nothing runs and the reason is printed |
 | `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
+
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (a layer's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |
+
+TypeScript source discovery excludes `.d.ts` declaration files. Missing npm
+packages named by `tsconfig.json` `extends` produce an `unknown surface` line
+while extraction continues with the compiler options it can read. `check`
+reports unknown lines without failing; `judgement --strict` requires each one
+to be fixed or answered under `[judgement] answered`.

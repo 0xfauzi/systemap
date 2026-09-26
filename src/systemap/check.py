@@ -700,6 +700,7 @@ class Result:
     interface: list[str] = field(default_factory=list)
     nesting: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
+    unknown_surface: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -751,6 +752,7 @@ def run(
         counted,
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
+        unknown_surface=extract.unknown_fact_lines(facts) if coverage else [],
     )
 
 
@@ -880,6 +882,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
             f"  fix: in {model_file}, start interface with a public name one of the "
             "component's modules defines (Class.method for a method), or leave it empty"
         )
+    out.extend(_unknown_surface_report(result.unknown_surface))
     problems = result.problems
     if problems:
         out.append(f"map layout: {_plural(len(problems), 'problem')}")
@@ -893,3 +896,13 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         )
     out += report_stale(result.stale)
     return out
+
+
+def _unknown_surface_report(findings: list[str]) -> list[str]:
+    if not findings:
+        return []
+    return [
+        f"unknown surface: {_plural(len(findings), 'finding')}",
+        *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
+        "  fix: teach the TypeScript reader this syntax or restore the missing source mapping",
+    ]

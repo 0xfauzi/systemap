@@ -5,16 +5,16 @@ itself holds no literal that belongs to one project: where the packages
 are, where the tests are, where the model module is, where the output
 goes, and the theme.
 
+    language       source language: "python" (default) or "typescript"
     name           the page title; defaults to [project] name in
                    pyproject.toml, then the name of the directory holding
                    the git repository (the main checkout, even from a
                    worktree), then the directory's name
-    package_roots  table of path = import name; default: every top-level
-                   directory (or src/<dir>) that holds an __init__.py, in
-                   the root and in every [tool.uv.workspace] member
-    tests_dir      where test_*.py files live: one directory or a list;
-                   default: every directory named tests or test under the
-                   root, outside the skipped directories
+    package_roots  table of path = import name; Python defaults to every
+                   package directory; TypeScript defaults to src, then root
+    tests_dir      one directory or list for test_*.py files; by default,
+                   every tests/test directory under the root, outside skips
+    test_patterns  additional source-language test-file globs
     model          the module exporting MODEL and MEANING (default
                    "map/model.py")
     out_dir        where the facts, the page and the figures are written
@@ -76,6 +76,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap.language_config import package_roots, tests_directories
 from systemap.model import Meaning, Model
 
 CONFIG_FILE = "systemap.toml"
@@ -87,9 +88,11 @@ TEST_DIR_NAMES = ("tests", "test")
 CANDIDATE_DEPTH = 4
 
 KNOWN_KEYS = {
+    "language",
     "name",
     "package_roots",
     "tests_dir",
+    "test_patterns",
     "model",
     "out_dir",
     "facts_file",
@@ -127,6 +130,7 @@ LINE_KINDS = (
     "crossing import",
     "declared flow",
     "model sdk",
+    "unknown surface",
 )
 # The kinds of line `systemap audit` prints; answered in the same list.
 AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev governs")
@@ -206,7 +210,9 @@ class Config:
     root: Path
     name: str
     package_roots: tuple[tuple[str, str], ...]
+    language: str = "python"
     tests_dirs: tuple[str, ...] = ()
+    test_patterns: tuple[str, ...] = ()
     model: str = "map/model.py"
     out_dir: str = "docs/map"
     facts_file: str = "map.json"
@@ -458,15 +464,15 @@ def load(root: Path) -> Config:
             f"{where}: unknown key{'s' if len(unknown) > 1 else ''}: {', '.join(unknown)}"
         )
 
-    roots_raw = raw.get("package_roots")
-    if roots_raw is None:
-        package_roots = tuple(discover_roots(root))
-    elif isinstance(roots_raw, dict) and all(
-        isinstance(k, str) and isinstance(v, str) for k, v in roots_raw.items()
-    ):
-        package_roots = tuple((k, v) for k, v in roots_raw.items())
-    else:
-        raise ConfigError(f'{where}: package_roots must be a table of "path" = "name"')
+    language = _str(raw, "language", "python", where)
+    if language not in ("python", "typescript"):
+        raise ConfigError(f'{where}: language must be "python" or "typescript"')
+
+    try:
+        roots = package_roots(root, language, raw.get("package_roots"), where)
+        tests_dirs = tests_directories(raw.get("tests_dir", []), where)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
 
     theme = raw.get("theme", {})
     if not isinstance(theme, dict):
@@ -504,14 +510,6 @@ def load(root: Path) -> Config:
             )
         )
 
-    tests_raw = raw.get("tests_dir", [])
-    if isinstance(tests_raw, str):
-        tests_dirs: tuple[str, ...] = (tests_raw,) if tests_raw else ()
-    elif isinstance(tests_raw, list) and all(isinstance(v, str) for v in tests_raw):
-        tests_dirs = tuple(tests_raw)
-    else:
-        raise ConfigError(f"{where}: tests_dir must be a directory or a list of directories")
-
     return Config(
         coverage_ignore=_coverage_ignore(raw, where),
         judgement_answered=_judgement_answered(raw, where),
@@ -521,8 +519,10 @@ def load(root: Path) -> Config:
         **_agent(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
-        package_roots=package_roots,
+        package_roots=roots,
+        language=language,
         tests_dirs=tests_dirs,
+        test_patterns=_str_list(raw, "test_patterns", where),
         model=_str(raw, "model", "map/model.py", where),
         out_dir=_str(raw, "out_dir", "docs/map", where),
         facts_file=_str(raw, "facts_file", "map.json", where),

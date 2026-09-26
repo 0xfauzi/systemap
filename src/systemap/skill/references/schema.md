@@ -296,6 +296,9 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `tests_dirs`: the directories test files were read from, relative to the root: the configured `tests_dir`, or every directory named `tests` or `test`.
 - `spec_sections`: the `##` headings of `spec_path`, each with `level` and `title`.
 - `entry_points`: where a run can start: one record per point, fields below.
+- `entry_point_issues`: TypeScript-only: package `bin` or `exports` targets that could not be mapped back to a source module; empty when none.
+- `test_file_issues`: TypeScript-only: test files that could not be parsed for their imports and names; empty when none.
+- `config_issues`: TypeScript-only: npm tsconfig packages named by `extends` that could not be read; empty when none.
 - `components`: one record per module, keyed by its dotted name, fields below.
 
 **Each module, under `components`**
@@ -311,7 +314,8 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `classes`: public classes that are not errors: `name` and `methods` (public method signatures).
 - `errors`: public classes named or based on Error or Exception, the same fields.
 - `constants`: UPPER_CASE assignments: `name` and `value`, the first 14.
-- `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE) or `object` (any other assignment, such as `app` or `root_agent`). A package `__init__` also lists every name it imports from the package's own modules, with `reexport_of` naming the module that defines it and the kind that module gives it (`module` for a submodule imported whole). A component's `entry` and `interface` may name any of them.
+- `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), `object` (any other assignment, such as `app` or `root_agent`), or TypeScript `unknown` when the kind cannot be determined. A package `__init__` also lists every name it imports from the package's own modules, with `reexport_of` naming the module that defines it and the kind that module gives it (`module` for a submodule imported whole). A component's `entry` and `interface` may name any of them.
+- `unknown`: TypeScript-only surface entries the parser could not read or classify; each has a source line, reason and short source excerpt.
 - `uses`: the package's modules this one imports, each with the names taken from it, or `*` for the whole module.
 - `imports`: the keys of `uses`.
 - `imported_by`: the package's modules that import this one.
