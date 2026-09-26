@@ -298,6 +298,7 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `entry_points`: where a run can start: one record per point, fields below.
 - `entry_point_issues`: TypeScript-only: package `bin` or `exports` targets that could not be mapped back to a source module; empty when none.
 - `test_file_issues`: TypeScript-only: test files that could not be parsed for their imports and names; empty when none.
+- `config_issues`: TypeScript-only: npm tsconfig packages named by `extends` that could not be read; empty when none.
 - `components`: one record per module, keyed by its dotted name, fields below.
 
 **Each module, under `components`**

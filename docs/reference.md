@@ -483,4 +483,11 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | the model `audit`, `triage`, `delta` and `suggest --jev` ask, and where their answers are cached; `enabled = false` stops `delta` asking on its own and silences the hints |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | the command `systemap journeys` runs to have a walk written, given the question on standard input (for example `command = "claude -p --output-format json"`); with no command nothing runs and the reason is printed |
 | `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
+
 | `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (a layer's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |
+
+TypeScript source discovery excludes `.d.ts` declaration files. Missing npm
+packages named by `tsconfig.json` `extends` produce an `unknown surface` line
+while extraction continues with the compiler options it can read. `check`
+reports unknown lines without failing; `judgement --strict` requires each one
+to be fixed or answered under `[judgement] answered`.

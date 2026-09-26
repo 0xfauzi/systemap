@@ -263,6 +263,33 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
     )
 
 
+def test_compiled_package_entries_use_unique_source_fallback(tmp_path: Path) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "package.json": (
+                '{"name":"web","exports":{".":"./dist/index.js",'
+                '"./cli":"./dist/cjs/cli.js","./missing":"./dist/missing.js",'
+                '"./other":"./dist/other.js"}}'
+            ),
+            "tsconfig.json": '{"compilerOptions":{}}',
+            "systemap.toml": 'language = "typescript"\n',
+            "src/index.ts": "export function serve(): void {}\n",
+            "src/cli.ts": "export function main(): void {}\n",
+        },
+    )
+    facts = extract.build(config.load(tmp_path))
+    assert {point["name"] for point in facts["entry_points"]} == {"serve", "main"}
+    assert facts["entry_point_issues"] == [
+        {
+            "kind": "package_export",
+            "name": "web",
+            "target": "dist/missing.js (+1 more)",
+            "reason": "2 package.json export targets could not be mapped to TypeScript modules",
+        }
+    ]
+
+
 def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path) -> None:
     write_tree(
         tmp_path,
@@ -277,6 +304,116 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     assert extract.unknown_fact_lines(facts) == [
         f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
     ]
+
+
+def test_missing_npm_tsconfig_and_declaration_files_do_not_stop_extract(tmp_path: Path) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "tsconfig.json": (
+                '{"extends":"@vendor/tsconfig","compilerOptions":{"baseUrl":".",'
+                '"paths":{"@/*":["src/*"]}}}'
+            ),
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"src" = "web"\n',
+            "src/index.ts": 'import { value } from "@/value";\nexport const result = value;\n',
+            "src/value.ts": "export const value = 1;\n",
+            "src/types.d.ts": "export declare const ambient: string;\n",
+        },
+    )
+    cfg = config.load(tmp_path)
+    facts = extract.build(cfg)
+    assert sorted(facts["components"]) == ["web.index", "web.value"]
+    assert facts["components"]["web.index"]["uses"] == {"web.value": ["value"]}
+    assert facts["config_issues"] == [{"file": "tsconfig.json", "reference": "@vendor/tsconfig"}]
+    assert "tsconfig.json extends '@vendor/tsconfig'" in extract.unknown_fact_lines(facts)[0]
+    assert TYPESCRIPT.module_for_path(tmp_path, "src/types.d.ts", cfg.roots) is None
+
+    (tmp_path / "tsconfig.json").write_text('{"extends":"./missing.json"}')
+    with pytest.raises(config.ConfigError, match="could not resolve tsconfig extends"):
+        extract.build(config.load(tmp_path))
+
+
+def test_unknown_surface_is_information_for_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "typescript-app"
+    shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
+    service = tmp_path / "src/service.ts"
+    service.write_text(service.read_text() + "export default memo(() => 0);\n")
+    assert main(["--root", str(tmp_path), "refresh"]) == 0
+    assert main(["--root", str(tmp_path), "check"]) == 0
+    assert "unknown surface:" in capsys.readouterr().out
+    assert main(["--root", str(tmp_path), "judgement", "--kind", "unknown surface"]) == 0
+    assert "unknown surface:" in capsys.readouterr().out
+    settings = tmp_path / "systemap.toml"
+    settings.write_text(
+        settings.read_text()
+        + '\n[judgement]\nanswered = [{kind = "unknown surface", reason = "grammar limit"}]\n'
+    )
+    assert main(["--root", str(tmp_path), "judgement", "--kind", "unknown surface"]) == 0
+    assert "unknown surface:" not in capsys.readouterr().out
+
+
+def test_change_figure_handles_unknown_exports_and_unparsed_modules(tmp_path: Path) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "typescript-app"
+    shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
+    service = tmp_path / "src/service.ts"
+    service.write_text(service.read_text() + "export default memo(() => 0);\n")
+    git(tmp_path, "init", "-q", "-b", "main")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "base")
+    base = git(tmp_path, "rev-parse", "HEAD")
+    service.write_text(service.read_text() + "export function added(): void {}\n")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "add a function")
+    delta_result = change.surface_delta(
+        git(tmp_path, "show", f"{base}:src/service.ts"),
+        service.read_text(),
+        TYPESCRIPT,
+        "src/service.ts",
+    )
+    assert delta_result is not None
+    assert delta_result["added"]["operations"] == ["added"]
+    assert delta_result["unknown"]["head"]
+    assert main(["--root", str(tmp_path), "refresh"]) == 0
+    figure_path = tmp_path / "change.svg"
+    assert (
+        main(
+            [
+                "--root",
+                str(tmp_path),
+                "figure",
+                "--mode",
+                "change",
+                "--base",
+                base,
+                "--out",
+                str(figure_path),
+            ]
+        )
+        == 0
+    )
+    assert figure_path.is_file()
+
+    service.write_text("export function broken( {\n")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "unparsable head")
+    assert (
+        main(
+            [
+                "--root",
+                str(tmp_path),
+                "figure",
+                "--mode",
+                "change",
+                "--base",
+                base,
+                "--out",
+                str(figure_path),
+            ]
+        )
+        == 0
+    )
 
 
 def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(

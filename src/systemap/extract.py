@@ -214,6 +214,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "TypeScript-only: test files that could not be parsed for their imports and names; "
         "empty when none",
     ),
+    (
+        "facts",
+        "config_issues",
+        "TypeScript-only: npm tsconfig packages named by `extends` that could not be read; "
+        "empty when none",
+    ),
     ("facts", "components", "one record per module, keyed by its dotted name, fields below"),
     ("module", "id", "the dotted module name"),
     ("module", "file", "the path relative to the root"),
@@ -917,6 +923,11 @@ def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
             f"unknown surface: test file {issue['file']}:{problem.get('line', 0)}: "
             f"{problem['reason']}"
         )
+    for issue in facts.get("config_issues", []):
+        out.append(
+            f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
+            "the npm tsconfig package could not be read"
+        )
     return out
 
 
@@ -1058,6 +1069,9 @@ def _facts_file(
     if cfg.language == "typescript":
         facts["entry_point_issues"] = entry_issues
         facts["test_file_issues"] = test_issues
+        facts["config_issues"] = [
+            {"file": file, "reference": reference} for file, reference in context.compiler.issues
+        ]
     return facts
 
 

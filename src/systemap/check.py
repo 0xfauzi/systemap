@@ -711,7 +711,6 @@ class Result:
             and not self.interface
             and not self.nesting
             and not self.stale
-            and not self.unknown_surface
         )
 
 

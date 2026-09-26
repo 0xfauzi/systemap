@@ -26,6 +26,8 @@ TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
 TEST_FILES = ("test.ts", "test.tsx")
 SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
 WHOLE_MODULE = "*"
+BUILD_DIRS = {"build", "dist", "distribution", "lib"}
+BUILD_FORMATS = {"cjs", "esm", "types"}
 CONSTANTS_KEPT = 14
 TESTS_KEPT = 25
 
@@ -268,6 +270,7 @@ class TypeScriptLanguage:
             for suffix in SOURCE_SUFFIXES
             for path in root.rglob(f"*{suffix}")
             if not any(part in SKIP_PARTS for part in path.parts)
+            and not path.name.endswith(".d.ts")
             and not _test_file(path.relative_to(repo).as_posix(), tests_dirs, test_patterns)
         )
 
@@ -472,16 +475,10 @@ class TypeScriptLanguage:
         name = str(package.get("name", repo.name))
         modules: set[str] = set()
         issues: list[dict[str, str]] = []
+        unmapped: list[str] = []
         for target in _export_targets(package.get("exports")):
             if "*" in target:
-                issues.append(
-                    _entry_issue(
-                        "package_export",
-                        name,
-                        target,
-                        "wildcard package export cannot be mapped without choosing a subpath",
-                    )
-                )
+                unmapped.append(target)
                 continue
             if target.endswith(".d.ts") or not target.endswith(
                 (".js", ".mjs", ".cjs", ".ts", ".tsx")
@@ -491,28 +488,31 @@ class TypeScriptLanguage:
             if module:
                 modules.add(module)
             else:
-                issues.append(
-                    _entry_issue(
-                        "package_export",
-                        name,
-                        target,
-                        "package.json export target could not be mapped to a TypeScript module",
-                    )
+                unmapped.append(target)
+        if unmapped:
+            sample = unmapped[0]
+            if len(unmapped) > 1:
+                sample += f" (+{len(unmapped) - 1} more)"
+            issues.append(
+                _entry_issue(
+                    "package_export",
+                    name,
+                    sample,
+                    f"{len(unmapped)} package.json export targets could not be mapped "
+                    "to TypeScript modules",
                 )
+            )
         return modules, issues
 
     def _entry_module(self, target: str, repo: Path, context: TypeScriptContext) -> str | None:
         if not target.endswith((".js", ".mjs", ".cjs", ".ts", ".tsx")):
             return None
         source = source_target(target, repo, context.compiler)
-        return next(
-            (
-                context.modules_by_path[choice.resolve()]
-                for choice in _path_choices(source)
-                if choice.resolve() in context.modules_by_path
-            ),
-            None,
-        )
+        direct = _matching_entry_modules([source], context)
+        if direct:
+            return sorted(direct)[0]
+        fallback = _matching_entry_modules(_built_source_candidates(target, repo), context)
+        return next(iter(fallback)) if len(fallback) == 1 else None
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw, path)
@@ -524,6 +524,27 @@ class TypeScriptLanguage:
         self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()
     ) -> bool:
         return _test_file(path, tests_dirs, test_patterns)
+
+
+def _matching_entry_modules(candidates: Iterable[Path], context: TypeScriptContext) -> set[str]:
+    return {
+        context.modules_by_path[choice.resolve()]
+        for source in candidates
+        for choice in _path_choices(source)
+        if choice.resolve() in context.modules_by_path
+    }
+
+
+def _built_source_candidates(target: str, repo: Path) -> Iterator[Path]:
+    parts = PurePosixPath(target.removeprefix("./")).parts
+    if len(parts) < 2 or parts[0] not in BUILD_DIRS:
+        return
+    tails = [parts[1:]]
+    if len(parts) > 2 and parts[1] in BUILD_FORMATS:
+        tails.append(parts[2:])
+    for root in ("src", "source"):
+        for tail in tails:
+            yield repo / root / Path(*tail)
 
 
 def _export_targets(value: Any) -> Iterator[str]:

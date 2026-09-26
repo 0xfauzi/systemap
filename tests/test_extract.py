@@ -416,6 +416,7 @@ def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
     assert extract.fields_of("facts") - set(facts) == {
         "entry_point_issues",
         "test_file_issues",
+        "config_issues",
     }
     for record in facts["components"].values():
         assert set(record) <= extract.fields_of("module"), record["id"]

@@ -22,6 +22,7 @@ class TypeScriptConfig:
     base_url: Path | None = None
     root_dir: Path | None = None
     out_dir: Path | None = None
+    issues: tuple[tuple[str, str], ...] = ()
 
 
 def package_json(root: Path) -> dict[str, Any]:
@@ -110,7 +111,7 @@ def _config_reference(parent: Path, reference: str) -> Path:
 
 
 def _compiler_options(
-    path: Path, active: frozenset[Path] = frozenset()
+    path: Path, issues: list[tuple[Path, str]], active: frozenset[Path] = frozenset()
 ) -> dict[str, tuple[Any, Path]]:
     path = path.resolve()
     if path in active:
@@ -127,13 +128,27 @@ def _compiler_options(
     else:
         raise ValueError(f"{path}: extends must be a string or a list of strings")
     for reference in references:
-        options.update(
-            _compiler_options(_config_reference(path.parent, reference), active | {path})
-        )
+        options.update(_inherited_options(path, reference, issues, active))
     compiler = data.get("compilerOptions", {})
     if isinstance(compiler, dict):
         options.update({name: (value, path.parent) for name, value in compiler.items()})
     return options
+
+
+def _inherited_options(
+    path: Path,
+    reference: str,
+    issues: list[tuple[Path, str]],
+    active: frozenset[Path],
+) -> dict[str, tuple[Any, Path]]:
+    try:
+        inherited = _config_reference(path.parent, reference)
+    except ValueError:
+        if reference.startswith(".") or Path(reference).is_absolute():
+            raise
+        issues.append((path, reference))
+        return {}
+    return _compiler_options(inherited, issues, active | {path})
 
 
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
@@ -141,13 +156,19 @@ def load_typescript_config(repo: Path) -> TypeScriptConfig:
     path = repo / "tsconfig.json"
     if not path.is_file():
         return TypeScriptConfig()
-    options = _compiler_options(path)
+    issues: list[tuple[Path, str]] = []
+    options = _compiler_options(path, issues)
     return TypeScriptConfig(
         aliases=_configured_aliases(options, repo),
         base_url=_base_url(options, repo) if "baseUrl" in options else None,
         root_dir=_option_path(options, "rootDir"),
         out_dir=_option_path(options, "outDir"),
+        issues=tuple((_issue_path(source, repo), reference) for source, reference in issues),
     )
+
+
+def _issue_path(source: Path, repo: Path) -> str:
+    return source.relative_to(repo).as_posix() if source.is_relative_to(repo) else str(source)
 
 
 def _base_url(options: dict[str, tuple[Any, Path]], repo: Path) -> Path:

@@ -90,7 +90,7 @@ contradictions, not omissions; the second pass is the point of this skill.
    | `crossing import` | modules of one card import modules of another and no flow joins the two; one line per pair, counting the modules (`--verbose` lists the imports) | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
    | `declared flow` | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by` | find the import and fix the claims; name the mechanism in the sentence and list it under `[flows] observed_by`; or remove the flow. Answer only an edge that is real and joined by nothing in the tree |
    | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |
-   | `unknown surface` | TypeScript syntax, a test file, or a package target could not be read or mapped with confidence | extend the extractor or correct the source or package target; keep the explicit unknown visible until it is resolved |
+   | `unknown surface` | TypeScript syntax, a test file, a package target, or inherited config could not be read or mapped with confidence | extend the extractor, correct the source or config, or answer why the limit is acceptable |
 
    Then `systemap audit`: act on or answer its `jev ...` lines the same way.
 5. **render**: `systemap refresh`, then `systemap describe`: the picture in

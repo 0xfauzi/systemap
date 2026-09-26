@@ -86,9 +86,16 @@ exports, local re-exports, imports, and package `bin` and `exports` entries.
 It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
 `rootDir` map compiled package entries back to source files. Common test names
 are recognized by extraction and change analysis; add repository-specific
-globs with `test_patterns = ["**/*.check.ts"]`. If TypeScript syntax cannot be
-parsed or a package target cannot be mapped, the facts keep an explicit
-unknown and `systemap check` and `systemap judgement` report it.
+globs with `test_patterns = ["**/*.check.ts"]`. If no emit directories are
+configured, a `dist/`, `distribution/`, `build/` or `lib/` target maps to a
+unique matching file under `src/` or `source/` when one exists. If TypeScript
+syntax cannot be parsed or a package target cannot be mapped, the facts keep
+an explicit unknown. `systemap check` reports unknowns without failing; `systemap
+judgement --strict` requires each one to be fixed or answered. A missing npm
+package named by `tsconfig.json` `extends` is also reported as unknown, so
+extraction can continue without `node_modules`. The current TypeScript grammar
+rejects some valid generic call signatures; those modules remain in the facts
+with an unknown surface.
 
 By default, TypeScript discovery uses `src/`, then the repository root. In a
 monorepo or a repository without `src/`, set `[package_roots]` to the

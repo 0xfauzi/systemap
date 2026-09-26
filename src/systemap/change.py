@@ -104,7 +104,7 @@ def surface_delta(
     """
     base = language.parse_surface(base_raw, path) if base_raw else _empty_surface()
     head = language.parse_surface(head_raw, path) if head_raw else _empty_surface()
-    if base is None or head is None or base.get("unknown") or head.get("unknown"):
+    if base is None or head is None:
         return None
     before, after = _identity(base), _identity(head)
     delta: dict[str, Any] = {"added": {}, "removed": {}, "changed": {}}
@@ -113,12 +113,35 @@ def surface_delta(
         delta["added"][bucket] = sorted(set(a) - set(b))
         delta["removed"][bucket] = sorted(set(b) - set(a))
         delta["changed"][bucket] = sorted(n for n in set(a) & set(b) if a[n] != b[n])
+    if base.get("unknown") or head.get("unknown"):
+        delta["unknown"] = {
+            "base": base.get("unknown", []),
+            "head": head.get("unknown", []),
+        }
     return delta
 
 
 def _merge_names(target: dict[str, list[str]], extra: dict[str, list[str]]) -> None:
     for bucket, names in extra.items():
         target[bucket] = sorted(set(target[bucket]) | set(names))
+
+
+def _component_surface(
+    hit: list[str], deltas: dict[str, dict[str, Any]]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    surface: dict[str, Any] = {
+        part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
+    }
+    unknown: dict[str, Any] = {}
+    for module in hit:
+        delta = deltas.get(module)
+        if delta is None:
+            continue
+        for part in ("added", "removed", "changed"):
+            _merge_names(surface[part], delta[part])
+        if "unknown" in delta:
+            unknown[module] = delta["unknown"]
+    return surface, unknown
 
 
 def _touched_names(delta: dict[str, Any]) -> set[str]:
@@ -299,12 +322,7 @@ def compute(
         if not hit and not path_hit and not test_hit:
             continue
         direct.add(c.id)
-        surface: dict[str, Any] = {
-            part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
-        }
-        for m in hit:
-            for part in ("added", "removed", "changed"):
-                _merge_names(surface[part], deltas[m][part])
+        surface, unknown = _component_surface(hit, deltas)
         surface["tests_added"] = sorted({t for m in owned for t in tests_added.get(m, set())})
         surface["tests_removed"] = sorted({t for m in owned for t in tests_removed.get(m, set())})
         gained = {
@@ -318,6 +336,7 @@ def compute(
             "modules": hit,
             "gained": gained,
             "surface": surface,
+            "unknown": unknown,
         }
 
     # Redefined on the wire: an exported name whose definition changed and that
