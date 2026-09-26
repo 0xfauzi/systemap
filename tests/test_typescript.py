@@ -612,3 +612,117 @@ def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
     write_tree(tmp_path, {"src/some-file.ts": "", "src/some_file.ts": ""})
     with pytest.raises(config.ConfigError, match="module id web.some_file is shared"):
         extract.build(config.load(tmp_path))
+
+
+def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path: Path) -> None:
+    """`${configDir}` in any file of the `extends` chain is the top-level tsconfig's folder.
+
+    Acceptance, written before the fix, from what `tsc --showConfig` (7.0.2) does:
+    `outDir` and `rootDir` written with the variable in an npm package or a nested
+    base config resolve under the repository, not under the declaring file; an
+    alias target written with it resolves a source module; a package `bin` under
+    a source root the `src/` fallback cannot guess maps through those two options;
+    and the variable anywhere but the start of a value is left literal.
+    """
+    write_tree(
+        tmp_path,
+        {
+            "package.json": '{"name":"web","bin":{"web":"build/out/cli.js"}}',
+            "node_modules/@acme/tsconfig/tsconfig.json": (
+                '{"compilerOptions":{"outDir":"${configDir}/build/out",'
+                '"baseUrl":"${configDir}",'
+                '"paths":{"@/*":["${configDir}/lib/*"],"#odd/*":["cache/${configDir}/*"]}}}'
+            ),
+            "config/tsconfig.base.json": (
+                '{"extends":"@acme/tsconfig","compilerOptions":{"rootDir":"${configDir}/lib"}}'
+            ),
+            "tsconfig.json": '{"extends":"./config/tsconfig.base.json"}',
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"lib" = "web"\n',
+            "lib/index.ts": 'import { helper } from "@/util";\nexport function api(): void { helper(); }\n',
+            "lib/util.ts": "export function helper(): void {}\n",
+            "lib/cli.ts": "export function main(): void {}\n",
+        },
+    )
+    ts_cfg = typescript_config.load_typescript_config(tmp_path)
+    assert ts_cfg.issues == ()
+    assert ts_cfg.out_dir == (tmp_path / "build/out").resolve()
+    assert ts_cfg.root_dir == (tmp_path / "lib").resolve()
+    assert ts_cfg.base_url == tmp_path.resolve()
+    odd = typescript_config.alias_targets("#odd/x", ts_cfg, tmp_path)
+    assert "${configDir}" in str(odd[0])
+
+    facts = extract.build(config.load(tmp_path))
+    assert facts["components"]["web.index"]["uses"] == {"web.util": ["helper"]}
+    assert facts["components"]["web.index"]["external"] == []
+    assert {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""} in facts[
+        "entry_points"
+    ]
+    assert facts["entry_point_issues"] == []
+
+
+def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path) -> None:
+    """With `rootDir` unset, the root is the one the project's own tsc would use.
+
+    Measured with tsc 5.9.3, 6.0.3 and 7.0.2 before writing this. TypeScript 5
+    takes the longest common folder of the non-declaration input files that
+    `files`, `include` and `exclude` select, test files included. TypeScript 6
+    and later take the folder of tsconfig.json, and so does `composite` on any
+    version. `outDir` here is `out/`, which the `src/` and `source/` fallback
+    cannot rescue, so every mapping below comes from the computed root alone.
+    """
+    package = (
+        '{"name":"web","devDependencies":{"typescript":"^5.9.3"},'
+        '"bin":{"web":"out/cli.js","deep":"out/source/cli.js"}}'
+    )
+    narrowed = '{"include":["source"],"compilerOptions":{"outDir":"out"}}'
+    write_tree(
+        tmp_path,
+        {
+            "package.json": package,
+            "tsconfig.json": narrowed,
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"source" = "web"\n',
+            "source/cli.ts": "export function main(): void {}\n",
+            "source/index.ts": "export function api(): void {}\n",
+            "test/index.test.ts": 'import { api } from "../source/index";\ntest("api", () => api());\n',
+            "types/global.d.ts": "declare const g: string;\n",
+        },
+    )
+
+    def bins() -> dict[str, str]:
+        facts = extract.build(config.load(tmp_path))
+        return {
+            e["name"]: e["module"] for e in facts["entry_points"] if e["kind"] == "console_script"
+        }
+
+    # TypeScript 5, `include` narrowed to source/: the root is source/.
+    assert bins() == {"web": "web.cli"}
+    # Without `include` the test file is an input too, so the common folder is the repository.
+    (tmp_path / "tsconfig.json").write_text('{"compilerOptions":{"outDir":"out"}}')
+    assert bins() == {"deep": "web.cli"}
+    # TypeScript 6 and later: the tsconfig folder, whatever `include` says.
+    (tmp_path / "tsconfig.json").write_text(narrowed)
+    (tmp_path / "package.json").write_text(package.replace("^5.9.3", "~6.0.3"))
+    assert bins() == {"deep": "web.cli"}
+    # `composite`: the tsconfig folder on any version.
+    (tmp_path / "package.json").write_text(package)
+    (tmp_path / "tsconfig.json").write_text(
+        '{"include":["source"],"compilerOptions":{"outDir":"out","composite":true}}'
+    )
+    assert bins() == {"deep": "web.cli"}
+    # The installed compiler wins over the declared range.
+    (tmp_path / "tsconfig.json").write_text(narrowed)
+    write_tree(
+        tmp_path,
+        {"node_modules/typescript/package.json": '{"name":"typescript","version":"7.0.2"}'},
+    )
+    assert bins() == {"deep": "web.cli"}
+    # No version anywhere: both roots are tried, and a target maps when exactly one fits.
+    shutil.rmtree(tmp_path / "node_modules")
+    (tmp_path / "package.json").write_text(
+        package.replace('"devDependencies":{"typescript":"^5.9.3"},', "")
+    )
+    assert bins() == {"web": "web.cli", "deep": "web.cli"}
+    ts_cfg = typescript_config.load_typescript_config(tmp_path)
+    assert ts_cfg.typescript_major is None
+    roots = typescript_config.root_candidates(ts_cfg, typescript_config.input_files(ts_cfg))
+    assert roots == ((tmp_path / "source").resolve(), tmp_path.resolve())

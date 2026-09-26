@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- The TypeScript reader expands `${configDir}` at the start of a `baseUrl`,
+  `paths`, `rootDir` or `outDir` value to the folder of the top-level
+  `tsconfig.json`, in every file of the `extends` chain. Before, a shared base
+  config such as `@sindresorhus/tsconfig` left `outDir` pointing inside
+  `node_modules`, so a compiled package entry could only be mapped back to
+  its source by guessing `src/` or `source/`. Measured against
+  `tsc --showConfig` 7.0.2: the variable counts only at the start of a value.
+- With `rootDir` unset, the TypeScript reader no longer guesses `src/` or the
+  repository root. It computes the root the way the project's own `tsc` does,
+  measured on 5.9.3, 6.0.3 and 7.0.2: TypeScript 5 takes the longest common
+  folder of the input files that `files`, `include` and `exclude` select;
+  6 and later, and `composite` on any version, take the `tsconfig.json`
+  folder. The version is read from `node_modules/typescript`, then from
+  `package.json`; with neither, both roots are tried and a compiled target
+  maps only when exactly one fits.
 - The words, against the writing rules in `AGENTS.md`: every metaphor
   standing in for a plain phrase is replaced with the phrase, and every term
   is defined where it is first used. The map's filtered views are called
