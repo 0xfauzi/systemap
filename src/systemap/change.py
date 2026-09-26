@@ -28,14 +28,10 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from systemap import extract
 from systemap.config import Config
-from systemap.extract import (
-    WHOLE_MODULE,
-    internal_uses,
-    module_of,
-    parse_surface,
-    test_names,
-)
+from systemap.extract import WHOLE_MODULE
+from systemap.language import LanguageAdapter
 from systemap.model import Model, module_matches
 
 # `gained` carries only the buckets the schematic's segmented bar draws
@@ -81,28 +77,6 @@ def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
     return [f for f in out.split("\0") if f]
 
 
-def _path_module(repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
-    """The dotted module a repo-relative path implements, or None.
-
-    Derived from the path alone so a file DELETED by the branch still maps:
-    the facts are built from the head tree and cannot know a module that is
-    gone from it.
-    """
-    if not path.endswith(".py"):
-        return None
-    absolute = repo / path
-    for pkg_dir, pkg_name in roots:
-        if absolute.is_relative_to(pkg_dir):
-            return module_of(absolute, pkg_dir, pkg_name)
-    return None
-
-
-def _is_test_file(path: str, tests_dirs: tuple[str, ...]) -> bool:
-    if not path.endswith(".py") or not path.split("/")[-1].startswith("test_"):
-        return False
-    return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
-
-
 def _empty_surface() -> dict[str, Any]:
     return {"functions": [], "classes": [], "errors": [], "constants": []}
 
@@ -117,14 +91,19 @@ def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
     }
 
 
-def surface_delta(base_raw: str, head_raw: str) -> dict[str, Any] | None:
+def surface_delta(
+    base_raw: str,
+    head_raw: str,
+    language: LanguageAdapter = extract.PYTHON,
+    path: str = "",
+) -> dict[str, Any] | None:
     """What one module's public surface gained, lost, and changed.
 
     None means a side had source that does not parse, which is "cannot tell",
     never "nothing changed".
     """
-    base = parse_surface(base_raw) if base_raw else _empty_surface()
-    head = parse_surface(head_raw) if head_raw else _empty_surface()
+    base = language.parse_surface(base_raw, path) if base_raw else _empty_surface()
+    head = language.parse_surface(head_raw, path) if head_raw else _empty_surface()
     if base is None or head is None:
         return None
     before, after = _identity(base), _identity(head)
@@ -134,12 +113,35 @@ def surface_delta(base_raw: str, head_raw: str) -> dict[str, Any] | None:
         delta["added"][bucket] = sorted(set(a) - set(b))
         delta["removed"][bucket] = sorted(set(b) - set(a))
         delta["changed"][bucket] = sorted(n for n in set(a) & set(b) if a[n] != b[n])
+    if base.get("unknown") or head.get("unknown"):
+        delta["unknown"] = {
+            "base": base.get("unknown", []),
+            "head": head.get("unknown", []),
+        }
     return delta
 
 
 def _merge_names(target: dict[str, list[str]], extra: dict[str, list[str]]) -> None:
     for bucket, names in extra.items():
         target[bucket] = sorted(set(target[bucket]) | set(names))
+
+
+def _component_surface(
+    hit: list[str], deltas: dict[str, dict[str, Any]]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    surface: dict[str, Any] = {
+        part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
+    }
+    unknown: dict[str, Any] = {}
+    for module in hit:
+        delta = deltas.get(module)
+        if delta is None:
+            continue
+        for part in ("added", "removed", "changed"):
+            _merge_names(surface[part], delta[part])
+        if "unknown" in delta:
+            unknown[module] = delta["unknown"]
+    return surface, unknown
 
 
 def _touched_names(delta: dict[str, Any]) -> set[str]:
@@ -149,6 +151,90 @@ def _touched_names(delta: dict[str, Any]) -> set[str]:
         for names in delta[part].values()
         for name in names
     }
+
+
+def _paths_for_change(
+    cfg: Config,
+    language: LanguageAdapter,
+    files: list[str],
+    facts: dict[str, Any],
+) -> dict[str, Path]:
+    paths = {
+        module: cfg.root / record["file"]
+        for module, record in facts.get("components", {}).items()
+        if record.get("file")
+    }
+    for path in files:
+        module = language.module_for_path(cfg.root, path, cfg.roots)
+        if module:
+            paths.setdefault(module, cfg.root / path)
+    return paths
+
+
+def _test_file_changes(
+    cfg: Config,
+    language: LanguageAdapter,
+    path: str,
+    base: str,
+    head: str,
+    prefixes: set[str],
+    known: set[str],
+    paths: dict[str, Path],
+    context: Any,
+) -> tuple[set[str], set[str], set[str]] | None:
+    base_raw = _show(cfg.root, base, path)
+    head_raw = _show(cfg.root, head, path)
+    before = set(language.test_names(base_raw, path))
+    after = set(language.test_names(head_raw, path))
+    added, removed = after - before, before - after
+    if not added and not removed:
+        return None
+    importer = f"__test__:{path}"
+    context_paths = {**paths, importer: cfg.root / path}
+    targets: set[str] = set()
+    for raw in (base_raw, head_raw):
+        targets.update(
+            language.internal_uses(
+                raw,
+                prefixes,
+                known,
+                module=importer,
+                repo=cfg.root,
+                paths=context_paths,
+                context=context,
+            )
+        )
+    return targets, added, removed
+
+
+def _changed_test_deltas(
+    cfg: Config,
+    language: LanguageAdapter,
+    files: list[str],
+    facts: dict[str, Any],
+    modules: set[str],
+    base: str,
+    head: str,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    prefixes = set(facts.get("packages", []))
+    known = set(facts.get("components", {})) | modules
+    paths = _paths_for_change(cfg, language, files, facts)
+    context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
+    tests_added: dict[str, set[str]] = {}
+    tests_removed: dict[str, set[str]] = {}
+    for path in files:
+        if not language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
+            continue
+        changes = _test_file_changes(
+            cfg, language, path, base, head, prefixes, known, paths, context
+        )
+        if changes is None:
+            continue
+        targets, added, removed = changes
+        for target in targets:
+            tests_added.setdefault(target, set()).update(added)
+            tests_removed.setdefault(target, set()).update(removed)
+    return tests_added, tests_removed
 
 
 def compute(
@@ -170,6 +256,7 @@ def compute(
     """
     repo = cfg.root
     roots = cfg.roots
+    language = extract.language_for(cfg)
     if artifact_owner is None:
         artifact_owner = {}
 
@@ -198,36 +285,21 @@ def compute(
     deltas: dict[str, dict[str, Any]] = {}
     unparsed: list[str] = []
     for path in files:
-        module = _path_module(repo, path, roots)
-        if not module or _is_test_file(path, cfg.test_dirs):
+        module = language.module_for_path(repo, path, roots)
+        if not module or language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
             continue
-        delta = surface_delta(_show(repo, merge_base, path), _show(repo, head, path))
+        delta = surface_delta(
+            _show(repo, merge_base, path), _show(repo, head, path), language, path
+        )
         if delta is None:
             unparsed.append(module)
             continue
         deltas[module] = delta
     modules = set(deltas) | set(unparsed)
 
-    # Changed test files: added and removed tests, attributed to every module
-    # the test file imports, the same rule collect_tests uses for guards.
-    prefixes = set(facts.get("packages", []))
-    known = set(facts.get("components", {})) | modules
-    tests_added: dict[str, set[str]] = {}
-    tests_removed: dict[str, set[str]] = {}
-    for path in files:
-        if not _is_test_file(path, cfg.test_dirs):
-            continue
-        base_raw = _show(repo, merge_base, path)
-        head_raw = _show(repo, head, path)
-        before_t, after_t = set(test_names(base_raw)), set(test_names(head_raw))
-        if before_t == after_t:
-            continue
-        targets: set[str] = set()
-        for raw in (base_raw, head_raw):
-            targets |= set(internal_uses(raw, prefixes, known))
-        for target in targets:
-            tests_added.setdefault(target, set()).update(after_t - before_t)
-            tests_removed.setdefault(target, set()).update(before_t - after_t)
+    tests_added, tests_removed = _changed_test_deltas(
+        cfg, language, files, facts, modules, merge_base, head
+    )
 
     direct: set[str] = set()
     per_component: dict[str, dict[str, Any]] = {}
@@ -250,12 +322,7 @@ def compute(
         if not hit and not path_hit and not test_hit:
             continue
         direct.add(c.id)
-        surface: dict[str, Any] = {
-            part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
-        }
-        for m in hit:
-            for part in ("added", "removed", "changed"):
-                _merge_names(surface[part], deltas[m][part])
+        surface, unknown = _component_surface(hit, deltas)
         surface["tests_added"] = sorted({t for m in owned for t in tests_added.get(m, set())})
         surface["tests_removed"] = sorted({t for m in owned for t in tests_removed.get(m, set())})
         gained = {
@@ -269,6 +336,7 @@ def compute(
             "modules": hit,
             "gained": gained,
             "surface": surface,
+            "unknown": unknown,
         }
 
     # Redefined on the wire: an exported name whose definition changed and that

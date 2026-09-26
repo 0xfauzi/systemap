@@ -158,6 +158,20 @@ JUDGEMENT = {
             "citing the rule your repository follows."
         ),
     ),
+    "unknown surface": Lesson(
+        means=(
+            "The TypeScript reader found a module or package target it could not map with "
+            "confidence."
+        ),
+        why=(
+            "If an unreadable export or import is treated as absent, the facts hide a real part "
+            "of the public surface or its connections."
+        ),
+        do=(
+            "Read the source excerpt. Add support for its syntax, or narrow the configured source "
+            "roots when the file is not part of the application."
+        ),
+    ),
 }
 
 # ---- the lines `systemap delta` prints --------------------------------------------

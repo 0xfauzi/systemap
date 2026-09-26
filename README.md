@@ -15,7 +15,7 @@
 
 Your coding agent writes code faster than you can read it. You review the
 diff, you merge, and one day you notice you are no longer sure how the pieces
-of your own Python project fit together.
+of your own Python or TypeScript project fit together.
 
 **systemap gives you one page that shows how they fit.** Your agent draws it
 from your code. A checker then refuses to let that page go out of date, and
@@ -77,6 +77,31 @@ your reviewer.
     uv tool install systemap        # or: uv add --dev systemap
     systemap init                   # --no-ci to skip the workflow
 
+For a TypeScript repository, install the parser extra:
+
+    uv tool install 'systemap[typescript]'
+
+The TypeScript adapter reads `.ts` and `.tsx` modules, named and default
+exports, local re-exports, imports, and package `bin` and `exports` entries.
+It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
+`rootDir` map compiled package entries back to source files. Common test names
+are recognized by extraction and change analysis; add repository-specific
+globs with `test_patterns = ["**/*.check.ts"]`. If no emit directories are
+configured, a `dist/`, `distribution/`, `build/` or `lib/` target maps to a
+unique matching file under `src/` or `source/` when one exists. If TypeScript
+syntax cannot be parsed or a package target cannot be mapped, the facts keep
+an explicit unknown. `systemap check` reports unknowns without failing; `systemap
+judgement --strict` requires each one to be fixed or answered. A missing npm
+package named by `tsconfig.json` `extends` is also reported as unknown, so
+extraction can continue without `node_modules`. The current TypeScript grammar
+rejects some valid generic call signatures; those modules remain in the facts
+with an unknown surface.
+
+By default, TypeScript discovery uses `src/`, then the repository root. In a
+monorepo or a repository without `src/`, set `[package_roots]` to the
+application packages you want mapped so scripts and fixtures do not become
+application modules.
+
 `init` writes a configuration file, an empty map for your agent to fill in,
 the instructions your agent will follow, and a CI workflow. Then it prints the
 one sentence you hand to your agent:
@@ -95,6 +120,64 @@ Using Claude Code? The repository is its own plugin marketplace:
     /plugin install systemap@systemap
 
 Any agent that can read instructions and run a command works the same way.
+
+### TypeScript example
+
+Suppose your repository has these files:
+
+```text
+src/index.ts
+src/service.ts
+tests/service.test.ts
+```
+
+`src/service.ts` exports a function, `src/index.ts` makes it available to
+callers, and the test imports the source module:
+
+```ts
+// src/service.ts
+export function greet(name: string): string {
+  return `Hello, ${name}`;
+}
+
+// src/index.ts
+export { greet } from "./service";
+
+// tests/service.test.ts
+import { greet } from "../src/service";
+test("greets a person", () => {
+  expect(greet("Ada")).toBe("Hello, Ada");
+});
+```
+
+After `systemap init`, set the source root in `systemap.toml`:
+
+```toml
+language = "typescript"
+
+[package_roots]
+"src" = "example"
+```
+
+Then read what systemap found:
+
+```sh
+systemap extract
+systemap facts --names example.service
+systemap facts --module example.service
+```
+
+The facts name `greet` as an export of `example.service` and attribute
+`tests/service.test.ts` to that module. Give the sentence printed by `init`
+to your agent to fill in the map. Then run:
+
+```sh
+systemap check && systemap judgement --strict
+```
+
+For a larger TypeScript fixture with path aliases, TSX, and a package binary,
+see
+[`tests/fixtures/typescript-app`](tests/fixtures/typescript-app).
 
 ## Why let an agent draw it?
 
@@ -186,8 +269,12 @@ features that failed their test were written down rather than shipped
 
 ## What is systemap not?
 
-It reads Python and only Python. It is not a call graph: the map shows the
-lines your agent declared and defended, not every function call. It is not a
+It reads Python, TypeScript and TSX. TypeScript support reads exported names,
+imports, tests, package binaries, package export roots and configured
+`tsconfig.json` path aliases. `delta` and `history` read the same TypeScript
+facts from committed trees. Framework-specific routes are not read yet. It is
+not a call graph: the map shows the lines your agent declared and defended,
+not every function call. It is not a
 dependency diagram: modules are not parts, and the map shows parts. It is not
 a UML tool: one picture, one layout, and nothing to learn beyond card, line
 and journey.

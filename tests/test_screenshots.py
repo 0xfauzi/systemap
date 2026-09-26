@@ -100,8 +100,9 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
         assert rel in readme, rel
         assert (ROOT / rel).is_file(), rel
     assert "[docs/benchmarks.md](docs/benchmarks.md)" in readme
-    # Python, and only Python, is said before a reader has scrolled.
-    assert "Python" in readme[:1200] and "only Python" in readme
+    # Both source languages are said in the introduction.
+    introduction = readme.split("\n## ", 1)[0]
+    assert "Python or TypeScript" in introduction
     # Every cost the README quotes is a cost bench/results.jsonl holds, so the
     # sales line and the measurements cannot drift apart. The maintenance runs
     # are quoted one by one and the first maps as a range.
