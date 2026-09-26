@@ -488,6 +488,10 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 
 TypeScript source discovery excludes `.d.ts` declaration files. Missing npm
 packages named by `tsconfig.json` `extends` produce an `unknown surface` line
-while extraction continues with the compiler options it can read. `check`
+while extraction continues with the compiler options it can read. In any file
+of the `extends` chain, a `baseUrl`, `paths`, `rootDir` or `outDir` value that
+starts with `${configDir}` means the folder of the top-level `tsconfig.json`,
+the rule `tsc` follows; a plain relative value means the folder of the file
+that declares it. `check`
 reports unknown lines without failing; `judgement --strict` requires each one
 to be fixed or answered under `[judgement] answered`.

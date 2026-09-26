@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The TypeScript reader expands `${configDir}` at the start of a `baseUrl`,
+  `paths`, `rootDir` or `outDir` value to the folder of the top-level
+  `tsconfig.json`, in every file of the `extends` chain. Before, a shared base
+  config such as `@sindresorhus/tsconfig` left `outDir` pointing inside
+  `node_modules`, so a compiled package entry could only be mapped back to
+  its source by guessing `src/` or `source/`. Measured against
+  `tsc --showConfig` 7.0.2: the variable counts only at the start of a value.
 - The words, against the writing rules in `AGENTS.md`: every metaphor
   standing in for a plain phrase is replaced with the phrase, and every term
   is defined where it is first used. The map's filtered views are called
