@@ -73,6 +73,7 @@ from systemap import suggest as suggest_mod
 from systemap.config import Config, ConfigError
 from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
+from systemap.typescript_config import discover_typescript_roots
 
 OK, STALE, BAD_CONFIG = 0, 1, 2
 
@@ -133,10 +134,10 @@ MAINTENANCE_SENTENCE = (
 
 def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
-    roots = config.discover_roots(root)
+    language, roots = _init_language_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root)
-    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci))
+    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci, language=language))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
@@ -148,21 +149,40 @@ def cmd_init(args: argparse.Namespace) -> int:
     return OK
 
 
+def _init_language_roots(root: Path) -> tuple[str, list[tuple[str, str]]]:
+    python_roots = config.discover_roots(root)
+    typescript_roots = discover_typescript_roots(root)
+    if python_roots and typescript_roots:
+        raise ConfigError("both Python and TypeScript source found; set language in systemap.toml")
+    if typescript_roots:
+        return "typescript", typescript_roots
+    return "python", python_roots
+
+
 # ---- extract ---------------------------------------------------------------
 
 
 def _require_roots(p: Project) -> None:
     if not p.cfg.roots:
-        found = config.candidate_packages(p.cfg.root)
-        where = (
-            "directories holding an __init__.py: " + ", ".join(found)
-            if found
-            else f"no directory holding an __init__.py up to {config.CANDIDATE_DEPTH} deep"
-        )
-        raise ConfigError(
+        raise _missing_roots_error(p)
+
+
+def _missing_roots_error(project: Project) -> ConfigError:
+    if project.cfg.language == "typescript":
+        return ConfigError(
             "no package roots found; set [package_roots] in systemap.toml "
-            f'("path" = "import name"); {where}'
+            '("path" = "module name"); no .ts or .tsx source in src or the repository root'
         )
+    found = config.candidate_packages(project.cfg.root)
+    where = (
+        "directories holding an __init__.py: " + ", ".join(found)
+        if found
+        else f"no directory holding an __init__.py up to {config.CANDIDATE_DEPTH} deep"
+    )
+    return ConfigError(
+        "no package roots found; set [package_roots] in systemap.toml "
+        f'("path" = "import name"); {where}'
+    )
 
 
 def cmd_extract(args: argparse.Namespace) -> int:

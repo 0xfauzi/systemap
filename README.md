@@ -15,7 +15,7 @@
 
 Your coding agent writes code faster than you can read it. You review the
 diff, you merge, and one day you notice you are no longer sure how the pieces
-of your own Python project fit together.
+of your own Python or TypeScript project fit together.
 
 **systemap gives you one page that shows how they fit.** Your agent draws it
 from your code. A checker then refuses to let that page go out of date, and
@@ -76,6 +76,33 @@ your reviewer.
 
     uv tool install systemap        # or: uv add --dev systemap
     systemap init                   # --no-ci to skip the workflow
+
+For a TypeScript repository, install the parser extra:
+
+    uv tool install 'systemap[typescript]'
+
+The TypeScript adapter reads `.ts` and `.tsx` modules, named and default
+exports, local re-exports, imports, and package `bin` and `exports` entries.
+It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
+`rootDir` map compiled package entries back to source files. A path in an
+inherited config that starts with `${configDir}` means the folder of your own
+`tsconfig.json`, as it does for `tsc`. Common test names
+are recognized by extraction and change analysis; add repository-specific
+globs with `test_patterns = ["**/*.check.ts"]`. If no emit directories are
+configured, a `dist/`, `distribution/`, `build/` or `lib/` target maps to a
+unique matching file under `src/` or `source/` when one exists. If TypeScript
+syntax cannot be parsed or a package target cannot be mapped, the facts keep
+an explicit unknown. `systemap check` reports unknowns without failing; `systemap
+judgement --strict` requires each one to be fixed or answered. A missing npm
+package named by `tsconfig.json` `extends` is also reported as unknown, so
+extraction can continue without `node_modules`. The current TypeScript grammar
+rejects some valid generic call signatures; those modules remain in the facts
+with an unknown surface.
+
+By default, TypeScript discovery uses `src/`, then the repository root. In a
+monorepo or a repository without `src/`, set `[package_roots]` to the
+application packages you want mapped so scripts and fixtures do not become
+application modules.
 
 `init` writes a configuration file, an empty map for your agent to fill in,
 the instructions your agent will follow, and a CI workflow. Then it prints the
@@ -186,8 +213,12 @@ features that failed their test were written down rather than shipped
 
 ## What is systemap not?
 
-It reads Python and only Python. It is not a call graph: the map shows the
-lines your agent declared and defended, not every function call. It is not a
+It reads Python, TypeScript and TSX. TypeScript support reads exported names,
+imports, tests, package binaries, package export roots and configured
+`tsconfig.json` path aliases. `delta` and `history` read the same TypeScript
+facts from committed trees. Framework-specific routes are not read yet. It is
+not a call graph: the map shows the lines your agent declared and defended,
+not every function call. It is not a
 dependency diagram: modules are not parts, and the map shows parts. It is not
 a UML tool: one picture, one layout, and nothing to learn beyond card, line
 and journey.

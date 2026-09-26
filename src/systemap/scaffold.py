@@ -26,6 +26,7 @@ from systemap import __version__
 CONFIG = """# systemap configuration. Every key is optional; these are the defaults
 # except name, which defaults to [project] name in pyproject.toml, then
 # the git repository's directory, then this directory's name.
+language = "{language}"
 name = "{name}"
 # Where the packages are: "path" = "import name". Leave it out to discover
 # every top-level directory (or src/<dir>) that holds an __init__.py, in
@@ -367,7 +368,13 @@ TOOLING_NOTE = (
 )
 
 
-def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool = True) -> dict[str, str]:
+def files(
+    name: str,
+    package: str,
+    roots: list[tuple[str, str]],
+    ci: bool = True,
+    language: str = "python",
+) -> dict[str, str]:
     """path -> content for every file `systemap init` writes.
 
     The skill is not in this table: it is package text that is refreshed
@@ -379,7 +386,9 @@ def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool = True
     else:
         roots_block = '# [package_roots]\n# "src/mypackage" = "mypackage"'
     out = {
-        "systemap.toml": CONFIG.format(name=name, roots=roots_block, package=package),
+        "systemap.toml": CONFIG.format(
+            language=language, name=name, roots=roots_block, package=package
+        ),
         "map/model.py": MODEL.format(name=name, upper=name.upper(), package=package),
         "docs/map/.gitkeep": "",
     }
@@ -389,11 +398,16 @@ def files(name: str, package: str, roots: list[tuple[str, str]], ci: bool = True
 
 
 def write(
-    root: Path, name: str, package: str, roots: list[tuple[str, str]], ci: bool = True
+    root: Path,
+    name: str,
+    package: str,
+    roots: list[tuple[str, str]],
+    ci: bool = True,
+    language: str = "python",
 ) -> list[str]:
     """Write every file that does not exist yet; return one line per file."""
     out: list[str] = []
-    for rel, content in files(name, package, roots, ci).items():
+    for rel, content in files(name, package, roots, ci, language).items():
         path = root / rel
         if path.exists():
             out.append(f"kept {rel} (already exists)")

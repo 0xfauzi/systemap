@@ -121,7 +121,7 @@ def test_skill_front_matter_and_vocabulary() -> None:
 
 
 def test_step_four_lists_every_answer_form_and_every_line_kind() -> None:
-    """F20: the forms with their constraints, and the seven kinds, one sentence each."""
+    """F20: the forms with their constraints and every line kind."""
     text = skill.text()
     step = text[text.index("4. **judgement**") : text.index("5. **render**")]
     for form in (

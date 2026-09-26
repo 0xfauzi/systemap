@@ -83,7 +83,7 @@ from typing import Any
 from systemap import evidence, explain, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
-from systemap.extract import entry_label
+from systemap.extract import entry_label, unknown_fact_lines
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
 
 __all__ = ["mentioned"]
@@ -565,6 +565,7 @@ def run(
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + model_sdk_imports(model, facts, sdks, skip=skip)
+        + unknown_fact_lines(facts)
     )
 
 
