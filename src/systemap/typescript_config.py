@@ -10,6 +10,13 @@ from typing import Any
 
 SOURCE_SUFFIXES = (".ts", ".tsx")
 SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
+# A shared base config cannot know where the project that extends it lives, so
+# TypeScript lets a path option start with this variable, which stands for the
+# folder of the top-level tsconfig.json: the one the project owns, not the file
+# that declares the option. Measured with `tsc --showConfig` (7.0.2): the
+# variable is replaced only at the start of a value, and a value such as
+# `cache/${configDir}/x` is left as written.
+CONFIG_DIR = "${configDir}"
 _JSONC_TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|//[^\r\n]*|/\*[\s\S]*?\*/')
 _TRAILING_COMMA = re.compile(r'"(?:\\.|[^"\\])*"|,(?=\s*[}\]])')
 
@@ -158,11 +165,12 @@ def load_typescript_config(repo: Path) -> TypeScriptConfig:
         return TypeScriptConfig()
     issues: list[tuple[Path, str]] = []
     options = _compiler_options(path, issues)
+    config_dir = path.parent.resolve()
     return TypeScriptConfig(
-        aliases=_configured_aliases(options, repo),
-        base_url=_base_url(options, repo) if "baseUrl" in options else None,
-        root_dir=_option_path(options, "rootDir"),
-        out_dir=_option_path(options, "outDir"),
+        aliases=_configured_aliases(options, repo, config_dir),
+        base_url=_base_url(options, repo, config_dir) if "baseUrl" in options else None,
+        root_dir=_option_path(options, "rootDir", config_dir),
+        out_dir=_option_path(options, "outDir", config_dir),
         issues=tuple((_issue_path(source, repo), reference) for source, reference in issues),
     )
 
@@ -171,16 +179,31 @@ def _issue_path(source: Path, repo: Path) -> str:
     return source.relative_to(repo).as_posix() if source.is_relative_to(repo) else str(source)
 
 
-def _base_url(options: dict[str, tuple[Any, Path]], repo: Path) -> Path:
+def _expand(value: str, config_dir: Path) -> str:
+    """Replace a leading `${configDir}` with the top-level tsconfig's folder.
+
+    The result is an absolute path, so joining it onto the declaring file's
+    folder leaves it unchanged. Anywhere else in the value the text is kept,
+    which is what tsc does.
+    """
+    if value.startswith(CONFIG_DIR):
+        return str(config_dir) + value[len(CONFIG_DIR) :]
+    return value
+
+
+def _base_url(options: dict[str, tuple[Any, Path]], repo: Path, config_dir: Path) -> Path:
     raw, origin = options.get("baseUrl", (".", repo))
-    return (origin / str(raw)).resolve()
+    return (origin / _expand(str(raw), config_dir)).resolve()
 
 
 def _configured_aliases(
-    options: dict[str, tuple[Any, Path]], repo: Path
+    options: dict[str, tuple[Any, Path]], repo: Path, config_dir: Path
 ) -> tuple[tuple[str, tuple[Path, ...]], ...]:
     paths_raw, paths_origin = options.get("paths", ({}, repo))
-    paths_base = _base_url(options, repo) if "baseUrl" in options else paths_origin.resolve()
+    if "baseUrl" in options:
+        paths_base = _base_url(options, repo, config_dir)
+    else:
+        paths_base = paths_origin.resolve()
     aliases: list[tuple[str, tuple[Path, ...]]] = []
     if isinstance(paths_raw, dict):
         for pattern, targets in paths_raw.items():
@@ -188,17 +211,21 @@ def _configured_aliases(
                 aliases.append(
                     (
                         pattern,
-                        tuple(paths_base / target for target in targets if isinstance(target, str)),
+                        tuple(
+                            paths_base / _expand(target, config_dir)
+                            for target in targets
+                            if isinstance(target, str)
+                        ),
                     )
                 )
     return tuple(aliases)
 
 
-def _option_path(options: dict[str, tuple[Any, Path]], name: str) -> Path | None:
+def _option_path(options: dict[str, tuple[Any, Path]], name: str, config_dir: Path) -> Path | None:
     option = options.get(name)
     if option is None or not isinstance(option[0], str):
         return None
-    return (option[1] / option[0]).resolve()
+    return (option[1] / _expand(option[0], config_dir)).resolve()
 
 
 def alias_targets(specifier: str, config: TypeScriptConfig, repo: Path) -> list[Path]:

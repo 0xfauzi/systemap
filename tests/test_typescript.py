@@ -612,3 +612,49 @@ def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
     write_tree(tmp_path, {"src/some-file.ts": "", "src/some_file.ts": ""})
     with pytest.raises(config.ConfigError, match="module id web.some_file is shared"):
         extract.build(config.load(tmp_path))
+
+
+def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path: Path) -> None:
+    """`${configDir}` in any file of the `extends` chain is the top-level tsconfig's folder.
+
+    Acceptance, written before the fix, from what `tsc --showConfig` (7.0.2) does:
+    `outDir` and `rootDir` written with the variable in an npm package or a nested
+    base config resolve under the repository, not under the declaring file; an
+    alias target written with it resolves a source module; a package `bin` under
+    a source root the `src/` fallback cannot guess maps through those two options;
+    and the variable anywhere but the start of a value is left literal.
+    """
+    write_tree(
+        tmp_path,
+        {
+            "package.json": '{"name":"web","bin":{"web":"build/out/cli.js"}}',
+            "node_modules/@acme/tsconfig/tsconfig.json": (
+                '{"compilerOptions":{"outDir":"${configDir}/build/out",'
+                '"baseUrl":"${configDir}",'
+                '"paths":{"@/*":["${configDir}/lib/*"],"#odd/*":["cache/${configDir}/*"]}}}'
+            ),
+            "config/tsconfig.base.json": (
+                '{"extends":"@acme/tsconfig","compilerOptions":{"rootDir":"${configDir}/lib"}}'
+            ),
+            "tsconfig.json": '{"extends":"./config/tsconfig.base.json"}',
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"lib" = "web"\n',
+            "lib/index.ts": 'import { helper } from "@/util";\nexport function api(): void { helper(); }\n',
+            "lib/util.ts": "export function helper(): void {}\n",
+            "lib/cli.ts": "export function main(): void {}\n",
+        },
+    )
+    ts_cfg = typescript_config.load_typescript_config(tmp_path)
+    assert ts_cfg.issues == ()
+    assert ts_cfg.out_dir == (tmp_path / "build/out").resolve()
+    assert ts_cfg.root_dir == (tmp_path / "lib").resolve()
+    assert ts_cfg.base_url == tmp_path.resolve()
+    odd = typescript_config.alias_targets("#odd/x", ts_cfg, tmp_path)
+    assert "${configDir}" in str(odd[0])
+
+    facts = extract.build(config.load(tmp_path))
+    assert facts["components"]["web.index"]["uses"] == {"web.util": ["helper"]}
+    assert facts["components"]["web.index"]["external"] == []
+    assert {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""} in facts[
+        "entry_points"
+    ]
+    assert facts["entry_point_issues"] == []

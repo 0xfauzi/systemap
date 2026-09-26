@@ -84,7 +84,9 @@ For a TypeScript repository, install the parser extra:
 The TypeScript adapter reads `.ts` and `.tsx` modules, named and default
 exports, local re-exports, imports, and package `bin` and `exports` entries.
 It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
-`rootDir` map compiled package entries back to source files. Common test names
+`rootDir` map compiled package entries back to source files. A path in an
+inherited config that starts with `${configDir}` means the folder of your own
+`tsconfig.json`, as it does for `tsc`. Common test names
 are recognized by extraction and change analysis; add repository-specific
 globs with `test_patterns = ["**/*.check.ts"]`. If no emit directories are
 configured, a `dist/`, `distribution/`, `build/` or `lib/` target maps to a
