@@ -492,6 +492,14 @@ while extraction continues with the compiler options it can read. In any file
 of the `extends` chain, a `baseUrl`, `paths`, `rootDir` or `outDir` value that
 starts with `${configDir}` means the folder of the top-level `tsconfig.json`,
 the rule `tsc` follows; a plain relative value means the folder of the file
-that declares it. `check`
+that declares it. With `rootDir` unset, the root is computed the way the
+project's own `tsc` computes it. TypeScript 5 uses the longest common folder
+of the non-declaration files that `files`, `include` and `exclude` select,
+test files included; TypeScript 6 and later use the `tsconfig.json` folder,
+and so does `composite` on any version. The version comes from
+`node_modules/typescript/package.json`, then from the `typescript` range in
+`package.json`. When neither exists, both roots are tried, and a compiled
+target maps to a module only when exactly one root names one; two matches
+leave the target unmapped rather than pick one. `check`
 reports unknown lines without failing; `judgement --strict` requires each one
 to be fixed or answered under `[judgement] answered`.

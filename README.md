@@ -86,7 +86,12 @@ exports, local re-exports, imports, and package `bin` and `exports` entries.
 It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
 `rootDir` map compiled package entries back to source files. A path in an
 inherited config that starts with `${configDir}` means the folder of your own
-`tsconfig.json`, as it does for `tsc`. Common test names
+`tsconfig.json`, as it does for `tsc`. When `rootDir` is not set, systemap
+takes the root your own TypeScript version would: on TypeScript 5, the
+longest common folder of the files `include`, `files` and `exclude` select;
+on 6 and later, or with `composite`, the `tsconfig.json` folder. It reads the
+version from `node_modules/typescript`, then from `package.json`. When neither
+names it, both roots are tried and a target maps only when exactly one fits. Common test names
 are recognized by extraction and change analysis; add repository-specific
 globs with `test_patterns = ["**/*.check.ts"]`. If no emit directories are
 configured, a `dist/`, `distribution/`, `build/` or `lib/` target maps to a

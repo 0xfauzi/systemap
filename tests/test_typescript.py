@@ -658,3 +658,71 @@ def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path
         "entry_points"
     ]
     assert facts["entry_point_issues"] == []
+
+
+def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path) -> None:
+    """With `rootDir` unset, the root is the one the project's own tsc would use.
+
+    Measured with tsc 5.9.3, 6.0.3 and 7.0.2 before writing this. TypeScript 5
+    takes the longest common folder of the non-declaration input files that
+    `files`, `include` and `exclude` select, test files included. TypeScript 6
+    and later take the folder of tsconfig.json, and so does `composite` on any
+    version. `outDir` here is `out/`, which the `src/` and `source/` fallback
+    cannot rescue, so every mapping below comes from the computed root alone.
+    """
+    package = (
+        '{"name":"web","devDependencies":{"typescript":"^5.9.3"},'
+        '"bin":{"web":"out/cli.js","deep":"out/source/cli.js"}}'
+    )
+    narrowed = '{"include":["source"],"compilerOptions":{"outDir":"out"}}'
+    write_tree(
+        tmp_path,
+        {
+            "package.json": package,
+            "tsconfig.json": narrowed,
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"source" = "web"\n',
+            "source/cli.ts": "export function main(): void {}\n",
+            "source/index.ts": "export function api(): void {}\n",
+            "test/index.test.ts": 'import { api } from "../source/index";\ntest("api", () => api());\n',
+            "types/global.d.ts": "declare const g: string;\n",
+        },
+    )
+
+    def bins() -> dict[str, str]:
+        facts = extract.build(config.load(tmp_path))
+        return {
+            e["name"]: e["module"] for e in facts["entry_points"] if e["kind"] == "console_script"
+        }
+
+    # TypeScript 5, `include` narrowed to source/: the root is source/.
+    assert bins() == {"web": "web.cli"}
+    # Without `include` the test file is an input too, so the common folder is the repository.
+    (tmp_path / "tsconfig.json").write_text('{"compilerOptions":{"outDir":"out"}}')
+    assert bins() == {"deep": "web.cli"}
+    # TypeScript 6 and later: the tsconfig folder, whatever `include` says.
+    (tmp_path / "tsconfig.json").write_text(narrowed)
+    (tmp_path / "package.json").write_text(package.replace("^5.9.3", "~6.0.3"))
+    assert bins() == {"deep": "web.cli"}
+    # `composite`: the tsconfig folder on any version.
+    (tmp_path / "package.json").write_text(package)
+    (tmp_path / "tsconfig.json").write_text(
+        '{"include":["source"],"compilerOptions":{"outDir":"out","composite":true}}'
+    )
+    assert bins() == {"deep": "web.cli"}
+    # The installed compiler wins over the declared range.
+    (tmp_path / "tsconfig.json").write_text(narrowed)
+    write_tree(
+        tmp_path,
+        {"node_modules/typescript/package.json": '{"name":"typescript","version":"7.0.2"}'},
+    )
+    assert bins() == {"deep": "web.cli"}
+    # No version anywhere: both roots are tried, and a target maps when exactly one fits.
+    shutil.rmtree(tmp_path / "node_modules")
+    (tmp_path / "package.json").write_text(
+        package.replace('"devDependencies":{"typescript":"^5.9.3"},', "")
+    )
+    assert bins() == {"web": "web.cli", "deep": "web.cli"}
+    ts_cfg = typescript_config.load_typescript_config(tmp_path)
+    assert ts_cfg.typescript_major is None
+    roots = typescript_config.root_candidates(ts_cfg, typescript_config.input_files(ts_cfg))
+    assert roots == ((tmp_path / "source").resolve(), tmp_path.resolve())

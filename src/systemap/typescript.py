@@ -14,9 +14,11 @@ from systemap.config import ConfigError
 from systemap.typescript_config import (
     TypeScriptConfig,
     alias_targets,
+    input_files,
     load_typescript_config,
     package_json,
-    source_target,
+    root_candidates,
+    source_targets,
 )
 from systemap.typescript_surface import _root as parse_root
 from systemap.typescript_surface import parse_problem, parse_surface, test_names
@@ -41,6 +43,8 @@ class TypeScriptContext:
     compiler: TypeScriptConfig
     tests_dirs: tuple[str, ...]
     test_patterns: tuple[str, ...]
+    # The folders tsc takes as rootDir, in the order to try; see root_candidates.
+    source_roots: tuple[Path, ...] = ()
     test_issues: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -291,6 +295,7 @@ class TypeScriptLanguage:
             compiler=compiler,
             tests_dirs=tests_dirs,
             test_patterns=test_patterns,
+            source_roots=root_candidates(compiler, input_files(compiler)),
         )
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
@@ -507,10 +512,14 @@ class TypeScriptLanguage:
     def _entry_module(self, target: str, repo: Path, context: TypeScriptContext) -> str | None:
         if not target.endswith((".js", ".mjs", ".cjs", ".ts", ".tsx")):
             return None
-        source = source_target(target, repo, context.compiler)
-        direct = _matching_entry_modules([source], context)
+        sources = source_targets(target, repo, context.compiler, context.source_roots)
+        direct = _matching_entry_modules(sources, context)
+        if len(direct) == 1:
+            return next(iter(direct))
         if direct:
-            return sorted(direct)[0]
+            # Two roots each name a module: which one tsc used is not knowable
+            # from here, and a wrong answer costs more than none.
+            return None
         fallback = _matching_entry_modules(_built_source_candidates(target, repo), context)
         return next(iter(fallback)) if len(fallback) == 1 else None
 
