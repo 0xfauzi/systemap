@@ -895,7 +895,7 @@ The review above records the original state and remains the baseline evidence.
 The implementation now passes all 37 Python and all 32 TypeScript targeted
 contracts. The pinned Hono, Ky and Zod dependency census matches 1,171 of
 1,171 compiler-resolved targets in the extracted inventory, with zero wrong
-targets. The repository suite passes 459 tests, and all pre-commit hooks pass.
+targets. The repository suite passes 463 tests, and all pre-commit hooks pass.
 
 F23 remains an evaluation limitation. Its ownership pilot missed the preset
 false-challenge bar and has no independently adjudicated end-to-end labels.

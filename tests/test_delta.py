@@ -11,14 +11,18 @@ answers, and a flow whose import went away.
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import write_tree
 
-from systemap import config, delta, nest
+from systemap import card_review, config, delta, nest
 from systemap.cli import main
+from systemap.model import Invariant, Journey, Meaning, Model, Step
 from systemap.moves import find as find_moves
 
 BASE_TREE = {
@@ -325,6 +329,81 @@ def test_nothing_to_do_and_no_change_exit_zero(
     assert "the map is unaffected" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD", "--format", "markdown"]) == 0
     assert "No module changed" in capsys.readouterr().out
+
+
+def test_source_review_attests_to_current_source_and_claims(repo: Path) -> None:
+    cfg = config.load(repo)
+    top = nest.load(cfg).top
+    base = delta.facts_at(cfg, delta.resolve(repo, "HEAD~1"))
+    head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
+    reader = next(card for card in top.model.components if card.id == "Reader")
+    stamp = card_review.digest(reader, top.model, top.meaning, head)
+    assert stamp is not None and len(stamp) == 64
+    reviewed = dataclasses.replace(
+        top.model,
+        components=tuple(
+            dataclasses.replace(card, source_review=stamp) if card.id == "Reader" else card
+            for card in top.model.components
+        ),
+    )
+
+    def pending(model: Model, meaning: Meaning, facts: dict[str, Any]) -> bool:
+        result = delta.compute(cfg, model, meaning, base, facts)
+        return any(
+            line.kind == "source review" and line.cards == ("Reader",) for line in result.open
+        )
+
+    assert not pending(reviewed, top.meaning, head)
+    formatted = copy.deepcopy(head)
+    formatted["components"]["pkg.reader"]["sha"] = "format-only"
+    assert not pending(reviewed, top.meaning, formatted)
+
+    changed_source = copy.deepcopy(head)
+    changed_source["components"]["pkg.reader"]["syntax_sha"] = "new-syntax"
+    assert pending(reviewed, top.meaning, changed_source)
+
+    missing_source = copy.deepcopy(head)
+    del missing_source["components"]["pkg.reader"]["syntax_sha"]
+    assert card_review.digest(reader, top.model, top.meaning, missing_source) is None
+    assert pending(reviewed, top.meaning, missing_source)
+
+    changed_card = dataclasses.replace(
+        reviewed,
+        components=tuple(
+            dataclasses.replace(card, does="Reads a different artifact.")
+            if card.id == "Reader"
+            else card
+            for card in reviewed.components
+        ),
+    )
+    assert pending(changed_card, top.meaning, head)
+    changed_relation = dataclasses.replace(
+        top.meaning,
+        relations={**top.meaning.relations, ("Reader", "Parser"): "Different flow."},
+    )
+    assert pending(reviewed, changed_relation, head)
+
+    journey = Journey(
+        "write",
+        "Write",
+        (Step(("Reader",), (), ("Reader", "Parser"), "Reads the data."),),
+    )
+    changed_journey = dataclasses.replace(top.meaning, journeys=(journey,))
+    assert pending(reviewed, changed_journey, head)
+    changed_invariant = dataclasses.replace(
+        reviewed, invariants=(Invariant(1, "Reader accepts the data.", ("Reader",)),)
+    )
+    assert pending(changed_invariant, top.meaning, head)
+
+
+def test_source_review_digest_refuses_a_missing_claimed_module(repo: Path) -> None:
+    cfg = config.load(repo)
+    top = nest.load(cfg).top
+    head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
+    reader = next(card for card in top.model.components if card.id == "Reader")
+    missing = copy.deepcopy(head)
+    missing["components"].pop("pkg.reader")
+    assert card_review.digest(reader, top.model, top.meaning, missing) is None
 
 
 def test_the_base_is_the_merge_base_and_the_working_copy_is_not_read(

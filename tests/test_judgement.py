@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 from pathlib import Path
 from typing import Any
@@ -264,6 +265,26 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
     assert crossing in result.open
     assert len(result.pending) == 1
     assert after[crossing] != before[crossing]
+
+
+def test_exact_answer_evidence_ignores_ast_dump_spelling(
+    tmp_path: Path,
+) -> None:
+    write_tree(tmp_path, {"pkg/__init__.py": "", "pkg/reader.py": "def read():\n    return 1\n"})
+    init_two_cards(tmp_path, "--no-ci")
+    cfg = config.load(tmp_path)
+    tree = nest.load(cfg)
+    facts = extract.build(cfg)
+    line = "single module: Reader is only pkg.reader"
+    original = judgement.evidence_for_tree(tree, facts, tmp_path, [line])[line]
+    other_parser = copy.deepcopy(facts)
+    record = other_parser["components"]["pkg.reader"]
+    record["syntax_sha"] = "different AST dump"
+    for item in record["api"]:
+        item["fingerprint"] = "different AST dump"
+    assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] == original
+    (tmp_path / "pkg/reader.py").write_text("def read():\n    return 2\n")
+    assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] != original
 
 
 def test_policy_reports_new_instances() -> None:

@@ -36,7 +36,7 @@ in a region.
 
 ## Component
 
-`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False, map=None)`
+`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False, map=None, pinned=False, source_review="")`
 
 One card on the map. `id` is a code name in CamelCase, unique on the map.
 `does` says what it is for in plain words, one or two sentences, with no
@@ -59,6 +59,12 @@ package and everything beneath it. Every module named must be in the facts,
 and every module in the facts must be claimed by exactly one component, or
 ignored with a reason under `[coverage]` in `systemap.toml`, by exact name
 or as a subtree with the same `.*` form:
+
+`source_review` is a SHA-256 digest recorded after reading a card's current
+source and checking its description, interface, incident flows, journeys and
+invariants. `systemap delta` keeps a changed card under `needs a decision`
+until this digest matches. Refresh does not write it. See the maintenance
+instructions for how to compute the value after the review.
 
 ```toml
 [coverage]

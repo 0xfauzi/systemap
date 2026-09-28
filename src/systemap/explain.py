@@ -277,7 +277,10 @@ DELTA = {
             "Imports and public signatures do not show every behavior change. The card's "
             "description, flows, journeys and invariants may now describe the old behavior."
         ),
-        do="Read the changed source and confirm or revise each claim on the card.",
+        do=(
+            "Read the changed source, correct the card's claims, then record its "
+            "source_review digest as described in the maintenance guide."
+        ),
     ),
     "move candidate": Lesson(
         means=(

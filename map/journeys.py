@@ -175,7 +175,7 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "Model"),
-                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, a journey per entry point, and no positions.",
+                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, journeys covering every entry point, and no positions.",
             ),
             Step(
                 acts=("Placer",),
@@ -217,7 +217,7 @@ JOURNEYS = (
                 acts=("Judgement",),
                 measures=("Judgement",),
                 edge=("Judgement", "Agent"),
-                say="One line per crossing import, per entry point without a journey, per thin layer: the agent changes the model or answers the line.",
+                say="Lines name crossing card pairs, entry points without journey coverage, and thin layers; the agent changes the model or answers each line.",
             ),
             Step(
                 acts=("Agent",),
@@ -266,7 +266,7 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent follows the maintenance path: acts on the delta's lines alone, never redrawing the map, then runs refresh, check and judgement --strict, and commits docs/map.",
+                say="The agent reviews each decision named by delta, records source review digests after checking changed cards, then runs refresh, check and judgement --strict and commits docs/map.",
             ),
             Step(
                 acts=("Page",),

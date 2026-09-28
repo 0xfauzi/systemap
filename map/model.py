@@ -102,7 +102,8 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        does="The commands the agent runs to create, inspect, check, render and update the map, and to request optional second opinions. A failed command names a next action.",
+        source_review="ac4922a425caf10e7881ac0702108e1f46d475199578d9c9825a1c37393e4a46",
+        does="The commands the agent runs to create, inspect, check, render and update the map, and to request optional second opinions. Commands report failures and return a nonzero status.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__"),
         entry="main",
@@ -112,6 +113,7 @@ COMPONENTS = (
     ),
     Component(
         id="Scaffold",
+        source_review="dfd23cf19395df535c4534a8c615bd88601221ec6c44005c3f8f814f96976542",
         does="What init writes once and never overwrites: the configuration, a starter model laid out as a grid of regions with corridors between them, the output directory, a pinned workflow.",
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
@@ -123,6 +125,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
+        source_review="1b88c5520ad1275bbbdca736dd4da2cd9a9442a5ca2d34e835bc8a1f94d35f71",
         does="systemap.toml, or [tool.systemap] in pyproject.toml, resolved with defaults: package roots, test directories and test-file patterns, source-language settings discovered, judgement answers kept with their reasons. Unknown keys, ignores and answers without a reason are refused.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -139,6 +142,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
+        source_review="a496e32097bf32022e52f4643863846d24eb8d93751a1864db185994753ba868",
         does="Walks the package's syntax tree and writes the facts: every module, its public surface and every public name, what it imports inside and outside the package, the tests that import it, and where a run can start. TypeScript syntax it cannot parse or classify is marked unknown. Nothing anyone writes changes what it finds; systemap facts reads them back one view at a time.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> what no longer matches",
         implemented_by=(
@@ -156,6 +160,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
+        source_review="ae41e4c97af8d10a1eedabf358ed5a2fe2bc643a6ece9ff3100abf6db8306224",
         does="Works out what a branch changes in the map's terms: which components moved, what each gained or lost on its public surface, which exported names were redefined, and how far the change reaches through imports. systemap delta reads the facts at two commits out of git and says what the change did to the map, one line per thing with its fix; systemap history reads many commits and says what moved between them.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -194,10 +199,12 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has, reads from the facts whether an import backs each flow (observed, external or declared), and loads the tree of maps when a card opens a map of its own.",
+        source_review="4343db81879069d23fc515248fdf604edefd01506e2dee3f2b28ce02e24c0fd4",
+        does="The schema a map is written in, and the file the agent writes in it: containers, regions, components, flows, invariants, and the meaning tables. Checks that the meaning names only what the model has, classifies flow evidence as observed, structural, external or declared, binds card reviews to source and claims, and loads the tree of maps when a card opens a map of its own.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
             "systemap.model",
+            "systemap.card_review",
             "systemap",
             "systemap.evidence",
             "systemap.nest",
@@ -222,6 +229,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
+        source_review="3e37d49e2e4dfc78e991670454ba07229b53a48d2d9d571b32870e0086bc885d",
         does="Draws the SVG: cards marked by kind, routes coloured by layer, and the interaction script that lights a clicked component's neighbours, switches readings, steps journeys, pans and zooms. The theme is one table of tokens.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=("systemap.schematic", "systemap.theme"),
@@ -232,6 +240,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
+        source_review="45f249605dcfe3412c7daa62a5f028382ced082fe8a622311100409c84dedc43",
         does="Wraps the schematic into one self-contained HTML page: the layer switch, journeys, the focus drawer, the index by region, the invariants. No fonts, scripts or images are fetched; systemap serve serves it over HTTP.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=("systemap.page",),
@@ -242,6 +251,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
+        source_review="f6063b7d6af91ee0a581e55774af0612facc7eeca7c813fc240f2cd0046dd68d",
         does="One figure from the same generator, for a document: the whole system, a plan's reach, or a change. A .svg output is the bare drawing on its ground.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
@@ -253,8 +263,9 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        does="Every rule that refuses a lie: coverage, entry, interface, unknown TypeScript surface, placement, routes, labels and card text, type size, meaning, wheels, and stale outputs. Each failure prints its fix; exit 1 on the first.",
-        interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, model, meaning, theme) -> lines",
+        source_review="a3d3375b4e793f98a76867d99590be999f80234b46d624079d26ac2d437276d2",
+        does="Checks coverage, entry, interface, unknown TypeScript surface, placement, routes, labels, card text, type size, meaning, wheels and stale outputs. It reports the findings together and exits 1 when any remain.",
+        interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=("systemap.check",),
         entry="run",
         region="keep",
@@ -263,10 +274,12 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
+        source_review="e7defbb40938d2805612dc8526f5818cd2f1175997c020e6bbe5be6f8f6cc46d",
         does="The list the agent acts on and the maintainer confirms: single-module components, odd folds, flows without a sentence, thin layers, entry points without a journey, imports across a boundary with no flow, model SDK imports outside an agent, and unknown TypeScript surface. Answered lines, singly or by family, are suppressed and counted. A report; a gate only with --strict. Before any of it, systemap suggest proposes a first grouping from the facts, to argue with.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
             "systemap.judgement",
+            "systemap.judgement_evidence",
             "systemap.journey_coverage",
             "systemap.suggest",
             "systemap.explain",
@@ -278,8 +291,9 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
+        source_review="5417b63ac6df0fade8320314a319aeab52fe44b6e55f557ee1ce07933b8a8342",
         does="Help from outside this process, asked one narrow question at a time and cached: the Jev model for what judgement cannot read from names and imports (a module that reads like another card, a card for an unclaimed module, a sentence that may not describe its modules, a flow the code may not carry, an invariant that may govern a card it does not name, the cards an issue will change), and a coding agent named in the configuration for prose only a reader of the code can write. Opt-in; never a gate.",
-        interface="run(tree, facts, cfg, jev) -> lines; always exit 0",
+        interface="run(tree, facts, cfg, jev) -> lines; commands return 1 when an optional request fails",
         implemented_by=(
             "systemap.audit",
             "systemap.jev_cli",
@@ -295,8 +309,9 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
+        source_review="62bb44df14c7f8944b9fa3e4b3014008ecdd7ad9ac9150b065991aad83326d7d",
         does="What a look at the picture would tell an agent that cannot look: cards per region, bends and length per edge worst first, seats used per gutter, cards and edges per reading. A description, never a rule.",
-        interface="run(model, meaning, theme, facts) -> lines; always exit 0",
+        interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the model cannot be drawn",
         implemented_by=("systemap.describe",),
         entry="run",
         region="keep",
@@ -313,23 +328,25 @@ COMPONENTS = (
 # fmt: off
 _SOURCE_SHA = {
     'systemap.audit': '8c2c6974b91df12b47d3a334b092211d1255a958537dde216f027ca8bd47b0bf',
+    'systemap.card_review': 'e477ddde264e26d5fc00120f5e6de127e7fc47616f5dea8c33927ea3e29a0661',
     'systemap.change': '82fe280f3d26b14ed17998a8838e67424aab3c14f4beb1add2aa86d074aeb238',
     'systemap.check': '40bf80cd5e1c6b1fe7949ece80b2867d3ebc0072f141d8088e3e6fc3cb0867de',
     'systemap.cli': 'f55cd65283db4ca96c4a4fd4277e77f49c8fb8007d421a8649d6782d6a3aad2f',
     'systemap.config': 'd2c3051747c67b4c9faee6dcbc94b50e5d964fba20901cdd97059b3cff39c349',
-    'systemap.delta': 'd9e888e7a64f3684afae981d8c5aabbf9297df9d564b6a763e322ddc25fc9eb4',
+    'systemap.delta': 'bdf5af015230c9f35f2a17b2814b68695adc7c628d2629f479b9bfef77ccab70',
     'systemap.delta_report': 'eb5fc9017a13448bd219188311cb393d2b3484f3d3cc6f046e73d8c067ad3a0d',
     'systemap.describe': '196deff594790817ba54d1991cd84a42e107ea40d6b9585656469bb58630121c',
     'systemap.evidence': 'f9f3368ff30ae1f79d3cea3c778ca3b7ae0b6d0bb238f37236621e9f9e4bb5f3',
-    'systemap.explain': 'd78ed654dfa19e4f3d0b5513cf51b7905cd338fa9eb2d6b8687c0df57ed92edd',
-    'systemap.extract': 'e70d999fbc81cb37d5d4c49b30582f87808f703ee2f56a3716ed742137a37988',
+    'systemap.explain': '9ea70a0b126db342873b228d253d8fffcbb134c230cf25c22b257ed01036c5e4',
+    'systemap.extract': 'd5b5ddee14eb6fe780700b233659e4b8dd4fd002b2e10598ec6761dbcd80e9da',
     'systemap.facts': '7fc8aea937a2c023beb4eae2b73f0861e0a9581da6a1c7d55fcd5c6aacd5f78d',
     'systemap.figure': 'bc7ddac9e176f75223a5eb20a46b8a149ddc22f28b4928ef841ff0d87e2ee9fc',
     'systemap.jev_cli': 'fd769e509126a37d96a98a8e776b467a1bffad88d8288e2537792a4ac17bf002',
     'systemap.journey_coverage': '45a2eaec9f26ccc46a6a24ac30db2b52aab219ece8f101ed0e7ed80f335991e0',
     'systemap.journeys': 'a6d377d8a65346a916e58b5bb141c870db2718c6c20ce7273a8a7b18c37cc0e5',
-    'systemap.judgement': '4af0d0375646bca4f5021079decb17918a5cb67443e590853f10800ed71a310d',
-    'systemap.model': '84c283fd6fa3eae400d7dc493721ce408076b252401a6cb6d07b8aa04b4b929e',
+    'systemap.judgement_evidence': '26baca328b93b1776b31a979e92c998a13f786e5c69554e46175b1dc4f9787bc',
+    'systemap.judgement': '4acbe559dd098ab0b1d85cb659091c6d8986602e8a71f03673742d20d1be08f6',
+    'systemap.model': 'd020f2ac028ee9ea77b0a58f03662d0973663d494e54febbb31ae006fc3fdd7a',
     'systemap.nest': '937fc07562507dbdf771033894d9840d72df27b084cff0c6700038de28ecba7c',
     'systemap.page': '13bedc4c9e00d115ee02aea45e88c5913f7687b7c13cda1668d51eb6069bb868',
     'systemap.place': '753ad42b2d53f0bc814581c85f0b3a6b151f2362ba31ef109422e7bba409f9a2',
@@ -360,7 +377,7 @@ _FLOW_REVIEWS = {
     'Config -> Page': ('systemap.config systemap.page', 'aac2ae34a244c0962a5fd26500827644d51fb6c88dabc1d6856ff2a5ffb13ba1'),
     'Config -> Figures': ('systemap.config systemap.figure systemap.cli', '825992e329547ee45a040980be6d3eb58a7f768ba371ae4c09bd8da29ed9146c'),
     'Config -> Check': ('systemap.config systemap.check systemap.cli', '8a150a1624bb33d0a306abff17daaaf8e29d014c2f13917c12f988a049635a9d'),
-    'Config -> Judgement': ('systemap.config systemap.judgement systemap.cli', 'bc1beb38711838751030450fd64e24031e3ed4c2d49ee780f553f497ec86ae76'),
+    'Config -> Judgement': ('systemap.config systemap.judgement systemap.judgement_evidence systemap.cli', 'bc1beb38711838751030450fd64e24031e3ed4c2d49ee780f553f497ec86ae76'),
     'Config -> SecondOpinion': ('systemap.config systemap.jev_cli systemap.audit', 'a58c2233b6429362e80facabf4bff86872b891b549831741bfef79346f50697d'),
     'FactsExtractor -> SecondOpinion': ('systemap.jev_cli systemap.audit', '6d1e64932828cd751159ffd02f8e5b6632191a22a69200cb285db7adc2fb94cc'),
     'SecondOpinion -> ChangeDetector': ('systemap.jev_cli systemap.cli systemap.delta', '75fafe32a725f0cf5a916e3c123fde99f9c4c6243e85b7576ac7b1f4a302b1a2'),
@@ -377,7 +394,7 @@ _FLOW_REVIEWS = {
     'Model -> Placer': ('systemap.model systemap.place', 'f26fd830df40bce6a649389ad6dee626c8e3c08f04b4f58eea68b1a2df150291'),
     'Placer -> Model': ('systemap.place', '3a88def8f0aeab3e8477e8a33eb24e226b9d6fe53041f2a8521ff31d26a933fa'),
     'Model -> FactsExtractor': ('systemap.model systemap.extract', '48a9f4a4ee9c83cb45b7bf66b6294dbe2472aedba4dcbe3f76b348245b874ac1'),
-    'Model -> ChangeDetector': ('systemap.model systemap.change', 'ee87a35aae72edbac0a1af05869a8dacee2bdb082d4516c3eb925a24d150c251'),
+    'Model -> ChangeDetector': ('systemap.model systemap.card_review systemap.change systemap.delta', '1c34991097a893911ddffa699040f12f929cde1eed6d45caafd5f73abe25a5d5'),
     'Model -> Schematic': ('systemap.model systemap.schematic', '452e787fb91022f66f3035a2ec3f8823d7b4c015069d65c7b92169db81ca4073'),
     'Model -> Check': ('systemap.model systemap.check', 'e0c41a068acc1a0275328bec0b7885576df9d51714f62cc2eaada0a71955714d'),
     'Model -> CLI': ('systemap.model systemap.nest systemap.cli', '20688cabac944689993f8a9406a4747b689d82004e6079b21730571712319848'),
@@ -641,7 +658,7 @@ _RELATIONS = {
     "Model -> Placer": "The placer reads the cards, their regions and the flows between them; a card with x and y is kept, and with --all only a pinned card is.",
     "Placer -> Model": "The placer writes the positions, the boxes and the canvas into map/model.py in place; the rest of the file is kept byte for byte.",
     "Model -> FactsExtractor": "The extractor reads the model's claims to warn about a module the tree no longer has.",
-    "Model -> ChangeDetector": "The change detector attributes changed modules to the components that claim them.",
+    "Model -> ChangeDetector": "The change detector attributes changed modules to their cards and compares each card's recorded source review with the digest of its current source and claims.",
     "Model -> Schematic": "The model is the topology the schematic draws and the meaning it prints on the wheel.",
     "Model -> Check": "The check reads the model's contradictions before drawing. It still checks coverage, entries and interfaces when the model has a contradiction.",
     "Model -> CLI": "The commands load the model and its meaning through the map tree. They check model contradictions before rendering and use the model for other commands.",

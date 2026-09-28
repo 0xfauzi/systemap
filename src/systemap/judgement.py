@@ -83,7 +83,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, explain, nest
+from systemap import evidence, explain, judgement_evidence, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
 from systemap.extract import unknown_fact_lines
@@ -501,17 +501,6 @@ def run_tree(
 # ---- answers: the exact line, or a family of lines with one reason ------------
 
 
-def _source_hash(root: Path, record: dict[str, Any]) -> str:
-    """Read the current source, since saved facts may predate an uncommitted edit."""
-    name = record.get("file")
-    if not isinstance(name, str):
-        return "unknown source"
-    try:
-        return hashlib.sha256((root / name).read_bytes()).hexdigest()
-    except OSError:
-        return "missing source"
-
-
 def evidence_for_tree(
     tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str]
 ) -> dict[str, str]:
@@ -544,36 +533,10 @@ def _map_answer_evidence(
     for key in lines:
         if not key.startswith(m.prefix):
             continue
-        state = _answer_evidence_state(components, root, model_hash, crossings.get(key))
+        state = judgement_evidence.answer_state(components, root, model_hash, crossings.get(key))
         encoded = json.dumps(state, sort_keys=True, default=str).encode()
         out[key] = hashlib.sha256(encoded).hexdigest()
     return out
-
-
-def _answer_evidence_state(
-    components: dict[str, Any],
-    root: Path,
-    model_hash: str,
-    imports: list[tuple[str, str]] | None,
-) -> Any:
-    if imports is None:
-        return {
-            "model": model_hash,
-            "facts": [
-                (name, record, _source_hash(root, record))
-                for name, record in sorted(components.items())
-            ],
-        }
-    return [
-        (
-            source,
-            target,
-            components[source].get("uses", {}).get(target, []),
-            _source_hash(root, components[source]),
-            _source_hash(root, components[target]),
-        )
-        for source, target in imports
-    ]
 
 
 def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:

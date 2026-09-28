@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
@@ -55,6 +57,31 @@ def test_language_defaults_to_python_and_may_be_stated(tmp_path: Path) -> None:
     stated = config.load(tmp_path)
     assert stated.language == "python"
     assert extract.build(stated) == extract.build(default)
+
+
+def test_python_provenance_tracks_minor_version_not_patch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_tree(tmp_path, TINY_PACKAGE)
+    cfg = config.load(tmp_path)
+    original_sys = sys
+
+    def provenance(major: int, minor: int, micro: int) -> dict[str, object]:
+        version_info = SimpleNamespace(major=major, minor=minor, micro=micro)
+        monkeypatch.setattr(extract, "sys", SimpleNamespace(version_info=version_info))
+        return extract._provenance(cfg, None)
+
+    try:
+        first = provenance(3, 11, 10)
+        patch_release = provenance(3, 11, 16)
+        next_minor = provenance(3, 12, 0)
+    finally:
+        monkeypatch.setattr(extract, "sys", original_sys)
+
+    assert first == patch_release
+    assert first["parser"] == "3.11"
+    assert next_minor["parser"] == "3.12"
+    assert first != next_minor
 
 
 def test_unknown_language_is_refused(tmp_path: Path) -> None:

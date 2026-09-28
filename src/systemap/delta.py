@@ -62,7 +62,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import delta_report, evidence, extract, graph, nest
+from systemap import card_review, delta_report, evidence, extract, graph, nest
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
@@ -564,7 +564,8 @@ def _evidence_review_lines(
     }
     for card in model.components:
         affected = sorted(semantic & set(claimed(card, h)))
-        if affected:
+        current_review = card_review.digest(card, model, meaning, head)
+        if affected and (not current_review or card.source_review != current_review):
             lines.append(
                 Line(
                     "source review",

@@ -113,6 +113,9 @@ class Component:
     file, to a module that exports `MODEL` and `MEANING` like any model,
     whose cards claim exactly the modules this card claims and whose
     actors are cards of this map (`systemap.nest` walks the tree).
+    `source_review` records a maintainer's review of the current parsed
+    source and the card's description, flows, journeys and invariants.
+    `systemap delta` reopens the review when that digest changes.
     """
 
     id: str
@@ -129,6 +132,7 @@ class Component:
     calls_model: bool = False
     map: str | None = None
     pinned: bool = False
+    source_review: str = ""
 
     @property
     def opens(self) -> bool:

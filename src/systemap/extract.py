@@ -1337,7 +1337,9 @@ def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
         path = cfg.root / relative
         if path.is_file():
             files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-    parser = sys.version.split()[0]
+    # CPython patch releases share a grammar. Keep minor changes visible,
+    # because they can change the AST used to derive the public surface.
+    parser = f"{sys.version_info.major}.{sys.version_info.minor}"
     if cfg.language == "typescript":
         parser = ", ".join(
             f"{package} {importlib.metadata.version(package)}"
