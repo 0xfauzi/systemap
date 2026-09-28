@@ -20,7 +20,7 @@ from systemap.typescript_config import (
     root_candidates,
     source_targets,
 )
-from systemap.typescript_surface import _root as parse_root
+from systemap.typescript_surface import _tree as parse_tree
 from systemap.typescript_surface import parse_problem, parse_surface, test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx")
@@ -68,8 +68,8 @@ def _test_file_guards(
         raw = path.read_text(encoding="utf-8")
     except OSError:
         return {}
-    root = parse_root(raw, path.as_posix())
-    if root is None:
+    root = parse_tree(raw, path.as_posix())
+    if root.has_error:
         context.test_issues.append(
             {
                 "file": path.relative_to(repo).as_posix(),
@@ -82,12 +82,13 @@ def _test_file_guards(
         for specifier, _names in _imports(root)
         if (target := _target_from_path(specifier, path, paths, context))
     }
-    names = test_names(raw, path.as_posix())[:TESTS_KEPT]
+    names = test_names(raw, path.as_posix())
     stem = path.name.split(".", 1)[0].removeprefix("test_")
     guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for target in targets:
         primary = stem == target.rsplit(".", 1)[-1]
-        guards[target] = [{"name": name, "primary": primary} for name in names]
+        relative = path.relative_to(repo).as_posix()
+        guards[target] = [{"name": f"{relative}::{name}", "primary": primary} for name in names]
     return dict(guards)
 
 
@@ -121,9 +122,10 @@ def _test_file(path: str, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]
 def _path_choices(target: Path) -> list[Path]:
     if target.suffix in SOURCE_SUFFIXES:
         return [target]
-    stem = target.with_suffix("") if target.suffix else target
-    return [stem.with_suffix(suffix) for suffix in SOURCE_SUFFIXES] + [
-        (stem / "index").with_suffix(suffix) for suffix in SOURCE_SUFFIXES
+    if target.suffix in (".js", ".jsx", ".mjs", ".cjs"):
+        target = Path(_without_script_suffix(str(target)))
+    return [Path(str(target) + suffix) for suffix in SOURCE_SUFFIXES] + [
+        target / f"index{suffix}" for suffix in SOURCE_SUFFIXES
     ]
 
 
@@ -134,19 +136,33 @@ def _target_from_path(
     context: TypeScriptContext,
 ) -> str | None:
     if specifier.startswith("."):
-        targets = [importer.parent / _without_script_suffix(specifier)]
+        targets = _relative_targets(specifier, importer, context.compiler.root_dirs)
     else:
-        normalized = _module_name(_without_script_suffix(specifier))
-        named = next((name for name in (normalized, f"{normalized}.index") if name in paths), None)
-        if named:
-            return named
         targets = alias_targets(specifier, context.compiler, context.repo)
+    found = _first_target(targets, context.modules_by_path)
+    if found is not None or specifier.startswith("."):
+        return found
+    normalized = _module_name(_without_script_suffix(specifier))
+    return next((name for name in (normalized, f"{normalized}.index") if name in paths), None)
+
+
+def _relative_targets(specifier: str, importer: Path, root_dirs: tuple[Path, ...]) -> list[Path]:
+    relative = (importer.parent / _without_script_suffix(specifier)).resolve()
+    targets = [relative]
+    for source_root in root_dirs:
+        if importer.resolve().is_relative_to(source_root) and relative.is_relative_to(source_root):
+            tail = relative.relative_to(source_root)
+            targets.extend(root / tail for root in root_dirs if root != source_root)
+    return targets
+
+
+def _first_target(targets: list[Path], modules_by_path: dict[Path, str]) -> str | None:
     return next(
         (
-            context.modules_by_path[choice.resolve()]
+            modules_by_path[choice.resolve()]
             for target in targets
             for choice in _path_choices(target)
-            if choice.resolve() in context.modules_by_path
+            if choice.resolve() in modules_by_path
         ),
         None,
     )
@@ -232,6 +248,16 @@ def _text(node: Any | None) -> str:
     return (node.text or b"").decode("utf-8") if node is not None else ""
 
 
+def _syntax_tokens(node: Any) -> Iterator[str]:
+    if node.type == "comment":
+        return
+    if not node.children:
+        yield f"{node.type}:{_text(node)}"
+    else:
+        for child in node.children:
+            yield from _syntax_tokens(child)
+
+
 def _source(node: Any) -> str:
     source = node.child_by_field_name("source")
     if source is None or source.type != "string":
@@ -242,15 +268,98 @@ def _source(node: Any) -> str:
     return (fragment.text or b"").decode("utf-8") if fragment is not None else ""
 
 
-def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
+def _static_imports(root: Any) -> Iterator[tuple[str, set[str]]]:
     for node in root.named_children:
-        specifier = _source(node)
-        if not specifier:
-            continue
-        if node.type == "import_statement":
-            yield specifier, _imported_names(node)
-        elif node.type == "export_statement":
-            yield specifier, _exported_names(node)
+        imported = _static_import(node)
+        if imported is not None:
+            yield imported
+
+
+def _static_import(node: Any) -> tuple[str, set[str]] | None:
+    if node.has_error:
+        return _error_import(node)
+    specifier = _source(node)
+    if node.type == "import_statement" and not specifier:
+        clause = next(
+            (child for child in node.named_children if child.type == "import_require_clause"),
+            None,
+        )
+        if clause is not None and (specifier := _source(clause)):
+            return specifier, {WHOLE_MODULE}
+    if not specifier:
+        return None
+    if node.type == "import_statement":
+        return specifier, _imported_names(node)
+    if node.type == "export_statement":
+        return specifier, _exported_names(node)
+    return None
+
+
+def _error_import(node: Any) -> tuple[str, set[str]] | None:
+    if node.type == "export_statement" and _text(node).lstrip().startswith("export type * from"):
+        if specifier := _source(node):
+            return specifier, {WHOLE_MODULE}
+    return None
+
+
+def _dynamic_imports(root: Any) -> Iterator[tuple[str, set[str]]]:
+    for node in _walk(root):
+        specifier = _dynamic_specifier(node)
+        if specifier is not None:
+            yield specifier, {WHOLE_MODULE}
+
+
+def _dynamic_specifier(node: Any) -> str | None:
+    if node.type != "call_expression" or node.has_error:
+        return None
+    function = node.child_by_field_name("function")
+    if _text(function) not in ("import", "require"):
+        return None
+    arguments = node.child_by_field_name("arguments")
+    first = arguments.named_children[0] if arguments and arguments.named_children else None
+    if first is None or first.type != "string":
+        return None
+    fragment = next(
+        (child for child in first.named_children if child.type == "string_fragment"),
+        None,
+    )
+    return _text(fragment) if fragment is not None else None
+
+
+def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
+    yield from _static_imports(root)
+    yield from _dynamic_imports(root)
+
+
+def _program_inputs(inputs: list[Path], compiler: TypeScriptConfig, repo: Path) -> list[Path]:
+    """Include source files reached from tsconfig inputs before inferring emit root."""
+    seen = {path.resolve() for path in inputs}
+    queue = list(seen)
+    for path in queue:
+        for found in _program_dependencies(path, compiler, repo):
+            if found not in seen:
+                seen.add(found)
+                queue.append(found)
+    return queue
+
+
+def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) -> Iterator[Path]:
+    try:
+        root = parse_tree(path.read_text(encoding="utf-8"), path.as_posix())
+    except (OSError, UnicodeError):
+        return
+    for specifier, _ in _imports(root):
+        targets = (
+            [(path.parent / _without_script_suffix(specifier)).resolve()]
+            if specifier.startswith(".")
+            else alias_targets(specifier, compiler, repo)
+        )
+        for target in targets:
+            found = next(
+                (choice.resolve() for choice in _path_choices(target) if choice.is_file()), None
+            )
+            if found is not None and not found.name.endswith(".d.ts"):
+                yield found
 
 
 def _problem(line: int, reason: str, source: str) -> dict[str, Any]:
@@ -295,7 +404,9 @@ class TypeScriptLanguage:
             compiler=compiler,
             tests_dirs=tests_dirs,
             test_patterns=test_patterns,
-            source_roots=root_candidates(compiler, input_files(compiler)),
+            source_roots=root_candidates(
+                compiler, _program_inputs(input_files(compiler), compiler, repo)
+            ),
         )
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
@@ -335,6 +446,7 @@ class TypeScriptLanguage:
                 "errors": [],
                 "constants": [],
                 "names": [],
+                "api": [],
                 "unknown": [parse_problem(raw, path.as_posix())],
             }
         for entry in surface["names"]:
@@ -358,6 +470,10 @@ class TypeScriptLanguage:
             "file": path.relative_to(repo).as_posix(),
             "loc": len(raw.splitlines()),
             "sha": hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:12],
+            "source_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+            "syntax_sha": hashlib.sha256(
+                "\0".join(_syntax_tokens(parse_tree(raw, path.as_posix()))).encode()
+            ).hexdigest()[:16],
             **surface,
             "constants": surface["constants"][:CONSTANTS_KEPT],
         }
@@ -375,8 +491,8 @@ class TypeScriptLanguage:
     ) -> dict[str, set[str]]:
         del prefixes, is_package, repo
         source_path = (paths or {}).get(module)
-        root = parse_root(raw, source_path.as_posix() if source_path else "")
-        if root is None or context is None:
+        root = parse_tree(raw, source_path.as_posix() if source_path else "")
+        if context is None:
             return {}
         uses: dict[str, set[str]] = defaultdict(set)
         for specifier, names in _imports(root):
@@ -395,8 +511,8 @@ class TypeScriptLanguage:
         context: TypeScriptContext | None = None,
     ) -> list[str]:
         source_path = (paths or {}).get(module)
-        root = parse_root(raw, source_path.as_posix() if source_path else "")
-        if root is None or context is None:
+        root = parse_tree(raw, source_path.as_posix() if source_path else "")
+        if context is None:
             return []
         out = {
             specifier

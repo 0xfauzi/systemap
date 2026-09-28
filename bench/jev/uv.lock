@@ -219,16 +219,24 @@ wheels = [
 
 [[package]]
 name = "systemap"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "../../" }
 
 [package.metadata]
+requires-dist = [
+    { name = "tree-sitter", marker = "extra == 'typescript'", specifier = ">=0.25,<0.26" },
+    { name = "tree-sitter-typescript", marker = "extra == 'typescript'", specifier = ">=0.23,<0.24" },
+]
+provides-extras = ["typescript"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", specifier = ">=1.10" },
+    { name = "pre-commit", specifier = ">=4,<5" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.5" },
+    { name = "tree-sitter", specifier = ">=0.25,<0.26" },
+    { name = "tree-sitter-typescript", specifier = ">=0.23,<0.24" },
 ]
 
 [[package]]

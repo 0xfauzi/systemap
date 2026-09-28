@@ -161,12 +161,19 @@ class Component:
 
 @dataclass(frozen=True)
 class Flow:
-    """One artifact travelling from `src` to `dst`, in one dataflow `kind`."""
+    """One artifact travelling from `src` to `dst`, in one dataflow `kind`.
+
+    `source_refs` records source reviewed for this claim. Each reference names
+    a module, an optional symbol, and the digest of that module's source.
+    `review_digest` binds that review to the flow fields and its sentence.
+    """
 
     src: str
     dst: str
     artifact: str
     kind: str
+    source_refs: tuple[str, ...] = ()
+    review_digest: str = ""
 
     @property
     def edge(self) -> Edge:
@@ -196,16 +203,18 @@ class Step:
 class Journey:
     """One walk through the system, as a reader would take it.
 
-    `starts` names the entry point the walk begins at, as the facts name it
-    (a console script, a route, a command, a task). It is what ties the walk
-    to a real way in, so `systemap judgement` can say which ways in still
-    have no journey without reading the sentences for the name.
+    `starts` displays the way in or card where the walk begins. `covers`
+    lists exact identities of the entries reviewed in the walk. Each identity
+    records kind, module, target, and local name, so a newly found route on
+    the same card needs its own review.
     """
 
     id: str
     label: str
     steps: tuple[Step, ...]
     starts: str = ""
+    # Stable identities of the exact ways in reviewed for this walk.
+    covers: tuple[str, ...] = ()
     # written by `systemap journeys` and not yet read by the maintainer
     drafted: bool = False
 
@@ -607,17 +616,25 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
         if cid not in ids:
             out.append(f"plain names an unknown component: {cid}")
     for j in meaning.journeys:
-        for k, step in enumerate(j.steps, start=1):
-            where = f"journey {j.id} step {k}"
-            for role, members in (("acts", step.acts), ("measures", step.measures)):
-                for cid in members:
-                    if cid not in ids:
-                        out.append(f"{where} {role} names unknown component {cid}")
-            if step.edge not in edges:
-                out.append(
-                    f"{where} traces a flow the model does not have: "
-                    f"{step.edge[0]} -> {step.edge[1]}"
-                )
+        out.extend(_journey_problems(j, ids, edges))
+    return out
+
+
+def _journey_problems(journey: Journey, ids: set[str], edges: set[Edge]) -> list[str]:
+    """Invalid references in one reviewed journey, in authored step order."""
+    out: list[str] = []
+    if not journey.steps:
+        out.append(f"journey {journey.id} has no steps; add the reviewed walk or remove it")
+    for k, step in enumerate(journey.steps, start=1):
+        where = f"journey {journey.id} step {k}"
+        for role, members in (("acts", step.acts), ("measures", step.measures)):
+            for cid in members:
+                if cid not in ids:
+                    out.append(f"{where} {role} names unknown component {cid}")
+        if step.edge not in edges:
+            out.append(
+                f"{where} traces a flow the model does not have: {step.edge[0]} -> {step.edge[1]}"
+            )
     return out
 
 

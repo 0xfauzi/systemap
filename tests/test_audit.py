@@ -299,6 +299,40 @@ def test_audit_on_recorded_answers(sample: Sample) -> None:
     assert client.usage.sent == 15 or recording.recording
 
 
+def test_audit_answers_need_evidence_or_explicit_policy() -> None:
+    line = audit.Line("jev flow: A -> B ('x'): the code where they meet may not carry it")
+    digest = "a" * 64
+    legacy = audit.apply_reviewed(
+        [line], [Answer((line.text,), "reviewed")], {line.text: digest}, audit.KINDS
+    )
+    assert legacy.open == [line]
+    assert len(legacy.pending) == 1
+    exact = audit.apply_reviewed(
+        [line],
+        [Answer((line.text,), "reviewed", evidence=digest)],
+        {line.text: digest},
+        audit.KINDS,
+    )
+    assert exact.open == [] and exact.answered == 1
+    changed = audit.apply_reviewed(
+        [line],
+        [Answer((line.text,), "reviewed", evidence=digest)],
+        {line.text: "b" * 64},
+        audit.KINDS,
+    )
+    assert changed.open == [line]
+    broad = audit.apply_reviewed(
+        [line],
+        [Answer((), "standing rule", kind="jev flow", policy=True)],
+        {line.text: digest},
+        audit.KINDS,
+    )
+    assert broad.open == []
+    assert broad.policies == [
+        'kind = "jev flow" covers 1 current lines; 1 outside its reviewed baseline'
+    ]
+
+
 @pytest.fixture
 def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})

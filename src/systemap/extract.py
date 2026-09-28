@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import hashlib
+import importlib.metadata
 import json
 import re
 import subprocess
@@ -32,9 +33,8 @@ from systemap.language import LanguageAdapter
 from systemap.model import Model, is_symbol, module_matches, public_names
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
-# The facts format. 2 since a package __init__ records the names it
-# re-exports; a stored file of an older format is reported as stale.
-FORMAT = 2
+# A stored file of an older facts format is reported as stale.
+FORMAT = 3
 TESTS_KEPT = 25
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
@@ -136,7 +136,12 @@ class PythonLanguage:
         context: Any,
     ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
         del context
-        return entry_points(repo, prefixes, components, sources), []
+        issues = [
+            issue
+            for module, source in sources.items()
+            for issue in ways_in.registration_candidates(module, source)
+        ]
+        return entry_points(repo, prefixes, components, sources), issues
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw)
@@ -183,7 +188,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "the facts format; 2, since a package `__init__` records the names it re-exports; "
+        "the facts format; 3, with extraction provenance and complete test identity digests; "
         "`extract --check` reports a file of an older format as stale",
     ),
     (
@@ -196,6 +201,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ("facts", "packages", "the import names of the package roots"),
     (
         "facts",
+        "provenance",
+        "the source-language parser and extraction inputs used for these facts; a change "
+        "requires a fresh review even when source files are unchanged",
+    ),
+    (
+        "facts",
         "tests_dirs",
         "the directories test files were read from, relative to the root: the "
         "configured `tests_dir`, or every directory named `tests` or `test`",
@@ -205,8 +216,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "entry_point_issues",
-        "TypeScript-only: package `bin` or `exports` targets that could not be mapped back to a "
-        "source module; empty when none",
+        "package entry targets or Python decorators whose framework binding could not be "
+        "verified; empty when none",
     ),
     (
         "facts",
@@ -227,6 +238,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ("module", "plane", "the second segment when `planes` names it, else `core`"),
     ("module", "loc", "lines in the file"),
     ("module", "sha", "twelve hex digits of the source's SHA-1: the change detector's key"),
+    ("module", "source_sha256", "full SHA-256 of source bytes, for reviewed source references"),
+    (
+        "module",
+        "syntax_sha",
+        "digest of parsed syntax without comments or formatting, for source review",
+    ),
     ("module", "docstring", "the first paragraph of the module docstring, capped"),
     ("module", "functions", "public functions: `name` and `signature`"),
     (
@@ -246,6 +263,17 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "imports from the package's own modules, with `reexport_of` naming the module "
         "that defines it and the kind that module gives it (`module` for a submodule "
         "imported whole). A component's `entry` and `interface` may name any of them",
+    ),
+    (
+        "module",
+        "api",
+        "the complete exported identities used by surface diffs: exported name, display bucket, "
+        "and a declaration fingerprint that excludes callable bodies",
+    ),
+    (
+        "module",
+        "executes",
+        "Python-only: a top-level call makes a package initializer more than an empty marker",
     ),
     (
         "module",
@@ -271,6 +299,16 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ("module", "tests_total", "how many test functions import this module"),
     ("module", "tests_primary", "how many of those sit in a file named after the module"),
     ("module", "tests", "the names of up to 25 of those tests, primary first"),
+    (
+        "module",
+        "tests_digest",
+        "a digest of every qualified test identity, including those not displayed",
+    ),
+    (
+        "module",
+        "parse_error",
+        "Python-only: the source file could not be read or parsed, with line and parser version",
+    ),
     (
         "entry point",
         "kind",
@@ -416,70 +454,16 @@ def parse_surface(
     # Every public module-level name with its kind, so an `entry` can be a
     # lower-case object (`app`, `root_agent`) as well as a function or class.
     names: list[dict[str, str]] = []
-    for node in tree.body:
+    statements = _active_statements(tree.body)
+    for node in statements:
         if isinstance(node, ast.ImportFrom) and is_package and module:
-            source = _reexport_source(node, module, prefixes)
-            if source is None:
-                continue
-            for alias in node.names:
-                public = alias.asname or alias.name
-                if alias.name == "*" or public.startswith("_"):
-                    continue
-                entry = {"name": public, "kind": "reexport", "reexport_of": source}
-                if alias.asname:
-                    # The defining module knows it by its own name; `build`
-                    # reads that for the kind and drops it.
-                    entry["defined_as"] = alias.name
-                names.append(entry)
+            names.extend(_surface_reexports(node, module, prefixes))
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            if node.name.startswith("_"):
-                continue
-            names.append({"name": node.name, "kind": "function"})
-            # The signature is the surface; a docstring is prose nobody
-            # renders, and it doubled the facts file on a real tree.
-            functions.append({"name": node.name, "signature": signature(node)})
+            _surface_function(node, names, functions)
         elif isinstance(node, ast.ClassDef):
-            if node.name.startswith("_"):
-                continue
-            bases = []
-            for b in node.bases:
-                with contextlib.suppress(AttributeError, ValueError):
-                    bases.append(ast.unparse(b))
-            is_error = node.name.endswith(("Error", "Exception")) or any(
-                "Error" in b or "Exception" in b for b in bases
-            )
-            record = {
-                "name": node.name,
-                # Full signatures, not names: a class's surface includes what
-                # its methods accept and return, so a parameter change is a
-                # change to the type.
-                "methods": [
-                    signature(n)
-                    for n in node.body
-                    if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
-                    and not n.name.startswith("_")
-                ],
-            }
-            (errors if is_error else classes).append(record)
-            names.append({"name": node.name, "kind": "error" if is_error else "class"})
+            _surface_class(node, names, classes, errors)
         elif isinstance(node, ast.Assign | ast.AnnAssign):
-            # A measured cap declared as `NAME: Final = ...` is an AnnAssign;
-            # handling only Assign missed every tuning module.
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            for target in targets:
-                if not isinstance(target, ast.Name) or target.id.startswith("_"):
-                    continue
-                if node.value is None:
-                    continue
-                if not UPPER_NAME.fullmatch(target.id):
-                    names.append({"name": target.id, "kind": "object"})
-                    continue
-                try:
-                    value = ast.unparse(node.value)
-                except (AttributeError, ValueError):
-                    value = "?"
-                constants.append({"name": target.id, "value": value[:80]})
-                names.append({"name": target.id, "kind": "constant"})
+            _surface_assignment(node, names, constants)
     return {
         "docstring": opening(ast.get_docstring(tree)),
         "functions": functions,
@@ -487,7 +471,175 @@ def parse_surface(
         "errors": errors,
         "constants": constants,
         "names": names,
+        "api": _python_api(statements),
+        "executes": any(
+            isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) for node in statements
+        ),
     }
+
+
+def _surface_reexports(
+    node: ast.ImportFrom, module: str, prefixes: frozenset[str]
+) -> list[dict[str, str]]:
+    source = _reexport_source(node, module, prefixes)
+    if source is None:
+        return []
+    names: list[dict[str, str]] = []
+    for alias in node.names:
+        public = alias.asname or alias.name
+        if alias.name == "*" or public.startswith("_"):
+            continue
+        entry = {"name": public, "kind": "reexport", "reexport_of": source}
+        if alias.asname:
+            entry["defined_as"] = alias.name
+        names.append(entry)
+    return names
+
+
+def _surface_function(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    names: list[dict[str, str]],
+    functions: list[dict[str, Any]],
+) -> None:
+    if node.name.startswith("_"):
+        return
+    names.append({"name": node.name, "kind": "function"})
+    functions.append({"name": node.name, "signature": signature(node)})
+
+
+def _surface_class(
+    node: ast.ClassDef,
+    names: list[dict[str, str]],
+    classes: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> None:
+    if node.name.startswith("_"):
+        return
+    bases = []
+    for base in node.bases:
+        with contextlib.suppress(AttributeError, ValueError):
+            bases.append(ast.unparse(base))
+    is_error = node.name.endswith(("Error", "Exception")) or any(
+        "Error" in base or "Exception" in base for base in bases
+    )
+    record = {
+        "name": node.name,
+        "methods": [
+            signature(child)
+            for child in node.body
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
+            and not child.name.startswith("_")
+        ],
+    }
+    (errors if is_error else classes).append(record)
+    names.append({"name": node.name, "kind": "error" if is_error else "class"})
+
+
+def _surface_assignment(
+    node: ast.Assign | ast.AnnAssign,
+    names: list[dict[str, str]],
+    constants: list[dict[str, str]],
+) -> None:
+    # AnnAssign also covers measured caps declared as `NAME: Final = ...`.
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    for target in targets:
+        if not isinstance(target, ast.Name) or target.id.startswith("_") or node.value is None:
+            continue
+        if not UPPER_NAME.fullmatch(target.id):
+            names.append({"name": target.id, "kind": "object"})
+            continue
+        try:
+            value = ast.unparse(node.value)
+        except (AttributeError, ValueError):
+            value = "?"
+        constants.append({"name": target.id, "value": value[:80]})
+        names.append({"name": target.id, "kind": "constant"})
+
+
+def _active_statements(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Statements whose top-level branch is decidable without running the module."""
+    out: list[ast.stmt] = []
+    for node in body:
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
+            if isinstance(node.test.value, bool):
+                out.extend(_active_statements(node.body if node.test.value else node.orelse))
+                continue
+        out.append(node)
+    return out
+
+
+def _python_class_api(node: ast.ClassDef) -> str:
+    members: list[str] = []
+    for child in node.body:
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            if child.name == "__init__" or not child.name.startswith("_"):
+                members.append(signature(child))
+        elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+            if not child.target.id.startswith("_"):
+                members.append(f"{child.target.id}:{ast.dump(child.annotation)}")
+    return json.dumps(
+        {
+            "bases": [ast.dump(base) for base in node.bases],
+            "decorators": [ast.dump(decorator) for decorator in node.decorator_list],
+            "members": members,
+        },
+        sort_keys=True,
+    )
+
+
+def _python_api(body: list[ast.stmt]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for node in body:
+        out.extend(_python_api_entries(node))
+    return out
+
+
+def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
+        return [{"name": node.name, "bucket": "operations", "fingerprint": signature(node)}]
+    if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
+        bases = [ast.unparse(base) for base in node.bases]
+        error = node.name.endswith(("Error", "Exception")) or any(
+            "Error" in base or "Exception" in base for base in bases
+        )
+        return [
+            {
+                "name": node.name,
+                "bucket": "refusals" if error else "types",
+                "fingerprint": _python_class_api(node),
+            }
+        ]
+    if isinstance(node, ast.ImportFrom):
+        return _python_api_reexports(node)
+    if isinstance(node, ast.Assign | ast.AnnAssign):
+        return _python_api_assignments(node)
+    return []
+
+
+def _python_api_reexports(node: ast.ImportFrom) -> list[dict[str, str]]:
+    source = "." * node.level + (node.module or "")
+    return [
+        {
+            "name": alias.asname or alias.name,
+            "bucket": "constants",
+            "fingerprint": f"reexport:{source}:{alias.name}",
+        }
+        for alias in node.names
+        if (alias.asname or alias.name) != "*" and not (alias.asname or alias.name).startswith("_")
+    ]
+
+
+def _python_api_assignments(node: ast.Assign | ast.AnnAssign) -> list[dict[str, str]]:
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    return [
+        {
+            "name": target.id,
+            "bucket": "constants",
+            "fingerprint": ast.dump(node, include_attributes=False),
+        }
+        for target in targets
+        if isinstance(target, ast.Name) and not target.id.startswith("_")
+    ]
 
 
 def _reexport_source(node: ast.ImportFrom, module: str, prefixes: frozenset[str]) -> str | None:
@@ -502,9 +654,13 @@ def _reexport_source(node: ast.ImportFrom, module: str, prefixes: frozenset[str]
         if not anchor:
             return None
         return ".".join([*anchor, *node.module.split(".")] if node.module else anchor)
-    if not node.module or node.module.split(".")[0] not in prefixes:
+    if not node.module or not _in_package(node.module, prefixes):
         return None
     return node.module
+
+
+def _in_package(name: str, prefixes: Iterable[str]) -> bool:
+    return any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
 
 
 def resolve_reexports(components: dict[str, Any]) -> None:
@@ -521,22 +677,44 @@ def resolve_reexports(components: dict[str, Any]) -> None:
 
 def _expand_star_exports(components: dict[str, Any]) -> None:
     for module, record in components.items():
-        expanded: list[dict[str, Any]] = []
-        for entry in record.get("names", []):
-            if not entry.get("star"):
-                expanded.append(entry)
-                continue
-            source = entry["reexport_of"]
-            expanded.extend(
-                {
-                    "name": item["name"],
-                    "kind": "reexport",
-                    "reexport_of": source,
-                    "defined_as": item["name"],
-                }
-                for item in _star_names(source, components, {module})
-            )
+        expanded = _expanded_names(module, record, components)
         record["names"] = expanded
+        ambiguous = _ambiguous_exports(expanded)
+        if ambiguous:
+            record.setdefault("unknown", []).extend(ambiguous)
+
+
+def _expanded_names(
+    module: str, record: dict[str, Any], components: dict[str, Any]
+) -> list[dict[str, Any]]:
+    expanded: list[dict[str, Any]] = []
+    for entry in record.get("names", []):
+        if not entry.get("star"):
+            expanded.append(entry)
+            continue
+        source = entry["reexport_of"]
+        expanded.extend(
+            {
+                "name": item["name"],
+                "kind": "reexport",
+                "reexport_of": source,
+                "defined_as": item["name"],
+            }
+            for item in _star_names(source, components, {module})
+        )
+    return expanded
+
+
+def _ambiguous_exports(expanded: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sources: dict[str, set[str]] = defaultdict(set)
+    for entry in expanded:
+        if entry.get("reexport_of"):
+            sources[entry["name"]].add(entry["reexport_of"])
+    return [
+        {"line": 0, "reason": f"ambiguous star export {name}", "source": ""}
+        for name, origins in sources.items()
+        if len(origins) > 1
+    ]
 
 
 def _resolve_named_reexports(components: dict[str, Any]) -> None:
@@ -549,13 +727,35 @@ def _resolve_named_reexports(components: dict[str, Any]) -> None:
 def _resolve_named_reexport(entry: dict[str, Any], components: dict[str, Any]) -> None:
     source = entry["reexport_of"]
     original = entry.pop("defined_as", entry["name"])
-    as_module = f"{source}.{original}"
-    if as_module in components:
-        entry["reexport_of"] = as_module
+    if f"{source}.{original}" in components:
+        entry["reexport_of"] = f"{source}.{original}"
         entry["kind"] = "module"
-        return
-    defined = {n["name"]: n["kind"] for n in components.get(source, {}).get("names", [])}
-    entry["kind"] = defined.get(original, "object")
+    else:
+        entry["kind"] = _defined_kind(source, original, components, set())
+
+
+def _defined_kind(
+    source: str, name: str, components: dict[str, Any], visited: set[tuple[str, str]]
+) -> str:
+    if (source, name) in visited:
+        return "unknown"
+    if f"{source}.{name}" in components:
+        return "module"
+    record = components.get(source)
+    if record is None:
+        return "unknown"
+    for item in record.get("names", []):
+        if item["name"] != name:
+            continue
+        if item["kind"] == "reexport":
+            return _defined_kind(
+                item["reexport_of"],
+                item.get("defined_as", item["name"]),
+                components,
+                visited | {(source, name)},
+            )
+        return str(item["kind"])
+    return "unknown"
 
 
 def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
@@ -574,25 +774,60 @@ def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> l
 def collect_module(
     path: Path, repo: Path, module: str = "", prefixes: frozenset[str] = frozenset()
 ) -> dict[str, Any] | None:
+    issue: dict[str, Any] | None = None
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    surface = parse_surface(
-        raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes
+    except (OSError, UnicodeError) as exc:
+        raw = ""
+        issue = {
+            "line": 0,
+            "reason": f"source could not be read: {type(exc).__name__}",
+            "parser": sys.version.split()[0],
+        }
+    surface = (
+        parse_surface(raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes)
+        if issue is None
+        else None
     )
     if surface is None:
-        return None
-    return {
+        if issue is None:
+            try:
+                ast.parse(raw)
+            except (SyntaxError, ValueError) as exc:
+                issue = {
+                    "line": getattr(exc, "lineno", 0) or 0,
+                    "reason": f"source could not be parsed: {type(exc).__name__}",
+                    "parser": sys.version.split()[0],
+                }
+        surface = {
+            "docstring": "",
+            "functions": [],
+            "classes": [],
+            "errors": [],
+            "constants": [],
+            "names": [],
+            "api": [],
+            "executes": False,
+        }
+    try:
+        normalized = ast.dump(ast.parse(raw), include_attributes=False)
+    except (SyntaxError, ValueError):
+        normalized = raw
+    record = {
         "file": path.relative_to(repo).as_posix(),
         "loc": len(raw.splitlines()),
         # A change detector for the map, never a security claim: usedforsecurity=False
         # states that and keeps the digest byte-identical, so committed facts files
         # stay comparable across the flag.
         "sha": hashlib.sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()[:12],
+        "source_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+        "syntax_sha": hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16],
         **surface,
         "constants": surface["constants"][:CONSTANTS_KEPT],
     }
+    if issue is not None:
+        record["parse_error"] = issue
+    return record
 
 
 # In a `uses` mapping, this marks "the whole module": `import m` gives access
@@ -633,7 +868,7 @@ def internal_uses(
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name.split(".")[0] in prefixes:
+                if _in_package(alias.name, prefixes):
                     target = resolve(alias.name)
                     if target:
                         uses[target].add(WHOLE_MODULE)
@@ -657,7 +892,7 @@ def internal_uses(
                 if not node.module:
                     continue
                 src = node.module
-            if src.split(".")[0] not in prefixes:
+            if not _in_package(src, prefixes):
                 continue
             base = resolve(src)
             for alias in node.names:
@@ -697,7 +932,7 @@ def external_imports(raw: str, prefixes: set[str]) -> list[str]:
             continue
         for name in candidates:
             top = name.split(".")[0]
-            if top in prefixes or top in sys.stdlib_module_names or top == "__future__":
+            if _in_package(name, prefixes) or top in sys.stdlib_module_names or top == "__future__":
                 continue
             out.add(name)
     return sorted(out)
@@ -712,16 +947,25 @@ def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str
 
 
 def test_names(raw: str) -> list[str]:
-    """Test functions in one test file's source, at any nesting depth."""
+    """Test functions in one file, qualified by their enclosing definitions."""
     try:
         tree = ast.parse(raw)
     except (SyntaxError, ValueError):
         return []
-    return [
-        n.name
-        for n in ast.walk(tree)
-        if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef) and n.name.startswith("test_")
-    ]
+    found: list[str] = []
+
+    def visit(node: ast.AST, parents: tuple[str, ...]) -> None:
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            parents = (*parents, node.name)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name.startswith(
+                "test_"
+            ):
+                found.append(".".join(parents))
+        for child in ast.iter_child_nodes(node):
+            visit(child, parents)
+
+    visit(tree, ())
+    return found
 
 
 def collect_tests(
@@ -759,7 +1003,9 @@ def collect_tests(
             # distinction is what stops a shared helper from claiming every test.
             primary = stem == target.split(".")[-1]
             for name in names:
-                guards[target].append({"name": name, "primary": primary})
+                guards[target].append(
+                    {"name": f"{path.relative_to(repo).as_posix()}::{name}", "primary": primary}
+                )
     return guards
 
 
@@ -879,10 +1125,10 @@ def entry_points(
 
 def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:
     """The ways in, each named once: two readers can find the same one."""
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str]] = set()
     kept = []
     for point in points:
-        key = (point["kind"], point["name"], point["module"])
+        key = (point["kind"], point["name"], point["module"], point["target"])
         if key not in seen:
             seen.add(key)
             kept.append(point)
@@ -903,11 +1149,26 @@ def entry_label(point: dict[str, str]) -> str:
     return ways_in.label(point) or f"{name}() in {module}"
 
 
+def entry_identity(point: dict[str, str]) -> str:
+    """Exact, stable identity of a way in, separate from its display name."""
+    return json.dumps(
+        [point["kind"], point["module"], point.get("target", ""), point["name"]],
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+
+
 def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
     """The TypeScript facts this extractor could not fully read or connect."""
     out: list[str] = []
     for module, record in sorted(facts.get("components", {}).items()):
         file = record.get("file", module)
+        if issue := record.get("parse_error"):
+            location = f"{file}:{issue['line']}" if issue.get("line") else file
+            out.append(
+                f"unknown surface: module {module} ({location}): {issue['reason']} "
+                f"under Python {issue['parser']}"
+            )
         for issue in record.get("unknown", []):
             line = issue.get("line", 0)
             location = f"{file}:{line}" if line else file
@@ -928,6 +1189,22 @@ def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
             f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
             "the npm tsconfig package could not be read"
         )
+    return out
+
+
+def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:
+    """Discovered files whose source inventory could not be read completely."""
+    out: list[str] = []
+    for module, record in sorted(facts.get("components", {}).items()):
+        if record.get("parse_error"):
+            out.append(f"source inventory unresolved: {module} ({record['file']})")
+        elif any(
+            "syntax could not be parsed" in issue.get("reason", "")
+            for issue in record.get("unknown", [])
+        ):
+            out.append(f"source inventory unresolved: {module} ({record['file']})")
+    for issue in facts.get("test_file_issues", []):
+        out.append(f"source inventory unresolved: test file {issue['file']}")
     return out
 
 
@@ -1036,10 +1313,41 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
         unique.sort(key=lambda t: (not t["primary"], t["name"]))
         record["tests_total"] = len(unique)
         record["tests_primary"] = sum(1 for t in unique if t["primary"])
+        record["tests_digest"] = hashlib.sha256(
+            json.dumps(sorted(t["name"] for t in unique)).encode("utf-8")
+        ).hexdigest()
         # The full list is recoverable from the tree; the map keeps a sample so
         # a committed file that changes on every merge stays diffable by eye.
         # Names only: the sentence is derived where it is displayed.
         record["tests"] = [t["name"] for t in unique[:TESTS_KEPT]]
+
+
+def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
+    settings = {
+        "language": cfg.language,
+        "roots": cfg.package_roots,
+        "tests_dirs": cfg.test_dirs,
+        "test_patterns": cfg.test_patterns,
+        "planes": cfg.planes,
+        "spec_path": cfg.spec_path,
+        "compiler": repr(getattr(context, "compiler", None)),
+    }
+    files: dict[str, str] = {}
+    for relative in ("pyproject.toml", "package.json", "tsconfig.json"):
+        path = cfg.root / relative
+        if path.is_file():
+            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    parser = sys.version.split()[0]
+    if cfg.language == "typescript":
+        parser = ", ".join(
+            f"{package} {importlib.metadata.version(package)}"
+            for package in ("tree-sitter", "tree-sitter-typescript")
+        )
+    return {
+        "parser": parser,
+        "settings": hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest(),
+        "files": files,
+    }
 
 
 def _facts_file(
@@ -1058,6 +1366,7 @@ def _facts_file(
         "version": FORMAT,
         "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
         "packages": sorted(prefixes),
+        "provenance": _provenance(cfg, context),
         "tests_dirs": list(tests_dirs),
         "spec_sections": spec_sections(cfg.root, cfg.spec_path),
         "entry_points": points,
@@ -1104,14 +1413,9 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
             f"facts format {stored.get('version')} is older than the extractor's "
             f"{fresh.get('version')}; the file records less than the extractor reads"
         )
-    # Entry points come partly from pyproject.toml, which no module hash
-    # covers, so they are compared on their own.
-    new_e = {entry_label(e) for e in fresh.get("entry_points", [])}
-    old_e = {entry_label(e) for e in (stored or {}).get("entry_points", [])}
-    for label in sorted(new_e - old_e):
-        out.append(f"entry point not in the map: {label}")
-    for label in sorted(old_e - new_e):
-        out.append(f"entry point in the map but gone from the tree: {label}")
+    if stored and stored.get("provenance") != fresh.get("provenance"):
+        out.append("extraction inputs changed since the map was built")
+    out.extend(_entry_drift(fresh, stored))
     added = sorted(set(new_c) - set(old_c))
     gone = sorted(set(old_c) - set(new_c))
     moved = sorted(m for m in set(new_c) & set(old_c) if new_c[m]["sha"] != old_c[m]["sha"])
@@ -1122,7 +1426,7 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
     guards_changed = sorted(
         m
         for m in set(new_c) & set(old_c)
-        if new_c[m].get("tests_total") != old_c[m].get("tests_total")
+        if new_c[m].get("tests_digest") != old_c[m].get("tests_digest")
     )
     for m in added:
         out.append(f"missing from the map: {m}")
@@ -1130,6 +1434,48 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
         out.append(f"in the map but gone from the tree: {m}")
     for m in moved:
         out.append(f"code changed since the map was built: {m}")
+    out.extend(_component_drift(new_c, old_c, moved, guards_changed))
+    return out
+
+
+def _entry_drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
+    """Compare entry points separately: a pyproject change has no module hash."""
+    new_entries = fresh.get("entry_points", [])
+    old_entries = (stored or {}).get("entry_points", [])
+    new_e = {entry_label(e) for e in new_entries}
+    old_e = {entry_label(e) for e in old_entries}
+    out = [f"entry point not in the map: {label}" for label in sorted(new_e - old_e)]
+    out += [
+        f"entry point in the map but gone from the tree: {label}" for label in sorted(old_e - new_e)
+    ]
+    if {json.dumps(e, sort_keys=True) for e in new_entries} != {
+        json.dumps(e, sort_keys=True) for e in old_entries
+    } and new_e == old_e:
+        out.append("entry point targets changed since the map was built")
+    return out
+
+
+def _component_drift(
+    new_c: dict[str, Any], old_c: dict[str, Any], moved: list[str], guards_changed: list[str]
+) -> list[str]:
+    """Compare derived module facts and test attribution after source changes."""
+    out: list[str] = []
+    derived = (
+        "uses",
+        "imports",
+        "imported_by",
+        "external",
+        "names",
+        "functions",
+        "classes",
+        "errors",
+        "constants",
+        "unknown",
+        "parse_error",
+    )
+    for m in sorted(set(new_c) & set(old_c) - set(moved)):
+        if any(new_c[m].get(key) != old_c[m].get(key) for key in derived):
+            out.append(f"derived facts changed since the map was built: {m}")
     for m in guards_changed:
         was = (old_c[m] or {}).get("tests_total", 0)
         now = new_c[m].get("tests_total", 0)
@@ -1215,6 +1561,8 @@ def is_empty_marker(record: Mapping[str, Any]) -> bool:
     coverage rule both read it.
     """
     if not str(record.get("file", "")).endswith("__init__.py"):
+        return False
+    if record.get("parse_error") or record.get("unknown") or record.get("executes"):
         return False
     return not public_names(record) and not record.get("imports") and not record.get("external")
 

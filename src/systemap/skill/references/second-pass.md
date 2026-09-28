@@ -10,6 +10,11 @@ and the model does not carry. The second pass finds those. Expect it to
 change the model; a second pass that changes nothing on the first try is
 the exception.
 
+Without Jev, inspect every module's card assignment. `possible mis-fold`
+selects modules by name and package, and it misses wrong assignments that
+share those features with the card. A quiet judgement report does not mean
+the card assignments are correct.
+
 ## The loop
 
 1. Run `systemap judgement`. Read every line. For each, do one of two
@@ -23,28 +28,48 @@ the exception.
    [judgement]
    answered = [
        # item: the exact line as printed (here a declared flow that is real and joined by nothing in the tree)
-       { item = "declared flow: Gateway -> Renderer (render job): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the job crosses to the render container as an HTTP request; the client is generated at build time and is not in the tree" },
+       { item = "declared flow: Gateway -> Renderer (render job): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the job crosses to the render container as an HTTP request; the client is generated at build time and is not in the tree", evidence = "<digest from pending answer>" },
        # items: several exact lines, one reason
-       { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
+       { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package", evidence = "<digest from pending answer>" },
        # crossing: every crossing-import line between any two of these components, either direction
-       { crossing = ["Page", "Figures", "Describe"], reason = "the three drawers share the schematic's tables; every pair among them" },
+       { crossing = ["Page", "Figures", "Describe"], policy = true, reason = "the three drawers share the schematic's tables; every pair among them" },
        # crossing_into: every crossing import into one component, whoever imports it
-       { crossing_into = "Model", reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
+       { crossing_into = "Model", policy = true, reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
        # crossing_from: every crossing import out of one component, whatever it imports
-       { crossing_from = "CLI", reason = "the commands import every part they run; the control edges are the ones the map draws" },
+       { crossing_from = "CLI", policy = true, reason = "the commands import every part they run; the control edges are the ones the map draws" },
        # kind: every line of one kind (single module, possible mis-fold, no sentence,
        # thin layer, entry point, crossing import, declared flow, model sdk)
-       { kind = "single module", reason = "a small package with one module per part; each card is a thing a reader would name" },
+       { kind = "single module", policy = true, reason = "a small package with one module per part; each card is a thing a reader would name" },
        # module_sdk: every model sdk line for one import
-       { module_sdk = "google.adk", reason = "the framework's tool and session modules import it too; the agents are the cards of kind agent" },
+       { module_sdk = "google.adk", policy = true, reason = "the framework's tool and session modules import it too; the agents are the cards of kind agent" },
    ]
    ```
+
+   The digest in an exact answer must be the SHA-256 value printed by a
+   pending answer after reviewing its current evidence. The placeholders
+   above are not usable digests. An old exact answer without a digest stays
+   open. A broad answer is a standing policy only with `policy = true`.
+   Add `reviewed = ["<printed line>", ...]` to record the instances reviewed
+   when the policy was written. The report counts current matches outside
+   that baseline.
 
    The list can run past what one tool call shows. `systemap judgement
    --kind "crossing import"` prints one kind at a time (the head still
    counts every open line, and `--strict` reads them all).
 
-2. Walk every crossing import. The line reads: `crossing import: P
+2. Review every claimed module, including modules with no judgement line.
+   `systemap facts --modules` is the complete list. For each module, compare
+   its docstring and public names from `systemap facts --module NAME` with its
+   card's `does`, plain sentence and `interface`. Read the source when those
+   facts do not establish its job. Check whether another card describes that
+   job more precisely; if neither card does, change the cards before marking
+   the assignment reviewed. A shared package, word or import is evidence of
+   proximity, not proof of purpose. Record an ambiguous choice in the
+   hand-back with the code evidence and the reason for keeping it. This pass
+   covers every module because a rule that only prints suspects cannot find
+   the wrong assignment it never suspects.
+
+3. Walk every crossing import. The line reads: `crossing import: P
    imports Q in N modules and no flow joins them`, one line per ordered
    pair of cards; `systemap judgement --verbose` lists the imports under
    it (`module A imports module B`). Open A, find the import, and ask
@@ -57,18 +82,18 @@ the exception.
    - a grouping error: A and B belong in the same component, or A is in
      the wrong one; regroup. This is the most common finding.
 
-3. Walk every declared flow. The line reads: `declared flow: P -> Q
+4. Walk every declared flow. The line reads: `declared flow: P -> Q
    (artifact): no import joins them`. The map claims an edge the facts
    do not back: no module of P imports a module of Q or the other way
    round, and neither the sentence nor the artifact names a mechanism
    listed under `[flows] observed_by`. Four outcomes:
    - the import is there and the claims are wrong: a module of P or Q
-     belongs to another card; regroup, and the edge is observed;
+     belongs to another card; regroup, then review the flow's direction;
    - the parts are joined by something other than an import (a
      subprocess, a queue, a file on disk, an HTTP call): name it in the
      sentence, and list the word under `[flows] observed_by` in
-     `systemap.toml` so every flow that names it is observed by it (the
-     panel then says `observed by: queue`);
+     `systemap.toml` to record structural evidence. Review the source,
+     direction and artifact before citing it as an observed flow;
    - the edge was inferred and is not there: remove the flow and its
      sentence;
    - the edge is real and nothing in the tree joins the two (the other
@@ -76,11 +101,11 @@ the exception.
      answer the line in the configuration, saying what joins them.
    A declared flow draws dashed until one of these is done.
 
-4. Walk every entry point. The line reads: `entry point X has no journey`.
+5. Walk every entry point. The line reads: `entry point X has no journey`.
    Either write the journey (references/journeys-and-invariants.md) or
    answer why this entry point does not matter to a reader.
 
-5. Walk every model sdk line: `module X imports <sdk> and its component P
+6. Walk every model sdk line: `module X imports <sdk> and its component P
    is not an agent`. Five outcomes: P runs a model and is an agent
    (change its kind, and give it context and tool flows); P calls a model
    once and is deliberately not an agent, by the repository's own rule
@@ -95,7 +120,7 @@ the exception.
    `[facts] model_sdks = ["-google.adk"]` removes the entry, and
    `module_sdk = "google.adk"` answers every line it raised.
 
-6. Walk every rule the documents state. One pass, with the invariant
+7. Walk every rule the documents state. One pass, with the invariant
    list beside you, over the documents the repository points a newcomer
    at: the README, AGENTS.md, CLAUDE.md, and a docs index or the first
    level of docs/. Not the whole docs tree: stop when the rules still
@@ -104,7 +129,7 @@ the exception.
    Each rule found is an invariant with a citation, or a note in your
    hand-back saying why not.
 
-7. Look at the rendered figures, `docs/map/figures/structure.svg` (the
+8. Look at the rendered figures, `docs/map/figures/structure.svg` (the
    parts in their places) and then `docs/map/figures/system.svg` (every
    edge), and the page: `systemap serve` prints its URL. Look for: a
    route that passes close to a card it does not connect; a label sitting
@@ -114,10 +139,10 @@ the exception.
    between steps (a missing step?); a dashed edge (a declared flow the
    list above has not settled).
 
-8. Reread every sentence in `relations` from the source side. A sentence
+9. Reread every sentence in `relations` from the source side. A sentence
    that could be said of any edge ("A uses B") is not a sentence yet.
 
-9. Run `systemap check && systemap judgement --strict`, then `systemap
+10. Run `systemap check && systemap judgement --strict`, then `systemap
    refresh`. Together every round: a layout fix that drops an edge
    reopens the crossing-import lines the edge answered, and the judgement
    in the same round is what sees it. Go to 1.

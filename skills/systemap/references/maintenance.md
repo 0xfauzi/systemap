@@ -49,7 +49,10 @@ the hand-back, with the step that used them.
 | `entry vanished` | the card's `entry` is no longer defined by its modules | set `entry` to a public name they define |
 | `interface vanished` | the name the interface line starts with is gone | start the line with a name they define, or leave it empty |
 | `new crossing import` | an import now crosses a card boundary and no flow joins the two cards | add the flow with its sentence, or answer it under `[judgement] answered`, as in the second pass |
-| `evidence lost` | a flow an import backed is backed by nothing now | find the evidence, name the mechanism in the sentence, or remove the flow, as for a `declared flow` line |
+| `evidence lost` | a flow's reviewed source reference no longer resolves | review the changed source and revise or renew the flow claim |
+| `structural evidence lost` | an import or declared mechanism behind a flow disappeared | review the flow against current source |
+| `source review` | parsed code changed inside a card | review its description, flows, journeys and invariants |
+| `move candidate` | removed and added modules share public names without enough identity evidence | compare their source before treating either as a move |
 
 A line under `changed, nothing to do` is on record and needs no decision; a
 `removed` module that a pattern claimed, or an added module a pattern

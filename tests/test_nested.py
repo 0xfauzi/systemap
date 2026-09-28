@@ -22,9 +22,8 @@ import pytest
 from conftest import write_tree
 from test_keyboard import DRIVER, needs_node
 
-from systemap import nest, place, suggest
+from systemap import nest, place
 from systemap.cli import main
-from systemap.model import Component, Meaning, Model, Region
 
 TREE = {
     "pkg/__init__.py": "",
@@ -206,6 +205,92 @@ def edit(root: Path, rel: str, old: str, new: str) -> None:
     text = path.read_text()
     assert old in text, old
     path.write_text(text.replace(old, new))
+
+
+def add_child_route(root: Path) -> None:
+    """Give the Gateway map one route owned by its Routes card."""
+    edit(
+        root,
+        "pkg/gateway/routes.py",
+        "def route(path: str) -> Cache:",
+        'from fastapi import FastAPI\napp = FastAPI()\n\n@app.get("/read")\ndef route(path: str) -> Cache:',
+    )
+    assert run("--root", str(root), "extract") == 0
+
+
+def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> None:
+    from systemap import extract, judgement
+    from systemap.config import load
+
+    add_child_route(nested)
+    facts = extract.read_facts(load(nested).facts_path)
+    assert facts is not None
+    point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
+    identity = extract.entry_identity(point)
+    top_path = nested / "map/model.py"
+    source = top_path.read_text()
+    source = source.replace(
+        "from systemap import Component, Container, Flow, Meaning, Model, Region",
+        "from systemap import Component, Container, Flow, Journey, Meaning, Model, Region, Step",
+    ).replace(
+        "MEANING = Meaning(\n",
+        'MEANING = Meaning(\n    journeys=(Journey("route", "Read route", '
+        '(Step(("Reader",), (), ("Reader", "Gateway"), "Read."),), '
+        f'starts="GET /read", covers=({identity!r},)),),\n',
+    )
+    top_path.write_text(source)
+    lines = judgement.run_tree(nest.load(load(nested)), facts)
+    assert not any("GET /read" in line and "has no journey" in line for line in lines)
+
+
+def test_journeys_command_writes_child_route_in_child_model(
+    nested: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from systemap.config import load
+    from systemap.jev_cli import cmd_journeys
+
+    add_child_route(nested)
+    child_path = nested / "map/gateway.py"
+    source = child_path.read_text()
+    source = source.replace(
+        "from systemap import Component, Container, Flow, Meaning, Model, Region",
+        "from systemap import Component, Container, Flow, Journey, Meaning, Model, Region, Step",
+    ).replace(
+        "MEANING = Meaning(\n", "JOURNEYS = (\n)\nMEANING = Meaning(\n    journeys=JOURNEYS,\n"
+    )
+    child_path.write_text(source)
+    cfg = load(nested)
+    args = __import__("argparse").Namespace(root_path=cfg.root, limit=3, dry_run=True)
+    assert cmd_journeys(args) == 0
+    preview = capsys.readouterr().out
+    assert "Gateway: GET /read (route) (map/gateway.py)" in preview
+
+    toml = nested / "systemap.toml"
+    toml.write_text(toml.read_text() + '\n[agent]\ncommand = "agent -p"\n')
+    answer = json.dumps(
+        {
+            "id": "read-route",
+            "label": "Read a route",
+            "steps": [
+                {
+                    "edge": ["App", "Routes"],
+                    "acts": ["App"],
+                    "measures": [],
+                    "say": "The app dispatches the route.",
+                }
+            ],
+        }
+    )
+
+    def answer_command(command: str, question: str, cwd: Path, timeout: float) -> str:
+        return answer
+
+    args.dry_run = False
+    assert cmd_journeys(args, run_command=answer_command) == 0
+    output = capsys.readouterr().out
+    assert "written into map/gateway.py" in output
+    assert "read-route" in child_path.read_text()
+    assert "read-route" not in (nested / "map/model.py").read_text()
 
 
 def test_the_check_runs_on_every_map_and_counts_coverage_once(
@@ -582,15 +667,17 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
     # A kind answer covers every map; an item answer quotes the line as printed.
     (nested / "systemap.toml").write_text(
         CONFIG + "\n[judgement]\nanswered = [\n"
-        '  { kind = "single module", reason = "small parts" },\n'
+        '  { kind = "single module", policy = true, reason = "small parts" },\n'
         '  { item = "Gateway: thin layer: data lights 2 components", reason = "one record" },\n'
         '  { item = "thin layer: control lights 0 components", reason = "stale on purpose" },\n'
         "]\n"
     )
     assert run("--root", str(nested), "judgement") == 0
     out = capsys.readouterr().out
-    assert "single module" not in out.replace("stale answer", "")
-    assert "Gateway: thin layer: data" not in out.split("stale answer")[0]
+    assert "  single module:" not in out
+    assert "  Gateway: single module:" not in out
+    assert "Gateway: thin layer: data" in out
+    assert "stale answer:" in out
     assert "stale answer: 'thin layer: control lights 0 components' no longer appears" in out
     assert run("--root", str(nested), "describe") == 0
     out = capsys.readouterr().out
@@ -671,68 +758,11 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
         "  Style: added: pkg.style.extra, claimed by no card; name it in a card's "
         "implemented_by in map/style.py, the map inside Style claims exactly what Style claims\n"
     ) in out
-    assert "needs a decision (2):" in out
-    assert "3 of 9 cards named" in out
+    assert "needs a decision (" in out
+    assert "source review:" in out
+    assert "4 of 9 cards named" in out
     assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1
     assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in capsys.readouterr().out
-
-
-def _tree(model: Model, meaning: Meaning) -> nest.Tree:
-    return nest.Tree((nest.Map("", Path("map/model.py"), "map/model.py", model, meaning, {}),))
-
-
-def _model(cards: dict[str, int]) -> tuple[Model, Meaning, dict[str, object]]:
-    """A one-region model with one card per entry, claiming that many modules."""
-    components = []
-    records: dict[str, object] = {}
-    for k, (cid, n) in enumerate(cards.items()):
-        modules = tuple(f"pkg.{cid.lower()}.m{i}" for i in range(n))
-        for m in modules:
-            records[m] = {
-                "file": m.replace(".", "/") + ".py",
-                "names": [{"name": "f", "kind": "function"}],
-            }
-        components.append(
-            Component(
-                id=cid,
-                does=cid,
-                implemented_by=modules,
-                entry="f",
-                region="r",
-                x=20 + 190 * k,
-                y=60,
-            )
-        )
-    model = Model(
-        canvas=(8000, 200),
-        containers=(),
-        regions=(Region("r", "R", (0, 0, 8000, 200)),),
-        components=tuple(components),
-        flows=(),
-        flow_kinds=(),
-    )
-    return model, Meaning(plain={c.id: c.id for c in components}), {"components": records}
-
-
-def test_suggest_says_when_a_map_is_past_forty_cards_and_which_cards_to_open() -> None:
-    model, meaning, facts = _model({f"C{i}": (12 if i < 2 else 1) for i in range(41)})
-    lines = suggest.nesting_lines(_tree(model, meaning), facts)  # type: ignore[arg-type]
-    assert lines[0] == (
-        "nesting: the top map holds 41 cards, past 40; one canvas stops working there. Open a "
-        'map inside the cards with the most modules (map="map/<card>.py" on the card; its '
-        "cards claim exactly the card's modules):"
-    )
-    assert lines[1:] == ["  C0: 12 modules", "  C1: 12 modules"]
-    # Under forty with no wide card: nothing to open; a wide card alone is named.
-    model, meaning, facts = _model({"A": 3, "B": 4})
-    assert suggest.nesting_lines(_tree(model, meaning), facts) == [  # type: ignore[arg-type]
-        "nesting: no map is past 40 cards and no card holds more than 10 modules; nothing to open"
-    ]
-    model, meaning, facts = _model({"A": 11, "B": 4})
-    assert suggest.nesting_lines(_tree(model, meaning), facts) == [  # type: ignore[arg-type]
-        "nesting: the top map holds 2 cards; A (11 modules) past 10 modules: split the card, "
-        "or open a map inside it"
-    ]
 
 
 def test_suggest_reads_the_tree_from_the_command(

@@ -29,12 +29,14 @@ It is a report, never a gate: the command exits 0 whatever it prints, and
 every run. A line is answered like a judgement line, in `[judgement]
 answered` (an exact `item`, or `kind = "jev flow"` for a family); audit
 reads only the answers that name its own lines, and judgement ignores them.
+An exact answer needs a digest of its reviewed evidence. A family answer
+needs `policy = true`; the report counts matches outside its reviewed list.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -431,12 +433,85 @@ def apply(
     return open_lines, len(found) - len(open_lines), stale
 
 
+@dataclass(frozen=True)
+class Reviewed:
+    """Audit answers after source evidence and standing policies are checked."""
+
+    open: list[Line]
+    answered: int
+    stale: list[str]
+    pending: list[str]
+    policies: list[str]
+
+
+def apply_reviewed(
+    found: list[Line],
+    given: Iterable[Answer],
+    evidence: Mapping[str, str],
+    kinds: Iterable[str] = DEFAULT_KINDS,
+) -> Reviewed:
+    """Reopen an exact answer if its evidence changed; require explicit policies."""
+    kinds = tuple(kinds)
+    mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
+    texts = [x.text for x in found]
+    stale = [i for a in mine for i in a.items if i not in texts]
+    stale += [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+    accepted, pending, policies = _reviewed_audit_answers(mine, texts, evidence)
+    open_lines = [x for x in found if not any(_covers(a, x.text) for a in accepted)]
+    return Reviewed(open_lines, len(found) - len(open_lines), stale, pending, policies)
+
+
+def _reviewed_audit_answers(
+    mine: list[Answer], texts: list[str], evidence: Mapping[str, str]
+) -> tuple[list[Answer], list[str], list[str]]:
+    accepted: list[Answer] = []
+    pending: list[str] = []
+    policies: list[str] = []
+    for answer in mine:
+        matches = [line for line in texts if _covers(answer, line)]
+        if not matches:
+            continue
+        issue = reviewed_answer_issue(answer, evidence)
+        if issue is None:
+            accepted.append(answer)
+            if not answer.items:
+                policies.append(_audit_policy_line(answer, matches))
+        else:
+            pending.append(issue)
+    return accepted, pending, policies
+
+
+def _audit_policy_line(answer: Answer, matches: list[str]) -> str:
+    new = sum(line not in answer.reviewed for line in matches)
+    return (
+        f"{answer.label} covers {len(matches)} current lines; {new} outside its reviewed baseline"
+    )
+
+
+def reviewed_answer_issue(
+    answer: Answer,
+    evidence: Mapping[str, str],
+) -> str | None:
+    from systemap.judgement import answer_digest
+
+    if answer.items:
+        digest = answer_digest(answer.items, evidence)
+        if answer.evidence and answer.evidence == digest and digest != "unavailable":
+            return None
+        return f"'{answer.label}' needs renewed review; current evidence = \"{digest}\""
+    if answer.policy:
+        return None
+    return f"'{answer.label}' needs policy = true to cover a family of lines"
+
+
 def report(
     open_lines: list[Line],
     answered: int,
     stale: list[str],
     usage: str,
     teach: bool = True,
+    pending: Iterable[str] = (),
+    policies: Iterable[str] = (),
 ) -> list[str]:
     """The lines the CLI prints. `teach` says why each kind matters and what
     to do, once under the first line of that kind; `--brief` turns it off."""
@@ -450,6 +525,8 @@ def report(
         head = f"audit: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
     out = [head, *_taught(open_lines, teach)]
     out += [f"  stale answer: {s}" for s in stale]
+    out += [f"  pending answer: {s}" for s in pending]
+    out += [f"  policy answer: {s}" for s in policies]
     out.append(usage)
     return out
 

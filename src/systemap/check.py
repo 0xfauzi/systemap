@@ -583,18 +583,8 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
         )
     if not method:
         return ""
-    methods: set[str] = set()
-    for m in modules:
-        methods |= method_names(components[m], name)
-        # A class re-exported by a package __init__ keeps its methods in
-        # the module that defines it.
-        for source in _reexport_sources(components[m], name):
-            if source in components:
-                methods |= method_names(components[source], name)
-    for m, n in symbols:
-        if n == name and m in components:
-            methods |= method_names(components[m], name)
-    if method not in methods and method not in names:
+    methods = _interface_methods(modules, symbols, components, name)
+    if method not in methods:
         # The class's own methods first: a wrong method is usually a
         # misspelt one, not a module-level name.
         closest = _closest(method, methods) or _closest(method, names)
@@ -606,6 +596,40 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
     return ""
 
 
+def _interface_methods(
+    modules: list[str], symbols: list[tuple[str, str]], components: Mapping[str, Any], name: str
+) -> set[str]:
+    """Public methods on a claimed class, including methods from re-exports."""
+    methods: set[str] = set()
+    for m in modules:
+        methods |= method_names(components[m], name)
+        # A class re-exported by a package __init__ keeps its methods in
+        # the module that defines it.
+        methods |= _reexport_methods(components[m], components, name)
+    for m, n in symbols:
+        if n == name and m in components:
+            methods |= method_names(components[m], name)
+    return methods
+
+
+def _reexport_methods(
+    record: Mapping[str, Any], components: Mapping[str, Any], name: str
+) -> set[str]:
+    methods: set[str] = set()
+    for source in _reexport_sources(record, name):
+        if source not in components:
+            continue
+        methods |= method_names(components[source], name)
+        if any(
+            entry.get("name") == name
+            and entry.get("kind") == "module"
+            and entry.get("reexport_of") == source
+            for entry in record.get("names", [])
+        ):
+            methods |= public_names(components[source])
+    return methods
+
+
 # ---- stale: the outputs are what the tree and the model say ----------------------
 
 
@@ -614,7 +638,11 @@ def stale_facts(
 ) -> list[str]:
     """Ways the stored facts no longer describe the tree, plus claims of
     modules the tree does not have. The rule `extract --check` runs."""
-    problems = extract.drift(fresh, stored) + extract.mapping_drift(fresh, model, prefixes)
+    problems = (
+        extract.drift(fresh, stored)
+        + extract.mapping_drift(fresh, model, prefixes)
+        + extract.inventory_issue_lines(fresh)
+    )
     if not stored:
         problems.insert(0, "no facts have been built yet")
     return problems
@@ -701,6 +729,7 @@ class Result:
     nesting: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
     unknown_surface: list[str] = field(default_factory=list)
+    inventory_issues: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -711,6 +740,7 @@ class Result:
             and not self.interface
             and not self.nesting
             and not self.stale
+            and not self.inventory_issues
         )
 
 
@@ -753,6 +783,7 @@ def run(
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
         unknown_surface=extract.unknown_fact_lines(facts) if coverage else [],
+        inventory_issues=extract.inventory_issue_lines(facts) if coverage else [],
     )
 
 

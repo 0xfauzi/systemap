@@ -89,18 +89,19 @@ def _public_methods(node: Node) -> list[str]:
         )
     if body is None:
         return []
-    out: list[str] = []
-    for method in body.named_children:
-        if method.type not in ("method_definition", "method_signature"):
-            continue
-        modifiers = {
-            _text(child)
-            for child in method.named_children
-            if child.type == "accessibility_modifier"
-        }
-        if not modifiers & {"private", "protected"}:
-            out.append(_header(method))
-    return out
+    return [_header(method) for method in body.named_children if _is_public_method(method)]
+
+
+def _is_public_method(method: Node) -> bool:
+    if method.type not in ("method_definition", "method_signature"):
+        return False
+    name = method.child_by_field_name("name")
+    if name is not None and _text(name).startswith("#"):
+        return False
+    modifiers = {
+        _text(child) for child in method.named_children if child.type == "accessibility_modifier"
+    }
+    return not bool(modifiers & {"private", "protected"})
 
 
 def _type_record(node: Node) -> tuple[dict[str, Any], bool]:
@@ -466,6 +467,165 @@ def _record_unknown_name(declaration: Node, names: list[dict[str, Any]]) -> None
         names.append({"name": _text(candidate), "kind": "unknown"})
 
 
+def _syntax(node: Node, *, omit_body: bool = False) -> str:
+    """A token identity that ignores layout and, for callable code, its body."""
+    body = node.child_by_field_name("body") if omit_body else None
+    tokens: list[str] = []
+
+    def collect(part: Node) -> None:
+        if part == body or part.type == "comment":
+            return
+        if not part.children:
+            tokens.append(_text(part))
+            return
+        for child in part.children:
+            collect(child)
+
+    collect(node)
+    return "\x1f".join(tokens)
+
+
+def _type_definition(node: Node) -> str:
+    if node.type not in ("class_declaration", "abstract_class_declaration"):
+        return _syntax(node)
+    body = node.child_by_field_name("body")
+    if body is None:
+        return _syntax(node)
+    members: list[str] = []
+    for member in body.named_children:
+        name = member.child_by_field_name("name")
+        if name is not None and _text(name).startswith("#"):
+            continue
+        modifiers = {
+            _text(child)
+            for child in member.named_children
+            if child.type == "accessibility_modifier"
+        }
+        if modifiers & {"private", "protected"}:
+            continue
+        members.append(_syntax(member, omit_body=member.type == "method_definition"))
+    return _syntax(node, omit_body=True) + "\n" + "\n".join(members)
+
+
+def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
+    if node.type in FUNCTION_NODES:
+        name = _text(node.child_by_field_name("name"))
+        return [(name, "operations", _syntax(node, omit_body=True))] if name else []
+    if node.type in TYPE_NODES:
+        record, is_error = _type_record(node)
+        return [(record["name"], "refusals" if is_error else "types", _type_definition(node))]
+    if node.type == "internal_module":
+        return [(name, "constants", _syntax(node)) for name in _namespace_kinds(node)]
+    if node.type != "lexical_declaration":
+        return []
+    return _lexical_api(node)
+
+
+def _lexical_api(node: Node) -> list[tuple[str, str, str]]:
+    out: list[tuple[str, str, str]] = []
+    for variable in (child for child in node.named_children if child.type == "variable_declarator"):
+        value = variable.child_by_field_name("value")
+        names = _binding_names(variable.child_by_field_name("name"))
+        is_function = value is not None and value.type in EXPORTED_FUNCTION_NODES
+        definition = _syntax(variable, omit_body=is_function)
+        out.extend(
+            (name, "operations" if is_function else "constants", definition) for name in names
+        )
+    return out
+
+
+def _local_api(root: Node) -> dict[str, list[tuple[str, str]]]:
+    local: dict[str, list[tuple[str, str]]] = {}
+    for statement in root.named_children:
+        declaration = _declaration(statement) if statement.type == "export_statement" else statement
+        if declaration is None:
+            continue
+        for name, bucket, definition in _declaration_api(declaration):
+            local.setdefault(name, []).append((bucket, definition))
+    return local
+
+
+def _exported_api(root: Node) -> list[dict[str, str]]:
+    local = _local_api(root)
+    out: list[dict[str, str]] = []
+    for statement in (node for node in root.named_children if node.type == "export_statement"):
+        out.extend(_export_statement_api(statement, local))
+    return out
+
+
+def _export_statement_api(
+    statement: Node, local: dict[str, list[tuple[str, str]]]
+) -> list[dict[str, str]]:
+    reexports = _reexports(statement)
+    if reexports:
+        return _reexport_api(reexports)
+    declared = _declared_export_api(statement)
+    if declared is not None:
+        return declared
+    return _clause_export_api(statement, local)
+
+
+def _reexport_api(reexports: list[dict[str, Any]]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for entry in reexports:
+        if entry.get("star"):
+            continue
+        source = entry["reexport_of"]
+        original = entry.get("defined_as", entry["name"])
+        out.append(
+            {
+                "name": entry["name"],
+                "bucket": "constants",
+                "fingerprint": f"reexport:{source}:{original}",
+            }
+        )
+    return out
+
+
+def _declared_export_api(statement: Node) -> list[dict[str, str]] | None:
+    declaration = _declaration(statement)
+    default = any(child.type == "default" for child in statement.children)
+    if declaration is not None:
+        return [
+            {"name": "default" if default else name, "bucket": bucket, "fingerprint": definition}
+            for name, bucket, definition in _declaration_api(declaration)
+        ]
+    value = statement.child_by_field_name("value")
+    if default and value is not None:
+        bucket = "operations" if value.type in EXPORTED_FUNCTION_NODES else "constants"
+        return [
+            {
+                "name": "default",
+                "bucket": bucket,
+                "fingerprint": _syntax(value, omit_body=bucket == "operations"),
+            }
+        ]
+    return None
+
+
+def _clause_export_api(
+    statement: Node, local: dict[str, list[tuple[str, str]]]
+) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    clause = next(
+        (child for child in statement.named_children if child.type == "export_clause"), None
+    )
+    if clause is None:
+        return out
+    for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
+        identifiers = [
+            child
+            for child in specifier.named_children
+            if child.type in ("identifier", "type_identifier")
+        ]
+        if not identifiers:
+            continue
+        original, public = _text(identifiers[0]), _text(identifiers[-1])
+        for bucket, definition in local.get(original, [("constants", f"unresolved:{original}")]):
+            out.append({"name": public, "bucket": bucket, "fingerprint": definition})
+    return out
+
+
 def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     """The exported surface of one TypeScript or TSX module, with unknowns explicit."""
     root = _root(raw, path)
@@ -499,6 +659,7 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "constants": constants,
         "names": names,
         "unknown": unknown,
+        "api": _exported_api(root),
     }
 
 
@@ -510,7 +671,9 @@ def test_names(raw: str, path: str = "") -> list[str]:
     out: list[str] = []
     for call in (node for node in _walk(root) if node.type == "call_expression"):
         function = call.child_by_field_name("function")
-        if _text(function).rsplit(".", 1)[-1] not in ("test", "it"):
+        if not re.fullmatch(
+            r"(?:test|it)(?:\.(?:only|skip|concurrent|fails|todo))*", _text(function)
+        ):
             continue
         arguments = call.child_by_field_name("arguments")
         first = arguments.named_children[0] if arguments and arguments.named_children else None

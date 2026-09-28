@@ -225,7 +225,7 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     lines = out.splitlines()
     assert lines[0] == (
         f"delta: HEAD~1 ({base}) -> HEAD ({git(repo, 'rev-parse', 'HEAD')[:7]}): "
-        "4 modules changed, 6 added, 3 removed, 2 moved; 4 of 6 cards named"
+        "4 modules changed, 6 added, 3 removed, 2 moved; 5 of 6 cards named"
     )
     expected_open = [
         "moved: pkg.old_tool -> pkg.tools.tool (same content); Writer names pkg.old_tool in "
@@ -244,9 +244,8 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
         "new crossing import: pkg.writer (card Writer) imports pkg.reader (card Reader) and "
         "no flow joins Writer and Reader; add the flow with its sentence in map/model.py, or "
         "answer it under [judgement] answered",
-        f"evidence lost: Reader -> Parser (request) was observed at {base} and no import joins "
-        "them now; find the evidence, name the mechanism in the sentence, or remove the flow "
-        "in map/model.py",
+        "structural evidence lost: Reader -> Parser (request) had an import or declared "
+        "mechanism at the base commit and does not now; review the flow",
     ]
     expected_quiet = [
         "added: pkg.helpers, an empty package marker",
@@ -256,12 +255,14 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
         "added: pkg.vendor.lib, ignored under [coverage]",
         "removed: pkg.more.gone, was claimed by Writer through a pattern",
     ]
-    start = lines.index(f"needs a decision ({len(expected_open)}):")
-    assert lines[start + 1 : start + 1 + len(expected_open)] == [f"  {t}" for t in expected_open]
+    start = next(i for i, line in enumerate(lines) if line.startswith("needs a decision ("))
+    open_lines = lines[start + 1 : lines.index(f"changed, nothing to do ({len(expected_quiet)}):")]
+    assert all(f"  {item}" in open_lines for item in expected_open)
+    assert sum(line.startswith("  source review:") for line in open_lines) == 4
     start = lines.index(f"changed, nothing to do ({len(expected_quiet)}):")
     assert lines[start + 1 : start + 1 + len(expected_quiet)] == [f"  {t}" for t in expected_quiet]
     # The answered crossing import (Ledger -> Parser) is not asked again.
-    assert "pkg.ledger" not in out
+    assert "new crossing import: pkg.ledger" not in out
     # Spare is told to drop its module, not also that its entry vanished.
     assert "entry vanished: Spare" not in out
     assert delta.FULL_LOOP in lines
@@ -290,7 +291,7 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     lines = out.splitlines()
     assert lines[0] == delta.MARKER
     assert lines[1] == "## What this change does to the map"
-    assert "**Needs a decision (9)**" in lines
+    assert "**Needs a decision (13)**" in lines
     assert "**Changed, nothing to do (6)**" in lines
     assert "- `added: pkg.fresh, claimed by no card; " in out
     assert f"> {delta.FULL_LOOP[0].upper()}{delta.FULL_LOOP[1:]}." in lines
@@ -309,17 +310,15 @@ def test_markdown_is_the_comment_with_the_committed_figure(
 def test_nothing_to_do_and_no_change_exit_zero(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # A third commit that edits a body: the facts change, the map does not.
+    # A body edit leaves the map's claims pending source review.
     (repo / "pkg/writer.py").write_text(
         (repo / "pkg/writer.py").read_text().replace('read("")', 'read("x")')
     )
     git(repo, "commit", "-q", "-am", "body")
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 0
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
-    assert "1 modules changed, 0 added, 0 removed, 0 moved; 0 of 6 cards named" in out
-    assert out.rstrip().endswith(
-        "nothing to decide: the map already covers this change. run: systemap refresh"
-    )
+    assert "1 modules changed, 0 added, 0 removed, 0 moved; 1 of 6 cards named" in out
+    assert "source review: Writer has changed code in pkg.writer" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")

@@ -131,7 +131,7 @@ def figure(
             f'<span style="display:inline-flex;align-items:center;gap:.4em;'
             f'margin-right:1.1em;white-space:nowrap">'
             f'<span style="width:1em;height:0;border-top:2px dashed {t["ink_3"]};'
-            f'display:inline-block"></span>declared</span>'
+            f'display:inline-block"></span>unreviewed flow</span>'
         )
     controls = ""
     panel = ""

@@ -147,6 +147,17 @@ JUDGEMENT = {
             "exists, remove the flow."
         ),
     ),
+    "flow review": Lesson(
+        means="An import, shared module, or mechanism word is present for this flow.",
+        why=(
+            "That structure does not establish the flow's direction, artifact, or runtime "
+            "behavior. A source citation must match the current source and claim."
+        ),
+        do=(
+            "Read the source, cite it with current digests, and revise the flow if its claim "
+            "is wrong."
+        ),
+    ),
     "model sdk": Lesson(
         means="A module calls a model SDK, and its card is not marked as one that calls a model.",
         why=(
@@ -259,6 +270,26 @@ DELTA = {
             "Remove the flow, or name the mechanism that carries it now in its sentence and "
             "under `[flows] observed_by`."
         ),
+    ),
+    "source review": Lesson(
+        means="A card claims a module whose parsed code changed.",
+        why=(
+            "Imports and public signatures do not show every behavior change. The card's "
+            "description, flows, journeys and invariants may now describe the old behavior."
+        ),
+        do="Read the changed source and confirm or revise each claim on the card.",
+    ),
+    "move candidate": Lesson(
+        means=(
+            "A removed and an added module share public names, but their identities are uncertain."
+        ),
+        why="Common names such as `run` can occur in unrelated modules.",
+        do="Compare the source and choose a move only when the same responsibility continued.",
+    ),
+    "structural evidence lost": Lesson(
+        means="An import, shared module, or declared mechanism behind a flow is no longer present.",
+        why="The claim may still be true, but its former supporting structure is gone.",
+        do="Read the changed source and update or remove the flow claim.",
     ),
 }
 
@@ -376,6 +407,26 @@ CHECK = {
         means="The rendered page or the facts no longer match the model or the tree.",
         why="A map that is not rebuilt describes the code as it was, not as it is.",
         do="Run `systemap refresh`, then commit the output directory.",
+    ),
+    "source inventory unresolved": Lesson(
+        means="A discovered source or test file could not be parsed completely.",
+        why="A missing file can hide ownership, imports, entries, or tests.",
+        do="Use a compatible parser or fix the source, then refresh the facts.",
+    ),
+    "extraction inputs changed": Lesson(
+        means="Configuration or parser inputs changed after the facts were written.",
+        why="The same source may now produce a different module graph.",
+        do="Run `systemap refresh` and review the changed facts.",
+    ),
+    "entry point targets changed": Lesson(
+        means="An entry name now resolves to a different source target.",
+        why="A journey may begin at code different from what the map recorded.",
+        do="Run `systemap refresh` and review entry coverage.",
+    ),
+    "derived facts changed": Lesson(
+        means="Imports or other extracted facts changed for a module.",
+        why="A source hash alone does not explain which map claims changed.",
+        do="Run `systemap refresh` and review the affected cards and flows.",
     ),
 }
 

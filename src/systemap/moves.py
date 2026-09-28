@@ -92,7 +92,11 @@ def _same_content(p: Pair) -> bool:
 
 
 def _same_names(p: Pair) -> bool:
-    return bool(p.old_names) and p.new_names == p.old_names
+    return (
+        bool(p.old_names)
+        and p.new_names == p.old_names
+        and _alike(_path(p.old).name, _path(p.new).name) >= NAME_ALIKE
+    )
 
 
 def _renamed_and_edited(p: Pair) -> bool:
@@ -158,6 +162,30 @@ def find(
             if c not in taken and admits(Pair(base[o], head[c], surface[o], surface[c]))
         ]
         _assign(pairs, how, out, taken)
+    return out
+
+
+def candidates(
+    base: dict[str, Any],
+    head: dict[str, Any],
+    gone: list[str],
+    new: list[str],
+    confirmed: Mapping[str, tuple[str, str]],
+) -> dict[str, tuple[str, ...]]:
+    """Same-name pairs too weak to call moves; retain every alternative."""
+    taken = {name for name, _how in confirmed.values()}
+    out: dict[str, tuple[str, ...]] = {}
+    for old in gone:
+        if old in confirmed:
+            continue
+        names = public_names(base[old])
+        if not names:
+            continue
+        alternatives = tuple(
+            sorted(cand for cand in new if cand not in taken and public_names(head[cand]) == names)
+        )
+        if alternatives:
+            out[old] = alternatives
     return out
 
 

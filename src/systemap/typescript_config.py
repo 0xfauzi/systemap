@@ -56,6 +56,7 @@ class TypeScriptConfig:
     aliases: tuple[tuple[str, tuple[Path, ...]], ...] = ()
     base_url: Path | None = None
     root_dir: Path | None = None
+    root_dirs: tuple[Path, ...] = ()
     out_dir: Path | None = None
     issues: tuple[tuple[str, str], ...] = ()
     config_dir: Path | None = None
@@ -233,6 +234,7 @@ def load_typescript_config(repo: Path) -> TypeScriptConfig:
         aliases=_configured_aliases(options, repo, config_dir),
         base_url=_base_url(options, repo, config_dir) if "baseUrl" in options else None,
         root_dir=_option_path(options, "rootDir", config_dir),
+        root_dirs=_option_paths(options, "rootDirs", config_dir),
         out_dir=_option_path(options, "outDir", config_dir),
         issues=tuple((_issue_path(source, repo), reference) for source, reference in issues),
         config_dir=config_dir,
@@ -293,6 +295,17 @@ def _option_path(options: Options, name: str, config_dir: Path) -> Path | None:
     if option is None or not isinstance(option[0], str):
         return None
     return (option[1] / _expand(option[0], config_dir)).resolve()
+
+
+def _option_paths(options: Options, name: str, config_dir: Path) -> tuple[Path, ...]:
+    option = options.get(name)
+    if option is None or not isinstance(option[0], list):
+        return ()
+    return tuple(
+        (option[1] / _expand(value, config_dir)).resolve()
+        for value in option[0]
+        if isinstance(value, str)
+    )
 
 
 def _input_spec(inputs: Options, config_dir: Path) -> InputSpec:
@@ -433,15 +446,21 @@ def root_candidates(config: TypeScriptConfig, inputs: Iterable[Path]) -> tuple[P
 
 def alias_targets(specifier: str, config: TypeScriptConfig, repo: Path) -> list[Path]:
     """Paths matching a configured alias, preserving tsconfig-relative roots."""
-    out: list[Path] = []
+    matches: list[tuple[tuple[int, int, int], tuple[Path, ...], str]] = []
     for pattern, targets in config.aliases:
         before, marker, after = pattern.partition("*")
         if marker and specifier.startswith(before) and specifier.endswith(after):
             matched = specifier[len(before) : len(specifier) - len(after) if after else None]
+            priority = (0, len(before), len(after))
         elif not marker and specifier == pattern:
             matched = ""
+            priority = (1, len(before), 0)
         else:
             continue
+        matches.append((priority, targets, matched))
+    out: list[Path] = []
+    if matches:
+        _priority, targets, matched = max(matches, key=lambda item: item[0])
         out.extend(_replace_star(target, matched) for target in targets)
     base = config.base_url or repo
     return [*out, base / specifier]

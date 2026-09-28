@@ -1,65 +1,15 @@
-"""Project configuration: `systemap.toml` at the repo root, or `[tool.systemap]`.
+"""Read project settings from `systemap.toml` or `[tool.systemap]`.
 
-Everything project-specific the engine needs lives here, so the engine
-itself holds no literal that belongs to one project: where the packages
-are, where the tests are, where the model module is, where the output
-goes, and the theme.
+The settings locate source, tests, the map model, output, figures, themes,
+and evidence mechanisms. `docs/reference.md` lists every key and default.
+Unknown keys fail validation so a misspelling cannot silently change what
+the commands read.
 
-    language       source language: "python" (default) or "typescript"
-    name           the page title; defaults to [project] name in
-                   pyproject.toml, then the name of the directory holding
-                   the git repository (the main checkout, even from a
-                   worktree), then the directory's name
-    package_roots  table of path = import name; Python defaults to every
-                   package directory; TypeScript defaults to src, then root
-    tests_dir      one directory or list for test_*.py files; by default,
-                   every tests/test directory under the root, outside skips
-    test_patterns  additional source-language test-file globs
-    model          the module exporting MODEL and MEANING (default
-                   "map/model.py")
-    out_dir        where the facts, the page and the figures are written
-                   (default "docs/map")
-    facts_file     the facts file's name inside out_dir (default "map.json")
-    spec_path      optional document whose ##-headings become spec sections
-    planes         optional list of second-level package names that count as
-                   their own architectural plane in the facts
-    outside_label  the index heading for actors outside every region
-    [theme]        tokens laid over the default scheme; `scheme` names
-                   the default ("warm", "graphite" or "paper"), and
-                   `[theme.<scheme>]` lays tokens over one scheme
-    [[figures]]    figures `systemap refresh` regenerates: out, mode
-                   ("system" or "reach"), components, caption, interactive,
-                   layer (a layer's id: only that layer's edges), map
-                   (the id of a map inside a card, for a figure of it)
-    [coverage]     ignore = [{module = "pkg.mod", reason = "..."}]: modules
-                   the coverage rule of `systemap check` may leave unmapped;
-                   every entry needs a reason, since an unexplained hole in
-                   the map is the thing the rule exists to refuse
-    [facts]        model_sdks = [...]: import names, added to the built-in
-                   list, that mark a module as calling a model; the
-                   judgement asks about each in a component that is not
-                   an agent. A leading `-` removes a built-in name
-                   ("-google.adk")
-    [flows]        observed_by = [...]: the mechanisms other than an
-                   import that join this repository's parts (a
-                   subprocess, a queue, a file); a flow whose sentence or
-                   artifact names one is observed by it rather than
-                   declared
-    [judgement]    answered = [{item = "<a judgement line>", reason = "..."}]:
-                   the lines of `systemap judgement` the maintainer has
-                   answered, each with why; an answered line is suppressed
-                   and counted, an answer that matches no line is
-                   reported as stale, and an answer without a reason is an
-                   error. `items = [...]` answers several exact lines with
-                   one reason; `crossing = ["A", "B", ...]` every crossing
-                   import between any two of the ids, in either direction;
-                   `crossing_into = "A"` every crossing import into A and
-                   `crossing_from = "A"` every one out of it; `kind =
-                   "single module"` every line of that kind; `module_sdk
-                   = "google.adk"` every model sdk line for that import
-
-Unknown keys are a configuration error: a misspelt key that silently did
-nothing would be worse than a refusal.
+`[judgement] answered` records a reason for each decision. An exact `item`
+or `items` decision also records an evidence digest. Changed evidence
+reopens it. A broad answer needs `policy = true`, and `reviewed` can list
+the instances known when the policy was written. Unmatched answers are
+reported as stale.
 """
 
 from __future__ import annotations
@@ -67,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -117,7 +68,7 @@ COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
 JUDGEMENT_KEYS = {"answered"}
 ANSWER_FORMS = ("item", "items", "crossing", "crossing_into", "crossing_from", "kind", "module_sdk")
-ANSWER_KEYS = {*ANSWER_FORMS, "reason"}
+ANSWER_KEYS = {*ANSWER_FORMS, "reason", "evidence", "policy", "reviewed"}
 # The kinds of line `systemap judgement` prints, as `kind = "..."` names them.
 LINE_KINDS = (
     "single module",
@@ -129,6 +80,7 @@ LINE_KINDS = (
     "drafted journey",
     "crossing import",
     "declared flow",
+    "flow review",
     "model sdk",
     "unknown surface",
 )
@@ -178,7 +130,9 @@ class Answer:
     every one whose importing module does, `kind` every line of one kind,
     `module_sdk` every model sdk line for one import. Exactly one form
     is set. The answer is the hand-back: it lives in the repository
-    beside the model, not in a conversation.
+    beside the model, not in a conversation. `evidence` binds exact
+    decisions to the source reviewed. `policy` deliberately covers a
+    family, and `reviewed` marks the instances known when it was recorded.
     """
 
     items: tuple[str, ...]
@@ -188,6 +142,9 @@ class Answer:
     module_sdk: str = ""
     crossing_into: str = ""
     crossing_from: str = ""
+    evidence: str = ""
+    policy: bool = False
+    reviewed: tuple[str, ...] = ()
 
     @property
     def label(self) -> str:
@@ -631,6 +588,57 @@ def _agent(raw: dict[str, Any], where: str) -> dict[str, Any]:
     return {"agent_command": command, "agent_cache": cache, "agent_timeout": float(timeout)}
 
 
+def _answer_selector(form: str, value: Any, location: str) -> Answer:
+    """Validate the selected answer form without its reason or evidence."""
+    if form in ("item", "items"):
+        return Answer(items=_answer_lines(form, value, location), reason="")
+    if form == "crossing":
+        return Answer(items=(), reason="", crossing=_answer_crossing(value, location))
+    if form in ("crossing_into", "crossing_from"):
+        name = _answer_name(value, f"{location} {form} must name one component id")
+        if form == "crossing_into":
+            return Answer(items=(), reason="", crossing_into=name)
+        return Answer(items=(), reason="", crossing_from=name)
+    if form == "kind":
+        name = _answer_name(
+            value, f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
+        )
+        if name not in (*LINE_KINDS, *AUDIT_KINDS):
+            raise ConfigError(
+                f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
+            )
+        return Answer(items=(), reason="", kind=name)
+    name = _answer_name(value, f"{location} module_sdk must be an import name")
+    return Answer(items=(), reason="", module_sdk=name)
+
+
+def _answer_name(value: Any, error: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(error)
+    return value.strip()
+
+
+def _answer_lines(form: str, value: Any, location: str) -> tuple[str, ...]:
+    if form == "item":
+        return (_answer_name(value, f"{location} item must be a line"),)
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(v, str) and v.strip() for v in value)
+    ):
+        raise ConfigError(f"{location} items must be a non-empty list of lines")
+    return tuple(v.strip() for v in value)
+
+
+def _answer_crossing(value: Any, location: str) -> tuple[str, ...]:
+    ids = [v.strip() for v in value] if isinstance(value, list) else []
+    if len(ids) < 2 or not all(isinstance(v, str) and v for v in ids) or len(set(ids)) != len(ids):
+        raise ConfigError(
+            f'{location} crossing must name two or more different component ids, ["A", "B"]'
+        )
+    return tuple(ids)
+
+
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     """The `[judgement] answered` list; an entry without a reason is refused."""
     judgement = raw.get("judgement", {})
@@ -642,96 +650,58 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     entries = judgement.get("answered", [])
     if not isinstance(entries, list):
         raise ConfigError(f"{where}: judgement.answered must be a list of tables")
-    out: list[Answer] = []
-    for k, entry in enumerate(entries, start=1):
-        if not isinstance(entry, dict):
-            raise ConfigError(
-                f"{where}: judgement.answered[{k}] must be a table with item (or items) and reason"
-            )
-        bad = sorted(set(entry) - ANSWER_KEYS)
-        if bad:
-            raise ConfigError(f"{where}: judgement.answered[{k}] has unknown key: {', '.join(bad)}")
-        forms = [form for form in ANSWER_FORMS if entry.get(form) is not None]
-        if len(forms) != 1:
-            raise ConfigError(
-                f"{where}: judgement.answered[{k}] needs exactly one of item (one line), "
-                "items (a list), crossing (two or more component ids), crossing_into or "
-                "crossing_from (one component id), kind (a line kind) or module_sdk (an "
-                f"import name); it has {len(forms)}"
-            )
-        (form,) = forms
-        value = entry[form]
-        lines: tuple[str, ...] = ()
-        crossing: tuple[str, ...] | None = None
-        kind = ""
-        module_sdk = ""
-        crossing_into = ""
-        crossing_from = ""
-        if form == "item":
-            if not isinstance(value, str) or not value.strip():
-                raise ConfigError(f"{where}: judgement.answered[{k}] item must be a line")
-            lines = (value.strip(),)
-        elif form == "items":
-            if (
-                not isinstance(value, list)
-                or not value
-                or not all(isinstance(v, str) and v.strip() for v in value)
-            ):
-                raise ConfigError(
-                    f"{where}: judgement.answered[{k}] items must be a non-empty list of lines"
-                )
-            lines = tuple(v.strip() for v in value)
-        elif form == "crossing":
-            ids = [v.strip() for v in value] if isinstance(value, list) else []
-            if (
-                len(ids) < 2
-                or not all(isinstance(v, str) and v for v in ids)
-                or len(set(ids)) != len(ids)
-            ):
-                raise ConfigError(
-                    f"{where}: judgement.answered[{k}] crossing must name two or more "
-                    'different component ids, ["A", "B"]'
-                )
-            crossing = tuple(ids)
-        elif form in ("crossing_into", "crossing_from"):
-            if not isinstance(value, str) or not value.strip():
-                raise ConfigError(
-                    f"{where}: judgement.answered[{k}] {form} must name one component id"
-                )
-            if form == "crossing_into":
-                crossing_into = value.strip()
-            else:
-                crossing_from = value.strip()
-        elif form == "kind":
-            if not isinstance(value, str) or value.strip() not in (*LINE_KINDS, *AUDIT_KINDS):
-                raise ConfigError(
-                    f"{where}: judgement.answered[{k}] kind must be one of "
-                    f"{', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
-                )
-            kind = value.strip()
-        else:
-            if not isinstance(value, str) or not value.strip():
-                raise ConfigError(
-                    f"{where}: judgement.answered[{k}] module_sdk must be an import name"
-                )
-            module_sdk = value.strip()
-        reason = entry.get("reason")
-        answer = Answer(
-            items=lines,
-            reason="",
-            crossing=crossing,
-            kind=kind,
-            module_sdk=module_sdk,
-            crossing_into=crossing_into,
-            crossing_from=crossing_from,
+    return tuple(
+        _answer_entry(entry, f"{where}: judgement.answered[{k}]")
+        for k, entry in enumerate(entries, start=1)
+    )
+
+
+def _answer_entry(entry: Any, location: str) -> Answer:
+    if not isinstance(entry, dict):
+        raise ConfigError(f"{location} must be a table with item (or items) and reason")
+    bad = sorted(set(entry) - ANSWER_KEYS)
+    if bad:
+        raise ConfigError(f"{location} has unknown key: {', '.join(bad)}")
+    forms = [form for form in ANSWER_FORMS if entry.get(form) is not None]
+    if len(forms) != 1:
+        raise ConfigError(
+            f"{location} needs exactly one of item (one line), "
+            "items (a list), crossing (two or more component ids), crossing_into or "
+            "crossing_from (one component id), kind (a line kind) or module_sdk (an "
+            f"import name); it has {len(forms)}"
         )
-        if not isinstance(reason, str) or not reason.strip():
-            raise ConfigError(
-                f"{where}: judgement.answered[{k}] ({answer.label}) needs a reason: "
-                "say why the line is answered rather than acted on"
-            )
-        out.append(dataclasses.replace(answer, reason=reason))
-    return tuple(out)
+    (form,) = forms
+    answer = _answer_selector(form, entry[form], location)
+    evidence, policy, reviewed = _answer_review(entry, form, location)
+    reason = entry.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ConfigError(
+            f"{location} ({answer.label}) needs a reason: "
+            "say why the line is answered rather than acted on"
+        )
+    return dataclasses.replace(
+        answer, reason=reason, evidence=evidence, policy=policy, reviewed=reviewed
+    )
+
+
+def _answer_review(
+    entry: dict[str, Any], form: str, location: str
+) -> tuple[str, bool, tuple[str, ...]]:
+    exact = form in ("item", "items")
+    evidence = entry.get("evidence", "")
+    policy = entry.get("policy", False)
+    reviewed = entry.get("reviewed", [])
+    if not isinstance(evidence, str) or (evidence and not exact):
+        raise ConfigError(f"{location} evidence needs an exact item")
+    if evidence and re.fullmatch(r"[0-9a-f]{64}", evidence) is None:
+        raise ConfigError(f"{location} evidence must be a SHA-256 digest")
+    if not isinstance(policy, bool) or (policy and exact):
+        raise ConfigError(f"{location} policy needs a broad form")
+    if not isinstance(reviewed, list) or not all(isinstance(v, str) and v for v in reviewed):
+        raise ConfigError(f"{location} reviewed must be a list of lines")
+    if reviewed and not policy:
+        raise ConfigError(f"{location} reviewed needs policy = true")
+    return evidence, policy, tuple(reviewed)
 
 
 @contextlib.contextmanager

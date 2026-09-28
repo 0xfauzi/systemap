@@ -1,0 +1,1655 @@
+{
+  "systemap_revision": "56716e947cd94ad3c0b26f2937bbbfbd9b0484fc",
+  "repositories": [
+    {
+      "repository": "hono",
+      "revision": "90d02fb1645c12a65d27f39594d2129db2065ba7",
+      "roots": [
+        [
+          "src",
+          "hono"
+        ]
+      ],
+      "compiler_version": "5.9.3",
+      "modules": 187,
+      "counts": {
+        "all_literal_imports": 585,
+        "eligible": 579,
+        "matched": 530,
+        "unresolved": 6,
+        "missing": 49,
+        "explicit_unknown": 49
+      },
+      "compiler_diagnostic_codes": {},
+      "extraction_unknowns": [
+        "unknown surface: module hono.adapter.service_worker.index (src/adapter/service-worker/index.ts:36): the local export 'handle' could not be classified",
+        "unknown surface: module hono.client.utils (src/client/utils.ts:9): the local export 'DetailedError' could not be classified",
+        "unknown surface: module hono.context (src/context.ts:97): TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+        "unknown surface: module hono.helper.factory.index (src/helper/factory/index.ts:26): TypeScript syntax could not be parsed near '< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an'",
+        "unknown surface: module hono.helper.html.index (src/helper/html/index.ts:9): the local export 'raw' could not be classified",
+        "unknown surface: module hono.helper.ssg.middleware (src/helper/ssg/middleware.ts:33): TypeScript syntax could not be parsed near '<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }'",
+        "unknown surface: module hono.index (src/index.ts:53): the local export 'Hono' could not be classified",
+        "unknown surface: module hono.jsx.dom.client (src/jsx/dom/client.ts:86): the default export expression could not be classified",
+        "unknown surface: module hono.jsx.dom.index (src/jsx/dom/index.ts:169): TypeScript syntax could not be parsed near 'type'",
+        "unknown surface: module hono.jsx.dom.server (src/jsx/dom/server.ts:71): the local export 'version' could not be classified",
+        "unknown surface: module hono.jsx.dom.server (src/jsx/dom/server.ts:72): the default export expression could not be classified",
+        "unknown surface: module hono.jsx.hooks.index (src/jsx/hooks/index.ts:179): TypeScript syntax could not be parsed near '[T, UpdateStateFunction<T>] <T = undefined>():'",
+        "unknown surface: module hono.jsx.index (src/jsx/index.ts:112): TypeScript syntax could not be parsed near 'type'",
+        "unknown surface: module hono.jsx.jsx_runtime (src/jsx/jsx-runtime.ts:14): the local export 'html' could not be classified",
+        "unknown surface: module hono.middleware.compress.index (src/middleware/compress/index.ts:10): the local export 'COMPRESSIBLE_CONTENT_TYPE_REGEX' could not be classified",
+        "unknown surface: module hono.middleware.jwt.index (src/middleware/jwt/index.ts:2): the local export 'JwtVariables' could not be classified",
+        "unknown surface: module hono.middleware.language.index (src/middleware/language/index.ts:2): the local export 'LanguageVariables' could not be classified",
+        "unknown surface: module hono.middleware.language.index (src/middleware/language/index.ts:2): the local export 'DetectorOptions' could not be classified",
+        "unknown surface: module hono.middleware.language.index (src/middleware/language/index.ts:2): the local export 'DetectorType' could not be classified",
+        "unknown surface: module hono.middleware.language.index (src/middleware/language/index.ts:2): the local export 'CacheType' could not be classified",
+        "unknown surface: module hono.middleware.request_id.index (src/middleware/request-id/index.ts:2): the local export 'RequestIdVariables' could not be classified",
+        "unknown surface: module hono.middleware.secure_headers.index (src/middleware/secure-headers/index.ts:4): the local export 'SecureHeadersVariables' could not be classified",
+        "unknown surface: module hono.middleware.timing.index (src/middleware/timing/index.ts:3): the local export 'TimingVariables' could not be classified",
+        "unknown surface: module hono.types (src/types.ts:1): TypeScript syntax could not be parsed near '/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint'",
+        "unknown surface: module hono.utils.body (src/utils/body.ts:95): TypeScript syntax could not be parsed near '<T extends BodyData>( request: HonoRequest | Request, options?: Partial<ParseBodyOptions> ): Promise<T> }'",
+        "unknown surface: package_export hono -> dist/types/utils/*.d.ts (+2 more): 3 package.json export targets could not be mapped to TypeScript modules"
+      ],
+      "problems": [
+        {
+          "importer": "src/context.ts",
+          "specifier": "./request",
+          "kind": "static",
+          "resolved": "src/request.ts",
+          "isolated_resolution": [
+            "src/request.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./router",
+          "kind": "static",
+          "resolved": "src/router.ts",
+          "isolated_resolution": [
+            "src/router.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./types",
+          "kind": "static",
+          "resolved": "src/types.ts",
+          "isolated_resolution": [
+            "src/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./utils/headers",
+          "kind": "static",
+          "resolved": "src/utils/headers.ts",
+          "isolated_resolution": [
+            "src/utils/headers.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./utils/html",
+          "kind": "static",
+          "resolved": "src/utils/html.ts",
+          "isolated_resolution": [
+            "src/utils/html.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./utils/http-status",
+          "kind": "static",
+          "resolved": "src/utils/http-status.ts",
+          "isolated_resolution": [
+            "src/utils/http-status.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./utils/mime",
+          "kind": "static",
+          "resolved": "src/utils/mime.ts",
+          "isolated_resolution": [
+            "src/utils/mime.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/context.ts",
+          "specifier": "./utils/types",
+          "kind": "static",
+          "resolved": "src/utils/types.ts",
+          "isolated_resolution": [
+            "src/utils/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 97,
+              "reason": "TypeScript syntax could not be parsed near '<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }'",
+              "source": "<Key extends keyof ContextVariableMap>(key: Key): ContextVariableMap[Key] }"
+            }
+          ]
+        },
+        {
+          "importer": "src/helper/factory/index.ts",
+          "specifier": "../../hono",
+          "kind": "static",
+          "resolved": "src/hono.ts",
+          "isolated_resolution": [
+            "src/hono.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 26,
+              "reason": "TypeScript syntax could not be parsed near '< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an'",
+              "source": "< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an"
+            }
+          ]
+        },
+        {
+          "importer": "src/helper/factory/index.ts",
+          "specifier": "../../hono-base",
+          "kind": "static",
+          "resolved": "src/hono-base.ts",
+          "isolated_resolution": [
+            "src/hono-base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 26,
+              "reason": "TypeScript syntax could not be parsed near '< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an'",
+              "source": "< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an"
+            }
+          ]
+        },
+        {
+          "importer": "src/helper/factory/index.ts",
+          "specifier": "../../types",
+          "kind": "static",
+          "resolved": "src/types.ts",
+          "isolated_resolution": [
+            "src/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 26,
+              "reason": "TypeScript syntax could not be parsed near '< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an'",
+              "source": "< I extends Input = {}, I2 extends Input = I, R extends HandlerResponse<any> = any, R2 extends HandlerResponse<any> = an"
+            }
+          ]
+        },
+        {
+          "importer": "src/helper/ssg/middleware.ts",
+          "specifier": "../../context",
+          "kind": "static",
+          "resolved": "src/context.ts",
+          "isolated_resolution": [
+            "src/context.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 33,
+              "reason": "TypeScript syntax could not be parsed near '<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }'",
+              "source": "<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }"
+            }
+          ]
+        },
+        {
+          "importer": "src/helper/ssg/middleware.ts",
+          "specifier": "../../types",
+          "kind": "static",
+          "resolved": "src/types.ts",
+          "isolated_resolution": [
+            "src/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 33,
+              "reason": "TypeScript syntax could not be parsed near '<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }'",
+              "source": "<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }"
+            }
+          ]
+        },
+        {
+          "importer": "src/helper/ssg/middleware.ts",
+          "specifier": "./utils",
+          "kind": "static",
+          "resolved": "src/helper/ssg/utils.ts",
+          "isolated_resolution": [
+            "src/helper/ssg/utils.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 33,
+              "reason": "TypeScript syntax could not be parsed near '<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }'",
+              "source": "<E extends Env = Env>(params: SSGParams): MiddlewareHandler<E> }"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../base",
+          "kind": "static",
+          "resolved": "src/jsx/base.ts",
+          "isolated_resolution": [
+            "src/jsx/base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../base",
+          "kind": "static",
+          "resolved": "src/jsx/base.ts",
+          "isolated_resolution": [
+            "src/jsx/base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../children",
+          "kind": "static",
+          "resolved": "src/jsx/children.ts",
+          "isolated_resolution": [
+            "src/jsx/children.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../constants",
+          "kind": "static",
+          "resolved": "src/jsx/constants.ts",
+          "isolated_resolution": [
+            "src/jsx/constants.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../context",
+          "kind": "static",
+          "resolved": "src/jsx/context.ts",
+          "isolated_resolution": [
+            "src/jsx/context.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../hooks",
+          "kind": "static",
+          "resolved": "src/jsx/hooks/index.ts",
+          "isolated_resolution": [
+            "src/jsx/hooks/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "./components",
+          "kind": "static",
+          "resolved": "src/jsx/dom/components.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/components.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "./context",
+          "kind": "static",
+          "resolved": "src/jsx/dom/context.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/context.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "./hooks",
+          "kind": "static",
+          "resolved": "src/jsx/dom/hooks/index.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/hooks/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "./jsx-runtime",
+          "kind": "static",
+          "resolved": "src/jsx/dom/jsx-runtime.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/jsx-runtime.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "./render",
+          "kind": "static",
+          "resolved": "src/jsx/dom/render.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/render.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "./render",
+          "kind": "static",
+          "resolved": "src/jsx/dom/render.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/render.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../context",
+          "kind": "static",
+          "resolved": "src/jsx/context.ts",
+          "isolated_resolution": [
+            "src/jsx/context.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/dom/index.ts",
+          "specifier": "../types",
+          "kind": "static",
+          "resolved": "src/jsx/types.ts",
+          "isolated_resolution": [
+            "src/jsx/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 169,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/hooks/index.ts",
+          "specifier": "../base",
+          "kind": "static",
+          "resolved": "src/jsx/base.ts",
+          "isolated_resolution": [
+            "src/jsx/base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 179,
+              "reason": "TypeScript syntax could not be parsed near '[T, UpdateStateFunction<T>] <T = undefined>():'",
+              "source": "[T, UpdateStateFunction<T>] <T = undefined>():"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/hooks/index.ts",
+          "specifier": "../constants",
+          "kind": "static",
+          "resolved": "src/jsx/constants.ts",
+          "isolated_resolution": [
+            "src/jsx/constants.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 179,
+              "reason": "TypeScript syntax could not be parsed near '[T, UpdateStateFunction<T>] <T = undefined>():'",
+              "source": "[T, UpdateStateFunction<T>] <T = undefined>():"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/hooks/index.ts",
+          "specifier": "../dom/render",
+          "kind": "static",
+          "resolved": "src/jsx/dom/render.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/render.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 179,
+              "reason": "TypeScript syntax could not be parsed near '[T, UpdateStateFunction<T>] <T = undefined>():'",
+              "source": "[T, UpdateStateFunction<T>] <T = undefined>():"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/hooks/index.ts",
+          "specifier": "../dom/render",
+          "kind": "static",
+          "resolved": "src/jsx/dom/render.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/render.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 179,
+              "reason": "TypeScript syntax could not be parsed near '[T, UpdateStateFunction<T>] <T = undefined>():'",
+              "source": "[T, UpdateStateFunction<T>] <T = undefined>():"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./base",
+          "kind": "static",
+          "resolved": "src/jsx/base.ts",
+          "isolated_resolution": [
+            "src/jsx/base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./base",
+          "kind": "static",
+          "resolved": "src/jsx/base.ts",
+          "isolated_resolution": [
+            "src/jsx/base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./children",
+          "kind": "static",
+          "resolved": "src/jsx/children.ts",
+          "isolated_resolution": [
+            "src/jsx/children.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./components",
+          "kind": "static",
+          "resolved": "src/jsx/components.ts",
+          "isolated_resolution": [
+            "src/jsx/components.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./context",
+          "kind": "static",
+          "resolved": "src/jsx/context.ts",
+          "isolated_resolution": [
+            "src/jsx/context.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./dom/hooks",
+          "kind": "static",
+          "resolved": "src/jsx/dom/hooks/index.ts",
+          "isolated_resolution": [
+            "src/jsx/dom/hooks/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./hooks",
+          "kind": "static",
+          "resolved": "src/jsx/hooks/index.ts",
+          "isolated_resolution": [
+            "src/jsx/hooks/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./streaming",
+          "kind": "static",
+          "resolved": "src/jsx/streaming.ts",
+          "isolated_resolution": [
+            "src/jsx/streaming.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./types",
+          "kind": "static",
+          "resolved": "src/jsx/types.ts",
+          "isolated_resolution": [
+            "src/jsx/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/jsx/index.ts",
+          "specifier": "./intrinsic-elements",
+          "kind": "static",
+          "resolved": "src/jsx/intrinsic-elements.ts",
+          "isolated_resolution": [
+            "src/jsx/intrinsic-elements.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 112,
+              "reason": "TypeScript syntax could not be parsed near 'type'",
+              "source": "type"
+            }
+          ]
+        },
+        {
+          "importer": "src/types.ts",
+          "specifier": "./context",
+          "kind": "static",
+          "resolved": "src/context.ts",
+          "isolated_resolution": [
+            "src/context.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 1,
+              "reason": "TypeScript syntax could not be parsed near '/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint'",
+              "source": "/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint"
+            }
+          ]
+        },
+        {
+          "importer": "src/types.ts",
+          "specifier": "./hono-base",
+          "kind": "static",
+          "resolved": "src/hono-base.ts",
+          "isolated_resolution": [
+            "src/hono-base.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 1,
+              "reason": "TypeScript syntax could not be parsed near '/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint'",
+              "source": "/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint"
+            }
+          ]
+        },
+        {
+          "importer": "src/types.ts",
+          "specifier": "./utils/headers",
+          "kind": "static",
+          "resolved": "src/utils/headers.ts",
+          "isolated_resolution": [
+            "src/utils/headers.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 1,
+              "reason": "TypeScript syntax could not be parsed near '/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint'",
+              "source": "/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint"
+            }
+          ]
+        },
+        {
+          "importer": "src/types.ts",
+          "specifier": "./utils/http-status",
+          "kind": "static",
+          "resolved": "src/utils/http-status.ts",
+          "isolated_resolution": [
+            "src/utils/http-status.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 1,
+              "reason": "TypeScript syntax could not be parsed near '/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint'",
+              "source": "/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint"
+            }
+          ]
+        },
+        {
+          "importer": "src/types.ts",
+          "specifier": "./utils/types",
+          "kind": "static",
+          "resolved": "src/utils/types.ts",
+          "isolated_resolution": [
+            "src/utils/types.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 1,
+              "reason": "TypeScript syntax could not be parsed near '/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint'",
+              "source": "/** * @module * This module contains some type definitions for the Hono modules. */ /* eslint-disable @typescript-eslint"
+            }
+          ]
+        },
+        {
+          "importer": "src/utils/body.ts",
+          "specifier": "../request",
+          "kind": "static",
+          "resolved": "src/request.ts",
+          "isolated_resolution": [
+            "src/request.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 95,
+              "reason": "TypeScript syntax could not be parsed near '<T extends BodyData>( request: HonoRequest | Request, options?: Partial<ParseBodyOptions> ): Promise<T> }'",
+              "source": "<T extends BodyData>( request: HonoRequest | Request, options?: Partial<ParseBodyOptions> ): Promise<T> }"
+            }
+          ]
+        },
+        {
+          "importer": "src/utils/body.ts",
+          "specifier": "./buffer",
+          "kind": "static",
+          "resolved": "src/utils/buffer.ts",
+          "isolated_resolution": [
+            "src/utils/buffer.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 95,
+              "reason": "TypeScript syntax could not be parsed near '<T extends BodyData>( request: HonoRequest | Request, options?: Partial<ParseBodyOptions> ): Promise<T> }'",
+              "source": "<T extends BodyData>( request: HonoRequest | Request, options?: Partial<ParseBodyOptions> ): Promise<T> }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repository": "ky",
+      "revision": "0d59458a0a58e1c3d7c6db0ab17ed5c7cd671e47",
+      "roots": [
+        [
+          ".",
+          "ky"
+        ]
+      ],
+      "compiler_version": "5.9.3",
+      "modules": 51,
+      "counts": {
+        "all_literal_imports": 130,
+        "eligible": 93,
+        "matched": 93,
+        "unresolved": 37
+      },
+      "compiler_diagnostic_codes": {
+        "6053": 1,
+        "5052": 1,
+        "2307": 1,
+        "2585": 17,
+        "2550": 31,
+        "2705": 16,
+        "2322": 1,
+        "18028": 47,
+        "2583": 17,
+        "2339": 6,
+        "2554": 3,
+        "2495": 1,
+        "2345": 6
+      },
+      "extraction_unknowns": [
+        "unknown surface: module ky.source.index (source/index.ts:37): the default export expression could not be classified",
+        "unknown surface: /private/var/folders/3p/xvff9vpj09l5yndvhxhr5qr40000gn/T/systemap-ts-corpus-348oh02z/ky/tsconfig.json extends '@sindresorhus/tsconfig': the npm tsconfig package could not be read"
+      ],
+      "problems": []
+    },
+    {
+      "repository": "zod",
+      "revision": "2bf7b0630d5378033e90bcee82cb32b0fe04628e",
+      "roots": [
+        [
+          "packages/zod/src",
+          "zod"
+        ]
+      ],
+      "compiler_version": "5.9.3",
+      "modules": 134,
+      "counts": {
+        "all_literal_imports": 509,
+        "eligible": 499,
+        "matched": 465,
+        "unresolved": 9,
+        "outside_inventory": 1,
+        "missing": 34,
+        "explicit_unknown": 34
+      },
+      "compiler_diagnostic_codes": {
+        "2307": 390,
+        "7006": 58,
+        "2591": 95,
+        "2366": 1,
+        "6133": 14,
+        "2339": 19,
+        "2694": 1,
+        "7016": 1,
+        "6196": 8,
+        "2304": 2,
+        "7053": 2,
+        "18048": 1,
+        "2322": 2,
+        "2345": 1,
+        "2412": 1
+      },
+      "extraction_unknowns": [
+        "unknown surface: module zod.index (packages/zod/src/index.ts:7): the local export 'z' could not be classified",
+        "unknown surface: module zod.index (packages/zod/src/index.ts:7): the local export 'z' could not be classified",
+        "unknown surface: module zod.mini.index (packages/zod/src/mini/index.ts:3): the local export 'z' could not be classified",
+        "unknown surface: module zod.v3.benchmarks.datetime (packages/zod/src/v3/benchmarks/datetime.ts:56): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.discriminatedUnion (packages/zod/src/v3/benchmarks/discriminatedUnion.ts:78): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.ipv4 (packages/zod/src/v3/benchmarks/ipv4.ts:51): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.object (packages/zod/src/v3/benchmarks/object.ts:67): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.primitives (packages/zod/src/v3/benchmarks/primitives.ts:160): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.realworld (packages/zod/src/v3/benchmarks/realworld.ts:61): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.string (packages/zod/src/v3/benchmarks/string.ts:53): the default export expression could not be classified",
+        "unknown surface: module zod.v3.benchmarks.union (packages/zod/src/v3/benchmarks/union.ts:78): the default export expression could not be classified",
+        "unknown surface: module zod.v3.errors (packages/zod/src/v3/errors.ts:5): the local export 'defaultErrorMap' could not be classified",
+        "unknown surface: module zod.v3.index (packages/zod/src/v3/index.ts:3): the local export 'z' could not be classified",
+        "unknown surface: module zod.v3.index (packages/zod/src/v3/index.ts:4): the default export expression could not be classified",
+        "unknown surface: module zod.v3.locales.en (packages/zod/src/v3/locales/en.ts:124): the default export expression could not be classified",
+        "unknown surface: module zod.v4.classic.index (packages/zod/src/v4/classic/index.ts:5): the local export 'z' could not be classified",
+        "unknown surface: module zod.v4.classic.index (packages/zod/src/v4/classic/index.ts:5): the local export 'z' could not be classified",
+        "unknown surface: module zod.v4.classic.schemas (packages/zod/src/v4/classic/schemas.ts:35): TypeScript syntax could not be parsed near 'out'",
+        "unknown surface: module zod.v4.core.checks (packages/zod/src/v4/core/checks.ts:28): TypeScript syntax could not be parsed near 'T'",
+        "unknown surface: module zod.v4.core.schemas (packages/zod/src/v4/core/schemas.ts:181): TypeScript syntax could not be parsed near 'O'",
+        "unknown surface: module zod.v4.index (packages/zod/src/v4/index.ts:4): the local export 'z4' could not be classified",
+        "unknown surface: module zod.v4.mini.index (packages/zod/src/v4/mini/index.ts:3): the local export 'z' could not be classified",
+        "unknown surface: module zod.v4.mini.schemas (packages/zod/src/v4/mini/schemas.ts:10): TypeScript syntax could not be parsed near 'out'",
+        "unknown surface: module zod.v4_mini.index (packages/zod/src/v4-mini/index.ts:3): the local export 'z' could not be classified"
+      ],
+      "problems": [
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/checks.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/checks.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/checks.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/index.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/index.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/index.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/index.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/json-schema-processors.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/json-schema-processors.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/json-schema-processors.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/regexes.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/regexes.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/regexes.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/standard-schema.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/standard-schema.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/standard-schema.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../core/to-json-schema.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/to-json-schema.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/to-json-schema.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "../locales/en.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/locales/en.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/locales/en.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "./checks.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/classic/checks.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/classic/checks.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/classic/schemas.ts",
+          "specifier": "./parse.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/classic/parse.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/classic/parse.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 35,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/checks.ts",
+          "specifier": "./core.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/core.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/core.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 28,
+              "reason": "TypeScript syntax could not be parsed near 'T'",
+              "source": "T"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/checks.ts",
+          "specifier": "./errors.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/errors.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/errors.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 28,
+              "reason": "TypeScript syntax could not be parsed near 'T'",
+              "source": "T"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/checks.ts",
+          "specifier": "./regexes.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/regexes.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/regexes.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 28,
+              "reason": "TypeScript syntax could not be parsed near 'T'",
+              "source": "T"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/checks.ts",
+          "specifier": "./schemas.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/schemas.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/schemas.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 28,
+              "reason": "TypeScript syntax could not be parsed near 'T'",
+              "source": "T"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/checks.ts",
+          "specifier": "./util.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/util.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/util.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 28,
+              "reason": "TypeScript syntax could not be parsed near 'T'",
+              "source": "T"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./checks.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/checks.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/checks.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./checks.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/checks.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/checks.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./checks.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/checks.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/checks.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./core.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/core.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/core.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./doc.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/doc.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/doc.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./errors.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/errors.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/errors.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./json-schema.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/json-schema.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/json-schema.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./parse.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/parse.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/parse.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./regexes.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/regexes.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/regexes.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./standard-schema.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/standard-schema.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/standard-schema.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./to-json-schema.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/to-json-schema.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/to-json-schema.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./util.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/util.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/util.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./versions.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/versions.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/versions.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/core/schemas.ts",
+          "specifier": "./util.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/util.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/util.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 181,
+              "reason": "TypeScript syntax could not be parsed near 'O'",
+              "source": "O"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/mini/schemas.ts",
+          "specifier": "../core/index.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/index.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 10,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/mini/schemas.ts",
+          "specifier": "../core/index.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/index.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/index.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 10,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/mini/schemas.ts",
+          "specifier": "../core/regexes.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/regexes.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/regexes.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 10,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/mini/schemas.ts",
+          "specifier": "../core/util.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/core/util.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/core/util.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 10,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        },
+        {
+          "importer": "packages/zod/src/v4/mini/schemas.ts",
+          "specifier": "./parse.js",
+          "kind": "static",
+          "resolved": "packages/zod/src/v4/mini/parse.ts",
+          "isolated_resolution": [
+            "packages/zod/src/v4/mini/parse.ts"
+          ],
+          "systemap": [],
+          "status": "missing",
+          "unknown": [
+            {
+              "line": 10,
+              "reason": "TypeScript syntax could not be parsed near 'out'",
+              "source": "out"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "note": "Compiler-resolvable dependencies within extracted modules only. Npm dependencies were not installed."
+}

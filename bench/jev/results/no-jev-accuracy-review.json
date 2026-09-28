@@ -1,0 +1,510 @@
+{
+  "revision": "83aabb818069b62c3cce16dea34dcb3d4a0ebda7",
+  "source_sha256": {
+    "src/systemap/__init__.py": "b2bff38cf5d34a5ec27125b1297774ab3cdd9e65103f8938374b3a9b59cef618",
+    "src/systemap/__main__.py": "b3d04f01eca7ca0aa60cea970c06c71617405976ecd647b18cbb36df34827f04",
+    "src/systemap/agent.py": "affadbc6ba8eab6c317023218a2369578b02663332d1a677f4e06f762342bc48",
+    "src/systemap/audit.py": "ff48620dff5a3687623fbfacdd7ecf6baacd7944f461cde7cf84149cbf2807c0",
+    "src/systemap/change.py": "b0cbb3945c98246daa4b228b2eb4334922ecf5c09fac449e5418db9c34de38da",
+    "src/systemap/check.py": "ef5b471885a34518c8e64097a1d29c36b6d4bc8bf77e376c8931f348e7d2364a",
+    "src/systemap/cli.py": "9e7a8f0ea91aeceb47165d97e46c997741cfd9588931785fae27f15876dff48d",
+    "src/systemap/config.py": "83d2b8986a6976d2ea81d1fd505383d54a18c795666d463c78ffc79529249694",
+    "src/systemap/delta.py": "ba9c33e253f9a51317138638c64551ad77df7acefb88ebfcc19188bfb6977f37",
+    "src/systemap/describe.py": "e683d094b16d03c93fa7aee6a9f168e36671540ec2f14122bb938f269835a56f",
+    "src/systemap/evidence.py": "3d8994c8248f2f7082ddb2de45c87c1d5fc0ab54e775f733c29256c04e37b682",
+    "src/systemap/explain.py": "1fa5278310b8fed24657b5280ef9b89eb47ee2e6ab053e745cdc429ff830d03e",
+    "src/systemap/extract.py": "e9faeb16220ae46290351204add768069cd955ad5ad714de53a5604f86b12873",
+    "src/systemap/facts.py": "7fc8aea937a2c023beb4eae2b73f0861e0a9581da6a1c7d55fcd5c6aacd5f78d",
+    "src/systemap/figure.py": "bf6fa73a1074cdfce4c24ea20de5e3fbd8ab8289729ea437b4286a87021ea02b",
+    "src/systemap/graph.py": "8e0c08c94c26a4182e165a9778d629badcf70dad171eeccada4fbaf29906397f",
+    "src/systemap/history.py": "e11bd3f377be461d5f2990bb578fac5ded751c3e3fa1acca111c4f7af11333f7",
+    "src/systemap/jev.py": "73dd1f5f84c7c3a4d76acbee6f4194bce1cd2f4997a058eb878e401da68c1f20",
+    "src/systemap/jev_cli.py": "14607bedf055160b03262df94cff07ba08cee4b533fb78a2804aa5021b16e20c",
+    "src/systemap/journeys.py": "58ba4106db2faec097a2a89cca800fdd58317b7a07a28b2f1d816813eb7dfcd1",
+    "src/systemap/judgement.py": "d950dca69672d84fb45b275d99cd2d7b9a3f8809cb1ccb36939c53f23a37ac3f",
+    "src/systemap/model.py": "c0631d9977c161f7c67082f5b02f16f336091b05967278099438c3e41aa0849a",
+    "src/systemap/moves.py": "eeec275f0740128a7e96912e6c32e9530cf5b2739cd64fcaaedf93671098962b",
+    "src/systemap/nest.py": "937fc07562507dbdf771033894d9840d72df27b084cff0c6700038de28ecba7c",
+    "src/systemap/page.py": "8279b4bd3ec4843b33faf5af736a1e0d3dc720fb9266986edbc7a12583e157b7",
+    "src/systemap/place.py": "753ad42b2d53f0bc814581c85f0b3a6b151f2362ba31ef109422e7bba409f9a2",
+    "src/systemap/plan.py": "b8dba7a6fe3572336bb8a19df9264a3bb721fc4b216e412ea6819e3ef4ea78ae",
+    "src/systemap/route.py": "cec265419b277416b9da9344d963ce2e6da054792bac4a46964a6f85b993014f",
+    "src/systemap/scaffold.py": "0e302ea3db651f90e59593c5c7876b5749baa80d0a245bafbbab000d5fefeeb2",
+    "src/systemap/schematic.py": "df37a00de5b5b3ab1c034501774a27cbc722be5efe454b4578449607808dc162",
+    "src/systemap/skill.py": "499a59f3682005638afa2d38aa63b69e5f0aeaaad6c922e8445d7b2b2698d8e5",
+    "src/systemap/suggest.py": "cdf3f9760286aefd299c34e8b48c0804e5fcca9daa8490ca772a4ff5197325f2",
+    "src/systemap/theme.py": "5b7cd8c50d4a9ad31387ce523d51b5e32865dad650a28b64e2837236376031f8",
+    "src/systemap/trend.py": "16875c6a6afe58e66c4560395ec2395682da6215a7e52a8d2b82381522c861f7",
+    "src/systemap/ways_in.py": "23ed129b61ea864e98c5e5cba662cf10b5542ddceec552a5f3d80a4ce57cd54c"
+  },
+  "cases": [
+    {
+      "case": "function_signature",
+      "expected": "Surface change is recorded.",
+      "met": true,
+      "actual": {
+        "added": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "removed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "changed": {
+          "operations": [
+            "run"
+          ],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        }
+      },
+      "control": true
+    },
+    {
+      "case": "constructor_signature",
+      "expected": "Surface change is recorded.",
+      "met": false,
+      "actual": {
+        "added": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "removed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "changed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        }
+      },
+      "control": false
+    },
+    {
+      "case": "dataclass_field_type",
+      "expected": "Surface change is recorded.",
+      "met": false,
+      "actual": {
+        "added": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "removed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "changed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        }
+      },
+      "control": false
+    },
+    {
+      "case": "public_object_removed",
+      "expected": "Surface change is recorded.",
+      "met": false,
+      "actual": {
+        "added": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "removed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "changed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        }
+      },
+      "control": false
+    },
+    {
+      "case": "reexport_removed",
+      "expected": "Surface change is recorded.",
+      "met": false,
+      "actual": {
+        "added": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "removed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        },
+        "changed": {
+          "operations": [],
+          "types": [],
+          "refusals": [],
+          "constants": []
+        }
+      },
+      "control": false
+    },
+    {
+      "case": "conditional_export",
+      "expected": "The public function run is recorded or marked unresolved.",
+      "met": false,
+      "actual": [],
+      "control": false
+    },
+    {
+      "case": "prose_as_observation",
+      "expected": "A mechanism mentioned in prose without source evidence is not observed.",
+      "met": false,
+      "actual": "observed by: queue",
+      "control": false
+    },
+    {
+      "case": "import_evidence_control",
+      "expected": "A real import is reported as import evidence.",
+      "met": true,
+      "actual": "observed: an import joins them",
+      "control": true
+    },
+    {
+      "case": "unrelated_method_name",
+      "expected": "Item.run is rejected when run is only a module function.",
+      "met": false,
+      "actual": "",
+      "control": false
+    },
+    {
+      "case": "dotted_package_root",
+      "expected": "An import inside a configured dotted package root remains internal.",
+      "met": false,
+      "actual": {},
+      "control": false
+    },
+    {
+      "case": "imported_command_decorator",
+      "expected": "A directly imported Click command decorator is recognized.",
+      "met": false,
+      "actual": [],
+      "control": false
+    },
+    {
+      "case": "unrelated_route_decorator",
+      "expected": "A local cache decorator is not asserted to be an HTTP route.",
+      "met": false,
+      "actual": [
+        {
+          "kind": "route",
+          "name": "GET /key",
+          "target": "helper",
+          "module": "pkg.cache"
+        }
+      ],
+      "control": false
+    },
+    {
+      "case": "answer_dependency_freshness",
+      "expected": "Replacing a type import with a behavioral import asks for renewed review.",
+      "met": false,
+      "actual": {
+        "old_line": "crossing import: A imports B in 1 module and no flow joins them",
+        "new_lines": [
+          "crossing import: A imports B in 1 module and no flow joins them"
+        ],
+        "still_answered": 1
+      },
+      "control": false
+    },
+    {
+      "case": "unrelated_same_name_move",
+      "expected": "Identical common names alone do not assert an unrelated delete/add is a move.",
+      "met": false,
+      "actual": {
+        "pkg.email": [
+          "pkg.billing",
+          "same public names"
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "exact_content_move_control",
+      "expected": "A unique exact-content move is recognized.",
+      "met": true,
+      "actual": {
+        "pkg.email": [
+          "pkg.billing",
+          "same content"
+        ]
+      },
+      "control": true
+    },
+    {
+      "case": "parse_failure_inventory",
+      "expected": "The invalid source is retained as unknown or extraction fails explicitly.",
+      "met": false,
+      "actual": [
+        "pkg",
+        "pkg.good"
+      ],
+      "control": false
+    },
+    {
+      "case": "executable_package_marker",
+      "expected": "A package executing registration is not an empty marker.",
+      "met": false,
+      "actual": {
+        "empty_marker": true
+      },
+      "control": false
+    },
+    {
+      "case": "test_identity_freshness",
+      "expected": "Replacing a test with another named test makes stored facts stale.",
+      "met": false,
+      "actual": {
+        "drift": [],
+        "before": [
+          "test_old"
+        ],
+        "after": [
+          "test_new"
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "script_target_freshness",
+      "expected": "Retargeting a console script makes stored facts stale.",
+      "met": false,
+      "actual": {
+        "drift": [],
+        "before": [
+          {
+            "kind": "console_script",
+            "name": "cli",
+            "module": "pkg.good",
+            "target": "run"
+          }
+        ],
+        "after": [
+          {
+            "kind": "console_script",
+            "name": "cli",
+            "module": "pkg.good",
+            "target": "other"
+          }
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "qualified_test_identity",
+      "expected": "Two test methods with the same short name are counted separately.",
+      "met": false,
+      "actual": {
+        "tests_total": 1
+      },
+      "control": false
+    },
+    {
+      "case": "journey_string_roundtrip",
+      "expected": "Ordinary quotation marks produce valid Python source.",
+      "met": false,
+      "actual": "JOURNEYS = (\n    Journey(\n        id=\"walk\",\n        label=\"Read a value\",\n        starts=\"GET /read\",\n        drafted=True,  # read it, then remove this line\n        steps=(\n            Step(\n                acts=(\"A\",),\n                measures=(),\n                edge=(\"A\", \"B\"),\n                say=\"A sends the \"value\" to B.\",\n            ),\n        ),\n    ),\n)\n",
+      "control": false
+    },
+    {
+      "case": "partial_journey_rejection",
+      "expected": "A journey with an invalid step is refused as a whole.",
+      "met": false,
+      "actual": {
+        "kept_steps": 1,
+        "problems": [
+          "step 2 traces B -> A, which is not a flow"
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "entry_identity_collision",
+      "expected": "A journey for one module's route does not cover another module's same-named route.",
+      "met": false,
+      "actual": [],
+      "control": false
+    },
+    {
+      "case": "incidental_word_coverage",
+      "expected": "The word main in prose does not establish coverage of main().",
+      "met": false,
+      "actual": [],
+      "control": false
+    },
+    {
+      "case": "crowd_kind_scope",
+      "expected": "A grouped HTTP journey does not also cover a background task.",
+      "met": false,
+      "actual": [],
+      "control": false
+    },
+    {
+      "case": "empty_journey_validation",
+      "expected": "A zero-step journey is rejected or asked for review.",
+      "met": false,
+      "actual": [],
+      "control": false
+    },
+    {
+      "case": "journey_cache_source_freshness",
+      "expected": "A source change invalidates the code-reading agent answer.",
+      "met": false,
+      "actual": {
+        "calls": 1,
+        "cached": 1
+      },
+      "control": false
+    },
+    {
+      "case": "body_change_review",
+      "expected": "Behavior changes in every card request semantic review, including the full-loop trigger.",
+      "met": false,
+      "actual": {
+        "changed": 2,
+        "open": 0,
+        "named": [],
+        "past_a_third": false,
+        "report": [
+          "delta: 46a5a7e -> 3be9b92: 2 modules changed, 0 added, 0 removed, 0 moved; 0 of 2 cards named",
+          "nothing to decide: the map already covers this change. run: systemap refresh"
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "body_change_overlay_control",
+      "expected": "The change overlay highlights cards with body-only changes.",
+      "met": true,
+      "actual": [
+        "A",
+        "B"
+      ],
+      "control": true
+    },
+    {
+      "case": "invalid_ref_refusal",
+      "expected": "A missing comparison ref raises an explicit error.",
+      "met": false,
+      "actual": {
+        "has_change": false
+      },
+      "control": false
+    },
+    {
+      "case": "history_cache_configuration",
+      "expected": "History cache incorporates extraction configuration.",
+      "met": false,
+      "actual": {
+        "cached": [
+          "pkg",
+          "pkg.a",
+          "pkg.b"
+        ],
+        "fresh": [
+          "other",
+          "other.a",
+          "other.b"
+        ],
+        "first": [
+          "pkg",
+          "pkg.a",
+          "pkg.b"
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "unparsed_change_report",
+      "expected": "An owned file that cannot parse is reported as unknown without crashing.",
+      "met": false,
+      "actual": "KeyError: 'pkg.a'",
+      "control": false
+    },
+    {
+      "case": "explicit_head_graph",
+      "expected": "Reach for an explicit head uses that head's import graph.",
+      "met": false,
+      "actual": {
+        "working_facts_adjacent": [],
+        "target_facts_adjacent": [
+          "B"
+        ]
+      },
+      "control": false
+    },
+    {
+      "case": "symbol_claim_change_overlay",
+      "expected": "A body change to a claimed symbol highlights its symbol card.",
+      "met": false,
+      "actual": [
+        "A"
+      ],
+      "control": false
+    },
+    {
+      "case": "trend_rename_caveat",
+      "expected": "A current-name-only card count does not present a pure file rename as real growth without qualification.",
+      "met": false,
+      "actual": {
+        "grew": {
+          "A": 1
+        },
+        "modules": 0
+      },
+      "control": false
+    },
+    {
+      "case": "nested_explicit_start",
+      "expected": "An explicit journey start on the parent covers the child entry as documented.",
+      "met": false,
+      "actual": [
+        "Parent: entry point GET /a (route) has no journey (component Child)"
+      ],
+      "control": false
+    },
+    {
+      "case": "nested_pending_move",
+      "expected": "An exact move is reported as a move inside a parent whose claim still names the old module.",
+      "met": false,
+      "actual": [
+        "moved: pkg.old -> pkg.new (same content); Parent names pkg.old in implemented_by: rename it to pkg.new in map/model.py",
+        "Parent: removed: pkg.old; Child names it in implemented_by: drop it in child.py"
+      ],
+      "control": false
+    }
+  ],
+  "note": "Targeted counterexamples and controls. These counts are not an accuracy estimate."
+}
