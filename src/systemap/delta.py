@@ -512,23 +512,15 @@ def compute(
     )
 
 
-def _evidence_review_lines(
-    cfg: Config,
+def _flow_review_lines(
     model: Model,
-    meaning: Meaning,
-    base: dict[str, Any],
-    head: dict[str, Any],
-    base_model: Model,
-    head_model: Model,
+    ev_base: dict[tuple[str, str], evidence.Evidence],
+    ev_head: dict[tuple[str, str], evidence.Evidence],
     at_base: str,
     model_file: str,
 ) -> list[Line]:
-    """Report flows that lost support and cards whose source needs review."""
+    """Report a flow losing reviewed source or structural support."""
     lines: list[Line] = []
-    b: dict[str, Any] = base.get("components", {})
-    h: dict[str, Any] = head.get("components", {})
-    ev_base = evidence.of_model(base_model, meaning, base, cfg.observed_by)
-    ev_head = evidence.of_model(head_model, meaning, head, cfg.observed_by)
     for f in model.flows:
         was_observed = ev_base[f.edge].state == evidence.OBSERVED
         if was_observed and ev_head[f.edge].state == evidence.DECLARED:
@@ -538,6 +530,17 @@ def _evidence_review_lines(
                     f"evidence lost: {f.src} -> {f.dst} ({f.artifact}) was observed{at_base} and "
                     "no import joins them now; find the evidence, name the mechanism in the "
                     f"sentence, or remove the flow in {model_file}",
+                    (f.src, f.dst),
+                    decide=True,
+                )
+            )
+        elif was_observed and ev_head[f.edge].state != evidence.OBSERVED:
+            lines.append(
+                Line(
+                    "source evidence lost",
+                    f"source evidence lost: {f.src} -> {f.dst} ({f.artifact}) was source "
+                    f"reviewed{at_base} and is now {ev_head[f.edge].state}; review its source "
+                    "references, direction and artifact",
                     (f.src, f.dst),
                     decide=True,
                 )
@@ -556,6 +559,28 @@ def _evidence_review_lines(
                 )
             )
 
+    return lines
+
+
+def _evidence_review_lines(
+    cfg: Config,
+    model: Model,
+    meaning: Meaning,
+    base: dict[str, Any],
+    head: dict[str, Any],
+    base_model: Model,
+    head_model: Model,
+    at_base: str,
+    model_file: str,
+) -> list[Line]:
+    """Report flows that lost support and cards whose source needs review."""
+    lines: list[Line] = []
+    b: dict[str, Any] = base.get("components", {})
+    h: dict[str, Any] = head.get("components", {})
+    ev_base = evidence.of_model(base_model, meaning, base, cfg.observed_by)
+    ev_head = evidence.of_model(head_model, meaning, head, cfg.observed_by)
+    lines.extend(_flow_review_lines(model, ev_base, ev_head, at_base, model_file))
+
     semantic = {
         module
         for module in set(b) & set(h)
@@ -563,7 +588,9 @@ def _evidence_review_lines(
         != h[module].get("syntax_sha", h[module].get("sha"))
     }
     for card in model.components:
-        affected = sorted(semantic & set(claimed(card, h)))
+        before = set(claimed(card, b))
+        after = set(claimed(card, h))
+        affected = sorted((semantic & (before | after)) | (before ^ after))
         current_review = card_review.digest(card, model, meaning, head)
         if affected and (not current_review or card.source_review != current_review):
             lines.append(

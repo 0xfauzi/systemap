@@ -161,8 +161,10 @@ the failed and diagnostic calls were not included in that cost.
 ## How can the next ownership review use one source snapshot?
 
 `review_accuracy_v2.py` prepares a source review without calling an agent.
-`freeze` copies every tracked or unignored file from one working tree, including
-uncommitted source and map files. Internal symlinks retain their targets;
+`freeze` copies every tracked or unignored file present in one working tree,
+including uncommitted source and map files. A tracked file deleted before the
+freeze remains absent. A deletion or other mutation during freezing stops the
+run. Ignored source files still stop the freeze if extraction discovers them. Internal symlinks retain their targets;
 external or missing targets stop the freeze. It extracts facts from that copy,
 compares them with extraction from the original tree, and records SHA-256
 hashes for the files, facts, extractor source, and manifest. `verify` refuses
@@ -220,12 +222,42 @@ ambiguous labels, and unresolved labels separately by repository.
 uv run --project bench/jev python bench/jev/review_accuracy_v2.py score CASE_SET/cases.json labels.json answers.json
 ```
 
-For a full mapping run, save the exact instructions beside `run.json`. Record
-their relative `instructions_file` path and SHA-256 digest, plus `snapshot_id`,
+A full mapping run uses a separate input directory created by
+`prepare-workflow`. The frozen reference tree remains available to the scorer,
+but the mapping agent receives only the prepared input tree. Its whitelist
+contains every extracted component source and source in the configured test
+directories or matching configured test patterns. Map directories and rendered
+output directories cannot enter the whitelist, even if configured as source.
+Facts, reference maps, documentation, and case packets are not copied.
+
+`source-config.json` describes the language, source roots, test settings, and
+selected Python package metadata. It omits map claims and recorded judgement
+answers from the original configuration. For TypeScript, supply each needed
+`package.json` or `tsconfig*.json` explicitly with `--config PATH`. Relative
+paths are preserved. The command rejects configurations under reference map or
+rendered output directories. Review the selected configuration files before
+exposing them to the agent. Other configuration names are refused.
+
+```sh
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py prepare-workflow SNAPSHOT WORKFLOW_INPUT --config tsconfig.json --config package.json
+```
+
+The command prints the SHA-256 digest of the input manifest. The manifest lists
+every admitted file and binds those bytes to the frozen snapshot. Run the agent
+in a separate working copy of `WORKFLOW_INPUT/tree`; retain the prepared input
+unchanged for validation. Restrict the external run's filesystem access to its
+working copy. The validator proves which input bytes were supplied; it cannot
+prove that an external agent never read another directory or service.
+
+Save the exact instructions beside `run.json`. Record `workflow_input`, the
+prepared directory's path relative to `run.json`, and `workflow_input_sha256`,
+the digest printed by preparation. Record the relative `instructions_file`
+path and SHA-256 digest, plus `snapshot_id`,
 agent identity, a `cards` object from card ID to job, and an `owners` object with
 every extracted nonempty module as a key. Use null for an omitted owner.
 Include `flows`, `journeys`, `invariants`, and `unresolved_claims` arrays.
-`validate-workflow` checks the complete inventory. A separate reviewer then
+`validate-workflow` checks the input whitelist, every input file hash, and the
+complete reported inventory. Changed, added, missing, or unbound input is refused. A separate reviewer then
 aligns each workflow card with a reference card before ownership is scored.
 This prevents a renamed card from being treated as a different job solely
 because its ID changed. The reviewer writes `alignment.json` with `format: 1`,
@@ -742,3 +774,26 @@ reads it, which is the standard the per-way-in walks already ship under.
 (work that lands outside its plan predicts a later fix) needs fix pull requests,
 and the whole corpus of five repositories holds six of them. It cannot be
 measured, so it is not scheduled.
+
+## Does Python syntax evidence survive a supported interpreter change?
+
+On 2026-10-02, the portability experiment compared the same 45 systemap
+source modules under Python 3.11 and 3.13. The acceptance rule was recorded
+before execution: zero canonical syntax hash mismatches between interpreters,
+zero changes to existing Python 3.11 hashes, unchanged hashes after comments
+or formatting edits, and a changed hash after a function body edit on each
+interpreter.
+
+The original syntax hashes differed for all 45 modules. The canonical hashes
+differed for zero modules, and zero existing Python 3.11 hashes changed.
+Formatting and comment edits produced zero mismatches on either interpreter.
+Each interpreter detected the body edit. The experiment checks syntax hash
+portability for this source set and these transformations. It does not establish
+that every future Python grammar change preserves the representation.
+`syntax_portability.py` records the acceptance rule and prints hashes and
+control results for comparison across repeated runs. From the repository root:
+
+```sh
+uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.json
+uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.json
+```

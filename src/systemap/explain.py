@@ -272,7 +272,7 @@ DELTA = {
         ),
     ),
     "source review": Lesson(
-        means="A card claims a module whose parsed code changed.",
+        means="A card's claimed modules changed, or a claimed module's parsed code changed.",
         why=(
             "Imports and public signatures do not show every behavior change. The card's "
             "description, flows, journeys and invariants may now describe the old behavior."
@@ -281,6 +281,11 @@ DELTA = {
             "Read the changed source, correct the card's claims, then record its "
             "source_review digest as described in the maintenance guide."
         ),
+    ),
+    "source evidence lost": Lesson(
+        means="A flow's reviewed source no longer establishes its claim at this snapshot.",
+        why="An import can remain even when the reviewed direction or artifact has changed.",
+        do="Read the changed source, update the flow's claims and record fresh source references.",
     ),
     "move candidate": Lesson(
         means=(

@@ -34,7 +34,7 @@ from systemap.model import Model, is_symbol, module_matches, public_names
 
 SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
 # A stored file of an older facts format is reported as stale.
-FORMAT = 3
+FORMAT = 4
 TESTS_KEPT = 25
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
@@ -188,7 +188,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "the facts format; 3, with extraction provenance and complete test identity digests; "
+        "the facts format; 4, with portable syntax hashes and compiler provenance; "
         "`extract --check` reports a file of an older format as stale",
     ),
     (
@@ -771,6 +771,18 @@ def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> l
     return out
 
 
+def _dump_python_syntax(tree: ast.AST) -> str:
+    """Dump shared Python syntax identically across supported interpreters."""
+    # Python 3.12 added empty type_params; 3.13 stopped dumping empty
+    # lists by default. Retain the 3.11 representation for shared syntax,
+    # while retaining nonempty type parameters as meaningful source.
+    for node in ast.walk(tree):
+        if getattr(node, "type_params", None) == []:
+            vars(node)["_fields"] = tuple(field for field in node._fields if field != "type_params")
+    empty_fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
+    return ast.dump(tree, include_attributes=False, **empty_fields)
+
+
 def collect_module(
     path: Path, repo: Path, module: str = "", prefixes: frozenset[str] = frozenset()
 ) -> dict[str, Any] | None:
@@ -810,7 +822,7 @@ def collect_module(
             "executes": False,
         }
     try:
-        normalized = ast.dump(ast.parse(raw), include_attributes=False)
+        normalized = _dump_python_syntax(ast.parse(raw))
     except (SyntaxError, ValueError):
         normalized = raw
     record = {
@@ -1323,6 +1335,9 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
 
 
 def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
+    from systemap.typescript_config import compiler_settings
+
+    compiler = getattr(context, "compiler", None)
     settings = {
         "language": cfg.language,
         "roots": cfg.package_roots,
@@ -1330,7 +1345,7 @@ def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
         "test_patterns": cfg.test_patterns,
         "planes": cfg.planes,
         "spec_path": cfg.spec_path,
-        "compiler": repr(getattr(context, "compiler", None)),
+        "compiler": compiler_settings(compiler, cfg.root) if compiler is not None else None,
     }
     files: dict[str, str] = {}
     for relative in ("pyproject.toml", "package.json", "tsconfig.json"):

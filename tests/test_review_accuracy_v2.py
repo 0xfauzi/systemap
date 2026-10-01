@@ -54,6 +54,18 @@ def fixture_repo(root: Path) -> None:
     )
 
 
+def workflow_binding(snapshot: Path, parent: Path) -> dict:
+    destination = parent / "workflow-input"
+    identity = review.workflow_input.prepare(
+        snapshot,
+        destination,
+        review.verify(snapshot),
+        review.read_json(snapshot / "facts.json"),
+        [],
+    )
+    return {"workflow_input": destination.name, "workflow_input_sha256": identity}
+
+
 def label_for(case: dict, owner: str) -> dict:
     return {
         "id": case["id"],
@@ -257,6 +269,7 @@ def test_workflow_scores_only_adjudicated_ownership(tmp_path: Path) -> None:
         run_file,
         {
             "snapshot_id": review.verify(snapshot)["snapshot_id"],
+            **workflow_binding(snapshot, tmp_path),
             "instructions_file": instructions.name,
             "instructions_sha256": review.digest(instructions.read_bytes()),
             "agent": "recorded test run",
@@ -341,6 +354,7 @@ def test_new_card_label_rejects_existing_owner_and_leaves_new_card_pending(
     run_file = tmp_path / "run.json"
     run = {
         "snapshot_id": review.verify(snapshot)["snapshot_id"],
+        **workflow_binding(snapshot, tmp_path),
         "instructions_file": instructions.name,
         "instructions_sha256": review.digest(instructions.read_bytes()),
         "agent": "recorded test run",
@@ -381,3 +395,143 @@ def test_new_card_label_rejects_existing_owner_and_leaves_new_card_pending(
     )
     assert report["ownership"]["new_card_new_unscored"] == 1
     assert report["ownership"].get("new_card_existing_owner_wrong_confident", 0) == 0
+
+
+def test_freeze_retains_dirty_tracked_deletions(tmp_path: Path) -> None:
+    repo, snapshot = tmp_path / "repo", tmp_path / "snapshot"
+    repo.mkdir()
+    fixture_repo(repo)
+    (repo / "pkg/b.py").unlink()
+    review.freeze(repo, snapshot)
+    manifest = review.verify(snapshot)
+    assert "pkg/b.py" not in manifest["files"]
+    facts = review.read_json(snapshot / "facts.json")
+    assert set(facts["components"]) == {"pkg", "pkg.a"}
+
+
+def test_freeze_refuses_deletion_during_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, snapshot = tmp_path / "repo", tmp_path / "snapshot"
+    repo.mkdir()
+    fixture_repo(repo)
+    original = review.copy_visible_file
+
+    def copy_then_delete(root, target, rel, visible):
+        result = original(root, target, rel, visible)
+        if rel == Path("pkg/b.py"):
+            (root / rel).unlink()
+        return result
+
+    monkeypatch.setattr(review, "copy_visible_file", copy_then_delete)
+    with pytest.raises(ValueError, match="source changed|source tree changed"):
+        review.freeze(repo, snapshot)
+    assert not snapshot.exists()
+
+
+def test_workflow_input_excludes_reference_artefacts(tmp_path: Path) -> None:
+    repo, snapshot, destination = tmp_path / "repo", tmp_path / "snapshot", tmp_path / "input"
+    repo.mkdir()
+    fixture_repo(repo)
+    (repo / "docs/map").mkdir(parents=True)
+    (repo / "docs/map/map.json").write_text('{"Reader": "pkg.a"}')
+    (repo / "docs/map/index.html").write_text("Reader owns pkg.a")
+    (repo / "cases.json").write_text('{"reference_owner": "Reader"}')
+    (repo / "tests").mkdir()
+    (repo / "tests/test_reader.py").write_text(
+        "from pkg.a import read\ndef test_read(): assert read() == 'input'\n"
+    )
+    (repo / "tests/conftest.py").write_text("FIXTURE = 'test support'\n")
+    (repo / "package.json").write_text('{"name": "fixture"}')
+    review.freeze(repo, snapshot)
+    identity = review.workflow_input.prepare(
+        snapshot,
+        destination,
+        review.verify(snapshot),
+        review.read_json(snapshot / "facts.json"),
+        ["package.json"],
+    )
+    files = {
+        p.relative_to(destination / "tree").as_posix()
+        for p in (destination / "tree").rglob("*")
+        if p.is_file()
+    }
+    assert files == {
+        "pkg/__init__.py",
+        "pkg/a.py",
+        "pkg/b.py",
+        "source-config.json",
+        "package.json",
+        "tests/test_reader.py",
+        "tests/conftest.py",
+    }
+    assert (snapshot / "tree/map/model.py").is_file()
+    result = {"workflow_input": "input", "workflow_input_sha256": identity}
+    review.workflow_input.verify(
+        snapshot,
+        review.verify(snapshot),
+        review.read_json(snapshot / "facts.json"),
+        result,
+        tmp_path / "run.json",
+    )
+    with pytest.raises(ValueError, match="reference artefacts"):
+        review.workflow_input.prepare(
+            snapshot,
+            tmp_path / "bad",
+            review.verify(snapshot),
+            review.read_json(snapshot / "facts.json"),
+            ["map/model.py"],
+        )
+
+
+@pytest.mark.parametrize("tamper", ["source", "extra_map", "manifest", "missing_binding"])
+def test_workflow_refuses_changed_or_unbound_input(tmp_path: Path, tamper: str) -> None:
+    repo, snapshot = tmp_path / "repo", tmp_path / "snapshot"
+    repo.mkdir()
+    fixture_repo(repo)
+    review.freeze(repo, snapshot)
+    result = workflow_binding(snapshot, tmp_path)
+    supplied = tmp_path / "workflow-input"
+    if tamper == "source":
+        (supplied / "tree/pkg/a.py").write_text("def read(): return 'tampered'\n")
+    elif tamper == "extra_map":
+        (supplied / "tree/model.py").write_text((snapshot / "tree/map/model.py").read_text())
+    elif tamper == "manifest":
+        manifest = review.read_json(supplied / "manifest.json")
+        manifest["files"]["pkg/a.py"] = "0" * 64
+        review.write_json(supplied / "manifest.json", manifest)
+        result["workflow_input_sha256"] = review.digest(review.canonical(manifest))
+    else:
+        result.pop("workflow_input_sha256")
+    with pytest.raises(ValueError, match="workflow input"):
+        review.workflow_input.verify(
+            snapshot,
+            review.verify(snapshot),
+            review.read_json(snapshot / "facts.json"),
+            result,
+            tmp_path / "run.json",
+        )
+
+
+@pytest.mark.parametrize("alias", ["source", "config"])
+def test_workflow_refuses_symlink_alias_to_reference_artefacts(tmp_path: Path, alias: str) -> None:
+    repo, snapshot = tmp_path / "repo", tmp_path / "snapshot"
+    repo.mkdir()
+    fixture_repo(repo)
+    configs = []
+    if alias == "source":
+        (repo / "map/helper.py").write_text("REFERENCE_OWNER = 'Reader'\n")
+        (repo / "pkg/leaked.py").symlink_to("../map/helper.py")
+    else:
+        (repo / "map/package.json").write_text('{"reference_owner": "Reader"}')
+        (repo / "package.json").symlink_to("map/package.json")
+        configs = ["package.json"]
+    review.freeze(repo, snapshot)
+    with pytest.raises(ValueError, match="reference artefacts"):
+        review.workflow_input.prepare(
+            snapshot,
+            tmp_path / "input",
+            review.verify(snapshot),
+            review.read_json(snapshot / "facts.json"),
+            configs,
+        )

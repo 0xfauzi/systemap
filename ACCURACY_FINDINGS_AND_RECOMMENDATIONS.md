@@ -22,6 +22,35 @@ empty package markers. One nested map is recorded but not scored. The offline
 checks do not supply the independent labels or a fresh workflow run. The
 original pilot still missed its preset false-challenge bar.
 
+## PR review corrections (2026-10-02)
+
+The ten findings from the review of PR #15 are now covered by regression
+contracts. The corrections address these observed failures:
+
+| Review ID | Corrected behavior | Verification |
+|---|---|---|
+| R1 | TypeScript facts remain current after relocating an identical checkout. | Equal provenance and zero freshness drift across two directories; changed settings still invalidate facts. |
+| R2 | Recorded card reviews survive supported Python interpreter changes. | Canonical syntax hashes match for all 45 source modules under Python 3.11 and 3.13; comments preserve hashes and body edits change them. |
+| R3 | Existing positional Journey constructors preserve their drafted flag. | A fifth positional boolean leaves covers empty and coverage checks complete without crashing. |
+| R4 | Full workflow evaluation uses a separate input without reference ownership. | Input preparation retains source and tests, excludes maps and case packets, and rejects changed or unbound manifests. |
+| R5 | Added and removed wildcard-owned modules reopen card review. | Membership changes require a decision until a current review is recorded. |
+| R6 | A reviewed flow losing its source citation reopens delta even if its import remains. | Both structural and declared fallback states require a decision. |
+| R7 | Overlapping rootDirs follow the compiler's most specific root. | TypeScript 5.9.3 oracle cases match, including explicit input files. |
+| R8 | TypeScript namespace and class fingerprints exclude callable bodies and static blocks. | Body edits preserve public surface; signature and public value edits change it. |
+| R9 | A later journey file write failure restores earlier model files. | Staging and replacement failures preserve original bytes and modes; failed restoration retains and names the original backup. |
+| R10 | Frozen working trees support tracked file deletions. | Deletions before capture are accepted; deletions during capture are rejected. |
+
+Final verification: 501 tests passed with one expected syntax-version skip
+under Python 3.11, and all 502 passed under Python 3.13. Mypy and pre-commit
+passed. The self-map covers 45 of 45 modules with zero open strict judgements.
+Facts format 4 invalidates historical caches created before the portability fix.
+
+Workflow input validation checks the recorded files. External runs still need
+filesystem isolation, and explicitly selected configuration files need review
+before exposure. No independent semantic ownership score is claimed. Journey
+write recovery handles reported I/O failures; process termination and concurrent
+model edits remain outside that transaction contract.
+
 ## Contents
 
 - [Priorities and scope](#recommended-priorities)

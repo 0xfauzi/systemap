@@ -6,7 +6,7 @@ import json
 import os
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +63,21 @@ class TypeScriptConfig:
     composite: bool = False
     inputs: InputSpec | None = None
     typescript_major: int | None = None
+
+
+def compiler_settings(config: TypeScriptConfig, repo: Path) -> dict[str, Any]:
+    """Compiler settings with paths relative to the repository, for provenance."""
+
+    def relative(value: Any) -> Any:
+        if isinstance(value, Path):
+            return Path(os.path.relpath(value, repo)).as_posix()
+        if isinstance(value, dict):
+            return {key: relative(item) for key, item in value.items()}
+        if isinstance(value, (tuple, list)):
+            return [relative(item) for item in value]
+        return value
+
+    return dict(relative(asdict(config)))
 
 
 def package_json(root: Path) -> dict[str, Any]:

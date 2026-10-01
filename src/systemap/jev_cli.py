@@ -9,11 +9,8 @@ run at all: none of them is a gate.
 from __future__ import annotations
 
 import argparse
-import os
 import re
-import stat
 import sys
-import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -29,6 +26,7 @@ from systemap import (
     jev,
     journeys,
     judgement,
+    model_write,
     moves,
     nest,
 )
@@ -374,12 +372,9 @@ def _commit_journeys(
 ) -> bool:
     """Validate all proposed source before writing any journey files."""
     try:
-        for path, source in sources.items():
-            compile(source, str(path), "exec")
-        for path, source in sources.items():
-            _atomic_model_write(path, source)
+        model_write.write_models(sources)
     except (SyntaxError, OSError) as exc:
-        print(f"journeys: proposed model could not be written: {exc}; model unchanged")
+        print(f"journeys: proposed model could not be written: {exc}")
         return False
     for path, ids in written.items():
         out.append(f"  {len(ids)} written into {cfg.rel(path)}, each marked drafted=True")
@@ -390,16 +385,7 @@ def _commit_journeys(
 
 def _atomic_model_write(path: Path, source: str) -> None:
     """Validate the complete source, then replace the model in one operation."""
-    compile(source, str(path), "exec")
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
-            output.write(source)
-        os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    model_write.write_models({path: source})
 
 
 def writer_usage(writer: agent.Agent) -> None:

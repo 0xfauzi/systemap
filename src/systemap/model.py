@@ -217,10 +217,10 @@ class Journey:
     label: str
     steps: tuple[Step, ...]
     starts: str = ""
-    # Stable identities of the exact ways in reviewed for this walk.
-    covers: tuple[str, ...] = ()
     # written by `systemap journeys` and not yet read by the maintainer
     drafted: bool = False
+    # Stable identities of the exact ways in reviewed for this walk.
+    covers: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

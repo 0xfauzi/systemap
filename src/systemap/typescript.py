@@ -149,10 +149,11 @@ def _target_from_path(
 def _relative_targets(specifier: str, importer: Path, root_dirs: tuple[Path, ...]) -> list[Path]:
     relative = (importer.parent / _without_script_suffix(specifier)).resolve()
     targets = [relative]
-    for source_root in root_dirs:
-        if importer.resolve().is_relative_to(source_root) and relative.is_relative_to(source_root):
-            tail = relative.relative_to(source_root)
-            targets.extend(root / tail for root in root_dirs if root != source_root)
+    containing = [root for root in root_dirs if relative.is_relative_to(root)]
+    if containing:
+        source_root = max(containing, key=lambda root: len(root.parts))
+        tail = relative.relative_to(source_root)
+        targets.extend(root / tail for root in root_dirs if root != source_root)
     return targets
 
 
@@ -343,6 +344,18 @@ def _program_inputs(inputs: list[Path], compiler: TypeScriptConfig, repo: Path) 
     return queue
 
 
+def _first_existing_target(targets: list[Path]) -> Path | None:
+    return next(
+        (
+            choice.resolve()
+            for target in targets
+            for choice in _path_choices(target)
+            if choice.is_file()
+        ),
+        None,
+    )
+
+
 def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) -> Iterator[Path]:
     try:
         root = parse_tree(path.read_text(encoding="utf-8"), path.as_posix())
@@ -350,16 +363,13 @@ def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) ->
         return
     for specifier, _ in _imports(root):
         targets = (
-            [(path.parent / _without_script_suffix(specifier)).resolve()]
+            _relative_targets(specifier, path, compiler.root_dirs)
             if specifier.startswith(".")
             else alias_targets(specifier, compiler, repo)
         )
-        for target in targets:
-            found = next(
-                (choice.resolve() for choice in _path_choices(target) if choice.is_file()), None
-            )
-            if found is not None and not found.name.endswith(".d.ts"):
-                yield found
+        found = _first_existing_target(targets)
+        if found is not None and not found.name.endswith(".d.ts"):
+            yield found
 
 
 def _problem(line: int, reason: str, source: str) -> dict[str, Any]:

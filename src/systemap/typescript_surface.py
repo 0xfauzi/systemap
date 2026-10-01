@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -478,8 +479,14 @@ def _syntax(node: Node, *, omit_body: bool = False) -> str:
         if not part.children:
             tokens.append(_text(part))
             return
+        callable_body = (
+            part.child_by_field_name("body")
+            if omit_body and part.type in EXPORTED_FUNCTION_NODES
+            else None
+        )
         for child in part.children:
-            collect(child)
+            if child != callable_body:
+                collect(child)
 
     collect(node)
     return "\x1f".join(tokens)
@@ -493,6 +500,8 @@ def _type_definition(node: Node) -> str:
         return _syntax(node)
     members: list[str] = []
     for member in body.named_children:
+        if member.type == "class_static_block":
+            continue
         name = member.child_by_field_name("name")
         if name is not None and _text(name).startswith("#"):
             continue
@@ -503,8 +512,14 @@ def _type_definition(node: Node) -> str:
         }
         if modifiers & {"private", "protected"}:
             continue
-        members.append(_syntax(member, omit_body=member.type == "method_definition"))
+        members.append(_syntax(member, omit_body=True))
     return _syntax(node, omit_body=True) + "\n" + "\n".join(members)
+
+
+def _namespace_definition(node: Node) -> str:
+    body = node.child_by_field_name("body")
+    exports = _exported_api(body) if body is not None else []
+    return _syntax(node, omit_body=True) + "\n" + json.dumps(exports, sort_keys=True)
 
 
 def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
@@ -515,7 +530,7 @@ def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
         record, is_error = _type_record(node)
         return [(record["name"], "refusals" if is_error else "types", _type_definition(node))]
     if node.type == "internal_module":
-        return [(name, "constants", _syntax(node)) for name in _namespace_kinds(node)]
+        return [(name, "constants", _namespace_definition(node)) for name in _namespace_kinds(node)]
     if node.type != "lexical_declaration":
         return []
     return _lexical_api(node)

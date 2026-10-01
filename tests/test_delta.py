@@ -262,7 +262,7 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     start = next(i for i, line in enumerate(lines) if line.startswith("needs a decision ("))
     open_lines = lines[start + 1 : lines.index(f"changed, nothing to do ({len(expected_quiet)}):")]
     assert all(f"  {item}" in open_lines for item in expected_open)
-    assert sum(line.startswith("  source review:") for line in open_lines) == 4
+    assert sum(line.startswith("  source review:") for line in open_lines) == 5
     start = lines.index(f"changed, nothing to do ({len(expected_quiet)}):")
     assert lines[start + 1 : start + 1 + len(expected_quiet)] == [f"  {t}" for t in expected_quiet]
     # The answered crossing import (Ledger -> Parser) is not asked again.
@@ -295,7 +295,7 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     lines = out.splitlines()
     assert lines[0] == delta.MARKER
     assert lines[1] == "## What this change does to the map"
-    assert "**Needs a decision (13)**" in lines
+    assert "**Needs a decision (14)**" in lines
     assert "**Changed, nothing to do (6)**" in lines
     assert "- `added: pkg.fresh, claimed by no card; " in out
     assert f"> {delta.FULL_LOOP[0].upper()}{delta.FULL_LOOP[1:]}." in lines

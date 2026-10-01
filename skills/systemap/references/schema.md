@@ -298,7 +298,7 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 
 **The file**
 
-- `version`: the facts format; 3, with extraction provenance and complete test identity digests; `extract --check` reports a file of an older format as stale.
+- `version`: the facts format; 4, with portable syntax hashes and compiler provenance; `extract --check` reports a file of an older format as stale.
 - `built_at_commit`: the commit the tree was read at (HEAD when extract ran), or empty outside git; the page prints it as `facts from <sha>`, and it is the commit before the one that records the facts, since they are committed after they are read.
 - `packages`: the import names of the package roots.
 - `provenance`: the source-language parser and extraction inputs used for these facts; a change requires a fresh review even when source files are unchanged.

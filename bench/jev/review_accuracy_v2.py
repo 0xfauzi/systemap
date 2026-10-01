@@ -31,6 +31,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import workflow_input
+
 from systemap import config, extract, nest
 from systemap.model import claimed
 
@@ -68,7 +70,7 @@ def visible_files(root: Path) -> list[Path]:
     paths = sorted({Path(p.decode()) for p in raw.split(b"\0") if p})
     if any(p.is_absolute() or ".." in p.parts for p in paths):
         raise ValueError("Git returned a path outside the repository")
-    return paths
+    return [p for p in paths if (root / p).exists() or (root / p).is_symlink()]
 
 
 def copy_tree(root: Path, target: Path) -> tuple[dict[str, str], dict[str, str]]:
@@ -497,7 +499,9 @@ def validate_workflow(snapshot: Path, result_file: Path) -> dict[str, int]:
     if result.get("snapshot_id") != manifest["snapshot_id"]:
         raise ValueError("workflow result uses a different source snapshot")
     validate_workflow_instructions(result, result_file)
-    records = read_json(snapshot / "facts.json")["components"]
+    facts = read_json(snapshot / "facts.json")
+    workflow_input.verify(snapshot, manifest, facts, result, result_file)
+    records = facts["components"]
     expected = {m for m, record in records.items() if not extract.is_empty_marker(record)}
     owners = result.get("owners")
     if not isinstance(owners, dict) or set(owners) != expected:
@@ -692,6 +696,10 @@ def main() -> None:
     scored.add_argument("cases", type=Path)
     scored.add_argument("labels", type=Path)
     scored.add_argument("answers", type=Path)
+    prepared = commands.add_parser("prepare-workflow")
+    prepared.add_argument("snapshot", type=Path)
+    prepared.add_argument("out", type=Path)
+    prepared.add_argument("--config", action="append", default=[])
     workflow = commands.add_parser("validate-workflow")
     workflow.add_argument("snapshot", type=Path)
     workflow.add_argument("result", type=Path)
@@ -713,6 +721,17 @@ def main() -> None:
         print(f"review packet: {(args.out / 'review-cases.json').resolve()}")
     elif args.command == "score":
         print(json.dumps(score(args.cases, args.labels, args.answers), indent=2))
+    elif args.command == "prepare-workflow":
+        manifest = verify(args.snapshot)
+        print(
+            workflow_input.prepare(
+                args.snapshot,
+                args.out,
+                manifest,
+                read_json(args.snapshot / "facts.json"),
+                args.config,
+            )
+        )
     elif args.command == "validate-workflow":
         print(json.dumps(validate_workflow(args.snapshot, args.result), indent=2))
     else:
