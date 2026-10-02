@@ -518,20 +518,24 @@ def test_workflow_refuses_symlink_alias_to_reference_artefacts(tmp_path: Path, a
     repo, snapshot = tmp_path / "repo", tmp_path / "snapshot"
     repo.mkdir()
     fixture_repo(repo)
+    review.freeze(repo, snapshot)
+    reference = review.verify(snapshot)
+    facts = review.read_json(snapshot / "facts.json")
+    tree = snapshot / "tree"
     configs = []
     if alias == "source":
-        (repo / "map/helper.py").write_text("REFERENCE_OWNER = 'Reader'\n")
-        (repo / "pkg/leaked.py").symlink_to("../map/helper.py")
+        (tree / "map/helper.py").write_text("REFERENCE_OWNER = 'Reader'\n")
+        (tree / "pkg/leaked.py").symlink_to("../map/helper.py")
+        facts["components"]["pkg.leaked"] = {"file": "pkg/leaked.py"}
     else:
-        (repo / "map/package.json").write_text('{"reference_owner": "Reader"}')
-        (repo / "package.json").symlink_to("map/package.json")
+        (tree / "map/package.json").write_text('{"reference_owner": "Reader"}')
+        (tree / "package.json").symlink_to("map/package.json")
         configs = ["package.json"]
-    review.freeze(repo, snapshot)
     with pytest.raises(ValueError, match="reference artefacts"):
         review.workflow_input.prepare(
             snapshot,
             tmp_path / "input",
-            review.verify(snapshot),
-            review.read_json(snapshot / "facts.json"),
+            reference,
+            facts,
             configs,
         )
