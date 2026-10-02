@@ -85,7 +85,8 @@ def test_stage_failure_and_syntax_failure_write_nothing(
 
 def test_success_replaces_all_models_and_preserves_modes(tmp_path: Path) -> None:
     sources = models(tmp_path)
+    modes = {path: path.stat().st_mode & 0o777 for path in sources}
     model_write.write_models(sources)
     assert all(path.read_text() == source for path, source in sources.items())
-    assert all(path.stat().st_mode & 0o777 == 0o640 for path in sources)
+    assert all(path.stat().st_mode & 0o777 == mode for path, mode in modes.items())
     assert sorted(tmp_path.iterdir()) == sorted(sources)
