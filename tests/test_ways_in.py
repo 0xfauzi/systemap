@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from systemap import judgement, ways_in
-from systemap.model import Journey, Meaning
+from systemap import extract, judgement, ways_in
+from systemap.model import Journey, Meaning, Step
 
 # ---- what the source registers -----------------------------------------------------
 
@@ -23,7 +23,9 @@ def found(source: str, module: str = "pkg.mod") -> list[tuple[str, str, str]]:
 def test_web_routes_are_read_with_their_method_and_path() -> None:
     source = """
 from fastapi import APIRouter
+from flask import Flask
 router = APIRouter()
+app = Flask(__name__)
 
 @router.get("/recipes/{slug}")
 def read_recipe(slug): ...
@@ -58,6 +60,10 @@ urlpatterns = [
 
 def test_commands_are_read_from_click_typer_cleo_and_django() -> None:
     click = """
+from click import Group
+from typer import Typer
+cli = Group()
+app = Typer()
 @cli.group(name="config")
 def config_group(): ...
 
@@ -92,8 +98,31 @@ def test_a_decorator_that_is_not_a_way_in_is_not_one() -> None:
     assert found('@cache.get("key")\ndef value(): ...') == []
 
 
+def test_decorator_bindings_separate_frameworks_from_local_names() -> None:
+    assert found("from click import command\n@command()\ndef run(): pass\n") == [
+        ("command", "run", "run")
+    ]
+    assert found("from click import command as cli\n@cli()\ndef run(): pass\n") == [
+        ("command", "run", "run")
+    ]
+    assert found("import click as ck\n@ck.command()\ndef run(): pass\n") == [
+        ("command", "run", "run")
+    ]
+    source = (
+        "class Cache:\n def get(self, path): return lambda fn: fn\n"
+        "cache = Cache()\n@cache.get('/key')\ndef read(): pass\n"
+    )
+    assert found(source) == []
+    assert ways_in.registration_candidates("pkg.mod", source) == []
+    unknown = '@router.get("/read")\ndef read(): pass\n'
+    assert found(unknown) == []
+    assert ways_in.registration_candidates("pkg.mod", unknown)[0]["kind"] == "decorator"
+
+
 def test_background_tasks_are_ways_in_too() -> None:
     source = """
+from celery import Celery, shared_task
+app = Celery("tasks")
 @shared_task
 def train_classifier(): ...
 
@@ -162,10 +191,19 @@ def test_a_card_that_takes_a_crowd_of_routes_is_asked_once(sample: Any) -> None:
     ]
 
 
-def test_a_journey_covers_the_way_in_it_names_in_starts(sample: Any) -> None:
+def test_a_journey_covers_only_an_explicit_entry_identity(sample: Any) -> None:
     facts = facts_with([route("GET /r", "pkg.reader")], ["pkg.reader"])
     walk = Journey(id="read", label="read one", steps=(), starts="GET /r")
     meaning = Meaning(plain={}, journeys=(walk,))
+    assert judgement.entry_points_without_journey(sample.model, meaning, facts)
+    reviewed = Journey(
+        id="read",
+        label="read one",
+        steps=(Step(("Reader",), (), ("Reader", "Parser"), "Reader passes data."),),
+        starts="GET /r",
+        covers=(extract.entry_identity(facts["entry_points"][0]),),
+    )
+    meaning = Meaning(plain={}, journeys=(reviewed,))
     assert judgement.entry_points_without_journey(sample.model, meaning, facts) == []
     assert judgement.journey_problems(meaning, facts) == []
 
@@ -174,4 +212,7 @@ def test_a_journey_that_starts_nowhere_says_so(sample: Any) -> None:
     facts = facts_with([route("GET /r", "pkg.reader")], ["pkg.reader"])
     walk = Journey(id="read", label="read one", steps=(), starts="GET /gone")
     lines = judgement.journey_problems(Meaning(plain={}, journeys=(walk,)), facts)
-    assert lines == ["journey start: read starts at GET /gone, which the facts have no way in for"]
+    assert lines == [
+        "journey start: read has no steps; an empty walk covers no way in",
+        "journey start: read starts at GET /gone, which the facts have no way in for",
+    ]

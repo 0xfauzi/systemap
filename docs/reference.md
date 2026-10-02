@@ -43,15 +43,16 @@ model cannot be used. A module that genuinely has no place on the map is
 ignored under `[coverage]` in the configuration, and every ignore needs a
 reason.
 
-The check verifies the cards against the code; it cannot verify that an
-edge exists, so every edge says whether the code backs it. The state is
-computed from the facts at render and at check time, never authored:
+The check verifies the cards against the code. It cannot establish a
+flow's direction or artifact from an import alone. Each edge reports its
+current evidence at render and check time:
 
 | evidence | when | how it shows |
 |---|---|---|
-| `observed` | a module of one end imports a module of the other, in either direction; or the two ends share a module (one claims a symbol inside a module the other claims, the shape of a tool defined beside its agent), and then the panel says `observed: shared module`; or the flow's sentence or artifact names a mechanism the repository lists under `[flows] observed_by` (a subprocess, a queue, a file), and then the panel says `observed by: queue` | a solid line; the panel says `observed: an import joins them` |
+| `observed` | `source_refs` resolve to extracted source hashes and `review_digest` matches the current flow claim and sentence | a solid line; the panel says the source review is current |
+| `structural` | an import joins the cards, they share a module, or the sentence names a configured mechanism; this does not verify direction, artifact, or execution | a dashed line; the panel names the structural fact and `judgement` requests flow review |
 | `external` | an actor is at either end: the edge is outside the code | a solid line; the panel says `external: outside the code` |
-| `declared` | nothing in the facts joins the two | a dashed line on the page and in every figure; the panel says `declared: no import behind it`; `systemap judgement` prints a `declared flow` line until the agent finds the evidence, names the mechanism in the sentence, or removes the edge |
+| `declared` | no reviewed source or structural fact supports the flow | a dashed line; `systemap judgement` prints a `declared flow` line |
 
 ## What does the second pass look for?
 
@@ -66,9 +67,10 @@ either changes the model or writes down why not:
 | possible mis-fold | a module whose dotted path shares no word with its component's id, `does`, plain word or `interface`, in a component of several modules, and whose package holds none of the others: folded into the wrong part? |
 | no sentence | a flow with no relation sentence |
 | thin layer | a layer that includes fewer than two components, counting a standard kind never used |
-| entry point X has no journey | an entry point in the facts (a console script, a subcommand, a main, a public function of the package root) that no journey names |
+| entry point X has no journey | an entry point whose exact identity is absent from every reviewed journey's `covers` |
 | crossing import | module A of component P imports module B of component Q and no flow joins P and Q, in either direction: an edge the code has and the map does not |
-| declared flow | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by`: an edge the map has and the code does not; find the evidence, name the mechanism, or remove it |
+| declared flow | a flow with no reviewed source or structural evidence; find supporting source or revise it |
+| flow review | an import, shared module, or mechanism word exists, but the direction and artifact still need source review |
 | model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended or reduced by `[facts] model_sdks`) and its component is neither an agent nor marked `calls_model` |
 
 A report, not a gate: it exits 0, or 1 with `--strict` while any line is
@@ -87,6 +89,14 @@ first grouping from the facts alone (one proposal per package with two
 or more modules, and the imports between proposals) as a starting point
 a starting point to revise, not the answer; the skill's target is three to ten
 modules per component, N/10 to N/3 cards for N modules.
+
+An exact `item` or `items` answer records `evidence = "<SHA-256 digest>"`.
+When the source and import evidence changes, the line opens again and
+`judgement` prints the current digest for review. Existing exact answers
+without evidence stay pending until reviewed. A family answer is a standing
+policy: add `policy = true`. It reports the number of matching lines and the
+number outside an optional `reviewed = ["<line>", ...]` baseline. Existing
+family answers without `policy = true` stay pending.
 
 ## What is Jev asked?
 
@@ -406,10 +416,10 @@ text is cut at 2,000 characters. Needs `TYPESAFE_API_KEY`.
 
 ### `systemap journeys [--limit N] [--dry-run]`
 
-Writes a walk through the system for a way in that no journey starts from.
+Writes a walk through the system for a way in with no reviewed journey.
 Where a card takes more than a few ways in of one kind, it writes one walk
-for all of them at once: that journey names the card in `starts`, and every way in
-the card claims counts as walked.
+for the group. The generated `covers` field lists the exact entry identities
+reviewed. A new entry is not covered until it is added to that list after review.
 
 The agent named under `[agent] command` reads the code from that way in and
 answers with the cards a run passes through and a sentence each. A step
@@ -426,7 +436,7 @@ you read it and remove the mark. Three walks a run by default.
 
 How the system got here. One commit is sampled per window back to `--since`
 (default `1 year ago`, one every 14 days), the facts at each are read out of
-git and cached under `.systemap/facts/<sha>.json`, and each window is what
+git and cached under `.systemap/facts/<sha>-<scope>.json`, and each window is what
 moved between two samples: modules and ways in gained or lost, the cards
 that grew or shrank, the imports that began crossing a card boundary, and
 the commits that wrote the modules which appeared. The largest windows come
@@ -478,8 +488,8 @@ Reinstalls the skill directory that `init` writes: `SKILL.md` and
 | `outside_label` | `OUTSIDE THE SYSTEM` | the index heading for actors outside every region |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`, or `module = "pkg.sub.*"` for a subtree; an ignore needs a reason; an empty package marker needs none |
 | `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads; a leading `-` removes a built-in name (`"-google.adk"`) |
-| `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: the mechanisms other than an import that join the repository's parts; a flow whose sentence or artifact names one is observed by it rather than declared |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "..."}]`, or `items = [...]`, `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"` or `module_sdk = "google.adk"` with one reason for a family of lines; an answer needs a reason, a stale one is reported; `audit` lines are answered here too, with `kind = "jev flow"` and the other `jev` kinds |
+| `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: mechanism words to flag as structural evidence for review; a word does not verify a flow |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]`, or `items = [...]` with one digest for the group. `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"` are standing policies requiring `policy = true`. `reviewed = ["<line>", ...]` records the policy's baseline; new matches are counted. An answer needs a reason, a stale one is reported; `audit` lines are answered here too, with `kind = "jev flow"` and the other `jev` kinds. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | the model `audit`, `triage`, `delta` and `suggest --jev` ask, and where their answers are cached; `enabled = false` stops `delta` asking on its own and silences the hints |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | the command `systemap journeys` runs to have a walk written, given the question on standard input (for example `command = "claude -p --output-format json"`); with no command nothing runs and the reason is printed |
 | `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |

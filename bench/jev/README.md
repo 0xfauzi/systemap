@@ -15,6 +15,279 @@ replaces a failed call with a guess. `data/` is rebuilt from `bench/scratch`
 (gitignored, written by `bench/run.sh`) and is not committed; `results/` is,
 gzipped, with `results/report.txt` the scorer's output at the time.
 
+## Which accuracy gaps can be fixed without Jev? (2026-09-26)
+
+The [full review](ACCURACY_REVIEW.md)
+records the findings, source locations, priorities, proposed changes, and
+acceptance checks. No production implementation changed during this review.
+
+`accuracy_review.py` reproduces 33 targeted gaps and passes four controls.
+Its acceptance criteria are in its docstring. These deliberately selected
+cases test specific contracts; the fraction passing is not a map accuracy
+estimate. All 376 existing tests passed.
+
+The challenge suite grew during the review: the first run reproduced 24 gaps
+with four passing controls; additional binding, snapshot, and nested-entry
+cases brought that to 31 gaps; test identity added one; nested rename
+handling added one. Repeated runs after formatting kept the same outcomes.
+The final JSON retains all 37 cases. The census was rerun after factoring
+its readers and adding source hashes; its counts did not change.
+
+`accuracy_census.py` reads 1,381 Python files across the eight mapped
+repositories. Under Python 3.11, 15 of Mealie's 460 files silently disappear
+because they use Python 3.12 syntax. The same extraction under Python 3.12
+reads all 460 and restores import evidence for five flows. This improves
+parsed-file coverage from 96.74% to 100%, not semantic map accuracy.
+
+`accuracy_moves.py` compares the current move rules with unique exact-content
+matching on 33 saved commits and 86 Git-labelled renames. The preset bar was
+fewer disagreements without losing correctly paired renames:
+
+| method | correct pairs | Git disagreements | reference renames not correctly paired |
+|---|---:|---:|---:|
+| current rules | 65 | 4 | 21 |
+| unique exact content | 13 | 0 | 73 |
+
+The candidate loses 52 correct pairs, so it failed and is not shipped.
+These are comparisons with Git's similarity-based labels, not independently
+adjudicated semantic truth. The replay samples rename-containing commits.
+The first run under Python 3.11 failed with a missing Mealie module and
+produced no score. The recorded run explicitly uses Python 3.12.
+
+Results are `results/no-jev-accuracy-review.json`,
+`results/no-jev-accuracy-census.json.gz`,
+`results/no-jev-accuracy-census-py312.json.gz`, and
+`results/no-jev-accuracy-moves.json`. The review gives the commands.
+
+## Implementation verification (2026-09-27)
+
+The targeted counterexamples now pass 37/37 Python and 32/32 TypeScript
+contracts. On the pinned Hono, Ky and Zod revisions, systemap retained all
+1,171 compiler-resolved dependencies whose targets belong to its extracted
+inventory, with zero missing and zero wrong targets. These checks do not
+measure whole-map semantic accuracy. The implementation also passed 450
+repository tests and every pre-commit hook.
+
+The ownership pilot below still misses its preset false-challenge bar and
+has no independently adjudicated end-to-end labels. It is not evidence for
+changing the default ownership policy. New exact entry coverage and flow
+review rules leave existing maps pending review until their claims are
+confirmed against current source.
+
+## Can package neighbours make the Jev-free mis-fold rule more accurate? (2026-09-26)
+
+`heuristic_owner.py` tested one addition: flag a module when at least two
+other modules in its package belong to another card and none belong to its
+current card. It uses the existing owner samples and places each sampled
+module in a neighbouring wrong card. The bar in the script's docstring was
+at least 50% of planted errors caught and at most 3% of unchanged owners
+flagged, on both development and holdout maps.
+
+| map set | rule | planted errors caught | unchanged owners flagged |
+|---|---|---:|---:|
+| development | current | 61/195 | 2/195 |
+| development | with package evidence | 116/195 | 21/195 |
+| holdout | current | 32/96 | 1/96 |
+| holdout | with package evidence | 52/96 | 23/96 |
+
+The addition missed the false-alarm bar on both sets, so it is not shipped.
+Two cards can legitimately split one package by purpose. These labels are
+finished maps rather than independent checks of every module's purpose, so
+they measure agreement with those maps and detection of planted mistakes.
+For a Jev-free map, the skill now asks the agent to review every assignment
+against the code instead of treating unflagged modules as verified.
+
+## How well did an agent judge sampled card assignments without Jev? (2026-09-26)
+
+The subsequent accuracy review found mixed snapshots in five systemap cases:
+their source differs from the cached facts supplied alongside it. It also
+found a fixed condition order: four planted cases, then four unchanged
+cases, in every repository batch. The counts below remain the recorded
+pilot results; these limitations need correction before an end-to-end
+accuracy claim. See F23 in the full review.
+
+In this pilot, code review found 24 more of the 32 planted mismatches than
+the word rule: 32 rather than 8. It challenged one more of the 32 unchanged
+assignments: 2 rather than 1. The run tests one code-reading judgement per
+module, not the full mapping procedure.
+
+`review_accuracy.py` sampled eight modules from each of the five development
+and three holdout maps. Four kept their card; four were placed in another card
+in the same region. One module appeared once. The reviewer was Claude Opus
+5.5 with no tools or Jev: it saw the full source file, module facts, and the
+descriptions of nearby cards, but no card's module list or reference owner.
+The script selected files of at most 25,000 characters with a neighbouring
+card, so these figures do not cover larger files or isolated cards.
+
+The bar in the script's docstring was to catch at least 60% of planted wrong
+assignments, challenge at most 5% of unchanged assignments, and beat the word
+rule's planted-error recall on both sets. "Reference card chosen" counts
+planted cases where the reviewer named the module's card in the finished map
+as the better one. The results were:
+
+| set | planted caught | reference card chosen | unchanged challenged | word rule caught | word rule challenged |
+|---|---:|---:|---:|---:|---:|
+| development | 20/20 | 19/20 | 1/20 | 5/20 | 1/20 |
+| holdout | 12/12 | 12/12 | 1/12 | 3/12 | 0/12 |
+| combined | 32/32 | 31/32 | 2/32 | 8/32 | 1/32 |
+
+On planted mismatches, code review caught 100% versus the word rule's 25%,
+an improvement of 75 percentage points. It named the reference card in 31
+of 32 planted cases; the word rule does not name a replacement card. On
+unchanged assignments, code review challenged 6.25% versus 3.125%, an
+increase of 3.125 points. It therefore missed the preset 5% challenge bar.
+Its binary decisions agreed with the finished maps on 62 of 64 cases
+(96.9%), versus 39 of 64 (60.9%) for the word rule: 23 more agreements,
+or 36 percentage points. This is agreement on a balanced synthetic sample,
+not the error rate of a real map.
+
+The two challenges name plausible placement errors: `poetry.config.source`
+defines a source entry for `pyproject.toml`, while ProjectLoader explicitly
+owns the project's sources; `praxis.reports.commitment_rollup` assembles the
+weekly masthead payload, while Digest owns that presentation. One replacement
+differs from the reference for `kstrl.tui.home_data`: the reviewer chose RunViews,
+while the finished map puts the home board's data under Dashboard. These
+are unresolved semantic labels, so the finished map cannot establish whether
+the two challenges are false alarms or corrections. A maintainer must label
+them before a stronger accuracy claim is possible.
+
+The first kstrl call returned fenced JSON, which the scorer rejected and did
+not count. The same prompt was retried, and the parser was changed to accept
+the code fence without changing any judgement. The scored answers and their
+prompt hashes are in `results/review-accuracy.json` and
+`results/holdout/review-accuracy.json`. The eight scored calls reported $1.88;
+the failed and diagnostic calls were not included in that cost.
+
+## How can the next ownership review use one source snapshot?
+
+`review_accuracy_v2.py` prepares a source review without calling an agent.
+`freeze` copies every tracked or unignored file present in one working tree,
+including uncommitted source and map files. A tracked file deleted before the
+freeze remains absent. A deletion or other mutation during freezing stops the
+run. Ignored source files still stop the freeze if extraction discovers them. Internal symlinks retain their targets;
+external or missing targets stop the freeze. It extracts facts from that copy,
+compares them with extraction from the original tree, and records SHA-256
+hashes for the files, facts, extractor source, and manifest. `verify` refuses
+changed, missing, or extra files and facts that refer to a different source.
+It also requires the Python and systemap source versions used at freeze time.
+Regenerate a snapshot after either changes; the stored facts are not
+reinterpreted under new extraction code.
+Invalid UTF-8 in a sampled source file stops case construction explicitly.
+The freeze also compares discovered source paths with extracted records and
+refuses parse errors or unresolved test files. Mealie contains Python 3.12
+syntax, so freeze that repository with a compatible Python 3.12 interpreter.
+
+```sh
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py freeze REPO SNAPSHOT
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py verify SNAPSHOT
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py build SNAPSHOT --out CASE_SET --seed RECORDED_SEED
+```
+
+`build` selects each nonempty module at most once for its top-map card.
+`--count N` limits
+the selection when a smaller packet is needed. It records the seed, excluded
+empty package markers, unclaimed module count, and nested-map count. Nested
+card ownership is not yet scored. An unclaimed module gets
+"none of these" as its candidate, so a reviewer can label its missing owner.
+Candidate assignments and case order are randomized. `label-cases.json` goes
+to the independent adjudicator. It contains full source and all card
+descriptions, including "none of these", but omits the candidate, reference
+owner, and planted condition. `review-cases.json` goes to the answerer. It
+adds the candidate while omitting the reference owner and planted condition.
+Both packets carry a SHA-256 digest of `cases.json`, which holds all fields.
+The adjudicator should not receive the review packet, map, or recorded pilot
+answers.
+
+An independent reviewer records one label per case in `labels.json`. The
+file has `format: 1`, `case_set_sha256` (SHA-256 of canonical `cases.json`),
+and a `labels` array. Each label has the case `id`, `snapshot_id`,
+`source_sha256`, reviewer name, `blind_to_predictions: true`, a `status`,
+and `acceptable_cards`. This is a required provenance declaration, not proof
+of independence. Status is `adjudicated` for one acceptable card,
+`ambiguous` for at least two, `new_card` for no existing acceptable card,
+or `unresolved`. A settled label needs source evidence of the form
+`{"file":"...","symbol":"...","reason":"..."}`. A new-card label
+also needs `proposed_card`, a description of that card's job. The validator
+checks that references resolve in the frozen source. It cannot establish
+that a reviewer was independent or that a cited symbol supports the label.
+
+The isolated reviewer writes `answers.json` with the same `format` and
+`case_set_sha256`. Each answer has `id`, `snapshot_id`, `candidate`,
+`decision` (`fits`, `wrong`, or `abstain`), and `better_card` (a listed card,
+"none of these", or null). `score` refuses missing answers or labels. It
+reports true errors detected, incorrect confident claims, abstentions,
+ambiguous labels, and unresolved labels separately by repository.
+
+```sh
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py score CASE_SET/cases.json labels.json answers.json
+```
+
+A full mapping run uses a separate input directory created by
+`prepare-workflow`. The frozen reference tree remains available to the scorer,
+but the mapping agent receives only the prepared input tree. Its whitelist
+contains every extracted component source and source in the configured test
+directories or matching configured test patterns. Map directories and rendered
+output directories cannot enter the whitelist, even if configured as source.
+Facts, reference maps, documentation, and case packets are not copied.
+
+`source-config.json` describes the language, source roots, test settings, and
+selected Python package metadata. It omits map claims and recorded judgement
+answers from the original configuration. For TypeScript, supply each needed
+`package.json` or `tsconfig*.json` explicitly with `--config PATH`. Relative
+paths are preserved. The command rejects configurations under reference map or
+rendered output directories. Review the selected configuration files before
+exposing them to the agent. Other configuration names are refused.
+
+```sh
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py prepare-workflow SNAPSHOT WORKFLOW_INPUT --config tsconfig.json --config package.json
+```
+
+The command prints the SHA-256 digest of the input manifest. The manifest lists
+every admitted file and binds those bytes to the frozen snapshot. Run the agent
+in a separate working copy of `WORKFLOW_INPUT/tree`; retain the prepared input
+unchanged for validation. Restrict the external run's filesystem access to its
+working copy. The validator proves which input bytes were supplied; it cannot
+prove that an external agent never read another directory or service.
+
+Save the exact instructions beside `run.json`. Record `workflow_input`, the
+prepared directory's path relative to `run.json`, and `workflow_input_sha256`,
+the digest printed by preparation. Record the relative `instructions_file`
+path and SHA-256 digest, plus `snapshot_id`,
+agent identity, a `cards` object from card ID to job, and an `owners` object with
+every extracted nonempty module as a key. Use null for an omitted owner.
+Include `flows`, `journeys`, `invariants`, and `unresolved_claims` arrays.
+`validate-workflow` checks the input whitelist, every input file hash, and the
+complete reported inventory. Changed, added, missing, or unbound input is refused. A separate reviewer then
+aligns each workflow card with a reference card before ownership is scored.
+This prevents a renamed card from being treated as a different job solely
+because its ID changed. The reviewer writes `alignment.json` with `format: 1`,
+the run's `snapshot_id`, `run_sha256` (SHA-256 of canonical `run.json`), and
+one `alignments` row per workflow card. Each row has `card`, `status`,
+`reference_card`, `reviewer`, `blind_to_scores: true`, and `evidence`. An
+`existing` status names one reference card. A `new` or `ambiguous` status has
+null `reference_card`. The reviewer must inspect the card's job and source;
+matching IDs alone do not establish equivalent jobs. The validator checks
+the declared provenance and run binding, not the semantic judgement.
+
+`score-workflow` compares aligned owners with independently adjudicated case
+labels. It counts corrections of reference-map errors, wrong confident owners,
+and omissions. When a module needs a new card, an owner aligned to an existing
+rejected card is counted wrong. An owner aligned as new stays unscored until
+the new card is reviewed for that module. Ambiguous card alignments also stay
+unscored. Flow, journey, and invariant claims need separate labels.
+
+```sh
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py validate-workflow SNAPSHOT run.json
+uv run --project bench/jev python bench/jev/review_accuracy_v2.py score-workflow SNAPSHOT CASE_SET/cases.json labels.json run.json alignment.json
+```
+
+The recorded pilot remains unchanged and missed its preset false-challenge
+bar. The v2 harness has no semantic result yet. An independent source review,
+actual paired workflow runs on frozen trees, and a fresh holdout are still
+needed. The prior holdout maps have been examined. Before a new run, record
+its acceptance rule and sample plan. Do not transfer the isolated pilot's
+60% and 5% thresholds to a different task without a new justification.
+
 Each experiment, its label source and what it measures:
 
 | experiment | label | question to Jev |
@@ -501,3 +774,26 @@ reads it, which is the standard the per-way-in walks already ship under.
 (work that lands outside its plan predicts a later fix) needs fix pull requests,
 and the whole corpus of five repositories holds six of them. It cannot be
 measured, so it is not scheduled.
+
+## Does Python syntax evidence survive a supported interpreter change?
+
+On 2026-10-02, the portability experiment compared the same 45 systemap
+source modules under Python 3.11 and 3.13. The acceptance rule was recorded
+before execution: zero canonical syntax hash mismatches between interpreters,
+zero changes to existing Python 3.11 hashes, unchanged hashes after comments
+or formatting edits, and a changed hash after a function body edit on each
+interpreter.
+
+The original syntax hashes differed for all 45 modules. The canonical hashes
+differed for zero modules, and zero existing Python 3.11 hashes changed.
+Formatting and comment edits produced zero mismatches on either interpreter.
+Each interpreter detected the body edit. The experiment checks syntax hash
+portability for this source set and these transformations. It does not establish
+that every future Python grammar change preserves the representation.
+`syntax_portability.py` records the acceptance rule and prints hashes and
+control results for comparison across repeated runs. From the repository root:
+
+```sh
+uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.json
+uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.json
+```

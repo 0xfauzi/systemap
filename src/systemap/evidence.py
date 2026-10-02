@@ -1,36 +1,16 @@
-"""What the facts say about each flow: observed, external or declared.
+"""Classify what supports each authored flow claim.
 
-The check verifies entries and interfaces against the code. It cannot
-verify that an edge exists: a flow is a claim the agent wrote, and the
-only record of which claims were read from the code and which were
-inferred used to be a list in a chat. So every flow carries an evidence
-state, computed here from the facts and never authored:
-
-    observed ..... an import joins the two components' modules, in either
-                   direction; or the two components share a module (one
-                   claims a symbol inside a module the other claims, the
-                   shape of a tool defined beside its agent), and then
-                   the state says so, since two cards in one module can
-                   never have an import between them; or the flow's
-                   sentence or artifact names a mechanism the repository
-                   lists under `[flows] observed_by` (a subprocess, a
-                   queue, a file), and then the state carries the
-                   mechanism's name
-    external ..... an actor at either end: the edge is outside the code,
-                   and the facts have nothing to say about it
-    declared ..... nothing in the facts joins them: the map says so, the
-                   code does not
-
-A declared edge draws dashed on the page and in every figure, the panel
-says so beside its sentence, and `systemap judgement` prints one line per
-declared edge so the agent finds the evidence, names the mechanism in the
-sentence, or removes the edge. The state is read at render and at check
-time from the same function, so the drawing and the report cannot
-disagree.
+An import, shared module, or configured mechanism word shows a possible
+connection. It does not establish direction, artifact, or execution. A
+source-reviewed claim cites extracted modules at their source digests.
+Reference resolution establishes that the cited source is present at that
+snapshot. The reviewer remains responsible for judging its meaning.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -39,32 +19,76 @@ from typing import Any
 from systemap.model import Edge, Flow, Meaning, Model, claimed, symbol_claims
 
 OBSERVED = "observed"
+STRUCTURAL = "structural"
 EXTERNAL = "external"
 DECLARED = "declared"
-STATES = (OBSERVED, EXTERNAL, DECLARED)
+STATES = (OBSERVED, STRUCTURAL, EXTERNAL, DECLARED)
 
 
 @dataclass(frozen=True)
 class Evidence:
-    """One flow's evidence state, and what observed it: a mechanism the
-    configuration names, or a module the two components share."""
+    """One flow's evidence state and the independently available evidence."""
 
     state: str
     mechanism: str = ""
     shared: bool = False
+    import_present: bool = False
+    source_refs: tuple[str, ...] = ()
+    unresolved_refs: tuple[str, ...] = ()
+    claim_changed: bool = False
 
     @property
     def says(self) -> str:
         """The line the panel prints beside the flow's sentence."""
         if self.state == EXTERNAL:
             return "external: outside the code"
-        if self.mechanism:
-            return f"observed by: {self.mechanism}"
-        if self.shared:
-            return "observed: shared module"
         if self.state == OBSERVED:
-            return "observed: an import joins them"
+            return "source reviewed: references resolve at this source snapshot"
+        if self.claim_changed:
+            return "source review pending: flow review digest is missing or changed"
+        if self.unresolved_refs:
+            return "source review pending: references do not resolve at this source snapshot"
+        if self.import_present:
+            return "import present: flow direction and artifact unreviewed"
+        if self.shared:
+            return "shared module: flow direction and artifact unreviewed"
+        if self.mechanism:
+            return f"mechanism declared: {self.mechanism}; flow unreviewed"
         return "declared: no import behind it"
+
+
+def _resolves(ref: str, facts: dict[str, Any]) -> bool:
+    """Does a module or symbol reference match this exact extracted source?"""
+    location, marker, digest = ref.rpartition("@")
+    if not marker or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        return False
+    module, colon, symbol = location.partition(":")
+    record = facts.get("components", {}).get(module)
+    if not isinstance(record, dict) or record.get("parse_error"):
+        return False
+    source_hash = record.get("source_sha256")
+    if source_hash != digest:
+        return False
+    if not colon:
+        return True
+    return bool(symbol) and any(
+        item.get("name") == symbol for item in record.get("names", []) if isinstance(item, dict)
+    )
+
+
+def flow_claim_digest(flow: Flow, meaning: Meaning) -> str:
+    """The digest a reviewer records for this flow's exact semantic claim."""
+    claim = (flow.src, flow.dst, flow.artifact, flow.kind, meaning.relations.get(flow.edge, ""))
+    data = json.dumps(claim, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _review(
+    flow: Flow, meaning: Meaning, facts: dict[str, Any]
+) -> tuple[tuple[str, ...], tuple[str, ...], bool]:
+    refs = tuple(flow.source_refs)
+    changed = bool(refs) and flow.review_digest != flow_claim_digest(flow, meaning)
+    return refs, tuple(ref for ref in refs if not _resolves(ref, facts)), changed
 
 
 def mentioned(name: str, text: str) -> bool:
@@ -128,21 +152,33 @@ def of_model(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> dict[Edge, Evidence]:
-    """The evidence state of every flow, by edge."""
+    """The evidence state of every flow, by edge.
+
+    Structural facts are kept even when a source review is present, so a
+    caller can inspect them without mistaking them for semantic proof.
+    """
     joined = joined_by_import(model, facts)
     shared = sharing_a_module(model, facts)
     mechanisms = list(observed_by)
     out: dict[Edge, Evidence] = {}
     for f in model.flows:
+        import_present = frozenset(f.edge) in joined
+        sharing = frozenset(f.edge) in shared
+        mechanism = mechanism_of(f, meaning, mechanisms)
+        refs, unresolved, claim_changed = _review(f, meaning, facts)
         if model.kind_of(f.src) == "actor" or model.kind_of(f.dst) == "actor":
             out[f.edge] = Evidence(EXTERNAL)
-        elif frozenset(f.edge) in joined:
-            out[f.edge] = Evidence(OBSERVED)
-        elif frozenset(f.edge) in shared:
-            out[f.edge] = Evidence(OBSERVED, shared=True)
         else:
-            mechanism = mechanism_of(f, meaning, mechanisms)
-            out[f.edge] = Evidence(OBSERVED, mechanism) if mechanism else Evidence(DECLARED)
+            state = (
+                OBSERVED
+                if refs and not unresolved and not claim_changed
+                else STRUCTURAL
+                if import_present or sharing or mechanism
+                else DECLARED
+            )
+            out[f.edge] = Evidence(
+                state, mechanism, sharing, import_present, refs, unresolved, claim_changed
+            )
     return out
 
 
@@ -152,6 +188,17 @@ def declared(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> list[Flow]:
-    """Every flow the facts do not back, in model order."""
+    """Every flow with no source review or structural evidence, in model order."""
     states = of_model(model, meaning, facts, observed_by)
     return [f for f in model.flows if states[f.edge].state == DECLARED]
+
+
+def structural(
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    observed_by: Iterable[str] = (),
+) -> list[Flow]:
+    """Every flow with structural evidence but no resolved source review."""
+    states = of_model(model, meaning, facts, observed_by)
+    return [f for f in model.flows if states[f.edge].state == STRUCTURAL]

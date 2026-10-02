@@ -36,7 +36,7 @@ in a region.
 
 ## Component
 
-`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False, map=None)`
+`Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False, map=None, pinned=False, source_review="")`
 
 One card on the map. `id` is a code name in CamelCase, unique on the map.
 `does` says what it is for in plain words, one or two sentences, with no
@@ -59,6 +59,12 @@ package and everything beneath it. Every module named must be in the facts,
 and every module in the facts must be claimed by exactly one component, or
 ignored with a reason under `[coverage]` in `systemap.toml`, by exact name
 or as a subtree with the same `.*` form:
+
+`source_review` is a SHA-256 digest recorded after reading a card's current
+source and checking its description, interface, incident flows, journeys and
+invariants. `systemap delta` keeps a changed card under `needs a decision`
+until this digest matches. Refresh does not write it. See the maintenance
+instructions for how to compute the value after the review.
 
 ```toml
 [coverage]
@@ -170,15 +176,15 @@ A to B. When two things travel the same way, pick the artifact that
 matters to the reader; when something travels back, draw the other
 direction as its own flow with its own sentence.
 
-Every flow has an evidence state, read from the facts at render and at
-check time and never written: `observed` when a module of `src` imports
-a module of `dst` or the other way round, or when the sentence or the
-artifact names a mechanism listed under `[flows] observed_by` in
-`systemap.toml` (then the panel says `observed by: queue`); `external`
-when either end is an actor; `declared` when nothing in the facts joins
-the two. A declared flow draws dashed on the page and in every figure,
-the panel says `declared: no import behind it`, and `systemap judgement`
-prints one `declared flow` line for it.
+An import, shared module, or configured mechanism word is `structural`
+evidence. It does not verify the flow's direction or artifact. A flow is
+`observed` only when every `source_refs` entry resolves against the current
+source SHA-256 and `review_digest` matches the current flow fields and
+relation sentence. A reference has the form `module[:symbol]@<source_sha256>`.
+The module reference supports a reviewed claim; it does not prove its
+meaning mechanically. `external` has an actor at one end. `declared` has
+no source review or structural evidence. Structural and declared flows
+draw dashed and require review.
 
 ```toml
 [flows]
@@ -197,12 +203,14 @@ and the panel of a governed component points at them.
 
 ## Journey
 
-`Journey(id, label, steps)`
+`Journey(id, label, steps, starts="", covers=())`
 
 An ordered walk through the map. The reader steps through it one edge at a
 time.
 `label` is what the selector shows. Write one per entry point that
-matters; `systemap judgement` names the entry points no journey mentions.
+matters. `covers` lists exact entry identities as JSON array strings in the
+order `[kind, module, target, name]`. A nonempty walk covers only those
+identities. `starts` is a display label and legacy migration hint.
 
 ## Step
 
@@ -290,13 +298,14 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 
 **The file**
 
-- `version`: the facts format; 2, since a package `__init__` records the names it re-exports; `extract --check` reports a file of an older format as stale.
+- `version`: the facts format; 4, with portable syntax hashes and compiler provenance; `extract --check` reports a file of an older format as stale.
 - `built_at_commit`: the commit the tree was read at (HEAD when extract ran), or empty outside git; the page prints it as `facts from <sha>`, and it is the commit before the one that records the facts, since they are committed after they are read.
 - `packages`: the import names of the package roots.
+- `provenance`: the source-language parser and extraction inputs used for these facts; a change requires a fresh review even when source files are unchanged.
 - `tests_dirs`: the directories test files were read from, relative to the root: the configured `tests_dir`, or every directory named `tests` or `test`.
 - `spec_sections`: the `##` headings of `spec_path`, each with `level` and `title`.
 - `entry_points`: where a run can start: one record per point, fields below.
-- `entry_point_issues`: TypeScript-only: package `bin` or `exports` targets that could not be mapped back to a source module; empty when none.
+- `entry_point_issues`: package entry targets or Python decorators whose framework binding could not be verified; empty when none.
 - `test_file_issues`: TypeScript-only: test files that could not be parsed for their imports and names; empty when none.
 - `config_issues`: TypeScript-only: npm tsconfig packages named by `extends` that could not be read; empty when none.
 - `components`: one record per module, keyed by its dotted name, fields below.
@@ -309,12 +318,16 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `plane`: the second segment when `planes` names it, else `core`.
 - `loc`: lines in the file.
 - `sha`: twelve hex digits of the source's SHA-1: the change detector's key.
+- `source_sha256`: full SHA-256 of source bytes, for reviewed source references.
+- `syntax_sha`: digest of parsed syntax without comments or formatting, for source review.
 - `docstring`: the first paragraph of the module docstring, capped.
 - `functions`: public functions: `name` and `signature`.
 - `classes`: public classes that are not errors: `name` and `methods` (public method signatures).
 - `errors`: public classes named or based on Error or Exception, the same fields.
 - `constants`: UPPER_CASE assignments: `name` and `value`, the first 14.
 - `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), `object` (any other assignment, such as `app` or `root_agent`), or TypeScript `unknown` when the kind cannot be determined. A package `__init__` also lists every name it imports from the package's own modules, with `reexport_of` naming the module that defines it and the kind that module gives it (`module` for a submodule imported whole). A component's `entry` and `interface` may name any of them.
+- `api`: the complete exported identities used by surface diffs: exported name, display bucket, and a declaration fingerprint that excludes callable bodies.
+- `executes`: Python-only: a top-level call makes a package initializer more than an empty marker.
 - `unknown`: TypeScript-only surface entries the parser could not read or classify; each has a source line, reason and short source excerpt.
 - `uses`: the package's modules this one imports, each with the names taken from it, or `*` for the whole module.
 - `imports`: the keys of `uses`.
@@ -323,6 +336,8 @@ from the extractor's own table (`systemap.extract.FIELDS`):
 - `tests_total`: how many test functions import this module.
 - `tests_primary`: how many of those sit in a file named after the module.
 - `tests`: the names of up to 25 of those tests, primary first.
+- `tests_digest`: a digest of every qualified test identity, including those not displayed.
+- `parse_error`: Python-only: the source file could not be read or parsed, with line and parser version.
 
 **Each entry point, under `entry_points`**
 

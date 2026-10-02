@@ -1,4 +1,4 @@
-"""Evidence on every flow: observed, external or declared, from the facts.
+"""Evidence on every flow: source reviewed, structural, external, or declared.
 
 A fixture asserting the three states plus observed by
 a mechanism; the drawing dashes a declared edge and the panel says so;
@@ -27,29 +27,31 @@ from systemap.schematic import render as render_schematic
 # ledger; nothing imports across the other two internal flows.
 EXPECTED = {
     ("User", "Reader"): "external",
-    ("Reader", "Parser"): "observed",
+    ("Reader", "Parser"): "structural",
     ("Parser", "Writer"): "declared",
-    ("Writer", "Ledger"): "observed",
+    ("Writer", "Ledger"): "structural",
     ("Ledger", "Parser"): "declared",
 }
 
 
-def test_the_three_states_and_observed_by_a_mechanism(sample: Sample) -> None:
+def test_structural_evidence_does_not_claim_a_flow_was_observed(sample: Sample) -> None:
     states = evidence.of_model(sample.model, sample.meaning, sample.facts)
     assert {edge: ev.state for edge, ev in states.items()} == EXPECTED
     assert all(ev.mechanism == "" for ev in states.values())
     assert states[("User", "Reader")].says == "external: outside the code"
-    assert states[("Reader", "Parser")].says == "observed: an import joins them"
+    assert states[("Reader", "Parser")].says == (
+        "import present: flow direction and artifact unreviewed"
+    )
     assert states[("Parser", "Writer")].says == "declared: no import behind it"
     # The artifact of Ledger -> Parser is `history`; named as a mechanism, the
-    # flow is observed by it. A word in the sentence counts the same way,
-    # whole and case blind; a substring does not.
+    # flow has a declared mechanism. A word in the sentence counts the same
+    # way, whole and case blind; a substring does not.
     states = evidence.of_model(sample.model, sample.meaning, sample.facts, ["queue", "history"])
-    assert states[("Ledger", "Parser")] == evidence.Evidence("observed", "history")
-    assert states[("Ledger", "Parser")].says == "observed by: history"
+    assert states[("Ledger", "Parser")] == evidence.Evidence("structural", "history")
+    assert states[("Ledger", "Parser")].says == "mechanism declared: history; flow unreviewed"
     assert states[("Parser", "Writer")].state == "declared"
     states = evidence.of_model(sample.model, sample.meaning, sample.facts, ["In Order"])
-    assert states[("Parser", "Writer")] == evidence.Evidence("observed", "In Order")
+    assert states[("Parser", "Writer")] == evidence.Evidence("structural", "In Order")
     states = evidence.of_model(sample.model, sample.meaning, sample.facts, ["order", "hist"])
     assert states[("Parser", "Writer")].mechanism == "order"
     assert states[("Ledger", "Parser")].state == "declared"
@@ -63,7 +65,63 @@ def test_the_three_states_and_observed_by_a_mechanism(sample: Sample) -> None:
     ]
 
 
-def test_two_cards_sharing_a_module_are_observed_by_it() -> None:
+def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample) -> None:
+    module = "pkg.reader"
+    digest = sample.facts["components"][module]["source_sha256"]
+    ref = f"{module}:read@{digest}"
+    model = dataclasses.replace(
+        sample.model,
+        flows=tuple(
+            dataclasses.replace(
+                flow,
+                source_refs=(ref,),
+                review_digest=evidence.flow_claim_digest(flow, sample.meaning),
+            )
+            if flow.edge == ("Reader", "Parser")
+            else flow
+            for flow in sample.model.flows
+        ),
+    )
+    reviewed = evidence.of_model(model, sample.meaning, sample.facts)[("Reader", "Parser")]
+    assert reviewed.state == evidence.OBSERVED
+    assert reviewed.import_present
+    assert reviewed.source_refs == (ref,)
+    assert reviewed.says == "source reviewed: references resolve at this source snapshot"
+    _svg, detail = render_schematic(model, sample.meaning, sample.theme, sample.facts)
+    edges = json.loads(detail)["_meta"]["edges"]
+    edge = next(e for e in edges if (e["from"], e["to"]) == ("Reader", "Parser"))
+    assert edge["source_refs"] == [ref]
+    assert edge["import_present"]
+    assert edge["unresolved_refs"] == []
+    assert not edge["claim_changed"]
+    assert edge["review_digest"] == evidence.flow_claim_digest(
+        next(flow for flow in model.flows if flow.edge == ("Reader", "Parser")), sample.meaning
+    )
+    changed = copy.deepcopy(sample.facts)
+    changed["components"][module]["source_sha256"] = "0" * 64
+    stale = evidence.of_model(model, sample.meaning, changed)[("Reader", "Parser")]
+    assert stale.state == evidence.STRUCTURAL
+    assert stale.unresolved_refs == (ref,)
+    assert "pending" in stale.says
+    revised = dataclasses.replace(
+        model,
+        flows=tuple(
+            dataclasses.replace(flow, artifact="different")
+            if flow.edge == ("Reader", "Parser")
+            else flow
+            for flow in model.flows
+        ),
+    )
+    invalid = evidence.of_model(revised, sample.meaning, sample.facts)[("Reader", "Parser")]
+    assert invalid.state == evidence.STRUCTURAL
+    assert invalid.claim_changed
+    assert "digest is missing or changed" in invalid.says
+    bad_symbol = ref.replace(":read@", ":missing@")
+    assert not evidence._resolves(bad_symbol, sample.facts)
+    assert not evidence._resolves(f"{module}:read@not-a-digest", sample.facts)
+
+
+def test_two_cards_sharing_a_module_have_structural_evidence() -> None:
     """A tool claimed by symbol inside its agent's module can never be joined
     by an import; the shared module is the evidence, and the panel says so."""
     model, meaning, facts = (
@@ -76,8 +134,10 @@ def test_two_cards_sharing_a_module_are_observed_by_it() -> None:
     )
     assert evidence.sharing_a_module(model, facts) == {frozenset({"StyleCompleter", "CropPicker"})}
     states = evidence.of_model(model, meaning, facts)
-    assert states[("StyleCompleter", "CropPicker")] == evidence.Evidence("observed", shared=True)
-    assert states[("StyleCompleter", "CropPicker")].says == "observed: shared module"
+    assert states[("StyleCompleter", "CropPicker")] == evidence.Evidence("structural", shared=True)
+    assert states[("StyleCompleter", "CropPicker")].says == (
+        "shared module: flow direction and artifact unreviewed"
+    )
     assert ("StyleCompleter", "CropPicker") not in {
         f.edge for f in evidence.declared(model, meaning, facts)
     }
@@ -89,9 +149,9 @@ def test_two_cards_sharing_a_module_are_observed_by_it() -> None:
     by_edge = {(e["from"], e["to"]): e for e in json.loads(detail)["_meta"]["edges"]}
     picker = by_edge[("StyleCompleter", "CropPicker")]
     assert (picker["evidence"], picker["mechanism"], picker["evidence_says"]) == (
-        "observed",
+        "structural",
         "",
-        "observed: shared module",
+        "shared module: flow direction and artifact unreviewed",
     )
     # A symbol claim on the card's own module, or on a module no card claims,
     # joins no pair; an import still wins the wording when both hold.
@@ -117,7 +177,7 @@ def test_two_cards_sharing_a_module_are_observed_by_it() -> None:
         "wharf_server.style.completer": ["pick_crops"]
     }
     assert evidence.of_model(model, meaning, imported)[("StyleCompleter", "CropPicker")].says == (
-        "observed: shared module"
+        "shared module: flow direction and artifact unreviewed"
     ), "an import inside one module is not a crossing import; the module is still shared"
 
 
@@ -134,25 +194,28 @@ def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None
     for edge, state in EXPECTED.items():
         assert f'data-evidence="{state}"' in paths[edge], edge
         assert ('stroke-dasharray="7 5"' in paths[edge]) == (state == "declared"), edge
+        assert ('stroke-dasharray="3 4"' in paths[edge]) == (state == "structural"), edge
     meta = json.loads(detail)["_meta"]
     by_edge = {(e["from"], e["to"]): e for e in meta["edges"]}
     assert by_edge[("Parser", "Writer")]["evidence"] == "declared"
     assert by_edge[("Parser", "Writer")]["evidence_says"] == "declared: no import behind it"
     assert by_edge[("Parser", "Writer")]["mechanism"] == ""
-    assert meta["evidence"] == {"observed": 2, "external": 1, "declared": 2}
-    # With the mechanism configured, the same edge is solid and says which.
+    assert meta["evidence"] == {"observed": 0, "structural": 2, "external": 1, "declared": 2}
+    # With the mechanism configured, the edge stays unreviewed and says why.
     svg, detail = render_schematic(
         sample.model, sample.meaning, sample.theme, sample.facts, observed_by=("history",)
     )
     meta = json.loads(detail)["_meta"]
     by_edge = {(e["from"], e["to"]): e for e in meta["edges"]}
-    assert by_edge[("Ledger", "Parser")]["evidence_says"] == "observed by: history"
-    assert meta["evidence"] == {"observed": 3, "external": 1, "declared": 1}
+    assert by_edge[("Ledger", "Parser")]["evidence_says"] == (
+        "mechanism declared: history; flow unreviewed"
+    )
+    assert meta["evidence"] == {"observed": 0, "structural": 3, "external": 1, "declared": 1}
     assert svg.count('stroke-dasharray="7 5"') == 1
     # The page and a figure carry the legend entry and the panel's line.
     html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
-    assert 'class="lg--dashline"' in html and ">declared</span>" in html
-    assert "A dashed line is a declared flow" in html
+    assert 'class="lg--dashline"' in html and ">unreviewed flow</span>" in html
+    assert "A dashed line is an unreviewed flow" in html
     assert "declared: no import behind it" in html
     assert "data-evidence" in html and "evidence_says" in html
     fig, _collisions = figure.make(
@@ -162,11 +225,13 @@ def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None
     fig, _collisions = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, layer="structure"
     )
-    assert "declared</span>" not in fig, "a figure with no edges has no dashed line to explain"
+    assert "unreviewed flow</span>" not in fig, (
+        "a figure with no edges has no dashed line to explain"
+    )
     fig, _collisions = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts
     )
-    assert "declared</span>" in fig
+    assert "unreviewed flow</span>" in fig
 
 
 def test_judgement_prints_one_line_per_declared_edge(sample: Sample) -> None:

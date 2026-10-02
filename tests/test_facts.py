@@ -113,19 +113,19 @@ def test_reexport_resolution_and_relative_sources() -> None:
     assert components["pkg"]["names"][0]["kind"] == "error"
     assert components["pkg.y"]["names"][0] == {
         "name": "gone",
-        "kind": "object",
+        "kind": "unknown",
         "reexport_of": "pkg.nowhere",
     }
 
 
-def test_facts_format_is_2_and_an_older_file_is_stale(tmp_path: Path) -> None:
+def test_facts_format_is_4_and_an_older_file_is_stale(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     fresh = extract.build(cfg)
-    assert fresh["version"] == extract.FORMAT == 2
+    assert fresh["version"] == extract.FORMAT == 4
     older = {**fresh, "version": 1}
     assert extract.drift(fresh, older) == [
-        "facts format 1 is older than the extractor's 2; the file records less than the "
+        "facts format 1 is older than the extractor's 4; the file records less than the "
         "extractor reads"
     ]
     assert extract.drift(fresh, fresh) == []

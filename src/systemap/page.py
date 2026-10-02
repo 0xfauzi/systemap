@@ -389,7 +389,7 @@ def build(
         )
     o.append(
         f'<span class="lg"><i class="lg--dashline" style="border-color:{P["ink_3"]}"></i>'
-        "declared</span>"
+        "unreviewed flow</span>"
     )
     o.append('<span class="lg lg--gap"></span>')
     for fill, stroke, label in legend_rows(T, "system", variables=True):
@@ -432,10 +432,10 @@ def build(
     )
     o.append(
         '<p class="key"><b>What the marks mean.</b> A dashed card is an actor outside the code. '
-        "A dot in a card's top corner marks a note, which the panel shows. A dashed line is a "
-        "declared flow: no import in the facts joins its two ends, so the map is claiming it "
-        "rather than observing it; the panel says of every flow whether it is observed, "
-        "external or declared. A card drawn with a second card behind it holds a map of its "
+        "A dot in a card's top corner marks a note, which the panel shows. A dashed line is an "
+        "unreviewed flow. Its panel distinguishes an import, shared module, or named mechanism "
+        "from a source reviewed claim. Those structural facts alone do not establish the flow's "
+        "direction or artifact. A card drawn with a second card behind it holds a map of its "
         "own, and the panel opens that map in place over this page.</p>"
     )
     o.append(

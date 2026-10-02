@@ -28,16 +28,33 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from systemap import extract
+from systemap import extract, history
 from systemap.config import Config
 from systemap.extract import WHOLE_MODULE
 from systemap.language import LanguageAdapter
-from systemap.model import Model, module_matches
+from systemap.model import Model, module_matches, symbol_claims
 
 # `gained` carries only the buckets the schematic's segmented bar draws
 # (operations, types, refusals, tests), so its +N badge always equals the sum
 # of the segments; constants stay in the surface detail.
 BUCKETS = ("operations", "types", "refusals", "constants")
+
+
+class ChangeError(Exception):
+    """A requested comparison could not be made."""
+
+
+def _commit(repo: Path, ref: str) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    if result.returncode != 0:
+        raise ChangeError(f"cannot compare: git ref {ref!r} does not name a commit")
+    return result.stdout.strip()
 
 
 def _run(args: list[str], cwd: Path) -> str:
@@ -83,6 +100,14 @@ def _empty_surface() -> dict[str, Any]:
 
 def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
     """bucket -> name -> the fingerprint whose change means redefinition."""
+    if "api" in surface:
+        grouped: dict[str, dict[str, list[str]]] = {bucket: {} for bucket in BUCKETS}
+        for entry in surface["api"]:
+            grouped[entry["bucket"]].setdefault(entry["name"], []).append(entry["fingerprint"])
+        return {
+            bucket: {name: "\n".join(values) for name, values in names.items()}
+            for bucket, names in grouped.items()
+        }
     return {
         "operations": {f["name"]: f["signature"] for f in surface["functions"]},
         "types": {c["name"]: ",".join(c["methods"]) for c in surface["classes"]},
@@ -184,8 +209,8 @@ def _test_file_changes(
 ) -> tuple[set[str], set[str], set[str]] | None:
     base_raw = _show(cfg.root, base, path)
     head_raw = _show(cfg.root, head, path)
-    before = set(language.test_names(base_raw, path))
-    after = set(language.test_names(head_raw, path))
+    before = {f"{path}::{name}" for name in language.test_names(base_raw, path)}
+    after = {f"{path}::{name}" for name in language.test_names(head_raw, path)}
     added, removed = after - before, before - after
     if not added and not removed:
         return None
@@ -274,12 +299,15 @@ def compute(
         "reach_known": True,
         "unparsed": [],
     }
-    merge_base = _run(["git", "merge-base", base, head], repo).strip()
+    base_commit = _commit(repo, base)
+    head_commit = _commit(repo, head)
+    merge_base = _run(["git", "merge-base", base_commit, head_commit], repo).strip()
     if not merge_base:
-        return empty
-    files = _changed_files(repo, merge_base, head)
+        raise ChangeError(f"cannot compare {base!r} and {head!r}: no shared commit")
+    files = _changed_files(repo, merge_base, head_commit)
     if not files:
         return empty
+    snapshot_facts = history.facts_at(cfg, head_commit)
 
     # Each changed source module: its surface delta, from the two git blobs.
     deltas: dict[str, dict[str, Any]] = {}
@@ -298,7 +326,7 @@ def compute(
     modules = set(deltas) | set(unparsed)
 
     tests_added, tests_removed = _changed_test_deltas(
-        cfg, language, files, facts, modules, merge_base, head
+        cfg, language, files, snapshot_facts, modules, merge_base, head_commit
     )
 
     direct: set[str] = set()
@@ -313,6 +341,7 @@ def compute(
             m
             for m in modules | set(tests_added) | set(tests_removed)
             if any(module_matches(p, m) for p in module_ids)
+            or any(sym_module == m for sym_module, _name in symbol_claims(c))
         )
         hit = sorted(m for m in owned if m in modules)
         path_hit = any(
@@ -342,7 +371,7 @@ def compute(
     # Redefined on the wire: an exported name whose definition changed and that
     # some other module imports by name.
     imported_names: dict[str, set[str]] = {}
-    fact_components = facts.get("components", {})
+    fact_components = snapshot_facts.get("components", {})
     reach_known = any("uses" in r for r in fact_components.values())
     for record in fact_components.values():
         for target, names in record.get("uses", {}).items():

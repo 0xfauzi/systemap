@@ -26,18 +26,17 @@ Write one journey per entry point that matters, tracing the components it
 passes through: the actor that starts it, the component that takes the
 input, each hand-off, and where the result lands. Each `Step` names what
 acts, what measures (or `()`), the flow it traces, and one sentence. Name
-the way in in `starts`, exactly as `systemap facts --entry-points`
-prints its name (`starts="GET /recipes"`): that is how `systemap
-judgement` knows the way in has a journey. Naming it in the label or a
-step's sentence as a whole word still counts, for maps written before
-`starts` existed. A console script's `main` and a `__main__` that imports
-it count as the script.
+the way in in `starts` for the reader. Add its exact identity to `covers`
+after reviewing the walk against source. `systemap facts --entry-points`
+lists the entries; `systemap journeys` writes the identity for a draft.
+A label, sentence, or legacy `starts` value does not establish coverage.
+A console script's `main` and a `__main__` that imports it count as the script.
 
 A card that takes a crowd of ways in of one kind, a hundred routes or a
 dozen subcommands, gets one journey for the crowd rather than one each:
-name the card in `starts` (`starts="HttpApi"`), and every way in that
-card claims counts as walked. `systemap judgement` asks about a crowd as
-one line for the same reason.
+name the card in `starts` (`starts="HttpApi"`), and list each reviewed
+entry identity in `covers`. Newly discovered entries remain uncovered.
+`systemap judgement` asks about a crowd as one line for the same reason.
 
 `systemap journeys` writes one for you, when `[agent] command` names a
 coding agent: the agent reads the code from that way in, or from two or

@@ -20,10 +20,11 @@ modules or entry are not in the facts, so the drawing never has to hedge.
 Every node carries `data-id` and its kind; every edge carries its artifact
 as visible text and its layer as `data-layer`.
 
-Every edge carries its evidence state (evidence.py): `observed` when an
-import joins its two ends or a configured mechanism is named, `external`
-when an actor is at either end, `declared` when the facts have nothing.
-A declared edge is drawn dashed, here and in every figure, and the panel
+Every edge carries its evidence state (evidence.py): `observed` when
+reviewed source references resolve, `structural` when an import, shared
+module, or named mechanism is available, `external` when an actor is at
+either end, and `declared` when the facts have nothing. An unreviewed edge
+is drawn dashed, here and in every figure, and the panel
 says so beside its sentence.
 
 Edges are Manhattan paths routed by route.py through the gutters between
@@ -687,8 +688,11 @@ def render(
             colour, marker = P["change"], "change"
         fid = f"{svg_id}-f{i}"
         ev = backed[(src, dst)]
-        # A declared edge is dashed: the map says so and the code does not.
-        dashed = ' stroke-dasharray="7 5"' if ev.state == evidence.DECLARED else ""
+        # Structural evidence leaves the semantic flow unreviewed.
+        dashed = {
+            evidence.DECLARED: ' stroke-dasharray="7 5"',
+            evidence.STRUCTURAL: ' stroke-dasharray="3 4"',
+        }.get(ev.state, "")
         flow_parts.append(
             f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
             f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
@@ -907,6 +911,12 @@ def render(
                 # worded here so the page and a figure say the same thing.
                 "evidence": ev.state,
                 "mechanism": ev.mechanism,
+                "import_present": ev.import_present,
+                "shared_module": ev.shared,
+                "source_refs": list(ev.source_refs),
+                "unresolved_refs": list(ev.unresolved_refs),
+                "claim_changed": ev.claim_changed,
+                "review_digest": model.flows[i].review_digest,
                 "evidence_says": ev.says,
             }
         )
@@ -1063,7 +1073,9 @@ def panel_css(t: dict[str, Any], variables: bool = False) -> str:
         # The evidence line under the sentence: what the facts say about the edge.
         f".systemap-f__evidence{{margin:-.3rem 0 .6rem;font-family:{P['font_mono']};"
         f"font-size:11px;color:{P['ink_3']};min-height:1em}}"
-        f".systemap-f__evidence.declared{{color:{P['warn']}}}"
+        f".systemap-f__evidence.declared,.systemap-f__evidence.structural{{color:{P['warn']}}}"
+        f".systemap-f__refs{{margin:-.4rem 0 .6rem;font-family:{P['font_mono']};"
+        f"font-size:10px;color:{P['ink_3']};overflow-wrap:anywhere}}"
         ".systemap-f__chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}"
         f".systemap-chip{{display:inline-flex;align-items:center;gap:.35em;min-height:24px;"
         f"padding:0 .55em;border-radius:4px;font-family:{P['font_mono']};font-size:11px;"
@@ -1691,7 +1703,8 @@ function wheelSvg(cid){
        + esc(cid + ' ' + s.verb + ' ' + s.other) + '">';
     h += '<line class="systemap-w__hit"' + ends + '/>';
     // A declared edge is dashed on the wheel as it is on the map.
-    var dash = s.e.evidence === 'declared' ? ' stroke-dasharray="6 4"' : '';
+    var dash = s.e.evidence === 'declared' ? ' stroke-dasharray="6 4"' :
+      s.e.evidence === 'structural' ? ' stroke-dasharray="3 4"' : '';
     h += '<line class="systemap-w__line"' + ends + ' stroke="' + s.colour + '"' + marker + dash
        + '/>';
     h += '<text class="systemap-w__verb" x="' + mx.toFixed(1) + '" y="' + (my + 4).toFixed(1)
@@ -1735,8 +1748,9 @@ function describe(d){
   h += '<div class="systemap-f__wheel">' + wheelSvg(d.id) + '</div>';
   var say = (d.edges && d.edges.length) ? SAY_HINT : 'Nothing flows to or from this yet.';
   h += '<p class="systemap-f__say muted" data-say>' + esc(say) + '</p>';
-  // What the facts say about the peeked edge: observed, external or declared.
+  // What the facts and cited source say about the peeked edge.
   h += '<p class="systemap-f__evidence" data-evidence></p>';
+  h += '<p class="systemap-f__refs" data-evidence-refs></p>';
   h += '<div class="systemap-f__chips">';
   h += '<span class="systemap-chip systemap-chip--' + esc(d.state) + '">' + esc(d.state_label)
      + '</span>';
@@ -1786,6 +1800,15 @@ function peek(i, sticky){
     if(ev && e){
       ev.textContent = e.evidence_says || '';
       ev.classList.toggle('declared', e.evidence === 'declared');
+      ev.classList.toggle('structural', e.evidence === 'structural');
+    }
+    var refs = panel.querySelector('[data-evidence-refs]');
+    if(refs && e){
+      refs.textContent = (e.source_refs || []).map(function(ref){
+        var pos = ref.lastIndexOf('@');
+        return ref.slice(0, pos) + ' @ ' + ref.slice(pos + 1, pos + 13);
+      }).join(', ');
+      refs.title = (e.source_refs || []).join(', ');
     }
     Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
       s.classList.toggle('peek', +s.dataset.edge === i); });
