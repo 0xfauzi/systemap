@@ -296,7 +296,8 @@ def test_panel_carries_interface_entry_and_note(sample: Sample) -> None:
     assert data["Reader"]["note"] == "" and data["User"]["entry_module"] == ""
     # The dot: on the noted card only, with the note as its hover text.
     assert svg.count('class="node__note"') == 1
-    assert "<title>the ledger is rebuilt on every start</title>" in svg
+    assert '<g class="node__note" aria-label="Note: the ledger is rebuilt on every start">' in svg
+    assert "<title>Note: the ledger is rebuilt on every start</title>" in svg
     # The figure is the same drawing, so it carries the dot too.
     svg_layer, _ = render_schematic(
         noted, sample.meaning, sample.theme, sample.facts, layer="structure"
@@ -307,8 +308,8 @@ def test_panel_carries_interface_entry_and_note(sample: Sample) -> None:
     for text in (
         "systemap-f__iface",
         "systemap-f__note",
-        "entry: <b>",
-        "none (a namespace)",
+        "Entry: <b>",
+        "No entry point is named for this part",
         "d.entry_module",
     ):
         assert text in script, text

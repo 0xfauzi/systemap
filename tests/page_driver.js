@@ -123,6 +123,15 @@ class Element {
     this.childNodes.push(node);
     return node;
   }
+  insertBefore(node, reference) {
+    if (reference === null) return this.appendChild(node);
+    if (!this.childNodes.includes(reference)) throw new Error('reference is not a child');
+    if (node === reference) return node;
+    if (node.parentNode) node.parentNode.removeChild(node);
+    node.parentNode = this;
+    this.childNodes.splice(this.childNodes.indexOf(reference), 0, node);
+    return node;
+  }
   removeChild(node) {
     const i = this.childNodes.indexOf(node);
     if (i >= 0) { this.childNodes.splice(i, 1); node.parentNode = null; }
@@ -506,7 +515,7 @@ function main() {
     return ev.defaultPrevented;
   };
   const page = {doc, win, svg, A, key, reduced, viewport, views: () => viewEvents};
-  const scenarios = {keyboard, framing, submap, theme};
+  const scenarios = {keyboard, framing, submap, theme, workspace};
   const report = (scenarios[scenario] || keyboard)(page);
   process.stdout.write(JSON.stringify(report) + '\n');
 }
@@ -621,7 +630,7 @@ function keyboard(page) {
     j.starts = journeys[0].starts || '';
     j.drafted = journeys[0].drafted === true;
     key('ArrowRight'); j.afterRight = count.textContent;
-    j.layerUnchanged = A.state.layer === report.layers[0];
+    j.layerMatchesStep = A.state.layer === A.edges[journeys[0].steps[Math.min(1, journeys[0].steps.length - 1)].edge].layer;
     key('ArrowLeft'); j.afterLeft = count.textContent;
     key('ArrowLeft'); j.afterLeftAtStart = count.textContent;
     j.stepButtons = doc.querySelectorAll('[data-step]').length;
@@ -710,7 +719,7 @@ function framing(page) {
 function submap(page) {
   // A card that opens a map: the panel's preview and button; the button,
   // a double-click and a second Enter open the map inside in place; Escape
-  // and the close control close it and hand the focus back to the card,
+  // and the close control close it and hand the focus back to its opener,
   // the selection kept. A card without a map is left alone by the same keys.
   const {doc, win, svg, A, key} = page;
   const overlay = doc.getElementById('submap');
@@ -727,6 +736,7 @@ function submap(page) {
     label, overlayHidden: overlay.hidden, src: frame.getAttribute('src'),
     crumb: doc.getElementById('submapcrumb').textContent, focus: A.state.focus,
     active: activeId(), bodyClass: doc.body.className,
+    activeIsOpenButton: !!(doc.activeElement && doc.activeElement.hasAttribute('data-open-map')),
   });
   const steps = [state('start')];
   opener.focus();
@@ -804,3 +814,46 @@ function theme(page) {
 }
 
 main();
+
+
+function workspace(page) {
+  const {doc, svg, A, key} = page;
+  const atlas = doc.getElementById('atlas');
+  const report = {initialMode: doc.body.dataset.mode};
+  doc.getElementById('view-reading').click();
+  const choices = doc.getElementById('journeyindex').querySelectorAll('[data-journey]');
+  report.operations = choices.length;
+  if (choices.length) {
+    choices[0].click();
+    const steps = atlas.querySelectorAll('[data-trace-step]');
+    report.steps = steps.length;
+    report.expectedSteps = A.journeys[0].steps.length;
+    report.activeStart = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    key('ArrowRight');
+    report.activeNext = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    report.evidence = doc.getElementById('step-evidence').textContent;
+    atlas.querySelector('[data-trace-step="0"]').click();
+    report.activeClicked = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    doc.getElementById('step-evidence').querySelector('[data-step-part]').click();
+    report.partMode = doc.body.dataset.mode;
+    report.partFocus = A.state.focus;
+    report.partPurpose = doc.getElementById('panel').textContent.includes(A.detail[A.state.focus].plain);
+  }
+  doc.querySelector('button[data-mode="understand"]').click();
+  const search = doc.getElementById('partsearch');
+  search.value = 'pkg.reader';
+  search.dispatchEvent(new EventImpl('input', {bubbles: true}));
+  report.matches = doc.querySelectorAll('.ix').filter((b) => !b.hidden).map((b) => b.dataset.go);
+  report.searchOpened = doc.getElementById('partlist-disclosure').open;
+  search.value = 'nothing-matches-this-query';
+  search.dispatchEvent(new EventImpl('input', {bubbles: true}));
+  report.emptySearch = !doc.getElementById('searchempty').hidden;
+  doc.querySelector('button[data-mode="review"]').click();
+  report.comparisonPrompt = doc.querySelector('.commands').textContent.includes('systemap render --base REF');
+  report.reviewItems = doc.querySelectorAll('[data-review-item]').length;
+  if (report.reviewItems) {
+    doc.querySelector('[data-review-item]').click();
+    report.findingText = doc.getElementById('review-detail').textContent;
+  }
+  return report;
+}

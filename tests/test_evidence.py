@@ -1,7 +1,7 @@
 """Evidence on every flow: source reviewed, structural, external, or declared.
 
-A fixture asserting the three states plus observed by
-a mechanism; the drawing dashes a declared edge and the panel says so;
+A fixture distinguishes structural evidence from source-reviewed claims;
+the drawing dashes a declared edge and the panel says so;
 the judgement prints one line per declared edge; `[flows] observed_by`
 names the mechanisms and the answer forms cover the line kind.
 """
@@ -215,7 +215,10 @@ def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None
     # The page and a figure carry the legend entry and the panel's line.
     html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
     assert 'class="lg--dashline"' in html and ">unreviewed flow</span>" in html
-    assert "A dashed line is an unreviewed flow" in html
+    assert "A short dashed line has structural evidence" in html
+    assert "A long dashed line is declared without that evidence" in html
+    assert "Both dashed states still need review of direction and artifact" in html
+    assert "None records execution" in html
     assert "declared: no import behind it" in html
     assert "data-evidence" in html and "evidence_says" in html
     fig, _collisions = figure.make(

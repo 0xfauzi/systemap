@@ -1222,7 +1222,10 @@ def main(argv: list[str] | None = None) -> int:
         warn(f"systemap: {exc}", "give delta a ref git can resolve, then run again")
         return BAD_CONFIG
     except change.ChangeError as exc:
-        warn(f"systemap: {exc}", "give a ref git can resolve, then run again")
+        warn(
+            f"systemap: {exc}",
+            "run git fetch if the revision is remote, then rerun with refs git can resolve",
+        )
         return BAD_CONFIG
     return int(code)
 
