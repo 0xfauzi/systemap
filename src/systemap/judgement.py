@@ -75,15 +75,30 @@ of every map.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-from collections.abc import Collection, Iterable
-from dataclasses import dataclass
+from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
-from systemap import evidence, explain, nest
+from systemap import evidence, explain, judgement_evidence, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
-from systemap.extract import entry_label, unknown_fact_lines
+from systemap.extract import unknown_fact_lines
+from systemap.journey_coverage import (
+    TOGETHER_AT as TOGETHER_AT,
+)
+from systemap.journey_coverage import (
+    _entry_lines,
+    journey_problems,
+    reviewed_entries,
+    ways_in_without_journey,
+)
+from systemap.journey_coverage import (
+    crowd_label as crowd_label,
+)
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
 
 __all__ = ["mentioned"]
@@ -232,151 +247,18 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
 _owner_of = owners
 
 
-# Past this many uncovered ways in of one kind into one card, they are asked
-# about together: a hundred routes into one card is one question, not a hundred.
-TOGETHER_AT = 4
-
-
-def _journey_text(meaning: Meaning) -> str:
-    """Every word the journeys say: ids, labels and step sentences, in one string."""
-    parts: list[str] = []
-    for j in meaning.journeys:
-        parts.extend([j.id, j.label])
-        parts.extend(step.say for step in j.steps)
-    return "\n".join(parts).lower()
-
-
 def entry_points_without_journey(
     model: Model,
     meaning: Meaning,
     facts: dict[str, Any],
     *,
     text: str | None = None,
+    covered: Collection[str] | None = None,
     skip: Collection[str] = (),
 ) -> list[str]:
-    """Every entry point in the facts that no journey mentions.
-
-    An entry point is covered when a journey's id, label or a step
-    sentence names it as a whole word: the console script by its name,
-    a subcommand by its word, a function by its name. A `main` function
-    a console script targets, and a `__main__` module that imports a
-    console script's module, are that script under another name and
-    are not asked about twice. A journey that names the way in under
-    `starts` covers it whatever its sentences say. `text` is the
-    journeys to read, every map's when the model is one of a tree;
-    `skip` the modules another map asks about.
-
-    Ways in of one kind into one card are asked about together once
-    there are more than a few: a card that takes a hundred routes needs
-    a journey through the card, not a hundred walks.
-    """
+    """Entry points without reviewed coverage, grouped by kind and card."""
     owner = _owner_of(model, facts)
-    return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner), owner)
-
-
-def ways_in_without_journey(
-    meaning: Meaning,
-    facts: dict[str, Any],
-    text: str | None = None,
-    skip: Collection[str] = (),
-    owner: dict[str, str] | None = None,
-) -> list[dict[str, str]]:
-    """The ways in no journey walks from, as the facts record them.
-
-    The rule is the one above, and it lives here alone so that the
-    judgement line, `systemap describe` and `systemap journeys` never
-    disagree about which ways in are covered.
-
-    A journey whose `starts` names a card, rather than one way in, walks
-    for every way in that card claims. That is what a crowd needs: a walk
-    standing for a hundred routes cannot name one of them under `starts`
-    without claiming to be about that one. `owner` says which card claims
-    each module; with none, only the named ways in are covered.
-    """
-    points: list[dict[str, str]] = facts.get("entry_points", [])
-    text = _journey_text(meaning) if text is None else text
-    scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
-    components = facts.get("components", {})
-    started = {j.starts for j in meaning.journeys if j.starts}
-    return [
-        p
-        for p in points
-        if p["module"] not in skip
-        and not _same_script(p, scripts, components)
-        and not (p["name"] in started or entry_label(p) in started or mentioned(p["name"], text))
-        and (owner or {}).get(p["module"], "") not in started
-    ]
-
-
-def _same_script(
-    p: dict[str, str], scripts: dict[str, dict[str, str]], components: dict[str, Any]
-) -> bool:
-    """Is this way in a console script under another name?"""
-    module = p["module"]
-    if p["kind"] == "main_function":
-        return scripts.get(module, {}).get("target") == "main"
-    if p["kind"] == "main_module":
-        return any(m in scripts for m in components.get(module, {}).get("uses", {}))
-    return False
-
-
-def crowd_label(how_many: int, kind: str, card: str) -> str:
-    """A crowd of ways in, named: `190 routes into HttpApi`.
-
-    `systemap journeys` names a crowd the same way, so the walk it writes and
-    the line it answers read as the same thing.
-    """
-    return f"{how_many} {kind}s into {card}"
-
-
-def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[str]:
-    """One line per way in, or one line per card for the kinds that come in crowds.
-
-    The order the facts list them in is kept, so a report does not reshuffle
-    itself when one way in is answered.
-    """
-    crowds: dict[tuple[str, str], list[dict[str, str]]] = {}
-    for p in points:
-        crowds.setdefault((p["kind"], owner.get(p["module"], "")), []).append(p)
-    out: list[str] = []
-    said: set[tuple[str, str]] = set()
-    for p in points:
-        key = (p["kind"], owner.get(p["module"], ""))
-        found, who = crowds[key], key[1]
-        where = f" (component {who})" if who else ""
-        if len(found) <= TOGETHER_AT or not who:
-            out.append(f"entry point {entry_label(p)} has no journey{where}")
-            continue
-        if key not in said:
-            said.add(key)
-            said_as = crowd_label(len(found), p["kind"], who)
-            out.append(f"entry point {said_as} have no journey{where}")
-    return out
-
-
-def journey_problems(
-    meaning: Meaning, facts: dict[str, Any], cards: Collection[str] = ()
-) -> list[str]:
-    """A journey nobody has confirmed, and a journey that starts at nothing.
-
-    Naming the way in is what lets the map say which ways in are walked and
-    which are not, so a name nothing matches leaves a real way in looking
-    covered.
-    """
-    drafted = [
-        f"drafted journey: {j.id} ({j.label}) was written by an agent and not yet confirmed"
-        for j in meaning.journeys
-        if j.drafted
-    ]
-    ways = {p["name"] for p in facts.get("entry_points", [])}
-    ways |= {entry_label(p) for p in facts.get("entry_points", [])}
-    # A card is a way in too, for a walk that stands for every way in it takes.
-    ways |= set(cards)
-    return drafted + [
-        f"journey start: {j.id} starts at {j.starts}, which the facts have no way in for"
-        for j in meaning.journeys
-        if j.starts and j.starts not in ways
-    ]
+    return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner, covered), owner)
 
 
 Pair = tuple[str, str]
@@ -548,6 +430,7 @@ def run(
     observed_by: Iterable[str] = (),
     *,
     journeys_text: str | None = None,
+    covered: Collection[str] | None = None,
     skip: Collection[str] = (),
 ) -> list[str]:
     """Every line the maintainer should read for one map, in the order above.
@@ -560,13 +443,33 @@ def run(
         + mis_folds(model, meaning, facts)
         + no_sentence(model, meaning)
         + thin_layers(model, meaning)
-        + entry_points_without_journey(model, meaning, facts, text=journeys_text, skip=skip)
+        + entry_points_without_journey(
+            model, meaning, facts, text=journeys_text, covered=covered, skip=skip
+        )
         + journey_problems(meaning, facts, [c.id for c in model.components])
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
+        + flow_review(model, meaning, facts, observed_by)
         + model_sdk_imports(model, facts, sdks, skip=skip)
         + unknown_fact_lines(facts)
     )
+
+
+def flow_review(
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    observed_by: Iterable[str] = (),
+) -> list[str]:
+    """Flows whose direction and artifact still need current source review."""
+    states = evidence.of_model(model, meaning, facts, observed_by)
+    return [
+        f"flow review: {flow.src} -> {flow.dst} ({flow.artifact}) has structural "
+        "evidence but no source-reviewed claim; cite current source for direction "
+        "and artifact or revise the flow"
+        for flow in model.flows
+        if states[flow.edge].state == evidence.STRUCTURAL or states[flow.edge].unresolved_refs
+    ]
 
 
 def run_tree(
@@ -583,19 +486,67 @@ def run_tree(
     modules its own cards claim. A journey on any map covers an entry
     point: a walk through the top map traces the card as a whole.
     """
-    text = "\n".join(_journey_text(m.meaning) for m in tree.maps)
+    covered = reviewed_entries(m.meaning for m in tree.maps)
     components = facts.get("components", {})
     out: list[str] = []
     for m in tree.maps:
         skip = {mod for c in m.model.opening for mod in claimed(c, components)}
         if not m.top:
             skip |= set(components) - set(_owner_of(m.model, facts))
-        lines = run(m.model, m.meaning, facts, sdks, observed_by, journeys_text=text, skip=skip)
+        lines = run(m.model, m.meaning, facts, sdks, observed_by, covered=covered, skip=skip)
         out += [m.prefix + line for line in lines]
     return out
 
 
 # ---- answers: the exact line, or a family of lines with one reason ------------
+
+
+def evidence_for_tree(
+    tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str]
+) -> dict[str, str]:
+    """Digest the evidence an exact answer reviewed, keyed by its printed line.
+
+    Crossing imports use only the participating modules. Other lines use the
+    map source and mapped facts because their supporting dependency set is not
+    narrower. A changed uncommitted source file therefore changes the digest.
+    """
+    components = facts.get("components", {})
+    out: dict[str, str] = {}
+    for m in tree.maps:
+        out.update(_map_answer_evidence(m, facts, components, root, lines))
+    return out
+
+
+def _map_answer_evidence(
+    m: nest.Map,
+    facts: dict[str, Any],
+    components: dict[str, Any],
+    root: Path,
+    lines: list[str],
+) -> dict[str, str]:
+    model_hash = hashlib.sha256(m.path.read_bytes()).hexdigest()
+    crossings = {
+        m.prefix + crossing_line(p, q, imports): imports
+        for (p, q), imports in crossing_imports(m.model, facts).items()
+    }
+    out: dict[str, str] = {}
+    for key in lines:
+        if not key.startswith(m.prefix):
+            continue
+        state = judgement_evidence.answer_state(components, root, model_hash, crossings.get(key))
+        encoded = json.dumps(state, sort_keys=True, default=str).encode()
+        out[key] = hashlib.sha256(encoded).hexdigest()
+    return out
+
+
+def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
+    """The digest to record for one exact decision, including an items group."""
+    chosen = list(items)
+    if len(chosen) == 1:
+        return evidence.get(chosen[0], "unavailable")
+    state = [(line, evidence.get(line, "unavailable")) for line in chosen]
+    return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
+
 
 CROSSING_LINE = re.compile(
     r"^crossing import: (\S+) imports (\S+) in \d+ modules? and no flow joins"
@@ -655,23 +606,75 @@ class Answered:
     open: list[str]
     answered: int
     stale: list[str]
+    pending: list[str] = field(default_factory=list)
+    policies: list[str] = field(default_factory=list)
 
 
-def apply_answers(lines: list[str], answer_list: Iterable[Answer]) -> Answered:
+def apply_answers(
+    lines: list[str], answer_list: Iterable[Answer], evidence: Mapping[str, str] | None = None
+) -> Answered:
     """Suppress every line the configuration answers; report the rest and the stale."""
     given = list(answer_list)
-    covered = [line for line in lines if any(answers(a, line) for a in given)]
-    stale: list[str] = []
-    for a in given:
-        if a.items:
-            stale += [item for item in a.items if item not in lines]
-        elif not any(answers(a, line) for line in lines):
-            stale.append(a.label)
+    accepted, pending, policies = _accepted_answers(lines, given, evidence)
+    covered = [line for line in lines if any(answers(a, line) for a in accepted)]
+    stale = _stale_answers(given, lines)
     return Answered(
         open=[line for line in lines if line not in covered],
         answered=len(covered),
         stale=stale,
+        pending=pending,
+        policies=policies,
     )
+
+
+def _accepted_answers(
+    lines: list[str], given: list[Answer], evidence: Mapping[str, str] | None
+) -> tuple[list[Answer], list[str], list[str]]:
+    pending: list[str] = []
+    policies: list[str] = []
+    accepted: list[Answer] = []
+    for a in given:
+        matches = [line for line in lines if answers(a, line)]
+        if not matches:
+            continue
+        issue = _answer_issue(a, evidence)
+        if issue is None:
+            accepted.append(a)
+            if evidence is not None and not a.items:
+                policies.append(_policy_line(a, matches))
+        else:
+            pending.append(issue)
+    return accepted, pending, policies
+
+
+def _policy_line(answer: Answer, matches: list[str]) -> str:
+    new = sum(line not in answer.reviewed for line in matches)
+    return (
+        f"{answer.label} covers {len(matches)} current lines; {new} outside its reviewed baseline"
+    )
+
+
+def _answer_issue(answer: Answer, evidence: Mapping[str, str] | None) -> str | None:
+    if evidence is None:
+        return None
+    if answer.items:
+        digest = answer_digest(answer.items, evidence)
+        if answer.evidence and answer.evidence == digest and digest != "unavailable":
+            return None
+        return f"'{answer.label}' needs renewed review; current evidence = \"{digest}\""
+    if answer.policy:
+        return None
+    return f"'{answer.label}' needs policy = true to cover a family of lines"
+
+
+def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
+    stale: list[str] = []
+    for answer in given:
+        if answer.items:
+            stale.extend(item for item in answer.items if item not in lines)
+        elif not any(answers(answer, line) for line in lines):
+            stale.append(answer.label)
+    return stale
 
 
 def of_kind(lines: list[str], kind: str) -> list[str]:
@@ -714,6 +717,8 @@ def report(
         f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
         for item in result.stale
     ]
+    out += [f"  pending answer: {item}" for item in result.pending or []]
+    out += [f"  policy answer: {item}" for item in result.policies or []]
     return out
 
 

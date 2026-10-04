@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
@@ -57,6 +59,31 @@ def test_language_defaults_to_python_and_may_be_stated(tmp_path: Path) -> None:
     assert extract.build(stated) == extract.build(default)
 
 
+def test_python_provenance_tracks_minor_version_not_patch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_tree(tmp_path, TINY_PACKAGE)
+    cfg = config.load(tmp_path)
+    original_sys = sys
+
+    def provenance(major: int, minor: int, micro: int) -> dict[str, object]:
+        version_info = SimpleNamespace(major=major, minor=minor, micro=micro)
+        monkeypatch.setattr(extract, "sys", SimpleNamespace(version_info=version_info))
+        return extract._provenance(cfg, None)
+
+    try:
+        first = provenance(3, 11, 10)
+        patch_release = provenance(3, 11, 16)
+        next_minor = provenance(3, 12, 0)
+    finally:
+        monkeypatch.setattr(extract, "sys", original_sys)
+
+    assert first == patch_release
+    assert first["parser"] == "3.11"
+    assert next_minor["parser"] == "3.12"
+    assert first != next_minor
+
+
 def test_unknown_language_is_refused(tmp_path: Path) -> None:
     write_tree(tmp_path, {"systemap.toml": 'language = "go"\n'})
     with pytest.raises(config.ConfigError, match='language must be "python" or "typescript"'):
@@ -69,7 +96,10 @@ def test_extract_attributes_tests_to_modules(tmp_path: Path) -> None:
     reader = facts["components"]["pkg.reader"]
     assert reader["tests_total"] == 2
     assert reader["tests_primary"] == 2
-    assert reader["tests"] == ["test_nested", "test_read_returns_request"]
+    assert reader["tests"] == [
+        "tests/test_reader.py::TestNested.test_nested",
+        "tests/test_reader.py::test_read_returns_request",
+    ]
     writer = facts["components"]["pkg.writer"]
     assert writer["tests_total"] == 1
     assert writer["tests_primary"] == 0
@@ -149,12 +179,11 @@ def test_drift_sees_an_entry_point_change(tmp_path: Path) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(pyproject.read_text() + 'pkg-worker = "pkg.worker:main"\n')
     after = extract.build(cfg)
-    assert extract.drift(after, before) == [
-        "entry point not in the map: pkg-worker (console script)"
-    ]
-    assert extract.drift(before, after) == [
+    assert "entry point not in the map: pkg-worker (console script)" in extract.drift(after, before)
+    assert (
         "entry point in the map but gone from the tree: pkg-worker (console script)"
-    ]
+        in extract.drift(before, after)
+    )
     # Old facts with no entry points at all read as empty, not as an error.
     legacy = {k: v for k, v in before.items() if k != "entry_points"}
     assert all("entry point not in the map" in line for line in extract.drift(before, legacy))
@@ -420,7 +449,7 @@ def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
     }
     for record in facts["components"].values():
         assert set(record) <= extract.fields_of("module"), record["id"]
-        assert extract.fields_of("module") - set(record) == {"unknown"}, record["id"]
+        assert extract.fields_of("module") - set(record) == {"unknown", "parse_error"}, record["id"]
     assert facts["entry_points"], "the tree has entry points to compare"
     for point in facts["entry_points"]:
         assert set(point) == extract.fields_of("entry point")

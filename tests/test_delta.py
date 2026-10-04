@@ -11,14 +11,18 @@ answers, and a flow whose import went away.
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import write_tree
 
-from systemap import config, delta, nest
+from systemap import card_review, config, delta, nest
 from systemap.cli import main
+from systemap.model import Invariant, Journey, Meaning, Model, Step
 from systemap.moves import find as find_moves
 
 BASE_TREE = {
@@ -225,7 +229,7 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     lines = out.splitlines()
     assert lines[0] == (
         f"delta: HEAD~1 ({base}) -> HEAD ({git(repo, 'rev-parse', 'HEAD')[:7]}): "
-        "4 modules changed, 6 added, 3 removed, 2 moved; 4 of 6 cards named"
+        "4 modules changed, 6 added, 3 removed, 2 moved; 5 of 6 cards named"
     )
     expected_open = [
         "moved: pkg.old_tool -> pkg.tools.tool (same content); Writer names pkg.old_tool in "
@@ -244,9 +248,8 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
         "new crossing import: pkg.writer (card Writer) imports pkg.reader (card Reader) and "
         "no flow joins Writer and Reader; add the flow with its sentence in map/model.py, or "
         "answer it under [judgement] answered",
-        f"evidence lost: Reader -> Parser (request) was observed at {base} and no import joins "
-        "them now; find the evidence, name the mechanism in the sentence, or remove the flow "
-        "in map/model.py",
+        "structural evidence lost: Reader -> Parser (request) had an import or declared "
+        "mechanism at the base commit and does not now; review the flow",
     ]
     expected_quiet = [
         "added: pkg.helpers, an empty package marker",
@@ -256,12 +259,14 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
         "added: pkg.vendor.lib, ignored under [coverage]",
         "removed: pkg.more.gone, was claimed by Writer through a pattern",
     ]
-    start = lines.index(f"needs a decision ({len(expected_open)}):")
-    assert lines[start + 1 : start + 1 + len(expected_open)] == [f"  {t}" for t in expected_open]
+    start = next(i for i, line in enumerate(lines) if line.startswith("needs a decision ("))
+    open_lines = lines[start + 1 : lines.index(f"changed, nothing to do ({len(expected_quiet)}):")]
+    assert all(f"  {item}" in open_lines for item in expected_open)
+    assert sum(line.startswith("  source review:") for line in open_lines) == 5
     start = lines.index(f"changed, nothing to do ({len(expected_quiet)}):")
     assert lines[start + 1 : start + 1 + len(expected_quiet)] == [f"  {t}" for t in expected_quiet]
     # The answered crossing import (Ledger -> Parser) is not asked again.
-    assert "pkg.ledger" not in out
+    assert "new crossing import: pkg.ledger" not in out
     # Spare is told to drop its module, not also that its entry vanished.
     assert "entry vanished: Spare" not in out
     assert delta.FULL_LOOP in lines
@@ -290,7 +295,7 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     lines = out.splitlines()
     assert lines[0] == delta.MARKER
     assert lines[1] == "## What this change does to the map"
-    assert "**Needs a decision (9)**" in lines
+    assert "**Needs a decision (14)**" in lines
     assert "**Changed, nothing to do (6)**" in lines
     assert "- `added: pkg.fresh, claimed by no card; " in out
     assert f"> {delta.FULL_LOOP[0].upper()}{delta.FULL_LOOP[1:]}." in lines
@@ -309,23 +314,96 @@ def test_markdown_is_the_comment_with_the_committed_figure(
 def test_nothing_to_do_and_no_change_exit_zero(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # A third commit that edits a body: the facts change, the map does not.
+    # A body edit leaves the map's claims pending source review.
     (repo / "pkg/writer.py").write_text(
         (repo / "pkg/writer.py").read_text().replace('read("")', 'read("x")')
     )
     git(repo, "commit", "-q", "-am", "body")
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 0
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
-    assert "1 modules changed, 0 added, 0 removed, 0 moved; 0 of 6 cards named" in out
-    assert out.rstrip().endswith(
-        "nothing to decide: the map already covers this change. run: systemap refresh"
-    )
+    assert "1 modules changed, 0 added, 0 removed, 0 moved; 1 of 6 cards named" in out
+    assert "source review: Writer has changed code in pkg.writer" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")
     assert "the map is unaffected" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD", "--format", "markdown"]) == 0
     assert "No module changed" in capsys.readouterr().out
+
+
+def test_source_review_attests_to_current_source_and_claims(repo: Path) -> None:
+    cfg = config.load(repo)
+    top = nest.load(cfg).top
+    base = delta.facts_at(cfg, delta.resolve(repo, "HEAD~1"))
+    head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
+    reader = next(card for card in top.model.components if card.id == "Reader")
+    stamp = card_review.digest(reader, top.model, top.meaning, head)
+    assert stamp is not None and len(stamp) == 64
+    reviewed = dataclasses.replace(
+        top.model,
+        components=tuple(
+            dataclasses.replace(card, source_review=stamp) if card.id == "Reader" else card
+            for card in top.model.components
+        ),
+    )
+
+    def pending(model: Model, meaning: Meaning, facts: dict[str, Any]) -> bool:
+        result = delta.compute(cfg, model, meaning, base, facts)
+        return any(
+            line.kind == "source review" and line.cards == ("Reader",) for line in result.open
+        )
+
+    assert not pending(reviewed, top.meaning, head)
+    formatted = copy.deepcopy(head)
+    formatted["components"]["pkg.reader"]["sha"] = "format-only"
+    assert not pending(reviewed, top.meaning, formatted)
+
+    changed_source = copy.deepcopy(head)
+    changed_source["components"]["pkg.reader"]["syntax_sha"] = "new-syntax"
+    assert pending(reviewed, top.meaning, changed_source)
+
+    missing_source = copy.deepcopy(head)
+    del missing_source["components"]["pkg.reader"]["syntax_sha"]
+    assert card_review.digest(reader, top.model, top.meaning, missing_source) is None
+    assert pending(reviewed, top.meaning, missing_source)
+
+    changed_card = dataclasses.replace(
+        reviewed,
+        components=tuple(
+            dataclasses.replace(card, does="Reads a different artifact.")
+            if card.id == "Reader"
+            else card
+            for card in reviewed.components
+        ),
+    )
+    assert pending(changed_card, top.meaning, head)
+    changed_relation = dataclasses.replace(
+        top.meaning,
+        relations={**top.meaning.relations, ("Reader", "Parser"): "Different flow."},
+    )
+    assert pending(reviewed, changed_relation, head)
+
+    journey = Journey(
+        "write",
+        "Write",
+        (Step(("Reader",), (), ("Reader", "Parser"), "Reads the data."),),
+    )
+    changed_journey = dataclasses.replace(top.meaning, journeys=(journey,))
+    assert pending(reviewed, changed_journey, head)
+    changed_invariant = dataclasses.replace(
+        reviewed, invariants=(Invariant(1, "Reader accepts the data.", ("Reader",)),)
+    )
+    assert pending(changed_invariant, top.meaning, head)
+
+
+def test_source_review_digest_refuses_a_missing_claimed_module(repo: Path) -> None:
+    cfg = config.load(repo)
+    top = nest.load(cfg).top
+    head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
+    reader = next(card for card in top.model.components if card.id == "Reader")
+    missing = copy.deepcopy(head)
+    missing["components"].pop("pkg.reader")
+    assert card_review.digest(reader, top.model, top.meaning, missing) is None
 
 
 def test_the_base_is_the_merge_base_and_the_working_copy_is_not_read(

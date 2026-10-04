@@ -28,14 +28,20 @@ cards it named overlapped the ones a person wrote by 0.28 where the bar was
 
 from __future__ import annotations
 
+import ast
+import hashlib
+import io
 import json
+import tokenize
+from collections.abc import Collection
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from systemap import judgement
+from systemap import journey_coverage as judgement
 from systemap.agent import Agent
 from systemap.evidence import owners
-from systemap.extract import entry_label
+from systemap.extract import entry_identity, entry_label
 from systemap.model import Journey, Meaning, Model, Step
 
 QUESTION = """You are reading a repository to write one journey for its system map.
@@ -113,16 +119,27 @@ class Draft:
     entry: dict[str, str]
     journey: Journey | None = None
     problems: tuple[str, ...] = ()
+    answer: str = ""
 
 
 def uncovered(
-    meaning: Meaning, facts: dict[str, Any], owner: dict[str, str] | None = None
+    meaning: Meaning,
+    facts: dict[str, Any],
+    owner: dict[str, str] | None = None,
+    covered: Collection[str] | None = None,
 ) -> list[dict[str, str]]:
     """The ways in no journey walks from, by the rule `systemap judgement` uses."""
-    return judgement.ways_in_without_journey(meaning, facts, owner=owner)
+    return judgement.ways_in_without_journey(meaning, facts, owner=owner, covered=covered)
 
 
-def gather(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[Group]:
+def gather(
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    *,
+    modules: Collection[str] | None = None,
+    covered: Collection[str] | None = None,
+) -> list[Group]:
     """The ways in with no walk, as the questions to ask: crowds first.
 
     A card that takes a hundred routes is one question, not a hundred, which
@@ -131,7 +148,9 @@ def gather(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[Group]
     """
     owner = owners(model, facts)
     held: dict[tuple[str, str], list[dict[str, str]]] = {}
-    for point in uncovered(meaning, facts, owner):
+    for point in uncovered(meaning, facts, owner, covered):
+        if modules is not None and point["module"] not in modules:
+            continue
         held.setdefault((point["kind"], owner.get(point["module"], "")), []).append(point)
     out: list[Group] = []
     for (_kind, card), found in held.items():
@@ -168,6 +187,7 @@ def _asked(facts: dict[str, Any], group: Group) -> dict[str, Any]:
     def one(p: dict[str, str]) -> dict[str, Any]:
         return {
             "named": entry_label(p),
+            "identity": entry_identity(p),
             "kind": p["kind"],
             "module": p["module"],
             "file": records.get(p["module"], {}).get("file", ""),
@@ -189,10 +209,27 @@ def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
     cards = {c.id for c in model.components}
     flows = {f.edge for f in model.flows}
     out: list[Step] = []
-    for k, step in enumerate(raw if isinstance(raw, list) else [], start=1):
-        edge = tuple(step.get("edge", []))
-        acts = tuple(step.get("acts", []))
-        measures = tuple(step.get("measures", []))
+    if not isinstance(raw, list):
+        problems.append("steps must be a list")
+        return ()
+    for k, step in enumerate(raw, start=1):
+        if not isinstance(step, dict):
+            problems.append(f"step {k} must be an object")
+            continue
+        if (
+            not all(
+                isinstance(step.get(key), list)
+                and all(isinstance(value, str) for value in step[key])
+                for key in ("edge", "acts", "measures")
+            )
+            or not isinstance(step.get("say"), str)
+            or not step["say"].strip()
+        ):
+            problems.append(f"step {k} needs string card lists and a sentence")
+            continue
+        edge = tuple(step["edge"])
+        acts = tuple(step["acts"])
+        measures = tuple(step["measures"])
         unknown = sorted({*acts, *measures, *edge} - cards)
         if len(edge) != 2 or edge not in flows:
             problems.append(
@@ -201,7 +238,7 @@ def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
         elif unknown:
             problems.append(f"step {k} names {', '.join(unknown)}, which the map has no card for")
         else:
-            out.append(Step(acts=acts, measures=measures, edge=edge, say=str(step.get("say", ""))))
+            out.append(Step(acts=acts, measures=measures, edge=edge, say=step["say"]))
     return tuple(out)
 
 
@@ -210,24 +247,30 @@ def read_answer(text: str, model: Model, group: Group) -> Draft:
     entry = group.one
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end < start:
-        return Draft(entry=entry, problems=("the agent did not answer with JSON",))
+        return Draft(entry=entry, problems=("the agent did not answer with JSON",), answer=text)
     try:
         raw = json.loads(text[start : end + 1])
     except ValueError as exc:
-        return Draft(entry=entry, problems=(f"the agent's JSON could not be read: {exc}",))
+        return Draft(
+            entry=entry, problems=(f"the agent's JSON could not be read: {exc}",), answer=text
+        )
+    if not isinstance(raw, dict):
+        return Draft(entry=entry, problems=("the agent's JSON must be an object",), answer=text)
     problems: list[str] = []
     steps = _steps(raw.get("steps"), model, problems)
     if not steps:
         problems.append("no step of the walk could be used")
-        return Draft(entry=entry, problems=tuple(problems))
+    if problems:
+        return Draft(entry=entry, problems=tuple(problems), answer=text)
     journey = Journey(
         id=str(raw.get("id") or entry["name"]).strip(),
         label=str(raw.get("label") or group.label).strip(),
         steps=steps,
         starts=group.starts,
+        covers=tuple(entry_identity(point) for point in group.ways_in),
         drafted=True,
     )
-    return Draft(entry=entry, journey=journey, problems=tuple(problems))
+    return Draft(entry=entry, journey=journey, answer=text)
 
 
 def write_one(
@@ -235,47 +278,91 @@ def write_one(
 ) -> Draft:
     """Ask the agent for the walk, one way in or a crowd, and check what comes back."""
     question = GROUP_QUESTION if group.whole else QUESTION
-    answer = agent.ask(question, context(model, meaning, facts, group))
+    supplied = context(model, meaning, facts, group)
+    supplied["source_snapshot"] = _source_snapshot(agent.root, facts)
+    answer = agent.ask(question, supplied)
     return read_answer(answer, model, group)
 
 
-ANCHORS = ("JOURNEYS = (", "journeys=(")
+def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
+    """Hash source bytes, including uncommitted edits, for journey answer reuse."""
+    digest = hashlib.sha256()
+    for relative in sorted({record["file"] for record in facts.get("components", {}).values()}):
+        path = root / relative
+        try:
+            content = path.read_bytes()
+        except OSError as exc:
+            raise ValueError(
+                f"cannot review journey: source {relative} is unavailable: {exc}"
+            ) from exc
+        digest.update(relative.encode())
+        digest.update(b"\0")
+        digest.update(content)
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def add_to_source(source: str, journey: Journey) -> str | None:
     """The model module with one journey written into it, or None when there is
     nowhere to put it: the file names its journeys somewhere this cannot find."""
-    for anchor in ANCHORS:
-        at = source.find(anchor)
-        if at < 0:
-            continue
-        line_end = source.find("\n", at)
-        if line_end < 0:
-            continue
-        block = "\n".join(as_source(journey))
-        return source[: line_end + 1] + block + "\n" + source[line_end + 1 :]
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except tokenize.TokenError:
+        return None
+    lines = source.splitlines(keepends=True)
+    for name in ("JOURNEYS", "journeys"):
+        offset = _journey_assignment_offset(tokens, lines, name)
+        if offset is not None:
+            return _insert_journey(source, journey, offset)
     return None
+
+
+def _journey_assignment_offset(
+    tokens: list[tokenize.TokenInfo], lines: list[str], name: str
+) -> int | None:
+    for index, token in enumerate(tokens[:-2]):
+        if token.type != tokenize.NAME or token.string != name:
+            continue
+        if [tokens[index + offset].string for offset in (1, 2)] != ["=", "("]:
+            continue
+        opened = tokens[index + 2]
+        return sum(len(line) for line in lines[: opened.end[0] - 1]) + opened.end[1]
+    return None
+
+
+def _insert_journey(source: str, journey: Journey, offset: int) -> str | None:
+    block = "\n".join(as_source(journey))
+    at = offset + 1 if source[offset : offset + 1] == "\n" else offset
+    prefix = "" if at > offset else "\n"
+    proposed = source[:at] + prefix + block + "\n" + source[at:]
+    try:
+        ast.parse(proposed)
+    except SyntaxError:
+        return None
+    return proposed
 
 
 def as_source(journey: Journey) -> list[str]:
     """One journey as it is written in the model module, ready to paste in."""
     out = [
         "    Journey(",
-        f'        id="{journey.id}",',
-        f'        label="{journey.label}",',
-        f'        starts="{journey.starts}",',
+        f"        id={json.dumps(journey.id, ensure_ascii=False)},",
+        f"        label={json.dumps(journey.label, ensure_ascii=False)},",
+        f"        starts={json.dumps(journey.starts, ensure_ascii=False)},",
+        f"        covers={journey.covers!r},",
         "        drafted=True,  # read it, then remove this line",
         "        steps=(",
     ]
     for step in journey.steps:
-        acts = ", ".join(f'"{c}"' for c in step.acts)
-        measures = ", ".join(f'"{c}"' for c in step.measures)
+        acts = ", ".join(json.dumps(c, ensure_ascii=False) for c in step.acts)
+        measures = ", ".join(json.dumps(c, ensure_ascii=False) for c in step.measures)
         out += [
             "            Step(",
             f"                acts=({acts}{',' if len(step.acts) == 1 else ''}),",
             f"                measures=({measures}{',' if len(step.measures) == 1 else ''}),",
-            f'                edge=("{step.edge[0]}", "{step.edge[1]}"),',
-            f'                say="{step.say}",',
+            f"                edge=({json.dumps(step.edge[0], ensure_ascii=False)}, "
+            f"{json.dumps(step.edge[1], ensure_ascii=False)}),",
+            f"                say={json.dumps(step.say, ensure_ascii=False)},",
             "            ),",
         ]
     out += ["        ),", "    ),"]

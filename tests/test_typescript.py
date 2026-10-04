@@ -74,7 +74,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
     assert service["constants"] == [{"name": "LIMIT", "value": "3"}]
     assert service["uses"] == {"web.client": ["fetchUser"], "web.types": ["User"]}
     assert service["external"] == ["zod"]
-    assert service["tests"] == ["serves a user"]
+    assert service["tests"] == ["tests/service.test.ts::serves a user"]
     assert service["tests_primary"] == 1
 
     assert facts["components"]["web.index"]["names"] == [
@@ -259,7 +259,8 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
     assert facts["test_file_issues"] == []
     assert set(facts) == extract.fields_of("facts")
     assert all(
-        set(record) == extract.fields_of("module") for record in facts["components"].values()
+        extract.fields_of("module") - set(record) == {"parse_error", "executes"}
+        for record in facts["components"].values()
     )
 
 
@@ -348,7 +349,7 @@ def test_unknown_surface_is_information_for_check(
     settings = tmp_path / "systemap.toml"
     settings.write_text(
         settings.read_text()
-        + '\n[judgement]\nanswered = [{kind = "unknown surface", reason = "grammar limit"}]\n'
+        + '\n[judgement]\nanswered = [{kind = "unknown surface", policy = true, reason = "grammar limit"}]\n'
     )
     assert main(["--root", str(tmp_path), "judgement", "--kind", "unknown surface"]) == 0
     assert "unknown surface:" not in capsys.readouterr().out
@@ -427,7 +428,7 @@ def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(
     service = facts["components"]["acme.web.service"]
     assert service["uses"] == {"acme.web.client": ["User", "fetchUser"]}
     assert service["external"] == ["zod"]
-    assert service["tests"] == ["serves a user"]
+    assert service["tests"] == ["tests/service.test.ts::serves a user"]
     assert facts["components"]["acme.web.view"]["functions"] == [
         {"name": "UserView", "signature": "function UserView(): JSX.Element"}
     ]
@@ -495,11 +496,11 @@ def test_typescript_delta_and_history_read_committed_trees(
         "function serve(id: number): User"
     )
     assert head_facts["components"]["acme.web.service"]["tests"] == [
-        "serves a user",
-        "serves another user",
+        "tests/service.test.ts::serves a user",
+        "tests/service.test.ts::serves another user",
     ]
     assert head_facts["entry_points"][0]["module"] == "acme.web.command"
-    assert (history.cache_dir(cfg) / f"{head}.json").is_file()
+    assert list(history.cache_dir(cfg).glob(f"{head}-*.json"))
 
     assert main(["--root", str(tmp_path), "delta", "--base", base, "--brief"]) == 1
     out = capsys.readouterr().out
@@ -534,7 +535,7 @@ def test_typescript_change_attributes_changed_tsx_tests(tmp_path: Path) -> None:
     found = change.compute(cfg, nest.load(cfg).top.model, "HEAD~1", extract.build(cfg))
     assert found["direct"] == {"Application"}
     assert found["per_component"]["Application"]["surface"]["tests_added"] == [
-        "serves another user"
+        "tests/service.test.tsx::serves another user"
     ]
 
 
@@ -571,11 +572,14 @@ def test_configured_typescript_test_patterns_match_extract_and_delta(tmp_path: P
     cfg = config.load(tmp_path)
     facts = extract.build(cfg)
     assert "acme.web.checks.service_check" not in facts["components"]
-    assert "checks service" in facts["components"]["acme.web.service"]["tests"]
+    assert (
+        "src/checks/service_check.ts::checks service"
+        in facts["components"]["acme.web.service"]["tests"]
+    )
     found = change.compute(cfg, nest.load(cfg).top.model, base, facts)
     assert found["direct"] == {"Application"}
     assert found["per_component"]["Application"]["surface"]["tests_added"] == [
-        "checks service again"
+        "src/checks/service_check.ts::checks service again"
     ]
 
 

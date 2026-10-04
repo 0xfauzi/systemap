@@ -62,7 +62,7 @@ def _methods(call: ast.Call) -> list[str]:
     return ["GET"]
 
 
-def _from_decorator(call: ast.Call, func: str) -> list[dict[str, str]]:
+def _from_decorator(call: ast.Call, func: str, bindings: dict[str, str]) -> list[dict[str, str]]:
     """The ways in one decorator registers, if it is one of the shapes above.
 
     A command decorator has to be called on something (`@app.command()`,
@@ -72,32 +72,52 @@ def _from_decorator(call: ast.Call, func: str) -> list[dict[str, str]]:
     """
     name = _dotted(call.func)
     last = name.rsplit(".", 1)[-1]
-    on_something = "." in name
+    receiver = bindings.get(name.rsplit(".", 1)[0], "") if "." in name else ""
+    direct = bindings.get(name, "")
+    if not direct and receiver in {"click", "celery"}:
+        direct = f"{receiver}.{last}"
     first = _literal(call.args[0]) if call.args else ""
     given = next((_literal(kw.value) for kw in call.keywords if kw.arg == "name"), "")
-    if last in HTTP_METHODS and first.startswith("/"):
+    if receiver == "route" and last in HTTP_METHODS and first.startswith("/"):
         return [{"kind": "route", "name": f"{last.upper()} {first}", "target": func}]
-    if last == "route" and first.startswith("/"):
+    if receiver == "route" and last == "route" and first.startswith("/"):
         return [
             {"kind": "route", "name": f"{method} {first}", "target": func}
             for method in _methods(call)
         ]
-    if last in COMMAND_DECORATORS and on_something:
+    if _is_command_decorator(last, receiver, direct):
         return [{"kind": "command", "name": first or given or func, "target": func}]
-    if last in TASK_DECORATORS:
+    if _is_task_decorator(last, receiver, direct):
         return [{"kind": "task", "name": func, "target": func}]
     return []
 
 
-def _decorated(tree: ast.AST) -> list[dict[str, str]]:
+def _is_command_decorator(last: str, receiver: str, direct: str) -> bool:
+    return (last in COMMAND_DECORATORS and receiver == "command") or direct in {
+        "click.command",
+        "click.group",
+    }
+
+
+def _is_task_decorator(last: str, receiver: str, direct: str) -> bool:
+    return (last in TASK_DECORATORS and receiver == "task") or direct == "celery.shared_task"
+
+
+def _decorated(tree: ast.AST, bindings: dict[str, str]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         for dec in node.decorator_list:
             if isinstance(dec, ast.Call):
-                out += _from_decorator(dec, node.name)
-            elif _dotted(dec).rsplit(".", 1)[-1] in TASK_DECORATORS:
+                found = _from_decorator(dec, node.name, bindings)
+                out += found
+                decorator = _dotted(dec.func)
+                if any(p["kind"] == "command" for p in found) and (
+                    decorator.endswith("group") or bindings.get(decorator) == "click.group"
+                ):
+                    bindings[node.name] = "command"
+            elif bindings.get(_dotted(dec)) == "celery.shared_task":
                 out.append({"kind": "task", "name": node.name, "target": node.name})
     return out
 
@@ -168,8 +188,95 @@ def in_source(module: str, source: str) -> list[dict[str, str]]:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
         return []
-    found = _decorated(tree) + _url_patterns(tree) + _class_commands(tree, module)
+    bindings = _bindings(tree)
+    found = _decorated(tree, bindings) + _url_patterns(tree) + _class_commands(tree, module)
     return [{**point, "module": module} for point in found]
+
+
+def registration_candidates(module: str, source: str) -> list[dict[str, str]]:
+    """Decorator shapes that need a framework binding before claiming an entry."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return []
+    bindings = _bindings(tree)
+    _decorated(tree, bindings)
+    return [
+        candidate
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        for dec in node.decorator_list
+        if isinstance(dec, ast.Call)
+        if (candidate := _registration_candidate(module, node, dec, bindings)) is not None
+    ]
+
+
+def _registration_candidate(
+    module: str,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    dec: ast.Call,
+    bindings: dict[str, str],
+) -> dict[str, str] | None:
+    if _from_decorator(dec, node.name, bindings):
+        return None
+    name = _dotted(dec.func)
+    receiver, _, method = name.rpartition(".")
+    route = (
+        method in (*HTTP_METHODS, "route")
+        and bool(dec.args)
+        and _literal(dec.args[0]).startswith("/")
+    )
+    command_or_task = method in (*COMMAND_DECORATORS, *TASK_DECORATORS)
+    if not (route or command_or_task) or bindings.get(receiver) == "local":
+        return None
+    return {
+        "kind": "decorator",
+        "name": f"{module}.{node.name}",
+        "target": name,
+        "reason": "framework binding could not be established; review registration",
+    }
+
+
+def _bindings(tree: ast.AST) -> dict[str, str]:
+    """Framework imports and constructed receivers at module scope."""
+    body = getattr(tree, "body", [])
+    imported = _import_bindings(body)
+    return {**imported, **_receiver_bindings(body, imported)}
+
+
+def _import_bindings(body: list[ast.stmt]) -> dict[str, str]:
+    imported: dict[str, str] = {}
+    for node in body:
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                imported[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                imported[alias.asname or alias.name] = alias.name
+    return imported
+
+
+def _receiver_bindings(body: list[ast.stmt], imported: dict[str, str]) -> dict[str, str]:
+    receivers: dict[str, str] = {}
+    for node in body:
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Call):
+            continue
+        constructed = imported.get(_dotted(node.value.func), _dotted(node.value.func))
+        kind = _receiver_kind(constructed)
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                receivers[target.id] = kind or "local"
+    return receivers
+
+
+def _receiver_kind(constructed: str) -> str:
+    if constructed in {"fastapi.FastAPI", "fastapi.APIRouter", "flask.Flask"}:
+        return "route"
+    if constructed in {"typer.Typer", "click.Group"}:
+        return "command"
+    if constructed == "celery.Celery":
+        return "task"
+    return ""
 
 
 def _table(data: dict[str, Any], *keys: str) -> dict[str, Any]:

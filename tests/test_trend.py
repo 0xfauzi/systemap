@@ -99,7 +99,7 @@ def test_the_command_prints_the_largest_windows_and_what_wrote_them(
     assert "windows moved the map" in out
     assert "cards: Writer +1" in out
     assert "written by: shipping, written into the writer" in out
-    assert "read in today's cards" in out
+    assert "match today's module claims" in out
 
 
 def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -117,10 +117,11 @@ def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str
 def test_the_facts_at_a_commit_are_read_once(repo: Path) -> None:
     cfg = config.load(repo)
     sha = history.sample(repo, "30 years ago", 1)[0]
-    cached = history.cache_dir(cfg) / f"{sha}.json"
-    assert not cached.exists()
+    assert not list(history.cache_dir(cfg).glob(f"{sha}-*.json"))
     history.facts_at(cfg, sha)
-    assert cached.exists(), "a commit never changes, so its facts are kept"
+    paths = list(history.cache_dir(cfg).glob(f"{sha}-*.json"))
+    assert len(paths) == 1, "a commit and extraction scope are cached together"
+    cached = paths[0]
     written = cached.stat().st_mtime_ns
     history.facts_at(cfg, sha)
     assert cached.stat().st_mtime_ns == written, "the second read does not extract again"

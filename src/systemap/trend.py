@@ -52,6 +52,8 @@ class Sample:
     ways_in: int = 0
     modules: int = 0
     files: dict[str, str] = field(default_factory=dict)
+    owners: dict[str, str] = field(default_factory=dict)
+    shas: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,8 @@ def sample_at(cfg: Config, model: Model, sha: str) -> Sample:
         ways_in=len(facts.get("entry_points", [])),
         modules=len(components),
         files={m: r["file"] for m, r in components.items() if r.get("file")},
+        owners=owner,
+        shas={m: r["sha"] for m, r in components.items() if r.get("sha")},
     )
 
 
@@ -116,9 +120,23 @@ def _crossings(
 
 def between(before: Sample, now: Sample) -> Window:
     """What moved between two samples."""
+    before_cards = dict(before.cards)
+    vanished = set(before.files) - set(now.files)
+    appeared = set(now.files) - set(before.files)
+    for fresh in appeared:
+        card = now.owners.get(fresh)
+        digest = now.shas.get(fresh)
+        if not card or not digest:
+            continue
+        matching = [old for old in vanished if before.shas.get(old) == digest]
+        if len(matching) == 1 and fresh not in before.files:
+            old = matching[0]
+            if old not in before.owners:
+                before_cards[card] = before_cards.get(card, 0) + 1
+                vanished.remove(old)
     grew = {
-        cid: now.cards.get(cid, 0) - before.cards.get(cid, 0)
-        for cid in set(before.cards) | set(now.cards)
+        cid: now.cards.get(cid, 0) - before_cards.get(cid, 0)
+        for cid in set(before_cards) | set(now.cards)
     }
     return Window(
         base=before.sha,
@@ -189,8 +207,8 @@ def report(windows: list[Window], root: Path, since: str, every: int, top: int) 
     out = [head, f"  the {min(top, len(moved))} largest, most recent first where they tie:"]
     for window in sorted(moved, key=lambda w: w.size, reverse=True)[:top]:
         out += _window_lines(with_causes(root, window))
-    out.append("  each window is read in today's cards, so a module that moved still counts")
-    out.append("  as the card whose job it does")
+    out.append("  card counts match today's module claims to each historical tree")
+    out.append("  exact-content renames are paired; changed renames need source review")
     return out
 
 

@@ -544,7 +544,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
         p.cfg.observed_by,
     )
     mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
-    result = judgement.apply_answers(lines, mine)
+    current_evidence = judgement.evidence_for_tree(p.tree, facts, p.cfg.root, lines)
+    result = judgement.apply_answers(lines, mine, current_evidence)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
@@ -1219,6 +1220,9 @@ def main(argv: list[str] | None = None) -> int:
         return STALE
     except delta.DeltaError as exc:
         warn(f"systemap: {exc}", "give delta a ref git can resolve, then run again")
+        return BAD_CONFIG
+    except change.ChangeError as exc:
+        warn(f"systemap: {exc}", "give a ref git can resolve, then run again")
         return BAD_CONFIG
     return int(code)
 

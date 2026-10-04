@@ -5,21 +5,23 @@ Several commands ask what the code looked like somewhere else in history:
 system over a year. Reading it is expensive, because the facts at a commit
 are a whole extraction of that tree, so this module keeps what it read:
 
-    .systemap/facts/<sha>.json
+    .systemap/facts/<sha>-<scope>.json
 
-A commit never changes, so a cached answer is never stale and the second
-run over the same commit is free. The directory is the maintainer's to
+A commit never changes, but extraction settings and parser versions do. The
+scope includes them so a changed reader gets fresh facts. The directory is the maintainer's to
 delete; nothing here ever writes into the working copy.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
-from systemap import delta
+from systemap import delta, extract
 from systemap.config import Config
 
 # How much of a diff is read into a question: enough to see what changed.
@@ -32,7 +34,10 @@ def cache_dir(cfg: Config) -> Path:
 
 def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
     """The facts at `sha`, from the cache when they were read before."""
-    path = cache_dir(cfg) / f"{sha}.json"
+    scope = hashlib.sha256(
+        f"{cfg!r}|format={extract.FORMAT}|python={sys.version_info[:3]}".encode()
+    ).hexdigest()[:16]
+    path = cache_dir(cfg) / f"{sha}-{scope}.json"
     if path.exists():
         try:
             held: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))

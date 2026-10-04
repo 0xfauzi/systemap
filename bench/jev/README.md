@@ -15,6 +15,116 @@ replaces a failed call with a guess. `data/` is rebuilt from `bench/scratch`
 (gitignored, written by `bench/run.sh`) and is not committed; `results/` is,
 gzipped, with `results/report.txt` the scorer's output at the time.
 
+## What did the accuracy experiments establish? (2026-09-26 to 2026-10-02)
+
+These are recorded results from the accuracy work, not new runs. The
+[original scripts, reports and captured results](https://github.com/0xfauzi/systemap/tree/0bf26334564e460b3f7626b32bd81ef705491af6/bench/jev)
+and [consolidated review](https://github.com/0xfauzi/systemap/blob/0bf26334564e460b3f7626b32bd81ef705491af6/ACCURACY_FINDINGS_AND_RECOMMENDATIONS.md)
+remain available at the revision before cleanup. Production regressions live
+in `tests/`. The exploratory scripts and unfinished ownership-evaluation
+harness are excluded from the implementation PR.
+
+The targeted Python probes required every selected contract and control to
+pass. The initial run reproduced 24 gaps with four passing controls. Added
+cases raised the gap count to 31, then 32, then 33. Formatting reruns kept
+the same outcomes. The 376 existing tests passed. After implementation, all
+37 Python and 32 TypeScript contracts passed. These selected counterexamples
+check specific behavior, not whole-map accuracy.
+
+A census read 1,381 Python files across eight mapped repositories. Python
+3.11 silently omitted 15 of Mealie's 460 files because they used Python 3.12
+syntax. Python 3.12 read all 460 and restored evidence for five flows.
+Parsed-file coverage rose from 96.74% to 100%. Refactoring the readers and
+adding source hashes did not change the counts.
+
+The TypeScript dependency census required zero missing and zero wrong
+targets among compiler-resolved dependencies in the extracted inventory.
+It matched all 1,171 eligible dependencies on these pinned revisions:
+
+| repository | revision |
+|---|---|
+| Hono | `90d02fb1645c12a65d27f39594d2129db2065ba7` |
+| Ky | `0d59458a0a58e1c3d7c6db0ab17ed5c7cd671e47` |
+| Zod | `2bf7b0630d5378033e90bcee82cb32b0fe04628e` |
+
+The compiler reference was TypeScript 5.9.3. Unresolved, external and
+unextracted targets were excluded. The check measured dependency extraction
+in uninstalled checkouts, not semantic ownership or journey accuracy.
+
+### Why was exact-content rename matching rejected?
+
+The preset bar required fewer disagreements with Git without losing correct
+pairs. On 33 rename-containing commits with 86 Git-labelled renames:
+
+| method | correct pairs | Git disagreements | missed reference pairs |
+|---|---:|---:|---:|
+| current rules | 65 | 4 | 21 |
+| unique exact content | 13 | 0 | 73 |
+
+The candidate lost 52 correct pairs, so it was not shipped. Git's
+similarity-based labels are a reference, not independent semantic truth.
+The Python 3.11 run failed on a missing Mealie module and produced no score.
+The scored run used Python 3.12.
+
+### Why was package-based ownership evidence rejected?
+
+The proposed rule flagged an assignment when at least two package peers
+belonged to another card and none belonged to the assigned card. The preset
+bar required at least 50% of planted errors caught and at most 3% of
+unchanged owners flagged on both map sets.
+
+| map set | rule | planted errors caught | unchanged owners flagged |
+|---|---|---:|---:|
+| development | current | 61/195 | 2/195 |
+| development | with package evidence | 116/195 | 21/195 |
+| holdout | current | 32/96 | 1/96 |
+| holdout | with package evidence | 52/96 | 23/96 |
+
+The addition failed the false-alarm bar on both sets and was not shipped.
+Cards can legitimately split a package by purpose. Finished maps supplied
+these labels, so the results measure agreement with those maps.
+
+### What limits the source-reading ownership pilot?
+
+Claude Opus 5.5 reviewed eight sampled modules from each of five development
+and three holdout maps. Four assignments per map were planted errors and
+four were unchanged. It saw source, module facts and nearby card descriptions,
+without tools, Jev, reference owners or card module lists. Files over 25,000
+characters and modules without a neighbouring card were excluded.
+
+The preset bar required at least 60% of planted errors caught, at most 5%
+of unchanged assignments challenged, and better planted-error recall than
+the word rule on both sets.
+
+| set | planted caught | reference card chosen | unchanged challenged | word rule caught | word rule challenged |
+|---|---:|---:|---:|---:|---:|
+| development | 20/20 | 19/20 | 1/20 | 5/20 | 1/20 |
+| holdout | 12/12 | 12/12 | 1/12 | 3/12 | 0/12 |
+| combined | 32/32 | 31/32 | 2/32 | 8/32 | 1/32 |
+
+The pilot challenged 6.25% of unchanged assignments and failed its 5% bar.
+Its decisions agreed with the reference on 62/64 cases, versus 39/64 for
+the word rule. That is agreement on a balanced synthetic sample, not a
+real-map error rate. Five systemap cases mixed source and cached-facts
+snapshots. Each batch also placed all planted cases before unchanged cases.
+The two challenged reference owners and one differing replacement remain
+unresolved semantic labels.
+
+The first kstrl call returned fenced JSON and was rejected. The identical
+prompt was retried; accepting the fence did not change the judgement.
+Eight scored calls reported $1.88, excluding failed and diagnostic calls.
+The later offline harness built 437 nonempty-module cases from 460 Mealie
+records under Python 3.12, excluding 23 empty package markers. One nested
+map was recorded but not scored. No independent labels or paired workflow
+results were produced. A fresh holdout and independent source labels are
+still needed before claiming semantic improvement or changing defaults.
+
+The implementation passed 450 tests on 2026-09-27 and 463 on 2026-09-28,
+with pre-commit passing on both runs. After the PR review fixes, Python 3.11
+passed 501 tests with one expected syntax-version skip; Python 3.13 passed
+all 502. Mypy, pre-commit and strict self-map judgement passed. These are
+historical counts before the exploratory harness tests were removed.
+
 Each experiment, its label source and what it measures:
 
 | experiment | label | question to Jev |
@@ -501,3 +611,26 @@ reads it, which is the standard the per-way-in walks already ship under.
 (work that lands outside its plan predicts a later fix) needs fix pull requests,
 and the whole corpus of five repositories holds six of them. It cannot be
 measured, so it is not scheduled.
+
+## Does Python syntax evidence survive a supported interpreter change?
+
+On 2026-10-02, the portability experiment compared the same 45 systemap
+source modules under Python 3.11 and 3.13. The acceptance rule was recorded
+before execution: zero canonical syntax hash mismatches between interpreters,
+zero changes to existing Python 3.11 hashes, unchanged hashes after comments
+or formatting edits, and a changed hash after a function body edit on each
+interpreter.
+
+The original syntax hashes differed for all 45 modules. The canonical hashes
+differed for zero modules, and zero existing Python 3.11 hashes changed.
+Formatting and comment edits produced zero mismatches on either interpreter.
+Each interpreter detected the body edit. The experiment checks syntax hash
+portability for this source set and these transformations. It does not establish
+that every future Python grammar change preserves the representation.
+`syntax_portability.py` records the acceptance rule and prints hashes and
+control results for comparison across repeated runs. From the repository root:
+
+```sh
+uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.json
+uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.json
+```

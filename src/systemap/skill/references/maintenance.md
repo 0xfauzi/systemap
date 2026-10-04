@@ -24,6 +24,29 @@ on the change alone.
    placed by `systemap place` into a free slot of its region, and when
    the region has none, `systemap place --all` lays every card out
    again, keeping the ones marked `pinned=True`.
+   Adding or removing a claimed module also reopens source review, including
+   a module matched by an `implemented_by` wildcard. For a `source review`
+   line, read the changed modules and check the card's description, interface,
+   flows, journeys and invariants. Correct any claim
+   that no longer holds. Then compute its current digest and write it as the
+   card's `source_review` value. This command prints digests for every card:
+
+   ```sh
+   uv run python - <<'PY'
+   from pathlib import Path
+   from systemap import card_review, config, extract, nest
+
+   cfg = config.load(Path.cwd())
+   facts = extract.build(cfg)
+   for current_map in nest.load(cfg).maps:
+       for card in current_map.model.components:
+           if card.implemented_by:
+               print(current_map.id, card.id, card_review.digest(card, current_map.model, current_map.meaning, facts))
+   PY
+   ```
+
+   A missing or unparsable claimed module prints `None`: repair extraction
+   before recording a review. A later source or claim change reopens the line.
 3. `systemap refresh`, then `systemap check && systemap judgement --strict`.
    The refresh brings the facts, the page and the figures up to date; the
    check refuses what is still wrong; the judgement asks about the edges
@@ -49,11 +72,16 @@ the hand-back, with the step that used them.
 | `entry vanished` | the card's `entry` is no longer defined by its modules | set `entry` to a public name they define |
 | `interface vanished` | the name the interface line starts with is gone | start the line with a name they define, or leave it empty |
 | `new crossing import` | an import now crosses a card boundary and no flow joins the two cards | add the flow with its sentence, or answer it under `[judgement] answered`, as in the second pass |
-| `evidence lost` | a flow an import backed is backed by nothing now | find the evidence, name the mechanism in the sentence, or remove the flow, as for a `declared flow` line |
+| `evidence lost` | a reviewed flow no longer has structural support | review the changed source and revise or renew the flow claim |
+| `source evidence lost` | a reviewed flow falls back to structural or external evidence | review its source references, direction and artifact, then renew the review |
+| `structural evidence lost` | an import or declared mechanism behind a flow disappeared | review the flow against current source |
+| `source review` | claimed modules or parsed code changed and the card's current review digest is absent or stale | review its description, interface, flows, journeys and invariants, then record `source_review` |
+| `move candidate` | removed and added modules share public names without enough identity evidence | compare their source before treating either as a move |
 
 A line under `changed, nothing to do` is on record and needs no decision; a
 `removed` module that a pattern claimed, or an added module a pattern
-claims, is such a line.
+claims, is such a line. Its card can still have a separate `source review`
+line because the set of claimed modules changed.
 
 ## The sentence
 

@@ -19,7 +19,7 @@ printed as numbers:
                   `place` chose the order for this look, how many orders
                   it tried and routed
     edges ....... bends and length, worst first, and where each label sits
-    evidence .... how many edges are observed, external and declared
+    evidence .... how many edges are source reviewed, structural, external, and declared
     gutters ..... the bands between card rows and columns: how many label
                   seats each has and how many are used at its fullest
     layers ...... how many cards and edges each one shows

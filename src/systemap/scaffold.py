@@ -393,7 +393,14 @@ def files(
         "docs/map/.gitkeep": "",
     }
     if ci:
-        out[".github/workflows/systemap.yml"] = WORKFLOW.replace("__VERSION__", __version__)
+        requirement = (
+            f"systemap[typescript]=={__version__}"
+            if language == "typescript"
+            else f"systemap=={__version__}"
+        )
+        out[".github/workflows/systemap.yml"] = WORKFLOW.replace(
+            "systemap==__VERSION__", requirement
+        )
     return out
 
 

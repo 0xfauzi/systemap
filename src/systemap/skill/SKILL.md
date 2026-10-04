@@ -20,14 +20,14 @@ command from the repository root (`--root DIR` names another project);
 `systemap` and `uv run systemap` both resolve when the tool is installed.
 If there is no `systemap.toml`, run `systemap init` first.
 
-## Jev first
+## When Jev is available
 
-Jev is TypeSafe's model; systemap sends it the judgement calls names and
-imports cannot settle. Use the Jev version of a command: `suggest --jev`,
-`audit` after `judgement`, `delta` (it asks Jev with no flag), `triage`.
-Each needs `TYPESAFE_API_KEY`; when it is unset or a Jev command fails, run the plain
-version and tell the user: "Jev was not used (<the reason printed>); these
-results come from systemap's rules alone. Set TYPESAFE_API_KEY for Jev."
+Jev is TypeSafe's model; it judges questions names and imports cannot settle.
+With `TYPESAFE_API_KEY`, use `suggest --jev`, `audit` after `judgement`, and
+the Jev answers in `delta` and `triage`. Without a key, use plain commands
+and complete the module review in `references/second-pass.md`. The rules
+select questions; they do not verify unflagged modules. If Jev fails, report
+it and use the same code review path. Tell the user which path ran.
 
 ## The loop
 
@@ -75,8 +75,8 @@ contradictions, not omissions; the second pass is the point of this skill.
    - `kind = "<kind>"`: every line of one kind, named as in the table.
    - `module_sdk = "<import>"`: every model sdk line for that import name.
 
-   An answered line is suppressed and counted; an answer that matches no
-   line is reported as stale, so remove it. Never leave a line unanswered. The eleven kinds of line:
+   Exact answers need a current evidence digest. Broad answers need `policy = true`.
+   Stale answers are reported. Never leave a line unanswered. The kinds of line:
 
    | kind | what it says | what to do |
    |---|---|---|
@@ -88,7 +88,8 @@ contradictions, not omissions; the second pass is the point of this skill.
    | `journey start` | a journey names a way in the facts do not have | name it as `systemap facts --entry-points` does, or leave `starts` empty |
    | `drafted journey` | an agent wrote this walk; nobody has read it against the code | read each step, fix what is wrong, then remove its `drafted=True` line |
    | `crossing import` | modules of one card import modules of another and no flow joins the two; one line per pair, counting the modules (`--verbose` lists the imports) | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
-   | `declared flow` | a flow no import backs, whose sentence and artifact name no mechanism from `[flows] observed_by` | find the import and fix the claims; name the mechanism in the sentence and list it under `[flows] observed_by`; or remove the flow. Answer only an edge that is real and joined by nothing in the tree |
+   | `declared flow` | a flow has no reviewed source or structural evidence | find and review supporting source, or remove the flow; naming a mechanism alone does not verify it |
+   | `flow review` | structural evidence or a stale source reference does not verify a flow | cite current source and confirm its direction and artifact, or revise the flow |
    | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |
    | `unknown surface` | TypeScript syntax, a test file, a package target, or inherited config could not be read or mapped with confidence | extend the extractor, correct the source or config, or answer why the limit is acceptable |
 
@@ -99,9 +100,9 @@ contradictions, not omissions; the second pass is the point of this skill.
    prints its URL; `docs/map/figures/structure.svg` is the parts in their
    places and `docs/map/figures/system.svg` every edge. Look for an edge with
    many bends, a full gutter, a region of one card, a layer that shows nothing.
-6. **second pass**: follow `references/second-pass.md`: walk every crossing
-   import, every declared flow, every entry point, every rule the
-   documents state, on every map of the tree, and look at
+6. **second pass**: follow `references/second-pass.md`: compare every claimed
+   module with its card's job, then walk every crossing import, every declared
+   flow, every entry point, every rule the documents state, on every map of the tree, and look at
    the figure again. The document reread is one pass over what the
    repository points a newcomer at (README, AGENTS.md, CLAUDE.md, a docs
    index or the first level of docs/), and it stops when the rules still
@@ -111,8 +112,8 @@ contradictions, not omissions; the second pass is the point of this skill.
    line answered, `systemap audit` too with a Jev key), a second pass
    changed nothing, and the documents left unread govern nothing in the
    tree.
-8. **hand back**: the answers are in `systemap.toml`; add the coverage line
-   and the groupings that could go another way.
+8. **hand back**: the answers are in `systemap.toml`; report modules reviewed
+   out of those claimed, the coverage line and ambiguous groupings.
 
 Turn budgets, per step: extract 2, draft 10, place and check 15, judgement
 10, second pass 20. Not limits: a step that overruns is finished, and the
@@ -150,18 +151,17 @@ redraw the map to absorb a small change; follow `references/maintenance.md`:
   `flow_kinds` and given a layer. The map draws the flows you declare, not
   every import; `references/layers.md` says how to choose, and how the
   facts' `external` imports and the `model sdk` judgement line find agents.
-- Every flow carries an evidence state read from the facts, never from
-  you: `observed` when an import joins its two ends either way, when the
-  two cards share a module (a symbol claim inside the other's module), or
-  when its sentence or artifact names a mechanism listed under `[flows]
-  observed_by` (a subprocess, a queue, a file); `external` when an actor
-  is at either end; `declared` otherwise. A declared flow draws dashed
-  and is asked about.
+- Every flow carries an evidence state. An import, shared module, or word
+  listed under `[flows] observed_by` is `structural`: it does not verify
+  direction or artifact. `observed` requires `source_refs` with current
+  source digests and a `review_digest` for the flow claim. `external` has
+  an actor at one end; `declared` has no structural or reviewed evidence.
+  Structural and declared flows draw dashed and require review.
 - One sentence per flow in `relations`, from the source side; a plain name
   per component in `plain`, in the words a newcomer would use.
-- Journeys: one per way in that matters, each naming it in `starts` and
-  tracing the cards it passes through, every step carrying on from the one
-  before. Invariants: rules the repository states, each citing its source
+- Journeys: one per way in that matters, each naming reviewed entry identities
+  in `covers` and using `starts` as a display label. Steps trace the flows
+  the walk uses. Invariants: rules the repository states, each citing its source
   (`references/journeys-and-invariants.md`).
 - Positions: leave `x` and `y` out and run `systemap place` (step 2); it
   keeps corridors between regions, since an edge may not cross a region it

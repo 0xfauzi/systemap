@@ -23,7 +23,9 @@ from systemap import agent, extract, journeys, nest
 from systemap.cli import main
 from systemap.config import Config, load
 from systemap.jev_cli import cmd_journeys
-from systemap.model import Journey, Meaning, Model
+from systemap.model import Journey, Meaning, Model, Step, meaning_problems
+
+WALK_STEP = Step(("Reader",), (), ("Reader", "Writer"), "The reader passes a request on.")
 
 ANSWER = {
     "id": "read-and-write",
@@ -66,9 +68,15 @@ def alone(point: dict[str, str], card: str = "Reader") -> journeys.Group:
     return journeys.Group((point,), card)
 
 
-def test_a_way_in_a_journey_already_starts_from_is_not_asked_about() -> None:
+def test_a_way_in_a_journey_explicitly_covers_is_not_asked_about() -> None:
     facts = facts_with([route("GET /a"), route("GET /b")])
-    walk = Journey(id="a", label="read one", steps=(), starts="GET /a")
+    walk = Journey(
+        id="a",
+        label="read one",
+        steps=(WALK_STEP,),
+        starts="GET /a",
+        covers=(extract.entry_identity(route("GET /a")),),
+    )
     left = journeys.uncovered(Meaning(plain={}, journeys=(walk,)), facts)
     assert [p["name"] for p in left] == ["GET /b"]
 
@@ -78,6 +86,7 @@ def test_the_agent_is_told_the_cards_the_flows_and_where_to_read(sample: Any) ->
     told = journeys.context(sample.model, sample.meaning, facts_with([where]), alone(where))
     assert told["way_in"] == {
         "named": "GET /a (route)",
+        "identity": extract.entry_identity(where),
         "kind": "route",
         "module": "pkg.reader",
         "file": "pkg/reader.py",
@@ -136,8 +145,7 @@ def test_a_step_tracing_a_flow_the_map_does_not_draw_is_refused() -> None:
 def test_a_step_naming_a_card_that_is_not_on_the_map_is_refused() -> None:
     bad = {**ANSWER["steps"][0], "acts": ["Ledger"]}
     draft = read({**ANSWER, "steps": [ANSWER["steps"][0], bad]})
-    assert draft.journey is not None, "the step that holds is kept"
-    assert len(draft.journey.steps) == 1
+    assert draft.journey is None
     assert draft.problems == ("step 2 names Ledger, which the map has no card for",)
 
 
@@ -171,7 +179,7 @@ def two_cards(tmp_path: Path) -> Config:
         {
             "pkg/__init__.py": "",
             **STARTER_MODULES,
-            "pkg/reader.py": '@app.get("/read")\ndef read(source: str) -> str:\n    return source\n',
+            "pkg/reader.py": 'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/read")\ndef read(source: str) -> str:\n    return source\n',
         },
     )
     init_two_cards(tmp_path, "--no-ci")
@@ -279,8 +287,7 @@ def test_describe_names_the_steps_the_code_does_not_back(sample: Any) -> None:
     assert trust and "no import backs" in trust[0]
 
 
-def test_a_journey_that_names_its_way_in_in_a_sentence_still_covers_it(sample: Any) -> None:
-    """The word rule and `starts` are one rule, so no two commands disagree."""
+def test_journey_words_do_not_count_as_coverage(sample: Any) -> None:
     facts = {
         "entry_points": [
             {"kind": "main_function", "name": "read", "module": "pkg.reader", "target": "read"}
@@ -291,12 +298,39 @@ def test_a_journey_that_names_its_way_in_in_a_sentence_still_covers_it(sample: A
     assert [
         p["name"] for p in journeys.uncovered(Meaning(plain={}, journeys=(silent,)), facts)
     ] == ["read"]
-    # naming it in the label covers it, as judgement has always read a journey
+    # A label can mention an entry without having reviewed its behavior.
     named = Journey(id="r", label="read one thing", steps=(), starts="")
-    assert journeys.uncovered(Meaning(plain={}, journeys=(named,)), facts) == []
-    # and naming it in starts covers it whatever the sentences say
+    assert journeys.uncovered(Meaning(plain={}, journeys=(named,)), facts) == facts["entry_points"]
+    # An empty walk does not count even when its start matches exactly.
     starts = Journey(id="r", label="a walk through it", steps=(), starts="read")
-    assert journeys.uncovered(Meaning(plain={}, journeys=(starts,)), facts) == []
+    assert journeys.uncovered(Meaning(plain={}, journeys=(starts,)), facts) == facts["entry_points"]
+
+
+def test_entry_identity_separates_modules_and_kinds() -> None:
+    first = route("GET /read")
+    second = {**first, "module": "pkg.other"}
+    task = {**first, "kind": "task"}
+    facts = facts_with([first, second, task])
+    walk = Journey(
+        "read", "Read", (WALK_STEP,), starts="GET /read", covers=(extract.entry_identity(first),)
+    )
+    left = journeys.uncovered(Meaning(plain={}, journeys=(walk,)), facts)
+    assert left == [second, task]
+
+
+def test_legacy_words_are_candidates_and_empty_walks_fail_validation() -> None:
+    from systemap import judgement
+
+    point = route("GET /read")
+    facts = facts_with([point])
+    legacy = Journey("read", "GET /read", (WALK_STEP,), starts="GET /read")
+    meaning = Meaning(plain={"Reader": "reader", "Writer": "writer"}, journeys=(legacy,))
+    assert journeys.uncovered(meaning, facts) == [point]
+    assert any("confirm covers=" in line for line in judgement.journey_problems(meaning, facts))
+    empty = Journey("empty", "Empty", (), covers=(extract.entry_identity(point),))
+    invalid = Meaning(plain=meaning.plain, journeys=(empty,))
+    assert journeys.uncovered(invalid, facts) == [point]
+    assert "journey empty has no steps" in "\n".join(meaning_problems(two_card_model(), invalid))
 
 
 # ---- a crowd of ways in, walked once -----------------------------------------------
@@ -332,13 +366,16 @@ def test_the_agent_is_shown_the_crowd_and_a_sample_of_it(sample: Any) -> None:
     assert told["each"][0]["file"] == "pkg/reader.py"
 
 
-def test_a_walk_written_for_the_card_covers_every_way_in_it_takes(sample: Any) -> None:
-    """The whole point: one walk, and the crowd stops being asked about."""
+def test_a_card_start_does_not_claim_new_routes(sample: Any) -> None:
     facts = crowd(9)
-    walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
+    covers = tuple(extract.entry_identity(point) for point in facts["entry_points"][:8])
+    walks = Meaning(
+        plain={},
+        journeys=(Journey(id="a", label="in", steps=(WALK_STEP,), starts="Reader", covers=covers),),
+    )
     owner = {"pkg.reader": "Reader"}
-    assert journeys.uncovered(walks, facts, owner) == []
-    assert journeys.uncovered(walks, facts) != [], "without the cards, only names cover"
+    assert [point["name"] for point in journeys.uncovered(walks, facts, owner)] == ["GET /8"]
+    assert [point["name"] for point in journeys.uncovered(walks, facts)] == ["GET /8"]
 
 
 def test_a_journey_starting_at_a_card_is_not_reported_as_starting_at_nothing(sample: Any) -> None:
@@ -346,15 +383,15 @@ def test_a_journey_starting_at_a_card_is_not_reported_as_starting_at_nothing(sam
 
     walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
     cards = [c.id for c in sample.model.components]
-    assert judgement.journey_problems(walks, crowd(9), cards) == []
-    assert (
-        "starts at Nowhere"
-        in judgement.journey_problems(
-            Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Nowhere"),)),
-            crowd(9),
-            cards,
-        )[0]
+    assert judgement.journey_problems(walks, crowd(9), cards) == [
+        "journey start: a has no steps; an empty walk covers no way in"
+    ]
+    problems = judgement.journey_problems(
+        Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Nowhere"),)),
+        crowd(9),
+        cards,
     )
+    assert any("starts at Nowhere" in problem for problem in problems)
 
 
 def test_describe_and_judgement_agree_that_a_crowd_is_walked(sample: Any) -> None:
@@ -362,7 +399,18 @@ def test_describe_and_judgement_agree_that_a_crowd_is_walked(sample: Any) -> Non
     from systemap import describe, judgement
 
     facts = crowd(9)
-    walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
+    walks = Meaning(
+        plain={},
+        journeys=(
+            Journey(
+                id="a",
+                label="in",
+                steps=(WALK_STEP,),
+                starts="Reader",
+                covers=tuple(extract.entry_identity(point) for point in facts["entry_points"]),
+            ),
+        ),
+    )
     assert judgement.entry_points_without_journey(sample.model, walks, facts) == []
     told = describe.journey_lines(sample.model, walks, facts)
     assert "  ways in: 9 of 9 walked from" in told

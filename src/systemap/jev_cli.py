@@ -25,6 +25,8 @@ from systemap import (
     history,
     jev,
     journeys,
+    judgement,
+    model_write,
     moves,
     nest,
 )
@@ -140,10 +142,20 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     except JevError as exc:
         print(f"audit: {exc}")
         return STALE
-    open_lines, answered, stale = audit.apply(found, cfg.judgement_answered, kinds)
-    open_lines = [x for x in open_lines if audit._bare(x.text).split(": ", 1)[0] in kinds]
+    texts = [line.text for line in found]
+    current_evidence = judgement.evidence_for_tree(tree, facts, cfg.root, texts)
+    result = audit.apply_reviewed(found, cfg.judgement_answered, current_evidence, kinds)
+    open_lines = [x for x in result.open if audit._bare(x.text).split(": ", 1)[0] in kinds]
     print(
-        *audit.report(open_lines, answered, stale, client.usage.line(), not args.brief),
+        *audit.report(
+            open_lines,
+            result.answered,
+            result.stale,
+            client.usage.line(),
+            not args.brief,
+            result.pending,
+            result.policies,
+        ),
         sep="\n",
     )
     return OK
@@ -246,31 +258,47 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     facts = _facts(cfg)
     if facts is None:
         return STALE
-    top = nest.load(cfg).top
-    left = journeys.gather(top.model, top.meaning, facts)
+    tree = nest.load(cfg)
+    from systemap.journey_coverage import reviewed_entries
+    from systemap.model import claimed
+
+    covered = reviewed_entries(m.meaning for m in tree.maps)
+    components = facts.get("components", {})
+    left: list[tuple[nest.Map, journeys.Group]] = []
+    for current in tree.maps:
+        owned = set(evidence.owners(current.model, facts))
+        opened = {module for card in current.model.opening for module in claimed(card, components)}
+        groups = journeys.gather(
+            current.model,
+            current.meaning,
+            facts,
+            modules=owned - opened,
+            covered=covered,
+        )
+        left.extend((current, group) for group in groups)
     if not left:
         print("journeys: every way into the system already has a walk from it")
         return OK
     if args.dry_run or not agent.has_agent(cfg):
         print(*_would_write(left, cfg), sep="\n")
         return OK
-    return _write_journeys(cfg, top, facts, left[: args.limit], run_command)
+    return _write_journeys(cfg, facts, left[: args.limit], run_command)
 
 
-def _would_write(left: list[journeys.Group], cfg: config.Config) -> list[str]:
+def _would_write(left: list[tuple[nest.Map, journeys.Group]], cfg: config.Config) -> list[str]:
     """What there is to write, and what it would take, without writing it.
 
     A crowd of ways in of one kind into one card counts as one walk to write,
     the way `systemap judgement` counts it as one line to answer.
     """
-    total = sum(len(g.ways_in) for g in left)
+    total = sum(len(group.ways_in) for _map, group in left)
     ways, them = ("way", "it") if total == 1 else ("ways", "them")
     head = f"journeys: {total} {ways} into the system with no walk from {them}"
     if len(left) < total:
         walks = "walk" if len(left) == 1 else "walks"
         head += f", {len(left)} {walks} to write: a card's crowd is walked once"
     out = [head + ":"]
-    out += [f"  {g.label}" for g in left[:20]]
+    out += [f"  {current.prefix}{group.label} ({current.rel})" for current, group in left[:20]]
     if len(left) > 20:
         out.append(f"  and {len(left) - 20} more")
     if not agent.has_agent(cfg):
@@ -280,9 +308,8 @@ def _would_write(left: list[journeys.Group], cfg: config.Config) -> list[str]:
 
 def _write_journeys(
     cfg: config.Config,
-    top: nest.Map,
     facts: dict[str, Any],
-    take: list[journeys.Group],
+    take: list[tuple[nest.Map, journeys.Group]],
     run_command: agent.Run | None,
 ) -> int:
     """Ask the agent for each walk, check it, and write the ones that hold."""
@@ -291,37 +318,74 @@ def _write_journeys(
     except agent.AgentError as exc:
         print(f"journeys: {exc}")
         return STALE
-    source = top.path.read_text(encoding="utf-8")
-    written: list[str] = []
+    sources: dict[Path, str] = {}
+    written: dict[Path, list[str]] = {}
     out: list[str] = []
-    for group in take:
+    for current, group in take:
         try:
-            draft = journeys.write_one(writer, top.model, top.meaning, facts, group)
+            draft = journeys.write_one(writer, current.model, current.meaning, facts, group)
         except agent.AgentError as exc:
             out.append(f"journeys: {exc}")
             break
-        label = group.label
-        if draft.journey is None:
-            out.append(f"journeys: no walk written for {label}")
-            out += [f"      {p}" for p in draft.problems]
-            continue
-        grown = journeys.add_to_source(source, draft.journey)
-        if grown is None:
-            out.append(f"journeys: {cfg.rel(top.path)} has no journeys to add to; paste this in:")
-            out += journeys.as_source(draft.journey)
-            continue
-        source = grown
-        written.append(draft.journey.id)
-        out.append(f"journeys: wrote {draft.journey.id} ({draft.journey.label}) for {label}")
-        out += [f"      {p}" for p in draft.problems]
-    if written:
-        top.path.write_text(source, encoding="utf-8")
-        out.append(f"  {len(written)} written into {cfg.rel(top.path)}, each marked drafted=True")
-        out.append("  read each one against the code, then remove the drafted line")
-        out.append("  run: systemap check && systemap judgement")
+        _record_journey(current, group, draft, sources, written, out)
+    if written and not _commit_journeys(cfg, sources, written, out):
+        return STALE
     print(*out, sep="\n")
     writer_usage(writer)
     return OK
+
+
+def _record_journey(
+    current: nest.Map,
+    group: journeys.Group,
+    draft: journeys.Draft,
+    sources: dict[Path, str],
+    written: dict[Path, list[str]],
+    out: list[str],
+) -> None:
+    if draft.journey is None:
+        out.append(f"journeys: no walk written for {group.label}")
+        out += [f"      {p}" for p in draft.problems]
+        return
+    source = sources.get(current.path)
+    if source is None:
+        source = current.path.read_text(encoding="utf-8")
+    grown = journeys.add_to_source(source, draft.journey)
+    if grown is None:
+        out.append(f"journeys: {current.rel} has no journeys to add to; paste this in:")
+        out += journeys.as_source(draft.journey)
+        return
+    sources[current.path] = grown
+    written.setdefault(current.path, []).append(draft.journey.id)
+    out.append(
+        f"journeys: wrote {draft.journey.id} ({draft.journey.label}) "
+        f"for {current.prefix}{group.label}"
+    )
+    out += [f"      {p}" for p in draft.problems]
+
+
+def _commit_journeys(
+    cfg: config.Config,
+    sources: dict[Path, str],
+    written: dict[Path, list[str]],
+    out: list[str],
+) -> bool:
+    """Validate all proposed source before writing any journey files."""
+    try:
+        model_write.write_models(sources)
+    except (SyntaxError, OSError) as exc:
+        print(f"journeys: proposed model could not be written: {exc}")
+        return False
+    for path, ids in written.items():
+        out.append(f"  {len(ids)} written into {cfg.rel(path)}, each marked drafted=True")
+    out.append("  read each one against the code, then remove the drafted line")
+    out.append("  run: systemap check && systemap judgement")
+    return True
+
+
+def _atomic_model_write(path: Path, source: str) -> None:
+    """Validate the complete source, then replace the model in one operation."""
+    model_write.write_models({path: source})
 
 
 def writer_usage(writer: agent.Agent) -> None:

@@ -221,6 +221,12 @@ map draws no line between them. You either change the map, or write the reason
 it is correct as it stands into `systemap.toml`, where it stays, so the same
 question is not asked twice.
 
+A quiet `judgement` report does not verify every card assignment. Its
+name-and-import rules can miss a module placed in the wrong card. Without
+Jev, the mapping skill's second pass reviews every claimed module against
+the card's job and reads the source where the facts leave that job unclear.
+The agent or maintainer makes that judgement from the code.
+
     systemap check && systemap judgement --strict
 
 Six repositories have been mapped this way from start to finish, four of them
