@@ -1,24 +1,4 @@
-"""Render the system map as one page a reader can learn the system from.
-
-The page is the map, at full width. It opens at Fit (the whole map across
-the column) and the reader zooms with the wheel, a pinch, or the Fit / 100%
-/ + / - controls, and pans by dragging. Selecting a component scrolls the
-part of the map beside the drawer to hold that card, the edges of it the
-layer shows and their other ends; Escape undoes the selection. Above the
-map: a layer switch, since one map has several layers, the journeys a
-reader can step through, and a slim strip carrying the active layer's
-question and its components. Click a component and the focus panel opens
-as a drawer over the map, docked on the side away from the component. It
-leads with the plain word, then draws the card at the centre of a ring of
-the cards it connects to, and shows the sentence for whichever of them the
-reader touches. Below the map, a one-line index of every component
-by region and the invariants. Nothing about the code is shown beyond the
-single "lives in" line; the counts stay in the facts file for the change
-detector.
-
-Every picture comes from schematic.py, every sentence from the model module,
-and the page is self-contained: no fonts, scripts or images are fetched.
-"""
+"""A self-contained workspace for understanding, tracing and reviewing a system."""
 
 from __future__ import annotations
 
@@ -27,11 +7,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import nest
+from systemap import nest, page_atlas, page_data
 from systemap import theme as theme_mod
 from systemap.config import Config
 from systemap.model import Component, Meaning, Model, all_layers
-from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
+from systemap.page_assets import CSS
+from systemap.page_script import JS
+from systemap.schematic import interactive_script, kind_rows, panel_css
 from systemap.schematic import render as render_schematic
 
 STATE_WORD = {"built": "built", "actor": "outside"}
@@ -79,6 +61,7 @@ class Nesting:
     parent_href: str = ""
     parent_label: str = ""
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
+    review: dict[str, Any] | None = None
 
 
 def nesting_of(
@@ -103,6 +86,7 @@ def nesting_of(
         parent_href="../index.html" if parent is not None else "",
         parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
         opens=opens,
+        review=page_data.tree_review(cfg, tree, m, facts) if facts is not None else None,
     )
 
 
@@ -127,11 +111,391 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
 def _index_entry(c: Component, state: str, plain: str) -> str:
     cid = c.id
     return (
-        f'<button type="button" class="ix" data-go="{esc(cid)}">'
+        f'<button type="button" class="ix" data-go="{esc(cid)}" '
+        f'data-search="{esc(" ".join((cid, plain, c.does, *c.implemented_by)).lower())}">'
         f'<span class="ix__plain">{esc(plain or cid)}</span>'
         f"<code>{esc(cid)}</code>"
         f'<span class="chip chip--{esc(state)}">{esc(STATE_WORD[state])}</span>'
         "</button>"
+    )
+
+
+def _header(
+    cfg: Config, model: Model, meaning: Meaning, facts: dict[str, Any], nesting: Nesting, cards: str
+) -> str:
+    commit = (facts.get("built_at_commit") or "")[:10]
+    parent = (
+        f'<a href="{esc(nesting.parent_href)}">{esc(nesting.parent_label)}</a> / '
+        if nesting.parent_href
+        else ""
+    )
+    return (
+        '<a class="skip" href="#map">Skip to the map</a><header class="bar">'
+        '<a class="brand" href="#map" aria-label="systemap: system map">'
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M25 6H10v10h12v10H7" '
+        'fill="none" stroke="currentColor" stroke-width="2"/>'
+        '<circle cx="25" cy="6" r="3" fill="currentColor"/>'
+        '<circle cx="7" cy="26" r="3" fill="currentColor"/></svg>systemap</a>'
+        f'<div class="project"><h1>{parent}{esc(nesting.path or cfg.name)}</h1>'
+        f'<p class="meta">System map: {cards}, {len(model.flows)} flows, '
+        f"{number_word(len(all_layers(model, meaning)))} layers.</p></div>"
+        '<nav class="header-links" aria-label="Page sections">'
+        '<a href="#components">Find a part</a><a href="#invariants">Rules</a>'
+        '<a href="#review">Review</a></nav>'
+        '<div class="snapshot"><span>Stored snapshot</span>'
+        '<p>Extracted at HEAD <code title="HEAD when the working tree was read">'
+        f"{esc(commit) if commit else 'commit not recorded'}</code>.</p></div>"
+        '<label class="scheme">Appearance <select id="scheme" aria-label="Scheme">'
+        + "".join(
+            f'<option value="{esc(name)}">{esc(name.title())}</option>'
+            for name in ("warm", "graphite", "paper")
+        )
+        + "</select></label></header>"
+    )
+
+
+def _index(model: Model, meaning: Meaning, states: dict[str, str], cfg: Config) -> str:
+    groups: dict[str, list[Component]] = {}
+    for c in model.components:
+        groups.setdefault(c.region or "outside", []).append(c)
+    regions = [(r.id, r.label) for r in model.regions] + [("outside", cfg.outside_label)]
+    out = [
+        '<section id="components" class="part-index"><h2>Find a part</h2>'
+        '<label class="search"><span class="sr-only">Search by job, name or module</span>'
+        '<input id="partsearch" type="search" placeholder="Job, name or module" '
+        'autocomplete="off" aria-controls="partlist" aria-describedby="search-help"></label>'
+        '<p id="search-help">Search names, purposes and modules. Press / or Ctrl/Cmd+K.</p>'
+        '<p class="search-count" id="searchcount" role="status"></p>'
+        '<details id="partlist-disclosure"><summary>Part index</summary>'
+        '<div class="ixgrid" id="partlist">'
+    ]
+    for rid, label in regions:
+        if rid not in groups:
+            continue
+        out.append(f'<div class="ixgroup"><h3 class="region">{esc(label)}</h3>')
+        for c in groups[rid]:
+            out.append(_index_entry(c, states[c.id], meaning.plain.get(c.id, "")))
+        out.append("</div>")
+    out.append(
+        '</div></details><p id="searchempty" hidden>No matching part. Try its job or module.</p>'
+    )
+    out.append("</section>")
+    return "\n".join(out)
+
+
+def _journeys(meaning: Meaning) -> str:
+    out = [
+        '<section class="journey-index" id="journeyindex" hidden><h2>Choose an operation</h2>'
+        "<p>A journey follows one operation through the system, step by step.</p>"
+    ]
+    for k, j in enumerate(meaning.journeys):
+        out.append(
+            f'<button class="journey-choice" type="button" data-journey="{k}" '
+            f'aria-pressed="false"><span>{esc(j.label)}</span><small>'
+            f"{esc(j.starts) if j.starts else 'Start not named'} / {len(j.steps)} steps"
+            f"{' / draft' if j.drafted else ''}</small></button>"
+        )
+    if not meaning.journeys:
+        out.append(
+            "<p>No journeys have been authored. A way into the system is where a run can "
+            "start. List them with <code>systemap facts --entry-points</code>, then write "
+            "a journey in the model.</p>"
+        )
+    out.append("</section>")
+    return "\n".join(out)
+
+
+def _review_index(review: dict[str, Any]) -> str:
+    out = [
+        '<section class="review-index" id="reviewindex" hidden><h2>Decisions to make</h2>'
+        "<p>Judgement finds questions the code cannot settle. These findings use the "
+        'stored facts for this map.</p><div class="review-count">'
+        f"<strong>{len(review['open'])}</strong> open "
+        f"<span>{len(review['answered'])} answered</span></div>"
+        '<div class="review-filters" role="group" aria-label="Review status">'
+        '<button type="button" data-review-filter="open" aria-pressed="true">Open</button>'
+        '<button type="button" data-review-filter="answered" '
+        'aria-pressed="false">Answered</button></div><div id="reviewlist"></div>'
+    ]
+    for key, label in (("pending", "Pending answers"), ("policies", "Policy answers")):
+        notices = review.get(key, [])
+        if notices:
+            out.append(
+                f"<details><summary>{label}</summary><ul>"
+                + "".join(f"<li>{esc(item)}</li>" for item in notices)
+                + "</ul></details>"
+            )
+    out.append("</section>")
+    return "\n".join(out)
+
+
+def _commands(ch: dict[str, Any]) -> str:
+    commands = [
+        (
+            "Update the snapshot",
+            "Read the current code and regenerate the map.",
+            "systemap refresh",
+        ),
+        ("Check the current tree", "Verify that the map still matches the code.", "systemap check"),
+        (
+            "Review the decisions",
+            "List open findings and stale answers across every map.",
+            "systemap judgement --verbose",
+        ),
+        (
+            "Compare a change",
+            "Replace REF with the revision to compare against. Open Review after rendering.",
+            "systemap render --base REF",
+        ),
+        ("Explain how it changed", "Read structural changes through time.", "systemap history"),
+        (
+            "Examine a proposed change",
+            "Replace the example with the change you intend to make.",
+            'systemap plan "describe the change"',
+        ),
+        (
+            "Verify a saved plan",
+            "Replace ID and REF. Compare the saved plan with source changes. "
+            "This check does not ask a model.",
+            "systemap plan --check ID --base REF",
+        ),
+        (
+            "Read a source comparison",
+            "Replace REF with a revision. Imports show possible effects, "
+            "not established behaviour.",
+            "systemap delta --base REF",
+        ),
+        (
+            "Ask for a second opinion",
+            "With a configured Jev key, ask an external model to review authored meaning.",
+            "systemap audit",
+        ),
+        (
+            "Investigate an issue",
+            "Replace the example issue. Jev provides external advice when configured.",
+            'systemap triage "describe the issue"',
+        ),
+        (
+            "Export a figure",
+            "Write a self-contained SVG from the same authored map.",
+            "systemap figure --static --out system.svg",
+        ),
+    ]
+    out = ['<details class="commands"><summary>Work with the current code</summary>']
+    out.append("<p>Run these in the project terminal. This page reads a stored snapshot.</p>")
+    for title, why, command in commands:
+        out.append(
+            f'<div class="command"><b>{title}</b><p>{why}</p><code>{esc(command)}</code>'
+            f'<button type="button" data-copy="{esc(command)}" '
+            f'aria-label="Copy {esc(command)}">Copy</button></div>'
+        )
+    if not ch.get("has_change") and not ch.get("comparison_requested"):
+        out.append("<p>No revision comparison was included in this page.</p>")
+    out.append('<p id="copystatus" role="status"></p></details>')
+    return "\n".join(out)
+
+
+def _rules(model: Model) -> str:
+    out = [
+        '<details class="rulebook" id="invariants"><summary>Rules of this system</summary>'
+        "<p>An invariant is a rule that must remain true. Select a part to see the rules "
+        'that govern it.</p><ol class="rules">'
+    ]
+    for inv in sorted(model.invariants, key=lambda i: i.n):
+        out.append(
+            f'<li id="rule-{inv.n}" value="{inv.n}"><span>{esc(inv.text)}</span>'
+            '<span class="governs">'
+            + " ".join(
+                f'<button type="button" class="gv" data-go="{esc(i)}">{esc(i)}</button>'
+                for i in inv.governs
+            )
+            + "</span></li>"
+        )
+    out.append("</ol></details>")
+    return "\n".join(out)
+
+
+def _controls(model: Model, meaning: Meaning, t: dict[str, Any]) -> str:
+    palette = theme_mod.Palette(t, variables=True)
+    out = ['<div class="controls"><div class="seg" role="group" aria-label="Layer">']
+    for layer in all_layers(model, meaning):
+        out.append(
+            f'<button type="button" class="seg__b" data-layer-btn="{esc(layer.id)}" '
+            f'aria-pressed="false" style="--c:{palette.layer(layer.id)}" '
+            f'title="{esc(layer.question)}"><i></i>{esc(layer.label)}</button>'
+        )
+    out.append(
+        '<button type="button" class="seg__b" data-layer-btn="all" '
+        'aria-pressed="false">All</button></div>'
+        '<label class="mobile-layer">Layer <select id="layer-select" aria-label="Layer">'
+        + "".join(
+            f'<option value="{esc(layer.id)}">{esc(layer.label)}</option>'
+            for layer in all_layers(model, meaning)
+        )
+        + '<option value="all">All layers</option></select></label>'
+        '<div class="zoom" role="group" '
+        'aria-label="Zoom"><button type="button" data-zoom="out" aria-label="Zoom out">'
+        '-</button><span id="zpct" aria-live="off"></span>'
+        '<button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
+        '<button type="button" data-zoom="fit" aria-pressed="true">Fit</button>'
+        '<button type="button" data-zoom="actual" aria-pressed="false">100%</button>'
+        '</div><div class="view-switch" role="group" aria-label="Map view">'
+        '<button type="button" id="view-map" aria-pressed="true">Map</button>'
+        '<button type="button" id="view-reading" aria-pressed="false">Reading view</button>'
+        "</div></div>"
+    )
+    return "\n".join(out)
+
+
+def _trace_controls(meaning: Meaning) -> str:
+    return (
+        '<div class="trace-controls" id="tracecontrols">'
+        '<label for="journey" class="sr-only">Journey</label><select id="journey" '
+        'aria-label="Journey"><option value="">Choose an operation</option>'
+        + "".join(
+            f'<option value="{k}">{esc(j.label)}</option>' for k, j in enumerate(meaning.journeys)
+        )
+        + '</select><button type="button" class="jb" id="jprev" '
+        'aria-label="Previous step" disabled>Previous</button>'
+        '<span id="jcount" aria-live="polite"></span>'
+        '<button type="button" class="jb" id="jnext" aria-label="Next step" disabled>'
+        'Next</button><button type="button" id="jreturn" hidden>Back to journey</button>'
+        '<button type="button" id="jend" hidden>End journey</button>'
+        '<label class="motion-control"><input type="checkbox" id="reduce-motion" '
+        'aria-describedby="motion-meaning">Reduce motion</label>'
+        '<span id="motion-meaning" class="sr-only">Motion shows the authored flow direction, '
+        "not live execution.</span></div>"
+    )
+
+
+def _inspector() -> str:
+    return (
+        '<aside class="inspector" aria-label="Details and evidence">'
+        '<div class="inspector-empty" id="inspector-empty">'
+        "<h2>Inspect the system</h2><p>Select a card to read its purpose and source. "
+        "Select a flow label to inspect the exact relationship and its evidence.</p>"
+        "<p>The map keeps its authored positions when you switch layers. "
+        "Reading view lists the same parts and exact flows at text size.</p>"
+        '<button type="button" class="text-action" data-mode="trace">Trace an operation</button>'
+        '<button type="button" class="text-action" data-mode="review">Review the map</button>'
+        '</div><div class="drawer" id="drawer" data-dock="right" hidden>'
+        '<div class="drawer__in"><button type="button" class="drawer__x" id="drawerclose" '
+        'aria-label="Close the panel">Clear selection</button>'
+        '<div class="systemap-panel" id="panel" aria-live="polite"></div>'
+        '<div id="source-detail"></div></div></div>'
+        '<details class="strip" id="strip" hidden open><summary>Current journey step '
+        '<span class="strip__n" id="stripn"></span><p class="strip__say" id="stripsay"></p>'
+        "</summary>"
+        '<p class="strip__meas" id="stripmeas"></p><p class="strip__foot" id="stripfoot"></p>'
+        '<div id="step-evidence"></div>'
+        '</details><div id="review-detail" hidden></div></aside>'
+    )
+
+
+def _submap(cfg: Config, nesting: Nesting) -> str:
+    if not nesting.opens:
+        return ""
+    here = f"{cfg.name} / {nesting.path}" if nesting.path else cfg.name
+    return (
+        '<div class="submap" id="submap" role="dialog" aria-modal="true" '
+        f'aria-label="The map inside a card" data-here="{esc(here)}" hidden>'
+        '<div class="submap__bar"><span class="submap__crumb" id="submapcrumb"></span>'
+        '<button type="button" class="submap__x" id="submapclose" '
+        'aria-label="Return to parent map">Return to parent</button></div>'
+        '<iframe class="submap__frame" id="submapframe" title="The map inside the card" '
+        'src="about:blank"></iframe></div>'
+    )
+
+
+def _comparison_limits(ch: dict[str, Any]) -> str:
+    out = []
+    if ch.get("comparison_base"):
+        out.append(
+            f"<p>Source differences start at merge base <code>{esc(ch['comparison_base'])}</code>. "
+            "The drawing uses this page's authored model and stored facts. "
+            "It does not reconstruct a historical map.</p>"
+        )
+    if not ch.get("reach_known", False):
+        out.append("<p>Import reach was not recorded. Possible downstream effects are unknown.</p>")
+    if ch.get("unparsed"):
+        out.append(
+            "<p>Source differences could not be parsed for <code>"
+            + esc(", ".join(ch["unparsed"]))
+            + "</code>. Fix the source or extractor error, then rerun "
+            "<code>systemap render --base REF</code> in the terminal.</p>"
+        )
+    for cid, data in ch.get("per_component", {}).items():
+        for module, records in data.get("unknown", {}).items():
+            for revision, issues in records.items():
+                for issue in issues:
+                    out.append(
+                        f"<p>Unknown {esc(revision)} surface for <code>"
+                        f"{esc(cid)} / {esc(module)}</code>: "
+                        f"{esc(issue.get('reason', 'The source could not be read.'))} "
+                        f"(line {esc(issue.get('line', 0))}, "
+                        f"column {esc(issue.get('column', 0))}).</p>"
+                    )
+    return "".join(out)
+
+
+def _change(ch: dict[str, Any], svg: str) -> str:
+    if not svg:
+        return ""
+    title = (ch.get("pr") or {}).get("title") or f"{ch['base']}..{ch['head']}"
+    return (
+        '<section id="change" class="change-view" hidden>'
+        f"<h2>Revision comparison: {esc(title)}</h2>"
+        f"<p>Base <code>{esc(ch.get('base_revision', ch['base']))}</code>; "
+        f"head <code>{esc(ch.get('head_revision', ch['head']))}</code>.</p>"
+        f"<p>{len(ch['direct'])} parts changed; {len(ch['adjacent'])} adjacent parts; "
+        f"{ch['files']} files. Adjacent means connected by an import, not proven impact.</p>"
+        + _comparison_limits(ch)
+        + (
+            "<p>No source differences were found for the resolved revisions.</p>"
+            if not ch.get("has_change")
+            else ""
+        )
+        + '<div class="legend"><span>Accent: changed inside</span>'
+        "<span>Secondary colour: adjacent</span><span>Muted: untouched</span></div>"
+        f'<div class="comparison-panes"><div class="stage">{svg}</div>'
+        '<aside class="systemap-panel" id="change-panel" aria-label="Comparison details" '
+        'aria-live="polite"><p>Select a comparison card to inspect its source changes.</p>'
+        "</aside></div></section>"
+    )
+
+
+def _map_key(t: dict[str, Any], model: Model) -> str:
+    marks = {"ring": "an inner ring", "notch": "a notch", "dotted": "a dotted border"}
+    out = [
+        '<details class="map-key"><summary>Read the map: card, flow, layer and journey</summary>'
+        '<div class="legend"><span class="lg"><i class="lg--solidline"></i>source reviewed</span>'
+        '<span class="lg"><i class="lg--dashline"></i>unreviewed flow</span></div>'
+        "<p>Cards group modules by their job. Dashed cards are actors outside the code. "
+        "A flow names what travels between cards. A solid internal line records a source "
+        "review whose references resolve. A short dashed line has structural evidence: an "
+        "import, shared module or named mechanism. A long dashed line is declared without "
+        "that evidence. Both dashed states still need review of direction and artifact. "
+        "External flows cross the code boundary. None records execution. "
+        "A layer shows flows that answer one question. "
+        "A journey follows an authored operation step by step. A dot marks a note. "
+        "A stacked card opens a map inside.</p>"
+    ]
+    for kind, mark in kind_rows(t, model):
+        out.append(f'<p class="lg--mark-{mark}">A {esc(kind)} has {marks[mark]}.</p>')
+    out.append("</details>")
+    return "\n".join(out)
+
+
+def _unknown_provenance(provenance: dict[str, Any]) -> str:
+    if not provenance["unknown"]:
+        return ""
+    return (
+        '<details class="unknown-records"><summary>Unknown source information</summary>'
+        "<p>Extraction could not resolve these records. The missing information limits "
+        "what this map can establish. Read the exact finding, fix its source or extractor "
+        "configuration, then run <code>systemap refresh</code> in the terminal.</p>"
+        + "".join(f"<p><code>{esc(line)}</code></p>" for line in provenance["unknown"])
+        + "</details>"
     )
 
 
@@ -144,893 +508,130 @@ def build(
     ch: dict[str, Any],
     nesting: Nesting | None = None,
 ) -> str:
-    """The whole page as one string; `nesting` places it in the tree of maps.
-
-    Every colour on the page is a token: the drawing, the panel, the
-    legend and the controls name `var(--token)`, and the tokens' values
-    live in the `:root` block alone (theme.css_vars), so the page has one
-    place a colour is set.
-    """
-    T = t
-    P = theme_mod.Palette(T, variables=True)
-    COMPONENTS = model.components
+    """Generate a workspace from facts and meaning, with no runtime dependencies."""
     nesting = nesting or Nesting(model_file=cfg.model)
     system_svg, detail = render_schematic(
         model,
         meaning,
-        T,
+        t,
         facts,
         svg_id="schematic",
         observed_by=cfg.observed_by,
         opens=nesting.opens,
         variables=True,
     )
-    states = {cid: rec["state"] for cid, rec in json.loads(detail).items() if cid != "_meta"}
+    data = json.loads(detail)
+    states = {cid: rec["state"] for cid, rec in data.items() if cid != "_meta"}
+    review = (
+        nesting.review
+        if nesting.review is not None
+        else page_data.review(
+            cfg, model, meaning, facts, f"{nesting.path}: " if nesting.path else ""
+        )
+    )
+    payload: dict[str, Any] = {
+        "sources": page_data.sources(model, facts),
+        "review": review,
+        "comparison": page_data.comparison(ch),
+        "provenance": page_data.provenance(cfg, facts, nesting.model_file),
+        "regions": [
+            {"label": r.label, "ids": [c.id for c in model.components if c.region == r.id]}
+            for r in model.regions
+        ],
+    }
     change_svg, change_detail = "", ""
-    if ch.get("has_change"):
-        gained = {k: v["gained"] for k, v in ch["per_component"].items()}
+    if ch.get("has_change") or ch.get("comparison_requested"):
         change_svg, change_detail = render_schematic(
             model,
             meaning,
-            T,
+            t,
             facts,
             changed=ch["direct"],
             changed_modules=ch["modules"],
             adjacent=ch["adjacent"],
             mode="change",
             svg_id="changemap",
-            gained=gained,
+            gained={k: v["gained"] for k, v in ch["per_component"].items()},
             hot_artifacts=ch["flow_artifacts"],
             observed_by=cfg.observed_by,
             variables=True,
         )
-
-    commit = (facts.get("built_at_commit") or "")[:10]
-    n_flows = len(model.flows)
-    n_actors = len([c for c in COMPONENTS if c.kind == "actor"])
-    cards = counted(len(COMPONENTS) - n_actors, n_actors)
-    layers = all_layers(model, meaning)
-    n_layers = number_word(len(layers))
-
-    o: list[str] = []
-    o.append("<!doctype html>")
-    o.append('<html lang="en"><head><meta charset="utf-8">')
-    o.append('<meta name="viewport" content="width=device-width,initial-scale=1">')
+    n_actors = sum(c.kind == "actor" for c in model.components)
+    cards = counted(len(model.components) - n_actors, n_actors)
+    schemes = list(t.get("schemes") or {t["scheme"]: t})
     title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
-    o.append(f"<title>{esc(title)}</title>")
-    o.append(f'<link rel="icon" href="{FAVICON}">')
-    # The scheme is stamped on the root before the first paint: the pick
-    # this browser kept, else paper when the system prefers light, else
-    # the configured default. Storage may be absent or refused (a private
-    # window, a file address); the page renders either way.
-    schemes = list(T.get("schemes") or {T["scheme"]: T})
-    o.append(
+    o = [
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width,initial-scale=1">',
+        f'<title>{esc(title)}</title><link rel="icon" href="{FAVICON}">',
         "<script>(function(){var s=null;try{s=localStorage.getItem("
         f"{json.dumps(SCHEME_KEY)})}}catch(e){{}}"
         f"if({json.dumps(schemes)}.indexOf(s)<0){{s=(window.matchMedia&&"
         "window.matchMedia('(prefers-color-scheme: light)').matches)?"
-        f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(T['scheme'])}}}"
-        "document.documentElement.setAttribute('data-theme',s)})();</script>"
-    )
-    o.append(f"<style>{CSS.format(ROOT=theme_mod.root_css(T))}")
-    o.append(f"{panel_css(T, variables=True)}</style></head><body>")
-
-    # ---------------- header ----------------
-    o.append('<header class="bar">')
-    # The commit the tree was read at when the facts were extracted: HEAD
-    # then, so one before the commit that records the facts. The label says
-    # what the sha is; "built at" named the wrong commit.
-    built = (
-        f' Facts from <code title="the commit the tree was read at">{esc(commit)}</code>.'
-        if commit
-        else ""
-    )
-    if nesting.path:
-        # The page inside one card: its header names the card and links
-        # back to the map above it.
-        o.append(
-            f"<h1>{esc(cfg.name)} <span>map</span> "
-            f'<span class="bar__sub">/ {esc(nesting.path)}</span></h1>'
-        )
-        o.append(
-            f'<p class="meta">The map inside the <code>{esc(nesting.card)}</code> card of '
-            f'<a href="{esc(nesting.parent_href)}">the {esc(nesting.parent_label)} map</a>: '
-            f"{cards}, {n_flows} flows, {n_layers} layers.{built}</p>"
-        )
-    else:
-        o.append(f"<h1>{esc(cfg.name)} <span>map</span></h1>")
-        o.append(
-            f'<p class="meta">A generated map of what the parts of {esc(cfg.name)} are and what '
-            f"they are to each other: {cards}, {n_flows} flows, {n_layers} layers."
-            f"{built}</p>"
-        )
-    if nesting.opens:
-        # The maps inside this one, each a link: the same links the panel
-        # of an opening card carries.
-        inside = ", ".join(
-            f'<a href="{esc(o_["href"])}">{esc(o_["name"])}</a> ({o_["cards"]} card'
-            f"{'' if o_['cards'] == 1 else 's'})"
-            for o_ in nesting.opens.values()
-        )
-        o.append(f'<p class="meta maps">Maps inside: {inside}.</p>')
-    o.append('<nav class="nav">')
-    if nesting.parent_href:
-        o.append(f'<a href="{esc(nesting.parent_href)}">Up: {esc(nesting.parent_label)}</a>')
-    if change_svg:
-        o.append('<a href="#change">Change</a>')
-    o.append('<a href="#map">Map</a><a href="#components">Components</a>')
-    o.append('<a href="#invariants">Invariants</a>')
-    # The scheme picker: the three tables the page carries, the reader's
-    # pick kept in this browser.
-    o.append('<label class="scheme">Scheme <select id="scheme" aria-label="Scheme">')
-    for name in schemes:
-        o.append(f'<option value="{esc(name)}">{esc(name)}</option>')
-    o.append("</select></label>")
-    o.append("</nav></header>")
-
-    o.append('<main class="main">')
-
-    # ---------------- change map (only with --base) ----------------
-    if change_svg:
-        pr = ch.get("pr") or {}
-        title = pr.get("title") or f"{ch['base']}..{ch['head']}"
-        rows = "".join(
-            f'<span class="lg"><i style="background:{fill};border-color:{stroke}"></i>'
-            f"{esc(label)}</span>"
-            for fill, stroke, label in legend_rows(T, "change", variables=True)
-        )
-        o.append('<section class="map" id="change">')
-        o.append(
-            f"<h2>Change <span>{esc(title)}: {len(ch['direct'])} moved, "
-            f"{len(ch['adjacent'])} reached, {ch['files']} files</span></h2>"
-        )
-        o.append(f'<div class="stage">{change_svg}</div>')
-        o.append(f'<div class="legend">{rows}</div>')
-        o.append("</section>")
-
-    # ---------------- controls ----------------
-    o.append('<section class="map" id="map">')
-    o.append('<div class="controls">')
-    o.append('<div class="ctl"><span class="ctl__k">Layer</span>')
-    o.append('<div class="seg" role="group" aria-label="Layer">')
-    for layer in layers:
-        o.append(
-            f'<button type="button" class="seg__b" data-layer-btn="{esc(layer.id)}" '
-            f'aria-pressed="false" style="--c:{P.layer(layer.id)}">'
-            f"<i></i>{esc(layer.label)}</button>"
-        )
-    o.append(
-        '<button type="button" class="seg__b" data-layer-btn="all" aria-pressed="false">'
-        "All</button>"
-    )
-    o.append("</div></div>")
-    o.append('<div class="ctl ctl--row">')
-    o.append('<div class="ctl"><span class="ctl__k">Zoom</span>')
-    o.append('<div class="seg" role="group" aria-label="Zoom">')
-    o.append(
-        '<button type="button" class="seg__b" data-zoom="fit" aria-pressed="true">Fit</button>'
-        '<button type="button" class="seg__b" data-zoom="actual" aria-pressed="false">'
-        "100%</button>"
-        '<button type="button" class="seg__b seg__b--step" data-zoom="in" '
-        'aria-label="Zoom in">+</button>'
-        '<button type="button" class="seg__b seg__b--step" data-zoom="out" '
-        'aria-label="Zoom out">-</button></div>'
-        '<span class="zpct" id="zpct" aria-live="off" title="zoom"></span></div>'
-    )
-    o.append('<div class="ctl"><span class="ctl__k">Journey</span>')
-    o.append('<select id="journey" aria-label="Journey"><option value="">none</option>')
-    for k, j in enumerate(meaning.journeys):
-        o.append(f'<option value="{k}">{esc(j.label)}</option>')
-    o.append("</select>")
-    o.append(
-        '<button type="button" class="jb" id="jprev" aria-label="Previous step" disabled>'
-        "&#8249; Previous</button>"
-        '<span class="jcount" id="jcount" aria-live="polite"></span>'
-        '<button type="button" class="jb" id="jnext" aria-label="Next step" disabled>'
-        "Next &#8250;</button>"
-    )
-    o.append("</div></div>")
-    o.append("</div>")  # controls
-
-    # The slim strip above the map: the active layer's question and the
-    # components it touches, or the steps of the journey in progress.
-    o.append('<div class="lstrip" id="lstrip" aria-live="polite"></div>')
-
-    # ---------------- the map ----------------
-    o.append('<div class="mapwrap" id="mapwrap">')
-    o.append(f'<div class="stage" id="stage">{system_svg}</div>')
-    o.append('<aside class="drawer" id="drawer" data-dock="right" hidden>')
-    o.append('<div class="drawer__in">')
-    o.append(
-        '<button type="button" class="drawer__x" id="drawerclose" '
-        'aria-label="Close the panel">Close</button>'
-    )
-    o.append('<div class="systemap-panel" id="panel" aria-live="polite"></div>')
-    o.append("</div></aside>")
-    o.append("</div>")  # mapwrap
-    inside_hint = (
-        " Double-click a card that opens a map, or press Enter on it a second time, "
-        "to open the map inside it here."
+        f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(t['scheme'])}}}"
+        "document.documentElement.setAttribute('data-theme',s)})();</script>",
+        f"<style>{panel_css(t, variables=True)}{CSS.replace('{ROOT}', theme_mod.root_css(t))}"
+        f"{page_atlas.CSS}"
+        '</style></head><body data-mode="understand">',
+        _header(cfg, model, meaning, facts, nesting, cards),
+        '<main class="main"><section class="map" id="map" aria-label="System map">'
+        '<span id="activity-label" hidden></span><h2 id="activity-question" class="sr-only">'
+        "What are the parts, and how do they fit?</h2>",
+        _map_key(t, model),
+        _controls(model, meaning, t),
+        _trace_controls(meaning),
+        '<div class="lstrip" id="lstrip" aria-live="polite"></div>'
+        '<div class="atlas" id="atlas" aria-label="Reading view of the system" hidden></div>',
+        '<div class="spatial-map" id="spatialmap">'
+        f'<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">{system_svg}'
+        '</div></div></div><p class="hint">Scroll to zoom. Drag to pan. Fit shows the whole map. '
+        "Tab reaches cards and flow labels. Enter inspects. Arrow keys switch layers or journey "
+        "steps. Escape returns to the previous view.</p>"
+        '<p id="linkstatus" role="status" aria-live="polite"></p>'
+        '<div class="map-actions"><button type="button" id="resetmap">Fit map</button>'
+        '<button type="button" data-mode="understand">Find a part</button>'
+        '<button type="button" data-mode="trace">Choose a journey</button>'
+        '<button type="button" data-mode="review">Review stored findings</button></div>',
+        '<p class="hint">Double-click a card that opens a map, or press Enter on it '
+        "a second time in the spatial drawing, to read the map inside.</p>"
         if nesting.opens
-        else ""
-    )
-    o.append(
-        '<p class="hint">Scroll to zoom, drag to pan, click a component to frame it, '
-        "Escape to go back. From the keyboard: Tab moves across the cards, Enter opens one, "
-        "Escape closes it, the left and right arrows switch readings or step a journey."
-        f"{inside_hint}</p>"
-    )
-    if nesting.opens:
-        # The map inside a card, opened in place: an overlay over this page
-        # holding the sub-map's page in a frame, under a breadcrumb that
-        # names this map and the card. The frame's address is the relative
-        # path the header links carry, so it loads wherever the page does.
-        here = f"{cfg.name} / {nesting.path}" if nesting.path else cfg.name
-        o.append(
-            f'<div class="submap" id="submap" role="dialog" aria-modal="true" '
-            f'aria-label="The map inside a card" data-here="{esc(here)}" hidden>'
-            '<div class="submap__bar"><span class="submap__crumb" id="submapcrumb"></span>'
-            '<button type="button" class="submap__x" id="submapclose" '
-            'aria-label="Close the map inside">Close</button></div>'
-            '<iframe class="submap__frame" id="submapframe" title="The map inside the card" '
-            'src="about:blank"></iframe></div>'
+        else "",
+        "</section>",
+        _inspector(),
+        '</main><section class="reference" aria-label="Map records">',
+        _index(model, meaning, states, cfg),
+        _journeys(meaning),
+        '<section id="review" class="review-records"><h2>Review the stored snapshot</h2>',
+        _review_index(review),
+        _change(ch, change_svg),
+        "</section>",
+        '<details class="map-links"><summary>Maps inside</summary>'
+        + ", ".join(
+            f'<a href="{esc(child["href"])}">{esc(child["name"])}</a>'
+            for child in nesting.opens.values()
         )
-    o.append('<div class="strip" id="strip" hidden><span class="strip__n" id="stripn"></span>')
-    o.append('<span class="strip__say" id="stripsay"></span>')
-    o.append('<span class="strip__meas" id="stripmeas"></span>')
-    # Under the sentence: where the walk begins, what backs this step in the
-    # code, and a word when nobody has read the walk against the code yet.
-    o.append('<span class="strip__foot" id="stripfoot"></span></div>')
-    o.append('<div class="legend">')
-    for _lid, colour, label in layer_rows(T, model, meaning, variables=True):
-        o.append(
-            f'<span class="lg"><i class="lg--line" style="background:{colour}"></i>'
-            f"{esc(label)}</span>"
-        )
-    o.append(
-        f'<span class="lg"><i class="lg--dashline" style="border-color:{P["ink_3"]}"></i>'
-        "unreviewed flow</span>"
-    )
-    o.append('<span class="lg lg--gap"></span>')
-    for fill, stroke, label in legend_rows(T, "system", variables=True):
-        o.append(
-            f'<span class="lg"><i style="background:{fill};'
-            f'border-color:{stroke}"></i>{esc(label)}</span>'
-        )
-    for kind, mark in kind_rows(T, model):
-        fill, stroke, _label = P.state("built")
-        o.append(
-            f'<span class="lg"><i class="lg--mark-{esc(mark)}" style="background:{fill};'
-            f'border-color:{stroke};color:{stroke}"></i>{esc(kind)}</span>'
-        )
-    if model.opening:
-        fill, stroke, _label = P.state("built")
-        o.append(
-            f'<span class="lg"><i class="lg--mark-map" style="background:{fill};'
-            f'border-color:{stroke};color:{stroke}"></i>has a map</span>'
-        )
-    o.append(
-        f'<span class="lg"><i class="lg--dashed" style="border-color:{P["ink_3"]}"></i>'
-        "outside</span>"
-    )
-    o.append(
-        f'<span class="lg"><i class="lg--ring" style="border-color:{P["accent"]}"></i>'
-        f'acts</span><span class="lg"><i class="lg--ring" style="border-color:{P["steel"]}">'
-        "</i>measures</span>"
-    )
-    o.append("</div>")
-    # The first thing a new reader needs is the vocabulary, then the marks,
-    # then the controls. Each is its own paragraph so none of them is a wall.
-    o.append(
-        '<p class="key"><b>What you are looking at.</b> A <b>card</b> is one part of this '
-        "system: something a reader would point at and name. Every card is code in the tree "
-        "today, and the check refuses one whose modules or entry are not in the facts. A "
-        "<b>line</b> is something moving from one part to another, labelled with what it "
-        "carries. A <b>layer</b> shows only the lines that answer one question, so the same "
-        "map can be looked at several ways. A <b>journey</b> is one trip through the system, "
-        "shown one step at a time.</p>"
-    )
-    o.append(
-        '<p class="key"><b>What the marks mean.</b> A dashed card is an actor outside the code. '
-        "A dot in a card's top corner marks a note, which the panel shows. A dashed line is an "
-        "unreviewed flow. Its panel distinguishes an import, shared module, or named mechanism "
-        "from a source reviewed claim. Those structural facts alone do not establish the flow's "
-        "direction or artifact. A card drawn with a second card behind it holds a map of its "
-        "own, and the panel opens that map in place over this page.</p>"
-    )
-    o.append(
-        '<p class="key"><b>How to use it.</b> Click a component to highlight it and everything '
-        "it connects to. Escape clears the selection. The arrow keys switch layers, or step a "
-        "journey while one is on. Double-click a region's name to fit that region to the "
-        "screen. "
-        "Text is drawn at 11px and never smaller: at Fit it is scaled down, and zoom brings "
-        "it back.</p>"
-    )
-    o.append("</section>")
-
-    # ---------------- index by region ----------------
-    o.append(
-        '<section class="list" id="components"><h2>Components <span>by region; '
-        "click one to focus it</span></h2>"
-    )
-    by_region: dict[str, list[Component]] = {}
-    for c in COMPONENTS:
-        by_region.setdefault(c.region or "outside", []).append(c)
-    o.append('<div class="ixgrid">')
-    for k, region in enumerate(model.regions, start=1):
-        items = by_region.get(region.id, [])
-        if not items:
-            continue
-        o.append(f'<div class="ixgroup"><h3 class="region"><i>{k}</i>{esc(region.label)}</h3>')
-        for c in items:
-            o.append(_index_entry(c, states[c.id], meaning.plain.get(c.id, "")))
-        o.append("</div>")
-    outside = by_region.get("outside", [])
-    if outside:
-        o.append(
-            f'<div class="ixgroup"><h3 class="region"><i>&middot;</i>{esc(cfg.outside_label)}</h3>'
-        )
-        for c in outside:
-            o.append(_index_entry(c, states[c.id], meaning.plain.get(c.id, "")))
-        o.append("</div>")
-    o.append("</div></section>")
-
-    # ---------------- invariants ----------------
-    o.append(
-        '<section class="list" id="invariants"><h2>Invariants <span>the rules the '
-        "panel names under each card</span></h2>"
-    )
-    o.append('<ol class="rules">')
-    for inv in sorted(model.invariants, key=lambda i: i.n):
-        n = inv.n
-        ids = sorted(inv.governs)
-        o.append(f'<li id="rule-{n}" value="{n}"><span class="rules__t">{esc(inv.text)}</span>')
-        o.append(
-            '<span class="governs">'
-            + " ".join(
-                f'<button type="button" class="gv" data-go="{esc(i)}">{esc(i)}</button>'
-                for i in ids
-            )
-            + "</span></li>"
-        )
-    o.append("</ol></section></main>")
-
-    facts_rel = f"{cfg.out_dir}/{cfg.facts_file}"
-    from_commit = (
-        f"The facts are from <code>{esc(commit)}</code>, the commit the tree was read at "
-        "when they were extracted: the one before the commit that records them, since "
-        "the facts are committed after they are read. "
-        if commit
-        else ""
-    )
-    o.append(
-        '<footer class="foot">Generated by <code>systemap</code> '
-        f"from <code>{esc(facts_rel)}</code> and <code>{esc(nesting.model_file)}</code>. "
-        f"{from_commit}"
-        "Refresh with <code>systemap refresh</code>.</footer>"
-    )
-
-    o.append(interactive_script(T, "schematic", "panel", detail, variables=True))
+        + "</details>"
+        if nesting.opens
+        else "",
+        _rules(model),
+        _commands(ch),
+        _unknown_provenance(payload["provenance"]),
+        "</section>",
+        _submap(cfg, nesting),
+        '<footer class="foot">Generated from '
+        f"<code>{esc(cfg.out_dir)}/{esc(cfg.facts_file)}</code> and "
+        f"<code>{esc(nesting.model_file)}</code>. "
+        "HEAD at extraction was "
+        f"<code>{esc(facts.get('built_at_commit') or 'not recorded')}</code>. "
+        "Extraction reads the working tree, which can contain uncommitted changes. "
+        "This page cannot detect later changes. Run <code>systemap refresh</code> "
+        "in the project terminal to update it.</footer>",
+        "<script>window.systemapWorkspace="
+        + json.dumps(payload, ensure_ascii=False, sort_keys=True).replace("<", "\\u003c")
+        + ";</script>",
+        interactive_script(t, "schematic", "panel", detail, variables=True),
+    ]
     if change_svg:
-        o.append(interactive_script(T, "changemap", "panel", change_detail, variables=True))
-    o.append(f"<script>{JS}</script>")
-    o.append("</body></html>")
+        o.append(interactive_script(t, "changemap", "change-panel", change_detail, variables=True))
+    o += [f"<script>{JS}</script>", f"<script>{page_atlas.SCRIPT}</script>", "</body></html>"]
     return "\n".join(o) + "\n"
-
-
-CSS = """
-{ROOT}
-*{{box-sizing:border-box}}
-:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
-body{{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fs);
-font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}}
-a{{color:var(--accent)}}
-code{{font-family:var(--fm);font-size:.92em}}
-button{{font:inherit;color:inherit}}
-.bar{{padding:.9rem 1.4rem .7rem;border-bottom:1px solid var(--line);
-background:var(--surface);display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem 1.4rem}}
-.bar h1{{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;font-family:var(--fm)}}
-.bar h1 span{{color:var(--accent);font-weight:400}}
-.bar h1 .bar__sub{{color:var(--ink-2)}}
-.meta a{{color:var(--accent);text-decoration:none}}
-.meta a:hover{{text-decoration:underline}}
-.meta.maps{{flex-basis:100%}}
-.meta{{margin:0;font-size:12.5px;color:var(--ink-3);max-width:60rem}}
-.meta code{{color:var(--ink-2)}}
-.nav{{margin-left:auto;display:flex;gap:.9rem;font-size:12.5px}}
-.nav a{{color:var(--ink-2);text-decoration:none}}
-.nav a:hover{{color:var(--accent)}}
-.scheme{{display:inline-flex;align-items:center;gap:.4rem;color:var(--ink-3);font-family:var(--fm);
-font-size:11px;letter-spacing:.08em;text-transform:uppercase}}
-.scheme select{{font:inherit;font-family:var(--fs);font-size:12.5px;text-transform:none;
-letter-spacing:0;color:var(--ink);background:var(--surface);border:1px solid var(--line-2);
-border-radius:6px;min-height:26px;padding:0 .4rem}}
-.main{{padding:.8rem 1.4rem 3rem}}
-h2{{font-size:15px;font-weight:600;margin:1.8rem 0 .5rem;letter-spacing:-.01em}}
-h2 span{{color:var(--ink-3);font-weight:400;font-size:12.5px;margin-left:.6rem}}
-.controls{{display:flex;flex-direction:column;gap:.45rem;margin:.4rem 0 .5rem}}
-.ctl{{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .7rem}}
-.ctl--row{{gap:.5rem 1.6rem}}
-.ctl__k{{font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-color:var(--ink-3);min-width:3.6rem}}
-.seg{{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-2);border-radius:6px;
-overflow:hidden;background:var(--surface)}}
-.seg__b{{appearance:none;background:none;border:0;border-right:1px solid var(--line);
-min-height:30px;padding:0 .75rem;font-size:12.5px;color:var(--ink-2);cursor:pointer;
-display:inline-flex;align-items:center;gap:.45rem}}
-.seg__b:last-child{{border-right:0}}
-.seg__b i{{width:14px;height:3px;border-radius:2px;background:var(--c,var(--ink-3))}}
-.seg__b:hover{{color:var(--ink);background:var(--raised)}}
-.seg__b[aria-pressed="true"]{{color:var(--ink);background:var(--raised);
-box-shadow:inset 0 -2px 0 var(--c,var(--accent))}}
-select#journey{{font:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);
-border:1px solid var(--line-2);border-radius:6px;min-height:30px;padding:0 .5rem;
-max-width:22rem}}
-.jb{{appearance:none;background:var(--surface);border:1px solid var(--line-2);border-radius:6px;
-min-height:30px;padding:0 .7rem;font-size:12.5px;color:var(--ink-2);cursor:pointer}}
-.jb:hover:not(:disabled){{color:var(--ink);background:var(--raised)}}
-.jb:disabled{{opacity:.4;cursor:default}}
-.jcount{{font-family:var(--fm);font-size:11.5px;color:var(--ink-3);min-width:3.2rem;
-text-align:center}}
-/* the slim strip above the map: the layer's question and its components */
-.lstrip{{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .9rem;margin:0 0 .6rem;
-padding:.5rem .8rem;background:var(--surface);border:1px solid var(--line);border-radius:6px;
-font-size:13px;min-height:2.6rem}}
-.lstrip__l{{font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-color:var(--ink-3);display:inline-flex;align-items:center;gap:.5rem;white-space:nowrap}}
-.lstrip__l i{{width:16px;height:3px;border-radius:2px;background:var(--c,var(--ink-3))}}
-.lstrip__q{{font-size:14.5px;color:var(--ink);font-weight:600;line-height:1.3}}
-.lstrip__s{{color:var(--ink-3)}}
-.lstrip__row{{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center}}
-.lstrip__row button{{appearance:none;background:var(--raised);border:1px solid var(--line);
-border-radius:4px;min-height:24px;padding:0 .45rem;font-family:var(--fm);font-size:11px;
-color:var(--ink-2);cursor:pointer}}
-.lstrip__row button:hover{{color:var(--accent);border-color:var(--accent)}}
-.lstrip__row button.on{{color:var(--ink);border-color:var(--accent);
-box-shadow:inset 0 -2px 0 var(--accent)}}
-.lstrip__row button b{{font-weight:600;margin-right:.35em;color:var(--ink-3)}}
-.lstrip__row button.on b{{color:var(--accent)}}
-.lstrip__row button i{{font-style:normal;color:var(--ink-3);margin:0 .3em}}
-.seg__b--step{{min-width:2.2rem;justify-content:center;font-family:var(--fm);font-size:14px}}
-.zpct{{font-family:var(--fm);font-size:11.5px;color:var(--ink-3);min-width:2.8rem}}
-/* the map: full width; the drawing pans and zooms inside the stage */
-.mapwrap{{position:relative}}
-.stage{{background:var(--surface);border:1px solid var(--line);border-radius:8px;
-padding:.4rem;overflow:hidden}}
-.hint{{margin:.4rem 0 0;font-size:12px;color:var(--ink-3)}}
-/* the focus panel: a drawer over the map, docked away from the selection */
-.drawer{{position:absolute;top:0;bottom:0;width:380px;max-width:calc(100% - 2rem);
-z-index:2;pointer-events:none}}
-.drawer[data-dock="right"]{{right:.6rem}}
-.drawer[data-dock="left"]{{left:.6rem}}
-.drawer[hidden]{{display:none}}
-.drawer__in{{position:sticky;top:.8rem;pointer-events:auto;max-height:calc(100vh - 1.6rem);
-overflow-y:auto;border-radius:8px;box-shadow:0 12px 34px rgba(0,0,0,.55),0 0 0 1px var(--line-2)}}
-.drawer__in .systemap-panel{{border-radius:0 0 8px 8px;border-top:0}}
-.drawer__x{{appearance:none;width:100%;display:flex;align-items:center;justify-content:flex-end;
-gap:.5rem;min-height:30px;padding:0 .8rem;background:var(--raised);border:0;
-border-bottom:1px solid var(--line);border-radius:8px 8px 0 0;font-family:var(--fm);
-font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);cursor:pointer}}
-.drawer__x::after{{content:"\\00d7";font-size:16px;line-height:1;color:var(--ink-2)}}
-.drawer__x:hover{{color:var(--ink)}}
-.drawer__x:hover::after{{color:var(--accent)}}
-/* the map inside a card, opened in place over the page */
-.submap{{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--bg)}}
-.submap[hidden]{{display:none}}
-.submap__bar{{display:flex;align-items:center;gap:1rem;padding:.5rem 1rem;background:var(--surface);
-border-bottom:1px solid var(--line);font-family:var(--fm);font-size:12.5px}}
-.submap__crumb{{color:var(--ink);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
-white-space:nowrap}}
-.submap__x{{appearance:none;background:var(--raised);border:1px solid var(--line-2);
-border-radius:6px;min-height:30px;padding:0 .8rem;font-family:var(--fm);font-size:11px;
-letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);cursor:pointer}}
-.submap__x:hover{{color:var(--ink);border-color:var(--accent)}}
-.submap__frame{{flex:1 1 auto;width:100%;border:0;background:var(--bg)}}
-body.submap-open{{overflow:hidden}}
-.strip{{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem 1rem;margin:.6rem 0 0;
-padding:.6rem .9rem;background:var(--raised);border-radius:6px;
-border-left:3px solid var(--accent);font-size:13.5px;color:var(--ink)}}
-.strip[hidden]{{display:none}}
-.strip__n{{font-family:var(--fm);font-size:11px;color:var(--accent);letter-spacing:.06em}}
-.strip__meas{{font-family:var(--fm);font-size:11px;color:var(--steel);margin-left:auto}}
-.strip__meas.none{{color:var(--bad)}}
-.strip__foot{{flex:1 0 100%;font-family:var(--fm);font-size:11px;color:var(--ink-3)}}
-.strip__foot b{{color:var(--ink-2);font-weight:600}}
-.strip__foot .draft{{color:var(--bad)}}
-.legend{{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:.6rem 0 .2rem;align-items:center;
-font-family:var(--fm);font-size:11px;color:var(--ink-3)}}
-.lg{{display:inline-flex;align-items:center;gap:.4rem}}
-.lg i{{width:13px;height:9px;border:1px solid;border-radius:2px;display:inline-block}}
-.lg i.lg--line{{height:3px;border:0;width:16px}}
-.lg i.lg--dashline{{height:0;width:16px;border:0;border-top:2px dashed;border-radius:0;
-background:none}}
-.lg i.lg--dashed{{border-style:dashed}}
-.lg i.lg--ring{{background:none;border-width:2px;border-radius:3px}}
-/* the kind marks: an agent's inner ring, a tool's notch, a context's dots */
-.lg i.lg--mark-ring{{box-shadow:inset 0 0 0 1.5px var(--surface),inset 0 0 0 2.5px currentColor}}
-.lg i.lg--mark-notch{{background-image:linear-gradient(135deg,currentColor 0 38%,transparent 38%)}}
-.lg i.lg--mark-dotted{{border-style:dotted}}
-/* a card that opens a map stands on a second card */
-.lg i.lg--mark-map{{box-shadow:2px 2px 0 0 currentColor}}
-.lg--gap{{width:.6rem}}
-.key{{font-size:12.5px;color:var(--ink-3);max-width:62rem;margin:.2rem 0 0}}
-.ixgrid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:.6rem 1.4rem}}
-.ixgroup{{min-width:0}}
-.region{{font-family:var(--fm);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-color:var(--ink-3);margin:.6rem 0 .3rem;padding-bottom:.3rem;border-bottom:1px solid var(--line);
-display:flex;align-items:center;gap:.5rem}}
-.region i{{font-style:normal;color:var(--ink-3);width:1.4em;text-align:center;
-border:1px solid var(--line-2);border-radius:50%;font-size:11px;line-height:1.4em}}
-.ix{{display:flex;width:100%;align-items:center;gap:.6rem;min-height:30px;padding:.15rem .4rem;
-background:none;border:0;border-radius:5px;text-align:left;cursor:pointer;font-size:13px}}
-.ix:hover{{background:var(--raised)}}
-.ix__plain{{color:var(--ink);flex:1 1 auto;min-width:0;line-height:1.3}}
-.ix code{{color:var(--ink-3);font-size:11px;white-space:nowrap}}
-.chip{{font-family:var(--fm);font-size:11px;letter-spacing:.05em;padding:.1rem .4rem;
-border-radius:3px;background:var(--raised);color:var(--ink-3);white-space:nowrap;
-border:1px solid transparent}}
-.chip--built{{color:var(--good)}}
-.chip--actor{{background:none;border-color:var(--line-2)}}
-.rules{{padding-left:1.8rem;font-size:13px;color:var(--ink-2);max-width:70rem;margin:0}}
-.rules li{{margin:0 0 .45rem;padding-left:.3rem}}
-.rules li::marker{{font-family:var(--fm);color:var(--violet)}}
-.rules li:target{{outline:2px solid var(--accent);outline-offset:4px}}
-.rules__t{{color:var(--ink)}}
-.governs{{display:block;margin-top:.1rem}}
-.gv{{appearance:none;background:none;border:0;padding:0 .25rem;min-height:24px;
-font-family:var(--fm);font-size:11px;color:var(--ink-3);cursor:pointer}}
-.gv:hover{{color:var(--accent)}}
-.foot{{padding:1rem 1.4rem 2rem;font-size:11.5px;color:var(--ink-3);
-border-top:1px solid var(--line)}}
-@media (max-width:1000px){{
-.drawer{{position:static;width:auto;max-width:none;margin:.6rem 0 0;pointer-events:auto}}
-.drawer__in{{position:static;max-height:none;box-shadow:0 0 0 1px var(--line-2)}}
-}}
-@media (prefers-reduced-motion:reduce){{*{{transition:none!important;animation:none!important}}}}
-"""
-
-JS = r"""
-(function(){
-  var svg = document.getElementById('schematic');
-  if(!svg || !svg.systemap){ return; }
-  var A = svg.systemap;
-  var panel = document.getElementById('panel');
-  var drawer = document.getElementById('drawer');
-  var stage = document.getElementById('stage');
-  var lstrip = document.getElementById('lstrip');
-  var LAY = {};
-  A.layers.forEach(function(l){ LAY[l.id] = l; });
-  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  function all(sel, root){
-    return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
-  function reduced(){
-    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-
-  // ---- the strip above the map: the active layer and what it touches ----
-  function layerStrip(){
-    if(!lstrip || cur.j >= 0){ return; }
-    var L = A.state.layer, h = '';
-    if(L === 'all'){
-      h += '<span class="lstrip__l">All layers</span>';
-      h += '<span class="lstrip__q">Every flow at once, each in the colour of its layer.</span>';
-      h += '<span class="lstrip__row">';
-      A.layers.forEach(function(l){
-        h += '<button type="button" data-pick="' + esc(l.id) + '" title="' + esc(l.question)
-           + '" style="border-bottom:2px solid ' + l.colour + '">' + esc(l.label) + '</button>';
-      });
-      h += '</span>';
-    } else {
-      var l = LAY[L], list = A.layerIds(L);
-      // The count says what the header says: the cards that are code, then
-      // the actors the reading touches, named apart.
-      var actors = list.filter(function(id){ return A.detail[id].kind === 'actor'; }).length;
-      var comps = list.length - actors;
-      var counted = comps + ' component' + (comps === 1 ? '' : 's')
-        + (actors ? ' and ' + actors + ' actor' + (actors === 1 ? '' : 's') : '');
-      h += '<span class="lstrip__l" style="--c:' + l.colour + '"><i></i>' + esc(l.label)
-         + ' layer</span>';
-      h += '<span class="lstrip__q">' + esc(l.question) + '</span>';
-      h += '<span class="lstrip__s">' + esc(l.sub) + '. ' + counted + '; click one.</span>';
-      h += '<span class="lstrip__row">';
-      list.forEach(function(id){
-        h += '<button type="button" data-go="' + esc(id) + '">' + esc(id) + '</button>'; });
-      h += '</span>';
-    }
-    lstrip.innerHTML = h;
-    all('[data-go]', lstrip).forEach(function(b){
-      b.addEventListener('click', function(){ A.select(b.dataset.go); });
-    });
-    all('[data-pick]', lstrip).forEach(function(b){
-      b.addEventListener('click', function(){ setLayer(b.dataset.pick); });
-    });
-  }
-
-  // ---- layer switch -----------------------------------------------------
-  var layerBtns = all('[data-layer-btn]');
-  function setLayer(id){
-    A.setLayer(id);
-    layerBtns.forEach(function(b){
-      b.setAttribute('aria-pressed', b.dataset.layerBtn === id ? 'true' : 'false'); });
-    layerStrip();
-  }
-  layerBtns.forEach(function(b){
-    b.addEventListener('click', function(){ setLayer(b.dataset.layerBtn); }); });
-
-  // ---- the drawer: opens on selection, docks away from the node ---------
-  function cover(){
-    // What the drawer lays over the map: its box and its side, or nothing
-    // when it is hidden or sits below the map (the narrow layout).
-    if(!drawer || drawer.hidden){ return null; }
-    var d = drawer.getBoundingClientRect(), s = svg.getBoundingClientRect();
-    if(d.right <= s.left || d.left >= s.right || d.bottom <= s.top || d.top >= s.bottom){
-      return null;
-    }
-    return {rect:d, side:drawer.dataset.dock};
-  }
-  function frameBeside(id, instant){
-    // The lit set framed in the part of the map the drawer leaves visible,
-    // measured on the next frame, once the drawer is laid out and the page
-    // has scrolled the map into view.
-    window.requestAnimationFrame(function(){
-      if(A.state.focus === id){ A.view.frameFocus(cover(), instant); }
-    });
-  }
-  function openDrawer(id, instant){
-    // The figure has already framed the lit set in the visible map; the
-    // card's position in that view picks the side. The drawer then covers
-    // that side, so the lit set is framed again into the part it leaves.
-    if(!drawer){ return; }
-    drawer.dataset.dock = A.view.fracOf(id) > 0.6 ? 'left' : 'right';
-    drawer.hidden = false;
-    reveal();
-    frameBeside(id, instant);
-  }
-  function closeDrawer(){ if(drawer){ drawer.hidden = true; } }
-  function reveal(){
-    // The page scrolls so the map is on screen; the map itself has moved.
-    if(!stage){ return; }
-    var s = stage.getBoundingClientRect();
-    if(s.top < 0 || s.top > window.innerHeight - 200){
-      document.getElementById('map').scrollIntoView({block:'start'});
-    }
-  }
-  var closeBtn = document.getElementById('drawerclose');
-  if(closeBtn){ closeBtn.addEventListener('click', function(){ A.clear(); }); }
-
-  // ---- zoom: Fit and 100% are the named states; + and - step by 1.25 ----
-  var zoomBtns = all('[data-zoom]'), zpct = document.getElementById('zpct');
-  zoomBtns.forEach(function(b){
-    b.addEventListener('click', function(){
-      var z = b.dataset.zoom;
-      if(z === 'fit'){ A.view.fit(); }
-      else if(z === 'actual'){ A.view.actual(); }
-      else { A.view.zoomBy(z === 'in' ? 1.25 : 1 / 1.25); }
-    });
-  });
-  function showZoom(zoom, fit){
-    zoomBtns.forEach(function(b){
-      if(b.dataset.zoom === 'fit'){ b.setAttribute('aria-pressed', fit ? 'true' : 'false'); }
-      if(b.dataset.zoom === 'actual'){
-        b.setAttribute('aria-pressed', Math.abs(zoom - 1) < 0.01 ? 'true' : 'false'); }
-    });
-    if(zpct){ zpct.textContent = Math.round(zoom * 100) + '%'; }
-  }
-  svg.addEventListener('systemap:view', function(e){ showZoom(e.detail.zoom, e.detail.fit); });
-
-  // ---- journeys ---------------------------------------------------------
-  var sel = document.getElementById('journey');
-  var prev = document.getElementById('jprev'), next = document.getElementById('jnext');
-  var count = document.getElementById('jcount');
-  var strip = document.getElementById('strip');
-  var stripN = document.getElementById('stripn'), stripSay = document.getElementById('stripsay');
-  var stripMeas = document.getElementById('stripmeas');
-  var stripFoot = document.getElementById('stripfoot');
-  var cur = {j:-1, s:0};
-  function journeyStrip(j){
-    // The strip during a journey: every step as the edge it traces, the
-    // current one lit, each one a jump. The sentence lives under the map.
-    if(!lstrip){ return; }
-    var h = '<span class="lstrip__l" style="--c:var(--accent)"><i></i>journey</span>'
-          + '<span class="lstrip__q">' + esc(j.label) + '</span><span class="lstrip__row">';
-    j.steps.forEach(function(s, k){
-      var e = A.edges[s.edge] || {from:'', to:'', art:''};
-      h += '<button type="button" class="' + (k === cur.s ? 'on' : '') + '" data-step="' + k
-         + '" title="' + esc(e.art) + '"><b>' + (k + 1) + '</b>' + esc(e.from) + '<i>to</i>'
-         + esc(e.to) + '</button>';
-    });
-    lstrip.innerHTML = h + '</span>';
-    all('[data-step]', lstrip).forEach(function(b){
-      b.addEventListener('click', function(){ cur.s = +b.dataset.step; showStep(); });
-    });
-  }
-  function footOf(j, step){
-    // Where the walk begins, what backs the step the reader is on, and a
-    // word when an agent wrote the walk and nobody has confirmed it.
-    var parts = [];
-    if(j.starts){ parts.push('starts at <b>' + esc(j.starts) + '</b>'); }
-    var e = A.edges[step.edge];
-    if(e && e.evidence_says){ parts.push(esc(e.evidence_says)); }
-    if(j.drafted){
-      parts.push('<span class="draft">written by an agent, not yet confirmed</span>');
-    }
-    return parts.join(' &middot; ');
-  }
-  function showStep(){
-    var j = A.journeys[cur.j];
-    if(!j){ return; }
-    var step = j.steps[cur.s];
-    A.setJourney(step);
-    closeDrawer();
-    journeyStrip(j);
-    if(strip){
-      strip.hidden = false;
-      stripN.textContent = (cur.s + 1) + ' / ' + j.steps.length;
-      stripSay.textContent = step.say;
-      var m = step.measures || [];
-      stripMeas.textContent = m.length ? 'measured by ' + m.join(', ')
-        : 'nothing measures this step';
-      stripMeas.classList.toggle('none', !m.length);
-      stripFoot.innerHTML = footOf(j, step);
-    }
-    if(count){ count.textContent = (cur.s + 1) + '/' + j.steps.length; }
-    prev.disabled = cur.s === 0; next.disabled = cur.s >= j.steps.length - 1;
-  }
-  function endJourney(){
-    cur.j = -1; cur.s = 0;
-    if(strip){ strip.hidden = true; }
-    if(count){ count.textContent = ''; }
-    prev.disabled = true; next.disabled = true;
-    if(sel){ sel.value = ''; }
-    layerStrip();
-  }
-  function startJourney(k){
-    cur.j = k; cur.s = 0;
-    showStep();
-    document.getElementById('map').scrollIntoView({block:'start'});
-  }
-  if(sel){ sel.addEventListener('change', function(){
-    if(sel.value === ''){ endJourney(); A.setJourney(null); }
-    else { startJourney(+sel.value); }
-  }); }
-  function stepBy(d){
-    var j = A.journeys[cur.j];
-    if(!j){ return false; }
-    var s = cur.s + d;
-    if(s < 0 || s >= j.steps.length){ return true; }
-    cur.s = s; showStep();
-    return true;
-  }
-  if(prev){ prev.addEventListener('click', function(){ stepBy(-1); }); }
-  if(next){ next.addEventListener('click', function(){ stepBy(1); }); }
-
-  // ---- the map inside a card, in place -----------------------------------
-  // The figure says which card to open (its button in the panel, a
-  // double-click on the card, Enter on it a second time); the page lays the
-  // sub-map's page over itself in a frame, under a breadcrumb, and hands
-  // the focus back to the card when the overlay closes.
-  var submap = document.getElementById('submap');
-  var submapFrame = document.getElementById('submapframe');
-  var submapCrumb = document.getElementById('submapcrumb');
-  var submapClose = document.getElementById('submapclose');
-  var submapOpener = null;
-  function openSubmap(e){
-    var d = e.detail || {};
-    if(!submap || !d.href){ return; }
-    submapOpener = nodeOf(d.id) || document.activeElement;
-    submapCrumb.textContent = (submap.dataset.here || '') + ' > ' + d.name;
-    if(submapFrame.getAttribute('src') !== d.href){ submapFrame.setAttribute('src', d.href); }
-    submap.hidden = false;
-    document.body.classList.add('submap-open');
-    submapClose.focus();
-  }
-  function closeSubmap(){
-    if(!submap || submap.hidden){ return false; }
-    submap.hidden = true;
-    submapFrame.setAttribute('src', 'about:blank');
-    document.body.classList.remove('submap-open');
-    if(submapOpener){ submapOpener.focus({preventScroll:true}); }
-    submapOpener = null;
-    return true;
-  }
-  svg.addEventListener('systemap:open', openSubmap);
-  if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
-
-  // ---- the scheme -------------------------------------------------------
-  // The head script stamped the root before the first paint; the picker
-  // shows that, and a change restamps the root, keeps the pick in this
-  // browser when it can, and follows into the map inside a card.
-  var pick = document.getElementById('scheme');
-  function scheme(){ return document.documentElement.getAttribute('data-theme') || ''; }
-  function stampFrame(){
-    try {
-      var d = submapFrame && submapFrame.contentDocument;
-      if(d && d.documentElement){ d.documentElement.setAttribute('data-theme', scheme()); }
-    } catch(e){}
-  }
-  function setScheme(name){
-    document.documentElement.setAttribute('data-theme', name);
-    if(pick){ pick.value = name; }
-    try { localStorage.setItem('systemap-theme', name); } catch(e){}
-    stampFrame();
-  }
-  if(pick){
-    pick.value = scheme() || pick.value;
-    pick.addEventListener('change', function(){ setScheme(pick.value); });
-  }
-  if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
-
-  // ---- keyboard ---------------------------------------------------------
-  // The page from the keyboard: Tab moves across the cards in reading
-  // order (they are written in that order and each takes focus), Enter on
-  // a card opens its panel, Escape closes it and clears the selection, the
-  // left and right arrows switch layers, or step the journey while one
-  // is on. A control that takes arrows itself (the journey select) keeps
-  // them.
-  function stepLayer(d){
-    var ids = layerBtns.map(function(b){ return b.dataset.layerBtn; });
-    if(!ids.length){ return; }
-    var i = ids.indexOf(A.state.layer);
-    setLayer(ids[(i + d + ids.length) % ids.length]);
-  }
-  document.addEventListener('keydown', function(e){
-    var t = e.target, tag = t && t.tagName;
-    if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){ return; }
-    if(e.altKey || e.ctrlKey || e.metaKey){ return; }
-    if(e.key === 'Escape'){
-      // The map inside a card closes first, and the selection under it stays.
-      if(closeSubmap()){ e.preventDefault(); return; }
-      if(cur.j >= 0){ endJourney(); }
-      A.clear();
-      A.view.back();
-      e.preventDefault();
-    } else if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
-      var d = e.key === 'ArrowRight' ? 1 : -1;
-      if(cur.j >= 0){ if(stepBy(d)){ e.preventDefault(); } }
-      else { stepLayer(d); e.preventDefault(); }
-    }
-  });
-
-  // ---- selection, hash, index ------------------------------------------
-  var opened = '';
-  svg.addEventListener('systemap:select', function(e){
-    if(cur.j >= 0){ endJourney(); }
-    var id = e.detail.id;
-    opened = id;
-    openDrawer(id);
-    if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
-  });
-  svg.addEventListener('systemap:clear', function(){
-    closeDrawer();
-    if(location.hash){ history.replaceState(null, '', location.pathname + location.search); }
-    // Focus that was in the drawer, or nowhere, goes back to the card the
-    // drawer was about, so the keyboard reader is where they left off.
-    var active = document.activeElement, node = opened && nodeOf(opened);
-    opened = '';
-    if(node && (!active || active === document.body || active.isConnected === false
-        || (drawer && drawer.contains(active)))){
-      node.focus({preventScroll:true});
-    }
-  });
-  function nodeOf(id){
-    return all('.node', svg).filter(function(n){ return n.dataset.id === id; })[0] || null;
-  }
-  all('.ix[data-go], .gv[data-go]').forEach(function(b){
-    b.addEventListener('click', function(){
-      A.select(b.dataset.go);
-      document.getElementById('map').scrollIntoView({
-        behavior:reduced() ? 'auto' : 'smooth', block:'start'});
-    });
-  });
-  window.addEventListener('resize', function(){
-    showZoom(A.view.zoom(), A.view.isFit());
-    // A held focus is framed again for the new window, in place.
-    if(A.state.focus && drawer && !drawer.hidden){ frameBeside(A.state.focus, true); }
-  });
-
-  setLayer(A.layers.length ? A.layers[0].id : 'all');
-  showZoom(A.view.zoom(), A.view.isFit());
-  if(A.state.focus){ openDrawer(A.state.focus, true); }
-})();
-"""

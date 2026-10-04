@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T15:43:25Z",
+  "title": "Design System: systemap",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Warm selection accent"
+      },
+      "graphite-accent": {
+        "role": "primary",
+        "displayName": "Graphite selection accent"
+      },
+      "paper-accent": {
+        "role": "primary",
+        "displayName": "Paper selection accent"
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Page body",
+        "purpose": "General page text and inherited control text."
+      },
+      "inspector-body": {
+        "displayName": "Inspector explanation",
+        "purpose": "Relationship explanations and source records."
+      },
+      "code-title": {
+        "displayName": "Part identifier",
+        "purpose": "Selected part identifiers."
+      },
+      "snapshot": {
+        "displayName": "Snapshot metadata",
+        "purpose": "Stored-snapshot status and extraction provenance in the desktop header."
+      },
+      "metadata": {
+        "displayName": "Compact metadata",
+        "purpose": "Component counts, desktop appearance labels and zoom information."
+      },
+      "project-title": {
+        "displayName": "Project title",
+        "purpose": "Project name in the page header."
+      },
+      "phone-brand": {
+        "displayName": "Phone brand",
+        "purpose": "The smaller systemap name at the phone breakpoint."
+      },
+      "reference-title": {
+        "displayName": "Reference section title",
+        "purpose": "Section titles below the map."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "The systemap name in the desktop header."
+      },
+      "reading-title": {
+        "displayName": "Reading section title",
+        "purpose": "Headings in reading view and the revision comparison section."
+      }
+    },
+    "shadows": [
+      {
+        "name": "nested-map-dialog",
+        "value": "0 8px 60px color-mix(in srgb,var(--bg) 80%,transparent)",
+        "purpose": "Separates an open nested map from the inert background."
+      }
+    ],
+    "motion": [
+      {
+        "name": "flow-emphasis",
+        "value": "stroke-width .18s ease-out",
+        "purpose": "Emphasizes a selected or previewed route."
+      },
+      {
+        "name": "connection-emphasis",
+        "value": "stroke-width .12s ease-out",
+        "purpose": "Emphasizes an inspector relationship spoke."
+      },
+      {
+        "name": "direction-cue",
+        "value": "1.8s linear infinite",
+        "purpose": "Shows direction on at most one exact relationship. It does not represent a recorded execution."
+      },
+      {
+        "name": "camera-frame",
+        "value": "480ms",
+        "purpose": "Frames selected parts. The camera uses exponential ease-out and applies the final position immediately under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "inspector-below",
+        "value": "1050px"
+      },
+      {
+        "name": "phone-controls",
+        "value": "640px"
+      }
+    ],
+    "sources": [
+      "src/systemap/theme.py",
+      "src/systemap/page_assets.py",
+      "src/systemap/schematic_cards.py",
+      "src/systemap/schematic_style.py",
+      "src/systemap/schematic_script.py",
+      "src/systemap/page_atlas.py"
+    ],
+    "limitations": [
+      "Source values describe the implemented design. They are not measurements of load time, interaction latency or field accessibility.",
+      "SVG text sizes are authored coordinate values. Actual displayed sizes vary with the map transform.",
+      "Theme overrides can change colour values. Runtime controls and previews should use the shared CSS variables."
+    ]
+  },
+  "components": [
+    {
+      "name": "Map action",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The outlined action below the map that restores the complete map view.",
+      "html": "<button type=\"button\" class=\"ds-button\">Fit map</button>",
+      "css": ".ds-button{font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:14px;color:var(--ink,#ece5d8);background:transparent;border:1px solid var(--line-2,#4a4237);border-radius:4px;min-height:36px;padding:.4rem .7rem;cursor:pointer}.ds-button:hover{background:var(--raised,#27221a)}.ds-button:focus-visible,.ds-layer:focus-visible,.ds-search:focus-visible,.ds-nav a:focus-visible,.ds-card:focus-visible,.ds-endpoint:focus-visible{outline:2px solid var(--accent,#e5a84f);outline-offset:3px}@media(max-width:640px){.ds-button{min-width:44px;min-height:44px}}"
+    },
+    {
+      "name": "Selected layer",
+      "kind": "button",
+      "refersTo": "button-selected",
+      "description": "A pressed layer control with a hue indicator and readable label.",
+      "html": "<button type=\"button\" class=\"ds-layer\" aria-pressed=\"true\"><i aria-hidden=\"true\"></i>Structure</button>",
+      "css": ".ds-layer{display:flex;align-items:center;gap:.4rem;font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:12px;color:var(--ink,#ece5d8);background:var(--surface,#1e1a15);border:1px solid var(--line-2,#4a4237);border-radius:4px;min-height:36px;padding:.4rem .55rem;cursor:pointer}.ds-layer i{width:12px;height:3px;border-radius:1px;background:var(--l-structure,#d9cdb2)}.ds-layer:hover{background:var(--raised,#27221a)}.ds-button:focus-visible,.ds-layer:focus-visible,.ds-search:focus-visible,.ds-nav a:focus-visible,.ds-card:focus-visible,.ds-endpoint:focus-visible{outline:2px solid var(--accent,#e5a84f);outline-offset:3px}"
+    },
+    {
+      "name": "Part search",
+      "kind": "input",
+      "refersTo": "search",
+      "description": "A native search field for part names, purposes, modules and file paths.",
+      "html": "<label class=\"ds-search-label\" for=\"ds-part-search\">Find a part</label><input class=\"ds-search\" id=\"ds-part-search\" type=\"search\" placeholder=\"Job, name or module\">",
+      "css": ".ds-search-label{display:block;margin-bottom:.5rem;color:var(--ink,#ece5d8);font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:13px}.ds-search{width:100%;font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:14px;color:var(--ink,#ece5d8);background:var(--surface,#1e1a15);border:1px solid var(--line-2,#4a4237);border-radius:4px;min-height:40px;padding:.5rem .7rem;caret-color:var(--accent,#e5a84f)}.ds-button:focus-visible,.ds-layer:focus-visible,.ds-search:focus-visible,.ds-nav a:focus-visible,.ds-card:focus-visible,.ds-endpoint:focus-visible{outline:2px solid var(--accent,#e5a84f);outline-offset:3px}@media(max-width:640px){.ds-search{min-height:44px}}"
+    },
+    {
+      "name": "Reference navigation",
+      "kind": "nav",
+      "description": "Small header links to the page references.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Map references\"><a href=\"#components\">Find a part</a><a href=\"#invariants\">Rules</a><a href=\"#review\">Review</a></nav>",
+      "css": ".ds-nav{display:flex;gap:1rem;font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:12px}.ds-nav a{color:var(--ink-2,#c4b9a4);text-underline-offset:3px}.ds-nav a:hover{color:var(--ink,#ece5d8)}.ds-button:focus-visible,.ds-layer:focus-visible,.ds-search:focus-visible,.ds-nav a:focus-visible,.ds-card:focus-visible,.ds-endpoint:focus-visible{outline:2px solid var(--accent,#e5a84f);outline-offset:3px}@media(max-width:640px){.ds-nav{gap:.8rem}.ds-nav a{display:inline-flex;align-items:center;min-width:44px;min-height:44px}}"
+    },
+    {
+      "name": "Spatial part card",
+      "kind": "card",
+      "refersTo": "map-card",
+      "description": "A part identifier and purpose within the authored map. This Page example uses the component geometry.",
+      "html": "<svg class=\"ds-card\" viewBox=\"0 0 150 56\" width=\"150\" height=\"56\" role=\"button\" tabindex=\"0\" aria-label=\"Inspect Page: Builds the map page\"><rect class=\"ds-card-box\" x=\"0\" y=\"0\" width=\"150\" height=\"56\" rx=\"4\"></rect><text class=\"ds-card-name\" x=\"10\" y=\"17\">Page</text><text class=\"ds-card-purpose\" x=\"10\" y=\"32\">Builds the map page</text></svg>",
+      "css": ".ds-card{cursor:pointer;overflow:visible}.ds-card-box{fill:var(--card-built,#27221a);stroke:var(--card-built-line,#8a7d63);stroke-width:1.1}.ds-card-name{font-family:var(--fm,ui-monospace,monospace);font-size:11.5px;font-weight:600;fill:var(--ink,#ece5d8)}.ds-card-purpose{font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:11px;fill:var(--ink-3,#a2967f)}.ds-card:hover .ds-card-box{stroke-width:1.8}.ds-card:focus-visible .ds-card-box{stroke:var(--accent,#e5a84f);stroke-width:2.6}.ds-button:focus-visible,.ds-layer:focus-visible,.ds-search:focus-visible,.ds-nav a:focus-visible,.ds-card:focus-visible,.ds-endpoint:focus-visible{outline:2px solid var(--accent,#e5a84f);outline-offset:3px}"
+    },
+    {
+      "name": "Relationship endpoints",
+      "kind": "custom",
+      "description": "Source and destination controls inside the exact relationship inspector.",
+      "html": "<div class=\"ds-endpoints\"><button class=\"ds-endpoint\" type=\"button\"><small>From</small><code>CLI</code><span>the commands</span></button><button class=\"ds-endpoint\" type=\"button\"><small>To</small><code>Page</code><span>Builds the map page</span></button></div>",
+      "css": ".ds-endpoints{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}.ds-endpoint{min-width:0;min-height:66px;display:grid;gap:.2rem;text-align:left;padding:.65rem;border:1px solid var(--line-2,#4a4237);border-radius:6px;background:var(--bg,#161310);color:var(--ink,#ece5d8);cursor:pointer;font-family:var(--fs,ui-sans-serif,system-ui,sans-serif);font-size:13px}.ds-endpoint small,.ds-endpoint span{font-size:11px;color:var(--ink-3,#a2967f)}.ds-endpoint code{font-family:var(--fm,ui-monospace,monospace);font-size:12px;overflow-wrap:anywhere}.ds-endpoint:hover{border-color:var(--accent,#e5a84f)}.ds-button:focus-visible,.ds-layer:focus-visible,.ds-search:focus-visible,.ds-nav a:focus-visible,.ds-card:focus-visible,.ds-endpoint:focus-visible{outline:2px solid var(--accent,#e5a84f);outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "An authored spatial map with exact relationship evidence",
+    "overview": "The authored spatial map is the main artefact. A card represents a part of the system. A flow names something passed between parts. The inspector explains a selected part or exact flow beside the map. Reading view presents the same information as text.  The selected direction follows refined prototype revision 5. It uses compact controls, flat surfaces and visible card purposes. The user rejected the former operations-first atlas layout. These specifications describe the implementation; they do not certify runtime performance or accessibility.",
+    "keyCharacteristics": [
+      "Flat surfaces with visible boundaries",
+      "Card purposes remain visible",
+      "Warm, graphite and paper schemes",
+      "Spatial map first, reading view available",
+      "Exact directed relationships and explicit evidence"
+    ],
+    "rules": [],
+    "dos": [
+      "Do preserve authored positions when switching layers or reading views.",
+      "Do keep a part's purpose readable while inspecting its relationships.",
+      "Do preserve exact finding lines and distinguish authored claims from facts.",
+      "Do keep selection, evidence and journey roles distinguishable without motion."
+    ],
+    "donts": [
+      "Don't restore the rejected operations-first atlas composition.",
+      "Don't imply that directional animation records an execution.",
+      "Don't hide missing evidence or convert a declared flow to observed evidence."
+    ]
+  }
+}

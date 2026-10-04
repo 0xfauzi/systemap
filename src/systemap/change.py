@@ -1,10 +1,9 @@
 """Work out what a branch changes about the system, in logical terms.
 
 A change view needs more than "these files differ". It needs to know which
-components moved, what each one gained or lost, which exported names were
-redefined on the wire, and how far the change reaches. Reach is computed here
-rather than left to the reader, because "what does this affect" is the
-question a change view exists to answer.
+components changed, what each one gained or lost, which exported names were
+redefined, and which parts import changed modules. Imports name possible
+effects for the reader to investigate. They do not establish runtime impact.
 
 Everything is derived from the same primitives the map itself uses: the
 public surface of a module is `extract.parse_surface` applied to the git
@@ -12,9 +11,8 @@ blob on each side of the diff, and reach follows the name-level imports the
 facts record. Two answers about the same module can therefore never disagree,
 because there is only one definition of what the module exports.
 
-Reach and redefinition answer different questions on purpose. Reach is
-behavioral: any edit to a module can change the behavior of everything that
-imports it, so every direct importer is reached. Redefinition is interface:
+Reach and redefinition answer different questions. Reach names every direct
+importer of a changed module. Redefinition describes the public interface:
 only an exported name whose definition changed, and that some other module
 imports by name, counts as redefined on the wire. A whole-module import
 (`import m`) hides which names are used, so it contributes reach but never a
@@ -42,19 +40,6 @@ BUCKETS = ("operations", "types", "refusals", "constants")
 
 class ChangeError(Exception):
     """A requested comparison could not be made."""
-
-
-def _commit(repo: Path, ref: str) -> str:
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        timeout=90,
-    )
-    if result.returncode != 0:
-        raise ChangeError(f"cannot compare: git ref {ref!r} does not name a commit")
-    return result.stdout.strip()
 
 
 def _run(args: list[str], cwd: Path) -> str:
@@ -90,8 +75,34 @@ def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
 
 def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
     """Every path the diff touches, split on NUL so spaces in names survive."""
-    out = _run(["git", "diff", "--name-only", "-z", merge_base, head, "--no-renames"], repo)
-    return [f for f in out.split("\0") if f]
+    proc = subprocess.run(
+        ["git", "diff", "--name-only", "-z", merge_base, head, "--no-renames"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    if proc.returncode:
+        raise ChangeError(f"git could not compare {merge_base} and {head}")
+    return [f for f in proc.stdout.split("\0") if f]
+
+
+def _resolve(repo: Path, ref: str) -> str:
+    revision = _run(
+        ["git", "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"],
+        repo,
+    ).strip()
+    if not revision:
+        raise ChangeError(f"unknown revision {ref}: give a commit, branch or tag git can find")
+    return revision
+
+
+def _comparison_revisions(repo: Path, base: str, head: str) -> tuple[str, str, str]:
+    base_revision, head_revision = _resolve(repo, base), _resolve(repo, head)
+    shared = _run(["git", "merge-base", base_revision, head_revision], repo).strip()
+    if not shared:
+        raise ChangeError(f"{base} and {head} have no common ancestor to compare")
+    return base_revision, head_revision, shared
 
 
 def _empty_surface() -> dict[str, Any]:
@@ -285,8 +296,10 @@ def compute(
     if artifact_owner is None:
         artifact_owner = {}
 
+    base_revision, head_revision, merge_base = _comparison_revisions(repo, base, head)
     empty: dict[str, Any] = {
         "has_change": False,
+        "comparison_requested": True,
         "direct": set(),
         "adjacent": set(),
         "modules": set(),
@@ -296,18 +309,16 @@ def compute(
         "files": 0,
         "base": base,
         "head": head,
+        "base_revision": base_revision,
+        "head_revision": head_revision,
+        "comparison_base": merge_base,
         "reach_known": True,
         "unparsed": [],
     }
-    base_commit = _commit(repo, base)
-    head_commit = _commit(repo, head)
-    merge_base = _run(["git", "merge-base", base_commit, head_commit], repo).strip()
-    if not merge_base:
-        raise ChangeError(f"cannot compare {base!r} and {head!r}: no shared commit")
-    files = _changed_files(repo, merge_base, head_commit)
+    files = _changed_files(repo, merge_base, head_revision)
     if not files:
         return empty
-    snapshot_facts = history.facts_at(cfg, head_commit)
+    snapshot_facts = history.facts_at(cfg, head_revision)
 
     # Each changed source module: its surface delta, from the two git blobs.
     deltas: dict[str, dict[str, Any]] = {}
@@ -317,7 +328,7 @@ def compute(
         if not module or language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
             continue
         delta = surface_delta(
-            _show(repo, merge_base, path), _show(repo, head, path), language, path
+            _show(repo, merge_base, path), _show(repo, head_revision, path), language, path
         )
         if delta is None:
             unparsed.append(module)
@@ -326,7 +337,7 @@ def compute(
     modules = set(deltas) | set(unparsed)
 
     tests_added, tests_removed = _changed_test_deltas(
-        cfg, language, files, snapshot_facts, modules, merge_base, head_commit
+        cfg, language, files, snapshot_facts, modules, merge_base, head_revision
     )
 
     direct: set[str] = set()
@@ -411,6 +422,7 @@ def compute(
 
     return {
         "has_change": True,
+        "comparison_requested": True,
         "direct": direct,
         "adjacent": adjacent,
         "modules": modules,
@@ -420,6 +432,9 @@ def compute(
         "files": len(files),
         "base": base,
         "head": head,
+        "base_revision": base_revision,
+        "head_revision": head_revision,
+        "comparison_base": merge_base,
         "reach_known": reach_known,
         "unparsed": sorted(unparsed),
     }

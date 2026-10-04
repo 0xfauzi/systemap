@@ -181,7 +181,7 @@ GRAPHITE: dict[str, Any] = {
     "line_2": "#3a4149",
     "ink": GRAPHITE_INK,
     "ink_2": "#b3b1aa",
-    "ink_3": "#858a92",
+    "ink_3": "#868b93",
     "accent": GRAPHITE_AMBER,
     "accent_soft": "#e0a4582e",
     "steel": "#8fb0c4",
@@ -199,7 +199,7 @@ GRAPHITE: dict[str, Any] = {
         "server": ["#2f353d", "#16191d"],
         "isolated": ["#6b5347", "#1a1715"],
     },
-    "region": "#858a92",
+    "region": "#868b93",
     "change": "#d97b6c",
     "reach": GRAPHITE_AMBER,
     "flow": "#4a515a",
@@ -417,7 +417,9 @@ def tints(t: dict[str, Any]) -> dict[str, Any]:
     """The colours derived from the table, computed in one place so the
     `:root` block and a literal figure cannot disagree about a tint."""
     return {
-        "actor": mix(t["bg"], t["line_2"], ACTOR_MIX),
+        "actor": mix(
+            t["bg"], t["surface"] if t["color_scheme"] == "light" else t["line_2"], ACTOR_MIX
+        ),
         "changed_fill": mix(t["bg"], t["change"], CHANGED_MIX),
         "reach_fill": mix(t["bg"], t["reach"], REACH_MIX),
         "tags": {lid: mix(t["raised"], colour, TAG_MIX) for lid, colour in t["layers"].items()},

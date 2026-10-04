@@ -162,7 +162,7 @@ def check_keyboard(report: dict[str, object]) -> None:
     steps = j["steps"]
     assert j["started"] == f"1/{steps}" and j["stripHidden"] is False
     assert j["afterRight"] == (f"2/{steps}" if steps > 1 else f"1/{steps}")
-    assert j["layerUnchanged"] is True, "the arrows step the journey, not the reading"
+    assert j["layerMatchesStep"] is True, "the active layer follows the exact journey edge"
     assert j["afterLeft"] == f"1/{steps}" and j["afterLeftAtStart"] == f"1/{steps}"
     assert j["stepButtons"] == steps
     check_journey_foot(j)
@@ -217,7 +217,7 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
         "animation:none!important}}" in html
     )
     assert "@media (prefers-reduced-motion:reduce){#schematic .flow.hot{animation:none" in html
-    assert "From the keyboard: Tab moves across the cards, Enter opens one" in html
+    assert "Tab reaches cards and flow labels. Enter inspects." in html
 
 
 def test_the_schemes_accents_differ() -> None:

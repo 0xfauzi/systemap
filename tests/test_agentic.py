@@ -171,7 +171,7 @@ def test_entry_is_optional_for_store_and_context_kinds(
     capsys.readouterr()
     page = (tmp_path / "docs/map/index.html").read_text()
     assert '"entry":"","entry_module":""' in page
-    assert "none (a namespace)" in page
+    assert "No entry point is named for this part" in page
     # An entry a store does give is checked like any other.
     model.write_text(text.replace('entry="write",', 'kind="store",\n        entry="publish",'))
     assert run("--root", str(tmp_path), "check") == 1

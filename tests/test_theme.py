@@ -189,6 +189,26 @@ def test_every_text_token_clears_four_and_a_half_to_one_on_its_ground(scheme: st
     }
 
 
+@pytest.mark.parametrize("scheme", list(theme_mod.SCHEMES))
+def test_actor_and_inspector_text_clear_four_and_a_half_on_actual_fills(scheme: str) -> None:
+    """Acceptance: 4.5:1 on actor, raised, warning and inspector surfaces.
+
+    The ground alone misses actor fills and selected connection rows. These
+    pairs correspond to the displayed card purpose, row metadata and note.
+    """
+    t = theme_mod.SCHEMES[scheme]
+    palette = theme_mod.Palette(t)
+    pairs = {
+        "actor purpose": (t["ink_3"], palette.actor()[0]),
+        "selected connection metadata": (t["ink_3"], t["raised"]),
+        "inspector secondary text": (t["ink_3"], t["surface"]),
+        "note text": (t["ink"], t["raised"]),
+        "note warning label": (t["warn"], t["raised"]),
+    }
+    ratios = {label: contrast(ink, fill) for label, (ink, fill) in pairs.items()}
+    assert all(ratio >= 4.5 for ratio in ratios.values()), ratios
+
+
 def test_the_schemes_are_three_full_tables_and_the_default_is_warm() -> None:
     assert list(theme_mod.SCHEMES) == ["warm", "graphite", "paper"]
     assert theme_mod.DEFAULT_SCHEME == "warm" and theme_mod.LIGHT_SCHEME == "paper"
@@ -294,7 +314,7 @@ def test_the_page_carries_every_scheme_and_stamps_the_default(sample: Sample) ->
     assert "document.documentElement.setAttribute('data-theme',s)" in head
     assert head.index("<script>") < head.index("<style>"), "the root is stamped before the styles"
     # The picker in the header, one option per scheme.
-    assert '<label class="scheme">Scheme <select id="scheme" aria-label="Scheme">' in html
+    assert '<label class="scheme">Appearance <select id="scheme" aria-label="Scheme">' in html
     assert re.findall(r'<option value="(\w+)">', html.split("</header>")[0]) == [
         "warm",
         "graphite",

@@ -458,16 +458,16 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert "<title>demo system map</title>" in top
     assert "<title>demo system map: Gateway</title>" in gateway
     # The header counts the cards that are code, then the actors apart.
-    assert "each other: 4 components and 1 actor, 4 flows, four layers." in top
-    assert "the demo map</a>: 3 components and 2 actors, 4 flows, four layers." in gateway
+    assert "System map: 4 components and 1 actor, 4 flows, four layers." in top
+    assert "System map: 3 components and 2 actors, 4 flows, four layers." in gateway
     # The top page: the mark on the opening cards, the legend row, the
     # links down in the header, and in the panel's detail the path of each
     # map inside and its preview (the sub-map's Structure reading, drawn
     # under an id of its own, every card and no edge).
     assert top.count('class="node__map"') == 2
-    assert "has a map" in top
+    assert "stacked card opens a map inside" in top
     assert (
-        'Maps inside: <a href="Gateway/index.html">Gateway</a> (3 cards), <a href="Style/index.html">Style</a> (2 cards).'
+        '<summary>Maps inside</summary><a href="Gateway/index.html">Gateway</a>, <a href="Style/index.html">Style</a>'
         in top
     )
     assert (
@@ -479,7 +479,7 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
         '"preview":"<svg id=\\"preview-Style\\"' in top
     )
     assert '"map":null' in top
-    assert "opens: <b>" in top and "systemap-f__opens" in top
+    assert "Map inside: <b>" in top and "systemap-f__opens" in top
     preview = json.loads(_detail_json(top))["Gateway"]["map"]["preview"]
     assert preview.startswith('<svg id="preview-Gateway"') and preview.endswith("</svg>")
     assert preview.count('class="node ') == 5 and 'class="flow ' not in preview
@@ -487,19 +487,14 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert "#preview-Gateway .node" in preview and "#schematic" not in preview
     # The button and the overlay: the button's text once in the panel script,
     # the overlay once on a page with a map inside, and not on a page without.
-    assert top.count("Open the map inside") == 1
+    assert top.count(">Open map</button>") == 1
     assert top.count('id="submap"') == 1 and 'data-here="demo"' in top
     assert 'id="submapframe"' in top and 'src="about:blank"' in top
     assert "Double-click a card that opens a map" in top
-    assert 'id="submap"' not in gateway and "Open the map inside" in gateway
+    assert 'id="submap"' not in gateway and ">Open map</button>" in gateway
     assert "Double-click a card that opens a map" not in gateway
     # A sub-page: the card it is inside, the link up, no mark, the model file it came from.
-    assert 'class="bar__sub">/ Gateway</span>' in gateway
-    assert (
-        'The map inside the <code>Gateway</code> card of <a href="../index.html">the demo map</a>'
-        in gateway
-    )
-    assert '<a href="../index.html">Up: demo</a>' in gateway
+    assert '<h1><a href="../index.html">demo</a> / Gateway</h1>' in gateway
     assert 'class="node__map"' not in gateway and "Maps inside" not in gateway
     assert "<code>map/gateway.py</code>" in gateway
     assert 'data-id="App"' in gateway and 'data-id="Writer"' not in gateway
@@ -528,7 +523,7 @@ def _detail_json(html: str) -> str:
 def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
     """The Node driver: the panel's preview and button; the button, a
     double-click and a second Enter open the overlay; Escape and the close
-    control close it and hand the focus back to the card, the selection
+    control close it and hand the focus back to the opener, the selection
     kept; a card without a map is left alone by the same keys."""
     assert run("--root", str(nested), "refresh") == 0
     args = [
@@ -547,10 +542,10 @@ def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
     assert report["href"] == f"{card}/index.html"
     assert report["here"] == "demo" and report["overlays"] == 1
     has = report["panelHas"]
-    assert has["opens"] == f"opens: {card} ({inside[0]} cards)"
+    assert has["opens"] == f"Map inside: {card} ({inside[0]} cards)"
     assert has["preview"] is True and has["previewId"] == f"preview-{card}"
     assert has["previewCards"] == inside[1] and has["previewInert"] is True
-    assert has["buttons"] == 1 and has["buttonText"] == "Open the map inside"
+    assert has["buttons"] == 1 and has["buttonText"] == "Open map"
     assert has["links"] == 0, "the panel opens the map in place; no link out"
     steps = {s["label"]: s for s in report["steps"]}
     closed = {"overlayHidden": True, "src": "about:blank", "bodyClass": ""}
@@ -569,7 +564,9 @@ def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
     assert report["escapePrevented"] is True
     for label in ("escape", "close-control", "escape-again"):
         assert steps[label]["focus"] == card, f"{label}: the selection is kept"
-        assert steps[label]["active"] == card, f"{label}: the focus returns to the card"
+    assert steps["escape"]["activeIsOpenButton"], "focus returns to the Open map button"
+    for label in ("close-control", "escape-again"):
+        assert steps[label]["active"] == card, f"{label}: focus returns to the opening card"
     assert steps["escape-clears"]["focus"] == "", "a second Escape clears the selection"
     plain = steps["plain-enter-twice"]
     assert plain["focus"] == report["plainId"] and plain["overlayHidden"] is True
@@ -709,14 +706,12 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     for rel in ("index.html", "Gateway/index.html"):
         html = (nested / "docs/map" / rel).read_text()
         assert (
-            f' Facts from <code title="the commit the tree was read at">{sha[:10]}</code>.</p>'
+            f'<p>Extracted at HEAD <code title="HEAD when the working tree was read">{sha[:10]}</code>.</p>'
             in html
         ), rel
-        assert (
-            f"The facts are from <code>{sha[:10]}</code>, the commit the tree was read at "
-            "when they were extracted: the one before the commit that records them, since "
-            "the facts are committed after they are read. Refresh with" in html
-        ), rel
+        assert "Stored snapshot" in html
+        assert "This page cannot detect later changes." in html
+        assert "Extraction reads the working tree, which can contain uncommitted changes." in html
         assert "Built at" not in html, rel
     # The field table the facts view and the skill's schema read says the same.
     from systemap.extract import FIELDS

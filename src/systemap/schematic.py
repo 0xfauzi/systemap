@@ -20,11 +20,11 @@ modules or entry are not in the facts, so the drawing never has to hedge.
 Every node carries `data-id` and its kind; every edge carries its artifact
 as visible text and its layer as `data-layer`.
 
-Every edge carries its evidence state (evidence.py): `observed` when
-reviewed source references resolve, `structural` when an import, shared
-module, or named mechanism is available, `external` when an actor is at
-either end, and `declared` when the facts have nothing. An unreviewed edge
-is drawn dashed, here and in every figure, and the panel
+Every edge carries its evidence state (evidence.py): `observed` when reviewed
+source references resolve, `structural` when an import, shared module or named
+mechanism is available, `external` when an actor is at either end, and
+`declared` when the facts have nothing. An unreviewed edge is drawn dashed,
+here and in every figure, and the panel
 says so beside its sentence.
 
 Edges are Manhattan paths routed by route.py through the gutters between
@@ -49,400 +49,84 @@ No text in the figure is set below 11px.
 
 from __future__ import annotations
 
-import html
 import json
-import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
 from typing import Any
 
 from systemap import evidence
 from systemap.model import (
-    AGENT_KINDS,
-    CARD_H,
     DERIVED_LAYERS,
-    Container,
     Meaning,
     Model,
-    Region,
     all_layers,
     build_state,
     entry_module,
     reading,
 )
 from systemap.route import path_d, place_labels, route_all
+from systemap.schematic_cards import (
+    CARD_W as CARD_W,
+)
+from systemap.schematic_cards import (
+    HEADER_LINES as HEADER_LINES,
+)
+from systemap.schematic_cards import (
+    LABEL_CHAR as LABEL_CHAR,
+)
+from systemap.schematic_cards import (
+    LABEL_CHAR_W as LABEL_CHAR_W,
+)
+from systemap.schematic_cards import (
+    LABEL_GAP as LABEL_GAP,
+)
+from systemap.schematic_cards import (
+    LABEL_H as LABEL_H,
+)
+from systemap.schematic_cards import (
+    LABEL_PX,
+    MAP_OFFSET,
+    NAME_LINE_H,
+    NAME_PX,
+    RADIUS,
+    container_header,
+    esc,
+)
+from systemap.schematic_cards import (
+    SUB_CHAR as SUB_CHAR,
+)
+from systemap.schematic_cards import (
+    TEXT_PX as TEXT_PX,
+)
+from systemap.schematic_cards import (
+    Geometry as Geometry,
+)
+from systemap.schematic_cards import (
+    card_text as card_text,
+)
+from systemap.schematic_cards import geometry as geometry
+from systemap.schematic_cards import (
+    kind_rows as kind_rows,
+)
+from systemap.schematic_cards import (
+    layer_rows as layer_rows,
+)
+from systemap.schematic_cards import (
+    legend_rows as legend_rows,
+)
+from systemap.schematic_cards import (
+    lives_in as lives_in,
+)
+from systemap.schematic_cards import region_header as region_header
+from systemap.schematic_cards import (
+    wrap_all as wrap_all,
+)
+from systemap.schematic_cards import (
+    wrap_id as wrap_id,
+)
+from systemap.schematic_script import interactive_script as interactive_script
+from systemap.schematic_style import _defs, _svg_style
+from systemap.schematic_style import panel_css as panel_css
 from systemap.theme import Palette
-
-CARD_W = 150.0
-RADIUS = 4.0
-# How far the second card behind a card that opens a map is offset.
-MAP_OFFSET = 3.0
-# The smallest type on the figure. Edge labels, plain words and every note
-# sit at this size; names sit half a point above it.
-TEXT_PX = 11.0
-NAME_PX = 11.5
-LABEL_PX = TEXT_PX
-# Width is estimated from the glyph count, so the collision pass can run
-# without a renderer.
-LABEL_CHAR_W = 6.1
-LABEL_H = 13.0
-LABEL_GAP = 2.0
-# A plain word wraps to the card: 140 units of inner width at 11px sans.
-PLAIN_CHARS = 26
-
-Box = tuple[float, float, float, float]
-
-
-def esc(text: object) -> str:
-    return html.escape(str(text), quote=True)
-
-
-def wrap_all(text: str, width: int) -> list[str]:
-    """Greedy word wrap with nothing dropped: a word wider than `width` stands alone."""
-    lines: list[str] = []
-    current = ""
-    for word in text.split():
-        candidate = f"{current} {word}".strip()
-        if len(candidate) <= width or not current:
-            current = candidate
-            continue
-        lines.append(current)
-        current = word
-    if current:
-        lines.append(current)
-    return lines
-
-
-# The header text estimates the router and the check share: a mono label at
-# 11px with .13em tracking, a sans sub-line at 11px.
-LABEL_CHAR = 7.6
-SUB_CHAR = 5.6
-HEADER_LINES = 2
-
-# ---- card text: what fits, and what is refused ---------------------------------
-# A card's name is mono at 11.5px in 140 units of inner width: about 20
-# characters on one line. A component, agent or tool card (56 tall, no rule
-# under its head) has room for a second name line; a store or context card
-# (ruled at 23) and an actor (44 tall) do not. The plain word takes the
-# lines under the name, 12 units each. Nothing is cut and nothing is
-# elided: what does not fit is reported, and the check refuses the map.
-NAME_CHARS = 20
-NAME_LINE_H = 13
-TWO_LINE_NAME_KINDS = ("component", "agent", "tool")
-
-
-def wrap_id(cid: str, width: int) -> list[str]:
-    """A CamelCase or snake_case id over as few lines as its parts allow.
-
-    The break points are the words of the name; a part wider than `width`
-    stands alone and is then reported by the caller.
-    """
-    parts = re.findall(r"[A-Z]+[a-z0-9]*_*|[a-z0-9]+_*", cid)
-    if "".join(parts) != cid:
-        parts = [cid]
-    lines: list[str] = []
-    current = ""
-    for part in parts:
-        if current and len(current + part) > width:
-            lines.append(current)
-            current = part
-        else:
-            current += part
-    if current:
-        lines.append(current)
-    return lines
-
-
-def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], list[str]]:
-    """(the name lines, the plain lines, what does not fit) for one card.
-
-    Each problem states the budget the card kind has and what the text
-    measured: `actor cards fit about 26 characters on one line; this one
-    has 34`. The lines returned are what the drawing prints, cut to the
-    room the card has, since the check refuses the map anyway.
-    """
-    problems: list[str] = []
-    ruled = kind in ("store", "context")
-    name_lines = [cid]
-    if len(cid) > NAME_CHARS and kind in TWO_LINE_NAME_KINDS:
-        name_lines = wrap_id(cid, NAME_CHARS)
-    if len(name_lines) > 2 or any(len(line) > NAME_CHARS for line in name_lines):
-        room = "over two lines" if kind in TWO_LINE_NAME_KINDS else "on one line"
-        problems.append(
-            f"card {cid}: name does not fit ({kind} cards fit a name of about {NAME_CHARS} "
-            f"characters {room}; this one has {len(cid)})"
-        )
-        name_lines = name_lines[:2]
-    first = (36 if ruled else 32) + NAME_LINE_H * (len(name_lines) - 1)
-    lines = max(1, int((CARD_H[kind] - 4 - first) // 12) + 1)
-    plain_lines = wrap_all(plain, PLAIN_CHARS)
-    if len(plain_lines) > lines or any(len(line) > PLAIN_CHARS for line in plain_lines):
-        words = {1: "one line", 2: "two lines"}.get(lines, f"{lines} lines")
-        under = " under a two-line name" if len(name_lines) > 1 else ""
-        problems.append(
-            f"card {cid}: plain word does not fit ({kind} cards fit about {PLAIN_CHARS} "
-            f"characters on {words}{under}; this one has {len(plain)})"
-        )
-        plain_lines = plain_lines[:lines]
-    return name_lines, plain_lines, problems
-
-
-def _file_of(claim: str) -> str:
-    """The file one claim names, and the symbol after a colon for a symbol claim."""
-    module, _, name = claim.partition(":")
-    path = module.replace(".", "/") + ".py"
-    return f"{path}:{name}" if name else path
-
-
-def lives_in(modules: list[str]) -> str:
-    """One muted line for a contributor: the file, or the package when many.
-
-    Three or fewer claims are named as files (a symbol claim as
-    `file.py:name`). More than that is a package, named by its common
-    directory with a count, so a component spread over a subpackage does
-    not turn the panel into a listing.
-    """
-    if not modules:
-        return ""
-    if len(modules) <= 3:
-        return ", ".join(_file_of(m) for m in modules)
-    parts = [m.partition(":")[0].split(".") for m in modules]
-    common: list[str] = []
-    for column in zip(*parts, strict=False):
-        if len(set(column)) == 1:
-            common.append(column[0])
-        else:
-            break
-    if len(common) == len(min(parts, key=len)):
-        common = common[:-1]
-    return "/".join(common) + f"/ ({len(modules)} modules)"
-
-
-def legend_rows(
-    t: dict[str, Any], mode: str, variables: bool = False
-) -> list[tuple[str, str, str]]:
-    """(fill, stroke, label) for the legend the given mode needs.
-
-    `variables` writes each colour as `var(--token)`, for the page; a
-    figure takes the literals.
-    """
-    P = Palette(t, variables)
-    if mode == "change":
-        ghost_fill, ghost_stroke = P.ghost()
-        rows = [
-            (P.changed_fill(), P["change"], "changed here"),
-            (P.reach_fill(), P["reach"], "reached by it"),
-            (ghost_fill, ghost_stroke, "untouched"),
-        ]
-        for key, label in (
-            ("operations", "new operations"),
-            ("types", "new types"),
-            ("refusals", "new refusals"),
-            ("tests", "new tests"),
-        ):
-            rows.append((P.delta(key), P.delta(key), label))
-        return rows
-    return [P.state(name) for name in t["state"]]
-
-
-def layer_rows(
-    t: dict[str, Any], model: Model, meaning: Meaning, variables: bool = False
-) -> list[tuple[str, str, str]]:
-    """(id, colour, label) for every layer that draws a line, in layer order.
-
-    Structure draws no edges, so its colour would be a swatch of nothing;
-    it is left out of the legend.
-    """
-    P = Palette(t, variables)
-    return [
-        (layer.id, P.layer(layer.id), layer.label)
-        for layer in all_layers(model, meaning)
-        if layer.id != "structure"
-    ]
-
-
-def kind_rows(t: dict[str, Any], model: Model) -> list[tuple[str, str]]:
-    """(kind, mark) for every agent kind the model draws, in kind order."""
-    present = {c.kind for c in model.components}
-    marks: dict[str, str] = t.get("marks") or {}
-    return [(kind, marks[kind]) for kind in AGENT_KINDS if kind in present and kind in marks]
-
-
-def _svg_style(svg_id: str, t: Palette) -> str:
-    """Interaction states, scoped to one figure so two on a page cannot leak."""
-    s = f"#{svg_id}"
-    return (
-        "<style>"
-        f"{s} .node{{transition:opacity .18s ease;cursor:pointer}}"
-        f"{s} .node.dim{{opacity:.16}}"
-        f"{s} .node.quiet{{opacity:.42}}"
-        f"{s} .node.subject .node__box{{stroke:var(--subject)}}"
-        f"{s} .node.subject rect.node__mark{{stroke:var(--subject)}}"
-        f"{s} .node.subject path.node__mark{{fill:var(--subject)}}"
-        f"{s} .node.sel .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
-        f"{s} .node.meas .node__box{{stroke:{t['steel']};stroke-width:2.2}}"
-        f"{s} .node.acts .node__box{{stroke:{t['accent']};stroke-width:2.4}}"
-        f"{s} .node__ring{{display:none;fill:none;stroke:{t['steel']};stroke-width:1.6}}"
-        f"{s} .node.meas .node__ring{{display:inline}}"
-        f"{s} .node.tagged [data-layer=job]{{opacity:0}}"
-        f"{s} .node:focus-visible{{outline:none}}"
-        f"{s} .node:focus-visible .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
-        f"{s} .flow{{transition:opacity .18s ease}}"
-        # A reading hides the edges it does not show; a peeked one (a spoke
-        # hovered in the wheel) shows through, so a wheel is never mute.
-        f"{s} .flow.off:not(.peek),{s} .flowlbl.off:not(.peek){{display:none}}"
-        f"{s} .flow.dim{{opacity:.07}}"
-        f"{s} .flow.hot{{opacity:1;stroke-opacity:1;stroke-width:2.6;"
-        "stroke-dasharray:8 6;animation:systemapflow 1.1s linear infinite}"
-        f"{s} .flow.peek{{stroke-width:3.4}}"
-        f"{s} .flowlbl{{transition:opacity .15s ease;pointer-events:none}}"
-        f"{s} .flowlbl.dim{{opacity:.08}}"
-        f"{s} .flowlbl.hot{{opacity:1}}"
-        f"{s} .vtag rect{{stroke-width:1}}"
-        f"{s} .vtag text{{font-family:{t['font_ui']};font-size:{TEXT_PX}px;"
-        "font-weight:500;text-anchor:middle}"
-        # The figure fills its column; the drawing pans and zooms inside it
-        # on the .view group, so the element itself never scrolls. touch-action
-        # none hands one-finger drags and pinches to the script.
-        f"{s}{{width:100%;height:auto;display:block;overflow:hidden;touch-action:none;"
-        "cursor:grab}"
-        f"{s}.panning{{cursor:grabbing}}"
-        f"{s} .zone__h{{cursor:zoom-in;-webkit-user-select:none;user-select:none}}"
-        "@keyframes systemapflow{to{stroke-dashoffset:-14}}"
-        f"@media print{{{s} .view{{transform:none!important}}}}"
-        "@media (prefers-reduced-motion:reduce){"
-        f"{s} .flow.hot{{animation:none;stroke-dasharray:none}}"
-        f"{s} .node,{s} .flow,{s} .flowlbl{{transition:none}}}}"
-        "</style>"
-    )
-
-
-def _defs(svg_id: str, t: Palette) -> str:
-    """Arrowheads: one per layer colour, plus the change-map colours.
-
-    Sized in user units so a thick focused edge and a hairline ghost edge
-    carry the same head; the thickness is the emphasis, the head is the
-    direction.
-    """
-    heads = {lid: t.layer(lid) for lid in t.t["layers"]}
-    heads["change"] = t["change"]
-    heads["reach"] = t["reach"]
-    out = ["<defs>"]
-    for name, colour in heads.items():
-        out.append(
-            f'<marker id="{svg_id}-m-{name}" viewBox="0 0 8 8" refX="7" refY="4" '
-            f'markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" '
-            f'orient="auto-start-reverse">'
-            f'<path d="M0,0 L8,4 L0,8 z" fill="{colour}"/></marker>'
-        )
-    out.append("</defs>")
-    return "".join(out)
-
-
-@dataclass(frozen=True)
-class Geometry:
-    """What the router and the label pass are given, read off the model alone.
-
-    `boxes` is every card's box; `blocks` what a route may not cross
-    besides a card (every header, and a container that holds neither a
-    card nor a region); `obstacles` what a label may not sit on, each
-    named for the collision report (the headers, the empty containers,
-    the cards with 3 clear around them); `headers` every header's box,
-    for the labels rule; `collisions` the headers their box cannot hold.
-    `systemap place` scores a candidate layout with this same geometry,
-    so the order it picks is measured on the drawing the page makes.
-    """
-
-    boxes: dict[str, Box]
-    actors: set[str]
-    blocks: list[Box]
-    obstacles: list[tuple[str, Box]]
-    headers: list[dict[str, Any]]
-    collisions: list[str]
-    region_boxes: dict[str, Box]
-    region_of: dict[str, str]
-
-
-def container_header(box: Container) -> tuple[Box, list[str], list[str]]:
-    """A container's header obstacle, the sub lines drawn, and what its box cannot hold.
-
-    The header obstacle is the text, not the whole top edge of the box:
-    the factory's spans the canvas, and a wall that wide would close the
-    corridor every long edge runs along. A label wider than the box, or a
-    sub that needs more than two lines, is drawn as far as it fits and
-    reported, so a header never quietly runs into a card.
-    """
-    x, y, w, _h = box.box
-    chars = max(12, int((w - 26) / SUB_CHAR))
-    all_lines = wrap_all(box.sub, chars)
-    sub_lines = all_lines[:HEADER_LINES]
-    collisions: list[str] = []
-    if len(all_lines) > HEADER_LINES or any(len(line) > chars for line in all_lines):
-        collisions.append(
-            f"header of container {box.id}: sub does not fit its box "
-            f"({len(box.sub)} characters; {HEADER_LINES} lines of {chars} fit)"
-        )
-    if 13 + len(box.label) * LABEL_CHAR + 8 > w:
-        collisions.append(f"header of container {box.id}: label is wider than its box")
-    text_w = max([len(box.label) * LABEL_CHAR] + [len(line) * SUB_CHAR for line in sub_lines]) + 8
-    header: Box = (x + 8, y + 6, min(w - 16, text_w), 30 + 12 * len(sub_lines))
-    return header, sub_lines, collisions
-
-
-def region_header(region: Region) -> tuple[Box, list[str]]:
-    """A region's header obstacle (its number and label), and a label wider than the box."""
-    x, y, w, _h = region.box
-    label_w = 31 - 6 + len(region.label) * LABEL_CHAR + 8
-    collisions: list[str] = []
-    if 31 + len(region.label) * LABEL_CHAR + 8 > w:
-        collisions.append(f"header of region {region.id}: label is wider than its box")
-    return (x + 6, y + 5, max(150.0, label_w), 24), collisions
-
-
-def geometry(model: Model) -> Geometry:
-    """The router's and the label pass's inputs for a positioned model."""
-    boxes: dict[str, Box] = {}
-    for c in model.components:
-        left, top, _w, tall = c.box
-        boxes[c.id] = (float(left), float(top), CARD_W, float(tall))
-    obstacles: list[tuple[str, Box]] = []
-    blocks: list[Box] = []
-    headers: list[dict[str, Any]] = []
-    collisions: list[str] = []
-    occupied = {c.container for c in model.components if c.container}
-    occupied |= {r.container for r in model.regions if r.container}
-    for box in model.containers:
-        header, _sub_lines, unfit = container_header(box)
-        collisions += unfit
-        obstacles.append((f"{box.id} header", header))
-        blocks.append(header)
-        headers.append({"id": box.id, "kind": "container", "box": [round(v, 1) for v in header]})
-        if box.id not in occupied:
-            bx, by, bw, bh = box.box
-            whole: Box = (float(bx), float(by), float(bw), float(bh))
-            blocks.append(whole)
-            obstacles.append((box.id, whole))
-    for region in model.regions:
-        header, unfit = region_header(region)
-        collisions += unfit
-        obstacles.append((f"{region.id} header", header))
-        blocks.append(header)
-        headers.append({"id": region.id, "kind": "region", "box": [round(v, 1) for v in header]})
-    for cid, (x, y, w, h) in boxes.items():
-        obstacles.append((cid, (x - 3, y - 3, w + 6, h + 6)))
-    return Geometry(
-        boxes=boxes,
-        actors={c.id for c in model.components if c.kind == "actor"},
-        blocks=blocks,
-        obstacles=obstacles,
-        headers=headers,
-        collisions=collisions,
-        region_boxes={
-            r.id: (float(r.box[0]), float(r.box[1]), float(r.box[2]), float(r.box[3]))
-            for r in model.regions
-        },
-        region_of={c.id: c.region or "" for c in model.components},
-    )
 
 
 def render(
@@ -484,7 +168,8 @@ def render(
     first and names the known ids.
 
     `observed_by` is the repository's `[flows] observed_by` list: the
-    mechanisms other than an import that make a flow observed. `opens`
+    mechanisms other than imports that support structural connections.
+    They do not establish direction or artifact. `opens`
     says, per card that opens a map, what the panel shows for it (its
     name, the relative path of its page, how many cards it holds, a
     preview drawing); a card with a `map` and no entry here is named
@@ -688,7 +373,8 @@ def render(
             colour, marker = P["change"], "change"
         fid = f"{svg_id}-f{i}"
         ev = backed[(src, dst)]
-        # Structural evidence leaves the semantic flow unreviewed.
+        evidence_label = {evidence.OBSERVED: "source reviewed"}.get(ev.state, ev.state)
+        # A declared edge is dashed: the map says so and the code does not.
         dashed = {
             evidence.DECLARED: ' stroke-dasharray="7 5"',
             evidence.STRUCTURAL: ' stroke-dasharray="3 4"',
@@ -714,7 +400,12 @@ def render(
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
             f'<g class="flowlbl {kind}" data-edge="{i}" '
-            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}">'
+            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}" '
+            f'role="button" tabindex="0" aria-pressed="false" '
+            f'aria-label="Inspect {esc(artifact)}: {esc(src)} to {esc(dst)}, '
+            f'{esc(own)}, {esc(evidence_label)}">'
+            f'<rect class="flowlbl__hit" x="{lbox[0]}" y="{lbox[1] - 6}" '
+            f'width="{lbox[2]}" height="{LABEL_H + 12}" rx="3" fill="transparent"/>'
             + L(lx, ly, artifact, LABEL_PX, colour, "500", False, "middle", "", True)
             + "</g>"
         )
@@ -732,6 +423,7 @@ def render(
         fill, stroke, state_label = P.state(state)
         if kind == "actor":
             fill, stroke = P.actor()
+            state_label = "outside"
         moved, near = cid in changed, cid in adjacent
         tier = "moved" if moved else ("near" if near else "far")
         if change_mode and tier == "far":
@@ -780,6 +472,8 @@ def render(
             f"{dashes}/>"
             f'<rect class="node__ring" x="{x + 3}" y="{y + 3}" width="{w - 6}" '
             f'height="{h - 6}" rx="{RADIUS - 1}"/>'
+            f'<rect class="node__selection" x="{x + 5}" y="{y + 7}" '
+            f'width="1" height="{h - 14}" fill="{P["accent"]}"/>'
         )
         if mark == "ring":
             g.append(
@@ -797,13 +491,14 @@ def render(
         name_lines, plain_lines, unfit = card_text(kind, cid, plain)
         collisions += unfit
         for k, line in enumerate(name_lines):
-            g.append(L(x + w / 2, y + 17 + NAME_LINE_H * k, line, NAME_PX, INK, "600", True))
+            g.append(L(x + 10, y + 17 + NAME_LINE_H * k, line, NAME_PX, INK, "600", True, "start"))
         # A card with a note carries a dot in its top corner, on the map and
         # in every figure; the panel shows the note itself, and the dot's
         # title does when hovered.
         if c.note:
             g.append(
-                f'<g class="node__note"><title>{esc(c.note)}</title>'
+                f'<g class="node__note" aria-label="Note: {esc(c.note)}">'
+                f"<title>Note: {esc(c.note)}</title>"
                 f'<circle cx="{x + w - 6}" cy="{y + 6}" r="2.5" fill="{INK_3}"/></g>'
             )
         # A store is the same card with a rule under its head: flat convention
@@ -821,7 +516,7 @@ def render(
         g.append(
             '<g data-layer="job">'
             + "".join(
-                L(x + w / 2, first + k * 12, line, TEXT_PX, INK_3, "400")
+                L(x + 10, first + k * 12, line, TEXT_PX, INK_3, "400", False, "start")
                 for k, line in enumerate(plain_lines)
             )
             + "</g>"
@@ -871,6 +566,7 @@ def render(
             "state": state if kind != "actor" else "actor",
             "state_label": state_label if kind != "actor" else "outside",
             "lives": lives_in(list(c.implemented_by)),
+            "modules": list(c.implemented_by),
             # The three fields the panel prints beside the plain word: the
             # one-line signature, the entry with the module that defines
             # it, and the caveat.
@@ -1035,908 +731,3 @@ def render(
     p.append(text_css())
     p.append("</svg>")
     return "".join(p), json.dumps({**detail, **meta}, ensure_ascii=False)
-
-
-def panel_css(t: dict[str, Any], variables: bool = False) -> str:
-    """Styles for the focus panel the interactive script writes into.
-
-    Shared by the map page and a lesson figure, so a component reads the
-    same in both. Class names are prefixed so a host page's own styles are
-    never caught by accident. `variables` names the tokens, for the page.
-    """
-    P = Palette(t, variables)
-    return (
-        f".systemap-panel{{font-family:{P['font_ui']};font-size:13px;line-height:1.45;"
-        f"color:{P['ink_2']};background:{P['surface']};border:1px solid {P['line']};"
-        "border-radius:8px;padding:.9rem 1rem 1rem;min-height:3rem}"
-        f".systemap-panel:empty::before{{content:'Click a component to read it.';"
-        f"color:{P['ink_3']}}}"
-        f".systemap-f__plain{{font-size:19px;font-weight:600;color:{P['ink']};"
-        "letter-spacing:-.01em;line-height:1.2;margin:0}"
-        f".systemap-f__code{{font-family:{P['font_mono']};font-size:12px;color:{P['accent']};"
-        "margin:.3rem 0 0;display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline}"
-        f".systemap-f__kind{{color:{P['ink_3']};font-size:11px;letter-spacing:.06em;"
-        "text-transform:uppercase}"
-        f".systemap-f__does{{margin:.6rem 0 .2rem;font-size:13px;color:{P['ink_2']}}}"
-        # The card's one-line signature, then the caveat, before the wheel.
-        f".systemap-f__iface{{margin:.3rem 0 .2rem;font-family:{P['font_mono']};"
-        f"font-size:11.5px;color:{P['ink_2']};word-break:break-word}}"
-        f".systemap-f__note{{margin:.5rem 0 .2rem;padding:.4rem .6rem;font-size:12.5px;"
-        f"color:{P['ink']};border-left:3px solid {P['warn']};background:{P['raised']};"
-        "border-radius:0 6px 6px 0}"
-        ".systemap-f__wheel{margin:.4rem 0 0}"
-        ".systemap-f__wheel svg{width:100%;height:auto;display:block;margin:0 auto}"
-        f".systemap-f__say{{margin:.2rem 0 .6rem;padding:.55rem .7rem;font-size:13px;"
-        f"line-height:1.45;color:{P['ink']};border-left:3px solid {P['accent']};"
-        f"background:{P['raised']};border-radius:0 6px 6px 0;min-height:2.6rem}}"
-        f".systemap-f__say.muted{{color:{P['ink_3']};border-left-color:{P['line_2']}}}"
-        # The evidence line under the sentence: what the facts say about the edge.
-        f".systemap-f__evidence{{margin:-.3rem 0 .6rem;font-family:{P['font_mono']};"
-        f"font-size:11px;color:{P['ink_3']};min-height:1em}}"
-        f".systemap-f__evidence.declared,.systemap-f__evidence.structural{{color:{P['warn']}}}"
-        f".systemap-f__refs{{margin:-.4rem 0 .6rem;font-family:{P['font_mono']};"
-        f"font-size:10px;color:{P['ink_3']};overflow-wrap:anywhere}}"
-        ".systemap-f__chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}"
-        f".systemap-chip{{display:inline-flex;align-items:center;gap:.35em;min-height:24px;"
-        f"padding:0 .55em;border-radius:4px;font-family:{P['font_mono']};font-size:11px;"
-        f"letter-spacing:.04em;background:{P['raised']};color:{P['ink_3']};"
-        f"border:1px solid {P['line']}}}"
-        f".systemap-chip--built{{color:{P['good']};border-color:transparent}}"
-        f".systemap-chip--actor{{color:{P['ink_3']};background:none;"
-        f"border:1px dashed {P['line_2']}}}"
-        f".systemap-chip a{{color:{P['accent']};text-decoration:none}}"
-        ".systemap-chip a:hover{text-decoration:underline}"
-        f".systemap-chip--rule{{color:{P['violet']};cursor:help;min-width:24px;"
-        "justify-content:center}"
-        f".systemap-f__lives{{margin:.6rem 0 0;font-family:{P['font_mono']};font-size:11px;"
-        f"color:{P['ink_3']}}}"
-        f".systemap-f__lives b{{font-weight:400;color:{P['ink_3']}}}"
-        f".systemap-f__entry{{margin:.4rem 0 0;font-family:{P['font_mono']};font-size:11px;"
-        f"color:{P['ink_3']}}}"
-        f".systemap-f__entry b{{font-weight:400;color:{P['ink_2']}}}"
-        # The map a card opens: its name and how many cards it holds, then on
-        # a page its preview and the button that opens it in place.
-        f".systemap-f__opens{{margin:.4rem 0 0;font-family:{P['font_mono']};font-size:11px;"
-        f"color:{P['ink_3']}}}"
-        f".systemap-f__opens b{{font-weight:400;color:{P['ink_2']}}}"
-        f".systemap-f__preview{{margin:.5rem 0 0;border:1px solid {P['line']};border-radius:6px;"
-        f"overflow:hidden;background:{P['bg']}}}"
-        ".systemap-f__preview svg{width:100%;height:auto;display:block}"
-        f".systemap-f__open{{appearance:none;display:block;margin:.5rem 0 0;min-height:30px;"
-        f"padding:0 .8rem;border-radius:6px;border:1px solid {P['accent']};background:none;"
-        f"color:{P['accent']};font-family:{P['font_ui']};font-size:12.5px;cursor:pointer}}"
-        f".systemap-f__open:hover{{background:{P['raised']}}}"
-        # The wheel
-        f".systemap-w__spoke{{cursor:pointer;outline:none}}"
-        ".systemap-w__hit{stroke:transparent;stroke-width:26;fill:none;pointer-events:stroke}"
-        ".systemap-w__line{fill:none;stroke-width:1.5;transition:stroke-width .12s ease}"
-        f".systemap-w__verb{{font-family:{P['font_ui']};font-size:11px;font-weight:500;"
-        f"text-anchor:middle;paint-order:stroke;stroke:{P['surface']};stroke-width:5;"
-        "stroke-linejoin:round;pointer-events:none}"
-        f".systemap-w__name{{font-family:{P['font_mono']};font-size:11px;font-weight:600;"
-        f"fill:{P['ink']};pointer-events:none}}"
-        f".systemap-w__centre rect{{fill:{P['raised']};stroke:{P['accent']};stroke-width:1.6}}"
-        f".systemap-w__centre text{{font-family:{P['font_mono']};font-size:12px;font-weight:600;"
-        f"fill:{P['ink']};text-anchor:middle}}"
-        ".systemap-w__spoke.peek .systemap-w__line,.systemap-w__spoke:hover .systemap-w__line,"
-        ".systemap-w__spoke:focus-visible .systemap-w__line{stroke-width:3.2}"
-        f".systemap-w__spoke.peek .systemap-w__name,.systemap-w__spoke:hover .systemap-w__name,"
-        f".systemap-w__spoke:focus-visible .systemap-w__name{{fill:{P['accent']}}}"
-        f".systemap-w__empty{{font-family:{P['font_ui']};font-size:12px;fill:{P['ink_3']};"
-        "text-anchor:middle}"
-    )
-
-
-def interactive_script(
-    t: dict[str, Any], svg_id: str, panel_id: str, detail_json: str, variables: bool = False
-) -> str:
-    """The one script that makes a figure operable. Plain DOM, no libraries.
-
-    Clicking a component (or pressing Enter on it) dims everything but the
-    component and its neighbours, thickens each connected edge in its
-    layer's colour, tags each neighbour with the verb that relates it, and
-    draws the relationship wheel in the panel. It also owns the viewport:
-    wheel and pinch zoom about the pointer, drag pans, a selection or a
-    journey step frames what it lights in the part of the figure on screen
-    (less what the page lays over it: `view.frameFocus(cover)`), a
-    double-click on a region label frames the region, and
-    `svg.systemap.view` exposes fit, 100%, step, back and the last framing.
-    The same script serves the map page and a lesson figure, so the
-    two cannot behave differently. The page adds layer and journey controls
-    on top through `svg.systemap`.
-
-    The detail JSON is inlined; `</` is broken up so no artifact label can
-    close the script early. `variables` names the one colour the script
-    reads from the theme (the ink a verb falls back to) as its token.
-    """
-    # The layout audit (label boxes, card boxes) is for checkers, not the
-    # page; it is dropped from the inlined copy to keep a figure small.
-    parsed = json.loads(detail_json)
-    meta = dict(parsed.get("_meta") or {})
-    meta.pop("labels", None)
-    meta.pop("cards", None)
-    meta.pop("paths", None)
-    parsed["_meta"] = meta
-    data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    palette = json.dumps({"ink": Palette(t, variables)["ink"]})
-    return (
-        "<script>(function(){\n"
-        f"var DETAIL = {data};\n"
-        f"var PAL = {palette};\n"
-        f"var svg = document.getElementById({json.dumps(svg_id)});\n"
-        f"var panel = document.getElementById({json.dumps(panel_id)});\n"
-        + _INTERACTIVE_JS
-        + "})();</script>"
-    )
-
-
-_INTERACTIVE_JS = r"""
-if(!svg){ return; }
-var META = DETAIL._meta || {};
-var LAYERS = META.layers || [];
-var EDGES = META.edges || [];
-var RULES = {};
-(META.rules || []).forEach(function(r){ RULES[r.n] = r.text; });
-// A layer's colour and its verb tag's fill, both from the theme (on the
-// page, as the tokens the root block carries).
-var LCOL = {}, LTAG = {}, LORD = {}, LAYER_AT = {};
-LAYERS.forEach(function(l, i){
-  LCOL[l.id] = l.colour; LTAG[l.id] = l.tag; LORD[l.id] = i; LAYER_AT[l.id] = l; });
-// Which edges and which cards each reading shows, decided in Python
-// (systemap.model.reading) and carried in the detail, so the page's layer
-// switch and a figure of one layer read the same table.
-var READINGS = META.readings || {};
-var IN_READING = {}, SUBJECT_OF = {};
-Object.keys(READINGS).forEach(function(L){
-  IN_READING[L] = {}; SUBJECT_OF[L] = {};
-  (READINGS[L].edges || []).forEach(function(i){ IN_READING[L][i] = true; });
-  (READINGS[L].subjects || []).forEach(function(id){ SUBJECT_OF[L][id] = true; });
-});
-var EDGE_AT = {};
-EDGES.forEach(function(e, i){ EDGE_AT[e.from + '>' + e.to] = i; });
-var NS = 'http://www.w3.org/2000/svg';
-function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
-  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
-var flows = Array.prototype.slice.call(svg.querySelectorAll('.flow'));
-var labels = Array.prototype.slice.call(svg.querySelectorAll('.flowlbl'));
-var nodeOf = {}, labelOf = {}, flowOf = {};
-nodes.forEach(function(n){ nodeOf[n.dataset.id] = n; });
-labels.forEach(function(l){ labelOf[l.dataset.edge] = l; });
-flows.forEach(function(p){ flowOf[p.dataset.edge] = p; });
-var tags = svg.querySelector('[data-layer="tags"]');
-var state = {focus:'', layer:'all', journey:null, peek:-1};
-
-// ---- what a focus lights ----------------------------------------------------
-// The focused card, the edges of it the reading shows, and their other
-// ends: one set, read from the readings table, that the dimming, the
-// tags and the framing all use, so what is framed is exactly what is lit.
-// A reading with no edges of its own (Structure) lights every edge of the
-// card, as All does: there the click is how the edges are seen at all.
-function focusEdges(f, L){
-  var all = DETAIL[f] && DETAIL[f].edges || [];
-  if(L === 'all' || !(READINGS[L] && READINGS[L].edges && READINGS[L].edges.length)){
-    return all.slice();
-  }
-  return all.filter(function(i){ return edgeIn(i, L); });
-}
-function litSet(){
-  var f = state.focus;
-  if(!f || !DETAIL[f]){ return null; }
-  var ids = {}, edges = focusEdges(f, state.layer);
-  ids[f] = true;
-  edges.forEach(function(i){ ids[EDGES[i].from] = true; ids[EDGES[i].to] = true; });
-  return {id:f, ids:ids, edges:edges};
-}
-
-function setCls(el, map){
-  for(var k in map){ if(map.hasOwnProperty(k)){ el.classList.toggle(k, !!map[k]); } }
-}
-function boxOf(n){
-  var r = n.querySelector('.node__box');
-  return {x:+r.getAttribute('x'), y:+r.getAttribute('y'),
-    w:+r.getAttribute('width'), h:+r.getAttribute('height')};
-}
-function el(name, attrs, text){
-  var e = document.createElementNS(NS, name);
-  for(var k in attrs){ if(attrs.hasOwnProperty(k)){ e.setAttribute(k, attrs[k]); } }
-  if(text !== undefined){ e.textContent = text; }
-  return e;
-}
-
-// ---- the viewport ---------------------------------------------------------
-// The drawing sits in <g class="view" transform="translate(tx ty) scale(k)">.
-// (tx, ty, k) are in viewBox units, so a drawing point p lands at k*p + t in
-// the viewBox and every box or path read from the figure stays in drawing
-// units. `base` is the CSS pixels the browser gives one viewBox unit; the
-// zoom the reader sees is base*k, and Fit (the whole map across the column)
-// is k = 1, t = 0. Wheel and pinch zoom about the pointer, a drag pans, a
-// selection or a journey step frames its neighbourhood in the part of the
-// figure the reader can see (the figure's box clipped to the window, less
-// whatever the page lays over it), and Escape (in the page around this
-// script) returns to the view before the framing began.
-var view = svg.querySelector('.view');
-var VB = svg.viewBox.baseVal;
-var ZMIN = 0.4, ZMAX = 2.5, ZCAP = 1.4, FRAME_PAD = 28, ANIM_MS = 320;
-var cur = {k:1, tx:0, ty:0};   // what is drawn now, mid-animation included
-var goal = {k:1, tx:0, ty:0};  // where the view is heading
-var saved = null;              // the view before the current framing chain
-var framed = false;            // the view on screen is one a frame() set
-var lastFrame = null;          // {rect, area, k}: what the last framing fitted where
-var anim = 0, booted = false, dragged = false;
-function base(){ var m = svg.getScreenCTM(); return m && m.a ? m.a : 1; }
-function reduced(){
-  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-}
-function isFit(v){
-  v = v || goal;
-  return Math.abs(v.k - 1) < 1e-3 && Math.abs(v.tx) < 0.5 && Math.abs(v.ty) < 0.5;
-}
-function centre(){ return {x:VB.x + VB.width / 2, y:VB.y + VB.height / 2}; }
-function toVb(clientX, clientY){
-  // A client point in viewBox units.
-  var m = svg.getScreenCTM();
-  if(!m){ return centre(); }
-  var q = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
-  return {x:q.x, y:q.y};
-}
-function clampView(v, kmin){
-  // The zoom stays between ZMIN and ZMAX, except that the zoom on screen
-  // and the zoom a framing asks for (kmin) are always allowed: Fit on a
-  // column so narrow that Fit is under ZMIN, and a lit set too large for
-  // the visible area at ZMIN, which is fitted whole rather than cropped
-  // (zooming out from there is a no-op, never a jump in). A fifth of the
-  // viewport always holds drawing, so the map cannot be dragged out of sight.
-  var b = base(), lo = Math.min(Math.min(ZMIN, b) / b, goal.k), hi = ZMAX / b;
-  if(kmin !== undefined){ lo = Math.min(lo, kmin); }
-  var k = Math.min(hi, Math.max(lo, v.k));
-  var mx = VB.width * 0.2, my = VB.height * 0.2;
-  var tx = Math.min(VB.x + VB.width - mx - k * VB.x,
-    Math.max(VB.x + mx - k * (VB.x + VB.width), v.tx));
-  var ty = Math.min(VB.y + VB.height - my - k * VB.y,
-    Math.max(VB.y + my - k * (VB.y + VB.height), v.ty));
-  return {k:k, tx:tx, ty:ty};
-}
-function apply(v){
-  cur = v;
-  if(view){
-    view.setAttribute('transform', 'translate(' + v.tx.toFixed(2) + ' ' + v.ty.toFixed(2)
-      + ') scale(' + v.k.toFixed(4) + ')');
-  }
-  svg.dispatchEvent(new CustomEvent('systemap:view',
-    {detail:{zoom:base() * v.k, fit:isFit(v)}, bubbles:true}));
-}
-function setView(v, instant, kmin){
-  goal = clampView(v, kmin);
-  if(anim){ cancelAnimationFrame(anim); anim = 0; }
-  if(instant || !booted || reduced()){ apply(goal); return; }
-  var from = cur, to = goal, t0 = 0;
-  function tick(now){
-    if(!t0){ t0 = now; }
-    var u = Math.min(1, (now - t0) / ANIM_MS);
-    var e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
-    apply({k:from.k + (to.k - from.k) * e, tx:from.tx + (to.tx - from.tx) * e,
-      ty:from.ty + (to.ty - from.ty) * e});
-    anim = u < 1 ? requestAnimationFrame(tick) : 0;
-  }
-  anim = requestAnimationFrame(tick);
-}
-function userView(v, instant){
-  // The reader moved the view: it is theirs now, and there is nothing to
-  // go back to until the next framing.
-  framed = false; saved = null;
-  setView(v, instant);
-}
-function zoomAt(f, cx, cy, instant){
-  // Zoom by f about the viewBox point (cx, cy): the drawing point under it
-  // stays under it, even when the zoom is clamped.
-  var k = clampView({k:goal.k * f, tx:goal.tx, ty:goal.ty}).k, g = k / goal.k;
-  userView({k:k, tx:cx - g * (cx - goal.tx), ty:cy - g * (cy - goal.ty)}, instant);
-}
-function visibleArea(cover){
-  // The part of the figure the reader can see, in viewBox units: the
-  // figure's box on screen clipped to the window, less the box the page
-  // lays over one side of it (`cover`: {rect, side}, the drawer), or the
-  // whole viewBox where the figure has no box yet. A figure wholly off
-  // screen is framed in its own box: the page scrolls it into view.
-  var whole = {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
-  var s = svg.getBoundingClientRect ? svg.getBoundingClientRect() : null;
-  if(!s || !(s.width > 0) || !(s.height > 0)){ return whole; }
-  var ww = window.innerWidth || s.right, wh = window.innerHeight || s.bottom;
-  var l = Math.max(s.left, 0), t = Math.max(s.top, 0);
-  var r = Math.min(s.right, ww), bt = Math.min(s.bottom, wh);
-  if(r - l < 40 || bt - t < 40){ l = s.left; t = s.top; r = s.right; bt = s.bottom; }
-  if(cover && cover.rect && cover.rect.width > 0){
-    if(cover.side === 'left'){ l = Math.max(l, cover.rect.right + 12); }
-    else { r = Math.min(r, cover.rect.left - 12); }
-  }
-  var p = toVb(l, t), q = toVb(r, bt);
-  return {x:p.x, y:p.y, w:Math.max(40, q.x - p.x), h:Math.max(40, q.y - p.y)};
-}
-function frameRect(r, area, instant){
-  // Fit the drawing rect r into `area` (viewBox units; the whole viewBox
-  // when null) at the largest zoom that shows all of it, capped at ZCAP,
-  // its centre on the area's centre. A rect larger than the area at ZMIN
-  // is fitted whole, never cropped. The first framing in a chain remembers
-  // the view it left.
-  area = area || {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
-  var b = base();
-  var k = Math.min(ZCAP / b, area.w / r.w, area.h / r.h);
-  var cx = area.x + area.w / 2, cy = area.y + area.h / 2;
-  if(!framed){ saved = goal; framed = true; }
-  lastFrame = {rect:r, area:area, k:k};
-  setView({k:k, tx:cx - k * (r.x + r.w / 2), ty:cy - k * (r.y + r.h / 2)}, instant, k);
-}
-function unionBox(ids, edgeIdx){
-  // The rect around some cards and the edges between them, in drawing units.
-  var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  function add(x, y, w, h){
-    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
-  }
-  ids.forEach(function(id){
-    if(nodeOf[id]){ var b = boxOf(nodeOf[id]); add(b.x, b.y, b.w, b.h); } });
-  (edgeIdx || []).forEach(function(i){
-    var p = flowOf[i];
-    if(!p || !p.getBBox){ return; }
-    var bb = p.getBBox();
-    if(bb.width || bb.height){ add(bb.x, bb.y, bb.width, bb.height); }
-  });
-  if(x0 === Infinity){ return null; }
-  return {x:x0 - FRAME_PAD, y:y0 - FRAME_PAD, w:x1 - x0 + 2 * FRAME_PAD, h:y1 - y0 + 2 * FRAME_PAD};
-}
-function frameFocus(cover, instant){
-  // What the focus lights (litSet: the card, the edges the reading shows,
-  // their other ends), framed in the visible area less `cover`.
-  var lit = litSet();
-  if(!lit){ return; }
-  var r = unionBox(Object.keys(lit.ids), lit.edges);
-  if(r){ frameRect(r, visibleArea(cover), instant); }
-}
-function frameJourney(step, instant){
-  // The step's acting and measuring components and the edge it traces,
-  // framed in the visible area; the page closes its drawer for a journey.
-  var ids = (step.acts || []).concat(step.measures || []), edges = [];
-  if(step.edge >= 0 && EDGES[step.edge]){
-    ids.push(EDGES[step.edge].from); ids.push(EDGES[step.edge].to); edges.push(step.edge);
-  }
-  var r = unionBox(ids, edges);
-  if(r){ frameRect(r, visibleArea(null), instant); }
-}
-function frameRegion(id){
-  var box = null;
-  (META.regions || []).forEach(function(z){ if(z.id === id && z.box){ box = z.box; } });
-  if(!box){ return; }
-  frameRect({x:box[0] - 12, y:box[1] - 12, w:box[2] + 24, h:box[3] + 24}, visibleArea(null));
-}
-function back(){
-  // The view before the framing chain began; nothing if the reader has
-  // moved the view since.
-  if(!saved){ return; }
-  var v = saved;
-  saved = null; framed = false;
-  setView(v);
-}
-function fracOf(id){
-  // Where the card's centre sits across the visible area (the last framing's,
-  // else the viewport), 0 to 1, once the view arrives. The page docks its
-  // drawer on the other side.
-  var n = nodeOf[id];
-  if(!n){ return 0.5; }
-  var b = boxOf(n), a = lastFrame ? lastFrame.area : {x:VB.x, w:VB.width};
-  return (goal.k * (b.x + b.w / 2) + goal.tx - a.x) / a.w;
-}
-
-// Wheel (and trackpad pinch, which arrives as ctrl+wheel) zooms about the
-// pointer. A drag pans; under 4px of movement it is a click and the cards
-// keep it. Two touches pinch.
-svg.addEventListener('wheel', function(e){
-  e.preventDefault();
-  var d = e.deltaY;
-  if(e.deltaMode === 1){ d *= 16; } else if(e.deltaMode === 2){ d *= 400; }
-  var f = Math.max(0.5, Math.min(2, Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0022))));
-  var c = toVb(e.clientX, e.clientY);
-  zoomAt(f, c.x, c.y, true);
-}, {passive:false});
-var ptrs = {}, drag = null, pinch = null;
-function ptrList(){ return Object.keys(ptrs).map(function(k){ return ptrs[k]; }); }
-function dist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
-function startDrag(p){ drag = {x:p.x, y:p.y, tx:goal.tx, ty:goal.ty, moved:false}; }
-svg.addEventListener('pointerdown', function(e){
-  if(e.pointerType === 'mouse' && e.button !== 0){ return; }
-  dragged = false;
-  ptrs[e.pointerId] = {x:e.clientX, y:e.clientY};
-  var list = ptrList();
-  if(list.length === 1){ pinch = null; startDrag(list[0]); }
-  else if(list.length === 2){
-    drag = null;
-    var m = toVb((list[0].x + list[1].x) / 2, (list[0].y + list[1].y) / 2);
-    pinch = {d:dist(list[0], list[1]), k:goal.k,
-      px:(m.x - goal.tx) / goal.k, py:(m.y - goal.ty) / goal.k};
-  }
-});
-svg.addEventListener('pointermove', function(e){
-  if(!ptrs[e.pointerId]){ return; }
-  ptrs[e.pointerId] = {x:e.clientX, y:e.clientY};
-  var list = ptrList();
-  if(pinch && list.length >= 2){
-    var m = toVb((list[0].x + list[1].x) / 2, (list[0].y + list[1].y) / 2);
-    var k = clampView({k:pinch.k * dist(list[0], list[1]) / pinch.d, tx:0, ty:0}).k;
-    dragged = true;
-    userView({k:k, tx:m.x - k * pinch.px, ty:m.y - k * pinch.py}, true);
-  } else if(drag){
-    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if(!drag.moved){
-      if(Math.hypot(dx, dy) < 4){ return; }
-      drag.moved = true;
-      svg.classList.add('panning');
-      if(svg.setPointerCapture){ try { svg.setPointerCapture(e.pointerId); } catch(_x){} }
-    }
-    var b = base();
-    userView({k:goal.k, tx:drag.tx + dx / b, ty:drag.ty + dy / b}, true);
-  }
-});
-function endPointer(e){
-  if(!ptrs[e.pointerId]){ return; }
-  delete ptrs[e.pointerId];
-  if(drag && drag.moved){ dragged = true; }
-  drag = null; pinch = null;
-  svg.classList.remove('panning');
-  var list = ptrList();
-  if(list.length === 1){ startDrag(list[0]); drag.moved = true; }
-}
-svg.addEventListener('pointerup', endPointer);
-svg.addEventListener('pointercancel', endPointer);
-// A click that ends a drag is not a click: nothing under the pointer hears it.
-svg.addEventListener('click', function(e){
-  if(dragged){ dragged = false; e.preventDefault(); e.stopImmediatePropagation(); }
-}, true);
-Array.prototype.slice.call(svg.querySelectorAll('[data-zone]')).forEach(function(z){
-  z.addEventListener('dblclick', function(e){ e.preventDefault(); frameRegion(z.dataset.zone); });
-});
-
-// ---- the readings ---------------------------------------------------------
-// A kind layer shows the edges of its kind and hides the rest. A derived
-// reading (Structure, System context, Agents) is computed from the
-// endpoints, in Python, and read from the table above; on the page the
-// rest are dimmed, not hidden, and the edges shown are painted in the
-// reading's own hue.
-function edgeIn(i, L){
-  if(L === 'all'){ return true; }
-  return !!(IN_READING[L] && IN_READING[L][i]);
-}
-function subjectOf(id, L){
-  // A card the reading is about even when no edge it shows touches it.
-  return !!(SUBJECT_OF[L] && SUBJECT_OF[L][id]);
-}
-function layerIds(L){
-  var ids = {}, out = [];
-  EDGES.forEach(function(e, i){ if(edgeIn(i, L)){ ids[e.from] = true; ids[e.to] = true; } });
-  Object.keys(DETAIL).forEach(function(id){
-    if(id !== '_meta' && (ids[id] || subjectOf(id, L))){ out.push(id); } });
-  return out;
-}
-flows.forEach(function(p){
-  p.dataset.stroke = p.getAttribute('stroke');
-  p.dataset.marker = p.getAttribute('marker-end');
-});
-function recolour(i, colour){
-  var p = flowOf[i], lbl = labelOf[i];
-  if(!p){ return; }
-  p.setAttribute('stroke', colour || p.dataset.stroke);
-  p.setAttribute('marker-end', colour ? 'url(#' + svg.id + '-m-' + state.layer + ')'
-    : p.dataset.marker);
-  var t = lbl && lbl.querySelector('text');
-  if(t){ t.style.fill = colour || ''; }
-}
-
-function paint(){
-  var f = state.focus, j = state.journey, L = state.layer;
-  var lit = litSet(), near = lit ? lit.ids : {}, hot = {};
-  if(lit){ lit.edges.forEach(function(i){ hot[i] = true; }); }
-  var jset = {}, traced = -1;
-  if(j){
-    (j.acts || []).concat(j.measures || []).forEach(function(id){ jset[id] = true; });
-    traced = j.edge;
-    if(traced >= 0){ jset[EDGES[traced].from] = true; jset[EDGES[traced].to] = true; }
-  }
-  var derived = !!(LAYER_AT[L] && LAYER_AT[L].derived) && L !== 'structure';
-  var inLayer = {};
-  EDGES.forEach(function(e, i){
-    if(edgeIn(i, L)){ inLayer[e.from] = true; inLayer[e.to] = true; } });
-  flows.forEach(function(p){
-    var i = +p.dataset.edge;
-    var on = edgeIn(i, L);
-    var lit = !!hot[i] || i === traced;
-    var vis = on || lit || derived;
-    var dim = vis && !lit && (!!f || !!j || (derived && !on));
-    var m = {off:!vis, hot:lit, dim:dim, peek:(i === state.peek)};
-    setCls(p, m);
-    if(labelOf[i]){ setCls(labelOf[i], m); }
-    recolour(i, derived && on ? LCOL[L] : '');
-  });
-  nodes.forEach(function(n){
-    var id = n.dataset.id;
-    var dim = f ? !near[id] : (j ? !jset[id] : false);
-    var quiet = !f && !j && L !== 'all' && !inLayer[id] && !subjectOf(id, L);
-    // A card the reading is about carries the reading's colour as its
-    // stroke; Structure is about every card and colours none.
-    var subject = L !== 'all' && L !== 'structure' && subjectOf(id, L);
-    n.style.setProperty('--subject', subject ? LCOL[L] : '');
-    setCls(n, {sel:(id === f), dim:dim, quiet:quiet, subject:subject,
-      acts:!!(j && (j.acts || []).indexOf(id) >= 0),
-      meas:!!(j && (j.measures || []).indexOf(id) >= 0), tagged:false});
-  });
-  svg.classList.toggle('focused', !!f);
-  drawTags();
-}
-
-function verbsFrom(cid, other, edges){
-  // The verbs on the given edges between cid and other, read from cid,
-  // with the layer of the first: its colour, and its tag's fill.
-  var out = [], layer = '';
-  edges.forEach(function(i){
-    var e = EDGES[i];
-    if(e.from === cid && e.to === other){ out.push(e.out); }
-    else if(e.to === cid && e.from === other){ out.push(e['in']); }
-    else { return; }
-    layer = layer || e.layer;
-  });
-  return {verbs:out, colour:LCOL[layer] || PAL.ink, fill:LTAG[layer] || PAL.ink};
-}
-
-function drawTags(){
-  if(!tags){ return; }
-  while(tags.firstChild){ tags.removeChild(tags.firstChild); }
-  var lit = litSet();
-  if(!lit){ return; }
-  var f = lit.id, seen = {};
-  lit.edges.forEach(function(i){
-    var e = EDGES[i];
-    var other = e.from === f ? e.to : e.from;
-    if(other === f || seen[other] || !nodeOf[other]){ return; }
-    seen[other] = true;
-    var v = verbsFrom(f, other, lit.edges);
-    var text = v.verbs.join(' / ');
-    var lines = text.length > 25 ? v.verbs : [text];
-    var b = boxOf(nodeOf[other]);
-    var th = lines.length > 1 ? 29 : 17;
-    var g = el('g', {'class':'vtag', 'data-id':other});
-    g.appendChild(el('rect', {x:b.x + 5, y:b.y + b.h - th - 3, width:b.w - 10, height:th, rx:3,
-      fill:v.fill, stroke:v.colour}));
-    lines.forEach(function(line, k){
-      var y = b.y + b.h - 8 - (lines.length - 1 - k) * 12;
-      g.appendChild(el('text', {x:b.x + b.w / 2, y:y, fill:v.colour}, line));
-    });
-    tags.appendChild(g);
-    nodeOf[other].classList.add('tagged');
-  });
-}
-
-// ---- the relationship wheel --------------------------------------------
-function wrapName(id){
-  var parts = id.match(/[A-Z]+[a-z0-9]*|[a-z0-9]+/g) || [id];
-  var lines = [], cur = '';
-  parts.forEach(function(p){
-    if(cur && (cur + p).length > 10){ lines.push(cur); cur = p; } else { cur += p; }
-  });
-  if(cur){ lines.push(cur); }
-  return lines.slice(0, 3);
-}
-function wheelLayout(cid){
-  // Spokes grouped by layer in LAYERS order, clockwise from the top, with a
-  // half-slot of daylight between groups. Mirrored in check_layout.py.
-  var d = DETAIL[cid];
-  var idx = (d.edges || []).slice();
-  idx.sort(function(a, b){ return (LORD[EDGES[a].layer] - LORD[EDGES[b].layer]) || (a - b); });
-  var groups = 0, prev = null;
-  idx.forEach(function(i){ if(EDGES[i].layer !== prev){ groups++; prev = EDGES[i].layer; } });
-  var gap = groups > 1 ? 0.5 : 0;
-  var step = 360 / (idx.length + gap * groups);
-  var W = 400, H = 400, cx = 200, cy = 200, R = 118;
-  var hw = Math.max(34, cid.length * 3.7 + 12), hh = 15;
-  var spokes = [], a = -90; prev = null;
-  idx.forEach(function(i){
-    var e = EDGES[i];
-    if(prev !== null && e.layer !== prev){ a += gap * step; }
-    prev = e.layer;
-    var th = a * Math.PI / 180; a += step;
-    var ux = Math.cos(th), uy = Math.sin(th);
-    var r0 = Math.min(hw / Math.max(Math.abs(ux), 1e-6), hh / Math.max(Math.abs(uy), 1e-6)) + 8;
-    var other = e.from === cid ? e.to : e.from;
-    var deg = th * 180 / Math.PI;
-    spokes.push({i:i, e:e, other:other, out:(e.from === cid), ux:ux, uy:uy, r0:r0,
-      deg:deg, verb:(e.from === cid ? e.out : e['in']), colour:LCOL[e.layer],
-      lines:wrapName(other)});
-  });
-  return {W:W, H:H, cx:cx, cy:cy, R:R, hw:hw, hh:hh, spokes:spokes};
-}
-function wheelExtent(w){
-  // The box the wheel actually occupies: the centre, plus every name label,
-  // estimated at 6.6px per glyph. The viewBox is fitted to it so a component
-  // with one spoke does not sit in a square of dead space.
-  var x0 = w.cx - w.hw, y0 = w.cy - w.hh, x1 = w.cx + w.hw, y1 = w.cy + w.hh;
-  w.spokes.forEach(function(s){
-    var ex = w.cx + (w.R + 9) * s.ux, ey = w.cy + (w.R + 9) * s.uy;
-    var n = s.lines.length, lw = 0;
-    s.lines.forEach(function(l){ lw = Math.max(lw, l.length * 6.6); });
-    var left, top;
-    if(Math.abs(s.ux) < 0.35){
-      left = ex - lw / 2; top = (s.uy < 0 ? ey - 4 - (n - 1) * 13 : ey + 12) - 10;
-    } else {
-      left = s.ux > 0 ? ex + 2 : ex - 2 - lw; top = ey + 4 - (n - 1) * 6.5 - 10;
-    }
-    x0 = Math.min(x0, left); y0 = Math.min(y0, top);
-    x1 = Math.max(x1, left + lw); y1 = Math.max(y1, top + n * 13);
-  });
-  var pad = 8;
-  if(!w.spokes.length){ x0 = w.cx - 100; x1 = w.cx + 100; y0 = w.cy - 44; }
-  return {x:x0 - pad, y:y0 - pad, w:x1 - x0 + 2 * pad, h:y1 - y0 + 2 * pad};
-}
-function wheelSvg(cid){
-  var w = wheelLayout(cid);
-  var box = wheelExtent(w);
-  var h = '<svg viewBox="' + box.x.toFixed(1) + ' ' + box.y.toFixed(1) + ' ' + box.w.toFixed(1)
-        + ' ' + box.h.toFixed(1) + '" style="max-width:' + box.w.toFixed(0) + 'px" role="img" '
-        + 'aria-label="relationship wheel of ' + esc(cid) + '">';
-  h += '<defs>';
-  LAYERS.forEach(function(l){
-    h += '<marker id="wm-' + esc(l.id) + '" viewBox="0 0 8 8" refX="7" refY="4" '
-       + 'markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" '
-       + 'orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="' + l.colour
-       + '"/></marker>';
-  });
-  h += '</defs>';
-  if(!w.spokes.length){
-    h += '<text class="systemap-w__empty" x="' + w.cx + '" y="' + (w.cy - 30) + '">'
-       + 'no flow touches this yet</text>';
-  }
-  w.spokes.forEach(function(s){
-    var x0 = w.cx + s.r0 * s.ux, y0 = w.cy + s.r0 * s.uy;
-    var x1 = w.cx + w.R * s.ux, y1 = w.cy + w.R * s.uy;
-    var rm = (s.r0 + w.R) / 2, mx = w.cx + rm * s.ux, my = w.cy + rm * s.uy;
-    var rot = s.ux < 0 ? s.deg + 180 : s.deg;
-    var marker = (s.out ? ' marker-end' : ' marker-start') + '="url(#wm-' + esc(s.e.layer) + ')"';
-    var ends = ' x1="' + x0.toFixed(1) + '" y1="' + y0.toFixed(1) + '" x2="' + x1.toFixed(1)
-             + '" y2="' + y1.toFixed(1) + '"';
-    h += '<g class="systemap-w__spoke" data-edge="' + s.i + '" data-go="' + esc(s.other)
-       + '" tabindex="0" role="button" aria-label="'
-       + esc(cid + ' ' + s.verb + ' ' + s.other) + '">';
-    h += '<line class="systemap-w__hit"' + ends + '/>';
-    // A declared edge is dashed on the wheel as it is on the map.
-    var dash = s.e.evidence === 'declared' ? ' stroke-dasharray="6 4"' :
-      s.e.evidence === 'structural' ? ' stroke-dasharray="3 4"' : '';
-    h += '<line class="systemap-w__line"' + ends + ' stroke="' + s.colour + '"' + marker + dash
-       + '/>';
-    h += '<text class="systemap-w__verb" x="' + mx.toFixed(1) + '" y="' + (my + 4).toFixed(1)
-       + '" fill="' + s.colour + '" transform="rotate(' + rot.toFixed(1) + ' ' + mx.toFixed(1)
-       + ' ' + my.toFixed(1) + ')">' + esc(s.verb) + '</text>';
-    var ex = w.cx + (w.R + 9) * s.ux, ey = w.cy + (w.R + 9) * s.uy;
-    var n = s.lines.length, anchor, lx, first;
-    if(Math.abs(s.ux) < 0.35){
-      anchor = 'middle'; lx = ex;
-      first = s.uy < 0 ? ey - 4 - (n - 1) * 13 : ey + 12;
-    } else {
-      anchor = s.ux > 0 ? 'start' : 'end'; lx = ex + (s.ux > 0 ? 2 : -2);
-      first = ey + 4 - (n - 1) * 6.5;
-    }
-    h += '<text class="systemap-w__name" text-anchor="' + anchor + '">';
-    s.lines.forEach(function(line, k){
-      h += '<tspan x="' + lx.toFixed(1) + '" y="' + (first + k * 13).toFixed(1) + '">'
-         + esc(line) + '</tspan>';
-    });
-    h += '</text></g>';
-  });
-  h += '<g class="systemap-w__centre"><rect x="' + (w.cx - w.hw) + '" y="' + (w.cy - w.hh)
-     + '" width="' + (2 * w.hw) + '" height="' + (2 * w.hh) + '" rx="5"/>';
-  h += '<text x="' + w.cx + '" y="' + (w.cy + 4) + '">' + esc(cid) + '</text></g>';
-  h += '</svg>';
-  return h;
-}
-
-// ---- the panel -----------------------------------------------------------
-var SAY_HINT = 'Hover or tap a spoke, or a neighbour on the map, to read what the relationship is.';
-function describe(d){
-  var h = '<div class="systemap-f">';
-  h += '<h3 class="systemap-f__plain">' + esc(d.plain || d.id) + '</h3>';
-  h += '<div class="systemap-f__code">' + esc(d.id) + '<span class="systemap-f__kind">'
-     + esc(d.kind) + (d.calls_model ? ', calls a model' : '')
-     + (d.region ? ' in ' + esc(d.region) : '') + '</span></div>';
-  h += '<p class="systemap-f__does">' + esc(d.does) + '</p>';
-  // The one-line signature and the caveat, when the card has them.
-  if(d.interface){ h += '<p class="systemap-f__iface">' + esc(d.interface) + '</p>'; }
-  if(d.note){ h += '<p class="systemap-f__note">' + esc(d.note) + '</p>'; }
-  h += '<div class="systemap-f__wheel">' + wheelSvg(d.id) + '</div>';
-  var say = (d.edges && d.edges.length) ? SAY_HINT : 'Nothing flows to or from this yet.';
-  h += '<p class="systemap-f__say muted" data-say>' + esc(say) + '</p>';
-  // What the facts and cited source say about the peeked edge.
-  h += '<p class="systemap-f__evidence" data-evidence></p>';
-  h += '<p class="systemap-f__refs" data-evidence-refs></p>';
-  h += '<div class="systemap-f__chips">';
-  h += '<span class="systemap-chip systemap-chip--' + esc(d.state) + '">' + esc(d.state_label)
-     + '</span>';
-  (d.rules || []).forEach(function(n){
-    h += '<span class="systemap-chip systemap-chip--rule" title="' + esc(RULES[n] || '')
-       + '" tabindex="0">' + n + '</span>';
-  });
-  h += '</div>';
-  if(d.lives){ h += '<p class="systemap-f__lives">lives in <b>' + esc(d.lives) + '</b></p>'; }
-  // The entry the card names, with the module that defines it; a store or
-  // a context card may have none, and then it is a namespace.
-  if(d.kind !== 'actor'){
-    var entry = d.entry
-      ? esc(d.entry) + (d.entry_module ? ' (' + esc(d.entry_module) + ')' : '')
-      : 'none (a namespace)';
-    h += '<p class="systemap-f__entry">entry: <b>' + entry + '</b></p>';
-  }
-  // The map inside the card, when it opens one: its name and how many
-  // cards it holds; on a page, its preview (drawn at render time, inert:
-  // a picture, not a second map to click) and the button that opens it in
-  // place. A figure has no page to open and names the map alone.
-  if(d.map){
-    h += '<p class="systemap-f__opens">opens: <b>' + esc(d.map.name)
-       + (d.map.cards ? ' (' + d.map.cards + ' card' + (d.map.cards === 1 ? '' : 's') + ')' : '')
-       + '</b></p>';
-    if(d.map.href){
-      if(d.map.preview){
-        h += '<div class="systemap-f__preview" inert>' + d.map.preview + '</div>';
-      }
-      h += '<button type="button" class="systemap-f__open" data-open-map="' + esc(d.id)
-         + '">Open the map inside</button>';
-    }
-  }
-  h += '</div>';
-  return h;
-}
-function peek(i, sticky){
-  state.peek = i;
-  var e = EDGES[i];
-  if(panel){
-    var say = panel.querySelector('[data-say]');
-    if(say && e){
-      say.textContent = e.say || (e.from + ' -> ' + e.to + ': ' + e.art);
-      say.classList.remove('muted');
-    }
-    var ev = panel.querySelector('[data-evidence]');
-    if(ev && e){
-      ev.textContent = e.evidence_says || '';
-      ev.classList.toggle('declared', e.evidence === 'declared');
-      ev.classList.toggle('structural', e.evidence === 'structural');
-    }
-    var refs = panel.querySelector('[data-evidence-refs]');
-    if(refs && e){
-      refs.textContent = (e.source_refs || []).map(function(ref){
-        var pos = ref.lastIndexOf('@');
-        return ref.slice(0, pos) + ' @ ' + ref.slice(pos + 1, pos + 13);
-      }).join(', ');
-      refs.title = (e.source_refs || []).join(', ');
-    }
-    Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
-      s.classList.toggle('peek', +s.dataset.edge === i); });
-  }
-  flows.forEach(function(p){ p.classList.toggle('peek', +p.dataset.edge === i); });
-  if(labelOf[i]){ labelOf[i].classList.add('peek'); }
-}
-function unpeek(){
-  if(state.peek < 0){ return; }
-  state.peek = -1;
-  flows.forEach(function(p){ p.classList.remove('peek'); });
-  labels.forEach(function(l){ l.classList.remove('peek'); });
-  if(panel){
-    Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke.peek')).forEach(
-      function(s){ s.classList.remove('peek'); });
-  }
-}
-function edgeBetween(a, b){
-  var i = EDGE_AT[a + '>' + b];
-  if(i === undefined){ i = EDGE_AT[b + '>' + a]; }
-  return i === undefined ? -1 : i;
-}
-function opensPage(cid){
-  // A card that opens a map with a page to show: the page answers the event.
-  var d = DETAIL[cid];
-  return !!(d && d.map && d.map.href);
-}
-function openMap(cid){
-  if(!opensPage(cid)){ return; }
-  var m = DETAIL[cid].map;
-  svg.dispatchEvent(new CustomEvent('systemap:open',
-    {detail:{id:cid, name:m.name, href:m.href, cards:m.cards}, bubbles:true}));
-}
-function select(cid){
-  var d = DETAIL[cid];
-  if(!d){ return; }
-  state.focus = cid; state.journey = null; state.peek = -1;
-  paint();
-  frameFocus(null, !booted);
-  if(panel){
-    panel.innerHTML = describe(d);
-    panel.classList.add('on');
-    var open = panel.querySelector('[data-open-map]');
-    if(open){ open.addEventListener('click', function(){ openMap(cid); }); }
-    Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
-      var i = +s.dataset.edge;
-      s.addEventListener('mouseenter', function(){ peek(i); });
-      s.addEventListener('focus', function(){ peek(i); });
-      // A hover peeks first, so a mouse click navigates at once; on touch
-      // the first tap peeks (the sentence appears) and the second navigates.
-      s.addEventListener('click', function(ev){
-        ev.preventDefault();
-        if(state.peek === i){ select(s.dataset.go); } else { peek(i); }
-      });
-      s.addEventListener('keydown', function(ev){
-        if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); select(s.dataset.go); }
-      });
-    });
-  }
-  svg.dispatchEvent(new CustomEvent('systemap:select', {detail:{id:cid}, bubbles:true}));
-}
-function clearAll(){
-  state.focus = ''; state.journey = null; state.peek = -1;
-  paint();
-  if(panel){ panel.innerHTML = ''; panel.classList.remove('on'); }
-  svg.dispatchEvent(new CustomEvent('systemap:clear', {bubbles:true}));
-}
-nodes.forEach(function(n){
-  n.addEventListener('click', function(e){ e.stopPropagation(); select(n.dataset.id); });
-  // A double-click on a card that opens a map, or Enter on it a second
-  // time while it is the selection, opens the map inside it.
-  n.addEventListener('dblclick', function(e){
-    if(opensPage(n.dataset.id)){ e.preventDefault(); openMap(n.dataset.id); }
-  });
-  n.addEventListener('keydown', function(e){
-    if(e.key === 'Enter' && state.focus === n.dataset.id && opensPage(n.dataset.id)){
-      e.preventDefault(); openMap(n.dataset.id); return;
-    }
-    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); select(n.dataset.id); }
-  });
-  n.addEventListener('mouseenter', function(){
-    if(!state.focus || n.dataset.id === state.focus){ return; }
-    var i = edgeBetween(state.focus, n.dataset.id);
-    if(i >= 0){ peek(i); }
-  });
-  n.addEventListener('mouseleave', function(){ if(state.focus){ unpeek(); } });
-});
-svg.addEventListener('click', function(e){ if(!e.target.closest('.node')){ clearAll(); } });
-svg.systemap = {
-  select: select,
-  clear: clearAll,
-  peek: peek,
-  state: state,
-  setLayer: function(id){ state.layer = id; paint(); },
-  layerIds: layerIds,
-  setJourney: function(step){
-    // step: {acts:[], measures:[], edge:index, say:''} or null.
-    state.focus = '';
-    state.journey = step;
-    paint();
-    if(step){ frameJourney(step, !booted); }
-    if(panel && step){ panel.innerHTML = ''; panel.classList.remove('on'); }
-  },
-  view: {
-    fit: function(){ userView({k:1, tx:0, ty:0}); },
-    actual: function(){ var c = centre(); zoomAt(1 / (base() * goal.k), c.x, c.y); },
-    zoomBy: function(f){ var c = centre(); zoomAt(f, c.x, c.y); },
-    zoom: function(){ return base() * goal.k; },
-    isFit: function(){ return isFit(); },
-    frameFocus: frameFocus,
-    frameRegion: frameRegion,
-    frame: function(){ return lastFrame; },
-    visibleArea: visibleArea,
-    fracOf: fracOf,
-    back: back
-  },
-  edges: EDGES,
-  layers: LAYERS,
-  journeys: META.journeys || [],
-  detail: DETAIL
-};
-svg.systemapSelect = select;
-svg.systemapClear = clearAll;
-function openHash(){
-  var id = decodeURIComponent((location.hash || '').slice(1));
-  if(id && DETAIL[id] && id !== state.focus){ select(id); }
-}
-window.addEventListener('hashchange', openHash);
-openHash();
-booted = true;
-"""
