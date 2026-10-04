@@ -62,7 +62,8 @@ def test_source_records_resolve_wildcard_claims(sample: Sample) -> None:
 def test_operations_search_and_review_share_the_same_map(sample: Sample, tmp_path: Path) -> None:
     out = tmp_path / "map.html"
     out.write_text(
-        page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
+        page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {}),
+        encoding="utf-8",
     )
     driver = Path(__file__).with_name("page_driver.js")
     result = subprocess.run(

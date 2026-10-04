@@ -11,7 +11,7 @@ TypeScript merge. Recommendations were treated as claims to verify. Existing
 source line numbers were not used as implementation instructions.
 
 The final integration uses main at `c32dae9`. Its accuracy changes are preserved:
-source reviews bind to source bytes and the exact authored claim, imports supply
+source reviews bind to source content and the exact authored claim, imports supply
 structural evidence, and recorded exact answers require current evidence.
 Explicit family policies remain visible as policies.
 
@@ -148,6 +148,12 @@ mechanical family kinds. Regression cases compare its accepted reasons, open
 findings and review notices with the CLI's decisions. Source reviews were renewed
 only for the checked claims; the obsolete single-module answer for Page was
 removed after its modules were split by responsibility.
+
+The first CI run passed the Linux and macOS test jobs and all six installation
+jobs. Both Windows test jobs exposed fixture defaults: CRLF newlines made a
+raw-byte hash assertion differ from the extractor's normalized source hash, and
+the default text encoding could not write Unicode HTML. The fixtures now specify
+LF newlines and UTF-8. All ten tests in the two affected files passed locally.
 
 New helpers stay within the cognitive-complexity limit. The existing
 page builder improves from 45 to 17; the existing SVG renderer remains at 156.

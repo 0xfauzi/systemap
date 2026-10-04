@@ -31,7 +31,7 @@ relationships that answer one question.
 
 The page is a stored snapshot. It cannot infer changes after generation.
 Imports supply structural evidence, without proving the authored meaning.
-Source reviews bind to source bytes and the exact authored claim.
+Source reviews bind to source content and the exact authored claim.
 Declared relationships retain their status. External relationships cross the
 code boundary. The generated production page fetches nothing and depends on
 nothing. Terminal commands are instructions, not actions the page can execute.

@@ -97,7 +97,11 @@ def evidence_sample(sample: Sample) -> Sample:
     )
     flows[4] = reviewed_flow(sample, 4, (ledger_ref, UNSAFE_REF))
     source = sample.cfg.root / "pkg/ledger.py"
-    source.write_text(source.read_text() + "\nNEW_VALUE = 1\n", encoding="utf-8")
+    source.write_text(
+        source.read_text(encoding="utf-8") + "\nNEW_VALUE = 1\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return dataclasses.replace(
         sample,
         model=dataclasses.replace(sample.model, flows=tuple(flows)),
