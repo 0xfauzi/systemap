@@ -1,4 +1,4 @@
-"""Stable source evidence for exact judgement answers."""
+"""The evidence digests bind exact judgement answers to source data."""
 
 from __future__ import annotations
 
@@ -8,7 +8,9 @@ from typing import Any
 
 
 def _source_hash(root: Path, record: dict[str, Any]) -> str:
-    """Read current source because saved facts may predate an uncommitted edit."""
+    """This function hashes source bytes because saved facts can predate an uncommitted
+    edit.
+    """
     name = record.get("file")
     if not isinstance(name, str):
         return "unknown source"
@@ -19,7 +21,9 @@ def _source_hash(root: Path, record: dict[str, Any]) -> str:
 
 
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
-    """Keep evidence independent of AST dump spelling across Python minors."""
+    """This function removes Python-version-specific AST fingerprints from the evidence
+    state.
+    """
     stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}
     stable["api"] = [
         {key: value for key, value in item.items() if key != "fingerprint"}
@@ -34,7 +38,9 @@ def answer_state(
     model_hash: str,
     imports: list[tuple[str, str]] | None,
 ) -> Any:
-    """Raw source still invalidates answers when implementation text changes."""
+    """This function includes source bytes hashes so implementation changes invalidate
+    exact answers.
+    """
     if imports is None:
         return {
             "model": model_hash,

@@ -1,15 +1,8 @@
-"""The tree at another commit, read once and kept.
+"""The history reader caches facts for committed source snapshots.
 
-Several commands ask what the code looked like somewhere else in history:
-`delta` at the base of a branch, the ripple of a change, the trend of a
-system over a year. Reading it is expensive, because the facts at a commit
-are a whole extraction of that tree, so this module keeps what it read:
-
-    .systemap/facts/<sha>-<scope>.json
-
-A commit never changes, but extraction settings and parser versions do. The
-scope includes them so a changed reader gets fresh facts. The directory is the maintainer's to
-delete; nothing here ever writes into the working copy.
+The cache path is `.systemap/facts/<sha>-<scope>.json`. The scope includes extraction
+settings and parser versions, because these can change the facts for the same commit.
+The reader does not write to the working tree. The maintainer can delete the cache.
 """
 
 from __future__ import annotations
@@ -33,7 +26,7 @@ def cache_dir(cfg: Config) -> Path:
 
 
 def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
-    """The facts at `sha`, from the cache when they were read before."""
+    """This function reads facts at sha, with a cache for the same extraction inputs."""
     scope = hashlib.sha256(
         f"{cfg!r}|format={extract.FORMAT}|python={sys.version_info[:3]}".encode()
     ).hexdigest()[:16]
@@ -62,11 +55,10 @@ def git(root: Path, *args: str) -> str:
 
 
 def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[str]:
-    """One commit every `every_days` days back to `since`, oldest first.
+    """This function selects one commit for each time window, in chronological order.
 
-    The first commit of each window is taken, so a busy week and a quiet one
-    weigh the same: the question is what the system looked like then, not how
-    many commits it took to get there.
+    The initial commit in each window supplies the sample. Commit activity does not
+    change the number of samples.
     """
     lines = git(root, "log", "--first-parent", f"--since={since}", "--format=%H %cI", ref)
     rows = [line.split(" ", 1) for line in lines.splitlines() if " " in line]
@@ -90,13 +82,15 @@ def _days_between(a: str, b: str) -> int:
 
 
 def changed_files(root: Path, base: str, head: str) -> list[str]:
-    """The files the change touched, paths as git prints them."""
+    """This function gives changed file paths from Git."""
     out = git(root, "diff", "--name-only", "-z", f"{base}..{head}", "--no-renames")
     return [p for p in out.split("\0") if p]
 
 
 def diff_of(root: Path, base: str, head: str, paths: list[str], cap: int = DIFF_CAP) -> str:
-    """The diff of some files between two commits, cut to `cap` characters."""
+    """This function gives a selected-file diff between two commits, limited to cap
+    characters.
+    """
     if not paths:
         return ""
     out = git(root, "diff", "--unified=3", f"{base}..{head}", "--", *paths)

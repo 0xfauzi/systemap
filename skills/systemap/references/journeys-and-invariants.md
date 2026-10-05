@@ -1,85 +1,81 @@
-# Journeys and invariants: extracted, not invented
+# Source support for sequences and invariants
 
-Both are optional in the schema; a model without them renders without the
-journey selector or the invariant list. Both are extracted from what the
-repository already states, and both cite where.
+Sequences and invariants are optional schema contents.
+A model without sequences has no sequence selector.
+A model without invariants has no invariant list.
+Each sequence and invariant must have source support.
+Use the mandatory language policy in `language.md` for every name and sentence.
 
-## Journeys come from entry points
+## Entry points and sequences
 
-`systemap extract` records every place a run can start, under
-`entry_points` in the facts file:
+`systemap extract` records entry points under `entry_points` in the facts file.
+An entry point is a place where a program operation can start.
+The extractor reads these source forms:
 
-- console scripts from `[project.scripts]` in `pyproject.toml`, Poetry's
-  `[tool.poetry.scripts]`, and the plugin hooks under `[project.entry-points]`
-- `__main__` modules
-- `main` functions
-- argparse subcommands, where `add_parser("name", ...)` is written with a
-  literal name
-- the public functions of the package root
-- routes a framework registers: `@app.get("/x")` and its relatives, Flask's
-  `@app.route`, and Django's `urlpatterns`
-- commands: click and typer's `@cli.command()`, cleo's command classes, and
-  Django's `management/commands/*`
-- background tasks: `@shared_task` and `@app.task`
+- Console scripts from `[project.scripts]` and `[tool.poetry.scripts]`.
+- Plugin hooks from `[project.entry-points]`.
+- `__main__` modules and `main` functions.
+- Argparse subcommands with a literal `add_parser("name", ...)` value.
+- Public functions exported by the package root.
+- Framework routes, including `@app.get`, Flask `@app.route`, and Django `urlpatterns`.
+- Click and Typer commands, Cleo command classes, and Django `management/commands/*`.
+- Background tasks with `@shared_task` or `@app.task`.
 
-Write one journey per entry point that matters, tracing the components it
-passes through: the actor that starts it, the component that takes the
-input, each hand-off, and where the result lands. Each `Step` names what
-acts, what measures (or `()`), the flow it traces, and one sentence. Name
-the way in in `starts` for the reader. Add its exact identity to `covers`
-after reviewing the walk against source. `systemap facts --entry-points`
-lists the entries; `systemap journeys` writes the identity for a draft.
-A label, sentence, or legacy `starts` value does not establish coverage.
-A console script's `main` and a `__main__` that imports it count as the script.
+Write one sequence for each entry point that matters to a reader.
+Start with the actor and the component that receives the input.
+Then show the flows and the destination of the result.
+Each `Step` contains `acts`, `measures`, `edge`, and `say`.
+Use an empty tuple for `measures` when no component records or monitors the step.
+Use `starts` as the entry point display label.
+After source examination, add the exact entry identities to `covers`.
+`systemap facts --entry-points` shows the available identities.
+A label, sentence, or old `starts` value does not establish coverage.
 
-A card that takes a crowd of ways in of one kind, a hundred routes or a
-dozen subcommands, gets one journey for the crowd rather than one each:
-name the card in `starts` (`starts="HttpApi"`), and list each reviewed
-entry identity in `covers`. Newly discovered entries remain uncovered.
-`systemap judgement` asks about a crowd as one line for the same reason.
+A console script and its imported `main` or `__main__` can have the same entry identity.
+For many entry points of one kind in one component, use one sequence for the common operation.
+Set `starts` to the component identifier, for example `starts="HttpApi"`.
+List each examined entry identity in `covers`.
+New entry points do not automatically receive coverage from that sequence.
 
-`systemap journeys` writes one for you, when `[agent] command` names a
-coding agent: the agent reads the code from that way in, or from two or
-three of a crowd, and answers with the walk, and systemap refuses a step
-that traces a flow the map does not draw or names a card that is not
-there. What it writes is marked
-`drafted=True` and prints as a `drafted journey` judgement line. Read each
-step against the code, fix what is wrong, then remove the mark. A drafted
-journey nobody has read is not knowledge of the system.
+With `[agent] command`, `systemap journeys` asks the agent for a draft sequence.
+The agent reads one entry point or two or three entries from a group.
+The prompt makes ASD-STE100 mandatory for the identifier, label, and step sentences.
+The command rejects steps with unknown components or missing flows.
+Accepted drafts have `drafted=True` and a `drafted journey` finding.
+Examine each step against the source. Correct errors before removal of the draft flag.
 
-Not every entry point matters. A debugging hook, a public function that
-only tests call, a subcommand that prints a version: leave those without
-a journey and answer the judgement line in `[judgement] answered` saying
-so. An entry point you cannot explain is a finding for the maintainer,
-not a journey to invent.
+A sequence is not necessary for some entry points.
+Examples include a debug hook, a test-only function, or a version command.
+Record the reason under `[judgement] answered`.
+If an entry point cannot be explained from source, tell the maintainer.
+Do not invent a sequence.
 
-In an agentic system, one journey per agent's turn is expected: what
-enters the window, what the model returns, what the agent invokes, what it
-writes back.
+For a model-calling system, write one sequence per agent turn when applicable.
+Show the context input, model output, tool calls, and stored result.
 
-## Invariants come from stated rules
+## Invariants and source rules
 
-An invariant is a rule the repository states about itself. Sources, in
-order of trust:
+An invariant is a repository rule that applies to specified components.
+Use these sources in this order:
 
-1. Rules stated in the repository's own words: its README, AGENTS.md,
-   CLAUDE.md, docs/. Cite the file and the heading: `(README, Principles)`.
-2. Guard clauses that raise: a function that refuses an input and says
-   why. Cite the file and line: `(pkg/ledger.py:42)`.
-3. Assertions in the code, cited the same way.
-4. Tests whose names encode a rule: `test_every_record_is_written_once`.
+1. Repository documentation: README, AGENTS.md, CLAUDE.md, and docs/.
+   Cite the file and heading, for example `(README, Principles)`.
+2. Source clauses that reject an input and give a reason.
+   Cite the file and line, for example `(pkg/ledger.py:42)`.
+3. Assertions in source code. Cite the file and line.
+4. Tests that state a rule, for example `test_every_record_is_written_once`.
    Cite the test file.
 
-Each `Invariant` carries the rule in the repository's own words where it
-can, the citation in the text, and the ids of the components it directly
-governs. A rule the repository did not state is not an invariant; it is a
-proposal, and belongs in your hand-back note to the maintainer.
+Write the rule in ASD-STE100 without a change to its meaning.
+Keep an exact external quotation when its identity is necessary.
+Put the citation in the invariant text.
+List directly affected component identifiers in `governs`.
+A proposed rule is not an existing invariant. Put proposals in the completion note.
 
-## The check, and what it cannot see
+## Structural checks and their limits
 
-The check refuses a journey step that traces a flow the model does not
-have or names an unknown id, and an invariant governing an unknown id. It
-cannot see whether a journey is the walk a reader needs, or whether an
-invariant is true. `systemap judgement` prints "entry point X has no
-journey" for every entry point no journey mentions; the second pass reads
-every rule the documents state and asks whether the model carries it.
+The check rejects sequence steps with missing flows or unknown component identifiers.
+It also rejects invariants that refer to unknown components.
+It cannot establish that a sequence is useful or that an invariant is true.
+The source examination procedure compares these claims with code and documentation.
+Complete language acceptance only after that examination.

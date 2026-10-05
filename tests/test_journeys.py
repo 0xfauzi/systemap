@@ -138,7 +138,7 @@ def test_a_step_tracing_a_flow_the_map_does_not_draw_is_refused() -> None:
     assert draft.journey is None
     assert draft.problems == (
         "step 1 traces Writer -> Reader, which is not a flow",
-        "no step of the walk could be used",
+        "no sequence step could be used",
     )
 
 
@@ -146,7 +146,7 @@ def test_a_step_naming_a_card_that_is_not_on_the_map_is_refused() -> None:
     bad = {**ANSWER["steps"][0], "acts": ["Ledger"]}
     draft = read({**ANSWER, "steps": [ANSWER["steps"][0], bad]})
     assert draft.journey is None
-    assert draft.problems == ("step 2 names Ledger, which the map has no card for",)
+    assert draft.problems == ("step 2 has unknown component identifiers: Ledger",)
 
 
 def test_an_answer_that_is_not_json_is_said_so_never_guessed_at() -> None:
@@ -162,7 +162,7 @@ def test_the_walk_is_written_into_the_model_where_its_journeys_are_named() -> No
     source = "JOURNEYS = (\n)\n"
     grown = journeys.add_to_source(source, draft.journey)
     assert grown is not None and 'id="read-and-write"' in grown
-    assert "drafted=True,  # read it, then remove this line" in grown
+    assert "drafted=True,  # examine each step against source before removal" in grown
     assert grown.startswith("JOURNEYS = (\n    Journey(")
     # a model file that names its journeys somewhere this cannot find is said so
     assert journeys.add_to_source("MEANING = Meaning(plain={})\n", draft.journey) is None
@@ -198,7 +198,7 @@ def test_the_route_with_no_walk_is_listed_and_nothing_is_written(
     before = (two_cards.model_path).read_text()
     assert cmd_journeys(args_for(two_cards, dry_run=True)) == 0
     out = capsys.readouterr().out
-    assert "1 way into the system with no walk from it" in out
+    assert "1 entry point without a sequence for it" in out
     assert "GET /read (route)" in out
     assert (two_cards.model_path).read_text() == before
 
@@ -249,7 +249,7 @@ def test_a_walk_the_map_cannot_hold_is_reported_and_the_model_is_left_alone(
     run, _asked = answering(json.dumps(bad))
     assert cmd_journeys(args_for(cfg), run_command=run) == 0
     out = capsys.readouterr().out
-    assert "no walk written for GET /read (route)" in out
+    assert "no sequence written for GET /read (route)" in out
     assert "which is not a flow" in out
     assert cfg.model_path.read_text() == before
 
@@ -271,20 +271,20 @@ def test_describe_says_where_each_walk_starts_and_how_many_ways_in_are_walked(
     from systemap import describe
 
     out = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
-    section = out[out.index("journeys: the walks a reader can take through the system") :]
+    section = out[out.index("sequences: These steps give the system operations.") :]
     assert section[1].startswith("  input-to-record: 4 steps")
     # the sample package registers no way in at all, and the line says that
     # rather than counting nothing out of nothing
     assert not sample.facts["entry_points"]
-    assert "  ways in: none in the facts, so no walk can be asked for" in section
+    assert "  entry points: The facts contain none. No sequence is necessary." in section
 
 
 def test_describe_names_the_steps_the_code_does_not_back(sample: Any) -> None:
     from systemap import describe
 
     out = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
-    trust = [line for line in out if "on trust:" in line]
-    assert trust and "no import backs" in trust[0]
+    trust = [line for line in out if "no import evidence:" in line]
+    assert trust and "No import gives evidence" in trust[0]
 
 
 def test_journey_words_do_not_count_as_coverage(sample: Any) -> None:
@@ -326,7 +326,7 @@ def test_legacy_words_are_candidates_and_empty_walks_fail_validation() -> None:
     legacy = Journey("read", "GET /read", (WALK_STEP,), starts="GET /read")
     meaning = Meaning(plain={"Reader": "reader", "Writer": "writer"}, journeys=(legacy,))
     assert journeys.uncovered(meaning, facts) == [point]
-    assert any("confirm covers=" in line for line in judgement.journey_problems(meaning, facts))
+    assert any("Then set covers=" in line for line in judgement.journey_problems(meaning, facts))
     empty = Journey("empty", "Empty", (), covers=(extract.entry_identity(point),))
     invalid = Meaning(plain=meaning.plain, journeys=(empty,))
     assert journeys.uncovered(invalid, facts) == [point]
@@ -384,7 +384,7 @@ def test_a_journey_starting_at_a_card_is_not_reported_as_starting_at_nothing(sam
     walks = Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Reader"),))
     cards = [c.id for c in sample.model.components]
     assert judgement.journey_problems(walks, crowd(9), cards) == [
-        "journey start: a has no steps; an empty walk covers no way in"
+        "journey start: a has no steps. An empty sequence gives no entry point coverage."
     ]
     problems = judgement.journey_problems(
         Meaning(plain={}, journeys=(Journey(id="a", label="in", steps=(), starts="Nowhere"),)),
@@ -413,5 +413,5 @@ def test_describe_and_judgement_agree_that_a_crowd_is_walked(sample: Any) -> Non
     )
     assert judgement.entry_points_without_journey(sample.model, walks, facts) == []
     told = describe.journey_lines(sample.model, walks, facts)
-    assert "  ways in: 9 of 9 walked from" in told
+    assert "  entry points: 9 of 9 have sequence coverage" in told
     assert journeys.gather(sample.model, walks, facts) == []

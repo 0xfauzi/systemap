@@ -1,11 +1,9 @@
 # ruff: noqa: E501
-"""The journeys of systemap's own map: the walks a reader takes through it.
+"""The sequences in the systemap map.
 
-They live beside the model because the model file is long enough already;
-`map/model.py` imports JOURNEYS from here. A step names what acts, what
-measures, the flow it traces, and one sentence, and `systemap check` refuses
-a step that traces a flow the model does not draw.
-"""
+`map/model.py` imports JOURNEYS from this file. Each step gives active
+components, measurement components, one flow and an explanation.
+`systemap check` rejects a step whose flow is missing from the model."""
 
 from __future__ import annotations
 
@@ -14,7 +12,7 @@ from systemap import Journey, Step  # type: ignore[import-not-found, unused-igno
 JOURNEYS = (
     Journey(
         id="over-time",
-        label="A year of the system: what moved, and what wrote it",
+        label="Read the change history",
         starts="systemap history (subcommand)",
         covers=('["subcommand","systemap.cli","systemap","history"]',),
         steps=(
@@ -22,37 +20,37 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="Somebody asks what the last year did to the system: systemap history, since a date, one sample every so many days.",
+                say="The user runs systemap history with a start date and a sample interval.",
             ),
             Step(
                 acts=("ChangeDetector",),
                 measures=(),
                 edge=("CLI", "ChangeDetector"),
-                say="The change detector picks one commit per window out of git, oldest first, so a busy fortnight and a quiet one weigh the same.",
+                say="The change detector selects one commit per interval from git, in date order. Each interval has the same weight.",
             ),
             Step(
                 acts=("FactsExtractor",),
                 measures=(),
                 edge=("FactsExtractor", "ChangeDetector"),
-                say="The facts at each commit are extracted from the tree git holds, never from the working copy, and kept under .systemap/facts so the second run is quick.",
+                say="The extractor reads facts from each git revision. It does not read the working tree. The cache stores facts in .systemap/facts.",
             ),
             Step(
                 acts=("ChangeDetector",),
                 measures=("Model",),
                 edge=("Model", "ChangeDetector"),
-                say="Every sample is read in today's cards, so a module that moved still counts as the card whose job it does.",
+                say="The comparison uses the components in the model for all samples. Each component has module claims for its function.",
             ),
             Step(
                 acts=("ChangeDetector",),
                 measures=(),
                 edge=("ChangeDetector", "Agent"),
-                say="The largest windows are printed first: the cards that grew, the imports that began crossing a boundary, and the commits that wrote the modules which appeared.",
+                say="The report shows the largest changes first: component size, imports between components and commits that added modules.",
             ),
         ),
     ),
     Journey(
         id="plan-then-check",
-        label="A plan: the cards the work will touch, then what it actually touched",
+        label="Compare a plan with source changes",
         starts="plan (subcommand in systemap.jev_cli)",
         covers=('["subcommand","systemap.jev_cli","","plan"]',),
         steps=(
@@ -60,43 +58,43 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="Before the work, the agent or the maintainer runs systemap plan with the task in plain words.",
+                say="Before source changes, the agent or maintainer runs systemap plan with a task description.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("Model", "SecondOpinion"),
-                say="The projection reads every card's purpose out of the model, so the question is asked in the map's own vocabulary.",
+                say="The plan projection reads component functions from the model. Its question uses the model component names.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("SecondOpinion", "TypeSafe"),
-                say="One question goes to Jev: which component will this work most likely have to change?",
+                say="Jev receives a question about the probability of a change in each component for this task.",
             ),
             Step(
                 acts=("TypeSafe",),
                 measures=(),
                 edge=("TypeSafe", "SecondOpinion"),
-                say="Jev answers with a weight for every card, and the cards above the measured cut are the projection.",
+                say="Jev gives a weight for each component. The projection selects components at or above the measured threshold.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("SecondOpinion", "Agent"),
-                say="Around each card named, the map prints the flows, walks and rules it sits in, and the projection is written under .systemap/plans.",
+                say="The report shows flows, sequences and rules for each selected component. The command writes the projection in .systemap/plans.",
             ),
             Step(
                 acts=("ChangeDetector",),
                 measures=("SecondOpinion",),
                 edge=("FactsExtractor", "ChangeDetector"),
-                say="After the work, systemap plan --check reads the facts where the work started and the facts now, and names every card that changed outside the plan.",
+                say="After source changes, systemap plan --check compares the initial facts with the new facts. It identifies changed components outside the plan.",
             ),
         ),
     ),
     Journey(
         id="second-opinion",
-        label="A second opinion: systemap audit, and triage for an issue",
+        label="Get an audit or issue assessment",
         covers=(
             '["subcommand","systemap.jev_cli","","audit"]',
             '["subcommand","systemap.jev_cli","","triage"]',
@@ -106,37 +104,37 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="With a key set and the judgement clean, the agent runs systemap audit; a maintainer with an issue in hand runs systemap triage.",
+                say="With a Jev key and no open judgement findings, the agent runs systemap audit. For an issue, the maintainer runs systemap triage.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("Model", "SecondOpinion"),
-                say="The second opinion reads the cards, sentences, flows and invariants, and the facts behind them, into one narrow question each.",
+                say="The second-opinion process reads components, explanations, flows, invariants and facts. It makes a different question for each claim.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("SecondOpinion", "TypeSafe"),
-                say="Questions the cache cannot answer go to Jev over HTTPS; audit --dry-run says what would leave the machine first.",
+                say="The command sends questions without cached answers to Jev through HTTPS. audit --dry-run shows the data before transmission.",
             ),
             Step(
                 acts=("TypeSafe",),
                 measures=(),
                 edge=("TypeSafe", "SecondOpinion"),
-                say="Jev answers each with a probability or a choice, and every answer is cached by the model's release.",
+                say="Jev gives a probability or choice. The cache stores each answer by model release.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=("Agent",),
                 edge=("SecondOpinion", "Agent"),
-                say="A jev line where the answer disagrees with the map, or triage's three likeliest cards; the agent acts on a line or answers it under [judgement].",
+                say="The report shows Jev findings that are different from map claims, or three components with the largest probabilities for triage. The agent corrects or answers findings.",
             ),
         ),
     ),
     Journey(
         id="first-map",
-        label="The first map: systemap init, extract, a draft, check",
+        label="Make the initial map",
         covers=(
             '["console_script","systemap.cli","main","systemap"]',
             '["subcommand","systemap.cli","systemap","init"]',
@@ -151,49 +149,49 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap init: configuration, starter model, the workflow.",
+                say="The agent runs systemap init. The command writes the configuration, initial model and workflow.",
             ),
             Step(
                 acts=("CLI",),
                 measures=(),
                 edge=("CLI", "Skill"),
-                say="init installs the skill directory beside the project; systemap skill reinstalls it later.",
+                say="init installs the skill directory in the project. systemap skill installs it again on request.",
             ),
             Step(
                 acts=("Skill",),
                 measures=(),
                 edge=("Skill", "Agent"),
-                say="The skill gives the agent the loop: extract, draft, check, judgement, render, second pass.",
+                say="The skill gives the procedure: extraction, model draft, check, judgement, render and second examination.",
             ),
             Step(
                 acts=("FactsExtractor",),
                 measures=(),
                 edge=("CLI", "FactsExtractor"),
-                say="systemap extract reads every module, its surface, its imports and the entry points out of the tree.",
+                say="systemap extract reads modules, public names, imports and entry points from the source tree.",
             ),
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "Model"),
-                say="The agent runs systemap suggest for a first grouping to argue with, then writes map/model.py: components, flows, one sentence per edge, journeys covering every entry point, and no positions.",
+                say="The agent runs systemap suggest for initial module groups. Then the agent writes components, flows, explanations and sequences in map/model.py, without positions.",
             ),
             Step(
                 acts=("Placer",),
                 measures=(),
                 edge=("Placer", "Model"),
-                say="systemap place lays the regions out on a grid with corridors between them, puts every card on it, and writes the positions into the file.",
+                say="systemap place sets regions and component cards on a grid. It keeps spaces between regions and writes positions in the model file.",
             ),
             Step(
                 acts=("Check",),
                 measures=("Check",),
                 edge=("Check", "Agent"),
-                say="systemap check names each failure and its fix; the agent edits until coverage is N/N and the layout is clean.",
+                say="systemap check gives each error and necessary action. The agent makes changes until module coverage is N/N and layout checks give no errors.",
             ),
         ),
     ),
     Journey(
         id="second-pass",
-        label="The second pass: judgement, then refresh",
+        label="Examine the model and refresh the map",
         covers=(
             '["subcommand","systemap.cli","systemap","judgement"]',
             '["subcommand","systemap.cli","systemap","refresh"]',
@@ -211,175 +209,175 @@ JOURNEYS = (
                 acts=("Judgement",),
                 measures=(),
                 edge=("FactsExtractor", "Judgement"),
-                say="The judgement walks the imports in the facts for edges the model lacks, and the entry points for journeys it lacks.",
+                say="Judgement examines fact imports for connections without model flows. It finds entry points without sequences.",
             ),
             Step(
                 acts=("Judgement",),
                 measures=("Judgement",),
                 edge=("Judgement", "Agent"),
-                say="Lines name crossing card pairs, entry points without journey coverage, and thin layers; the agent changes the model or answers each line.",
+                say="Findings identify imports between components, entry points without sequence coverage and layers with few flows. The agent corrects or answers each finding.",
             ),
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "Model"),
-                say="The agent adds the missed edges, regroups what was grouped by directory, and reruns check; a full pass that changes nothing is the stop.",
+                say="The agent adds missing flows and corrects module groups. The agent does the check again. If a full examination finds no necessary changes, stop.",
             ),
             Step(
                 acts=("Page",),
                 measures=(),
                 edge=("CLI", "Page"),
-                say="systemap refresh renders the page and every configured figure; systemap describe says what the picture shows, and systemap serve opens the page for anyone who can look.",
+                say="systemap refresh renders the page and figures. systemap describe gives diagram measurements. systemap serve opens the page for examination.",
             ),
             Step(
                 acts=("Judgement",),
                 measures=("Maintainer",),
                 edge=("Judgement", "Maintainer"),
-                say="The agent answers the remaining judgement lines in systemap.toml, under [judgement] answered, singly or by family; judgement --strict exits 0, and the maintainer reads the answers and commits docs/map.",
+                say="The agent records judgement answers in systemap.toml. judgement --strict must give exit code 0. The maintainer examines the answers and writes docs/map in a Git commit.",
             ),
         ),
     ),
     Journey(
         id="refactor",
-        label="A refactor moves a module: the maintenance path",
+        label="Update the map after a module move",
         covers=('["subcommand","systemap.cli","systemap","delta"]',),
         steps=(
             Step(
                 acts=("CI",),
                 measures=(),
                 edge=("CI", "CLI"),
-                say="A pull request moves a module; the workflow runs systemap delta --base against the base branch and posts what the change did to the map as one comment.",
+                say="A pull request moves a module. The workflow runs systemap delta --base with the base branch. It posts a map-change report.",
             ),
             Step(
                 acts=("ChangeDetector",),
                 measures=(),
                 edge=("CLI", "ChangeDetector"),
-                say="The detector reads the facts at both commits out of git, never from the working copy, and names the card that still names the old path, with the rename that fixes it.",
+                say="The detector reads facts from both git revisions. It identifies old module claims and the renames that correct them.",
             ),
             Step(
                 acts=("Check",),
                 measures=("CI",),
                 edge=("Check", "CI"),
-                say="The job fails while a line needs a decision; the comment names each fix, so the map is maintained in the pull request that changed the code.",
+                say="The CI job rejects the change if a finding has no decision. The comment gives necessary actions for the map.",
             ),
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent reviews each decision named by delta, records source review digests after checking changed cards, then runs refresh, check and judgement --strict and commits docs/map.",
+                say="The agent examines delta findings and changed component source. The agent records review digests. The agent runs refresh, check and judgement --strict, then writes docs/map in a Git commit.",
             ),
             Step(
                 acts=("Page",),
                 measures=("Maintainer",),
                 edge=("Page", "Maintainer"),
-                say="The maintainer reads the page: the moved part is where the code now says it is.",
+                say="The maintainer reads the page. The changed component shows the new source location.",
             ),
         ),
     ),
     Journey(
         id="read-facts",
-        label="Read the stored facts about one part of the code",
+        label="Read stored source facts",
         covers=('["subcommand","systemap.cli","systemap","facts"]',),
         steps=(
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap facts with a view such as --module or --entry-points; the command reads the facts that extract stored and prints the selected record.",
+                say="The agent runs systemap facts with --module or --entry-points. The command reads stored facts and prints the selected record.",
             ),
         ),
     ),
     Journey(
         id="render-page",
-        label="Render the current map as a page",
+        label="Render the map page",
         covers=('["subcommand","systemap.cli","systemap","render"]',),
         steps=(
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap render to rebuild the page from the stored facts and model.",
+                say="The agent runs systemap render to make the page from stored facts and the model.",
             ),
             Step(
                 acts=("Page",),
                 measures=(),
                 edge=("CLI", "Page"),
-                say="The command passes the stored facts, model and resolved theme to the page builder.",
+                say="The command gives stored facts, the model and the selected theme to the page generator.",
             ),
             Step(
                 acts=("Schematic",),
                 measures=(),
                 edge=("Schematic", "Page"),
-                say="The page embeds the schematic's SVG and the detail data used by its controls.",
+                say="The page contains the schematic SVG and detail data for its controls.",
             ),
             Step(
                 acts=("Maintainer",),
                 measures=(),
                 edge=("Page", "Maintainer"),
-                say="The maintainer opens the generated page to inspect its cards, flows and journeys.",
+                say="The maintainer opens the page to examine components, flows and sequences.",
             ),
         ),
     ),
     Journey(
         id="draw-figure",
-        label="Draw one figure from the current map",
+        label="Make a map figure",
         covers=('["subcommand","systemap.cli","systemap","figure"]',),
         steps=(
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap figure, optionally choosing a mode and an output path.",
+                say="The agent runs systemap figure. The command can use a selected mode and output path.",
             ),
             Step(
                 acts=("Figures",),
                 measures=(),
                 edge=("CLI", "Figures"),
-                say="The command asks the figure builder for one drawing from the stored facts and model.",
+                say="The command tells the figure generator to make one diagram from stored facts and the model.",
             ),
             Step(
                 acts=("Schematic",),
                 measures=(),
                 edge=("Schematic", "Figures"),
-                say="The figure uses the schematic's SVG, either by itself or inside an HTML figure.",
+                say="The figure uses the schematic SVG, alone or in an HTML figure element.",
             ),
         ),
     ),
     Journey(
         id="explain-line",
-        label="Read the explanation for one line kind",
+        label="Read a finding explanation",
         covers=('["subcommand","systemap.cli","systemap","explain"]',),
         steps=(
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap explain with a line kind; the command prints what that kind means, why it matters, and what to do.",
+                say="The agent runs systemap explain with a finding kind. The command gives the explanation, cause and necessary action.",
             ),
         ),
     ),
     Journey(
         id="write-journey",
-        label="Write a draft walk for an uncovered way in",
+        label="Write a sequence for an entry point",
         covers=('["subcommand","systemap.jev_cli","","journeys"]',),
         steps=(
             Step(
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="The agent runs systemap journeys for an entry point that has no reviewed walk.",
+                say="The agent runs systemap journeys for an entry point without a sequence with source review.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("CLI", "SecondOpinion"),
-                say="The command groups uncovered entry points by card and asks the configured coding agent to trace one group.",
+                say="The command groups entry points without sequences by component. It tells the configured coding agent to read the source for one group.",
             ),
             Step(
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("SecondOpinion", "Agent"),
-                say="The draft walk is checked against the map's cards and flows before it is written for the maintainer to review.",
+                say="The command validates the sequence draft against model components and flows. Then it writes the draft for the maintainer to examine.",
             ),
         ),
     ),

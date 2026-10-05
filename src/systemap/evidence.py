@@ -1,10 +1,9 @@
-"""Classify what supports each authored flow claim.
+"""The evidence classifier gives an evidence state for each flow claim.
 
-An import, shared module, or configured mechanism word shows a possible
-connection. It does not establish direction, artifact, or execution. A
-source-reviewed claim cites extracted modules at their source digests.
-Reference resolution establishes that the cited source is present at that
-snapshot. The reviewer remains responsible for judging its meaning.
+An import, shared module, or mechanism word gives structural evidence. Structural
+evidence does not give evidence of the flow direction, artifact, or execution. A source
+record must resolve to the extracted source, and its review digest must agree with the
+flow claim.
 """
 
 from __future__ import annotations
@@ -27,7 +26,9 @@ STATES = (OBSERVED, STRUCTURAL, EXTERNAL, DECLARED)
 
 @dataclass(frozen=True)
 class Evidence:
-    """One flow's evidence state and the independently available evidence."""
+    """This record contains the flow evidence state and available structural and source
+    evidence.
+    """
 
     state: str
     mechanism: str = ""
@@ -39,26 +40,28 @@ class Evidence:
 
     @property
     def says(self) -> str:
-        """The line the panel prints beside the flow's sentence."""
+        """This method gives the panel explanation for the flow evidence state."""
         if self.state == EXTERNAL:
-            return "external: outside the code"
+            return "external: The endpoint is outside the source code."
         if self.state == OBSERVED:
-            return "source reviewed: references resolve at this source snapshot"
+            return "source reviewed: The references resolve at this source snapshot."
         if self.claim_changed:
-            return "source review pending: flow review digest is missing or changed"
+            return "source review pending: The flow review digest is missing or different."
         if self.unresolved_refs:
-            return "source review pending: references do not resolve at this source snapshot"
+            return "source review pending: The references do not resolve at this source snapshot."
         if self.import_present:
-            return "import present: flow direction and artifact unreviewed"
+            return "import present: The flow direction and artifact have no source review."
         if self.shared:
-            return "shared module: flow direction and artifact unreviewed"
+            return "shared module: The flow direction and artifact have no source review."
         if self.mechanism:
-            return f"mechanism declared: {self.mechanism}; flow unreviewed"
-        return "declared: no import behind it"
+            return f"mechanism declared: {self.mechanism}. The flow has no source review."
+        return "declared: The flow has no import evidence."
 
 
 def _resolves(ref: str, facts: dict[str, Any]) -> bool:
-    """Does a module or symbol reference match this exact extracted source?"""
+    """This function resolves a module or symbol reference against the extracted source
+    snapshot.
+    """
     location, marker, digest = ref.rpartition("@")
     if not marker or not re.fullmatch(r"[0-9a-f]{64}", digest):
         return False
@@ -77,7 +80,7 @@ def _resolves(ref: str, facts: dict[str, Any]) -> bool:
 
 
 def flow_claim_digest(flow: Flow, meaning: Meaning) -> str:
-    """The digest a reviewer records for this flow's exact semantic claim."""
+    """This function calculates the digest for the exact flow claim."""
     claim = (flow.src, flow.dst, flow.artifact, flow.kind, meaning.relations.get(flow.edge, ""))
     data = json.dumps(claim, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
@@ -92,12 +95,12 @@ def _review(
 
 
 def mentioned(name: str, text: str) -> bool:
-    """Is `name` in `text` as a whole word, case blind?"""
+    """This function finds a full word in the text without case distinctions."""
     return re.search(rf"(?<![\w-]){re.escape(name.lower())}(?![\w-])", text.lower()) is not None
 
 
 def owners(model: Model, facts: dict[str, Any]) -> dict[str, str]:
-    """module -> the id of the component that claims it, for every claimed module."""
+    """This function assigns each claimed module to its component ID."""
     components = facts.get("components", {})
     out: dict[str, str] = {}
     for c in model.components:
@@ -107,7 +110,7 @@ def owners(model: Model, facts: dict[str, Any]) -> dict[str, str]:
 
 
 def joined_by_import(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]:
-    """Every pair of components an import joins, in either direction."""
+    """This function gives pairs of components with imports in either direction."""
     components = facts.get("components", {})
     owner = owners(model, facts)
     out: set[frozenset[str]] = set()
@@ -120,12 +123,9 @@ def joined_by_import(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]
 
 
 def sharing_a_module(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]:
-    """Every pair of components with a module in common.
+    """This function gives pairs of components with a shared module.
 
-    A symbol claim (`pkg.mod:name`) puts a card inside a module another
-    card owns: a tool defined beside its agent, a part that lives in a
-    neighbour's file. No import can join two cards in one module, so
-    the shared module is the evidence.
+    A symbol claim can put one component inside a module that another component owns.
     """
     owner = owners(model, facts)
     out: set[frozenset[str]] = set()
@@ -138,7 +138,9 @@ def sharing_a_module(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]
 
 
 def mechanism_of(flow: Flow, meaning: Meaning, observed_by: Iterable[str]) -> str:
-    """The first configured mechanism the flow's sentence or artifact names, or empty."""
+    """This function finds the initial configured mechanism in the flow description or
+    artifact.
+    """
     text = f"{flow.artifact}\n{meaning.relations.get(flow.edge, '')}"
     for name in observed_by:
         if mentioned(name, text):
@@ -152,10 +154,10 @@ def of_model(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> dict[Edge, Evidence]:
-    """The evidence state of every flow, by edge.
+    """This function gives each flow evidence state by edge.
 
-    Structural facts are kept even when a source review is present, so a
-    caller can inspect them without mistaking them for semantic proof.
+    The result keeps structural facts separate from source evidence, even if the flow
+    has a source review.
     """
     joined = joined_by_import(model, facts)
     shared = sharing_a_module(model, facts)
@@ -188,7 +190,9 @@ def declared(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> list[Flow]:
-    """Every flow with no source review or structural evidence, in model order."""
+    """This function gives flows without source reviews or structural evidence in model
+    order.
+    """
     states = of_model(model, meaning, facts, observed_by)
     return [f for f in model.flows if states[f.edge].state == DECLARED]
 
@@ -199,6 +203,6 @@ def structural(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> list[Flow]:
-    """Every flow with structural evidence but no resolved source review."""
+    """This function gives flows with structural evidence but no resolved source review."""
     states = of_model(model, meaning, facts, observed_by)
     return [f for f in model.flows if states[f.edge].state == STRUCTURAL]

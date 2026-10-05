@@ -1,29 +1,19 @@
-# systemap's own map. Every key is optional; these are the ones this
-# repository sets.
+# The configuration for the systemap map.
+# Exact answer lines identify recorded findings. Their quoted identities stay unchanged.
 name = "systemap"
 tests_dir = "tests"
 model = "map/model.py"
 out_dir = "docs/map"
-# The table comes last among the plain keys: a key written under it
-# would be read as a package root, not as itself.
 [package_roots]
 "src/systemap" = "systemap"
 
-# Every module is claimed by a component; the package root is claimed by
-# the Model card, since it re-exports the schema. Nothing is ignored.
 [coverage]
 ignore = []
 
-# The mechanisms other than an import that join this package's parts. The
-# facts file is written by extract and read back by every command, so a
-# flow whose sentence names it is observed by it, not declared.
+# Configured mechanisms give structural evidence only.
 [flows]
 observed_by = ["facts file"]
 
-# The figures the README embeds, each the bare drawing on its ground, as an
-# image. Structure is the calm picture (regions and parts, no arrows) and
-# Control flow one reading; the whole map, every layer at once, is kept
-# for documents that cite it.
 [[figures]]
 out = "figures/structure.svg"
 mode = "system"
@@ -41,27 +31,23 @@ out = "figures/system.svg"
 mode = "system"
 interactive = false
 
-# The judgement lines the maintainer has answered, with why. An answered
-# line is suppressed and counted; an answer that matches no line is reported
-# as stale, so the list below cannot outlive the map it answers. A family of
-# lines with one reason is answered by its form: every line of a kind, or
-# every crossing import between two components.
+# Exact answers must have current evidence digests after source examination.
 [judgement]
 answered = [
-    { item = "single module: Scaffold is only systemap.scaffold", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "scaffold.py writes the initial configuration, model and workflow for init; that setup is a separate job from placing or drawing a finished map" },
-    { item = "single module: Placer is only systemap.place", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "place.py computes and writes card positions; route.py calculates flow paths and label seats, so the two cards name different jobs" },
-    { item = "single module: Skill is only systemap.skill", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "skill.py installs the bundled mapping procedure; scaffold.py writes a project's initial files, so the procedure remains its own part" },
-    { item = "single module: Router is only systemap.route", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "route.py calculates paths and label seats from card geometry; schematic.py draws the result, so Router is a distinct part" },
-    { item = "single module: Figures is only systemap.figure", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "figure.py produces a selected SVG or HTML figure for a document; page.py builds the full interactive page, so Figures names a separate output" },
-    { item = "single module: Check is only systemap.check", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "check.py applies rules that can reject a map mechanically; judgement.py lists questions that need review, so Check names a separate decision process" },
-    { item = "single module: Describe is only systemap.describe", evidence = "d62003d19bca5905ee223acc238c6021d719b258a813f728f58ab2df987e1b0b", reason = "describe.py reports the drawing as text and numbers; schematic.py draws it and check.py validates it, so Describe names a distinct reader view" },
-    { item = "jev flow: CLI -> SecondOpinion ('audit, triage, --jev'): the code where they meet may not carry it", reason = "the CLI hands audit and triage over through jev_cli.add_parsers, whose set_defaults names the command, and calls jev_cli for delta --jev and suggest --jev; Jev saw only the lines naming an imported name, and the dispatch names none" },
-    { item = "jev flow: Config -> Figures ('figures table'): the code where they meet may not carry it", reason = "config parses [[figures]] into Figure records and refresh hands each one to figure.render; the figures module imports the Figure type only, so the lines Jev saw show the type and not the table travelling" },
-    { item = "jev flow: FactsExtractor -> SecondOpinion ('map.json'): the code where they meet may not carry it", reason = "jev_cli reads the facts through extract.read_facts(cfg.facts_path), the map.json extract wrote; the lines Jev saw name read_facts and is_empty_marker, not the file" },
-    { item = "jev flow: Scaffold -> Model ('starter'): the code where they meet may not carry it", reason = "the scaffold writes the starter map/model.py as a file, once, and never imports the schema to do it; the artifact is the file" },
+    { item = "single module: Scaffold contains only systemap.scaffold", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "scaffold.py writes the initial configuration, model, and workflow. This setup is a different function from map placement or rendering." },
+    { item = "single module: Placer contains only systemap.place", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "place.py calculates card positions. route.py calculates flow paths and label positions. The two components have different functions." },
+    { item = "single module: Skill contains only systemap.skill", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "skill.py installs the mapping procedure. scaffold.py writes the initial project files. The procedure is a different component." },
+    { item = "single module: Router contains only systemap.route", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "route.py calculates paths and label positions from card geometry. schematic.py renders the result. Router is a different component." },
+    { item = "single module: Figures contains only systemap.figure", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "figure.py makes a selected SVG or HTML figure for a document. page.py makes the complete interactive page." },
+    { item = "single module: Check contains only systemap.check", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "check.py applies consistency rules. judgement.py gives questions for source examination. The two components have different functions." },
+    { item = "single module: Describe contains only systemap.describe", evidence = "21a9bec8f72b3d4c3d4b0adeec7bbf880326bd29956143a2f0320424d7ca243f", reason = "describe.py gives diagram text and measurements. schematic.py renders the diagram. check.py does consistency checks." },
+    { item = "jev flow: CLI -> SecondOpinion ('audit, triage, --jev'): the code where they meet may not carry it", reason = "The CLI registers audit and triage through jev_cli.add_parsers and set_defaults. It calls jev_cli for delta --jev and suggest --jev. The recorded Jev input omitted dispatch registrations." },
+    { item = "jev flow: Config -> Figures ('figures table'): the code where they meet may not carry it", reason = "config reads the figures table into Figure records. refresh gives each record to figure.render. The recorded Jev input contained the Figure type import only." },
+    { item = "jev flow: FactsExtractor -> SecondOpinion ('map.json'): the code where they meet may not carry it", reason = "jev_cli reads the facts with extract.read_facts(cfg.facts_path). The recorded Jev input contained read_facts and is_empty_marker references, without the file transfer." },
+    { item = "jev flow: Scaffold -> Model ('starter'): the code where they meet may not carry it", reason = "scaffold writes the initial map/model.py file once. It does not import the schema for this operation. The file is the artifact." },
     { items = [
         "jev mis-fold: SecondOpinion claims systemap.journeys, which reads like Skill",
         "jev mis-fold: SecondOpinion claims systemap.plan, which reads like none of the cards",
-    ], reason = "SecondOpinion is the card for asking something outside the code and checking the answer against the map: Jev for a plan's cards, a coding agent for a walk. Both modules do exactly that, and both hand what comes back to the check before it is written. Skill is the procedure a person's agent follows, which neither module reads or writes" },
-    { item = "jev governs: invariant 5 may govern Scaffold, which it does not name", reason = "the starter's region boxes are the hand-written positions the rule allows, written once and never overwritten; the scaffold never moves a card" },
+    ], reason = "SecondOpinion asks Jev about component selections and a coding agent about sequences. Both modules validate answers before file changes. Neither module reads or writes the installed skill." },
+    { item = "jev governs: invariant 5 may govern Scaffold, which it does not name", reason = "The initial region positions are fixed template values. The scaffold writes them once and does not move cards." },
 ]

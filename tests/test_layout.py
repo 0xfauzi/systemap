@@ -87,7 +87,7 @@ def test_starter_is_a_2x2_grid_with_corridors(tmp_path: Path) -> None:
     assert (ax, ay) == (cx, dy - (cy - ay)) or ax == cx
     assert by == ay and dx == bx and dy == cy
     assert "corridors" in text and "references/layout.md" in text
-    assert "one to three words" in text
+    assert "ASD-STE100 Issue 9" in text
     assert "from systemap import (" in text and "    Layer,\n" in text
     # The position tables are fenced from the formatter, with the reason
     # beside the fence; every schema name is imported and used.
@@ -95,7 +95,7 @@ def test_starter_is_a_2x2_grid_with_corridors(tmp_path: Path) -> None:
     assert text.index("# fmt: off") < text.index("REGIONS = (") < text.index("# fmt: on")
     off2 = text.index("# fmt: off", text.index("# fmt: on"))
     assert off2 < text.index("COMPONENTS: tuple[Component, ...] = ()") < text.rindex("# fmt: on")
-    assert "the formatter is turned off" in text
+    assert "# fmt: off" in text
     assert "Steps = tuple[Step, ...]" in text
 
 
@@ -109,8 +109,11 @@ def test_starter_corridors_route_every_pair_of_regions(
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
-    assert "map routes: 0 edges through a card they do not connect, 0 across a region" in out
-    assert "map layout: clean (4 cards" in out
+    assert (
+        "map routes: 0 edges across components other than its endpoints, 0 across regions other than its endpoint regions"
+        in out
+    )
+    assert "map layout: has no errors (4 components" in out
 
 
 def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None:
@@ -197,8 +200,7 @@ def test_a_full_gutter_names_its_seats_and_the_fix() -> None:
     (hit,) = [p for p in placed.values() if p.cost > 0]
     assert any(h.startswith("label 'art") for h in hit.hits), hit.hits
     assert re.fullmatch(
-        r"gutter (above|below) the row of A, B \(y \d+ to \d+\) holds 2 of 2 seats: "
-        r"move a card or raise the row pitch",
+        "gutter (above|below) the row of A, B \\(y \\d+ to \\d+\\) has 2 of 2 seats: Move a component or raise the row pitch",
         hit.fix,
     ), hit.fix
     # With the regions the cards sit in, the fix names the region to open up.
@@ -213,7 +215,7 @@ def test_a_full_gutter_names_its_seats_and_the_fix() -> None:
         region_of={"A": "work", "B": "work"},
     )
     (hit,) = [p for p in placed.values() if p.cost > 0]
-    assert hit.fix.endswith("move a card or raise the row pitch of region work"), hit.fix
+    assert hit.fix.endswith("Move a component or raise the row pitch of region work"), hit.fix
     placed = route.place_labels(
         routes,
         dict.fromkeys(routes, 30.0),
@@ -234,8 +236,7 @@ def test_a_full_gutter_names_its_seats_and_the_fix() -> None:
 
 
 def test_a_label_with_no_seat_off_a_card_is_too_wide() -> None:
-    """Headers above and below the row leave the label nowhere but the 40-unit
-    run, which a 90-unit label overhangs: the fix is to shorten it."""
+    "Headers above and below the row leave the label nowhere but the 40-unit\n    run, which a 90-unit label overhangs: the fix is to shorten it."
     blocked = obstacles() + [
         ("r header", (0.0, 0.0, 400.0, 47.0)),
         ("foot", (0.0, 109.0, 400.0, 91.0)),
@@ -245,7 +246,10 @@ def test_a_label_with_no_seat_off_a_card_is_too_wide() -> None:
         one, {0: 90.0}, 13.0, blocked, CANVAS, names={0: "label 'x' (A -> B)"}, cards=CARDS
     )
     # 40 units of run minus the port and arrow clearances (6 and 16) hold 18.
-    assert placed[0].fix == "label is 72 units wider than its seat: shorten the artifact"
+    assert (
+        placed[0].fix
+        == "label is 72 units wider than its seat. Decrease the length of the artifact label."
+    )
 
 
 def test_the_collision_line_carries_the_fix(sample: Sample) -> None:
@@ -253,10 +257,7 @@ def test_the_collision_line_carries_the_fix(sample: Sample) -> None:
     names what it overlaps and says to shorten it."""
     import dataclasses
 
-    long = (
-        "the reader hands the parser one request at a time and waits for the parts to come "
-        "back before it reads the next line of the source, which is what a sentence does here"
-    )
+    long = "the reader hands the parser one request at a time and waits for the parts to come back before it reads the next line of the source, which is what a sentence does here"
     model = dataclasses.replace(
         sample.model,
         flows=tuple(
@@ -273,7 +274,8 @@ def test_the_collision_line_carries_the_fix(sample: Sample) -> None:
     assert len(lines) == 1, lines
     assert lines[0].startswith(f"label collision: '{long}' (Reader -> Parser) overlaps ")
     assert re.search(
-        r"; label is \d+ units wider than its seat: shorten the artifact$", lines[0]
+        "; label is \\d+ units wider than its seat\\. Decrease the length of the artifact label\\.$",
+        lines[0],
     ), lines[0]
 
 
@@ -323,25 +325,25 @@ def test_gutters_are_named_from_the_card_grid() -> None:
 def test_describe_reads_the_picture_back(sample: Sample) -> None:
     lines = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
     text = "\n".join(lines)
-    assert lines[0] == "canvas 900 x 400: 5 cards, 5 edges, 2 regions, 6 layers"
-    assert "  work: 2 cards (Reader, Parser)" in lines
-    assert "  keep: 2 cards (Ledger, Writer)" in lines
-    assert "  in a container only: 1 card (User)" in lines
+    assert lines[0] == "canvas 900 x 400: 5 components, 5 edges, 2 regions, 6 layers"
+    assert "  work: 2 components (Reader, Parser)" in lines
+    assert "  keep: 2 components (Ledger, Writer)" in lines
+    assert "  in a container only: 1 component (User)" in lines
     edges = [line for line in lines if re.match(r"  \w+ -> \w+ \('", line)]
     assert len(edges) == 5
     bends = [int(re.search(r"(\d+) bends?", line).group(1)) for line in edges]  # type: ignore[union-attr]
     assert bends == sorted(bends, reverse=True), "worst first"
-    assert all("long; label " in line for line in edges)
+    assert all("long. label " in line for line in edges)
     gutters = [
         line for line in lines if re.match(r"  (above|below|between|left of|right of) ", line)
     ]
     assert gutters, "every gutter of the card grid is listed"
     for line in gutters:
         assert re.search(r"\(\d+ units\): \d+ of \d+ seats used, \d+ labels?$", line), line
-    assert "  structure: 5 cards, 0 edges" in lines
-    assert "  system: 2 cards, 1 edge" in lines
-    assert "  data: 4 cards, 2 edges" in lines
-    assert "  memory: 2 cards, 1 edge" in lines
+    assert "  structure: 5 components, 0 edges" in lines
+    assert "  system: 2 components, 1 edge" in lines
+    assert "  data: 4 components, 2 edges" in lines
+    assert "  memory: 2 components, 1 edge" in lines
     assert "check refuses" not in text, "a clean map has nothing to refuse"
 
 
@@ -351,15 +353,18 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     capsys.readouterr()
     # The empty starter has nothing to describe, and says what the check says.
     assert run("--root", str(tmp_path), "describe") == 1
-    assert capsys.readouterr().out == "the model has no components yet; see the skill\n"
+    assert capsys.readouterr().out == "The model has no components. Read the skill instructions.\n"
     fill_starter(tmp_path / "map/model.py", False)
     capsys.readouterr()
     assert run("--root", str(tmp_path), "describe") == 0
     out = capsys.readouterr().out
-    assert re.match(r"canvas \d+ x \d+: 4 cards, 6 edges, 4 regions, 4 layers\n", out)
+    assert re.match("canvas \\d+ x \\d+: 4 components, 6 edges, 4 regions, 4 layers\\n", out)
     assert "positions: 0 pinned, 4 placed\n" in out
-    assert "  a: 1 card (A)\n" in out and "  d: 1 card (D)\n" in out
-    assert "gutters: seats used" in out and "layers: the cards and edges each one shows" in out
+    assert "  a: 1 component (A)\n" in out and "  d: 1 component (D)\n" in out
+    assert (
+        "gutters: The maximum occupied seat counts and seat capacities follow." in out
+        and "layers: The component and edge counts follow." in out
+    )
     # A model that contradicts itself cannot be drawn: the same refusal as check.
     model = tmp_path / "map/model.py"
     text = model.read_text()
@@ -374,31 +379,28 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
 def test_layout_reference_says_what_place_does_and_what_the_agent_decides() -> None:
     layout = skill.files()["references/layout.md"]
     for phrase in (
-        "what is still yours to decide",
-        "`systemap place` places every card that has no `x` and `y`",
-        "may not cross a region it does not belong to",
+        "writes positions for components without `x` and `y`",
+        "A route must not cross an unrelated region",
         "two-column grid",
-        "48 units between the region columns, 36 between the region\n  rows",
-        "columns 190 apart and rows\n  92 apart",
-        "barycentre sweeps",
-        "The order of the regions on the grid is searched.",
-        "the best twelve\n  by that estimate, plus the order the model lists, are routed",
-        "`systemap place --keep-order`",
-        "`systemap place --print`",
-        "a second run changes nothing",
-        "**Which region a card is in.**",
-        "**The order of the regions.**",
-        "**When to pin a card.**",
-        "`place --all` keeps it\n  where it is",
-        "`systemap place --all` lays every card out\nagain and keeps only the cards marked `pinned=True`",
-        "one to three\n  words",
-        "raise the row\n  pitch of region X",
+        "48 units between columns and 36 units between rows",
+        "columns are 190 units apart. Rows are 92 units apart",
+        "Barycenter sweeps",
+        "examines every region order",
+        "best twelve estimates and the original model order",
+        "`--keep-order`",
+        "`--print`",
+        "A second placement changes nothing",
+        "Select each component's region",
+        "Select an order",
+        "Use `pinned=True`",
+        "keeps only positions with `pinned=True`",
+        "one to three words",
+        "increase row spacing",
         "systemap describe",
-        "how\nmany cards are pinned",
-        "between the row of A, B and\nthe row of C (y 160 to 226)",
-        "observed, external and declared",
+        "Pinned, stored",
+        "actual gutter coordinates and occupancy",
+        "Flow evidence states",
     ):
         assert phrase in layout, phrase
-    # What place does is no longer the agent's to do by hand.
     for gone in ("Put the cards on the grid", "never tile a container", "Leave one empty"):
         assert gone not in layout, gone

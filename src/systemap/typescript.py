@@ -1,4 +1,4 @@
-"""Read TypeScript and TSX into systemap's language-neutral facts."""
+"""The TypeScript adapter reads TypeScript and TSX into language-neutral source facts."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ TESTS_KEPT = 25
 
 @dataclass
 class TypeScriptContext:
-    """Indexes built once so each import does constant work."""
+    """This record contains indexes for module and package resolution."""
 
     repo: Path
     modules_by_path: dict[Path, str]
@@ -333,7 +333,9 @@ def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
 
 
 def _program_inputs(inputs: list[Path], compiler: TypeScriptConfig, repo: Path) -> list[Path]:
-    """Include source files reached from tsconfig inputs before inferring emit root."""
+    """This function adds source files from tsconfig inputs before it calculates the output
+    root.
+    """
     seen = {path.resolve() for path in inputs}
     queue = list(seen)
     for path in queue:
@@ -377,7 +379,7 @@ def _problem(line: int, reason: str, source: str) -> dict[str, Any]:
 
 
 class TypeScriptLanguage:
-    """TypeScript syntax normalized to the facts Python already consumes."""
+    """This adapter converts TypeScript syntax to the shared facts schema."""
 
     name = "typescript"
 
@@ -472,7 +474,7 @@ class TypeScriptLanguage:
                 surface["unknown"].append(
                     _problem(
                         1,
-                        f"the re-export target {source!r} is outside the extracted modules",
+                        f"the re-export target {source!r} is outside the extracted module set.",
                         source,
                     )
                 )
@@ -596,7 +598,10 @@ class TypeScriptLanguage:
                     "kind": "package_bin",
                     "name": name,
                     "target": target,
-                    "reason": "package.json bin target could not be mapped to a TypeScript module",
+                    "reason": (
+                        "The parser could not resolve the package.json bin target to a TypeScript "
+                        "module."
+                    ),
                 }
             )
 
@@ -629,8 +634,10 @@ class TypeScriptLanguage:
                     "package_export",
                     name,
                     sample,
-                    f"{len(unmapped)} package.json export targets could not be mapped "
-                    "to TypeScript modules",
+                    (
+                        f"{len(unmapped)} package.json export targets have no resolved TypeScript "
+                        f"modules."
+                    ),
                 )
             )
         return modules, issues

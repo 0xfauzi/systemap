@@ -1,36 +1,25 @@
-"""`systemap audit`: a second opinion from Jev on the calls the map makes.
+"""Get Jev's second opinion on semantic map claims.
 
-`systemap judgement` finds what to look at with rules that read names and
-imports. This asks TypeSafe's Jev model about meaning, one narrow question
-at a time, and prints a line where its answer disagrees with the map:
+`systemap judgement` uses names and imports. Audit gives TypeSafe's Jev questions
+about owners, component sentences, flow claims, and invariants.
+Disagreements print with `jev mis-fold`, `jev owner`, `jev sentence`, `jev flow`,
+or `jev governs` identifiers.
 
-    jev mis-fold ... a module whose card Jev finds unlikely: the map may
-                     have folded it into the wrong part
-    jev owner ...... a module no card claims, and the card it reads like
-    jev sentence ... a card whose sentence may not describe its modules
-    jev flow ....... a flow the code where its two cards meet may not carry
-    jev governs .... an invariant that may govern a card it does not name
+Thresholds came from five first maps in bench/scratch, recorded in bench/jev.
+Three holdout maps used the same thresholds. All results stayed within 10 points
+except flow claims: 54% of incorrect claims found, compared with 66%.
+Thus, `jev flow` needs explicit selection with `--kind "jev flow"`.
+Language changes to prompts have not been measured again.
 
-Each threshold below was chosen on the five first maps in bench/scratch and
-is quoted with what it measured there (bench/jev, results/report.txt). The
-questions and the state they read are the ones measured; change either and
-the numbers no longer hold. Each was then checked on three maps no threshold
-was chosen on (JEV_SET=holdout): every kind held within 10 points but `jev
-flow`, which caught 54% of wrong flows there against 66%, so it is asked
-only on request (`--kind "jev flow"`).
+Flow questions include source lines naming imports from the other component.
+Instance calls can be absent, such as `ledger.record(parts)` after a Ledger
+import. That limitation can cause doubt without a source defect.
 
-A known limit, measured with it: a flow's evidence is the lines in either
-card's modules that name something imported from the other, so a call made
-through an instance (`ledger.record(parts)` after `from pkg.ledger import
-Ledger`) is not shown to Jev, and the flow can be doubted for that alone.
-
-It is a report, never a gate: the command exits 0 whatever it prints, and
-`check` and `judgement` never call it, so CI stays offline and the same
-every run. A line is answered like a judgement line, in `[judgement]
-answered` (an exact `item`, or `kind = "jev flow"` for a family); audit
-reads only the answers that name its own lines, and judgement ignores them.
-An exact answer needs a digest of its reviewed evidence. A family answer
-needs `policy = true`; the report counts matches outside its reviewed list.
+Completed reports exit 0. A request error can cause exit 1.
+Check and judgement do not call Jev. Audit answers use `[judgement] answered`.
+Audit reads only answers for its findings; judgement ignores them.
+Exact answers must have reviewed-evidence digests. Family answers must have
+`policy = true`. Reports count matches outside the reviewed baseline.
 """
 
 from __future__ import annotations
@@ -79,28 +68,26 @@ KINDS = AUDIT_KINDS
 NONE = "none of these"
 
 OWNER_Q = (
-    "Which component of this system does `module` belong to? Each option is one part of the "
-    "system with one job, a part a reader would point at and name. Pick the part whose job "
-    "this module carries out."
+    "Which component has the function of `module`? Each option is a system part with "
+    "one function. Select the component whose function includes the work of this module."
 )
 DESCRIBES_Q = (
-    "Does `sentence` accurately describe what the code in `modules` "
-    "does, taken together as one part of the system?"
+    "Does `sentence` give the correct function of the code in `modules`, read "
+    "together as one system part?"
 )
 VERIFY_Q = (
-    "Does the code in `code` support the claim in `claim`: that `claim.from` passes "
-    "`claim.artifact` to `claim.to` in the way `claim.sentence` describes? `ends` says what "
-    "each component is."
+    "Does `code` show that `claim.from` sends `claim.artifact` to `claim.to` as "
+    "stated in `claim.sentence`? `ends` gives each component's function."
 )
 GOVERNS_Q = (
-    "Does `rule` directly govern `component`: is it one of the parts whose "
-    "code must keep this rule true, so a change to it could break the rule?"
+    "Does `rule` apply directly to `component`? Must its code obey this rule? Can a "
+    "change to its code make the rule incorrect?"
 )
 
 
 @dataclass(frozen=True)
 class Line:
-    """One line to act on or answer, and the numbers behind it, printed under it."""
+    """One finding with its measured details for action or a recorded answer."""
 
     text: str
     detail: tuple[str, ...] = ()
@@ -108,7 +95,7 @@ class Line:
 
 @dataclass
 class Plan:
-    """Every question one audit asks, and what each answer is for."""
+    """Collect audit questions and the use of each answer."""
 
     asks: list[Ask] = field(default_factory=list)
     reads: dict[str, Any] = field(default_factory=dict)
@@ -147,7 +134,7 @@ def card_brief(model: Model, meaning: Meaning, cid: str) -> str:
 
 def owner_criteria(model: Model, meaning: Meaning) -> dict[str, str]:
     crit = {c.id: card_brief(model, meaning, c.id) for c in model.components if c.kind != "actor"}
-    crit[NONE] = "No component on this map carries out what this module does."
+    crit[NONE] = "No component on this map has the function of this module."
     return crit
 
 
@@ -173,7 +160,7 @@ def _uses_of(root: Path, facts: dict[str, Any], a: str, others: list[str]) -> li
 def code_between(
     root: Path, facts: dict[str, Any], mods: dict[str, list[str]], src: str, dst: str
 ) -> list[str]:
-    """Lines in either end's modules that use a name imported from the other end, 30 at most."""
+    """Get at most 30 lines using an import name from the other component."""
     lines: list[str] = []
     for a_card, b_card in ((src, dst), (dst, src)):
         for a in mods.get(a_card, []):
@@ -185,7 +172,7 @@ def code_between(
 
 
 def modules_by_card(model: Model, facts: dict[str, Any]) -> dict[str, list[str]]:
-    """The modules each card claims, empty package markers left out, as the measurements did."""
+    """Get component module claims, excluding empty markers as in the measured experiments."""
     comps = facts.get("components", {})
     by: dict[str, list[str]] = {}
     for module, cid in sorted(owners(model, facts).items()):
@@ -195,7 +182,7 @@ def modules_by_card(model: Model, facts: dict[str, Any]) -> dict[str, list[str]]
 
 
 def unclaimed(model: Model, facts: dict[str, Any], ignores: Iterable[str]) -> list[str]:
-    """Modules no card claims, left out of coverage by no ignore and no empty marker."""
+    """Get unclaimed modules without a coverage ignore, excluding empty package markers."""
     comps = facts.get("components", {})
     owned = owners(model, facts)
     patterns = list(ignores)
@@ -216,8 +203,10 @@ def plan_owner(
     system: str,
     placed_too: bool = True,
 ) -> None:
-    """One owner question per claimed module (the mis-fold check) and per module in
-    `extra` (no card claims it); `placed_too=False` asks about `extra` alone."""
+    """Add owner questions for claimed modules and `extra` modules.
+
+    `placed_too=False` selects only the unclaimed `extra` modules.
+    """
     by = modules_by_card(m.model, facts) if placed_too else {}
     question = {"owner": owner_question(m.model, m.meaning)}
     placed = [(mod, cid) for cid, ms in by.items() for mod in ms]
@@ -278,8 +267,10 @@ def plan_governs(plan: Plan, m: nest.Map) -> None:
 def make_plan(
     tree: nest.Tree, facts: dict[str, Any], cfg: Config, kinds: Iterable[str] = DEFAULT_KINDS
 ) -> Plan:
-    """The questions behind `kinds`, for every map: the top map also asks about the
-    modules no card claims."""
+    """Make selected questions for every map.
+
+    The top map also includes unclaimed modules.
+    """
     asked = {QUESTION_OF[k] for k in kinds}
     plan = Plan()
     ignores = [i.module for i in cfg.coverage_ignore]
@@ -298,7 +289,7 @@ def make_plan(
 
 
 def _view(facts: dict[str, Any], m: nest.Map) -> dict[str, Any]:
-    """The facts a sub-map reads: only the modules its cards claim."""
+    """Select facts for the modules claimed by one nested map."""
     own = set(owners(m.model, facts))
     return {**facts, "components": {k: v for k, v in facts["components"].items() if k in own}}
 
@@ -395,13 +386,13 @@ def run(
 
 
 def _bare(line: str) -> str:
-    """A line without a sub-map's `<map>: ` in front."""
+    """Remove a nested-map `<map>: ` prefix from a finding."""
     head, sep, rest = line.partition(": ")
     return rest if sep and rest.startswith("jev ") and not head.startswith("jev ") else line
 
 
 def is_audit_answer(answer: Answer) -> bool:
-    """Does this answer name audit lines rather than judgement lines?"""
+    """Determine whether an answer names audit findings."""
     if answer.kind:
         return answer.kind in KINDS
     return bool(answer.items) and all(_bare(i).startswith("jev ") for i in answer.items)
@@ -414,7 +405,7 @@ def _covers(answer: Answer, line: str) -> bool:
 
 
 def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
-    """Does this answer name a kind this run asked? Others cannot be judged stale."""
+    """Determine whether the answer names types selected in this run."""
     names = [answer.kind] if answer.kind else [_bare(i).split(": ", 1)[0] for i in answer.items]
     return all(n in kinds for n in names)
 
@@ -422,8 +413,7 @@ def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
 def apply(
     found: list[Line], given: Iterable[Answer], kinds: Iterable[str] = DEFAULT_KINDS
 ) -> tuple[list[Line], int, list[str]]:
-    """(open lines, how many answered, stale answers), reading only the audit answers
-    about the kinds this run asked."""
+    """Get open findings, answered count, and stale answers for selected audit types."""
     kinds = tuple(kinds)
     mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
     texts = [x.text for x in found]
@@ -435,7 +425,7 @@ def apply(
 
 @dataclass(frozen=True)
 class Reviewed:
-    """Audit answers after source evidence and standing policies are checked."""
+    """Audit answers after examination of source evidence and standing policies."""
 
     open: list[Line]
     answered: int
@@ -450,7 +440,7 @@ def apply_reviewed(
     evidence: Mapping[str, str],
     kinds: Iterable[str] = DEFAULT_KINDS,
 ) -> Reviewed:
-    """Reopen an exact answer if its evidence changed; require explicit policies."""
+    """Open exact answers with changed evidence again. Accept only explicit family policies."""
     kinds = tuple(kinds)
     mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
     texts = [x.text for x in found]
@@ -513,8 +503,10 @@ def report(
     pending: Iterable[str] = (),
     policies: Iterable[str] = (),
 ) -> list[str]:
-    """The lines the CLI prints. `teach` says why each kind matters and what
-    to do, once under the first line of that kind; `--brief` turns it off."""
+    """Give CLI findings and explanations.
+
+    `teach` adds one explanation per finding type. `--brief` removes explanations.
+    """
     tail = (f", {answered} answered" if answered else "") + (
         f", {len(stale)} stale" if stale else ""
     )
@@ -532,7 +524,7 @@ def report(
 
 
 def _taught(open_lines: list[Line], teach: bool) -> list[str]:
-    """Each line with what it stands for, and its kind taught once."""
+    """Give each finding's details and one explanation per type."""
     out: list[str] = []
     taught: set[str] = set()
     for line in open_lines:
@@ -546,7 +538,7 @@ def _taught(open_lines: list[Line], teach: bool) -> list[str]:
 
 
 def dry_run(plan: Plan, pending: int | None) -> list[str]:
-    """What an audit would send, and what leaves the machine."""
+    """Count planned questions and give the outgoing data fields."""
     kinds: dict[str, int] = {}
     for a in plan.asks:
         kinds[a.key.split("|")[1]] = kinds.get(a.key.split("|")[1], 0) + 1
@@ -555,8 +547,8 @@ def dry_run(plan: Plan, pending: int | None) -> list[str]:
     return [
         f"audit --dry-run: {len(plan.asks)} questions ({sent}), {chars:,} characters of state "
         "and questions",
-        "  by kind: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())),
-        "  what leaves this machine: module names, docstrings (600 characters at most), public "
-        "names, internal imports, card ids and sentences, invariants, flow sentences, and the "
-        "source lines where two cards' modules use each other (30 lines per flow at most)",
+        "  by type: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())),
+        "  outgoing data: module names, docstrings (600 characters at most), public "
+        "names, internal imports, component ids and sentences, invariants, flow sentences, and "
+        "source lines with imports between components (30 lines per flow at most)",
     ]

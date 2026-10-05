@@ -1,154 +1,92 @@
-# Layers: the standard ones, then the model's own
+# Layers and flow kinds
 
-A layer is one question the map answers, and the edges that answer it. The
-page shows one layer at a time. Most are derived; you declare only the ones the
-repository's own vocabulary supports.
+A layer shows the components and flows that answer one system question.
+The page shows one layer at a time.
+Use the language policy in `language.md` for new labels and questions.
 
-## The two derived layers
+## Derived layers
 
-Nothing in the model produces these; the renderer computes them from the
-topology.
+The renderer computes these layers from the model:
 
-- **Structure**: every component inside its region and container, no
-  edges. The component view. Question: "What are the parts, and where does
-  each sit?" The page opens here.
-- **System context**: the actors outside the package and every edge that
-  crosses the package boundary (an actor at either end), drawn in one hue;
-  internal edges dimmed. The system-context view. Question: "Who and what
-  is outside, and how does it reach in?"
+- **Structure** shows every component in its region and container, without flows.
+  The page starts with this layer.
+- **System context** shows external actors and flows across the code boundary.
+  Internal flows are dimmed.
 
-## The two standard kinds
+## Standard flow kinds
 
-Every flow has a kind. Two kinds are standard, need no declaring, and every
-model uses them:
+Each flow has one kind:
 
-- `data`: an artifact moves. A file, a record, a message, a response, a
-  request. Layer "Data flow". Question: "What moves, and where does it go?"
-  Verbs: hands to / receives from.
-- `control`: one part invokes, schedules or drives another. A call, a
-  command, an event, a scheduled run. Layer "Control flow". Question: "Who
-  drives whom?" Verbs: drives / is driven by.
+- `data` carries an artifact such as a file, record, request, or response.
+- `control` causes another component to execute an operation.
 
-How to choose: name the artifact first. If the sentence is "A gives B an
-X", the kind is data and X is the artifact. If the sentence is "A makes B
-run" and no artifact of note travels, the kind is control and the artifact
-is the call or the command. When both are true (A calls B with a request),
-prefer data when the reader needs to know what travels and control when the
-reader needs to know who is in charge; one flow, one kind. A model with no
-control flow at all gets a judgement line asking whether one was missed.
+First identify the artifact. Use data when the reader must know what moves.
+Use control when the reader must know which component starts an action.
+If both apply, select the kind that best answers the reader's question.
+Keep one flow per ordered component pair.
+A model without control flows receives a finding about possible missing flows.
 
-## A kind of your own
+The standard layers are Data flow and Control flow.
+Use literal direction verbs, such as sends to / receives from.
+Do not use a physical metaphor for a software action.
 
-When the repository's vocabulary has a question of its own (`measure`,
-`feedback`, `record`), declare the kind in `flow_kinds`, give it a `Layer`
-in `Meaning.layers` written as the question it answers, and map it in
-`layer_of_kind`. Give it a verb pair in `verbs`. Move a single edge to
-another layer with `layer_overrides` when its kind's layer is the wrong
-layer for that one edge. Custom layers follow the standard ones in the
-page order and take the theme's palette in turn.
+## Custom layers
 
-Page order: Structure, System context, Data flow, Control flow, then
-Agents, Context and Tools when the model has an agent, then the model's
-own layers, then All.
+For another question with source evidence, declare a kind in `flow_kinds`.
+Add its `Layer` to `Meaning.layers` and its mapping to `layer_of_kind`.
+Add its direction verb pair to `verbs`.
+Use `layer_overrides` when one flow must use a different layer from its kind.
+Custom layers receive palette colors in order.
+
+Page order is Structure, System context, Data flow, and Control flow.
+Agents, Context, and Tools follow when the model has a model-calling component.
+Custom layers follow those layers. All is the final selection.
 
 ## Agentic systems
 
-When a part of the system runs a model and acts on its output, the map
-needs to show the agents, what enters their windows, and what they can
-do. Three component kinds and two flow kinds exist for that.
+A model-calling system must show model inputs and tool operations.
+Use these component kinds and flags:
 
-- `kind="agent"`: a part that runs a model and acts on its output. Find
-  them by the call: the facts record each module's third-party imports
-  under `external`, and `systemap judgement` prints `model sdk: module X
-  imports <sdk> and its component P is not an agent` for a built-in list
-  of model SDKs and agent frameworks (extend it with `[facts] model_sdks`
-  in `systemap.toml`; an entry with a leading `-` removes a built-in
-  name). The list matches import prefixes, so a framework matches for its
-  tool and session modules too. When the repository defines what counts
-  as an agent, in an AGENTS.md or a design rule, that definition wins
-  over the prompt: a part that calls a model once and is not an agent by
-  the repository's rule stays a component, and the line is answered
-  citing the rule. A module that calls a coding-agent CLI through a
-  subprocess is found by reading it. Drawn with an inner ring.
-- `calls_model=True` on a component: a single-shot call site, a part
-  that calls a model once and is not an agent by the repository's rule.
-  Its context and tool flows are drawn like an agent's, the Context and
-  Tools layers show them, the panel says `calls a model`, and the
-  `model sdk` line for its modules is answered by the flag. It is not an
-  agent: the Agents layer leaves it out.
-- `kind="context"`: a store whose content enters an agent's window: a
-  system prompt, a prompt template, a memory file, retrieved knowledge,
-  injected facts, a conversation log. Find them by what is read before or
-  during a turn: prompt files and the modules that render them, memory,
-  retrieval, anything assembled into the window. Drawn dotted.
-- `kind="tool"`: a capability an agent invokes with arguments: a shell,
-  an API, a search, a file editor, a test runner. Find them by what the
-  agent calls with arguments and reads the result of. Drawn with a
-  notched corner.
-- `Flow(src, dst, artifact, "context")`: content entering a window.
-  `src` is the source of the content, `dst` the agent or the
-  `calls_model` component. The check refuses a context flow whose
-  destination is neither. Layer "Context": "What enters each agent's
-  window, and from where?" It shows every context flow.
-- `Flow(src, dst, artifact, "tool")`: an agent invoking a tool. `src` is
-  the agent or the `calls_model` component, `dst` the tool; the artifact
-  is the call or its result. The check refuses a tool flow whose source
-  is neither. Layer "Tools": "What can each agent do, and through what?"
-  It shows every tool flow.
+- `kind="agent"`: a component that calls a model and acts on its output.
+  Its card has an inner ring.
+- `calls_model=True`: a component that calls a model without classification as an agent.
+  Its context and tool flows are available in those layers.
+  The Agents layer does not include it.
+- `kind="context"`: stored data that enters a model context window.
+  Examples include prompts, memory files, search result records, and conversation logs.
+  Its card has a dotted outline.
+- `kind="tool"`: a program capability that the agent calls with arguments.
+  Examples include a shell, API, file editor, or test runner.
+  Its card has a notched corner.
 
-The three agent layers appear with the first agent or `calls_model`
-component. Agents is agents only: every agent card and every edge that
-touches an agent, in one hue. Question: "Which parts run a model, and
-what do they reach?"
+The repository's own agent definition has precedence over an SDK-based suggestion.
+A single model call can stay a component with `calls_model=True`.
+Read subprocess code to find calls to a coding-agent CLI.
 
-An agent, a tool and a context card are code in the tree like any other
-component: each names its modules and an entry they define, except that a
-context card, like a store, may leave `entry` empty when it is a
-namespace (a constants table, a prompt directory's module). A tool that is
-genuinely outside the package (a remote service the agent calls) is an
-actor, and the flow to it is still a tool flow. Write one journey per
-agent's turn: what enters the window, what the model returns, what the
-agent invokes, what it writes back.
+The facts list third-party imports under `external`.
+The `model sdk` finding identifies model SDK imports without a model-calling component.
+Configure import prefixes under `[facts] model_sdks`.
+A prefix also matches framework tool and session modules.
+Use a leading minus, such as `"-google.adk"`, to remove a built-in prefix.
+Do not classify all framework modules as agents only because of their imports.
 
-## A tool that lives inside its agent's module
+Use these flow kinds for model operations:
 
-Some frameworks put the agent and its tools in one file: a module
-`app.agent` defines `root_agent` and, beside it, the functions the agent
-is given as tools. A module is claimed by one card, so the tool card
-cannot claim `app.agent` too. It claims the symbol instead:
+- `Flow(src, dst, artifact, "context")` supplies data to an agent or `calls_model` component.
+  A different destination is invalid.
+- `Flow(src, dst, artifact, "tool")` starts a tool operation from an agent or `calls_model` component.
+  A different source is invalid.
 
-```python
-(
-    Component(
-        id="Assistant",
-        does="Runs the model on the request and calls its tools.",
-        implemented_by=("app.agent",),
-        entry="root_agent",
-        kind="agent",
-        region="serve",
-        x=COL["c1"],
-        y=ROW["r1"],
-    ),
-)
-(
-    Component(
-        id="Search",
-        does="Looks a term up for the assistant.",
-        implemented_by=("app.agent:search",),
-        entry="search",
-        kind="tool",
-        region="serve",
-        x=COL["c2"],
-        y=ROW["r1"],
-    ),
-)
-```
+The Context layer shows context flows and their source components.
+The Tools layer shows tool flows and their destinations.
+The Agents layer shows components of kind agent and their applicable flows.
+The model schema and structural checker keep these endpoint rules consistent.
 
-`Assistant` owns the module and counts for coverage; `Search` claims the
-public name `search` inside it, conflicts with nothing, and the check
-verifies that `app.agent` defines `search`. A symbol claim on a module no
-card claims is refused: claim the module first. The flow between them is
-`Flow("Assistant", "Search", "query", "tool")`, as for any tool. Two
-cards in one module can never have an import between them, so the
-shared module is the evidence: the flow is `observed`, the panel says
-`observed: shared module`, and no `declared flow` line asks about it.
+## Evidence across layers
+
+An import or common module gives structural evidence only.
+A configured mechanism in `[flows] observed_by` also gives structural evidence only.
+This evidence does not show the direction or artifact.
+For `observed`, examine source and record current `source_refs` and `review_digest`.
+A declared flow has no structural or examined source evidence.
+Layer selection must not change an evidence state or hide its uncertainty.

@@ -1,8 +1,8 @@
-"""Exact entry coverage and journey migration diagnostics.
+"""The sequence coverage checks use exact entry point identities.
 
-A reviewed journey names each entry by kind, module, target, and local name.
-A display name or sentence cannot cover an entry because those words may
-also describe a different route or task.
+A sequence with a source review specifies each entry point by kind, module, target, and
+local name. A display name or description cannot supply exact coverage because the same
+words can refer to another entry point.
 """
 
 from __future__ import annotations
@@ -20,7 +20,9 @@ TOGETHER_AT = 4
 
 
 def reviewed_entries(meanings: Iterable[Meaning]) -> set[str]:
-    """Entry identities explicitly reviewed by a nonempty walk on any map."""
+    """This function gives exact entry point identities from nonempty sequences with source
+    reviews on all maps.
+    """
     out: set[str] = set()
     for meaning in meanings:
         for journey in meaning.journeys:
@@ -38,7 +40,7 @@ def ways_in_without_journey(
     owner: dict[str, str] | None = None,
     covered: Collection[str] | None = None,
 ) -> list[dict[str, str]]:
-    """The ways in without an exact reviewed identity in their inventory."""
+    """This function finds entry points without exact sequence coverage in the inventory."""
     points: list[dict[str, str]] = facts.get("entry_points", [])
     del text, owner
     reviewed = set(covered) if covered is not None else reviewed_entries((meaning,))
@@ -56,7 +58,9 @@ def ways_in_without_journey(
 def _same_script(
     p: dict[str, str], scripts: dict[str, dict[str, str]], components: dict[str, Any]
 ) -> bool:
-    """Is this way in a console script under another name?"""
+    """This function identifies an entry point that refers to the same console script under
+    another name.
+    """
     module = p["module"]
     if p["kind"] == "main_function":
         return scripts.get(module, {}).get("target") == "main"
@@ -66,19 +70,15 @@ def _same_script(
 
 
 def crowd_label(how_many: int, kind: str, card: str) -> str:
-    """A crowd of ways in, named: `190 routes into HttpApi`.
-
-    `systemap journeys` names a crowd the same way, so the walk it writes and
-    the line it answers read as the same thing.
+    """This function gives a label for a group of entry points, such as 190 routes into
+    HttpApi.
     """
     return f"{how_many} {kind}s into {card}"
 
 
 def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[str]:
-    """One line per way in, or one line per card for the kinds that come in crowds.
-
-    The order the facts list them in is kept, so a report does not reshuffle
-    itself when one way in is answered.
+    """This function gives one diagnostic per entry point or component group, in facts
+    order.
     """
     crowds: dict[tuple[str, str], list[dict[str, str]]] = {}
     for p in points:
@@ -90,21 +90,26 @@ def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[st
         found, who = crowds[key], key[1]
         where = f" (component {who})" if who else ""
         if len(found) <= TOGETHER_AT or not who:
-            out.append(f"entry point {entry_label(p)} has no journey{where}")
+            out.append(f"entry point {entry_label(p)} has no sequence{where}")
             continue
         if key not in said:
             said.add(key)
             said_as = crowd_label(len(found), p["kind"], who)
-            out.append(f"entry point {said_as} have no journey{where}")
+            out.append(f"entry point {said_as} have no sequence{where}")
     return out
 
 
 def journey_problems(
     meaning: Meaning, facts: dict[str, Any], cards: Collection[str] = ()
 ) -> list[str]:
-    """Unconfirmed walks, stale identities, and legacy coverage to review."""
+    """This function finds draft sequences, stale entry identities, and legacy coverage
+    that must have a source review.
+    """
     drafted = [
-        f"drafted journey: {j.id} ({j.label}) was written by an agent and not yet confirmed"
+        (
+            f"drafted journey: {j.id} ({j.label}) has no maintainer source review after "
+            f"the agent write."
+        )
         for j in meaning.journeys
         if j.drafted
     ]
@@ -121,7 +126,10 @@ def journey_problems(
         drafted
         + coverage
         + [
-            f"journey start: {j.id} starts at {j.starts}, which the facts have no way in for"
+            (
+                f"journey start: {j.id} starts at {j.starts}, but the facts contain no such "
+                f"entry point."
+            )
             for j in meaning.journeys
             if j.starts and j.starts not in ways
         ]
@@ -133,9 +141,12 @@ def _coverage_lines(
 ) -> list[str]:
     out = []
     if not journey.steps:
-        out.append(f"journey start: {journey.id} has no steps; an empty walk covers no way in")
+        out.append(
+            f"journey start: {journey.id} has no steps. An empty sequence gives no entry "
+            f"point coverage."
+        )
     out.extend(
-        f"journey start: {journey.id} covers {identity}, which the facts have no way in for"
+        f"journey start: {journey.id} covers {identity}, but the facts contain no such entry point."
         for identity in journey.covers
         if identity not in known
     )
@@ -152,18 +163,24 @@ def _legacy_lines(
     matches = [point for point in points if journey.starts in (point["name"], entry_label(point))]
     if len(matches) == 1:
         return [
-            f"journey start: {journey.id} uses a legacy start; "
-            f"confirm covers=({entry_identity(matches[0])!r},)"
+            (
+                f"journey start: {journey.id} uses a legacy start. Examine the source. Then "
+                f"set covers=({entry_identity(matches[0])!r},)"
+            )
         ]
     if len(matches) > 1:
         return [
-            f"journey start: {journey.id} starts at {journey.starts}, "
-            "which matches multiple ways in; add exact covers"
+            (
+                f"journey start: {journey.id} starts at {journey.starts}, which resolves to "
+                f"multiple entry points. Add exact covers."
+            )
         ]
     if journey.starts in cards:
         return [
-            f"journey start: {journey.id} starts at card {journey.starts}; "
-            "add exact covers for reviewed ways in"
+            (
+                f"journey start: {journey.id} starts at component {journey.starts}. Add exact "
+                f"covers for entry points with a source review."
+            )
         ]
     return []
 
@@ -180,6 +197,8 @@ def _word_candidates(journey: Journey, points: list[dict[str, str]]) -> list[str
     sample = ", ".join(entry_identity(point) for point in candidates[:3])
     more = f" and {len(candidates) - 3} more" if len(candidates) > 3 else ""
     return [
-        f"journey start: {journey.id} mentions {sample}{more}; "
-        "confirm exact covers after reviewing the source"
+        (
+            f"journey start: {journey.id} mentions {sample}{more}. Examine the source. "
+            f"Then set exact covers."
+        )
     ]

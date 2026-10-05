@@ -1,196 +1,249 @@
 # Reference
 
-Every rule, command and configuration key, in full. [README.md](README.md)
-is the short version.
+This document gives the rules, commands, and configuration keys.
+[README.md](README.md) gives the introduction.
+If a check has a finding, first read its rule below.
+The command descriptions and configuration keys follow the rules.
 
-The rules come first, then the commands, then the configuration keys. A
-failing check is the usual reason to open this page, and the rule that
-failed is what you need.
+## What does `systemap check` reject?
 
-## What does `systemap check` refuse?
+`systemap check` executes the rules below.
+Each finding appears under its rule with a correction.
+The command exits 1 if a rule rejects the map.
 
-`systemap check` runs every rule below, prints each failure under its rule
-with the fix, and exits 1 if any rule failed.
-
-| rule | what it catches |
+| Rule | Rejected condition |
 |---|---|
-| coverage | a module in the facts that no component claims, or that two claim; an ignore that names nothing, or only empty package markers (an `__init__` with no public names and no imports, which the rule leaves out on its own) |
-| entry | a component naming a module the facts do not have, no module, or an entry none of its modules defines (a store or a context card may leave `entry` empty); a symbol claim (`"pkg.mod:name"`) of a module the facts do not have, of a name the module does not define, or of a module nobody claims |
-| interface | an `interface` line whose leading identifier (the token before `(`, `.`, `->` or whitespace; both parts of `Class.method`) is not a name the component's modules define, a re-export included; refused with the closest defined name |
-| nesting | the map inside a card claiming a module the card does not, leaving one of the card's modules unclaimed, claiming one twice, or naming an actor that is not a card of the map above; an actor that opens a map |
-| placement | a card outside its band, two cards overlapping, a flow of a kind neither standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an agent nor `calls_model`, a flow or invariant naming something the model does not have, two invariants with one number |
-| routes | a route through a card it does not connect, or across a band it neither starts nor ends in |
-| labels | text that does not fit, or touches something it should not: see below |
-| type size | any text below 11 px at native scale |
-| meaning | a sentence, verb, override or journey step naming something the model does not have, a flow with no sentence, a custom layer taking a standard id |
-| wheel | a relationship wheel whose labels touch each other or the centre |
-| stale | a facts file, a page (one per map) or a figure older than the tree or the model |
+| coverage | No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is an `__init__` with no public names or imports. The rule automatically excludes these markers. |
+| entry | A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty `entry`. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
+| interface | The leading identifier of an `interface` is absent from the component's public names, including re-exports. The identifier ends at `(`, `.`, `->`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
+| nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |
+| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. |
+| routes | A route crosses an unrelated component or an unrelated region. |
+| labels | Text does not fit or touches an obstacle. The conditions are below. |
+| type size | Text is smaller than 11 px at native scale. |
+| meaning | A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id. |
+| wheel | Relationship-wheel labels touch each other or the center. |
+| stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
 
-The labels rule refuses three things, because a label a reader cannot read
-is worse than no label:
+The labels rule rejects these conditions:
 
-- A label that touches a card, a header, or another label. Both labels are
-  named, with the fix that applies: either the gutter is full, in which case
-  the refusal names its neighbours and the region to open up, or the label is
-  wider than its seat.
-- A container or region header wider than its box, a `sub` that needs more
-  than two lines, or a header touching a card.
-- A card whose name or plain word does not fit its budget. The refusal states
-  the budget. Nothing on the map is ever shortened with an ellipsis.
+- A label touches a component, header, or other label.
+  The finding shows the two labels and the applicable correction.
+  For a full gutter, it shows the adjacent components and the region
+  that must have more space. If not, the label can be wider than its seat.
 
-Exit codes: `0` current, `1` a check failed, `2` the configuration or the
-model cannot be used. A module that genuinely has no place on the map is
-ignored under `[coverage]` in the configuration, and every ignore needs a
-reason.
+- A container or region header is wider than its box.
+  A `sub` uses more than two lines, or a header touches a component.
 
-The check verifies the cards against the code. It cannot establish a
-flow's direction or artifact from an import alone. Each edge reports its
-current evidence at render and check time:
+- A component's name or plain text does not fit its budget.
+  The finding gives the budget. The map does not remove text to add an ellipsis.
 
-| evidence | when | how it shows |
+Exit code `0` shows a map with no stale outputs.
+Exit code `1` shows a rejected check.
+Exit code `2` shows unusable configuration or an unusable model.
+To keep a module out of map coverage, add an ignore under `[coverage]`.
+Each ignore must have a reason.
+
+The check compares components with the code.
+An import alone cannot show a flow's direction or artifact.
+Rendering and checking use the evidence for the stored source snapshot state:
+
+| Evidence | Condition | Indication |
 |---|---|---|
-| `observed` | `source_refs` resolve to extracted source hashes and `review_digest` matches the current flow claim and sentence | a solid line; the panel says the source review is current |
-| `structural` | an import joins the cards, they share a module, or the sentence names a configured mechanism; this does not verify direction, artifact, or execution | a dashed line; the panel names the structural fact and `judgement` requests flow review |
-| `external` | an actor is at either end: the edge is outside the code | a solid line; the panel says `external: outside the code` |
-| `declared` | no reviewed source or structural fact supports the flow | a dashed line; `systemap judgement` prints a `declared flow` line |
+| `observed` | `source_refs` resolve to extracted source hashes. `review_digest` agrees with the current flow claim and sentence. | A solid line. The panel shows a source review for the stored snapshot. |
+| `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
+| `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
+| `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
 
-## What does the second pass look for?
+## What does the second pass find?
 
-The check refuses contradictions; it cannot refuse omissions. `systemap
-judgement` finds those mechanically, so what was missed is found rather
-than remembered. It prints one line per thing to look at, and the agent
-either changes the model or writes down why not:
+The check rejects contradictions.
+It cannot show all omissions.
+`systemap judgement` uses mechanical rules to find possible omissions.
+For each finding, change the model or record the reason for its stored state.
 
-| line | what it asks |
+| Finding identifier | Question or condition |
 |---|---|
-| single module | a component that claims one module: a real part, or an over-split? |
-| possible mis-fold | a module whose dotted path shares no word with its component's id, `does`, plain word or `interface`, in a component of several modules, and whose package holds none of the others: folded into the wrong part? |
-| no sentence | a flow with no relation sentence |
-| thin layer | a layer that includes fewer than two components, counting a standard kind never used |
-| entry point X has no journey | an entry point whose exact identity is absent from every reviewed journey's `covers` |
-| crossing import | module A of component P imports module B of component Q and no flow joins P and Q, in either direction: an edge the code has and the map does not |
-| declared flow | a flow with no reviewed source or structural evidence; find supporting source or revise it |
-| flow review | an import, shared module, or mechanism word exists, but the direction and artifact still need source review |
-| model sdk | module X imports a model SDK or an agent framework (anthropic, openai, google.adk and the rest of a built-in list, extended or reduced by `[facts] model_sdks`) and its component is neither an agent nor marked `calls_model` |
+| single module | A component claims one module. Does the module have a different function? |
+| possible mis-fold | A module's dotted path has no word in common with its component's id, `does`, plain text, or `interface`. The component has multiple modules. No other module is in the same package. Is the assignment incorrect? |
+| no sentence | A flow has no relation sentence. |
+| thin layer | A layer contains fewer than two components. This includes an unused standard kind. |
+| entry point X has no journey | The entry point's identity is absent from each examined sequence's `covers`. |
+| crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. |
+| declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
+| flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
+| model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
-A report, not a gate: it exits 0, or 1 with `--strict` while any line is
-open, for CI. Answers are kept, so a question is asked once: a line answered under `[judgement]
-answered` in `systemap.toml` is suppressed and counted (`judgement: 3
-items for the maintainer to confirm, 21 answered`), and an answer that
-matches no line is reported as stale, so an answer that no longer applies is found rather than left in place. An answer
-names the exact line (`item`, or `items` for several) or a family with
-one reason: `crossing = ["A", "B", ...]` for every crossing import between
-any two of the ids, `crossing_into = "A"` for every one into A,
-`crossing_from = "A"` for every one out of it, `kind = "single module"`
-(or `"declared flow"`, or any other kind) for every line of a kind,
-`module_sdk = "google.adk"` for every model sdk line of an import. The answers are what the maintainer reads, and they
-live beside the model. Before any of it, `systemap suggest` prints a
-first grouping from the facts alone (one proposal per package with two
-or more modules, and the imports between proposals) as a starting point
-a starting point to revise, not the answer; the skill's target is three to ten
-modules per component, N/10 to N/3 cards for N modules.
+Without `--strict`, the report exits 0.
+With `--strict`, it exits 1 while a finding is open.
+`[judgement] answered` in `systemap.toml` contains recorded answers.
+Accepted answers suppress findings and increase the answered count.
+The report can print `judgement: 3 items for maintainer decisions, 21 answered`.
+An answer with no matching finding is stale.
 
-An exact `item` or `items` answer records `evidence = "<SHA-256 digest>"`.
-When the source and import evidence changes, the line opens again and
-`judgement` prints the current digest for review. Existing exact answers
-without evidence stay pending until reviewed. A family answer is a standing
-policy: add `policy = true`. It reports the number of matching lines and the
-number outside an optional `reviewed = ["<line>", ...]` baseline. Existing
-family answers without `policy = true` stay pending.
+An answer can show exact lines or a family of lines:
 
-## What is Jev asked?
+- `item` shows one exact line.
 
-`systemap audit` is optional and off the path CI takes. It asks TypeSafe's
-Jev model narrow questions about meaning, where `judgement` reads names and
-imports, and prints a line where Jev's answer disagrees with the map. Each
-threshold was chosen on five mapped repositories (`bench/jev`), then checked
-on three maps no threshold was chosen on (systemap's own, scorecard, and a
-first map of httpie). The figures are what they measured, not a promise for
-yours:
+- `items` shows multiple exact lines with one reason.
+
+- `crossing = ["A", "B", ...]` shows crossings between any two listed ids.
+
+- `crossing_into = "A"` shows crossings into A.
+
+- `crossing_from = "A"` shows crossings from A.
+
+- `kind = "single module"` shows all lines of that kind.
+  `"declared flow"` and other kinds use the same form.
+
+- `module_sdk = "google.adk"` shows all model-sdk findings for that import.
+
+The maintainer examines these answers adjacent to the model.
+Before the second pass, `systemap suggest` gives a proposed grouping.
+It gives one proposal for each package with two or more modules, plus imports
+between proposals. Examine these proposals against the source.
+A component must have one clear function. Module quantity alone does not identify a component.
+
+An exact `item` or `items` answer includes `evidence = "<SHA-256 digest>"`.
+When source or import evidence changes, the finding opens again.
+`judgement` prints the current digest for examination.
+An exact answer without evidence stays pending until source review.
+
+A family answer is a standing policy and must have `policy = true`.
+The report counts current matches and matches outside the optional
+`reviewed = ["<line>", ...]` baseline.
+A family answer without `policy = true` stays pending.
+
+## What questions does Jev answer?
+
+`systemap audit` is optional.
+CI does not execute this command.
+The command sends individual semantic questions to TypeSafe's Jev model.
+It prints a finding when Jev's answer disagrees with the map.
+The mechanical `judgement` rules use names and imports instead.
+
+The development experiments selected thresholds on five mapped repositories in
+`bench/jev`. Three holdout maps used the same thresholds: systemap, scorecard,
+and a first map of httpie.
+The table gives measured results from the recorded prompts.
+This PR changes those prompts for ASD-STE100. The changed prompts have no new benchmark measurements.
+Do not use the recorded scores as results for the changed prompts or your system.
 
 | line | what it asks | development maps | holdout maps |
 |---|---|---|---|
-| jev mis-fold | which card each claimed module belongs to; a line when its own card gets P < 0.05 | 95% of modules planted in a neighbouring card caught, 4% of correctly placed modules flagged; the word rule behind `possible mis-fold` caught 32% | 93% caught, 1% flagged |
-| jev owner | the same question for a module no card claims; one card when the confidence is 0.9 or more, else the closest three | 56% of modules get one card, 98% of those right | 60%, 100% right |
-| jev sentence | does a card's sentence describe its modules; a line under P 0.2 | 67% of wrong sentences caught, 1% of right ones flagged; it catches a sentence that is wrong, not one that is slightly stale | 61% caught, 2% flagged |
-| jev flow | does the code where two cards' modules use each other carry the flow's claim; a line under P 0.2; **asked only with `--kind "jev flow"`** | 66% of wrong claims caught, 2% of real ones flagged; a call made through an instance is not in the evidence, so such a flow can be doubted for that alone | 54% caught, 4% flagged: more than 10 points under the development figure, the threshold a kind had to meet to be asked by default |
-| jev governs | does an invariant govern a card it does not name; a line at P 0.8 or more | 31% of governed cards found, 1% of the rest suggested | 38% found, 1% suggested |
+| jev mis-fold | The component for each module claim. A line prints when the claimed component has P < 0.05. | 95% of incorrect component assignments found. 4% of correct assignments gave incorrect findings. The word rule for `possible mis-fold` found 32%. | 93% found. 1% of correct assignments gave incorrect findings. |
+| jev owner | The same question for a module without a component claim. One component prints at confidence 0.9 or more. Otherwise, three print. | 56% of modules get one component. 98% of those answers are correct. | 60% of modules get one component. 100% of those answers are correct. |
+| jev sentence | Does the component sentence agree with its modules? A line prints below P 0.2. | 67% of incorrect sentences found. 1% of correct sentences gave incorrect findings. Small source changes can cause no finding. | 61% found. 2% of correct sentences gave incorrect findings. |
+| jev flow | Does the code connection agree with the flow claim? A line prints below P 0.2. **Questions require `--kind "jev flow"`.** | 66% of incorrect claims found. 2% of correct claims gave incorrect findings. Evidence excludes instance calls. This exclusion can cause an incorrect finding. | 54% found. 4% of correct claims gave incorrect findings. The result was more than 10 points below development. It failed the default-question threshold. |
+| jev governs | Does a rule apply to a component outside its scope? A line prints at P 0.8 or more. | 31% of applicable components found. 1% of other components proposed. | 38% of applicable components found. 1% of other components proposed. |
 
-Nothing is sent without `TYPESAFE_API_KEY`; `audit --dry-run` counts the
-questions and says what would leave the machine (module names, docstrings,
-public names, internal imports, card ids and sentences, invariants, flow
-sentences, and the source lines where two cards' modules meet). Every answer
-is cached in `.systemap/jev-cache.json` by model, release date, state and
-question, so an unchanged map costs nothing the second time and a new
-release of the model asks again. A line is answered in `[judgement]
-answered` like any other (`item`, `items`, or `kind = "jev flow"`); `audit`
-reads only the answers that name the kinds it asked, so an answer about
-`jev flow` is not called stale by a run that did not ask it, and `judgement`
-ignores them all.
 
-`systemap triage "<issue>"` names the three cards an issue's fix will most
-likely change, with their modules and neighbours on the map: on 80 closed
-issues of two repositories, the card the fixing pull request touched was
-Jev's first pick 80% of the time and in its top three 88%. With the key
-set, `delta` asks Jev on its own (`--jev` asks and says why it cannot,
-`--no-jev` sends nothing): for each module that disappeared and that delta's own three questions
-(same source, same public names, a file name that reads the same) left
-unpaired, which new module it became, and reports a pick at confidence 0.8
-or more as a move, `(read as the same module by Jev, confidence 0.94)`, like
-delta's own: on the renames in five repositories that found 82 real renames
-against delta's 66, and 16 of the 17 pairings it added were right (labelled
-blind from the commits, `bench/jev`). A move changes the report and so can
-change its exit code, as a move delta found would. It then adds the card
-each unclaimed module reads like. `suggest --jev` groups modules from Jev's answers about
-pairs (import-joined, and neighbours in one package): it beat one card per
-package on three development maps of five and lost on two, and saved no
-turns on the one first map benchmarked with it, so it stays a flag.
+No question goes to Jev without `TYPESAFE_API_KEY`.
+`audit --dry-run` counts the questions and shows the data to send:
+module names, docstrings, public names, internal imports, component ids,
+sentences, invariants, and source lines at connections between components.
 
-Without a key, `judgement` says on stderr what `audit` would add, and
-`delta` does the same when a module was removed and another added; each
-hint quotes the measured figure. `[jev] enabled = false` turns off both
-the hints and delta's asking.
+The cache is `.systemap/jev-cache.json`.
+Its key includes the model, release date, state, and question.
+A map without changes uses cached answers at no additional cost.
+A new model release causes new questions.
 
-## What do you do past forty cards?
+Audit answers use `[judgement] answered` with `item`, `items`, or a kind such as
+`"jev flow"`. `audit` reads only answers for the kinds in its report.
+A type excluded from the report does not make its answer stale.
+`judgement` ignores all audit answers.
 
-One canvas cannot hold a large repository legibly, and past about forty
-cards each layer includes nearly every card, so switching layers separates nothing. A component may carry
-`map="gateway.py"`, a path relative to its model file naming a second
-model module that exports `MODEL` and `MEANING` like any model. The map
-inside draws that one card: its cards claim exactly the modules the
-card claims, no more and no fewer, each once (symbol claims allowed,
-empty package markers left out), and its actors are cards of the map
-above, the ones around the card, so its edges to the outside have
-an endpoint inside the sub-map. The card claims the modules once for coverage; the
-check's nesting rule holds the map inside to them and refuses any
-difference with the modules named, and a sub-map's actor that is not a
-card above.
+`systemap triage "<issue>"` gives the three components likely to change in an
+issue fix. The report includes their modules and adjacent components.
+On 80 closed issues from two repositories, the fixing PR's component was first
+in 80% of predictions. It was in the first three in 88%.
 
-Every command walks the tree. `check` runs every rule on every map, a
-sub-map's lines prefixed by its id (`Gateway: map layout: clean ...`);
-`refresh` and `render` write one page per map, the top at
-`docs/map/index.html` and the map inside a card at
-`docs/map/Gateway/index.html`, each linking to the other; `figure --map
-Gateway` draws one (and a `[[figures]]` entry takes `map`); `place`
-writes positions into every map's file; `describe` and `judgement`
-prefix their lines the same way, and an `item` answer quotes the line
-as printed while a bulk form covers every map; `delta` compares each
-map over the modules its card claims, so a moved module names its card
-and its map's file; `suggest` says when a map is past forty cards and
-names the cards with the most modules as the candidates to open. A map
-inside a map is `Gateway/Routes`.
+With the key set, `delta` automatically sends questions to Jev.
+`--jev` explicitly sends questions and gives a reason if the request cannot complete.
+`--no-jev` sends nothing.
+Jev examines removed modules that delta did not pair with added modules.
+Delta first compares source, public names, and filenames.
+A Jev pairing with confidence of at least 0.8 becomes a move.
 
-systemap's own map is not nested: 18 cards is below the threshold. The
-worked example is the fixture in
-[`tests/test_nested.py`](tests/test_nested.py): one top map of five
-cards, two of which open a map.
+The report can print `(read as the same module by Jev, confidence 0.94)`.
 
-## What does a model look like?
+On renames in five repositories, the two methods together found 82 renames with source evidence.
+Delta alone found 66. Of the 17 added pairings, 16 were correct.
+An agent wrote reference labels from commits without Jev's answers.
+The records are in `bench/jev`.
+A move can change the report and exit code.
 
-The agent writes one Python module. Everything in it is a frozen dataclass.
-This is an excerpt of systemap's own model, two cards and one edge; the
-standard kinds need no declaring and the page derives the standard
-layers:
+Jev also suggests a component for each unclaimed module.
+
+`suggest --jev` groups modules from pair answers.
+Pairs have an import connection or the same package.
+It exceeded package-only grouping on three of five development maps.
+It did not exceed that grouping on the other two.
+The measured first-map run saved no turns.
+Thus, the command stays optional.
+
+Without a key, `judgement` prints an audit hint to stderr.
+`delta` prints a hint when a module was removed and another was added.
+Each hint gives a measured result.
+`[jev] enabled = false` stops the hints and automatic delta questions.
+
+## What do you do above forty components?
+
+A large repository can exceed the capacity of one readable canvas.
+Above approximately forty components, each layer can contain almost all
+components. Layer selection then gives little separation.
+
+A component can have `map="gateway.py"`.
+This path is relative to its model file.
+The target module exports `MODEL` and `MEANING`.
+The nested map shows the parent component's internal structure.
+
+Each parent module must have one claim, without duplicates, in the nested map.
+No extra module is permitted.
+Symbol claims are permitted.
+Empty package markers are excluded.
+Nested actors must be components from the parent map.
+Coverage counts the parent component one time.
+
+The nesting rule rejects differences and shows each module or actor.
+
+Commands traverse the map tree:
+
+- `check` executes all rules on each map.
+  A nested finding has its map id, as in `Gateway: map layout: clean ...`.
+
+- `refresh` and `render` write one page per map.
+  The top page is `docs/map/index.html`.
+  The nested page is `docs/map/Gateway/index.html`.
+  Each page links to the other.
+
+- `figure --map Gateway` renders one map.
+  A `[[figures]]` entry also accepts `map`.
+
+- `place` writes positions in each model file.
+
+- `describe` and `judgement` use map-id prefixes.
+  An `item` answer contains the printed line.
+  A family answer can apply to all maps.
+
+- `delta` compares each map's claimed modules.
+  A moved module shows its component and model file.
+
+- `suggest` shows maps above forty components.
+  It lists the components with the most modules as possible nested maps.
+
+A second nested level uses an id such as `Gateway/Routes`.
+The self-map in the recorded experiment had no nested map.
+Its 18 components were below the threshold.
+The fixture in [`tests/test_nested.py`](tests/test_nested.py) has five top-level
+components. Two open nested maps.
+
+## What does a model contain?
+
+The agent writes one Python module with frozen dataclasses.
+This example contains two components and one flow from the self-map.
+Standard flow types do not have to be declared.
+The page derives standard layers.
 
 ```python
 from systemap import Component, Flow, Meaning, Model, Region
@@ -202,10 +255,10 @@ MODEL = Model(
              Region("draw", "DRAW", (460, 40, 416, 340))),
     components=(
         Component(id="FactsExtractor", region="gather",
-                  does="Walks the package's syntax tree and writes the facts.",
+                  does="Reads the package syntax tree and writes facts.",
                   implemented_by=("systemap.extract",), entry="build"),
         Component(id="Schematic", region="draw",
-                  does="Draws the cards, the routes and the interaction script.",
+                  does="Renders components, routes, and the interaction script.",
                   implemented_by=("systemap.schematic", "systemap.theme"), entry="render"),
     ),
     flows=(Flow("FactsExtractor", "Schematic", "map.json", "data"),),
@@ -213,303 +266,353 @@ MODEL = Model(
 )
 
 MEANING = Meaning(
-    plain={"FactsExtractor": "what reads the code", "Schematic": "what draws the map"},
+    plain={"FactsExtractor": "what reads the code", "Schematic": "what renders the map"},
     relations={("FactsExtractor", "Schematic"):
-               "The facts say which modules each card stands for, for the line the panel prints."},
+               "The schematic reads module facts to show flow evidence for mapped components."},
 )
 ```
 
-The cards carry no `x` and `y`: `systemap place` writes them, `systemap
-place --all` writes them again after a card is added or removed, and a
-card marked `pinned=True` keeps the place a person gave it. The full
-schema, with one worked
-example of every part, is in the skill
-the agent reads: [`SKILL.md`](src/systemap/skill/SKILL.md) and its
+The example has no `x` or `y` values.
+`systemap place` writes these positions.
+After component additions or removals, `systemap place --all` writes new
+positions. A component with `pinned=True` keeps its selected position.
+
+The full schema and examples are in
+[`SKILL.md`](src/systemap/skill/SKILL.md) and its
 [`references/`](src/systemap/skill/references/).
 
-## Which command do you need?
+## Which command do you use?
 
-Every command takes `--root DIR`, before or after the command, to name a
-project that is not the current directory. Exit codes are the same
-everywhere: 0 the map is current, 1 the map is stale or a check failed, 2
-the configuration or the model cannot be used.
+All commands accept `--root DIR` before or after the command.
+This option shows a project outside the current directory.
+Exit codes are `0` for current, `1` for stale or rejected, and `2` for unusable
+configuration or model.
 
 ### `systemap init [--no-ci]`
 
-Writes what a map needs beside the code: `systemap.toml`, a starter model,
-the skill directory an agent reads, and a GitHub workflow pinned to this
-version. It never overwrites a file that exists. It ends by printing the one
-sentence to give your agent. `--no-ci` leaves the workflow out.
+Writes `systemap.toml`, an initial model, the skill directory, and a GitHub
+workflow. The workflow pins this version.
+The command does not replace files.
+It prints the instruction for your agent.
+`--no-ci` does not include the workflow.
 
 ### `systemap extract [--check]`
 
-Reads the facts out of the tree into `docs/map/map.json`: each module's
-surface, its public names (for a package `__init__`, what it re-exports),
-its imports inside and outside the package, the tests that name it, and
-where a run can start. Everything else reads that file.
+Reads the source tree and writes `docs/map/map.json`.
+Module records contain public surface, public names, internal imports, external
+imports, test references, and entry points.
+Package `__init__` records include re-exports.
+The other commands read this file.
 
-- `--check` exits 1 when the stored facts no longer match the tree.
+- `--check` exits 1 if stored facts differ from the source tree.
 
 ### `systemap facts`
 
-Prints the facts one view at a time, so nobody has to open the JSON. With no
-option, the summary `extract` prints.
+Prints stored facts one view at a time.
+With no option, it prints the extraction summary.
 
-- `--modules`: a line per module, with the first sentence of its docstring
-  and its names, imports and tests counted.
-- `--docstrings`: the first sentence alone.
-- `--module NAME`: one module in full: docstring, names with kinds, imports,
-  imported by, external imports, test count. Never a test's name.
-- `--names NAME`: that module's public names, with kinds.
-- `--entry-points`: where a run can start, each with its target.
-- `--external`: every third-party import, and who imports it.
-- `--imports NAME`: what a module imports, and what imports it.
+- `--modules` prints one row per module.
+  Each row gives the first docstring sentence and counts of names, imports,
+  and tests.
+
+- `--docstrings` prints the first sentence only.
+
+- `--module NAME` prints the module's docstring, names and kinds, imports,
+  importers, external imports, and test count. It does not print test names.
+
+- `--names NAME` prints public names and kinds.
+
+- `--entry-points` prints entry points and their targets.
+
+- `--external` prints third-party imports and their importers.
+
+- `--imports NAME` prints imports and importers for one module.
 
 ### `systemap place [--all] [--print] [--keep-order]`
 
-A card with no position cannot be drawn. This writes one for every card that
-lacks it, on every map of the tree, and leaves the cards that have one alone.
-Only the `x=` and `y=` values change, plus the boxes and the canvas.
+A component must have a position before rendering.
+This command writes positions for unpositioned components on all maps.
+The command keeps positions already in the model.
+Only `x=`, `y=`, boxes, and the canvas change.
 
-The regions go on a two-column grid, with the corridors the router needs, in
-the order the search scores best. Cards go on the grid inside, ordered by
-barycentre sweeps over the flows. The search tries every order when there
-are six regions or fewer, and a greedy start with pairwise swaps past that.
-Each order is estimated by the bends its edges would need; the best twelve,
-and the order as written, are routed for real and scored on label
-collisions, then refused routes, then bends, then length. The order it
-chose is printed with its score:
+Regions use a two-column grid with routing corridors.
+The search selects the region order with the best score.
+Barycenter sweeps through flows select component order within regions.
+With six or fewer regions, the search tries every order.
+For more regions, it uses a greedy start and pairwise swaps.
+
+A bend estimate scores each candidate.
+The router renders the best twelve estimates and the model's listed order.
+It scores label collisions, rejected routes, bends, and length, in that order.
+The report gives the selected order and score:
 
     region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed
 
-It is deterministic and uses the standard library alone.
+The procedure is deterministic and uses only the standard library.
 
-- `--all`: lay every card out again, keeping only the cards marked
-  `pinned=True`. Run it after adding or removing a card.
-- `--keep-order`: lay the regions as the model lists them, and skip the search.
-- `--print`: print the positions and write nothing.
+- `--all` writes new positions except for `pinned=True` components.
+  Use it after you add or remove components.
+
+- `--keep-order` uses the listed region order without a search.
+
+- `--print` prints positions without file changes.
 
 ### `systemap render [--check] [--base REF]`
 
-Writes the page from the facts and the model.
+Writes the page from the facts and model.
 
-- `--check` exits 1 when the page is stale.
-- `--base REF` adds a change map against that ref.
+- `--check` exits 1 if the page is stale.
+
+- `--base REF` adds a change map relative to that revision.
 
 ### `systemap check [--brief]`
 
-Runs every rule in the table above, on every map of the tree, and exits 1
-with each fix named. Under each failing rule it prints two rows: why the
-rule matters, and what to do about it.
+Executes all rules on all maps.
+A rejected map causes exit 1.
+Each finding gives a correction.
+Two rows below a rejected rule give its effect and the necessary action.
 
-- `--brief` leaves those two rows out.
+- `--brief` does not include these two rows.
 
 ### `systemap figure --out FILE`
 
-Draws one figure with the generator the page uses, so a figure in a document
-cannot become inconsistent with the page.
+Uses the page generator to render one figure for a document.
 
-- `--components A,B`: the reach of a plan.
-- `--base REF`: a change.
-- `--layer ID`: one layer only: its edges, every card, and the legend
-  reduced to it.
-- `--map ID`: the map inside a card.
-- An `--out` name ending in `.svg` writes the drawing alone, with no frame.
+- `--components A,B` renders a plan's reach.
+
+- `--base REF` renders a change.
+
+- `--layer ID` renders that layer's edges and all components.
+  The legend contains only that layer.
+
+- `--map ID` selects a nested map.
+
+- An `--out` filename with a `.svg` suffix writes the drawing without a frame.
 
 ### `systemap refresh`
 
-The four commands in the order they depend on each other: extract, check,
-render one page per map, and draw every figure the configuration lists.
-Then it checks what it wrote. When there is nothing to do it says so:
-"already current: the page matches the model's rendered fields and the
-facts". It exits 1 when the check fails, and renders nothing in that case.
+Executes extraction, checks, page rendering, and configured figure rendering,
+in dependency order. Then it does a check of the written outputs.
+A result without changes prints
+"map: The page agrees with the rendered model fields and the facts."
+A rejected check causes exit 1 and prevents rendering.
 
 ### `systemap suggest [--jev]`
 
-A first grouping to revise, not the answer. From the facts alone it
-proposes one card per package with two or more modules, lists that card's
-modules, and prints the imports that cross between proposals. With a model
-it also says when a map is past forty cards, and which cards hold the most
-modules: the candidates for a map of their own.
+Proposes a first grouping for revision.
+From facts alone, it gives one component per package with two or more modules.
+It lists modules and imports across proposals.
+With a model, it also shows maps above forty components and large
+components that can become nested maps.
 
-- `--jev` groups modules from Jev's answers about module pairs instead of by
-  package. Needs `TYPESAFE_API_KEY`.
+- `--jev` uses Jev's module-pair answers instead of package grouping.
+  Set `TYPESAFE_API_KEY` for this option.
 
 ### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]`
 
-The second-pass list: what the check cannot settle. Thin components, odd
-folds, edges without a sentence, thin layers, entry points without a
-journey, crossing imports without a flow, flows no import backs, and model
-SDK imports outside an agent. A crossing import is one line per pair of
-cards, counting the modules. Lines answered under `[judgement] answered`
-are suppressed and counted. Under the first line of each kind it prints why
-it matters and what to do.
+Prints the second-pass findings.
+These include thin components, possible incorrect assignments, missing
+sentences, thin layers, uncovered entry points, crossing imports, unreviewed
+flows, and model SDK imports outside agents.
+A crossing-import row gives one component pair and a module count.
+Accepted answers under `[judgement] answered` suppress findings.
+The first finding of each kind has rows about its effect and necessary action.
 
-- `--strict` exits 1 while any line is open, for CI. Otherwise it exits 0.
-- `--kind KIND` prints one kind, for when the list runs long.
-- `--verbose` lists the imports under each crossing-import line.
-- `--brief` leaves out the two teaching rows.
+- `--strict` exits 1 while a finding is open. If not, the exit code is 0.
+
+- `--kind KIND` prints one kind.
+
+- `--verbose` prints imports below each crossing-import row.
+
+- `--brief` does not include the two explanation rows.
 
 ### `systemap delta --base REF [--head REF] [--format markdown] [--jev | --no-jev]`
 
-What a change did to the map, from the facts at two commits read out of git.
-Python and TypeScript commits use the same configured language adapter as the
-working tree.
-It names modules moved, added and removed, with the card each belongs to and
-the map's file; a new module no card claims; entry and interface names that
-vanished; new imports across a card boundary with no flow; and flows the
-code stopped backing. Each line names its fix. It exits 0 when nothing needs
-a decision, 1 when something does.
+Compares extracted facts from two Git commits.
+Python and TypeScript use the configured language adapter, as the working tree
+does. The report shows moved, added, and removed modules with their
+components and model files.
 
-It ends with the cards next to the change: the ones a flow joins to the card
-holding most of what changed. That is context, not a finding, and it is left
-out when that card is joined to more than a third of the map.
+Findings include unclaimed new modules, removed entry and interface names,
+new crossing imports without flows, and flows with lost evidence.
+Each finding gives a correction.
+The exit code is 0 if no decision is necessary, or 1 if not.
+
+The report ends with adjacent components.
+These have flows to the component with the most changes.
+This list gives context, not a finding.
+The list does not print if the seed component connects to more than one-third of
+the map.
 
 - `--format markdown` prints the pull-request comment.
-- With `TYPESAFE_API_KEY` set, or `--jev`, it also asks Jev to pair modules
-  that were renamed and rewritten at once, and names the card each unclaimed
-  module reads like. `--no-jev` sends nothing. What Jev cost goes to stderr.
+
+- `TYPESAFE_API_KEY` or `--jev` enables Jev pairing for modules with changed
+  names and content. Jev also suggests owners for unclaimed modules.
+
+- `--no-jev` sends nothing.
+
+- The Jev cost goes to stderr.
 
 ### `systemap describe`
 
-The layout measured rather than looked at, for an agent that cannot see the page.
-How many cards are pinned, placed, and positioned for the look alone; cards
-per region; the region order and what the drawing costs under it; bends and
-length per edge, worst first, with the gutter each label sits in; seats used
-of seats available per gutter; edges observed, external and declared; and
-cards and edges per layer.
+Prints measured map geometry for an agent that cannot see the page.
+The report includes position counts, components per region, region order,
+layout score, bends and length per edge, label gutters, and gutter seat usage.
+It also gives evidence-state counts and components and edges per layer.
+Position counts distinguish pinned, placed, and temporary display positions.
+Edges with the worst geometry come first.
 
-Then the journeys: each walk's steps, where it starts, the steps no import
-backs, whether an agent wrote it and nobody has read it yet, and how many
-ways into the system a journey walks from.
+The sequence section gives steps, starting entries, steps without import
+evidence, unconfirmed agent drafts, and covered entry counts.
 
 ### `systemap audit [--dry-run] [--kind KIND]...`
 
-Jev's second opinion on the calls the map makes about meaning: `jev
-mis-fold`, `jev owner`, `jev sentence` and `jev governs` lines, and `jev
-flow` lines when asked for with `--kind "jev flow"`. Answers are cached.
-It is a report: exit 0, or 1 when it could not run. Needs
-`TYPESAFE_API_KEY`.
+Sends questions about semantic claims to Jev.
+The finding kinds are `jev mis-fold`, `jev owner`, `jev sentence`, and
+`jev governs`. `--kind "jev flow"` also sends questions about flow claims.
+Answers use the cache.
+The command exits 0 for a completed report, or 1 if it cannot complete.
+Set `TYPESAFE_API_KEY` before you run the command.
 
-- `--kind KIND`, repeatable, asks only those kinds.
-- `--dry-run` says what it would send and sends nothing.
+- Use `--kind KIND` again to select another question kind.
+
+- `--dry-run` lists proposed questions without sending them.
 
 ### `systemap plan "<task>" [--check ID] [--base REF]`
 
-The cards a piece of work will most likely change, before it is done. Jev
-reads the task against every card's purpose, and the cards it gives at least
-0.05 of the probability are the projection. Each is printed with the flows,
-walks and rules it sits in: six of each, then a count. The projection is
-saved to `.systemap/plans/<id>.json`. The 0.05 cut is the measured one
-(`bench/jev/plan_eval.py`). Needs `TYPESAFE_API_KEY`.
+Predicts components likely to change in a task.
+Jev compares the task with each component's function.
+The projection includes components with probability of at least 0.05.
+The report includes flows, sequences, and rules for each component.
+It lists six of each, then gives a count.
+The projection is in `.systemap/plans/<id>.json`.
 
-- `--check ID --base REF` compares the projection with the cards the code
-  changed since `REF` (default `origin/main`), and exits 1 while a card
-  changed that the plan did not name.
-- `-` in place of the task reads it from stdin.
+The measured threshold of 0.05 is in `bench/jev/plan_eval.py`.
+Set `TYPESAFE_API_KEY` before you run the command.
+
+- `--check ID --base REF` compares the projection with changed components
+  since `REF`. The default base is `origin/main`.
+  It exits 1 for changed components outside the plan.
+
+- `-` instead of a task reads stdin.
 
 ### `systemap triage TEXT`
 
-The three cards an issue's fix will most likely change, each with its
-modules and its neighbours on the map. `-` reads the text from stdin. The
-text is cut at 2,000 characters. Needs `TYPESAFE_API_KEY`.
+Predicts the three components likely to change in an issue fix.
+The report includes their modules and adjacent components.
+`-` reads stdin. The text limit is 2,000 characters.
+Set `TYPESAFE_API_KEY` before you run the command.
 
 ### `systemap journeys [--limit N] [--dry-run]`
 
-Writes a walk through the system for a way in with no reviewed journey.
-Where a card takes more than a few ways in of one kind, it writes one walk
-for the group. The generated `covers` field lists the exact entry identities
-reviewed. A new entry is not covered until it is added to that list after review.
+Writes a sequence for an entry point with no examined sequence.
+For multiple same-kind entries in one component, it can write a grouped
+sequence. Its `covers` field records the examined entry identities.
+An examination must add a new entry to that list before the entry counts as covered.
 
-The agent named under `[agent] command` reads the code from that way in and
-answers with the cards a run passes through and a sentence each. A step
-tracing a flow the map does not draw is refused and printed as a line to
-fix, not written. What holds is written into the model marked
-`drafted=True`, which `judgement` prints as a `drafted journey` line until
-you read it and remove the mark. Three walks a run by default.
+`[agent] command` reads source from the entry point.
+The agent gives components in the execution path and a sentence for each step.
+A step with no authored flow is rejected with a finding.
+The command does not write that step.
+Accepted sequences enter the model with `drafted=True`.
+`judgement` prints `drafted journey` until a person examines the sequence and
+removes the mark. The default limit is three sequences per invocation.
 
-- `--limit N` writes at most N.
-- `--dry-run` lists what it would write and writes nothing. With no
-  `[agent] command` set it does the same, and says why.
+- `--limit N` writes no more than N sequences.
+
+- `--dry-run` lists proposed sequences without file changes.
+
+- With no `[agent] command`, the command also lists proposals and gives the
+  reason it cannot write them.
 
 ### `systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]`
 
-How the system got here. One commit is sampled per window back to `--since`
-(default `1 year ago`, one every 14 days), the facts at each are read out of
-git and cached under `.systemap/facts/<sha>-<scope>.json`, and each window is what
-moved between two samples: modules and ways in gained or lost, the cards
-that grew or shrank, the imports that began crossing a card boundary, and
-the commits that wrote the modules which appeared. The largest windows come
-first, `--top` of them (default 5). Every sample is read in today's cards,
-so a module that moved still counts as the card whose job it does.
-TypeScript samples include `.ts` and `.tsx` modules, their tests and package
-entry points.
+Reads source samples across repository history.
+The defaults are `1 year ago`, one sample every 14 days, and the five largest
+windows (`--top` default 5). Each window compares two samples.
+Facts use the cache `.systemap/facts/<sha>-<scope>.json`.
 
-- `--ref REF` samples back from that branch or commit instead of `HEAD`.
+Each window shows module and entry additions or removals, component size
+changes, and new crossing imports.
+It shows the commits that added new modules.
+All samples use the component assignments in the selected map.
+Thus, a moved module counts under its component in the selected map.
+TypeScript samples include `.ts`, `.tsx`, tests, and package entry points.
+
+- `--ref REF` starts from that branch or commit instead of `HEAD`.
 
 ### `systemap explain [KIND]`
 
-One kind of line in full: what it means, why it matters to your view of the
-system, and what to do about it. With no kind, every kind systemap prints,
-with its one-line meaning. It exits 1 when the kind is not one systemap
-prints.
+Prints one finding kind's meaning, effect on the map, and necessary action.
+With no kind, it lists all printed kinds and their one-line meanings.
+An unknown kind causes exit 1.
 
 ### `systemap serve [--port 8765]`
 
-Serves the output directory over HTTP on the loopback address and prints the
-URL. The page loads its data with a script, and a script does not run from a
-`file://` address.
+Supplies the output directory through HTTP on the loopback address.
+The command prints the URL.
 
 ### `systemap skill [--dir PATH] [--print]`
 
-Reinstalls the skill directory that `init` writes: `SKILL.md` and
-`references/`.
+Reinstalls the skill directory from `init`: `SKILL.md` and `references/`.
 
-- `--dir PATH` writes it somewhere else.
-- `--print` writes `SKILL.md` to stdout instead.
+- `--dir PATH` writes to another directory.
+
+- `--print` writes `SKILL.md` to stdout.
 
 ## What can you configure?
 
-`systemap.toml` at the repository root, or a `[tool.systemap]` table in
-`pyproject.toml`. Every key is optional; unknown keys are refused.
+Use `systemap.toml` at the repository root or `[tool.systemap]` in
+`pyproject.toml`. All keys are optional.
+Unknown keys are rejected.
 
-| key | default | meaning |
+| Key | Default | Meaning |
 |---|---|---|
-| `language` | `python` | source language: `python` or `typescript`; `init` detects an unambiguous TypeScript repository; TypeScript needs the `systemap[typescript]` extra |
-| `name` | `[project] name`, then the git repository's directory, then the directory name | the page title |
-| `[package_roots]` | Python packages; for TypeScript, `src` then the repository root | `"path" = "module name"` |
-| `tests_dir` | every directory named `tests` or `test` | one directory or a list; tests that import a module count as its guards |
-| `test_patterns` | none | additional repository-relative glob patterns for source-language test files; extraction and `delta` use the same patterns |
-| `model` | `map/model.py` | the module exporting `MODEL` and `MEANING`; its own directory is on the path while it runs, so a long map can keep its journeys or a region's cards in a module beside it (`import journeys`) and nothing it imports is kept between runs |
-| `out_dir` | `docs/map` | where the facts, the page and the figures go |
-| `facts_file` | `map.json` | the facts file's name inside `out_dir` |
-| `spec_path` | none | a document whose `##` headings are recorded as spec sections |
-| `planes` | none | second-level package names recorded as their own plane in the facts |
-| `outside_label` | `OUTSIDE THE SYSTEM` | the index heading for actors outside every region |
-| `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]`, or `module = "pkg.sub.*"` for a subtree; an ignore needs a reason; an empty package marker needs none |
-| `[facts]` | none | `model_sdks = [...]`: import names added to the built-in list the `model sdk` judgement line reads; a leading `-` removes a built-in name (`"-google.adk"`) |
-| `[flows]` | none | `observed_by = ["subprocess", "queue", ...]`: mechanism words to flag as structural evidence for review; a word does not verify a flow |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]`, or `items = [...]` with one digest for the group. `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"` are standing policies requiring `policy = true`. `reviewed = ["<line>", ...]` records the policy's baseline; new matches are counted. An answer needs a reason, a stale one is reported; `audit` lines are answered here too, with `kind = "jev flow"` and the other `jev` kinds. |
-| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | the model `audit`, `triage`, `delta` and `suggest --jev` ask, and where their answers are cached; `enabled = false` stops `delta` asking on its own and silences the hints |
-| `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | the command `systemap journeys` runs to have a walk written, given the question on standard input (for example `command = "claude -p --output-format json"`); with no command nothing runs and the reason is printed |
-| `[theme]` | warm | colour tokens laid over the default scheme; `scheme = "warm"`, `"graphite"` or `"paper"` picks the default (the page offers all three; `dark` and `light`, the 0.11 names, still pick graphite and paper); `[theme.paper]` lays tokens over one scheme; `[theme.layers]` names a colour per layer id, standard ids included; `[theme.marks]` picks the mark per agent kind |
+| `language` | `python` | Select `python` or `typescript`. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
+| `name` | `[project] name`, Git repository directory, then directory name | The page title. |
+| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. |
+| `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
+| `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
+| `model` | `map/model.py` | The module that exports `MODEL` and `MEANING`. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (`import journeys`). Imported modules do not stay cached between executions. |
+| `out_dir` | `docs/map` | The directory for facts, pages, and figures. |
+| `facts_file` | `map.json` | The facts filename inside `out_dir`. |
+| `spec_path` | none | A document with `##` headings that identify specification sections. |
+| `planes` | none | Second-level package names with different planes in the facts. |
+| `outside_label` | `OUTSIDE THE SYSTEM` | The index heading for actors outside all regions. |
+| `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. Empty package markers require no ignore. |
+| `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A leading `-` removes a built-in name (`"-google.adk"`). |
+| `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds, including `"jev flow"`, use this table too. |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
+| `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
+| `[theme]` | warm | Color-token overrides. `scheme = "warm"`, `"graphite"`, or `"paper"` selects the default. The page offers all three. The 0.11 names `dark` and `light` still select graphite and paper. `[theme.paper]` overrides one scheme. `[theme.layers]` sets a color per layer id, including standard ids. `[theme.marks]` selects a mark per agent kind. |
+| `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
-| `[[figures]]` | none | figures `refresh` regenerates: `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer` (a layer's id: only that layer's edges), `map` (the id of the map inside a card); an `out` ending in `.svg` is the bare drawing |
+TypeScript discovery does not include `.d.ts` declaration files.
+A missing npm package in `tsconfig.json` `extends` gives an `unknown surface`
+finding. Extraction continues with the compiler options that it can read.
 
-TypeScript source discovery excludes `.d.ts` declaration files. Missing npm
-packages named by `tsconfig.json` `extends` produce an `unknown surface` line
-while extraction continues with the compiler options it can read. In any file
-of the `extends` chain, a `baseUrl`, `paths`, `rootDir` or `outDir` value that
-starts with `${configDir}` means the folder of the top-level `tsconfig.json`,
-the rule `tsc` follows; a plain relative value means the folder of the file
-that declares it. With `rootDir` unset, the root is computed the way the
-project's own `tsc` computes it. TypeScript 5 uses the longest common folder
-of the non-declaration files that `files`, `include` and `exclude` select,
-test files included; TypeScript 6 and later use the `tsconfig.json` folder,
-and so does `composite` on any version. The version comes from
-`node_modules/typescript/package.json`, then from the `typescript` range in
-`package.json`. When neither exists, both roots are tried, and a compiled
-target maps to a module only when exactly one root names one; two matches
-leave the target unmapped rather than pick one. `check`
-reports unknown lines without failing; `judgement --strict` requires each one
-to be fixed or answered under `[judgement] answered`.
+In each file of the `extends` chain, `${configDir}` at the start of a path uses
+the top-level `tsconfig.json` directory. This applies to `baseUrl`, `paths`,
+`rootDir`, and `outDir`, as it does in `tsc`.
+A plain relative path uses the declaring file's directory.
+
+Without `rootDir`, the source root follows the project's `tsc` rule:
+
+- TypeScript 5 uses the longest common directory of selected non-declaration
+  files. The `files`, `include`, and `exclude` options select files, including
+  tests.
+
+- TypeScript 6 and later use the `tsconfig.json` directory.
+
+- `composite` uses the `tsconfig.json` directory on all versions.
+
+The version comes from `node_modules/typescript/package.json`, then the
+`typescript` range in `package.json`.
+If the two files do not give a version, systemap tries the two roots.
+A compiled target maps to a module only if one root gives a match and the other does not.
+Two matches leave the target unmapped.
+
+`check` prints unknown records without rejection.
+Each unknown record must have a correction or accepted answer under
+`[judgement] answered` before `judgement --strict` accepts it.

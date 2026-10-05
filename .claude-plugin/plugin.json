@@ -1,7 +1,7 @@
 {
   "name": "systemap",
   "version": "1.2.0",
-  "description": "The map your coding agent draws of your system: the systemap skill, which extracts the facts, drafts the model, checks it until every module is mapped, renders the page, makes a second pass with the judgement until nothing changes, and hands back the answers.",
+  "description": "The systemap skill makes a system map from source facts and examined claims. All reader text must use ASD-STE100.",
   "author": {
     "name": "0xfauzi",
     "email": "wumpini.hussein@gmail.com"
@@ -9,5 +9,10 @@
   "homepage": "https://github.com/0xfauzi/systemap",
   "repository": "https://github.com/0xfauzi/systemap",
   "license": "MIT",
-  "keywords": ["architecture", "system map", "documentation", "coding agents"]
+  "keywords": [
+    "architecture",
+    "system map",
+    "documentation",
+    "coding agents"
+  ]
 }

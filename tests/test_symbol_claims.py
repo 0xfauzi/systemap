@@ -112,8 +112,8 @@ def test_a_symbol_claim_passes_and_counts_for_no_module(
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
     # Two modules, both claimed by the agent; the tool's symbol adds nothing and takes nothing.
-    assert "coverage: 3 of 3 modules mapped, 1 of them an empty package marker" in out
-    assert "map layout: clean (2 cards" in out
+    assert "coverage: 3 of 3 modules mapped, 1 an empty package marker" in out
+    assert "map layout: has no errors (2 components" in out
     detail = json.loads((tmp_path / "docs/map/map.json").read_text())
     assert {n["name"] for n in detail["components"]["bot.agent"]["names"]} >= {
         "search",
@@ -134,10 +134,9 @@ def test_a_symbol_of_a_module_nobody_claims_is_refused(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert (
-        "Writer claims symbol bot.agent:search of a module nobody claims; a symbol claim "
-        "needs the module's owner on the map"
+        "Writer has a symbol claim for bot.agent:search in a module with no owner. A symbol claim must have a module owner on the map."
     ) in out
-    assert "unmapped: bot.agent (no component claims it)" in out
+    assert "unmapped: bot.agent (no component has this module claim)" in out
 
 
 def test_a_symbol_the_module_does_not_define_is_refused(
@@ -148,14 +147,21 @@ def test_a_symbol_the_module_does_not_define_is_refused(
     edit(tmp_path, 'implemented_by=("bot.agent:search",),', 'implemented_by=("bot.agent:lookup",),')
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "Writer claims symbol bot.agent:lookup which bot.agent does not define" in out
+    assert (
+        "Writer has a symbol claim for bot.agent:lookup, but bot.agent does not define it." in out
+    )
     edit(tmp_path, 'implemented_by=("bot.agent:lookup",),', 'implemented_by=("bot.gone:search",),')
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "Writer claims symbol bot.gone:search of a module not in the facts" in out
+    assert (
+        "Writer has a symbol claim for bot.gone:search in a module missing from the facts." in out
+    )
     # extract --check reports the module half of the claim, as for any claim.
     assert run("--root", str(tmp_path), "extract", "--check") == 1
-    assert "Writer names module bot.gone which is not in the facts" in capsys.readouterr().out
+    assert (
+        "Writer has a module claim for bot.gone, which is missing from the facts."
+        in capsys.readouterr().out
+    )
 
 
 def test_a_symbol_card_needs_an_entry_among_its_symbols(
@@ -167,11 +173,11 @@ def test_a_symbol_card_needs_an_entry_among_its_symbols(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert (
-        "Writer names entry write_file which none of its modules defines (bot.agent:search)"
+        "Writer has entry write_file, but its modules do not define this entry (bot.agent:search)"
     ) in out
     edit(tmp_path, 'entry="write_file",', "")
     assert run("--root", str(tmp_path), "check") == 1
-    assert "Writer names no entry; its modules are bot.agent:search" in capsys.readouterr().out
+    assert "Writer has no entry. Its modules are bot.agent:search" in capsys.readouterr().out
     # Two symbols, the entry one of them: fine.
     edit(
         tmp_path,
@@ -205,7 +211,7 @@ def test_symbol_claims_in_the_model_helpers() -> None:
     model = Model(
         canvas=(1, 1), containers=(), regions=(), components=(tool,), flows=(), flow_kinds=()
     )
-    assert judgement.single_module(model, {}) == ["single module: Search is only bot.extra"]
+    assert judgement.single_module(model, {}) == ["single module: Search contains only bot.extra"]
     # Coverage: the symbol claim is neither an owner nor a conflict.
     owner = Component("Agent", "runs", implemented_by=("bot.agent",), entry="search")
     both = Model(

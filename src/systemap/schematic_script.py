@@ -1,4 +1,4 @@
-"""The shared scene runtime: viewport and exact relationship inspection."""
+"""Viewport controls and flow selection for map pages and figures."""
 
 from __future__ import annotations
 
@@ -12,25 +12,22 @@ from systemap.theme import Palette
 def interactive_script(
     t: dict[str, Any], svg_id: str, panel_id: str, detail_json: str, variables: bool = False
 ) -> str:
-    """The one script that makes a figure operable. Plain DOM, no libraries.
+    """Make the script for map selection and viewport controls.
 
-    Clicking a component (or pressing Enter on it) dims everything but the
-    component and its neighbours, thickens each connected edge in its
-    layer's colour, tags each neighbour with the verb that relates it, and
-    draws the relationship wheel in the panel. It also owns the viewport:
-    wheel and pinch zoom about the pointer, drag pans, a selection or a
-    journey step frames what it lights in the part of the figure on screen
-    (less what the page lays over it: `view.frameFocus(cover)`), a
-    double-click on a region label frames the region, and
-    `svg.systemap.view` exposes fit, 100%, step, back and the last framing.
-    The same script serves the map page and a lesson figure, so the
-    two cannot behave differently. The page adds layer and journey controls
-    on top through `svg.systemap`.
+    Selection shows connected cards and makes their flow lines thicker. The inspector
+    shows the connections, direction verbs and selected flow. The viewport
+    controls zoom and movement. Selection and sequence steps frame the
+    selected components in the visible area. `view.frameFocus(cover)`
+    uses the area outside the inspector. A double-click on a region label
+    frames that region.
 
-    The detail JSON is inlined; `</` is broken up so no artifact label can
-    close the script early. `variables` names the one colour the script
-    reads from the theme (the ink a verb falls back to) as its token.
-    """
+    The map page and document figures use this same script. The page adds
+    layer and sequence controls through `svg.systemap`. The interface
+    `svg.systemap.view` gives fit, 100%, step, back and framing data.
+
+    The script contains the detail JSON. Escaping `</` prevents artifact
+    text from closing the script. With `variables`, the default direction
+    verb color uses a CSS token instead of a literal color value."""
     # The layout audit (label boxes, card boxes) is for checkers, not the
     # page; it is dropped from the inlined copy to keep a figure small.
     parsed = json.loads(detail_json)

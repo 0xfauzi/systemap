@@ -1,45 +1,55 @@
 # Jev experiments
 
-What TypeSafe's Jev model can and cannot judge about a systemap map, measured
-against the five first maps in `bench/scratch` and against git and GitHub
-history. `systemap audit` and `systemap route` exist because of the numbers
-here, and their thresholds come from `score.py`'s curves.
+These experiments measure TypeSafe's Jev model on systemap maps.
+The reference data comes from the five first maps in `bench/scratch`, Git history, and GitHub history.
+The measurements led to `systemap audit` and `systemap triage`.
+Their thresholds come from the curves in `score.py`.
 
     uv run --project bench/jev python bench/jev/build.py      # labelled rows -> data/ (no API calls; build_flows.py, build_meaning.py hold the rest)
     uv run --project bench/jev python bench/jev/run.py        # every row once -> results/*.jsonl.gz
     uv run --project bench/jev python bench/jev/score.py      # metrics, with today's heuristic beside each
     uv run --project bench/jev python bench/jev/moves.py build|score
 
-`run.py` needs `TYPESAFE_API_KEY`, skips rows already answered and never
-replaces a failed call with a guess. `data/` is rebuilt from `bench/scratch`
-(gitignored, written by `bench/run.sh`) and is not committed; `results/` is,
-gzipped, with `results/report.txt` the scorer's output at the time.
+`run.py` must have `TYPESAFE_API_KEY`.
+It skips rows with recorded answers.
+It does not substitute a guessed answer when a call cannot complete.
+`bench/run.sh` writes the Git-ignored `bench/scratch` data.
+The `data/` directory is made again from that data and is not committed.
 
-## What did the accuracy experiments establish? (2026-09-26 to 2026-10-02)
+The `results/` directory is committed, with compressed files.
+The `results/report.txt` file contains the scorer's output from the recorded run.
 
-These are recorded results from the accuracy work, not new runs. The
-[original scripts, reports and captured results](https://github.com/0xfauzi/systemap/tree/0bf26334564e460b3f7626b32bd81ef705491af6/bench/jev)
-and [consolidated review](https://github.com/0xfauzi/systemap/blob/0bf26334564e460b3f7626b32bd81ef705491af6/ACCURACY_FINDINGS_AND_RECOMMENDATIONS.md)
-remain available at the revision before cleanup. Production regressions live
-in `tests/`. The exploratory scripts and unfinished ownership-evaluation
-harness are excluded from the implementation PR.
+## What did the accuracy experiments show? (2026-09-26 to 2026-10-02)
 
-The targeted Python probes required every selected contract and control to
-pass. The initial run reproduced 24 gaps with four passing controls. Added
-cases raised the gap count to 31, then 32, then 33. Formatting reruns kept
-the same outcomes. The 376 existing tests passed. After implementation, all
-37 Python and 32 TypeScript contracts passed. These selected counterexamples
-check specific behavior, not whole-map accuracy.
+These are recorded results from the accuracy work.
+They are not new runs.
+The [original scripts, reports and captured results](https://github.com/0xfauzi/systemap/tree/0bf26334564e460b3f7626b32bd81ef705491af6/bench/jev)
+are available at the revision before cleanup.
+The [consolidated review](https://github.com/0xfauzi/systemap/blob/0bf26334564e460b3f7626b32bd81ef705491af6/ACCURACY_FINDINGS_AND_RECOMMENDATIONS.md)
+is also available there.
 
-A census read 1,381 Python files across eight mapped repositories. Python
-3.11 silently omitted 15 of Mealie's 460 files because they used Python 3.12
-syntax. Python 3.12 read all 460 and restored evidence for five flows.
-Parsed-file coverage rose from 96.74% to 100%. Refactoring the readers and
-adding source hashes did not change the counts.
+Production regression tests are in `tests/`.
+The implementation PR does not include the experiment scripts or the unfinished ownership-evaluation harness.
 
-The TypeScript dependency census required zero missing and zero wrong
-targets among compiler-resolved dependencies in the extracted inventory.
-It matched all 1,171 eligible dependencies on these pinned revisions:
+The selected Python probes had to give the expected result for every selected contract and control.
+The first run reproduced 24 gaps, with four controls that gave the expected results.
+Added cases increased the gap count to 31, then 32, then 33.
+Runs after formatting gave the same results.
+The 376 tests from before the work gave the expected results.
+After implementation, all 37 Python and 32 TypeScript contracts gave the expected results.
+
+These selected counterexamples examine specific behavior.
+They do not measure accuracy for a full map.
+
+A census read 1,381 Python files across eight mapped repositories.
+Python 3.11 silently did not include 15 of Mealie's 460 files because they used Python 3.12 syntax.
+Python 3.12 read all 460 files and found evidence for five flows again.
+Parsed-file coverage increased from 96.74% to 100%.
+The reader refactor and added source hashes did not change the counts.
+
+The TypeScript dependency census had to find zero missing targets and zero incorrect targets in the extracted inventory.
+The reference targets were compiler-resolved dependencies.
+The census agreed with all 1,171 eligible dependencies on these pinned revisions:
 
 | repository | revision |
 |---|---|
@@ -47,31 +57,33 @@ It matched all 1,171 eligible dependencies on these pinned revisions:
 | Ky | `0d59458a0a58e1c3d7c6db0ab17ed5c7cd671e47` |
 | Zod | `2bf7b0630d5378033e90bcee82cb32b0fe04628e` |
 
-The compiler reference was TypeScript 5.9.3. Unresolved, external and
-unextracted targets were excluded. The check measured dependency extraction
-in uninstalled checkouts, not semantic ownership or journey accuracy.
+The compiler reference was TypeScript 5.9.3.
+Unresolved, external, and unextracted targets were excluded.
+This check measured dependency extraction in uninstalled checkouts.
+It did not measure semantic ownership or sequence accuracy.
 
-### Why was exact-content rename matching rejected?
+### Why was rename matching by identical content rejected?
 
-The preset bar required fewer disagreements with Git without losing correct
-pairs. On 33 rename-containing commits with 86 Git-labelled renames:
+The acceptance rule required fewer disagreements with Git, without loss of correct pairs.
+The reference set contained 33 commits with renames and 86 Git-labelled renames.
+The table compares the production rules with unique identical-content pairs:
 
 | method | correct pairs | Git disagreements | missed reference pairs |
 |---|---:|---:|---:|
 | current rules | 65 | 4 | 21 |
 | unique exact content | 13 | 0 | 73 |
 
-The candidate lost 52 correct pairs, so it was not shipped. Git's
-similarity-based labels are a reference, not independent semantic truth.
-The Python 3.11 run failed on a missing Mealie module and produced no score.
+The candidate lost 52 correct pairs, so it was not released.
+Git's similarity labels are a reference, not independent semantic truth.
+The Python 3.11 run did not complete because a Mealie module was missing. It gave no score.
 The scored run used Python 3.12.
 
-### Why was package-based ownership evidence rejected?
+### Why was package ownership evidence rejected?
 
-The proposed rule flagged an assignment when at least two package peers
-belonged to another card and none belonged to the assigned card. The preset
-bar required at least 50% of planted errors caught and at most 3% of
-unchanged owners flagged on both map sets.
+The proposed rule found assignments with at least two package peers in a different component and none in the component claiming the module.
+Before the run, the acceptance rule required finding of at least 50% of planted errors.
+It also permitted false alarms on at most 3% of unchanged owners in each map set.
+The table compares the production rule with the added package evidence:
 
 | map set | rule | planted errors caught | unchanged owners flagged |
 |---|---|---:|---:|
@@ -80,21 +92,24 @@ unchanged owners flagged on both map sets.
 | holdout | current | 32/96 | 1/96 |
 | holdout | with package evidence | 52/96 | 23/96 |
 
-The addition failed the false-alarm bar on both sets and was not shipped.
-Cards can legitimately split a package by purpose. Finished maps supplied
-these labels, so the results measure agreement with those maps.
+The addition exceeded the false-alarm limit on the two sets and was not released.
+A package can correctly have modules in different components because the modules have different purposes.
+Finished maps supplied the labels.
+These results measure agreement with those maps.
 
 ### What limits the source-reading ownership pilot?
 
-Claude Opus 5.5 reviewed eight sampled modules from each of five development
-and three holdout maps. Four assignments per map were planted errors and
-four were unchanged. It saw source, module facts and nearby card descriptions,
-without tools, Jev, reference owners or card module lists. Files over 25,000
-characters and modules without a neighbouring card were excluded.
+Claude Opus 5.5 examined eight sampled modules from each of five development maps and three holdout maps.
+Each map supplied four planted assignment errors and four unchanged assignments.
+The model saw source, module facts, and adjacent component descriptions.
+It did not have tools, Jev, reference owners, or component module lists.
+Files with more than 25,000 characters were excluded.
+Modules without an adjacent component were also excluded.
 
-The preset bar required at least 60% of planted errors caught, at most 5%
-of unchanged assignments challenged, and better planted-error recall than
-the word rule on both sets.
+Before the run, the acceptance rule required finding of at least 60% of planted errors.
+It permitted challenges to at most 5% of unchanged assignments.
+Planted-error recall also had to exceed the word rule on the two sets.
+The table gives the results:
 
 | set | planted caught | reference card chosen | unchanged challenged | word rule caught | word rule challenged |
 |---|---:|---:|---:|---:|---:|
@@ -102,30 +117,36 @@ the word rule on both sets.
 | holdout | 12/12 | 12/12 | 1/12 | 3/12 | 0/12 |
 | combined | 32/32 | 31/32 | 2/32 | 8/32 | 1/32 |
 
-The pilot challenged 6.25% of unchanged assignments and failed its 5% bar.
-Its decisions agreed with the reference on 62/64 cases, versus 39/64 for
-the word rule. That is agreement on a balanced synthetic sample, not a
-real-map error rate. Five systemap cases mixed source and cached-facts
-snapshots. Each batch also placed all planted cases before unchanged cases.
-The two challenged reference owners and one differing replacement remain
-unresolved semantic labels.
+The pilot challenged 6.25% of unchanged assignments and exceeded the 5% limit.
+Its decisions agreed with the reference on 62/64 cases.
+The word rule agreed on 39/64 cases.
+This is agreement on a balanced synthetic sample, not an error rate for real maps.
+Five systemap cases mixed source snapshots and cached-facts snapshots.
+Each batch put all planted cases before unchanged cases.
 
-The first kstrl call returned fenced JSON and was rejected. The identical
-prompt was retried; accepting the fence did not change the judgement.
-Eight scored calls reported $1.88, excluding failed and diagnostic calls.
-The later offline harness built 437 nonempty-module cases from 460 Mealie
-records under Python 3.12, excluding 23 empty package markers. One nested
-map was recorded but not scored. No independent labels or paired workflow
-results were produced. A fresh holdout and independent source labels are
-still needed before claiming semantic improvement or changing defaults.
+The two challenged reference owners and one different replacement have unresolved semantic labels.
 
-The implementation passed 450 tests on 2026-09-27 and 463 on 2026-09-28,
-with pre-commit passing on both runs. After the PR review fixes, Python 3.11
-passed 501 tests with one expected syntax-version skip; Python 3.13 passed
-all 502. Mypy, pre-commit and strict self-map judgement passed. These are
-historical counts before the exploratory harness tests were removed.
+The first kstrl call gave fenced JSON and was rejected.
+The identical prompt was tried again.
+Acceptance of the fence did not change the judgement.
+Eight scored calls gave a recorded cost of $1.88.
+That cost does not include unsuccessful calls or diagnostic calls.
 
-Each experiment, its label source and what it measures:
+The later offline harness made 437 cases with nonempty modules from 460 Mealie records under Python 3.12.
+It excluded 23 empty package markers.
+One nested map was recorded but not scored.
+There were no independent labels or paired workflow results.
+A new holdout and independent source labels are necessary before claims of semantic improvement or changes to defaults.
+
+The implementation gave the expected results for 450 tests on 2026-09-27 and 463 on 2026-09-28.
+Pre-commit completed without findings on the two runs.
+After the PR review fixes, Python 3.11 gave the expected results for 501 tests, with one expected syntax-version skip.
+Python 3.13 gave the expected results for all 502 tests.
+Mypy, pre-commit, and strict self-map judgement completed without findings.
+These historical counts precede removal of the exploratory harness tests.
+
+The table gives each experiment's label source and question.
+The recorded experiment names and questions are kept unchanged.
 
 | experiment | label | question to Jev |
 |---|---|---|
@@ -144,20 +165,21 @@ Each experiment, its label source and what it measures:
 | answerfit | the answer that covers the crossing line | does this recorded reason cover this import |
 | moves | git's rename detection at 50% | which new module is the old one |
 
-## Which repositories are held out, and why?
+## Which repositories are in the holdout set?
 
-`JEV_SET=holdout` builds, runs and scores on maps no threshold was chosen
-on: systemap's own map, scorecard (`../scorecard`), and the newest finished
-`bench/run.sh https://github.com/httpie/cli first-map` run. Data and
-results go to `holdout/` under `data/` and `results/`, and the scorer prints
-each experiment at the threshold `systemap audit` ships with:
+`JEV_SET=holdout` makes data, runs experiments, and calculates scores on maps not used to select a threshold.
+The maps are systemap's own map, scorecard (`../scorecard`), and the newest finished `bench/run.sh https://github.com/httpie/cli first-map` run.
+Data and results go to `holdout/` under `data/` and `results/`.
+The scorer prints each experiment at the threshold used by `systemap audit`.
 
     JEV_SET=holdout uv run --project bench/jev python bench/jev/build.py owner sentence flowverify governs issues
     JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py owner sentence flowverify governs issues
     JEV_SET=holdout uv run --project bench/jev python bench/jev/score.py owner sentence flowverify governs issues
 
-The bar, set before the run: within 10 points of the development figure, or
-the kind is not asked by default. `results/holdout/report.txt` has the output:
+The acceptance rule was set before the run.
+Each holdout result had to be within 10 points of the development result.
+If not, the default selection must not include that question type.
+The `results/holdout/report.txt` file contains the output:
 
 | kind, at the shipped threshold | development | holdout | verdict |
 |---|---|---|---|
@@ -168,62 +190,73 @@ the kind is not asked by default. `results/holdout/report.txt` has the output:
 | governs (P>=0.8) | 31% found, 1% suggested | 38%, 1% (58 governed) | asked |
 | issues, top-1 (`triage`) | 80% | 79% (39 httpie issues) | shipped |
 
-Test 9's follow-up ran as `bench/run.sh <repo> first-map-jev`, the first map
-told to group with `suggest --jev`: on httpie 3.2.4 it took 54 turns, $3.61
-and 5.5 minutes against 46, $3.43 and 4.8 for the plain first map, one run
-each (`bench/results.jsonl`). No saving was measured, so `suggest --jev`
-stays opt-in and out of the recipe.
+The follow-up for Test 9 used `bench/run.sh <repo> first-map-jev`.
+This was the first map instructed to group with `suggest --jev`.
+On httpie 3.2.4, that run took 54 turns, $3.61, and 5.5 minutes.
+The plain first map took 46 turns, $3.43, and 4.8 minutes.
+There was one run each, recorded in `bench/results.jsonl`.
+No saving was measured, so `suggest --jev` stays optional and outside the recipe.
 
 ## What did tests 7 and 8 measure?
 
-The maintainer chose not to hand-label. Each set was labelled once by a
-Claude subagent reading the full commits in git, blind to Jev's answers
-(`results/labels/agent-*.json`, with a reason per item; scores in
-`results/labels/report.txt`).
+The maintainer did not select manual labels.
+A Claude subagent read the full Git commits and labelled each set one time.
+It did not see Jev's answers.
+The `results/labels/agent-*.json` files contain a reason for each item.
+The scores are in `results/labels/report.txt`.
 
-- Test 8, moves (20 successors, 12 unrelated): a factual question, checkable
-  in git, so the agent's labels are taken as the truth. Delta then Jev at
-  P>=0.8 finds 82 renames against delta's 66; Jev's 17 additions are 16 right
-  (94%). Pass: +8 at 90% or better. **Passed.**
-- Test 7, drift (12 stale, 48 hold): a judgement, where a model labelling a
-  model's answers measures agreement rather than truth. AUC 0.957; at
-  P(holds)<0.4, 75% of stale sentences caught and 0.4 false alarms per 10
-  cards. It would pass the bar, but **it is not a measurement**: drift
-  detection stays unbuilt until about 15 human labels confirm the agent's.
+Test 8 examined moves: 20 successors and 12 unrelated cases.
+This factual question has evidence in Git, so the agent's labels were accepted as the reference truth.
+Delta followed by Jev at P>=0.8 found 82 renames, compared with 66 from delta.
+Of Jev's 17 additions, 16 were correct (94%).
+The acceptance rule was at least +8 at 90% accuracy or better.
+Test 8 met the acceptance rule.
 
-## Does Jev make the first map cheaper? (turns.py, draft.py)
+Test 7 examined drift: 12 stale sentences and 48 unchanged sentences.
+A model labelled another model's semantic answers, so the result measures agreement, not truth.
+AUC was 0.957.
+At P(holds)<0.4, 75% of stale sentences were found, with 0.4 false alarms per 10 components.
+The result met the numerical acceptance rule. It is not an independent accuracy measurement.
+Drift finding stays unbuilt until approximately 15 human labels agree with the agent's labels.
 
-Could Jev assign modules to cards during the first map, with the agent
-writing only the cards? Two measurements on the six first maps in
-bench/scratch, before building anything (`results/draft/`):
+## Does Jev decrease the cost of the first map? (turns.py, draft.py)
 
-- `turns.py`: where the tool calls go. The first write of the model
-  already claimed every module in all six runs (no `unmapped:` line at the
-  first check), and later edits touching `implemented_by` were 1% of the
-  calls. Reading and planning were 31%, reading after the draft 32%, the
-  check and judgement loop 25%. Assigning modules is not where a first map
-  spends its turns.
-- `draft.py`: the owner question asked over each run's first loadable
-  draft's cards, for every module, scored against the finished map. 1% of
-  modules changed card between the draft and the finished map, so the
-  agent's draft agrees with the finished map on 99%; Jev agrees on 87%, and
-  on 98% of the 63% it is confident about. The finished map is the agent's
-  own, so this is agreement, not truth; of the 22 confident disagreements,
-  most are cards the agent split in the draft and merged later, and a few
-  read like real mis-folds (mealie's `auth_cache` under HttpApi).
+The proposed method gave Jev the module-owner questions while the agent wrote only component definitions.
+Before implementation, two experiments used the six first maps in `bench/scratch`.
+Their results are in `results/draft/`.
 
-Verdict: nothing to save in assigning modules, and no evidence Jev would
-assign them better than the agent's draft, so it was not built and the
-first-map benchmark was not run. `audit`'s mis-fold line already asks the
-question that finds the few real mis-folds.
+`turns.py` measured the tool calls.
+The first model write claimed every module in all six runs.
+There was no `unmapped:` line at the first check.
+Later edits to `implemented_by` were 1% of calls.
+Reading and planning were 31%, reading after the draft was 32%, and the check and judgement loop was 25%.
+Module assignment did not account for most first-map turns.
 
-## What can the structure decide about a journey? (2026-09-20)
+`draft.py` sent the owner question for every module against each run's first loadable draft.
+The reference was the finished map.
+Only 1% of modules changed component between draft and finished map.
+Thus, the agent's draft agreed with the finished map on 99%.
+Jev agreed on 87%, and on 98% of the 63% with confident answers.
 
-Two questions about journeys were measured on the seven maps (the six in
-`bench/scratch` and systemap's own) before anything shipped.
+The finished map was the agent's own, so these are agreement figures, not truth.
+There were 22 confident disagreements.
+Most concerned components split in the draft and merged later.
+A few appeared to be incorrect assignments, such as Mealie's `auth_cache` under HttpApi.
 
-**Finding the ways in.** `systemap.ways_in` reads routes, commands, tasks
-and plugin hooks out of the syntax tree. Ways in found, before and after:
+There was no measured saving in module assignment.
+There was also no evidence that Jev can increase the accuracy of the agent's draft.
+Thus, the method was not implemented and the first-map benchmark was not run.
+The mis-fold finding in `audit` uses the question that finds the few incorrect assignments.
+
+## What can structure show about a sequence? (2026-09-20)
+
+Two sequence questions were measured on seven maps before release.
+These were the six maps in `bench/scratch` and systemap's own map.
+A sequence is an ordered set of steps through the map.
+An entry point is a route, command, task, or hook that starts work in the system.
+
+`systemap.ways_in` reads routes, commands, tasks, and plugin hooks from the syntax tree.
+The table gives discovered entry-point totals before and after the change:
 
 | map | before | after | what the new ones are |
 |---|---|---|---|
@@ -234,13 +267,14 @@ and plugin hooks out of the syntax tree. Ways in found, before and after:
 | rich | 6 | 6 | none; its `@group()` is not a command |
 | httpie, systemap | 5, 19 | 5, 19 | neither uses a framework this reads |
 
-A hand-checked sample of 30 of the new records was 29 real and 1 wrong
-(rich's `@group()`, which is why a command decorator must now be called on
-something). The bar was 90%.
+A manual sample of 30 new records contained 29 entry points with source evidence and one incorrect record.
+The incorrect record was Rich's `@group()`.
+Thus, a command decorator must be called on something.
+The acceptance rule was 90%.
 
-**Judging whether a journey holds together: nothing shipped.** Three rules
-were written for "does step k carry on from step k-1", and each was measured
-on the same seven maps:
+Three rules examined if each step continued from the previous step.
+Each rule used the same seven maps.
+The table gives the results:
 
 | rule | steps flagged | real, by hand review |
 |---|---|---|
@@ -248,51 +282,62 @@ on the same seven maps:
 | the actors acted the step before | 46 | not reviewed; worse by inspection |
 | the actors appeared anywhere earlier | 27 | not reviewed; the same shapes |
 
-The bar was 80% real. A journey is written as a sequence of scenes, not one
-chain: a walk fans out into a sub-call and returns to the card that
-started it, and that reads perfectly while its edges do not join. Continuity
-is not something the structure can decide, so no `journey gap` line exists.
-What did ship is `journey start`: a journey names the way in it starts at,
-and the line says when the facts have no such way in. That one is exact.
+The acceptance rule required 80% real gaps.
+A sequence can include a subsidiary call and then continue in the component that started the call.
+The sequence can be correct although successive edges do not connect.
+The structural rules did not show continuity, so no `journey gap` finding was released.
 
-**Proposing the walk from the imports: not shipped (paths.py, propose.py).**
-Before `systemap journeys` asked an agent to read the code, the walk was
-proposed from the facts alone: follow the imports out of the way in, map each
-module to the card that claims it, and keep the card-to-card hops the map
-draws a flow for. The bar, set before the run: the proposed cards had to
-overlap the cards of a hand-written journey by a median of 0.60.
+The released `journey start` finding shows a named entry point missing from the facts.
+It shows if the name is in the source facts.
+It does not show the sequence's behavior.
+
+### Why were import-derived sequences rejected? (paths.py, propose.py)
+
+Before `systemap journeys` told an agent to read source, facts alone proposed a sequence.
+The method followed imports from the entry point.
+It converted each module to the component that claims it.
+It kept component transitions only where the map had a flow.
+Before the run, the acceptance rule required a median overlap of 0.60 with manually written sequences.
 
     uv run --project bench/jev python bench/jev/paths.py
+
+The table gives the measured overlap:
 
 | maps | journeys matched to a way in | median overlap |
 |---|---|---|
 | systemap and the six first maps | 16 | 0.28 |
 
-Far below the bar, and the reason is structural: the module behind a console
-script imports the whole system, so the proposal names almost every card and
-the journey names four. Reading the entry function's own imports instead of
-the module's did not help, because a command line dispatches through a table.
-The proposal is not shipped. `bench/jev/propose.py` keeps the code and
-`paths.py` scores it. `systemap journeys` asks the agent to read the code
-from the way in, and checks every step it answers with against the map.
+The result was below the acceptance rule.
+A console-script module imports most of the system, so the proposal included almost every component.
+The reference sequence included four components.
+Reading the entry function's imports did not help because a command line dispatches through a table.
+The proposal was not released.
+The `bench/jev/propose.py` file keeps the method, and `paths.py` calculates its score.
 
-## What does the map's graph add to the imports? (2026-09-20)
+`systemap journeys` tells the agent to read source from the entry point.
+It compares every proposed step with the map.
 
-`systemap ripple` would answer "you changed these cards, which others does
-this reach". It is not built, because the walk did not beat what systemap can
-already say from imports alone.
+## What does the map graph add to imports? (2026-09-20)
 
-**The truth had to change first.** The plan was to pair a pull request with
-the pull request that fixed it within thirty days. Over 2,406 merged pull
-requests across rich, poetry, mealie, paperless-ngx and httpie, a rule strict
-enough to exclude release rollups (the later one says fixes, reverts,
-regression or broken by, names at most three pull requests, and both touch
-Python) found **6 such pairs**. A ten point difference cannot be seen in six
-cases, so the truth used is co-change: from the card holding the file a pull
-request changed most, which other cards of that same pull request does the
-rule find? 366 pull requests over six maps qualified.
+The proposed `systemap ripple` command was to find other components affected by a change.
+It was not implemented because the map traversal did not exceed imports alone under the acceptance rule.
+
+The first reference plan paired each pull request with a pull request that fixed it within thirty days.
+The set contained 2,406 merged pull requests across Rich, Poetry, Mealie, paperless-ngx, and HTTPie.
+A strict rule excluded release rollups.
+The later request had to say fixes, reverts, regression, or broken by.
+It also had to name at most three pull requests, with Python changes in the two requests.
+This rule found only 6 pairs.
+
+Six cases could not show a ten-point difference.
+Thus, co-change became the reference: components changed in the same pull request.
+The starting component owned the file with the most changes.
+The question was which other changed components the rule found.
+There were 366 qualifying pull requests on six maps.
 
     uv run --project bench/jev python bench/jev/ripple.py
+
+The table compares map traversals with the import closure:
 
 | rule | recall | precision | cards named | share of the map |
 |---|---|---|---|---|
@@ -303,35 +348,34 @@ rule find? 366 pull requests over six maps qualified.
 | one hop either way, plus the journeys through the card | 0.67 | 0.11 | 10 | 0.29 |
 | every module the imports reach, as cards | 1.00 | 0.05 | 20 | 0.57 |
 
-Medians, on maps holding 35 cards at the median.
+These are medians on maps with a median of 35 components.
+Before the run, recall had to be within 10 points of the import closure, at no more than half its size.
+No method met the acceptance rule.
+Two hops in one direction or the other matched import recall but had 95% of its size.
+One hop had a quarter of the size but half the recall.
+Addition of sequences through the component reached 0.67 at half the size, 33 points below the baseline.
 
-The bar, stated before the run: recall within 10 points of the import
-closure, at no more than half its size. **Nothing passed.** Two hops either
-way matches the imports' recall but is 95% of their size; one hop is a
-quarter of the size but half the recall; adding the journeys through the card
-reaches 0.67 at half the size, still 33 points behind.
+The baseline achieved recall by naming 20 of 35 components: 57% of the map, at 0.05 precision.
+One hop was three times more precise at a quarter of the size.
+Those results suggest a different question, but they do not meet the recorded acceptance rule.
+Thus, ripple was not released.
+A future feature must have a useful question and an acceptance rule set before measurement.
 
-What the table also shows is that the baseline wins its recall by naming 20
-of 35 cards: 57% of the map, at 0.05 precision. The one-hop walk is three
-times more precise at a quarter of the size. That is an argument about what
-the right question is, not a pass, and the bar was set before the run, so
-ripple does not ship. Anything built here later needs a question a reader
-would act on and a bar set before it is measured.
+## How does a plan compare with the map? (2026-09-20)
 
-## How well does a plan project onto the map? (2026-09-20)
+`systemap plan` gives a question about which components a task will probably change.
+The reference is the issue set used for triage.
+It pairs recorded bug reports with components changed by the fixing pull requests (`data/issues.jsonl`, `label.owners`).
+The input is the report alone, written before the work.
 
-`systemap plan` asks one question: given this task in the maintainer's own
-words, which card will the work most likely have to change? The truth is the
-issue set built for triage: a real bug report, and the cards the pull request
-that fixed it touched (`data/issues.jsonl`, `label.owners`). The input is the
-report alone, written before anyone did the work, which is what a plan is.
-
-The bar, set before the run: cover 70% of the cards the fix touched, with at
-most 2 extra cards per issue. Jev's answer is a weight on every card, so the
-whole curve is scored offline from the answers already recorded for triage.
+Before the run, the acceptance rule required coverage of 70% of changed components, with at most 2 extra components per issue.
+Jev gives a weight for every component.
+Thus, the full threshold curve can be calculated offline from recorded triage answers.
 
     uv run --project bench/jev python bench/jev/plan_eval.py
     JEV_SET=holdout uv run --project bench/jev python bench/jev/plan_eval.py
+
+The table gives coverage and extra components at each threshold:
 
 | cut | covered (dev) | extra | covered (holdout) | extra |
 |---|---|---|---|---|
@@ -342,34 +386,36 @@ whole curve is scored offline from the answers already recorded for triage.
 | **0.05** | **0.86** | **1.15** | **0.71** | **0.90** |
 | 0.02 | 0.88 | 1.91 | 0.74 | 1.31 |
 
-80 issues on the development set (rich, poetry, kstrl, mealie, paperless),
-39 on the holdout (httpie). The cut that passes the bar on both is 0.05, and
-that is the one `systemap plan` ships with: it names 2.1 cards per task on
-either set. The gap between the two sets is wider here than elsewhere in this
-directory (15 points at the shipped cut against the 10 points the audit
-thresholds held to), and the holdout is one repository, so what this
-supports is that the projection is better on some systems than others. It names two
-cards; a maintainer can check two cards.
+The development set contained 80 issues from Rich, Poetry, kstrl, Mealie, and Paperless.
+The holdout contained 39 HTTPie issues.
+The threshold that met the rules for the two sets was 0.05, which `systemap plan` uses.
+It named 2.1 components per task on each set.
 
-## What does a year of the system look like in today's cards? (2026-09-20)
+The gap between sets was 15 points at that threshold.
+That exceeded the 10-point limit used for audit thresholds.
+The holdout was one repository.
+Thus, the results show that the plan prediction is better on some systems than others.
+The command names approximately two components for a maintainer to examine.
 
-`systemap history` samples the tree back through time and says what moved.
-Two bars, set before it was built: 26 samples over a year of mealie must
-take at most five minutes with the facts cached, and of the five largest
-windows at least three must name a change a person can find in that window's
-commits.
+## What does a year of changes show in the component in the selected maps? (2026-09-20)
+
+`systemap history` samples past trees and shows changes in the component assignments in the selected map.
+Two acceptance rules were set before implementation.
+With cached facts, 26 samples during a year of Mealie had to take at most five minutes.
+At least three of the five largest windows had to show a change visible in that window's commits.
 
     uv run --project bench/jev python bench/jev/history_eval.py --repo mealie
+
+The table gives measured sample counts and times:
 
 | repository | samples | cold | warm | windows that moved |
 |---|---|---|---|---|
 | mealie | 25 | 29.3s | 0.3s | 24 of 24 |
 | rich | 8 | 5.8s | 0.0s | 1 of 7 |
 
-Both finish well inside the time allowed, because the facts at a commit
-never change and are cached under `.systemap/facts/`.
-
-The five largest mealie windows, and the commit each led back to:
+The two runs completed in the permitted time.
+Facts at a commit do not change, so the command caches them under `.systemap/facts/`.
+The next table gives the five largest Mealie windows and the work they showed:
 
 | what the trend said | the work behind it |
 |---|---|
@@ -379,52 +425,61 @@ The five largest mealie windows, and the commit each led back to:
 | QueryFilter +4 | feat: Query relative dates (#6984) |
 | Translations +3 | feat: Customize Ingredient Plural Handling (#7057) |
 
-Five of five, against a bar of three. What made this checkable was naming
-the commits that wrote the modules which appeared, rather than the commits
-of the window: a fortnight of mealie is mostly dependency bumps, and a trend
-read against those looks like noise whether it is real or not. `systemap
-history` prints those same commits under each window for the same reason.
+All five showed changes with source evidence, compared with an acceptance rule of three.
+The output named commits that added the new modules, rather than all commits in each window.
+Most commits in a fortnight of Mealie were dependency updates.
+Those commits made the trend difficult to interpret.
+`systemap history` prints the module-creation commits under each window for this reason.
 
-rich barely changed in a year: one window moved, and it was the unicode width
-tables being regenerated. Printing almost nothing for a year in which almost
-nothing happened is the right answer.
+Rich changed little in a year.
+Only one window changed, when Unicode width tables were made again.
+The command correctly printed little for that period.
 
-## Can Jev say what changed for the people using it? (2026-09-20)
+## Can Jev find changes to sequence behavior? (2026-09-20)
 
-The plan was a section in `delta`'s pull-request comment: for each journey
-step through a card the change touched, whether the step's sentence still
-holds, and an agent's rewrite of the ones that do not. It is not built, and
-now there is a measurement rather than an argument.
+The proposed feature was a section in `delta`'s pull-request comment.
+The proposal was to examine sequence steps through changed components.
+The proposal was to give Jev questions about the correctness of step sentences, then tell an agent to rewrite incorrect sentences.
+This feature was not implemented.
 
-**The set.** Fifteen journey steps from the bench maps, taken from the real
-situation the feature is for: a map drawn on 2026-08-23/26, and the code at
-each repository's origin on 2026-09-20. A step qualified when the files
-behind the two cards its edge joins had moved by at least twenty lines; the
-largest few per repository were kept, at most four each. kstrl, paperless,
-mealie and poetry contributed; rich and httpie contributed nothing, because
-nothing behind their steps changed. `bench/jev/label_set.py` builds it into
-`data/label-drift-cases.json`.
+### Which steps were selected?
 
-**The labels.** Written by reading the code at both commits, not by reading
-the diff excerpt: fifteen of fifteen sentences still hold. Each label carries
-the reason in the file. Examples: paperless deleted a 610-line query
-translation module, and "Tantivy returns ranked hits with the matching text
-highlighted" is still exactly what the backend does; mealie removed 194 lines
-from the recipe repository, and they were `find_suggested_recipes`, while the
-group and household stamping the step names is untouched; kstrl added 3,584
-lines to its verifier, and `run_mechanical_verification` still says "All
-checks run even if earlier ones fail".
+The set contained fifteen steps from the benchmark maps.
+The maps were written on 2026-08-23/26.
+The comparison used each repository's origin on 2026-09-20.
+A step qualified when files behind its two components changed by at least twenty lines.
+The largest cases per repository were kept, with at most four each.
+kstrl, Paperless, Mealie, and Poetry supplied cases.
 
-That is the first finding, and it is about journeys rather than about Jev: a
-step sentence is written at the level of roles ("the controller hands the
-address to the scraper"), and a month of real change underneath does not
-reach that level. The labels are the author's, not a maintainer's, so the
-figure is 15 of 15 as read by a model that looked at the code.
+Rich and HTTPie supplied none because source behind their steps did not change.
+`bench/jev/label_set.py` writes the set to `data/label-drift-cases.json`.
 
-**What Jev said.** Asked the same question about the same fifteen, with the
-step, both cards, the commit subjects, the file list and the capped diff:
+### What did the source labels show?
+
+The labels came from reading source at the two commits, not the diff excerpt.
+All fifteen sentences stayed correct.
+Each label includes its reason in the data file.
+
+Paperless deleted a 610-line query translation module.
+The sentence "Tantivy returns ranked hits with the matching text highlighted" stated the backend's behavior.
+Mealie removed 194 lines from the recipe repository, but these were `find_suggested_recipes`.
+The group and household values in the step were unchanged.
+kstrl added 3,584 lines to its verifier.
+`run_mechanical_verification` said "All checks run even if earlier ones fail".
+
+The finding concerns sequence abstraction: step sentences state roles, such as "the controller hands the address to the scraper".
+A month of source changes did not change those roles in this set.
+The labels are the author's, not a maintainer's.
+Thus, 15 of 15 is a model's judgement from source.
+
+### What did Jev answer?
+
+Jev saw each step, the two components, commit subjects, file lists, and the capped diff.
+It answered the same question for the same fifteen cases.
 
     uv run --project bench/jev python bench/jev/drift_steps.py
+
+The table gives the findings for the proposed delta output:
 
 | where delta would draw the line | steps it would report | how many would be wrong |
 |---|---|---|
@@ -433,54 +488,52 @@ step, both cards, the commit subjects, the file list and the capped diff:
 | below 0.7 | 12 of 15 | 12 |
 | below 0.8 | 15 of 15 | 15 |
 
-Jev's answers run from 0.43 to 0.75. No answer is confident either way, and
-because every case is a negative, every alarm at every threshold is a false
-one. There is no threshold that buys a reader anything here: the cautious end
-reports two wrong lines per fifteen steps, and the generous end reports
-twelve.
+Jev's answers ranged from 0.43 to 0.75.
+No answer was confident in one direction or the other.
+All cases were negative, so every alarm at every threshold was false.
+The lowest threshold gave two incorrect findings per fifteen steps.
+The higher threshold gave twelve.
+No threshold gave useful findings on this set.
 
-**So it is not built.** A pull-request comment that says "this is what
-changed for the people using it" would, on this month's evidence, have printed
-four false lines to four maintainers and not one correct one. Two caveats, because both
-would have to be answered before anyone tries again: the diff Jev sees is
-capped, and a fuller or better-selected diff might sharpen it; and a set with
-no positives in it measures false alarms only, so nothing here says whether
-real drift would be caught. What it does say is that real drift is rare
-enough that the question may not be worth asking per pull request.
+On this month's evidence, the proposed pull-request comment gives four false findings to four maintainers and no correct findings.
+Thus, the feature was not implemented.
+The capped diff is a limit: a larger or differently selected diff can give a different result.
+The set has no positive cases, so it measures false alarms only.
+It cannot show if the method can find source-behavior drift.
+The result suggests that drift can be too infrequent for a useful question on every pull request.
 
-## What do the measurements suggest next? (2026-09-20)
+## What further work do the measurements suggest? (2026-09-20)
 
-Three things in this directory came back with numbers that point at work worth
-doing. Each is written here with the bar it has to clear, before anyone starts,
-so the decision is the same shape as the ones above.
+Three results suggested further experiments.
+Each experiment below has an acceptance rule recorded before work started.
 
-### 1. The cards one flow from a change, chosen for precision
+### 1. Adjacent components as context
 
-The ripple run failed a bar about recall, but it measured something else on the
-way. Over the same 366 pull requests, medians:
+The ripple experiment did not meet its recall acceptance rule.
+It also measured these medians for the same 366 pull requests:
 
 | rule | cards named | share of the map | precision |
 |---|---|---|---|
 | one hop either way over the flows | 5 | 0.14 | 0.17 |
 | every module the imports reach | 20 | 0.57 | 0.05 |
 
-The map's edges name a quarter as many cards and are three times as likely to
-name one the change actually touched. That is a poor prediction and a good
-short list, which is a different feature: `delta` would print "these cards sit
-next to what you changed", as context beside the lines it already prints, never
-as a claim about what else broke.
+Map edges named a quarter as many components as imports.
+They were three times as likely to include a component changed by the request.
+This is a limited prediction, but it can give a short context list.
+The proposed `delta` output was to show components adjacent to the change.
+The proposal did not claim that those components were defective.
 
-**The bar, before the work:** on the same 366 pull requests, the list must name
-at most 6 cards at the median, and must contain at least one card the pull
-request really touched in 50% of them or more. Below either, nothing ships, and
-the rule joins the two above it. Cost: the dataset exists; a run and a reading.
+Before the work, the acceptance rule permitted at most 6 components at the median.
+The list also had to contain at least one changed component in 50% or more of the same 366 pull requests.
+The experiment must meet the two conditions before release.
+The dataset was present before the experiment. The necessary work was a run and an inspection.
 
-**Measured (2026-09-20, `bench/jev/near.py`): passed, and built.** The rule as
-measured seeds from the card holding the file with the most changed lines: 5
-cards at the median, a hit in 70%. `delta` reads the facts at two commits and
-not the diff, so it cannot count lines; it seeds from the card holding the most
-changed modules instead, and that was measured too, over the 359 pull requests
-where it applies:
+The experiment met the acceptance rule and was implemented (2026-09-20, `bench/jev/near.py`).
+The measured rule started from the component owning the file with the most changed lines.
+It gave 5 components at the median and a hit in 70% of requests.
+`delta` reads facts at two commits, without a diff, so it cannot count changed lines.
+Thus, it starts from the component with the most changed modules.
+That rule was also measured on the 359 pull requests where it applied:
 
 | what would be printed | cards (median) | ninetieth | holds a touched card |
 |---|---|---|---|
@@ -488,40 +541,40 @@ where it applies:
 | one hop from every changed card | 14 | 21 | not scored: every touched card is a seed |
 | every module that card imports | 20 | 32 | 0.77 |
 
-The union of every changed card's neighbours is the obvious shape and it is the
-one not built: fourteen cards at the median is not a short list. The imports
-find five points more at three times the length, which is the same result the
-ripple run got, and the reason this ships as context rather than as a claim
-about what else broke.
+The union of all changed components' neighbours gave fourteen components at the median.
+It was too long and was not implemented.
+Imports increased the hit rate by five points but gave three times as many components.
+This repeats ripple's result.
+Thus, the feature gives context, not a claim about additional failures.
 
-Fourteen cards at the ninetieth percentile is still too long, and the cause is
-a card joined by flows to most of the map: the cards one flow from it are
-almost the whole map, which tells a reader nothing. `delta`
-prints nothing when the seed is joined to more than a third of the cards, which
-is the threshold the skill already uses for running the full loop rather than
-acting line by line. That prints nothing for 18% of the pull requests; the rest hold 5
-cards at the median and 8 at the ninetieth, and the hit falls 3 points to 0.69.
+Fourteen components at the ninetieth percentile was too long.
+A component connected by flows to most of the map gave little useful selection.
+`delta` prints no context when the starting component connects to more than a third of the components.
+The skill used that threshold before the work to select the full loop instead of individual findings.
 
-### 2. Where the system is growing
+This condition removed context for 18% of pull requests.
+For the others, the list contained 5 components at the median and 8 at the ninetieth percentile.
+The hit rate decreased 3 points to 0.69.
 
-`history` proved its windows trace to real work (five of the five largest named
-the commit that caused them). The same walk, summed over a year rather than
-read per window, answers a question a maintainer asks out loud. On mealie:
+### 2. Growth by component
+
+The five largest `history` windows showed the commits that caused their changes.
+The same traversal, with changes added during a year, can show component growth.
+Mealie gave this output:
 
     ImportWorkflow +17   SchemaMigrations +7   QueryFilter +4   Translations +3
 
-and not one card shrank in twelve months. A card that grows every quarter and
-never loses a module is either the part everything else is built on, or the
-part modules land in when nobody decided where they belong. The map is the
-only thing that can tell a reader which.
+No component decreased in size during twelve months.
+Repeated growth can mean a shared foundation or poor module assignments.
+The map's purpose statements help the reader distinguish those cases.
 
-**The bar, before the work:** on four repositories, the three fastest-growing
-cards must each trace to at least one commit a person can name as a feature,
-on at least three of the four. `systemap history --by-card` is an aggregation
-of numbers `trend.walk` already computes, so the cost is small.
+Before the work, the three fastest-growing components had to show at least one feature commit each.
+This had to hold on at least three of four repositories.
+The proposed `systemap history --by-card` used numbers that `trend.walk` calculated before the work, so the implementation cost was small.
 
-**Measured (2026-09-20, `bench/jev/by_card.py`): failed, and not built.** Two
-of the four repositories passed, where the bar asked for three.
+The experiment did not meet the acceptance rule and was not implemented (2026-09-20, `bench/jev/by_card.py`).
+Only two of four repositories met the acceptance rule, compared with the required three.
+The table gives the results:
 
 | repo | the three fastest-growing cards | traces to |
 |---|---|---|
@@ -530,46 +583,42 @@ of the four repositories passed, where the bar asked for three.
 | poetry | HttpAccess +1, and no other card grew at all | one perf commit, and nothing to rank |
 | rich | Measure +23, and no other card grew | one commit titled "f string path", which names nothing |
 
-Where a system grew, the aggregate named the work that grew it, exactly as the
-windows did. Where it did not grow, there was nothing to name: poetry gained
-one module in a year of the map's view, and rich's twenty-three are generated
-unicode tables added in a commit whose subject is three words that name
-nothing.
+The aggregate showed work where a system grew.
+Poetry gained one module in a year under the map's assignments, so there was no useful growth ranking.
+Rich's twenty-three additions were made Unicode tables.
+Their commit subject had three words without a useful description.
 
-A rule that reported only cards past some size would pass, and that rule was
-not the one written down before the run, so it is not the one being judged.
-The finding this leaves is smaller and worth keeping: on the two repositories
-that did grow, every one of the three cards traced to named work, which is what
-`history`'s windows already print. The aggregate restates what the windows say
-and adds no answer of its own.
+A new rule with a size threshold can meet its acceptance rule, but that was not the recorded rule.
+On the two growing repositories, all three components showed named work.
+The `history` windows print that information.
+The aggregate added no different answer.
 
-The instrument was changed once during the run, before any judging: it first
-showed the newest commits touching each card's new files, which over a year
-lists the fixes made to a file rather than the commit that added it.
-`--diff-filter=A` asks for
-the commit that added each file instead. Both readings are in the git history
-of `by_card.py`.
+The instrument changed one time before any scoring.
+It first showed the newest commits that changed each component's new files.
+During a year, these were fixes rather than file-creation commits.
+`--diff-filter=A` selected the commit that added each file instead.
+The two versions are in the Git history of `by_card.py`.
 
-### 3. A journey per crowd, not per way in
+### 3. One sequence per entry-point group
 
-Finding the ways a framework registers took paperless-ngx from 0 to 203 and
-mealie to 195, against four written journeys each. `judgement` already groups
-them: one line per card once a card takes four or more of a kind. `systemap
-journeys` does not: it writes one walk per way in, three to a run, which would
-take sixty runs to cover paperless.
+Discovery increased paperless-ngx from 0 to 98 entry points and Mealie from 8 to 203.
+Mealie's 195 new entry points were FastAPI routes.
+Each map had four written sequences.
+Before the work, `judgement` grouped entry points into one finding per component at four or more of one kind.
+At that time, `systemap journeys` wrote one sequence per entry point, at most three per run.
 
-**The bar, before the work:** for the crowded cards of mealie and paperless,
-a generated walk per group must pass the map's own check (every step tracing a
-flow the model draws) in 70% of attempts or more, and the ways in with no walk
-must fall from about two hundred to under fifteen lines. This one costs agent
-runs, so it is the most expensive of the three and the last to start.
+Before the work, a sequence for each group in Mealie and Paperless had to give no findings in the map's checks in at least 70% of attempts.
+Every step had to trace a flow in the model.
+The number of findings for entry points without sequences also had to decrease from approximately two hundred to fewer than fifteen.
+Agent runs were necessary for this experiment, so it was the most expensive of the three and ran last.
 
-**Measured (2026-09-20, `bench/jev/group_journeys.py`): passed, and built.**
-Eight of nine crowds over mealie, paperless-ngx and poetry came back as a walk
-the map can hold, which is 89% against a bar of 70%. On the two repositories
-the bar names, four of five. The one refusal was a step tracing MediaFiles ->
-Assets, a flow mealie's map does not draw, which is the check doing its job:
-it was printed as a line to fix and nothing was written.
+The experiment met the acceptance rule and was implemented (2026-09-20, `bench/jev/group_journeys.py`).
+Eight of nine groups across Mealie, paperless-ngx, and Poetry gave structurally accepted sequences: 89% against a 70% rule.
+For Mealie and Paperless alone, four of five groups gave structurally accepted sequences.
+The rejected sequence had a MediaFiles -> Assets step missing from Mealie's flows.
+The command printed a finding and wrote nothing for that sequence.
+
+The table records open entry points in groups, rather than all discovered entry points:
 
 | repo | ways in in crowds | crowds | walks the map can hold |
 |---|---|---|---|
@@ -577,58 +626,68 @@ it was printed as a line to fix and nothing was written.
 | paperless | 86 | 3 | 3 |
 | poetry | 27 | 4 | 4 |
 
-The second half of the bar was already true before the work and the bar was
-wrong to ask for it: `judgement` has grouped crowds since the entry-point work,
-so mealie's 195 open ways in print as 2 lines and paperless's 98 as 15. What
-was not true is that a walk could be written per line. `systemap journeys`
-wrote one per way in, three to a run, so covering mealie meant sixty-five runs.
-It now writes one per crowd: two runs for mealie, three for paperless.
+The recorded `results/group-journeys.json` contains 195 grouped open entry points for Mealie and 86 for Paperless.
+Those populations differ from the discovery totals of 203 and 98.
 
-A crowd's walk records the card in `starts` rather than one of the hundred
-routes, because a walk standing for all of them cannot name one without
-claiming to be about that one, and `judgement` reads a card there as covering
-every way in that card claims.
+The second acceptance condition was true before the work.
+`judgement` had grouped entry points since entry-point discovery was added.
+Mealie's 195 open entry points printed as 2 findings.
+Paperless's discovered population of 98 printed as 15 findings under that grouping.
+The recorded acceptance rule incorrectly assumed ungrouped findings.
 
-An earlier run of this script scored 19 of 19, and that number is not the one
-above. It asked about single ways in as well as crowds, and it carried its own
-copy of the question rather than the one `journeys` sends. Both were corrected:
-the script now calls `journeys.gather`, `journeys.context` and
-`journeys.read_answer`, so what is measured is the code that runs.
+Before this change, a sequence could not be written per grouped finding.
+`systemap journeys` wrote one per entry point, at most three per run.
+Thus, Mealie's entry points had to use sixty-five runs.
+The group method used two agent runs for Mealie and three for Paperless.
 
-What this does not measure is whether a walk is true of the code. Every one of
-the eight is a journey the map can hold, and holding is a low bar: read as
-sequences, they fan out rather than joining up (of seven consecutive pairs, two
-to four start where the one before ended), and two answered with nine steps
-where the question asked for four to eight. Nothing checks either, because the
-continuity rules that were tried flagged thirty steps and a hand review found
-none of them real (`src/systemap/graph.py` records that). A generated walk is
-written `drafted=True` and prints as a `drafted journey` line until a person
-reads it, which is the standard the per-way-in walks already ship under.
+A group sequence names its component in `starts`.
+It cannot name one route while representing all routes without narrowing its claim.
+`judgement` treats a component in `starts` as coverage for every entry point claimed by that component.
 
-### Not on this list
+An earlier run scored 19 of 19.
+That is not the recorded result above.
+It included individual entry points and used its own question instead of the production question.
+The two differences were corrected.
+The script calls `journeys.gather`, `journeys.context`, and `journeys.read_answer`.
+Thus, the experiment measures the code that runs.
 
-`plan --check` in the pull-request workflow, because the claim worth testing
-(work that lands outside its plan predicts a later fix) needs fix pull requests,
-and the whole corpus of five repositories holds six of them. It cannot be
-measured, so it is not scheduled.
+Structural acceptance does not show that the sequence is correct for the source.
+All eight accepted sequences fit the map.
+Successive steps often included subsidiary calls: of seven successive pairs, two to four started where the previous step ended.
+Two answers had nine steps, although the question specified four to eight.
+The checks did not examine the two conditions.
 
-## Does Python syntax evidence survive a supported interpreter change?
+The attempted continuity rules showed thirty steps, but manual inspection found no discontinuities with source evidence.
+`src/systemap/graph.py` records that result.
+A new sequence is written with `drafted=True`.
+It prints as a `drafted journey` finding until a person reads it.
+The individual-entry-point sequences use the same requirement.
 
-On 2026-10-02, the portability experiment compared the same 45 systemap
-source modules under Python 3.11 and 3.13. The acceptance rule was recorded
-before execution: zero canonical syntax hash mismatches between interpreters,
-zero changes to existing Python 3.11 hashes, unchanged hashes after comments
-or formatting edits, and a changed hash after a function body edit on each
-interpreter.
+### Why is plan validation missing from this list?
 
-The original syntax hashes differed for all 45 modules. The canonical hashes
-differed for zero modules, and zero existing Python 3.11 hashes changed.
-Formatting and comment edits produced zero mismatches on either interpreter.
-Each interpreter detected the body edit. The experiment checks syntax hash
-portability for this source set and these transformations. It does not establish
-that every future Python grammar change preserves the representation.
-`syntax_portability.py` records the acceptance rule and prints hashes and
-control results for comparison across repeated runs. From the repository root:
+The proposed `plan --check` pull-request workflow was to examine if work outside a plan predicts a later fix.
+Fixing pull requests are necessary reference data.
+The corpus of five repositories contains only six qualifying pairs.
+The feature cannot be measured on that set and is not scheduled.
+
+## Does Python syntax evidence stay the same across supported interpreters?
+
+On 2026-10-02, the portability experiment compared the same 45 systemap source modules under Python 3.11 and 3.13.
+The acceptance rule was recorded before execution.
+It required zero canonical syntax hash mismatches between interpreters and zero changes to Python 3.11 hashes from before the work.
+Comments and formatting edits had to leave hashes unchanged.
+A function-body edit had to change the hash on each interpreter.
+
+The original syntax hashes differed for all 45 modules.
+Canonical hashes differed for zero modules.
+Zero Python 3.11 hashes from before the work changed.
+Formatting and comment edits gave zero mismatches on the two interpreters.
+Each interpreter found the body edit.
+
+This experiment examines syntax hash portability for this source set and these transformations.
+It does not show that every future Python grammar change keeps the same representation.
+`syntax_portability.py` records the acceptance rule and prints hashes and control results for repeated-run comparisons.
+Run these commands from the repository root:
 
 ```sh
 uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.json

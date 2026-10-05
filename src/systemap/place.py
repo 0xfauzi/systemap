@@ -1,64 +1,9 @@
-"""A first placement for every card without one: what `systemap place` writes.
+"""The placement algorithm sets positions for components without positions.
 
-Hand placement was the cost driver of a first map and its scale limit:
-the agent learned the corridor rule by trial, a third of its turns went on
-layout, and past sixty cards the hand stopped working. This module places
-the cards the model leaves without a position, deterministically and from
-the standard library alone, and the check decides, as it always did.
-
-The rules are the ones references/layout.md gives a person:
-
-    regions ...... on a two-column grid inside their container, 48 units
-                   between the columns and 36 between the rows: the
-                   corridors every route between regions runs along; the
-                   order on the grid is searched (below), or the order
-                   the model lists them with `--keep-order`
-    cards ........ on the grid inside their region, columns 190 apart and
-                   rows 92 apart, three deep before a region takes a
-                   second column; a region's box follows its card count
-                   (and widens for a label that would not fit)
-    order ........ a few barycentre sweeps over the flows: each card is
-                   drawn towards the mean position of the cards it talks
-                   to, and the cards of a region are assigned to its
-                   slots so the sum of those distances is smallest, so
-                   the parts that talk sit together
-    containers ... sized to hold their regions, laid left to right in
-                   the order the model lists them; an actor, or any card
-                   in a container and no region, stands in a column of
-                   its own beside the regions, level with the cards it
-                   talks to
-
-The order of the regions on the grid decides most of what a route has to
-do, and the agents mapping other repositories wrote their own helper to
-try orders and pick the one with the fewest bends. So a whole layout
-searches: every order of the regions is tried when there are at most six
-(within each container, every combination across containers), and past
-six a greedy start (the region with the most flows first, then the one
-with the most flows into what is placed) is improved by pairwise swaps
-until no swap does. Each order is laid out whole, cards and sweeps
-included, and estimated: the bends its edges need at least (straight when
-the two cards face each other with nothing between, an L when one of the
-two L-shaped paths is clear of cards and foreign regions, a Z otherwise),
-then their Manhattan length. The best `ROUTED` orders by that estimate,
-and the order as listed, are then routed with the real router and the
-label pass and scored by (label collisions, routes that had to break a
-rule, bends, length); the least wins, and a tie goes to the order listed
-first, so the model's own order wins every tie. Why two stages: the
-router costs 156 ms per order on the 144-module fixture (measured), so
-720 orders would take two minutes; the estimate costs under a
-millisecond, and on the fixture the router's best order sits second by
-the estimate. `place` prints the chosen order and its score.
-
-`systemap place` keeps every card that has `x` and `y` and places the
-rest; `systemap place --all` lays every card out again and keeps only the
-cards marked `pinned=True`, the ones a person placed on purpose. Either
-way, while any card is kept the region and container boxes and the
-canvas stay as written and the other cards take the free slots inside
-their own boxes; a model with no kept card is laid out whole, boxes and
-canvas included. The positions are written into the model module in
-place, editing only the `x=` and `y=` values, the `box=` tuples and the
-canvas, and the rest of the file is kept byte for byte. `--print` prints
-them instead.
+Existing positions stay the same if all_cards is false. Pinned positions stay the same
+in both modes. Without fixed positions, the algorithm sets region, container, and canvas
+boxes. It selects a region order with the smallest routing score. With fixed positions,
+it uses free slots inside the existing boxes.
 """
 
 from __future__ import annotations
@@ -121,14 +66,16 @@ ROUTE_CLEAR = 4.0
 
 
 class PlaceError(Exception):
-    """The placement cannot be made or written; the message says what to do."""
+    """The program cannot calculate or write the placement. The message gives the necessary
+    action.
+    """
 
 
 @dataclass(frozen=True, order=True)
 class Score:
-    """What a laid-out map costs to draw, least first: the label collisions
-    the label pass reports, the routes that had to cross a foreign region,
-    the bends of every route, and their length in canvas units."""
+    """This record ranks routing costs by label collisions, unrelated-region crossings,
+    bends, and path length.
+    """
 
     collisions: int
     refused: int
@@ -136,7 +83,7 @@ class Score:
     length: int
 
     def text(self) -> str:
-        """`41 bends, 12,300 units`, led by the collisions and refusals when there are any."""
+        """This method formats label collisions, rejected routes, bends, and path length."""
         parts: list[str] = []
         if self.collisions:
             parts.append(f"{self.collisions} label collision{'s' if self.collisions != 1 else ''}")
@@ -149,20 +96,10 @@ class Score:
 
 @dataclass(frozen=True)
 class Placement:
-    """What `systemap place` computed.
+    """This record contains new component positions and retained component IDs.
 
-    `positions` holds the placed cards only, by id; the cards kept where
-    they were are listed in `kept` and never appear here. `regions`,
-    `containers` and `canvas` are every box and the canvas as they should
-    now be written: recomputed when nothing was kept, as the model has
-    them otherwise. `all_cards` says which run computed it: `place --all`
-    keeps the pinned cards only, `place` every card with a position.
-
-    A whole layout (`fresh`) also carries the region order it chose
-    (`order`, the regions as they follow each other on the grid, per
-    container), its `score`, and how the order was found: `tried` orders
-    laid out and estimated, `routed` of them scored by the router; both
-    are 0 when the search was skipped and the order is the model's.
+    A fresh layout also contains region, container, and canvas boxes, region order, and
+    routing scores.
     """
 
     positions: dict[str, tuple[int, int]]
@@ -184,7 +121,7 @@ class Placement:
 
 @dataclass
 class _Slot:
-    """One place a card may take: its top-left corner."""
+    """This record gives a component slot by its top-left coordinate."""
 
     x: int
     y: int
@@ -192,7 +129,7 @@ class _Slot:
 
 @dataclass
 class _Column:
-    """The cards of one container that sit in no region, stacked in a column."""
+    """This record groups components in a container column without a region."""
 
     x: int
     top: int
@@ -204,7 +141,9 @@ def _ceil(value: float) -> int:
 
 
 def region_slots(box: Box, top: int = REGION_PAD_TOP) -> list[_Slot]:
-    """The grid a box offers, row-major: columns 190 apart, rows 92 apart."""
+    """This function gives slots in row-major order with 190-unit column spacing and
+    92-unit row spacing.
+    """
     x, y, w, h = box
     cols = max(1, (w - 2 * REGION_PAD_LEFT + COL_GUTTER) // COL_PITCH)
     rows = max(1, (h - top + ROW_GUTTER) // ROW_PITCH)
@@ -216,14 +155,16 @@ def region_slots(box: Box, top: int = REGION_PAD_TOP) -> list[_Slot]:
 
 
 def region_shape(n: int) -> tuple[int, int]:
-    """(columns, rows) for a region of n cards: three deep, then wider."""
+    """This function selects the column and row counts for n components, with a maximum of
+    three rows.
+    """
     cols = max(1, _ceil(n / ROWS_DEEP))
     rows = max(1, _ceil(n / cols))
     return cols, rows
 
 
 def region_size(n: int, label: str) -> tuple[int, int]:
-    """The box a region of n cards needs, widened for a label that would not fit."""
+    """This function calculates a region box from component count and label width."""
     cols, rows = region_shape(n)
     w = max(cols * COL_PITCH, _ceil(REGION_LABEL_LEAD + len(label) * LABEL_CHAR))
     h = REGION_PAD_TOP + rows * ROW_PITCH - ROW_GUTTER + REGION_PAD_BOTTOM
@@ -231,7 +172,7 @@ def region_size(n: int, label: str) -> tuple[int, int]:
 
 
 def sub_lines(sub: str, w: int) -> int:
-    """How many lines a container's sub takes at width w, as the drawing wraps it."""
+    """This function calculates the wrapped container subheading line count at width w."""
     if not sub:
         return 0
     chars = max(12, int((w - 26) / SUB_CHAR))
@@ -239,7 +180,9 @@ def sub_lines(sub: str, w: int) -> int:
 
 
 def container_width(label: str, sub: str, inner: int) -> int:
-    """The width a container needs: its content, its label, and a sub that fits two lines."""
+    """This function calculates the width for container contents, title, and a two-line
+    subheading.
+    """
     w = max(inner + 2 * CONTAINER_PAD, _ceil(CONTAINER_LABEL_LEAD + len(label) * LABEL_CHAR))
     while sub and sub_lines(sub, w) > HEADER_LINES:
         w += 10
@@ -247,7 +190,7 @@ def container_width(label: str, sub: str, inner: int) -> int:
 
 
 def container_top(sub: str, w: int) -> int:
-    """Where a container's content starts: below its label and its sub lines."""
+    """This function calculates the content start below the container title and subheading."""
     return 52 + 12 * sub_lines(sub, w)
 
 
@@ -285,17 +228,15 @@ def assign(
     bary: dict[str, tuple[float, float] | None],
     heights: dict[str, int],
 ) -> dict[str, tuple[int, int]]:
-    """Cards to slots so the sum of distances to their barycentres is smallest.
+    """This function assigns components to slots to decrease the total distance from their
+    barycenters.
 
-    The cards are first laid row-major in the order of their barycentres
-    (the ones with none last, in the order given), then any two whose
-    swap lowers the total are swapped until no swap does. Deterministic:
-    the same input always gives the same assignment. An empty slot is a
-    card with no barycentre, so which slots stay empty is decided by the
-    same rule.
+    The initial order uses barycenters. components without one occur last in the
+    supplied order. Pair exchanges decrease the total distance until no exchange
+    decreases the distance.
     """
     if len(ids) > len(slots):
-        raise ValueError("more cards than slots")
+        raise ValueError("There are more components than slots.")
     order = sorted(
         range(len(ids)),
         key=lambda i: (bary[ids[i]] is None, bary[ids[i]] or (0.0, 0.0), i),
@@ -330,7 +271,9 @@ def _stack(
     heights: dict[str, int],
     pos: dict[str, tuple[int, int]],
 ) -> dict[str, tuple[int, int]]:
-    """A container column: each card level with what it talks to, 92 apart at least."""
+    """This function sets container-column positions near connected components with a
+    minimum spacing of 92 units.
+    """
 
     def wanted(cid: str) -> float:
         b = bary[cid]
@@ -352,8 +295,9 @@ def _sweep(
     slots: dict[str, list[_Slot]],
     columns: dict[str, _Column],
 ) -> dict[str, tuple[int, int]]:
-    """Every free card of every region and column reassigned once, from the
-    barycentres the current positions give."""
+    """This function assigns free components again from the barycenters of the existing
+    positions.
+    """
     near = _neighbours(model)
     heights = {c.id: CARD_H[c.kind] for c in model.components}
     for rid, ids in free.items():
@@ -371,26 +315,28 @@ def _sweep(
 
 
 def _first_layout(model: Model) -> Placement:
-    """Regions on a two-column grid per container, containers left to right."""
+    """This function sets regions in two-column container grids and containers from left to
+    right.
+    """
     by_region: dict[str, list[str]] = {r.id: [] for r in model.regions}
     loose: dict[str, list[str]] = {}
     for c in model.components:
         if c.region is not None:
             if c.region not in by_region:
-                raise PlaceError(f"{c.id} names unknown region {c.region}")
+                raise PlaceError(f"{c.id} specifies an unknown region {c.region}")
             by_region[c.region].append(c.id)
         elif c.container:
             loose.setdefault(c.container, []).append(c.id)
         else:
-            raise PlaceError(f"{c.id} names no region or container; give it one")
+            raise PlaceError(f"{c.id} has no region or container. Set a region or container.")
     known = {b.id for b in model.containers}
     for cid in loose:
         if cid not in known:
-            raise PlaceError(f"a card names unknown container {cid}")
+            raise PlaceError(f"A component specifies an unknown container {cid}")
     regions_of: dict[str | None, list[Region]] = {}
     for r in model.regions:
         if r.container is not None and r.container not in known:
-            raise PlaceError(f"region {r.id} names unknown container {r.container}")
+            raise PlaceError(f"region {r.id} specifies an unknown container {r.container}")
         regions_of.setdefault(r.container, []).append(r)
 
     region_boxes: dict[str, Box] = {}
@@ -400,7 +346,9 @@ def _first_layout(model: Model) -> Placement:
     pos: dict[str, tuple[int, int]] = {}
 
     def grid(regions: list[Region], x0: int, y0: int) -> tuple[int, int]:
-        """Lay regions on the two-column grid from (x0, y0); (width, height) used."""
+        """This function sets regions on a two-column grid and gives the occupied width and
+        height.
+        """
         sizes = {r.id: region_size(len(by_region[r.id]), r.label) for r in regions}
         cols = [regions[k::REGION_COLUMNS] for k in range(REGION_COLUMNS)]
         col_w = [max((sizes[r.id][0] for r in col), default=0) for col in cols]
@@ -475,8 +423,9 @@ def _first_layout(model: Model) -> Placement:
 
 
 def score(model: Model) -> Score:
-    """The cost of drawing a positioned model, from the router and the label
-    pass the page uses: the same geometry, the same routes, the same seats."""
+    """This function calculates the routing cost with the page router and label-placement
+    algorithm.
+    """
     geo = geometry(model)
     edges = [(f.src, f.dst) for f in model.flows]
     canvas = (float(model.canvas[0]), float(model.canvas[1]))
@@ -508,7 +457,7 @@ def score(model: Model) -> Score:
 
 
 def _crosses(a: tuple[float, float], b: tuple[float, float], box: Box) -> bool:
-    """Does the axis-aligned segment a-b pass through the box, with the route's clearance?"""
+    """This function finds whether segment a-b crosses a box with route clearance."""
     x, y, w, h = box
     x0, y0 = x - ROUTE_CLEAR, y - ROUTE_CLEAR
     x1, y1 = x + w + ROUTE_CLEAR, y + h + ROUTE_CLEAR
@@ -524,15 +473,8 @@ def _clear(a: tuple[float, float], b: tuple[float, float], walls: list[Box]) -> 
 
 
 def estimate(model: Model) -> tuple[int, float]:
-    """(bends, length): what the edges of a positioned model need at least.
-
-    Per edge, from the two card boxes: no bend when the cards face each
-    other within a port's reach and the straight run between them
-    crosses no other card and no region foreign to both (two when it
-    does); one bend when either L-shaped path, out of the side facing the
-    other card and into the side facing back, is clear; two otherwise.
-    Length is the Manhattan distance between the centres. The estimate
-    ranks the orders; the router scores the best of them.
+    """This function calculates minimum bend counts and path lengths from component boxes
+    and port reach.
     """
     cards = {c.id: c.box for c in model.components}
     region_of = {c.id: c.region or "" for c in model.components}
@@ -569,7 +511,7 @@ def estimate(model: Model) -> tuple[int, float]:
 
 
 def _region_weights(model: Model) -> dict[tuple[str, str], int]:
-    """How many flows join each pair of regions, either way."""
+    """This function counts flows for each region pair in either direction."""
     region_of = {c.id: c.region for c in model.components}
     out: dict[tuple[str, str], int] = {}
     for f in model.flows:
@@ -584,8 +526,9 @@ def _region_weights(model: Model) -> dict[tuple[str, str], int]:
 def _greedy(
     group: list[Region], weights: dict[tuple[str, str], int], ids: list[str]
 ) -> list[Region]:
-    """The region with the most flows first, then the one with the most flows
-    into what is placed; every tie to the region listed first."""
+    """This function selects region order by connection counts. Equal counts use the listed
+    order.
+    """
     total = {r.id: sum(w for (a, _b), w in weights.items() if a == r.id) for r in group}
     rank = {rid: k for k, rid in enumerate(ids)}
     left = list(group)
@@ -608,7 +551,9 @@ def _greedy(
 
 
 def _groups(model: Model) -> list[list[Region]]:
-    """The regions per container, in model order, the containerless first."""
+    """This function groups regions by container in model order, with uncontained regions
+    first.
+    """
     by: dict[str | None, list[Region]] = {}
     for r in model.regions:
         by.setdefault(r.container, []).append(r)
@@ -616,21 +561,22 @@ def _groups(model: Model) -> list[list[Region]]:
 
 
 def _orders(model: Model) -> Iterator[tuple[Region, ...]]:
-    """Every order of the regions, the model's own first: within each
-    container every permutation, and every combination across containers."""
+    """This function gives region-order combinations within each container, with the model
+    order first.
+    """
     perms = [list(itertools.permutations(group)) for group in _groups(model)]
     for combo in itertools.product(*perms):
         yield tuple(r for part in combo for r in part)
 
 
 def _laid(model: Model, order: tuple[Region, ...]) -> Placement:
-    """The whole layout with the regions on the grid in `order`."""
+    """This function sets the layout with the selected region order."""
     laid = _first_layout(replace(model, regions=order))
     return replace(laid, regions={r.id: laid.regions[r.id] for r in model.regions})
 
 
 def _search(model: Model) -> Placement:
-    """The whole layout under the best region order found (the module docstring)."""
+    """This function selects the layout with the smallest measured routing score."""
     if len(model.regions) <= 1:
         laid = _laid(model, model.regions)
         placed = apply(model, laid)
@@ -699,14 +645,13 @@ def _search(model: Model) -> Placement:
 
 
 def _listed(model: Model) -> Placement:
-    """The whole layout in the order the model lists its regions: `--keep-order`."""
+    """This function sets the layout in the model region order for --keep-order."""
     laid = _laid(model, model.regions)
     return replace(laid, order=tuple(r.id for r in model.regions), score=score(apply(model, laid)))
 
 
 def grid_order(model: Model) -> tuple[str, ...]:
-    """The regions as they follow each other on the grid of a positioned model:
-    per container, in model order of the containers, row by row."""
+    """This function reads region order from a positioned model, by container and grid row."""
     out: list[str] = []
     for group in _groups(model):
         out += [r.id for r in sorted(group, key=lambda r: (r.box[1], r.box[0]))]
@@ -714,11 +659,11 @@ def grid_order(model: Model) -> tuple[str, ...]:
 
 
 def order_line(placement: Placement) -> str:
-    """`region order: A, B, C; 41 bends, 12,300 units; 720 orders tried, 12 routed`."""
+    """This function formats the region order, routing score, and search counts."""
     assert placement.score is not None
     order = ", ".join(placement.order) if placement.order else "none"
     how = (
-        f"{placement.tried} orders tried, {placement.routed} routed"
+        f"{placement.tried} orders examined, {placement.routed} routed"
         if placement.tried
         else "as listed"
     )
@@ -739,7 +684,9 @@ def _overlaps(slot: _Slot, h: int, box: Box, pad_x: int, pad_y: int) -> bool:
 
 
 def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
-    """The free slots of the boxes as written, for every card not in `keep`."""
+    """This function assigns free slots inside existing boxes to components without
+    retained positions.
+    """
     regions = {r.id: r.box for r in model.regions}
     containers = {b.id: b.box for b in model.containers}
     pinned = [c for c in model.components if c.id in keep]
@@ -749,9 +696,9 @@ def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
     for c in unplaced:
         home = c.region if c.region is not None else c.container
         if not home:
-            raise PlaceError(f"{c.id} names no region or container; give it one")
+            raise PlaceError(f"{c.id} has no region or container. Set a region or container.")
         if home not in regions and home not in containers:
-            raise PlaceError(f"{c.id} names unknown region or container {home}")
+            raise PlaceError(f"{c.id} specifies an unknown region or container {home}")
         free.setdefault(home, []).append(c.id)
     taken = [c.box for c in pinned]
     slots: dict[str, list[_Slot]] = {}
@@ -774,14 +721,20 @@ def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
         ]
         if len(room) < len(ids):
             fix = (
-                "unpin a card (drop pinned=True), widen or heighten its box, or move a pinned card"
+                (
+                    "remove pinned=True from a component, increase the box width or height, or "
+                    "move a pinned component."
+                )
                 if all_cards
-                else "run: systemap place --all, which lays every card out again and keeps "
-                "only the cards marked pinned=True; or widen or heighten its box"
+                else (
+                    "Use systemap place --all to set unpinned component positions again, or "
+                    "increase the box width or height."
+                )
             )
             raise PlaceError(
-                f"{home} has {len(room)} free slot{'s' if len(room) != 1 else ''} for "
-                f"{len(ids)} card{'s' if len(ids) != 1 else ''} ({', '.join(ids)}): {fix}"
+                f"{home} has {len(room)} free slot{('s' if len(room) != 1 else '')} for "
+                f"{len(ids)} component{('s' if len(ids) != 1 else '')} ({', '.join(ids)}): "
+                f"{fix}"
             )
         slots[home] = room
         for k, cid in enumerate(ids):
@@ -800,18 +753,18 @@ def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
 
 
 def kept_by(model: Model, all_cards: bool) -> tuple[str, ...]:
-    """The cards a run leaves where they are: the positioned ones, or with
-    `all_cards` only the positioned ones marked pinned."""
+    """This function selects existing positions to keep, or only pinned existing positions
+    for all_cards.
+    """
     return tuple(c.id for c in model.components if c.positioned and (c.pinned or not all_cards))
 
 
 def compute(model: Model, all_cards: bool = False, keep_order: bool = False) -> Placement:
-    """The placement for a model: whole when nothing is kept, the holes otherwise.
+    """This function calculates a fresh layout if no position stays the same. otherwise, it
+    fills free slots.
 
-    `all_cards` is `systemap place --all`: every card is laid out again
-    but the pinned ones. Without it every card with a position is kept.
-    A whole layout searches the region order; `keep_order` lays the
-    regions in the order the model lists them instead.
+    The all_cards option keeps only positioned components with pinned=True. The default
+    keeps all existing component positions.
     """
     keep = kept_by(model, all_cards)
     if len(keep) == len(model.components):
@@ -830,7 +783,7 @@ def compute(model: Model, all_cards: bool = False, keep_order: bool = False) -> 
 
 
 def apply(model: Model, placement: Placement) -> Model:
-    """The model with the placement in it: every placed card positioned, the boxes set."""
+    """This function adds the calculated positions and boxes to the model."""
     components = tuple(
         replace(c, x=placement.positions[c.id][0], y=placement.positions[c.id][1])
         if c.id in placement.positions
@@ -851,28 +804,28 @@ def apply(model: Model, placement: Placement) -> Model:
 
 
 def head(placement: Placement) -> str:
-    """`N cards placed, M kept`: what every place line starts with."""
+    """This function formats new-position and retained-position counts."""
     n, m = len(placement.positions), len(placement.kept)
     what = "pinned" if placement.all_cards else "already positioned"
     kept = f"{m} kept ({what})" if m else "0 kept"
-    return f"{n} card{'s' if n != 1 else ''} placed, {kept}"
+    return f"{n} component{('s' if n != 1 else '')} placed, {kept}"
 
 
 NOTHING_TO_PLACE = (
-    "nothing to place: every card has a position; systemap place --all lays every card "
-    "out again and keeps only the cards marked pinned=True"
+    "nothing to place: All components have positions. Use systemap place --all to "
+    "set positions again, except for components with pinned=True."
 )
-EVERY_CARD_PINNED = "nothing to place: every card is pinned"
+EVERY_CARD_PINNED = "nothing to place: All components are pinned."
 
 
 def lines(placement: Placement) -> list[str]:
-    """What `systemap place --print` prints: one line per placed card, box and the canvas."""
+    """This function gives the position and box lines for systemap place --print."""
     first = f"place: {head(placement)}"
     if not placement.positions:
         if not placement.kept:
             return [first]
         return [f"{first}: {EVERY_CARD_PINNED if placement.all_cards else NOTHING_TO_PLACE}"]
-    out = [first + (", every box and the canvas laid out" if placement.fresh else "")]
+    out = [first + (". The command set all boxes and the canvas." if placement.fresh else "")]
     if placement.fresh:
         out.append(f"  {order_line(placement)}")
     out += [f"  {cid}: x={x}, y={y}" for cid, (x, y) in placement.positions.items()]
@@ -928,7 +881,7 @@ class _Edit:
 
 
 def _offsets(source: bytes) -> list[int]:
-    """The byte offset of the start of every line, so an ast position becomes one."""
+    """This function calculates byte offsets for source lines to convert AST positions."""
     out = [0]
     for k, b in enumerate(source):
         if b == 0x0A:
@@ -937,14 +890,10 @@ def _offsets(source: bytes) -> list[int]:
 
 
 def edits(source: str, placement: Placement) -> list[_Edit]:
-    """The byte edits that write a placement into a model module's source.
+    """This function prepares source-byte edits for component positions and layout boxes.
 
-    A placed card's `x=` and `y=` values are replaced where they are and
-    inserted after its last argument where they are not, one per line in
-    an exploded call and inline in a one-line call. On a whole layout
-    every region's and container's `box=` tuple (or third positional
-    argument) and the model's `canvas=` are replaced too. Nothing else is
-    touched.
+    It replaces existing x and y arguments or inserts missing arguments in explicit
+    Component calls.
     """
     raw = source.encode("utf-8")
     starts = _offsets(raw)
@@ -1000,7 +949,7 @@ def _insertion(
     missing: list[tuple[str, int]],
     span: Callable[[_Located], tuple[int, int]],
 ) -> _Edit:
-    """`x=` and `y=` after the call's last argument, in the call's own style."""
+    """This function formats missing x and y arguments in the existing call style."""
     last = max(
         (*call.args, *(k.value for k in call.keywords)),
         key=lambda n: span(n)[1],
@@ -1024,7 +973,7 @@ def _insertion(
 
 
 def written(source: str, placement: Placement) -> str:
-    """The model module's source with the placement written into it."""
+    """This function gives the model source with placement edits."""
     raw = bytearray(source.encode("utf-8"))
     for edit in sorted(edits(source, placement), key=lambda e: (e.start, e.end), reverse=True):
         raw[edit.start : edit.end] = edit.text
@@ -1032,12 +981,10 @@ def written(source: str, placement: Placement) -> str:
 
 
 def write(path: Path, placement: Placement) -> str:
-    """Write the placement into the model module; return the source it replaced.
+    """Write the placement into the model file and return the previous source.
 
-    The caller reloads the module and passes it to `unwritten`, which
-    names any card the edit could not reach (built in a loop, an id that
-    is not a literal), so the write is verified against what the file
-    now says rather than trusted.
+    The caller reloads the model and uses unwritten to find positions that the edit did
+    not change.
     """
     source = path.read_text(encoding="utf-8")
     path.write_text(written(source, placement), encoding="utf-8", newline="\n")
@@ -1045,7 +992,7 @@ def write(path: Path, placement: Placement) -> str:
 
 
 def unwritten(reloaded: Model, placement: Placement) -> list[str]:
-    """The placed cards whose position the reloaded module does not carry."""
+    """This function finds calculated positions that the reloaded model does not contain."""
     return sorted(
         cid
         for cid, (x, y) in placement.positions.items()

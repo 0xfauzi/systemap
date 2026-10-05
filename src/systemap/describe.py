@@ -1,36 +1,8 @@
-"""What the picture shows, in numbers, for an agent that cannot see it.
+"""The description command gives measurements of the map geometry.
 
-The agent that draws the map often cannot open the page: it runs headless,
-and a figure is bytes it cannot see. What a person takes from one look
-(this region is crowded, that edge snakes across the whole map, the
-gutter under the second row is full, the Control layer shows almost
-nothing) is read here out of the same geometry the drawing has, and
-printed as numbers:
-
-    positions ... how many cards are pinned (marked `pinned=True`, a
-                  position a person chose), how many `systemap place`
-                  placed and wrote, and how many it placed for this look
-                  only, not yet written
-    regions ..... how many cards each holds, and which
-    order ....... the regions as they follow each other on the grid, and
-                  what the drawing costs under that order: label
-                  collisions and refused routes when there are any, the
-                  bends and the length of every route together; and, when
-                  `place` chose the order for this look, how many orders
-                  it tried and routed
-    edges ....... bends and length, worst first, and where each label sits
-    evidence .... how many edges are source reviewed, structural, external, and declared
-    gutters ..... the bands between card rows and columns: how many label
-                  seats each has and how many are used at its fullest
-    layers ...... how many cards and edges each one shows
-    journeys .... each walk: its steps, where it starts, whether the code
-                  backs every step, and whether an agent wrote it and
-                  nobody has read it yet; then how many ways into the
-                  system a journey walks from
-
-Nothing here is a rule; `systemap check` refuses, this describes. A
-crowded gutter is a thing to look at, not a failure, until a label cannot
-be seated, and then the check says so with the fix.
+The page generator supplies positions, paths, and labels. The report gives component
+counts, route scores, label capacity, layers, sequences, and evidence states. A coding
+agent can read these measurements without a browser.
 """
 
 from __future__ import annotations
@@ -53,7 +25,7 @@ Box = tuple[float, float, float, float]
 
 
 def bends(points: list[list[float]]) -> int:
-    """The right-angle turns on a routed path: a straight run has none."""
+    """This function counts right-angle bends in a route. A straight path has no bends."""
     return max(0, len(points) - 2)
 
 
@@ -72,7 +44,7 @@ def _centre(box: list[float], horizontal: bool) -> float:
 
 
 def _extent(box: list[float], horizontal: bool) -> tuple[float, float]:
-    """The label's span along the gutter: x for a row gutter, y for a column."""
+    """This function gets the label span along a row gutter or column gutter."""
     return (box[0], box[0] + box[2]) if horizontal else (box[1], box[1] + box[3])
 
 
@@ -88,13 +60,10 @@ def gutter_lines(
     bands: list[Gutter],
     horizontal: bool,
 ) -> list[str]:
-    """One line per gutter: seats used at its fullest of the seats it has.
+    """This function gives the maximum occupied seats and capacity of each gutter.
 
-    A label sits in the row gutter its centre falls in (for a label on a
-    horizontal run) or the column gutter (on a vertical run); `horizontal`
-    says which kind `bands` are. The seats a gutter has is how many labels
-    stack across it; the seats used is the deepest stack of labels whose
-    spans overlap along it.
+    A horizontal path assigns its label to a row gutter. A vertical path assigns its
+    label to a column gutter.
     """
     out: list[str] = []
     for g in bands:
@@ -122,8 +91,9 @@ def gutter_lines(
 
 
 def drawn_score(meta: dict[str, Any], flows: int) -> Score:
-    """The drawing's score, read back from its `_meta`: the label collisions
-    it reports, the routes that had to break a rule, every path's bends and length."""
+    """This function calculates the routing score from reported collisions, fallback
+    routes, bends, and path lengths.
+    """
     paths: dict[str, list[list[float]]] = meta["paths"]
     return Score(
         collisions=sum(1 for line in meta.get("collisions", []) if line.startswith("label ")),
@@ -136,49 +106,50 @@ def drawn_score(meta: dict[str, Any], flows: int) -> Score:
 def journey_lines(
     model: Model, meaning: Meaning, facts: dict[str, Any], observed_by: Iterable[str] = ()
 ) -> list[str]:
-    """Each walk through the system, and how many ways in have one.
-
-    A journey is what a reader follows to understand the system, so what
-    matters about it here is where it starts, how far it goes, and whether
-    the code backs every step it claims. A step over a flow no import backs
-    is a step the reader is asked to take on trust.
-    """
+    """This function gives sequences and entry point coverage."""
     if not meaning.journeys:
-        return ["journeys: none written; run: systemap journeys, or write one per way in"]
+        return [
+            (
+                "sequences: No sequence is available. Use systemap journeys, or write a "
+                "sequence for each entry point."
+            )
+        ]
     states = evidence_of(model, meaning, facts, observed_by)
-    out = ["journeys: the walks a reader can take through the system"]
+    out = ["sequences: These steps give the system operations."]
     for j in meaning.journeys:
         out += _walk_lines(j, states)
     return out + _ways_in_lines(model, meaning, facts)
 
 
 def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
-    """One walk: how far it goes, where from, and the steps nothing backs."""
+    """This function gives a sequence start, step count, and steps without import evidence."""
     where = f", from {j.starts}" if j.starts else ""
-    note = " (an agent wrote it; nobody has read it yet)" if j.drafted else ""
+    note = (
+        " (an agent wrote the sequence. no maintainer source review is available)"
+        if j.drafted
+        else ""
+    )
     out = [f"  {j.id}: {_plural(len(j.steps), 'step')}{where}{note}"]
     thin = [f"{a} -> {b}" for a, b in (s.edge for s in j.steps) if _unbacked(states, (a, b))]
     if thin:
-        out.append(f"    on trust: {', '.join(thin)}; no import backs {_word(len(thin))}")
+        out.append(
+            f"    no import evidence: {', '.join(thin)}. No import gives evidence for "
+            f"{_word(len(thin))}"
+        )
     return out
 
 
 def _ways_in_lines(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
-    """How many ways into the system a journey walks from, and which do not.
-
-    The cards are passed so that a walk written for a whole crowd, which
-    names its card rather than one of its hundred routes, counts here as it
-    counts in `systemap judgement`.
-    """
+    """This function gives entry point coverage and entry points without sequences."""
     ways = len(facts.get("entry_points", []))
     if not ways:
-        return ["  ways in: none in the facts, so no walk can be asked for"]
+        return ["  entry points: The facts contain none. No sequence is necessary."]
     left = journeys_mod.uncovered(meaning, facts, owners(model, facts))
-    out = [f"  ways in: {ways - len(left)} of {ways} walked from"]
+    out = [f"  entry points: {ways - len(left)} of {ways} have sequence coverage"]
     if left:
         named = ", ".join(entry_label(p) for p in left[:5])
         more = f", and {len(left) - 5} more" if len(left) > 5 else ""
-        out.append(f"    with no walk: {named}{more}; run: systemap journeys")
+        out.append(f"    without a sequence: {named}{more}. Use systemap journeys.")
     return out
 
 
@@ -198,14 +169,10 @@ def lines(
     placed: Iterable[str] = (),
     searched: tuple[int, int] | None = None,
 ) -> list[str]:
-    """The description, from the drawing's own `_meta` (cards, paths, labels).
+    """This function gives the geometry from drawing metadata.
 
-    `placed` names the cards `systemap place` positioned for this look
-    because the model has none for them; the rest have a written
-    position, and the ones marked `pinned` are counted as pinned.
-    `searched` is (orders tried, orders routed) when `place` laid the
-    whole map out for this look and chose the region order; None when
-    the order is the one written.
+    The placed argument identifies temporary component positions missing from the model.
+    The report identifies these positions separately from stored positions.
     """
     cards: dict[str, list[float]] = meta["cards"]
     paths: dict[str, list[list[float]]] = meta["paths"]
@@ -213,9 +180,11 @@ def lines(
     w, h = model.canvas
     layers = all_layers(model, meaning)
     out = [
-        f"canvas {w} x {h}: {_plural(len(model.components), 'card')}, "
-        f"{_plural(len(model.flows), 'edge')}, {_plural(len(model.regions), 'region')}, "
-        f"{_plural(len(layers), 'layer')}"
+        (
+            f"canvas {w} x {h}: {_plural(len(model.components), 'component')}, "
+            f"{_plural(len(model.flows), 'edge')}, "
+            f"{_plural(len(model.regions), 'region')}, {_plural(len(layers), 'layer')}"
+        )
     ]
     placed_ids = list(placed)
     pinned = sum(1 for c in model.components if c.pinned and c.id not in placed_ids)
@@ -223,19 +192,21 @@ def lines(
     line = f"positions: {pinned} pinned, {written} placed"
     if placed_ids:
         line += (
-            f", {len(placed_ids)} placed for this look and not yet written "
-            f"({', '.join(placed_ids)}); run: systemap place"
+            f", {len(placed_ids)} positions for this report are missing from the model "
+            f"({', '.join(placed_ids)}). Use systemap place."
         )
     out.append(line)
 
-    out.append("regions: the cards each holds")
+    out.append("regions: The component counts follow.")
     for r in model.regions:
         ids = [c.id for c in model.components if c.region == r.id]
         held = f" ({', '.join(ids)})" if ids else ""
-        out.append(f"  {r.id}: {_plural(len(ids), 'card')}{held}")
+        out.append(f"  {r.id}: {_plural(len(ids), 'component')}{held}")
     outside = [c.id for c in model.components if not c.region]
     if outside:
-        out.append(f"  in a container only: {_plural(len(outside), 'card')} ({', '.join(outside)})")
+        out.append(
+            f"  in a container only: {_plural(len(outside), 'component')} ({', '.join(outside)})"
+        )
 
     order = ", ".join(grid_order(model)) if model.regions else "none"
     cost = drawn_score(meta, len(model.flows)).text()
@@ -243,14 +214,15 @@ def lines(
         how = "as written"
     elif searched[0]:
         how = (
-            f"{searched[0]} orders tried, {searched[1]} routed, for this look; run: systemap place"
+            f"{searched[0]} orders examined, {searched[1]} routed for this report. Use "
+            f"systemap place."
         )
     else:
-        how = "as listed, for this look; run: systemap place"
-    out.append(f"region order: {order}; {cost}; {how}")
+        how = "listed order for this report. Use systemap place."
+    out.append(f"region order: {order}. {cost}. {how}")
 
     rows, cols = gutters({cid: (b[0], b[1], b[2], b[3]) for cid, b in cards.items()}, (w, h))
-    out.append("edges, worst first: bends, length, where the label sits")
+    out.append("edges: Bend counts, lengths, and label positions follow in score order.")
     ranked = sorted(
         range(len(model.flows)),
         key=lambda i: (-bends(paths.get(str(i), [])), -length(paths.get(str(i), []))),
@@ -268,13 +240,13 @@ def lines(
                 rows,
                 cols,
             )
-            where = f"; label {g.name}" if g is not None else "; label on its run"
+            where = f". label {g.name}" if g is not None else ". label on its path"
         out.append(
             f"  {f.src} -> {f.dst} ('{f.artifact}'): {_plural(bends(path), 'bend')}, "
             f"{length(path):.0f} long{where}"
         )
 
-    out.append("gutters: seats used at the fullest point of the seats each has")
+    out.append("gutters: The maximum occupied seat counts and seat capacities follow.")
     out += gutter_lines(labels, paths, rows, True)
     out += gutter_lines(labels, paths, cols, False)
 
@@ -282,24 +254,23 @@ def lines(
     out.append(
         "evidence: "
         + ", ".join(f"{counts.get(state, 0)} {state}" for state in STATES)
-        + " (an import or a shared module joins the ends, an actor is at one end, or nothing "
-        "in the facts does)"
+        + " (import evidence, a shared module, an external actor, or no fact evidence)"
     )
 
-    out.append("layers: the cards and edges each one shows")
+    out.append("layers: The component and edge counts follow.")
     for lay in layers:
         edges, subjects = reading(model, meaning, lay.id)
         lit = set(subjects)
         for i in edges:
             lit.update(model.flows[i].edge)
-        out.append(f"  {lay.id}: {_plural(len(lit), 'card')}, {_plural(len(edges), 'edge')}")
+        out.append(f"  {lay.id}: {_plural(len(lit), 'component')}, {_plural(len(edges), 'edge')}")
 
     collisions = list(meta.get("collisions", []))
     notes = list(meta.get("notes", []))
     if collisions or notes:
         out.append(
-            f"and what the check refuses: {_plural(len(collisions), 'label collision')}, "
-            f"{_plural(len(notes), 'route')} that had to break a rule; run: systemap check"
+            f"check errors: {_plural(len(collisions), 'label collision')}, "
+            f"{_plural(len(notes), 'route')} with rule errors. Use systemap check."
         )
     return out
 
@@ -313,12 +284,14 @@ def run(
     placed: Iterable[str] = (),
     searched: tuple[int, int] | None = None,
 ) -> list[str]:
-    """Draw once, the way the page does, and describe what was drawn."""
+    """This function renders the map once with the page generator and gives its
+    measurements.
+    """
     _svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
     meta = json.loads(detail)["_meta"]
     out = lines(model, meaning, meta, placed, searched)
     walks = journey_lines(model, meaning, facts, observed_by)
     # What the check refuses stays the last line: it is the one that names a fix.
-    if out and out[-1].startswith("and what the check refuses"):
+    if out and out[-1].startswith("check errors"):
         return out[:-1] + walks + out[-1:]
     return out + walks

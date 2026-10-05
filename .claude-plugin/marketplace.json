@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "systemap",
-  "description": "systemap: the map your coding agent draws of your system. One plugin, one skill.",
+  "description": "The systemap skill makes a system map from source facts and examined claims. All reader text must use ASD-STE100.",
   "owner": {
     "name": "0xfauzi",
     "email": "wumpini.hussein@gmail.com"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "systemap",
-      "description": "The systemap skill: map a repository with systemap. Extracts the facts, drafts the model, checks it until every module is mapped, renders the page, hands back the judgement list.",
+      "description": "Make a system map with source facts, component claims, flow evidence, and ordered sequences. Use ASD-STE100 for all reader text.",
       "author": {
         "name": "0xfauzi",
         "email": "wumpini.hussein@gmail.com"

@@ -1,51 +1,26 @@
-"""Draw the logical view as a flat figure. One generator for every picture.
+"""Render the map as an SVG figure with inspector data.
 
-A stranger needs four things from the map, and each one owns exactly one
-visual channel so that no channel says two things at once:
+A card shows one component, its identifier and its plain text name.
+Dashed card borders identify actors outside the source code. Flow lines
+show artifacts and use layer colors. Selection shows connections
+and shows their explanation in the inspector. Nodes carry `data-id`
+and kind values. Flow lines carry artifact labels and `data-layer`.
 
-    what exists ....... a card, inside the boundary it belongs to, carrying
-                        its code name and its plain word
-    what is outside ... an actor's dashed edge: a person or a system the
-                        code does not contain
-    how work travels .. lines between cards, each labelled with what it
-                        carries and coloured by the LAYER it belongs to
-    what it means ..... the focus interaction: click a card and its
-                        neighbours stay lit, each edge thickens in its
-                        layer's colour, each neighbour is tagged with the
-                        verb that relates it, and the panel draws the
-                        relationship wheel
+Flow evidence states come from evidence.py. `observed` means that source
+references resolve and the source review digest agrees with the claim.
+`structural` means that an import, shared module or configured mechanism
+supports a possible connection. `external` means that an endpoint is
+an actor. `declared` means that no structural evidence supports the flow.
+Structural evidence does not prove direction or artifact.
 
-Every card is code that exists today; the check refuses a component whose
-modules or entry are not in the facts, so the drawing never has to hedge.
-Every node carries `data-id` and its kind; every edge carries its artifact
-as visible text and its layer as `data-layer`.
+route.py makes horizontal and vertical paths between cards. Paths avoid
+other cards and unrelated regions. Labels use path segments or space
+beside a short segment. Header subtitles can use two lines. The detail
+JSON records placement errors in `_meta.collisions` and routing reasons
+in `_meta.notes`. Map checks reject placement errors.
 
-Every edge carries its evidence state (evidence.py): `observed` when reviewed
-source references resolve, `structural` when an import, shared module or named
-mechanism is available, `external` when an actor is at either end, and
-`declared` when the facts have nothing. An unreviewed edge is drawn dashed,
-here and in every figure, and the panel
-says so beside its sentence.
-
-Edges are Manhattan paths routed by route.py through the gutters between
-cards: never through a card they do not connect, never through a region they
-neither start nor end in. Each label sits on the longest segment of its own
-path, or in the gutter beside a run too short to hold it. A container's or
-a region's header text must fit its box: a sub wraps to a second line and
-is refused past that. What could not be placed cleanly, label or header,
-is reported in the detail JSON under `_meta.collisions`, each line worded
-for the check, and
-any route that had to break a rule under `_meta.notes` with the router's
-reason, so a crowded layout fails loudly instead of quietly drawing text
-over text.
-
-Positions come from the model, so the same system always draws the same
-figure and a moved card means the architecture moved. Meaning (layers, the
-sentence per edge, the verb per spoke, the plain words) comes from the
-meaning tables beside it.
-
-No text in the figure is set below 11px.
-"""
+Card positions and flow explanations come from the model. Every figure
+uses these same positions. The minimum figure text size is 11px."""
 
 from __future__ import annotations
 
@@ -147,44 +122,30 @@ def render(
     opens: Mapping[str, Mapping[str, Any]] | None = None,
     variables: bool = False,
 ) -> tuple[str, str]:
-    """(svg, json detail).
+    """Give the SVG figure and detail JSON.
 
-    `changed` marks logical components a change moved (or a plan reaches).
-    `changed_modules` marks physical modules it touched. `hot_artifacts` names
-    the flow labels whose owning module redefined part of its surface; the
-    change detector is the one place that computes it, so this only draws
-    what it is told.
+    `changed` identifies changed components or components in a plan.
+    `changed_modules` identifies changed source modules. `hot_artifacts`
+    identifies flow labels whose source module changed its public surface.
+    The change detector supplies these values.
 
-    `layer` restricts the drawing to one reading: the edges the page's
-    layer switch would show for it (`model.reading`, the same filter),
-    painted in the reading's own hue when the reading is derived, and no
-    other edge at all; every card stays. The cards the reading is about
-    (`subject_of_layer`: the actors, the agents, the context cards, the
-    tools) take the reading's colour as their stroke, and a card the
-    reading neither is about nor reaches by an edge is dimmed, as the
-    page dims it. Cards, routes and label seats are the ones the whole
-    map has, so the figure is the page with edges left out, not a second
-    layout. An unknown id is a ValueError; the figure module checks it
-    first and names the known ids.
+    `layer` selects the flows that `model.reading` supplies. All cards
+    stay. A derived layer uses its specified color. Cards for the layer
+    use this color for their borders. Other unconnected cards have lower
+    contrast. Card positions, paths and label positions stay the same.
+    An unknown layer identifier raises ValueError.
 
-    `observed_by` is the repository's `[flows] observed_by` list: the
-    mechanisms other than imports that support structural connections.
-    They do not establish direction or artifact. `opens`
-    says, per card that opens a map, what the panel shows for it (its
-    name, the relative path of its page, how many cards it holds, a
-    preview drawing); a card with a `map` and no entry here is named
-    alone, and one with a path gets the button that opens the map in
-    place, which the page answers.
+    `observed_by` contains configured mechanisms that support structural
+    connections. These mechanisms do not prove flow direction or artifact.
+    `opens` contains child map names, page paths, card counts and preview
+    diagrams. A child map with a page path has a button in the inspector.
+    Without a page path, the inspector gives only the child map name.
 
-    `variables` writes every colour as `var(--token)` (theme.Palette): the
-    page carries the tables and switches them at runtime. A figure that
-    leaves the page takes the literals.
+    With `variables`, colors use CSS tokens. The page supplies the palette
+    tables. Separate figures use literal color values.
 
-    The detail JSON carries one record per component (what the focus panel
-    shows) plus a `_meta` key: the layers, every edge with its verbs and its
-    sentence, the rules, the regions, and the edge labels the collision pass
-    could not place cleanly.
-    """
+    Detail JSON contains one record for each component. `_meta` contains
+    layers, flows, verbs, explanations, rules, regions and label errors."""
     changed = changed or set()
     changed_modules = changed_modules or set()
     adjacent = adjacent or set()
@@ -373,7 +334,7 @@ def render(
             colour, marker = P["change"], "change"
         fid = f"{svg_id}-f{i}"
         ev = backed[(src, dst)]
-        evidence_label = {evidence.OBSERVED: "source reviewed"}.get(ev.state, ev.state)
+        evidence_label = {evidence.OBSERVED: "source review recorded"}.get(ev.state, ev.state)
         # A declared edge is dashed: the map says so and the code does not.
         dashed = {
             evidence.DECLARED: ' stroke-dasharray="7 5"',
@@ -402,7 +363,7 @@ def render(
             f'<g class="flowlbl {kind}" data-edge="{i}" '
             f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}" '
             f'role="button" tabindex="0" aria-pressed="false" '
-            f'aria-label="Inspect {esc(artifact)}: {esc(src)} to {esc(dst)}, '
+            f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
             f'{esc(own)}, {esc(evidence_label)}">'
             f'<rect class="flowlbl__hit" x="{lbox[0]}" y="{lbox[1] - 6}" '
             f'width="{lbox[2]}" height="{LABEL_H + 12}" rx="3" fill="transparent"/>'
@@ -695,14 +656,14 @@ def render(
         lay = next(lay for lay in LAYERS if lay.id == layer)
         title = f"{lay.label}: {lay.question}" if lay.question else lay.label
         what = (
-            f"{title} Every card, and only the edges of the {lay.label} reading, "
-            "each labelled with what it carries."
+            f"{title} All component cards and only the flows of the {lay.label} layer. "
+            "Each flow label gives its artifact."
         )
     else:
         title = "System map"
         what = (
-            "System map. Fill is build state; every line is labelled with "
-            "what it carries and coloured by its layer."
+            "System map. Fill shows source state. Flow labels give artifacts. Line color shows "
+            "the layer."
         )
     p: list[str] = [
         f'<svg id="{svg_id}" class="scene" xmlns="http://www.w3.org/2000/svg" '

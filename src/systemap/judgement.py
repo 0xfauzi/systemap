@@ -1,76 +1,15 @@
-"""The list a maintainer must confirm before the map is trusted.
+"""The judgement report gives possible map errors for maintainer decisions.
 
-The facts are mechanical and the check is mechanical, but the model is
-judgement: where one component ends and the next begins, what an edge
-means, which question a layer answers. A person reviews that judgement.
-This module makes the review list mechanical to produce, so the agent
-that drafted the model cannot skip it and the maintainer does not have to
-hunt for the calls that could have gone another way.
+The report includes component grouping, flow descriptions, layer contents, entry
+coverage, imports, and source evidence. Each line has a stable kind prefix. The
+configuration can answer an exact line or a family of lines. Exact answers must have an
+evidence digest. Family answers must have an explicit policy. The report shows unmatched
+answers as stale.
 
-It is a report, never a gate: the CLI always exits 0. Each line names one
-thing to look at:
-
-    single module ...... a component that claims exactly one module: it
-                         may be a real part, or an over-split
-    possible mis-fold .. a module whose dotted path shares no word with
-                         the component's id, does, plain word or interface,
-                         in a component of several modules, and whose
-                         package holds none of the component's other
-                         modules: it may be folded into the wrong part
-    no sentence ........ a flow with no relation sentence, or a blank one
-    thin layer ......... a flow layer (data, control, the agent kinds, or
-                         the model's own) that lights fewer than two
-                         components: the map may not be worth looking at
-                         that way at all, or a standard kind was never used
-    entry point ........ an entry point in the facts (a console script, a
-                         subcommand, a main, a public function of the
-                         package root) that no journey mentions: a walk
-                         the reader may need and the map does not have
-    crossing import .... a module of one component imports a module of
-                         another and no flow joins the two components, in
-                         either direction: an edge the code has and the
-                         map does not. One line per ordered pair of
-                         components, with how many modules of the first
-                         import the second (`--verbose` lists them), so
-                         a pair joined in sixteen places is one question,
-                         not sixteen. The main tool of the second pass.
-    declared flow ...... a flow no import backs, in either direction, and
-                         whose sentence and artifact name none of the
-                         mechanisms `[flows] observed_by` lists: an edge
-                         the map has and the code does not. The agent
-                         finds the evidence, names the mechanism in the
-                         sentence, or removes the edge
-    model sdk .......... a module imports a model SDK or an agent framework
-                         (a built-in list, extended or reduced by `[facts]
-                         model_sdks`) and its component is neither an agent
-                         nor marked `calls_model`: the mechanical prompt for
-                         the agentic layers. Setting `calls_model=True` on a
-                         single-shot call site answers the line
-
-An ignored module is not a question: its reason is on record under
-`[coverage]`, and the check prints the count. It is not listed here.
-
-The list has memory. A line the maintainer has answered lives in the
-configuration, under `[judgement] answered`, with its reason; it is
-suppressed here and counted, so the same line does not come back every
-run and the answer is in the repository, not in a chat. An answer names
-the exact line (`item`, or `items` for several), or a whole family with
-one reason: every crossing-import line between any two of some
-components in either direction (`crossing`), every one into a component
-(`crossing_into`) or out of it (`crossing_from`), every line of one kind
-(`kind`, `declared flow` included), every model-sdk line for one import
-(`module_sdk`). An answer
-that matches no line is
-reported as stale, so answers cannot rot. `--strict` makes the CLI exit
-1 while any line is open, for a workflow; `--kind KIND` prints the open
-lines of one kind, and the exit code still reads them all.
-
-The list runs on every map of the tree (`run_tree`). A sub-map's lines
-carry its id in front (`Gateway: single module: ...`), so an `item`
-answer quotes the line as printed; the bulk forms read the line behind
-the prefix. An entry point, and a model sdk import, is asked about once,
-on the deepest map whose card claims its module, against the journeys
-of every map.
+Each nested diagnostic has its map ID as a prefix. Exact answers include this prefix.
+family selectors use the diagnostic after the prefix. Entry point and SDK questions
+belong to the deepest applicable map. Sequences from all maps supply entry coverage. The
+CLI exits 1 with --strict if a line remains open. otherwise, the report exits 0.
 """
 
 from __future__ import annotations
@@ -126,25 +65,23 @@ MODEL_SDKS: tuple[str, ...] = (
 
 
 def words(name: str) -> set[str]:
-    """The lower-case words in a CamelCase or snake_case name."""
+    """This function separates lower-case words from a CamelCase or snake_case name."""
     parts = re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z0-9]+|[A-Z]+", name)
     return {p.lower() for p in parts if p}
 
 
 def shares_a_word(a: str, b: str) -> bool:
-    """Do two names share a word?
+    """This function compares names for equal words or equal prefixes of at least four
+    letters.
 
-    Deliberately simple: two words count as shared when they are equal,
-    or when one is a prefix of the other and the shorter is at least four
-    letters ("extract" and "extractor", "route" and "router"). It will
-    miss synonyms ("Ledger" and "store") and it will accept a coincidence;
-    the line it produces is a thing to look at, not a verdict.
+    It does not identify synonyms. A same word can be a coincidence, so the result must
+    have a source review.
     """
     return share_a_word(words(a), words(b))
 
 
 def share_a_word(xs: set[str], ys: set[str]) -> bool:
-    """`shares_a_word` over two word sets already split."""
+    """This function compares two word sets with shares_a_word."""
     for x in xs:
         for y in ys:
             if x == y:
@@ -156,7 +93,7 @@ def share_a_word(xs: set[str], ys: set[str]) -> bool:
 
 
 def _modules_of(component: Component, facts: dict[str, Any]) -> list[str]:
-    """The modules a component claims: from the facts when there are any."""
+    """This function gives component module claims, from the facts if facts are available."""
     if facts.get("components"):
         return claimed(component, facts["components"])
     return [m for m in component.implemented_by if not m.endswith(".*") and not is_symbol(m)]
@@ -169,34 +106,29 @@ def single_module(model: Model, facts: dict[str, Any]) -> list[str]:
             continue
         modules = _modules_of(c, facts)
         if len(modules) == 1:
-            out.append(f"single module: {c.id} is only {modules[0]}")
+            out.append(f"single module: {c.id} contains only {modules[0]}")
     return out
 
 
 def package_of(module: str) -> str:
-    """The package a module sits in: its path minus the last segment, or itself."""
+    """This function gives the parent package, or the module itself if it has no parent."""
     head, _, _ = module.rpartition(".")
     return head or module
 
 
 def share_a_package(a: str, b: str) -> bool:
-    """Do two modules sit in one package, or is one the other's package?"""
+    """This function finds whether two modules have the same package or one is the package
+    of the other.
+    """
     return package_of(a) == package_of(b) or a == package_of(b) or b == package_of(a)
 
 
 def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
-    """Modules that may be folded into the wrong component.
+    """This function finds modules with possible component grouping errors.
 
-    The line fires only when three things hold at once. Every word of the
-    module's dotted path is a stranger to the component: none is shared
-    with its id, its `does`, its plain word or its `interface`. The
-    component claims more than one module (one module is the `single
-    module` line's business). And the module's package holds none of the
-    component's other modules and is not itself one of them, so it is not
-    merely a differently named file among its neighbours. Comparing the
-    id with the last path segment alone fired on most of a real map's
-    modules; a component's prose names what it holds far more often than
-    its id does.
+    The module name has no same word with the component ID, description, plain name, or
+    interface. The component has multiple modules, and no other component module has a
+    same package with the selected module.
     """
     out: list[str] = []
     for c in model.components:
@@ -210,8 +142,8 @@ def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str
             if any(share_a_package(module, m) for m in modules if m != module):
                 continue
             out.append(
-                f"possible mis-fold: {c.id} claims {module} (no word shared with the "
-                f"component, and no other module of it in {package_of(module)})"
+                f"possible mis-fold: {c.id} has the module claim {module} (no same word with "
+                f"the component, and no other component module in {package_of(module)})"
             )
     return out
 
@@ -238,7 +170,7 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
         n = len(on_layer.get(layer.id, set()))
         if n < 2:
             noun = "component" if n == 1 else "components"
-            out.append(f"thin layer: {layer.id} lights {n} {noun}")
+            out.append(f"thin layer: {layer.id} shows {n} {noun}")
     return out
 
 
@@ -256,7 +188,7 @@ def entry_points_without_journey(
     covered: Collection[str] | None = None,
     skip: Collection[str] = (),
 ) -> list[str]:
-    """Entry points without reviewed coverage, grouped by kind and card."""
+    """This function groups entry points without sequence coverage by kind and component."""
     owner = _owner_of(model, facts)
     return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner, covered), owner)
 
@@ -267,10 +199,10 @@ Pair = tuple[str, str]
 def crossing_pairs(
     components: dict[str, Any], owner: dict[str, str]
 ) -> dict[Pair, list[tuple[str, str]]]:
-    """(P, Q) -> the (module, target) imports of P's modules into Q's, P and Q distinct.
+    """This function indexes module imports across distinct component pairs.
 
-    Read from raw facts records and an owner table, so `delta` can ask
-    the same question of the facts at another commit.
+    It uses source facts and an owner table so the delta can use the same rule at
+    another commit.
     """
     out: dict[Pair, list[tuple[str, str]]] = {}
     for module in sorted(components):
@@ -285,16 +217,20 @@ def crossing_pairs(
 
 
 def crossing_line(p: str, q: str, imports: list[tuple[str, str]]) -> str:
-    """The one line for a pair: how many modules of P import Q."""
+    """This function gives one diagnostic for a component pair and its importing-module
+    count.
+    """
     n = len({module for module, _target in imports})
     return (
-        f"crossing import: {p} imports {q} in {n} module{'s' if n != 1 else ''} and no flow "
-        "joins them"
+        f"crossing import: {p} imports {q} in {n} module{('s' if n != 1 else '')} and "
+        f"no flow connects them"
     )
 
 
 def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tuple[str, str]]]:
-    """Every pair of components an import joins that no flow does, with the imports."""
+    """This function gives component pairs with an import connection and no flow
+    connection.
+    """
     components = facts.get("components", {})
     joined = {frozenset(f.edge) for f in model.flows}
     return {
@@ -305,14 +241,11 @@ def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tup
 
 
 def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
-    """One line per ordered pair of components an import joins and no flow does.
+    """This function gives one diagnostic for each ordered component pair with imports but
+    no flow.
 
-    The facts record what each module imports. When a module of P imports
-    a module of Q and the model has no flow P -> Q or Q -> P, the code has
-    an edge the map does not. It may be one the reader needs, or one the
-    map leaves out on purpose; either way it is looked at, not guessed.
-    The line counts the modules of P that import Q; `crossing_detail`
-    lists them for `--verbose`.
+    The count includes modules of the source component that import the destination
+    component. The verbose detail lists these imports.
     """
     return [
         crossing_line(p, q, imports) for (p, q), imports in crossing_imports(model, facts).items()
@@ -320,7 +253,7 @@ def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[s
 
 
 def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
-    """line as printed -> the imports behind it, one `module imports target` each."""
+    """This function indexes imports by their full printed crossing-import diagnostic."""
     return {
         prefix + crossing_line(p, q, imports): [f"{m} imports {t}" for m, t in imports]
         for (p, q), imports in crossing_imports(model, facts).items()
@@ -328,7 +261,9 @@ def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> di
 
 
 def crossing_detail_tree(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
-    """`crossing_detail` for every map, each line carrying its map's prefix."""
+    """This function gives crossing-import detail for all maps with their diagnostic
+    prefixes.
+    """
     out: dict[str, list[str]] = {}
     for m in tree.maps:
         out.update(crossing_detail(m.model, facts, m.prefix))
@@ -341,25 +276,24 @@ def declared_flows(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> list[str]:
-    """Every flow the facts do not back: one line each, with the three ways out.
+    """This function gives flows without source reviews or structural evidence.
 
-    The dual of the crossing-import line. A flow between two components
-    neither of whose modules imports the other's, and whose sentence and
-    artifact name no mechanism from `[flows] observed_by`, is a claim the
-    code does not make. With no facts nothing can be observed, so nothing
-    is listed; the CLI says the list reads the model alone.
+    An import in either direction or a configured mechanism can supply structural
+    evidence. Without facts, the report lists no flow evidence questions.
     """
     if not facts.get("components"):
         return []
     return [
-        f"declared flow: {f.src} -> {f.dst} ({f.artifact}): no import joins them; find the "
-        "evidence, name the mechanism in the sentence, or remove it"
+        (
+            f"declared flow: {f.src} -> {f.dst} ({f.artifact}): no import connects them. "
+            f"Find the evidence, give the mechanism in the description, or remove the flow."
+        )
         for f in evidence.declared(model, meaning, facts, observed_by)
     ]
 
 
 def sdk_of(name: str, sdks: Iterable[str]) -> str:
-    """The SDK an imported dotted name belongs to, or empty."""
+    """This function finds the configured SDK for an import name, or gives an empty string."""
     for sdk in sdks:
         if name == sdk or name.startswith(sdk + "."):
             return sdk
@@ -373,14 +307,10 @@ def model_sdk_imports(
     *,
     skip: Collection[str] = (),
 ) -> list[str]:
-    """Every module that imports a model SDK from a component that is not an agent.
+    """This function finds model SDK imports in components without model-call markers.
 
-    The facts record each module's third-party imports; the agentic layers
-    exist for the parts that run a model. A module that imports one and
-    sits in a plain component, a store or a tool is either an agent the
-    map does not show or a call the reader should know about. A component
-    marked `calls_model` has answered: the map says it calls a model once.
-    `skip` names the modules a map inside a card asks about instead.
+    The component kind agent or calls_model marker lets the component import the SDK.
+    The skip list assigns module questions to nested maps.
     """
     components = facts.get("components", {})
     owner = _owner_of(model, facts)
@@ -400,12 +330,10 @@ def model_sdk_imports(
 
 
 def sdk_list(configured: Iterable[str]) -> tuple[str, ...]:
-    """The built-in SDK list with the configuration's additions and removals.
+    """This function updates the built-in SDK list from configuration.
 
-    An entry adds an import name; an entry with a leading `-` removes one
-    of the built-in names (`-google.adk`, when the repository's own rule
-    says what counts as an agent). Removing a name that is not on the
-    list is refused: a silent no-op would hide a misspelling.
+    A name adds an SDK. A name with a leading hyphen removes an SDK. An attempt to
+    remove a missing name gives a configuration error.
     """
     out = list(MODEL_SDKS)
     for entry in configured:
@@ -433,10 +361,10 @@ def run(
     covered: Collection[str] | None = None,
     skip: Collection[str] = (),
 ) -> list[str]:
-    """Every line the maintainer should read for one map, in the order above.
+    """This function gives the judgement diagnostics for one map.
 
-    `journeys_text` and `skip` are what `run_tree` passes for a map in a
-    tree: every map's journeys, and the modules a map below asks about.
+    The journeys_text and skip arguments supply nested-map sequence data and excluded
+    modules.
     """
     return (
         single_module(model, facts)
@@ -461,12 +389,14 @@ def flow_review(
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
 ) -> list[str]:
-    """Flows whose direction and artifact still need current source review."""
+    """This function finds flows whose direction or artifact must have a source review."""
     states = evidence.of_model(model, meaning, facts, observed_by)
     return [
-        f"flow review: {flow.src} -> {flow.dst} ({flow.artifact}) has structural "
-        "evidence but no source-reviewed claim; cite current source for direction "
-        "and artifact or revise the flow"
+        (
+            f"flow review: {flow.src} -> {flow.dst} ({flow.artifact}) has structural "
+            f"evidence but no source review. Give source references for direction and "
+            f"artifact, or change the flow."
+        )
         for flow in model.flows
         if states[flow.edge].state == evidence.STRUCTURAL or states[flow.edge].unresolved_refs
     ]
@@ -478,13 +408,10 @@ def run_tree(
     sdks: Iterable[str] = MODEL_SDKS,
     observed_by: Iterable[str] = (),
 ) -> list[str]:
-    """Every line for every map, a sub-map's each carrying its id in front.
+    """This function gives judgement diagnostics for all maps with map prefixes.
 
-    An entry point or a model sdk import in a module a card opens a map
-    on is that map's question, not the card's, so the top map skips the
-    modules its opening cards claim, and a sub-map asks only about the
-    modules its own cards claim. A journey on any map covers an entry
-    point: a walk through the top map traces the card as a whole.
+    Module-specific questions belong to the deepest applicable map. Sequences from all
+    maps supply entry point coverage.
     """
     covered = reviewed_entries(m.meaning for m in tree.maps)
     components = facts.get("components", {})
@@ -504,11 +431,11 @@ def run_tree(
 def evidence_for_tree(
     tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str]
 ) -> dict[str, str]:
-    """Digest the evidence an exact answer reviewed, keyed by its printed line.
+    """This function hashes source evidence for exact answers and indexes it by printed
+    diagnostic.
 
-    Crossing imports use only the participating modules. Other lines use the
-    map source and mapped facts because their supporting dependency set is not
-    narrower. A changed uncommitted source file therefore changes the digest.
+    Crossing-import evidence includes only the participating modules. Other evidence
+    includes map source and mapped facts. An uncommitted source edit changes the digest.
     """
     components = facts.get("components", {})
     out: dict[str, str] = {}
@@ -540,7 +467,7 @@ def _map_answer_evidence(
 
 
 def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
-    """The digest to record for one exact decision, including an items group."""
+    """This function gives the evidence digest for an exact answer or group of exact items."""
     chosen = list(items)
     if len(chosen) == 1:
         return evidence.get(chosen[0], "unavailable")
@@ -549,7 +476,7 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
 
 
 CROSSING_LINE = re.compile(
-    r"^crossing import: (\S+) imports (\S+) in \d+ modules? and no flow joins"
+    "^crossing import: (\\S+) imports (\\S+) in \\d+ modules? and no flow connects"
 )
 SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component ")
 # How each kind's lines begin; the entry point line carries no colon.
@@ -557,7 +484,7 @@ KIND_PREFIX = {kind: f"{kind}: " for kind in LINE_KINDS} | {"entry point": "entr
 
 
 def unprefixed(line: str) -> str:
-    """A sub-map's line without the `<map>: ` in front of it; any other line as it is."""
+    """This function removes a nested-map prefix if the remainder is a known diagnostic."""
     if any(line.startswith(prefix) for prefix in KIND_PREFIX.values()):
         return line
     _head, sep, rest = line.partition(": ")
@@ -567,11 +494,10 @@ def unprefixed(line: str) -> str:
 
 
 def answers(answer: Answer, line: str) -> bool:
-    """Does one answer cover this line?
+    """This function selects a diagnostic with one answer.
 
-    An exact item is the line as printed, a sub-map's prefix included;
-    the bulk forms read the line behind the prefix, so one `kind` or
-    `crossing` answer covers every map.
+    Exact items include the printed map prefix. Family selectors use the diagnostic
+    without that prefix.
     """
     if answer.items:
         return line in answer.items
@@ -595,12 +521,8 @@ def answers(answer: Answer, line: str) -> bool:
 
 @dataclass(frozen=True)
 class Answered:
-    """The list once the configuration's answers are applied.
-
-    `open` is what is still to confirm, `answered` how many lines an
-    answer suppressed, and `stale` every answer (an exact item, or a
-    bulk form named as written) no line matches: the model or the code
-    moved on and the answer should go.
+    """This record contains open diagnostics, accepted counts, stale answers, pending
+    reviews, and policy notices.
     """
 
     open: list[str]
@@ -613,7 +535,9 @@ class Answered:
 def apply_answers(
     lines: list[str], answer_list: Iterable[Answer], evidence: Mapping[str, str] | None = None
 ) -> Answered:
-    """Suppress every line the configuration answers; report the rest and the stale."""
+    """This function accepts supported answers and gives open diagnostics, stale answers,
+    and pending reviews.
+    """
     given = list(answer_list)
     accepted, pending, policies = _accepted_answers(lines, given, evidence)
     covered = [line for line in lines if any(answers(a, line) for a in accepted)]
@@ -650,7 +574,8 @@ def _accepted_answers(
 def _policy_line(answer: Answer, matches: list[str]) -> str:
     new = sum(line not in answer.reviewed for line in matches)
     return (
-        f"{answer.label} covers {len(matches)} current lines; {new} outside its reviewed baseline"
+        f"{answer.label} covers {len(matches)} lines at this snapshot. {new} lines are "
+        f"outside the source-review baseline."
     )
 
 
@@ -661,10 +586,12 @@ def _answer_issue(answer: Answer, evidence: Mapping[str, str] | None) -> str | N
         digest = answer_digest(answer.items, evidence)
         if answer.evidence and answer.evidence == digest and digest != "unavailable":
             return None
-        return f"'{answer.label}' needs renewed review; current evidence = \"{digest}\""
+        return (
+            f''''{answer.label}' must have a new source review. The evidence digest is "{digest}"'''
+        )
     if answer.policy:
         return None
-    return f"'{answer.label}' needs policy = true to cover a family of lines"
+    return f"'{answer.label}' must have policy = true for a family of lines."
 
 
 def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
@@ -678,12 +605,12 @@ def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
 
 
 def of_kind(lines: list[str], kind: str) -> list[str]:
-    """The lines of one kind, on any map."""
+    """This function gives diagnostics of one kind across all maps."""
     return [line for line in lines if unprefixed(line).startswith(KIND_PREFIX[kind])]
 
 
 def kind_of(line: str) -> str:
-    """Which kind of line this is, by the prefix it was printed with."""
+    """This function identifies a diagnostic kind from its stable prefix."""
     bare = unprefixed(line)
     for kind, prefix in KIND_PREFIX.items():
         if bare.startswith(prefix):
@@ -697,24 +624,18 @@ def report(
     kind: str = "",
     teach: bool = True,
 ) -> list[str]:
-    """The lines the CLI prints.
+    """This function formats judgement diagnostics for the CLI.
 
-    `detail` (from `--verbose`) is what a line stands for, printed under
-    it: the imports behind a crossing-import line. `kind` (from `--kind`)
-    prints the open lines of that kind alone; the head still counts them
-    all, since the exit code does.
-
-    `teach` prints why the kind matters and what to do about it, from
-    `systemap.explain`, under the first line of each kind rather than
-    under every one: the same two sentences ten times over is noise, and
-    a report a reader skips teaches nothing. `--brief` turns it off.
+    The detail argument supplies verbose import lines. The kind argument selects one
+    visible kind, but the counts include all kinds. The teach option gives one
+    explanation for each visible kind.
     """
     result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
     shown = of_kind(result.open, kind) if kind else result.open
     out = [_head(result, kind, len(shown))]
     out += _shown(shown, detail, teach)
     out += [
-        f"  stale answer: '{item}' no longer appears; remove it from [judgement] answered"
+        f"  stale answer: '{item}' is now missing. Remove it from [judgement] answered."
         for item in result.stale
     ]
     out += [f"  pending answer: {item}" for item in result.pending or []]
@@ -723,24 +644,26 @@ def report(
 
 
 def _head(result: Answered, kind: str, showing: int) -> str:
-    """The first line: what is open, what was answered, and what is being shown."""
+    """This function formats the open, accepted, stale, and visible diagnostic counts."""
     tail = ""
     if result.answered:
         tail += f", {result.answered} answered"
     if result.stale:
         tail += f", {len(result.stale)} stale"
     if not result.open:
-        head = f"judgement: nothing to confirm{tail}"
+        head = f"judgement: No decision is necessary{tail}"
     else:
         noun = "item" if len(result.open) == 1 else "items"
-        head = f"judgement: {len(result.open)} {noun} for the maintainer to confirm{tail}"
+        head = f"judgement: {len(result.open)} {noun} for maintainer decisions{tail}"
     if kind:
-        head += f"; showing the {showing} {kind} {'line' if showing == 1 else 'lines'}"
+        head += f". The report shows {showing} {kind} {('line' if showing == 1 else 'lines')}"
     return head
 
 
 def _shown(shown: list[str], detail: dict[str, list[str]] | None, teach: bool) -> list[str]:
-    """Each line, what it stands for with `--verbose`, and its kind taught once."""
+    """This function gives each diagnostic with optional import detail and one explanation
+    for each kind.
+    """
     out: list[str] = []
     taught: set[str] = set()
     for line in shown:

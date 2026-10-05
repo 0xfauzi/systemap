@@ -1,9 +1,8 @@
-"""systemap: the map your coding agent draws of your system.
+"""systemap makes a map of a software system.
 
-Facts are read out of the code with `ast`; the meaning is authored by a
-coding agent following the shipped skill and reviewed by a person; the map
-draws what exists today; the checker refuses an incomplete or stale map;
-and one generator draws every picture so nothing drifts.
+The extractor reads facts from source code. A coding agent writes the meaning with the
+systemap skill. A maintainer examines the claims. The page generator uses the facts and
+model.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""An accessible reading view of the same authored parts and exact flows."""
+"""A text view of the same model components and flows."""
 
 CSS = r"""
 .atlas{padding:1rem 0;min-width:0}
@@ -53,29 +53,29 @@ SCRIPT = r"""
       +(A.state.edge===i)+'"><h3>'+esc(e.from)+' to '+esc(e.to)+'</h3>'
       +'<p>'+esc(e.art)+'</p><div class="reading-meta">'+esc(layerName(e.layer))+' / '
       +esc(A.evidenceLabel(e.evidence))+'</div><p>'
-      +esc(e.say || 'No explanation is authored for this flow.')
+      +esc(e.say || 'The model has no explanation for this flow.')
       +'</p><p class="reading-meta">'+esc(e.evidence_says)+'</p><div class="reading-actions">'
-      +'<button type="button" data-flow="'+i+'">Inspect flow '+(i+1)+'</button>'
-      +'<button type="button" data-flow="'+i+'" data-endpoint="'+esc(e.from)+'">Inspect '
+      +'<button type="button" data-flow="'+i+'">Examine flow '+(i+1)+'</button>'
+      +'<button type="button" data-flow="'+i+'" data-endpoint="'+esc(e.from)+'">Examine '
       +esc(e.from)+'</button><button type="button" data-flow="'+i+'" data-endpoint="'
-      +esc(e.to)+'">Follow to '+esc(e.to)+'</button></div></article>';
+      +esc(e.to)+'">Examine '+esc(e.to)+'</button></div></article>';
   }
   function visible(i){
     var l=A.state.layer,reading=A.detail._meta.readings[l];
     return l==='all' || !!(reading && reading.edges.indexOf(i)>=0);
   }
   function overview(){
-    var h='<h2>Read the system</h2><p class="atlas-intro">The same authored parts and flows, '
-      +'at text size. Inspect a flow to read its exact evidence beside the map.</p>';
+    var h='<h2>Read the system map</h2><p class="atlas-intro">The same model components and flows, '
+      +'as text. Examine a flow to read its evidence.</p>';
     var grouped={};
     W.regions.forEach(function(r){
       h+='<section><h3>'+esc(r.label)+'</h3><div class="reading-parts">';
       r.ids.forEach(function(id){grouped[id]=true;h+=part(id);});h+='</div></section>';
     });
     var rest=Object.keys(A.detail).filter(function(id){return id!=='_meta' && !grouped[id];});
-    if(rest.length){h+='<section><h3>Outside or ungrouped parts</h3><div class="reading-parts">'
+    if(rest.length){h+='<section><h3>Other components</h3><div class="reading-parts">'
       +rest.map(part).join('')+'</div></section>';}
-    h+='<section><h2>Exact relationships</h2>';
+    h+='<section><h2>Flows</h2>';
     var count=0;
     A.edges.forEach(function(e,i){if(visible(i)){h+=flow(e,i);count++;}});
     return h+(count ? '' : '<p>No flows belong to this layer.</p>')+'</section>';
@@ -89,17 +89,17 @@ SCRIPT = r"""
       return ids.indexOf(id)>=0;});});
   }
   function operation(j,k){
-    return '<h2>'+esc(j.label)+'</h2><p class="atlas-intro">An authored sequence, '
-      +'not a recorded execution. '+(j.starts ? 'Starts at '+esc(j.starts)+'.' :
-      'No starting entry point is named in the model.')+(j.drafted ?
-      ' Written by an agent; not yet confirmed.' : '')+'</p><ol class="atlas-sequence">'
+    return '<h2>'+esc(j.label)+'</h2><p class="atlas-intro">The model gives this sequence. It is '
+      +'not a record of program execution. '+(j.starts ? 'Starts at '+esc(j.starts)+'.' :
+      'The model has no entry point for this sequence.')+(j.drafted ?
+      ' Agent draft. Source review necessary.' : '')+'</p><ol class="atlas-sequence">'
       +j.steps.map(function(s,i){
         var e=A.edges[s.edge];
         return '<li><button type="button" class="atlas-step" data-trace-step="'+i
           +'" aria-current="'+(i===k ? 'step' : 'false')+'"><strong>Step '+(i+1)+': '
           +esc(s.say)+'</strong><span>'+esc(e ? e.from+' to '+e.to+': '+e.art :
-          'The authored flow was not found.')+'</span><small>Acts: '
-          +esc((s.acts || []).join(', ') || 'not named')+'. Measures: '
+          'The model has no flow for this step.')+'</span><small>Active components: '
+          +esc((s.acts || []).join(', ') || 'not named')+'. Measurement components: '
           +esc((s.measures || []).join(', ') || 'none named')+'.</small><small>'
           +esc(e ? layerName(e.layer)+' / '+A.evidenceLabel(e.evidence)+': '+e.evidence_says :
           'No evidence recorded')+'</small></button></li>';
@@ -107,14 +107,14 @@ SCRIPT = r"""
   }
   function stepEvidence(j,k){
     var s=j.steps[k],e=A.edges[s.edge],ids=stepParts(s,e),rules={};
-    var h='<section class="source-section"><h3>Responsible parts</h3><div class="review-cards">';
+    var h='<section class="source-section"><h3>Step components</h3><div class="review-cards">';
     ids.forEach(function(id){if(!A.detail[id]){return;}
-      h+='<button type="button" data-step-part="'+esc(id)+'">Inspect '+esc(id)+'</button>';
+      h+='<button type="button" data-step-part="'+esc(id)+'">Examine '+esc(id)+'</button>';
       A.detail[id].rules.forEach(function(n){rules[n]=true;});});
-    h+='</div><h3>Rules to preserve</h3>';
+    h+='</div><h3>Rules for this step</h3>';
     A.detail._meta.rules.forEach(function(r){if(rules[r.n]){
       h+='<p class="rule-row"><b>'+r.n+'</b>'+esc(r.text)+'</p>';}});
-    if(!Object.keys(rules).length){h+='<p>No governing rules are authored for these parts.</p>';}
+    if(!Object.keys(rules).length){h+='<p>The model has no rules for these components.</p>';}
     relatedFindings(ids).forEach(function(f){h+='<details class="step-finding"><summary>'
       +esc(f.kind)+'</summary><code>'+esc(f.line)+'</code><p>'+esc(f.means)+'</p><p>'
       +esc(f.why)+'</p><p>'+esc(f.do)+'</p></details>';});
@@ -170,7 +170,7 @@ SCRIPT = r"""
   windowMark.setAttribute('fill','none');windowMark.setAttribute('stroke','var(--accent)');
   windowMark.setAttribute('stroke-width','20');mini.appendChild(windowMark);
   fitButton.insertBefore(mini,fitButton.firstChild);
-  fitButton.setAttribute('title','Part positions and the visible map area. Fit the complete map.');
+  fitButton.setAttribute('title','Component positions and visible area. Show all components.');
   function overviewWindow(){
     if(drawing.hidden){return;}
     var area=A.view.visibleArea(null),view=A.view.snapshot();

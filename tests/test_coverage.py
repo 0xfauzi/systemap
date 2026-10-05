@@ -43,7 +43,7 @@ def test_all_mapped(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     scaffold(tmp_path)
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
-    assert "coverage: 3 of 3 modules mapped, 1 of them an empty package marker" in out
+    assert "coverage: 3 of 3 modules mapped, 1 an empty package marker" in out
     assert "unmapped" not in out
 
 
@@ -53,13 +53,13 @@ def test_one_unmapped_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     assert run("--root", str(tmp_path), "extract") == 0
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "coverage: 3 of 4 modules mapped, 1 of them an empty package marker" in out
-    assert "unmapped: pkg.extra (no component claims it)" in out
-    assert "map layout: clean" in out, "the layout is fine; only coverage failed"
-    assert "map every module in map/model.py, or ignore it with a reason" in out
+    assert "coverage: 3 of 4 modules mapped, 1 an empty package marker" in out
+    assert "unmapped: pkg.extra (no component has this module claim)" in out
+    assert "map layout: has no errors" in out, "the layout is fine; only coverage failed"
+    assert "Give each module a component in map/model.py, or give a reason to ignore it" in out
     # refresh runs the same check and refuses too.
     assert run("--root", str(tmp_path), "refresh") == 1
-    assert "map: check failed" in capsys.readouterr().out
+    assert "map: The check found an error." in capsys.readouterr().out
 
 
 def test_ignore_with_reason_passes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -70,8 +70,7 @@ def test_ignore_with_reason_passes(tmp_path: Path, capsys: pytest.CaptureFixture
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert (
-        "coverage: 4 of 4 modules mapped, 1 of them ignored with a reason, "
-        "1 of them an empty package marker"
+        "coverage: 4 of 4 modules mapped, 1 ignored with a reason, 1 an empty package marker"
     ) in capsys.readouterr().out
 
 
@@ -84,17 +83,17 @@ def test_ignore_without_reason_is_a_config_error(
     ignore(tmp_path, '{ module = "pkg.extra" }')
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "coverage.ignore[1] (pkg.extra) needs a reason" in err
+    assert "coverage.ignore[1] (pkg.extra) must contain a reason" in err
 
     toml.write_text(kept)
     ignore(tmp_path, '{ module = "pkg.extra", reason = "  " }')
     assert run("--root", str(tmp_path), "check") == 2
-    assert "needs a reason" in capsys.readouterr().err
+    assert "must contain a reason" in capsys.readouterr().err
 
     toml.write_text(kept)
     ignore(tmp_path, '{ module = "pkg.extra", reason = "x", why = "y" }')
     assert run("--root", str(tmp_path), "check") == 2
-    assert "coverage.ignore[1] has unknown key: why" in capsys.readouterr().err
+    assert "coverage.ignore[1] has an unknown key: why" in capsys.readouterr().err
 
 
 def test_double_claim_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -107,7 +106,7 @@ def test_double_claim_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     )
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "coverage: 2 of 3 modules mapped, 1 of them an empty package marker" in out
+    assert "coverage: 2 of 3 modules mapped, 1 an empty package marker" in out
     assert "claimed twice: pkg.reader (Reader, Writer)" in out
 
 
@@ -129,16 +128,14 @@ def test_subtree_claim_covers_the_package(
     model.write_text(text)
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
-    assert "coverage: 5 of 5 modules mapped, 1 of them an empty package marker" in (
-        capsys.readouterr().out
-    )
+    assert "coverage: 5 of 5 modules mapped, 1 an empty package marker" in (capsys.readouterr().out)
 
 
 def test_stale_ignore_is_reported(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     scaffold(tmp_path)
     ignore(tmp_path, '{ module = "pkg.gone", reason = "it left" }')
     assert run("--root", str(tmp_path), "check") == 1
-    assert "ignore names a module the facts do not have: pkg.gone" in capsys.readouterr().out
+    assert "ignore specifies a module missing from the facts: pkg.gone" in capsys.readouterr().out
 
 
 def test_no_facts_fails_closed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -146,7 +143,7 @@ def test_no_facts_fails_closed(tmp_path: Path, capsys: pytest.CaptureFixture[str
     init_two_cards(tmp_path)
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "coverage: not checked, there are no facts; run: systemap extract" in out
+    assert "coverage: No facts are available for the check. Use systemap extract." in out
     assert out.rstrip().endswith("run: systemap extract")
 
 
@@ -182,9 +179,7 @@ def test_empty_package_markers_are_left_out_and_listed_once(
     assert out.count("empty package markers") == 1, "listed once"
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
-    assert "coverage: 6 of 6 modules mapped, 3 of them empty package markers" in (
-        capsys.readouterr().out
-    )
+    assert "coverage: 6 of 6 modules mapped, 3 empty package markers" in (capsys.readouterr().out)
     facts = extract.read_facts(tmp_path / "docs/map/map.json")
     assert extract.empty_markers(facts) == ["pkg", "pkg.other", "pkg.sub"]
     assert extract.is_empty_marker(facts["components"]["pkg.sub"])
@@ -210,8 +205,8 @@ def test_an_init_that_imports_or_defines_is_not_a_marker(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     for module in ("pkg.sub", "pkg.sub.deep", "pkg.ext", "pkg.named"):
-        assert f"unmapped: {module} (no component claims it)" in out, module
-    assert "coverage: 3 of 7 modules mapped, 1 of them an empty package marker" in out
+        assert " (no component has this module claim)" in out, module
+    assert "coverage: 3 of 7 modules mapped, 1 an empty package marker" in out
     facts = extract.read_facts(tmp_path / "docs/map/map.json")
     assert extract.empty_markers(facts) == ["pkg"]
 
@@ -224,10 +219,10 @@ def test_an_ignore_that_names_only_markers_is_not_needed(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert (
-        "ignore is not needed: pkg is an empty package marker, left out of the coverage "
-        "rule on its own; remove the entry"
+        "ignore is not necessary: pkg is an empty package marker. The coverage rule omits it "
+        "automatically. Remove the ignore entry."
     ) in out
-    assert "coverage: 3 of 3 modules mapped, 1 of them an empty package marker" in out
+    assert "coverage: 3 of 3 modules mapped, 1 an empty package marker" in out
 
 
 def test_subtree_ignore_glob(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -248,6 +243,5 @@ def test_subtree_ignore_glob(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert (
-        "coverage: 6 of 6 modules mapped, 2 of them ignored with a reason, "
-        "2 of them empty package markers"
+        "coverage: 6 of 6 modules mapped, 2 ignored with a reason, 2 empty package markers"
     ) in capsys.readouterr().out

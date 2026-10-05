@@ -1,4 +1,4 @@
-"""Stage model replacements and restore completed writes after an I/O failure."""
+"""The model writer prepares replacements and restores saved files after an I/O error."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _restore(completed: list[Path], backups: dict[Path, Path]) -> list[str]:
             os.replace(backups[path], path)
             backups.pop(path)
         except OSError as exc:
-            failures.append(f"{path}: {exc}; original retained at {backups[path]}")
+            failures.append(f"{path}: {exc}. The original file is at {backups[path]}")
     return failures
 
 
@@ -43,16 +43,16 @@ def _replace(staged: dict[Path, Path], backups: dict[Path, Path]) -> None:
         for path in set(backups) - set(completed):
             backups.pop(path).unlink(missing_ok=True)
         if failures:
-            raise OSError(f"{exc}; rollback incomplete: {'; '.join(failures)}") from exc
-        raise OSError(f"{exc}; original models restored") from exc
+            raise OSError(f"{exc}. The rollback has errors: {'; '.join(failures)}") from exc
+        raise OSError(f"{exc}. The original models are restored.") from exc
 
 
 def write_models(sources: dict[Path, str]) -> None:
-    """Prepare every replacement and backup before changing any model.
+    """Prepare all replacements and saved originals before a model write.
 
-    A replace failure restores prior files. If restoration also fails, the
-    error names each affected model and the retained original backup. This
-    handles reported I/O errors, not process termination or concurrent edits.
+    If a replacement returns an error, restore the previous files. If restoration also
+    returns an error, give each affected path and saved original. This procedure handles
+    reported I/O errors. It does not handle process termination or concurrent edits.
     """
     for path, source in sources.items():
         compile(source, str(path), "exec")

@@ -38,17 +38,20 @@ def test_structural_evidence_does_not_claim_a_flow_was_observed(sample: Sample) 
     states = evidence.of_model(sample.model, sample.meaning, sample.facts)
     assert {edge: ev.state for edge, ev in states.items()} == EXPECTED
     assert all(ev.mechanism == "" for ev in states.values())
-    assert states[("User", "Reader")].says == "external: outside the code"
+    assert states[("User", "Reader")].says == "external: The endpoint is outside the source code."
     assert states[("Reader", "Parser")].says == (
-        "import present: flow direction and artifact unreviewed"
+        "import present: The flow direction and artifact have no source review."
     )
-    assert states[("Parser", "Writer")].says == "declared: no import behind it"
+    assert states[("Parser", "Writer")].says == "declared: The flow has no import evidence."
     # The artifact of Ledger -> Parser is `history`; named as a mechanism, the
     # flow has a declared mechanism. A word in the sentence counts the same
     # way, whole and case blind; a substring does not.
     states = evidence.of_model(sample.model, sample.meaning, sample.facts, ["queue", "history"])
     assert states[("Ledger", "Parser")] == evidence.Evidence("structural", "history")
-    assert states[("Ledger", "Parser")].says == "mechanism declared: history; flow unreviewed"
+    assert (
+        states[("Ledger", "Parser")].says
+        == "mechanism declared: history. The flow has no source review."
+    )
     assert states[("Parser", "Writer")].state == "declared"
     states = evidence.of_model(sample.model, sample.meaning, sample.facts, ["In Order"])
     assert states[("Parser", "Writer")] == evidence.Evidence("structural", "In Order")
@@ -86,7 +89,7 @@ def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample)
     assert reviewed.state == evidence.OBSERVED
     assert reviewed.import_present
     assert reviewed.source_refs == (ref,)
-    assert reviewed.says == "source reviewed: references resolve at this source snapshot"
+    assert reviewed.says == "source reviewed: The references resolve at this source snapshot."
     _svg, detail = render_schematic(model, sample.meaning, sample.theme, sample.facts)
     edges = json.loads(detail)["_meta"]["edges"]
     edge = next(e for e in edges if (e["from"], e["to"]) == ("Reader", "Parser"))
@@ -115,7 +118,7 @@ def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample)
     invalid = evidence.of_model(revised, sample.meaning, sample.facts)[("Reader", "Parser")]
     assert invalid.state == evidence.STRUCTURAL
     assert invalid.claim_changed
-    assert "digest is missing or changed" in invalid.says
+    assert "digest is missing or different" in invalid.says
     bad_symbol = ref.replace(":read@", ":missing@")
     assert not evidence._resolves(bad_symbol, sample.facts)
     assert not evidence._resolves(f"{module}:read@not-a-digest", sample.facts)
@@ -136,7 +139,7 @@ def test_two_cards_sharing_a_module_have_structural_evidence() -> None:
     states = evidence.of_model(model, meaning, facts)
     assert states[("StyleCompleter", "CropPicker")] == evidence.Evidence("structural", shared=True)
     assert states[("StyleCompleter", "CropPicker")].says == (
-        "shared module: flow direction and artifact unreviewed"
+        "shared module: The flow direction and artifact have no source review."
     )
     assert ("StyleCompleter", "CropPicker") not in {
         f.edge for f in evidence.declared(model, meaning, facts)
@@ -151,7 +154,7 @@ def test_two_cards_sharing_a_module_have_structural_evidence() -> None:
     assert (picker["evidence"], picker["mechanism"], picker["evidence_says"]) == (
         "structural",
         "",
-        "shared module: flow direction and artifact unreviewed",
+        "shared module: The flow direction and artifact have no source review.",
     )
     # A symbol claim on the card's own module, or on a module no card claims,
     # joins no pair; an import still wins the wording when both hold.
@@ -177,7 +180,7 @@ def test_two_cards_sharing_a_module_have_structural_evidence() -> None:
         "wharf_server.style.completer": ["pick_crops"]
     }
     assert evidence.of_model(model, meaning, imported)[("StyleCompleter", "CropPicker")].says == (
-        "shared module: flow direction and artifact unreviewed"
+        "shared module: The flow direction and artifact have no source review."
     ), "an import inside one module is not a crossing import; the module is still shared"
 
 
@@ -198,7 +201,10 @@ def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None
     meta = json.loads(detail)["_meta"]
     by_edge = {(e["from"], e["to"]): e for e in meta["edges"]}
     assert by_edge[("Parser", "Writer")]["evidence"] == "declared"
-    assert by_edge[("Parser", "Writer")]["evidence_says"] == "declared: no import behind it"
+    assert (
+        by_edge[("Parser", "Writer")]["evidence_says"]
+        == "declared: The flow has no import evidence."
+    )
     assert by_edge[("Parser", "Writer")]["mechanism"] == ""
     assert meta["evidence"] == {"observed": 0, "structural": 2, "external": 1, "declared": 2}
     # With the mechanism configured, the edge stays unreviewed and says why.
@@ -208,18 +214,18 @@ def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None
     meta = json.loads(detail)["_meta"]
     by_edge = {(e["from"], e["to"]): e for e in meta["edges"]}
     assert by_edge[("Ledger", "Parser")]["evidence_says"] == (
-        "mechanism declared: history; flow unreviewed"
+        "mechanism declared: history. The flow has no source review."
     )
     assert meta["evidence"] == {"observed": 0, "structural": 3, "external": 1, "declared": 1}
     assert svg.count('stroke-dasharray="7 5"') == 1
     # The page and a figure carry the legend entry and the panel's line.
     html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
-    assert 'class="lg--dashline"' in html and ">unreviewed flow</span>" in html
-    assert "A short dashed line has structural evidence" in html
-    assert "A long dashed line is declared without that evidence" in html
-    assert "Both dashed states still need review of direction and artifact" in html
-    assert "None records execution" in html
-    assert "declared: no import behind it" in html
+    assert 'class="lg--dashline"' in html and ">flow without source review</span>" in html
+    assert "A short dashed line shows structural evidence" in html
+    assert "A long dashed line has no structural evidence" in html
+    assert "For both dashed states, source review of direction and artifact is necessary" in html
+    assert "No flow records program execution" in html
+    assert "declared: The flow has no import evidence." in html
     assert "data-evidence" in html and "evidence_says" in html
     fig, _collisions = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, bare=True
@@ -228,23 +234,21 @@ def test_a_declared_edge_is_dashed_and_the_panel_says_so(sample: Sample) -> None
     fig, _collisions = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, layer="structure"
     )
-    assert "unreviewed flow</span>" not in fig, (
+    assert "flow without source review</span>" not in fig, (
         "a figure with no edges has no dashed line to explain"
     )
     fig, _collisions = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts
     )
-    assert "unreviewed flow</span>" in fig
+    assert "flow without source review</span>" in fig
 
 
 def test_judgement_prints_one_line_per_declared_edge(sample: Sample) -> None:
     lines = judgement.run(sample.model, sample.meaning, sample.facts)
     declared = [line for line in lines if line.startswith("declared flow: ")]
     assert declared == [
-        "declared flow: Parser -> Writer (parts): no import joins them; find the evidence, name "
-        "the mechanism in the sentence, or remove it",
-        "declared flow: Ledger -> Parser (history): no import joins them; find the evidence, "
-        "name the mechanism in the sentence, or remove it",
+        "declared flow: Parser -> Writer (parts): no import connects them. Find the evidence, give the mechanism in the description, or remove the flow.",
+        "declared flow: Ledger -> Parser (history): no import connects them. Find the evidence, give the mechanism in the description, or remove the flow.",
     ]
     # After the crossing-import lines and before the model sdk ones.
     kinds = [line.split(":")[0] for line in lines]
@@ -279,9 +283,9 @@ def test_flows_observed_by_in_the_configuration(tmp_path: Path) -> None:
     assert cfg.observed_by == ("queue", "subprocess")
     assert config.load(tmp_path.parent / "nowhere").observed_by == () if False else True
     for text, message in (
-        ('[flows]\nobserved_by = "queue"\n', "observed_by must be a list of strings"),
-        ('[flows]\nobserved_by = [""]\n', "must name each mechanism with a word"),
-        ('[flows]\nmechanisms = ["queue"]\n', "flows has unknown key: mechanisms"),
+        ('[flows]\nobserved_by = "queue"\n', "observed_by must be a list of strings."),
+        ('[flows]\nobserved_by = [""]\n', "must contain a word for each mechanism"),
+        ('[flows]\nmechanisms = ["queue"]\n', "flows has an unknown key: mechanisms"),
         ("flows = 3\n", "flows must be a table"),
         (
             '[judgement]\nanswered = [{ kind = "declared edge", reason = "r" }]\n',

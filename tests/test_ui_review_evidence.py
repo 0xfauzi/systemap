@@ -48,7 +48,7 @@ def test_current_exact_answer_retains_its_reason_then_reopens_after_source_edit(
     changed = page_data.tree_review(cfg, tree, tree.top, sample.facts)
     assert [r["line"] for r in changed["open"]] == lines
     assert not changed["answered"]
-    assert "needs renewed review" in changed["pending"][0]
+    assert "must have a new source review" in changed["pending"][0]
 
 
 def test_explicit_policy_notice_is_retained_by_programmatic_page(sample: Sample) -> None:
@@ -58,10 +58,10 @@ def test_explicit_policy_notice_is_retained_by_programmatic_page(sample: Sample)
     cfg = dataclasses.replace(sample.cfg, judgement_answered=(answer,))
     data = page_data.review(cfg, sample.model, sample.meaning, sample.facts)
     assert data["answered"]
-    assert data["policies"] and "outside its reviewed baseline" in data["policies"][0]
+    assert data["policies"] and "outside the source-review baseline" in data["policies"][0]
     html = page.build(cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
     assert "Policy answers" in html
-    assert "outside its reviewed baseline" in html
+    assert "outside the source-review baseline" in html
 
 
 def test_audit_policy_preserves_mechanical_exact_answer_and_page(sample: Sample) -> None:
@@ -168,4 +168,4 @@ def test_unavailable_model_file_leaves_exact_answers_pending(sample: Sample) -> 
     assert not data["answered"]
     assert "unavailable" in data["pending"][0]
     html = page.build(cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
-    assert "Pending answers" in html
+    assert "Answers for examination" in html

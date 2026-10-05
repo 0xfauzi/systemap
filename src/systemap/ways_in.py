@@ -1,26 +1,9 @@
-"""The ways into a system: routes, commands, tasks and plugin hooks, read from the source.
+"""The entry point reader finds routes, commands, background tasks, and plugin hooks in
+source code.
 
-An entry point is where somebody outside meets the system: a person typing
-a command, a browser asking for a URL, a queue handing over a job. Each one
-is a walk a reader may need, so `systemap judgement` asks for a journey from
-each, and `systemap journeys` can draft one.
-
-`systemap.extract` finds the plain ones itself: console scripts, `__main__`
-modules, `main` functions, argparse subcommands, and the public functions of
-a package root. This module finds the ones that a framework registers, where
-the way in is a decorator or a table rather than a function anybody calls:
-
-    routes ..... FastAPI and its routers, Flask, and Django's urlpatterns
-                 (the path as written: a router mounted under a prefix is
-                 read without it, since the prefix is set where it is mounted)
-    commands ... click, typer, cleo, and Django's management commands
-    tasks ...... Celery, and anything whose decorator reads as a task
-    plugins .... the entry-point groups a package publishes
-
-Everything here is read from the syntax tree; nothing is imported and
-nothing is run. A way in that only exists at runtime (a route built from a
-variable, a command registered in a loop) cannot be seen, and the map says
-what the tree states.
+An entry point lets a person or another system start an operation. The reader records
+literal registrations for supported frameworks. An unknown framework binding gives a
+diagnostic rather than assumed coverage.
 """
 
 from __future__ import annotations
@@ -42,7 +25,7 @@ def _literal(node: ast.expr | None) -> str:
 
 
 def _dotted(node: ast.expr) -> str:
-    """The dotted name of an expression, as far as it is one: `app.router.get`."""
+    """This function reads the dotted name of an expression, such as app.router.get."""
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
@@ -52,7 +35,7 @@ def _dotted(node: ast.expr) -> str:
 
 
 def _methods(call: ast.Call) -> list[str]:
-    """The HTTP methods a Flask-style route names, upper case; GET when it names none."""
+    """This function reads HTTP methods from a Flask-style route, with GET as the default."""
     for kw in call.keywords:
         if kw.arg != "methods" or not isinstance(kw.value, ast.List | ast.Tuple):
             continue
@@ -63,12 +46,9 @@ def _methods(call: ast.Call) -> list[str]:
 
 
 def _from_decorator(call: ast.Call, func: str, bindings: dict[str, str]) -> list[dict[str, str]]:
-    """The ways in one decorator registers, if it is one of the shapes above.
+    """This function reads entry point registrations from supported decorator forms.
 
-    A command decorator has to be called on something (`@app.command()`,
-    `@cli.group()`): that something is the command line the function joins.
-    A bare `@group()` is a decorator of another kind, and rich's, which
-    groups renderables, is why this is checked.
+    Command decorators must have a receiver, such as @app.command() or @cli.group().
     """
     name = _dotted(call.func)
     last = name.rsplit(".", 1)[-1]
@@ -123,7 +103,7 @@ def _decorated(tree: ast.AST, bindings: dict[str, str]) -> list[dict[str, str]]:
 
 
 def _route_call(call: ast.AST) -> dict[str, str] | None:
-    """One `path("x/", view)` of a urlpatterns list."""
+    """This function reads one Django path registration in a urlpatterns list."""
     if not isinstance(call, ast.Call) or _dotted(call.func) not in ROUTE_CALLS:
         return None
     route = _literal(call.args[0]) if call.args else ""
@@ -140,7 +120,7 @@ def _is_urlpatterns(node: ast.AST) -> bool:
 
 
 def _url_patterns(tree: ast.AST) -> list[dict[str, str]]:
-    """Django's `urlpatterns = [path("x/", view), ...]`, including `+ [...]` forms."""
+    """This function reads Django urlpatterns, including concatenated lists."""
     found = [
         _route_call(call)
         for node in ast.walk(tree)
@@ -151,7 +131,7 @@ def _url_patterns(tree: ast.AST) -> list[dict[str, str]]:
 
 
 def _class_name(node: ast.ClassDef) -> str:
-    """The literal `name = "..."` a class sets on itself, if it sets one."""
+    """This function reads a literal class name attribute, if available."""
     named = ""
     for body in node.body:
         if not isinstance(body, ast.Assign | ast.AnnAssign):
@@ -163,7 +143,7 @@ def _class_name(node: ast.ClassDef) -> str:
 
 
 def _class_command(node: ast.ClassDef, module: str) -> dict[str, str] | None:
-    """A command written as a class: Django's `Command`, or a cleo command with a name."""
+    """This function reads a Django Command class or a named cleo command."""
     parts = module.split(".")
     managed = len(parts) >= 3 and parts[-3:-1] == ["management", "commands"]
     bases = {_dotted(b).rsplit(".", 1)[-1] for b in node.bases}
@@ -183,7 +163,7 @@ def _class_commands(tree: ast.AST, module: str) -> list[dict[str, str]]:
 
 
 def in_source(module: str, source: str) -> list[dict[str, str]]:
-    """Every way into the system this module's source registers."""
+    """This function gives entry points registered by the module source."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -194,7 +174,9 @@ def in_source(module: str, source: str) -> list[dict[str, str]]:
 
 
 def registration_candidates(module: str, source: str) -> list[dict[str, str]]:
-    """Decorator shapes that need a framework binding before claiming an entry."""
+    """This function gives possible decorator registrations that must have a known
+    framework binding.
+    """
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -233,12 +215,12 @@ def _registration_candidate(
         "kind": "decorator",
         "name": f"{module}.{node.name}",
         "target": name,
-        "reason": "framework binding could not be established; review registration",
+        "reason": "The framework binding is unknown. Examine the registration source.",
     }
 
 
 def _bindings(tree: ast.AST) -> dict[str, str]:
-    """Framework imports and constructed receivers at module scope."""
+    """This function identifies framework imports and receiver objects at module scope."""
     body = getattr(tree, "body", [])
     imported = _import_bindings(body)
     return {**imported, **_receiver_bindings(body, imported)}
@@ -287,11 +269,9 @@ def _table(data: dict[str, Any], *keys: str) -> dict[str, Any]:
 
 
 def in_pyproject(data: dict[str, Any], components: dict[str, Any]) -> list[dict[str, str]]:
-    """The scripts and plugin hooks a package publishes, beyond `[project.scripts]`.
+    """This function reads package scripts and plugin hooks from pyproject.toml.
 
-    Poetry writes its scripts under `[tool.poetry.scripts]`, and a package
-    that extends another publishes `[project.entry-points."<group>"]`. Both
-    are ways in: somebody outside calls them by name.
+    It includes Poetry scripts and project entry points in addition to project scripts.
     """
     out: list[dict[str, str]] = []
     for name, target in sorted(_table(data, "tool", "poetry", "scripts").items()):
@@ -313,7 +293,7 @@ def in_pyproject(data: dict[str, Any], components: dict[str, Any]) -> list[dict[
 
 
 def _hooks(group: str, entries: Any, components: dict[str, Any]) -> list[dict[str, str]]:
-    """One entry-point group's hooks, for the modules this system holds."""
+    """This function reads an entry point group for modules in the system."""
     if not isinstance(entries, dict):
         return []
     out = []
@@ -328,7 +308,7 @@ def _hooks(group: str, entries: Any, components: dict[str, Any]) -> list[dict[st
 
 
 def label(point: dict[str, str]) -> str:
-    """One of these ways in, the way a person would name it."""
+    """This function gives a display name for an entry point."""
     kind, name, module = point["kind"], point["name"], point["module"]
     if kind == "route":
         return f"{name} (route)"

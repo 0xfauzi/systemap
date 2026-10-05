@@ -286,7 +286,7 @@ def test_compiled_package_entries_use_unique_source_fallback(tmp_path: Path) -> 
             "kind": "package_export",
             "name": "web",
             "target": "dist/missing.js (+1 more)",
-            "reason": "2 package.json export targets could not be mapped to TypeScript modules",
+            "reason": "2 package.json export targets have no resolved TypeScript modules.",
         }
     ]
 
@@ -301,7 +301,7 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     )
     facts = extract.build(config.load(tmp_path))
     issue = facts["components"]["web.broken"]["unknown"][0]
-    assert "could not be parsed" in issue["reason"]
+    assert "could not parse the TypeScript syntax" in issue["reason"]
     assert extract.unknown_fact_lines(facts) == [
         f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
     ]
@@ -505,7 +505,7 @@ def test_typescript_delta_and_history_read_committed_trees(
     assert main(["--root", str(tmp_path), "delta", "--base", base, "--brief"]) == 1
     out = capsys.readouterr().out
     assert "moved: acme.web.cli -> acme.web.command (same content)" in out
-    assert "added: acme.web.jobs, claimed by no card" in out
+    assert "added: acme.web.jobs, No component has a claim for it." in out
     assert "removed: acme.web.legacy" in out
 
 
@@ -596,7 +596,7 @@ def test_init_refuses_an_ambiguous_python_and_typescript_repository(
         },
     )
     assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 2
-    assert "both Python and TypeScript source found" in capsys.readouterr().err
+    assert "The source contains Python and TypeScript" in capsys.readouterr().err
 
 
 def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
@@ -665,15 +665,7 @@ def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path
 
 
 def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path) -> None:
-    """With `rootDir` unset, the root is the one the project's own tsc would use.
-
-    Measured with tsc 5.9.3, 6.0.3 and 7.0.2 before writing this. TypeScript 5
-    takes the longest common folder of the non-declaration input files that
-    `files`, `include` and `exclude` select, test files included. TypeScript 6
-    and later take the folder of tsconfig.json, and so does `composite` on any
-    version. `outDir` here is `out/`, which the `src/` and `source/` fallback
-    cannot rescue, so every mapping below comes from the computed root alone.
-    """
+    "With `rootDir` unset, the root is the one the project's own tsc would use.\n\n    Measured with tsc 5.9.3, 6.0.3 and 7.0.2 before writing this. TypeScript 5\n    takes the longest common folder of the non-declaration input files that\n    `files`, `include` and `exclude` select, test files included. TypeScript 6\n    and later take the folder of tsconfig.json, and so does `composite` on any\n    version. `outDir` here is `out/`, which the `src/` and `source/` fallback\n    cannot rescue, so every mapping below comes from the computed root alone.\n"
     package = (
         '{"name":"web","devDependencies":{"typescript":"^5.9.3"},'
         '"bin":{"web":"out/cli.js","deep":"out/source/cli.js"}}'

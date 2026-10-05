@@ -1,24 +1,9 @@
-"""A piece of work projected onto the map, and then checked against what happened.
+"""The plan projects a task onto map components and compares the projection with a later
+change.
 
-Before the work: you describe the task in your own words, Jev reads it
-against every card's purpose, and the cards it gives real weight to are the
-ones the work will most likely change. Around each of those, the map says
-what it sits in: the flows that leave and reach it, the walks that pass
-through it, and the rules that govern it. That is the part a plan usually
-leaves out, and the part that goes wrong.
-
-After the work: `systemap plan --check` compares what was projected with the
-cards the code actually changed. A card that changed and was not projected
-is the finding. It is not a failure of the plan; it is the place where the
-system did something the plan did not see, which is exactly what a map is
-for.
-
-The cut is measured, not chosen by taste. Over 80 real bug reports with the
-cards their fixing pull request touched, a cut at 0.05 of Jev's probability
-covered 86% of those cards while naming 2.1 cards per report; on 39 issues
-of a repository no threshold was chosen on, it covered 71% while naming 2.1.
-The bar, set before the run, was 70% covered with at most 2 extra cards.
-`bench/jev/plan_eval.py` runs it and `bench/jev/README.md` holds the table.
+Jev gives component weights from the task and component descriptions. The context
+includes connected flows, sequences, and invariants. A later comparison identifies
+unplanned changes and planned components without changes.
 """
 
 from __future__ import annotations
@@ -40,14 +25,14 @@ CUT = 0.05
 # design document in it is a question about the document, not the work.
 TEXT_CAP = 2000
 PLAN_Q = (
-    "`task` is a piece of work someone is about to do on this system. "
-    "Which component will the work most likely have to change?"
+    "`task` gives the planned work on this system. Which component has the largest "
+    "probability of a change from this task?"
 )
 
 
 @dataclass(frozen=True)
 class Around:
-    """What one card sits in: what a plan that names the card still misses."""
+    """This record gives flow, sequence, and invariant context for one component."""
 
     card: str
     flows: tuple[str, ...] = ()
@@ -57,7 +42,7 @@ class Around:
 
 @dataclass(frozen=True)
 class Projection:
-    """The cards a task is expected to change, and what each sits in."""
+    """This record contains projected components, their weights, and their map context."""
 
     id: str
     task: str
@@ -86,13 +71,15 @@ class Projection:
 
 
 def named(probabilities: dict[str, float], cut: float = CUT) -> list[str]:
-    """The cards Jev gives real weight to, the heaviest first."""
+    """This function selects components with sufficient Jev weights, with the largest
+    weights first.
+    """
     ranked = sorted(probabilities.items(), key=lambda kv: -kv[1])
     return [cid for cid, p in ranked if p >= cut and not cid.startswith("none")]
 
 
 def around(model: Model, meaning: Meaning, card: str) -> Around:
-    """What the map says the card sits in, in the words the map uses."""
+    """This function gives the map context for one component."""
     flows = [f"{f.src} -> {f.dst} ({f.artifact})" for f in graph.out_flows(model).get(card, ())]
     flows += [f"{f.src} -> {f.dst} ({f.artifact})" for f in graph.in_flows(model).get(card, ())]
     walks = [
@@ -111,7 +98,7 @@ def project(
     probabilities: dict[str, float],
     at: str = "",
 ) -> Projection:
-    """Jev's answer as a projection: the cards, their weight, and what each sits in."""
+    """This function converts a Jev answer into weighted components and map context."""
     cards = named(probabilities)
     return Projection(
         id=plan_id(task),
@@ -124,7 +111,7 @@ def project(
 
 
 def plan_id(task: str) -> str:
-    """A short name for this plan: the first words of the task, and the day."""
+    """This function makes a short plan ID from the task words and date."""
     words = [w for w in "".join(c if c.isalnum() else " " for c in task).split()[:4] if w]
     stem = "-".join(w.lower() for w in words) or "plan"
     return f"{time.strftime('%Y%m%d')}-{stem}"
@@ -153,18 +140,20 @@ def load(cfg: Config, plan: str) -> dict[str, Any] | None:
 
 
 def saved(cfg: Config) -> list[str]:
-    """Every plan written here, newest name last."""
+    """This function lists stored plans in name order."""
     folder = cfg.root / ".systemap/plans"
     return sorted(p.stem for p in folder.glob("*.json")) if folder.is_dir() else []
 
 
 def touched(base: dict[str, Any], head: dict[str, Any], owner: dict[str, str]) -> set[str]:
-    """The cards whose modules the change touched: edited, added or removed."""
+    """This function finds components with edited, added, or removed modules."""
     b, h = base.get("components", {}), head.get("components", {})
     moved = {m for m in set(b) & set(h) if b[m].get("sha") != h[m].get("sha")}
     return {owner[m] for m in moved | (set(b) ^ set(h)) if m in owner}
 
 
 def check(projected: list[str], changed: set[str]) -> tuple[list[str], list[str]]:
-    """What changed and was not projected, and what was projected and did not change."""
+    """This function finds unplanned changed components and planned components without
+    changes.
+    """
     return sorted(changed - set(projected)), sorted(set(projected) - changed)

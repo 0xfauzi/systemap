@@ -1,27 +1,14 @@
-"""The one door to a coding agent: a question and the structure, prose back.
+"""The interface that supplies questions to a configured coding agent.
 
-Some of what systemap has to say is prose that only a reader of the code can
-write: what a change means for a journey, what a trend over a year amounts
-to. systemap works out the structure itself and asks an agent to put it into
-words, the way it asks Jev for a judgement.
+systemap asks the agent to write explanations from source facts.
+Set the agent command under `[agent]` in `systemap.toml`.
+The command reads its question from stdin and writes its answer to stdout.
+For a JSON answer, systemap reads the string in the `result` field.
 
-The agent is a command you name, so systemap depends on none in particular:
-
-    [agent]
-    command = "claude -p"
-
-It is run with the question on stdin and the repository as its directory;
-what it writes on stdout is the prose. A command that answers in JSON (for
-example `claude -p --output-format json`) is understood too: the `result`
-field is taken.
-
-Nothing runs unless a command is set. When none is, the command that wanted
-prose prints its structure and says what is missing, and no command fails
-for the want of an agent: prose is never a gate.
-
-Every answer is cached on disk (`[agent] cache`), keyed by the command, the
-question and the structure, so a second run over an unchanged map costs
-nothing and a report can be printed again for free.
+Every question includes the mandatory ASD-STE100 language policy.
+The cache key includes the command, policy, question, and context.
+A policy change makes old answers unavailable to new requests.
+Without a configured agent, systemap shows facts and the missing configuration.
 """
 
 from __future__ import annotations
@@ -32,6 +19,7 @@ import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -41,15 +29,18 @@ from systemap.jev import Cache
 TIMEOUT = 300.0
 # What a command may write before systemap stops reading it: prose, not a file.
 OUTPUT_CAP = 200_000
+LANGUAGE_POLICY = (
+    resources.files("systemap").joinpath("skill/references/language.md").read_text(encoding="utf-8")
+)
 NO_AGENT = (
-    "no agent is set, so this is the structure without the prose. "
-    'Name one under [agent] in systemap.toml, for example command = "claude -p", '
-    "and the same report comes back written out."
+    "No agent is configured. The output contains facts without an agent explanation. "
+    'Set the command under [agent] in systemap.toml, for example command = "claude -p". '
+    "Then run the command again."
 )
 
 
 class AgentError(Exception):
-    """The agent could not be run, or it failed; the message says which."""
+    """A failure to start the agent or get its answer."""
 
 
 def cache_key(command: str, question: str, context: Any) -> str:
@@ -58,7 +49,7 @@ def cache_key(command: str, question: str, context: Any) -> str:
 
 
 def _prose(output: str) -> str:
-    """The prose the agent wrote: its stdout, or the `result` of a JSON answer."""
+    """The agent answer from stdout or the JSON `result` field."""
     text = output.strip()
     if not text.startswith("{"):
         return text
@@ -73,7 +64,7 @@ def _prose(output: str) -> str:
 
 @dataclass
 class Usage:
-    """What a run cost: agent calls, answers from the cache, seconds spent."""
+    """The count of agent calls, cached answers, and elapsed seconds."""
 
     called: int = 0
     cached: int = 0
@@ -82,8 +73,8 @@ class Usage:
 
     def line(self) -> str:
         return (
-            f"agent: {self.called} run, {self.cached} from the cache; "
-            f"{self.seconds:.1f}s; {self.command or 'no agent called'}"
+            f"agent: {self.called} calls, {self.cached} cached answers. "
+            f"{self.seconds:.1f}s. {self.command or 'no agent call'}"
         )
 
 
@@ -91,7 +82,7 @@ Run = Any  # (command, question, cwd, timeout) -> str; the tests pass their own.
 
 
 def shell_run(command: str, question: str, cwd: Path, timeout: float) -> str:
-    """The real transport: the command, with the question on stdin."""
+    """Execute the configured command with the question on stdin."""
     try:
         done = subprocess.run(  # noqa: S603 - the command is the maintainer's own configuration
             shlex.split(command),
@@ -103,18 +94,18 @@ def shell_run(command: str, question: str, cwd: Path, timeout: float) -> str:
             check=False,
         )
     except FileNotFoundError as exc:
-        raise AgentError(f"the agent command could not be run: {exc}") from exc
+        raise AgentError(f"The agent command could not start: {exc}") from exc
     except subprocess.TimeoutExpired as exc:
-        raise AgentError(f"the agent did not answer within {timeout:.0f}s") from exc
+        raise AgentError(f"The agent did not answer within {timeout:.0f}s") from exc
     if done.returncode != 0:
         tail = (done.stderr or done.stdout or "").strip()[-300:]
-        raise AgentError(f"the agent exited {done.returncode}: {tail}")
+        raise AgentError(f"The agent stopped with exit code {done.returncode}: {tail}")
     return done.stdout[:OUTPUT_CAP]
 
 
 @dataclass
 class Agent:
-    """Ask one agent for prose, from the cache when it can."""
+    """Get an agent answer or a cached answer for the same request."""
 
     command: str
     root: Path
@@ -124,7 +115,8 @@ class Agent:
     usage: Usage = field(default_factory=Usage)
 
     def ask(self, question: str, context: Any = None) -> str:
-        """The prose for this question, run once and remembered."""
+        """Get an answer under the mandatory language policy."""
+        question = f"{LANGUAGE_POLICY}\n\n{question}"
         key = cache_key(self.command, question, context)
         held = self.cache.entries.get(key)
         if isinstance(held, dict) and isinstance(held.get("prose"), str):
@@ -142,7 +134,7 @@ class Agent:
 
 
 def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
-    """The agent this project names. Raises AgentError when it names none."""
+    """Get the configured agent. Raise AgentError if no command is configured."""
     if not cfg.agent_command.strip():
         raise AgentError(NO_AGENT)
     return Agent(

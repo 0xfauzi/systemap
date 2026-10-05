@@ -58,8 +58,8 @@ def test_sample_every_flow_has_a_relation_and_a_layer() -> None:
     assert meaning.verb_for(("User", "Reader"), "data", True) == "types into"
     assert meaning.verb_for(("Parser", "Writer"), "data", False) == "receives from"
     # A standard layer the model gives no verbs has its own.
-    assert meaning.verb_for(("Reader", "Parser"), "control", True) == "drives"
-    assert meaning.verb_for(("Reader", "Parser"), "control", False) == "is driven by"
+    assert meaning.verb_for(("Reader", "Parser"), "control", True) == "starts"
+    assert meaning.verb_for(("Reader", "Parser"), "control", False) == "receives control from"
 
 
 def test_layers_are_standard_then_the_models_own() -> None:
@@ -83,7 +83,7 @@ def test_layers_are_standard_then_the_models_own() -> None:
     # A model with no custom kind needs no layers, no layer_of_kind, no verbs.
     bare = Meaning(plain=meaning.plain, relations=meaning.relations)
     assert bare.layer_for(("A", "B"), "data") == "data"
-    assert bare.verb_for(("A", "B"), "tools", True) == "invokes"
+    assert bare.verb_for(("A", "B"), "tools", True) == "calls"
     with pytest.raises(KeyError):
         bare.layer_for(("A", "B"), "record")
 
@@ -94,7 +94,7 @@ def test_a_custom_layer_may_not_take_a_standard_id() -> None:
         meaning, layers=(*meaning.layers, Layer("data", "Data"), Layer("all", "All"))
     )
     found = "\n".join(meaning_problems(model, clash))
-    assert "layer data is a standard layer; it is derived, not declared" in found
+    assert "layer data is a standard layer. Do not declare it as a custom layer" in found
     assert "layer all is a standard layer" in found
 
 
@@ -163,7 +163,7 @@ def test_layout_problems_find_lies() -> None:
     )
     found = "\n".join(bad.layout_problems())
     assert "A overlaps B" in found
-    assert "names an unknown component" in found
+    assert "has an unknown component" in found
     assert (
         "has kind unknown, which is neither standard (data, control, context, tool) "
         "nor declared in flow_kinds"
@@ -177,9 +177,9 @@ def test_one_flow_per_ordered_pair() -> None:
         model, flows=(*model.flows, Flow("A", "B", "another thing", "work"))
     )
     assert doubled.layout_problems() == [
-        "flow A -> B appears twice ('thing' and 'another thing'); one flow per ordered "
-        "pair: pick the artifact that matters, or draw one each way when something "
-        "travels back"
+        "flow A -> B appears twice ('thing' and 'another thing'). "
+        "Each ordered pair can have only one flow. "
+        "Select one artifact, or add a reverse flow for a return artifact"
     ]
     # The other direction is its own pair.
     both_ways = dataclasses.replace(model, flows=(*model.flows, Flow("B", "A", "reply", "work")))
@@ -198,7 +198,7 @@ def test_two_invariants_with_one_number_are_refused_with_both_quoted() -> None:
     )
     assert doubled.layout_problems() == [
         "invariant 1 is numbered twice: 'The writer never reads the input.' and 'Nothing is "
-        "fetched at run time.'; give each rule its own number"
+        "fetched at run time.'. Give each rule its own number"
     ]
     assert model.layout_problems() == []
 
@@ -216,11 +216,11 @@ def test_meaning_problems_find_gaps() -> None:
     found = "\n".join(meaning_problems(model, gappy))
     assert "flow A -> B has no sentence" in found
     assert "kind work with no layer" in found
-    assert "relations names a flow the model does not have: B -> A" in found
+    assert "relations has an unknown flow: B -> A" in found
     assert "B has no plain word" in found
-    assert "journey j step 1 acts names unknown component Z" in found
-    assert "traces a flow the model does not have" in found
-    assert "verb_overrides names an unknown flow" in found
+    assert "journey j step 1 acts has unknown component Z" in found
+    assert "has an unknown flow" in found
+    assert "verb_overrides has an unknown flow" in found
 
 
 def test_module_matches_exact_and_subtree() -> None:

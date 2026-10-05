@@ -1,17 +1,9 @@
-"""What each line means, why it matters, and what to do: the teaching under the report.
+"""The explanations for diagnostic lines give their meaning, their importance, and the
+necessary action.
 
-A line systemap prints is short, so that it can be answered word for word
-and so a long report stays readable. Short is not the same as clear. Under
-each line, these three sentences say what was found, why it matters to
-someone keeping an accurate view of the system, and what to do next.
-
-The line itself never changes here. It is the name of the finding: the
-maintainer quotes it in `[judgement] answered`, and some are read back by
-code. This module adds to it and replaces nothing.
-
-`systemap explain <kind>` prints one entry whole. Every command that prints
-lines prints the `why` and the `do` under each one, and `--brief` leaves
-them out for someone who already knows them.
+The diagnostic line is an identifier for exact answers. This module does not change the
+identifier. `systemap explain KIND` prints the full explanation. The `--brief` option
+omits the explanation rows.
 """
 
 from __future__ import annotations
@@ -23,7 +15,7 @@ INDENT = "      "
 
 @dataclass(frozen=True)
 class Lesson:
-    """One kind of line, taught: what it is, why it matters, what to do."""
+    """An explanation gives the meaning, importance, and action for one diagnostic kind."""
 
     means: str
     why: str
@@ -37,150 +29,128 @@ class Lesson:
 
 JUDGEMENT = {
     "single module": Lesson(
-        means="A card claims one module, so the card and the file say the same thing.",
-        why=(
-            "A card per file tells a reader nothing the file tree does not already tell "
-            "them, and the map then grows as fast as the code does."
-        ),
+        means="A component contains one module.",
+        why=("A component for each file gives no information that the file tree does not give."),
         do=(
-            "Keep the card if a reader would point at it and name it on its own. Otherwise fold "
-            "the module into the card whose job it serves."
+            "Keep the component if it has a different task. Otherwise, put the module in "
+            "the component for its task."
         ),
     ),
     "possible mis-fold": Lesson(
         means=(
-            "A module sits in a card that shares no word with it, and none of that card's other "
-            "modules is in its package."
+            "The module and its component have no same word. The other modules of the "
+            "component are in different packages."
         ),
         why=(
-            "A card is a promise that its modules do one job. A module that does another job "
-            "hides inside that promise, and the next reader trusts the card instead of the code."
+            "A component has one task. A module with a different task can make the "
+            "component description incorrect."
         ),
         do=(
-            "Read the module and move it to the card whose job it carries out, or answer why it "
-            "belongs where it is, so the next run does not ask again."
+            "Read the module. Put it in the component for its task, or record the "
+            "reason for its component at this snapshot."
         ),
     ),
     "no sentence": Lesson(
-        means="A flow is drawn between two cards, but nothing says what it means.",
-        why=(
-            "An arrow on its own tells a reader that two parts touch, not what passes between "
-            "them. The sentence is where the map stops being a diagram and starts explaining."
-        ),
+        means="A flow connects two components, but it has no description.",
+        why=("A flow without a description does not tell the reader which data moves or why."),
         do=(
-            "Write one sentence from the sending side, naming what travels and why the receiving "
-            "card needs it."
+            "Write a sentence about the source component. Give the artifact name and the "
+            "reason that the destination component uses it."
         ),
     ),
     "thin layer": Lesson(
-        means="A layer of the map holds fewer than two cards, so it shows almost nothing.",
+        means="A layer has less than two components.",
         why=(
-            "A layer is a promise that the system can be looked at that way. A layer with one "
-            "card in it makes that promise and does not keep it."
+            "A layer with one component gives little information about the connections in "
+            "the system."
         ),
-        do=(
-            "Add the flows that layer is for, or answer that this system does not have that "
-            "view, which is itself worth knowing."
-        ),
+        do=("Add the flows for this layer, or give the reason that this layer is not necessary."),
     ),
     "entry point": Lesson(
-        means="Something can start a run here, and no journey walks from it.",
+        means="An entry point has no sequence.",
         why=(
-            "An entry point is where a person or another system meets yours. If no journey walks "
-            "from it, the map cannot answer the first question a newcomer asks: what happens when "
-            "I do this?"
+            "An entry point starts a system operation. Without a sequence, the map does "
+            "not give the steps of this operation."
         ),
         do=(
-            "Write the journey, step by step, from the entry point to where the result lands. Or "
-            "answer why this way in does not matter to a reader."
+            "Write the sequence from the entry point to the result. Or give the reason "
+            "that no sequence is necessary."
         ),
     ),
     "journey start": Lesson(
-        means="A journey says it starts at a way in the facts do not have.",
+        means="A sequence starts at an entry point that the facts do not contain.",
         why=(
-            "The point of naming the way in is that the map can say which ways in are walked "
-            "and which are not. A name nothing matches leaves a real way in looking covered."
+            "An incorrect entry point name prevents the map from showing which entry "
+            "points have sequences."
         ),
         do=(
-            "Name the way in as the facts name it (`systemap facts --entry-points` lists them), "
-            "or leave `starts` empty."
+            "Use the entry point name from `systemap facts --entry-points`, or leave "
+            "`starts` empty."
         ),
     ),
     "drafted journey": Lesson(
-        means="`systemap journeys` wrote this walk, and nobody has read it yet.",
+        means=(
+            "`systemap journeys` wrote this sequence, but the sequence must have a source review."
+        ),
         why=(
-            "An agent read the code and wrote what it found. It is a draft, and a draft that "
-            "nobody checks is how a map starts saying things its maintainer never agreed to."
+            "A coding agent wrote the sequence from the code. The maintainer must make "
+            "sure that the sequence is correct."
         ),
         do=(
-            "Walk it against the code. Fix what is wrong, then set `drafted=False` on it, or "
-            "answer the line with what you checked."
+            "Compare the sequence with the code. Correct the errors. Then set "
+            "`drafted=False`, or answer the line with your source review."
         ),
     ),
     "crossing import": Lesson(
         means=(
-            "Modules of one card import modules of another, and no flow on the map joins those "
-            "two cards."
+            "A module of one component imports a module of another component. No flow "
+            "connects these components."
         ),
         why=(
-            "The code has a connection the map does not show. Every reader who trusts the map "
-            "will be "
-            "surprised by it, and every change that follows it will look unrelated."
+            "The code has a connection that the map does not show. This connection can "
+            "affect a change to the system."
         ),
         do=(
-            "Draw the flow and write its sentence, regroup the modules if the two cards are "
-            "really one, or answer that the import carries nothing a reader needs."
+            "Add the flow and its description. Or put the modules in one component, or "
+            "record why the import does not make a flow necessary."
         ),
     ),
     "declared flow": Lesson(
-        means=(
-            "A flow is drawn that no import backs, and its sentence names no mechanism that "
-            "would carry it."
-        ),
-        why=(
-            "A map that draws connections it has no evidence for is asking to be believed. "
-            "Once one edge is unsupported, a reader cannot tell which of the others are real."
-        ),
+        means=("A flow has no import evidence. Its description has no specified mechanism."),
+        why=("Without evidence, the reader cannot know if the flow is correct."),
         do=(
-            "Find the code that carries it, or name the mechanism (a queue, a file, a "
-            "subprocess) in the sentence and list it under `[flows] observed_by`. If neither "
-            "exists, remove the flow."
+            "Find the source code. Or give the mechanism in the description and in "
+            "`[flows] observed_by`. Otherwise, remove the flow."
         ),
     ),
     "flow review": Lesson(
-        means="An import, shared module, or mechanism word is present for this flow.",
+        means="A flow has an import, a shared module, or a specified mechanism word.",
         why=(
-            "That structure does not establish the flow's direction, artifact, or runtime "
-            "behavior. A source citation must match the current source and claim."
+            "This structure does not give evidence of the direction, data, or runtime "
+            "behavior. Source references must agree with the source and claim."
         ),
         do=(
-            "Read the source, cite it with current digests, and revise the flow if its claim "
-            "is wrong."
+            "Read the source. Record the source references with correct digests. If the "
+            "claim is incorrect, change the flow."
         ),
     ),
     "model sdk": Lesson(
-        means="A module calls a model SDK, and its card is not marked as one that calls a model.",
-        why=(
-            "Where a system calls a model is the thing a reader most wants marked. Unmarked, "
-            "the cost, the latency and the failure mode of that call are invisible on the map."
-        ),
+        means="A module imports a model SDK, but its component has no model-call marker.",
+        why=("The map must show model calls. These calls can have a cost, a delay, and errors."),
         do=(
-            "Make the card an agent or set `calls_model`, draw the flow to the model, or answer "
-            "citing the rule your repository follows."
+            "Set the component kind to `agent` or set `calls_model`. Add the model flow, "
+            "or record the applicable repository rule."
         ),
     ),
     "unknown surface": Lesson(
-        means=(
-            "The TypeScript reader found a module or package target it could not map with "
-            "confidence."
-        ),
+        means=("The TypeScript parser could not identify a module or package target."),
         why=(
-            "If an unreadable export or import is treated as absent, the facts hide a real part "
-            "of the public surface or its connections."
+            "If the facts omit an export or import, the public interface or its "
+            "connections can be incorrect."
         ),
         do=(
-            "Read the source excerpt. Add support for its syntax, or narrow the configured source "
-            "roots when the file is not part of the application."
+            "Read the source excerpt. Add parser support for the syntax, or remove "
+            "unrelated files from the source roots."
         ),
     ),
 }
@@ -189,115 +159,113 @@ JUDGEMENT = {
 
 DELTA = {
     "moved": Lesson(
-        means="A module is at a new path, and systemap worked out which old module it was.",
-        why=(
-            "A card that still names the old path claims a module that no longer exists, so the "
-            "map quietly stops covering that code."
+        means="A module has a different path. systemap identified the module at its previous path.",
+        why=("A component with the previous path no longer contains the module."),
+        do=(
+            "Change the module claim to the new name, or put the module in the component "
+            "for its task at this snapshot."
         ),
-        do="Rename the claim in the model, or claim the new module in the card it now belongs to.",
     ),
     "added": Lesson(
-        means="A module is new since the base commit.",
-        why=(
-            "A module no card claims is a part of the system the map does not show. It is how "
-            "a map stops being complete, and a map that is nearly complete is one a reader has "
-            "to check."
-        ),
+        means="The head commit contains a module that the base commit does not contain.",
+        why=("Without a component for the module, the map omits part of the system."),
         do=(
-            "Name it in the card whose job it carries out, or ignore it with a reason under "
-            "`[coverage]`."
+            "Add the module to the component for its task, or give a reason to ignore it "
+            "in `[coverage]`."
         ),
     ),
     "removed": Lesson(
-        means="A module the map names is gone from the tree.",
+        means="The map contains a module claim, but the source tree no longer contains the module.",
         why=(
-            "A claim on code that no longer exists makes the card look bigger than it is, and "
-            "the coverage count stops meaning anything."
+            "A claim for a missing module makes the component description and coverage "
+            "count incorrect."
         ),
-        do="Drop the claim from the card, or remove the card if its job left with the module.",
+        do="Remove the module claim. If the component no longer has a task, remove the component.",
     ),
     "next to the change": Lesson(
         means=(
-            "The cards one flow away from the card this change landed in most, whichever way "
-            "the artifact travels."
+            "These components have a flow to or from the component with the most changed modules."
         ),
         why=(
-            "A diff shows the code that changed. It does not show what sits against it, and "
-            "the parts that break are usually the ones that already exchanged something with "
-            "it. This "
-            "is the short version of that question: 6 cards at the median over 359 pull "
-            "requests, holding a card the change really touched in 72% of them."
+            "A diff shows changed code. Connected components give context. In 359 pull "
+            "requests, the median was 6 components and 72% included a changed component."
         ),
         do=(
-            "Read it as context, not as a warning. If something is wrong after this change, "
-            "look here first; if nothing is, there is nothing to do."
+            "Use this information as context. If an error occurs after the change, examine "
+            "these components first."
         ),
     ),
     "entry vanished": Lesson(
-        means="A card names an entry that its modules no longer define.",
+        means="A component specifies an entry that its modules no longer define.",
         why=(
-            "The entry is the one public name a reader is told to start from. When it is gone, "
-            "the card sends every newcomer to a name that is not there."
+            "The entry tells the reader where to start. A missing entry cannot start the operation."
         ),
-        do="Set the entry to a public name the card's modules define today.",
+        do="Set the entry to a public name in the modules at this snapshot of the component.",
     ),
     "interface vanished": Lesson(
-        means="A card names an interface its modules no longer define.",
+        means="A component specifies an interface that its modules no longer define.",
         why=(
-            "The interface is what other parts are promised. A promise the code dropped is worse "
-            "than no promise, because callers still believe it."
-        ),
-        do="Point the interface at what the card offers now, or drop it if it offers nothing.",
-    ),
-    "new crossing import": Lesson(
-        means="This change added an import across a card boundary that no flow joins.",
-        why=(
-            "This is the moment an architecture changes: two parts that did not depend on each "
-            "other now do. Decided here, it is a design choice; found later, it is a surprise."
+            "Other components can use this interface. A missing interface makes the map incorrect."
         ),
         do=(
-            "Draw the flow with its sentence if the connection is meant, move the code if it is "
-            "not, or answer that it carries nothing a reader needs."
+            "Set the interface to a public name at this snapshot, or remove the interface "
+            "if the component has none."
+        ),
+    ),
+    "new crossing import": Lesson(
+        means=(
+            "The change added an import across a component boundary. No flow connects "
+            "these components."
+        ),
+        why=("The code now has a connection that the map does not show."),
+        do=(
+            "If the connection is correct, add the flow and its description. Otherwise, "
+            "change the code or record why no flow is necessary."
         ),
     ),
     "evidence lost": Lesson(
-        means="A flow that an import used to back has no import behind it any more.",
+        means="An import previously gave evidence for a flow. That import is now missing.",
         why=(
-            "Either the connection is gone and the map is now drawing something that does not "
-            "happen, or it moved to a mechanism the map cannot see."
+            "The flow can be missing, or it can use a different mechanism that the map "
+            "does not show."
         ),
         do=(
-            "Remove the flow, or name the mechanism that carries it now in its sentence and "
-            "under `[flows] observed_by`."
+            "Remove the flow, or give its mechanism at this snapshot in the "
+            "description and in `[flows] observed_by`."
         ),
     ),
     "source review": Lesson(
-        means="A card's claimed modules changed, or a claimed module's parsed code changed.",
+        means=(
+            "The modules of a component changed, or the parsed code of one of its modules changed."
+        ),
         why=(
-            "Imports and public signatures do not show every behavior change. The card's "
-            "description, flows, journeys and invariants may now describe the old behavior."
+            "Imports and public signatures do not give all behavior changes. The component "
+            "description and related claims can now be incorrect."
         ),
         do=(
-            "Read the changed source, correct the card's claims, then record its "
-            "source_review digest as described in the maintenance guide."
+            "Read the changed source. Correct the claims. Then record the `source_review` "
+            "digest as the maintenance guide specifies."
         ),
     ),
     "source evidence lost": Lesson(
-        means="A flow's reviewed source no longer establishes its claim at this snapshot.",
-        why="An import can remain even when the reviewed direction or artifact has changed.",
-        do="Read the changed source, update the flow's claims and record fresh source references.",
+        means=(
+            "The source review of a flow no longer gives evidence for its claim in this snapshot."
+        ),
+        why="An import can stay the same when the flow direction or data changes.",
+        do="Read the changed source. Correct the flow claims. Then record new source references.",
     ),
     "move candidate": Lesson(
         means=(
-            "A removed and an added module share public names, but their identities are uncertain."
+            "A removed module and an added module have some of the same public names. "
+            "Their identities are not known."
         ),
-        why="Common names such as `run` can occur in unrelated modules.",
-        do="Compare the source and choose a move only when the same responsibility continued.",
+        why="Names such as `run` can occur in unrelated modules.",
+        do="Compare the source. Accept a module move only if the module task stayed the same.",
     ),
     "structural evidence lost": Lesson(
-        means="An import, shared module, or declared mechanism behind a flow is no longer present.",
-        why="The claim may still be true, but its former supporting structure is gone.",
-        do="Read the changed source and update or remove the flow claim.",
+        means="An import, shared module, or specified mechanism for a flow is now missing.",
+        why="The claim can still be correct, but its previous structure no longer gives evidence.",
+        do="Read the changed source. Then change or remove the flow claim.",
     ),
 }
 
@@ -305,55 +273,57 @@ DELTA = {
 
 AUDIT = {
     "jev mis-fold": Lesson(
-        means="Jev answers that this module does the job of a different card.",
+        means="Jev gives a different component for the task of this module.",
         why=(
-            "The word rule behind `possible mis-fold` only sees names. Jev read the code, so it "
-            "catches a module that was folded in by habit rather than by purpose."
+            "The `possible mis-fold` rule uses names only. Jev reads the code to find "
+            "modules in incorrect components."
         ),
         do=(
-            "Read the module against both cards and move it, or answer why it belongs. It is a "
-            "question, not a verdict."
+            "Compare the module with both components. Move it, or record the reason "
+            "for its component at this snapshot."
         ),
     ),
     "jev owner": Lesson(
-        means="No card claims this module, and Jev says which card it reads like.",
-        why="Until it is claimed, part of the system is missing from the view the map gives.",
+        means="No component contains this module. Jev gives a possible component.",
+        why="Without a component for the module, the map omits part of the system.",
         do=(
-            "Claim it in the card named, or in one of the closest three, or ignore it with "
-            "a reason."
+            "Add the module to the specified component or one of the three nearest "
+            "components. Or give a reason to ignore it."
         ),
     ),
     "jev sentence": Lesson(
-        means="Jev answers that the card's sentence probably does not describe its modules.",
+        means="Jev gives a possible error in the component description.",
         why=(
-            "The sentence is what a reader believes without opening the code. A sentence that "
-            "drifted from its modules teaches them something untrue."
-        ),
-        do="Reread the modules and rewrite the sentence, or answer why it still holds.",
-    ),
-    "jev flow": Lesson(
-        means=(
-            "Jev answers that the code where these two cards meet probably does not carry "
-            "what the flow claims."
-        ),
-        why=(
-            "An edge that the code does not carry is a connection the reader will look for and "
-            "not find."
+            "An incorrect component description gives the reader incorrect information "
+            "about the modules."
         ),
         do=(
-            "Find the call that carries it. A call made through an instance is not in Jev's "
-            "evidence, so a real flow can be doubted for that alone: answer it when that is why."
+            "Read the modules again. Correct the description, or record the reason that it "
+            "is still correct."
+        ),
+    ),
+    "jev flow": Lesson(
+        means=("Jev gives a possible difference between the code and the flow claim."),
+        why=(
+            "An incorrect flow tells the reader that a connection is available when the "
+            "code has no such connection."
+        ),
+        do=(
+            "Find the call for the flow. Jev has no instance-call evidence. If the flow "
+            "uses an instance call, record that reason."
         ),
     ),
     "jev governs": Lesson(
-        means="Jev answers that this rule governs a card the rule does not name.",
+        means=(
+            "Jev gives a component that a rule can affect. The rule does not name that component."
+        ),
         why=(
-            "A rule lists the cards whose code must keep it true. A card missing from that list "
-            "can break the rule with nobody warned."
+            "A missing component in the rule scope can let a change cause an error without "
+            "a notice."
         ),
         do=(
-            "Add the card to the rule's `governs` when a change to it could break the rule, "
-            "or answer why it cannot."
+            "If a change to the component can make the rule incorrect, add the component "
+            "to `governs`. Otherwise, record the reason."
         ),
     ),
 }
@@ -362,79 +332,77 @@ AUDIT = {
 
 CHECK = {
     "coverage": Lesson(
-        means="Some module is claimed by no card, or by two.",
+        means="A module has no component, or it has more than one component.",
         why=(
-            "Coverage is what lets the map say `this is the system` rather than `this is some of "
-            "it`. A module claimed twice makes two cards look bigger than they are."
+            "Coverage shows which modules the map contains. Multiple claims for one module "
+            "make the component sizes incorrect."
         ),
         do=(
-            "Claim every module once, or ignore it with a reason under `[coverage]` in "
-            "`systemap.toml`."
+            "Add each module to one component, or give a reason to ignore it in "
+            "`[coverage]` in `systemap.toml`."
         ),
     ),
     "map layout": Lesson(
-        means="A card, label, region or route breaks a rule the drawing has to keep.",
+        means="A component, label, region, or route does not obey a map rule.",
         why=(
-            "The picture is read at a glance. Text too small to read, or an edge crossing a "
-            "region it has nothing to do with, teaches the wrong thing before any caption can "
-            "correct it."
+            "Small text or incorrect routes can give the reader incorrect information "
+            "about the system."
         ),
-        do="Run `systemap place` after adding or removing a card, then fix what the check names.",
+        do="After a component change, use `systemap place`. Then correct the reported errors.",
     ),
     "map routes": Lesson(
-        means="An edge is drawn through a card it does not connect, or across a region it does "
-        "not belong to.",
-        why=(
-            "A reader follows a line with their eye. A line that passes through a card suggests "
-            "a relationship that is not there."
-        ),
+        means="An edge crosses an unrelated component or region.",
+        why=("An edge across an unrelated component can show a connection that does not occur."),
         do=(
-            "Give the routes room: move a card, or let `systemap place --all` lay the map "
-            "out again."
+            "Move a component to give the route sufficient space, or use `systemap place "
+            "--all` to set the positions again."
         ),
     ),
     "nesting": Lesson(
-        means="A map inside a card does not claim exactly that card's modules.",
+        means="A map inside a component does not contain the same modules as that component.",
         why=(
-            "The map inside a card is a promise that the card is the whole of what is below it. "
-            "If they differ, two maps describe the same code differently."
+            "The nested map must give the internal structure of its component. Different "
+            "module sets give different descriptions of the same code."
         ),
-        do="Claim exactly the card's modules in the sub-map, and make its actors the cards around.",
+        do=(
+            "Give the nested map the same module set as the component. Use the connected "
+            "parent components as its actors."
+        ),
     ),
     "entry": Lesson(
-        means="A card names an entry its modules do not define.",
-        why="The entry is where a reader starts reading the card; it has to exist.",
-        do="Name a public name one of the card's modules defines.",
+        means="A component specifies an entry that its modules do not define.",
+        why="The entry tells the reader where to start. The entry must occur in the code.",
+        do="Use a public name in one of the modules of the component.",
     ),
     "interface": Lesson(
-        means="A card names an interface its modules do not define.",
-        why="The interface is what the card promises other parts; it has to exist.",
-        do="Name what the card's modules offer today.",
+        means="A component specifies an interface that its modules do not define.",
+        why="Other components use the interface. The interface must occur in the code.",
+        do="Use a public interface in the modules at this snapshot of the component.",
     ),
     "stale": Lesson(
-        means="The rendered page or the facts no longer match the model or the tree.",
-        why="A map that is not rebuilt describes the code as it was, not as it is.",
-        do="Run `systemap refresh`, then commit the output directory.",
+        means="The page or facts differ from the model or source tree.",
+        why="A page without the latest changes can give an incorrect description of the code.",
+        do="Use `systemap refresh`. Then commit the output directory.",
     ),
     "source inventory unresolved": Lesson(
-        means="A discovered source or test file could not be parsed completely.",
-        why="A missing file can hide ownership, imports, entries, or tests.",
-        do="Use a compatible parser or fix the source, then refresh the facts.",
+        means="The parser could not read all of a source file or test file.",
+        why="A missing file can omit ownership, imports, entries, or tests from the facts.",
+        do="Use a compatible parser, or correct the source. Then use `systemap refresh`.",
     ),
     "extraction inputs changed": Lesson(
-        means="Configuration or parser inputs changed after the facts were written.",
-        why="The same source may now produce a different module graph.",
-        do="Run `systemap refresh` and review the changed facts.",
+        means="The configuration or parser inputs changed after systemap wrote the facts.",
+        why="The same source can now give a different module graph.",
+        do="Use `systemap refresh`. Then read the changed facts.",
     ),
     "entry point targets changed": Lesson(
-        means="An entry name now resolves to a different source target.",
-        why="A journey may begin at code different from what the map recorded.",
-        do="Run `systemap refresh` and review entry coverage.",
+        means="An entry point name now has a different source target.",
+        why="A sequence can now start at code that differs from the recorded target.",
+        do="Use `systemap refresh`. Then examine entry point coverage.",
     ),
     "derived facts changed": Lesson(
         means="Imports or other extracted facts changed for a module.",
-        why="A source hash alone does not explain which map claims changed.",
-        do="Run `systemap refresh` and review the affected cards and flows.",
+        why="A source hash does not show which map claims changed.",
+        do="Use `systemap refresh`. Then examine the related components and flows.",
     ),
 }
 
@@ -446,20 +414,20 @@ def lesson(kind: str) -> Lesson | None:
 
 
 def rows(kind: str, indent: str = INDENT) -> list[str]:
-    """The `why` and `do` rows for a kind; nothing when the kind is not taught here."""
+    """This function gives the `why` and `do` rows for a known diagnostic kind."""
     found = LESSONS.get(kind)
     return found.rows(indent) if found else []
 
 
 def whole(kind: str) -> list[str]:
-    """One entry as `systemap explain` prints it."""
+    """This function gives the full explanation for `systemap explain`."""
     found = LESSONS.get(kind)
     if found is None:
         known = ", ".join(sorted(LESSONS))
         return [f"explain: there is no line kind called {kind!r}.", f"  the kinds are: {known}"]
     return [
         f"{kind}",
-        f"  what it means: {found.means}",
-        f"  why it matters: {found.why}",
-        f"  what to do:     {found.do}",
+        f"  meaning: {found.means}",
+        f"  importance: {found.why}",
+        f"  action: {found.do}",
     ]

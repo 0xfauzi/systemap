@@ -1,194 +1,132 @@
-# The second pass
+# Examine source claims after the draft
 
-The first draft is wrong in ways the checker cannot see. The check refuses
-contradictions: a card outside its band, a sentence naming a flow the model
-lacks, a module claimed by nobody. It cannot refuse an omission: an edge
-the code has and the map does not, an edge the map has and the code does
-not, a grouping by directory rather than by
-purpose, an entry point with no walk through it, a rule the README states
-and the model does not carry. The second pass finds those. Expect it to
-change the model; a second pass that changes nothing on the first try is
-the exception.
+The structural check finds contradictions, not every omission or incorrect meaning.
+Examine each component assignment and flow claim against source.
+Include modules that have no judgement finding.
+A shared package, word, or import does not show a common component function.
 
-Without Jev, inspect every module's card assignment. `possible mis-fold`
-selects modules by name and package, and it misses wrong assignments that
-share those features with the card. A quiet judgement report does not mean
-the card assignments are correct.
+Use the language policy in `language.md` throughout this procedure.
+Keep exact finding identifiers when you record answers.
 
-## The loop
+## Source examination procedure
 
-1. Run `systemap judgement`. Read every line. For each, do one of two
-   things: change the model, or answer it in `[judgement] answered` in
-   `systemap.toml` with a reason. An answered line is suppressed and
-   counted in the header; an answer that matches no line is reported as
-   stale, so remove it. Never leave a line unanswered. Seven forms,
-   each one table with one reason, one row each below:
+1. Run `systemap judgement`. Read each line.
+   Correct the model or record a source-supported reason under `[judgement] answered`.
+   Remove stale answers after a new examination of their evidence.
+   Do not leave unanswered lines.
+2. Examine every assigned module from `systemap facts --modules`.
+   Compare its source description and public symbols with the component's `does`, `plain`, and `interface`.
+   Read the module source when the facts do not establish its function.
+   If another component has the correct function, change the assignment.
+   If both assignments are incorrect, correct the component definitions first.
+   Record uncertain assignments and their source evidence for the maintainer.
+3. Examine every crossing import with `systemap judgement --verbose`.
+   Find the source import and identify the data transfer or call direction.
+   Add a supported flow, record why no flow is necessary, or correct the component assignments.
+   Type annotations and shared constants can be imports without a useful map flow.
+4. Examine every declared or structural flow.
+   Find the source that gives its direction and artifact.
+   Correct module assignments if the import belongs to a different component.
+   For a subprocess, queue, file, or HTTP operation, identify the mechanism in the relation sentence.
+   A configured word in `[flows] observed_by` gives structural evidence only.
+   Record current source references and a claim digest only after source examination.
+   Remove unsupported flows and their relation sentences.
+   If the extractor cannot see a real connection, record that specific limit.
+   A judgement answer must not change the flow's evidence state.
+5. Examine each uncovered entry point.
+   Write a source-supported sequence or record why the sequence is not necessary.
+   Use `journeys-and-invariants.md` for exact entry identities and step coverage.
+6. Examine each `model sdk` finding.
+   Use the repository's own agent definition when it exists.
+   Set `kind="agent"` for an agent or `calls_model=True` for another model-calling component.
+   Add the applicable context and tool flows.
+   If the import is a client capability, unused code, or a non-model framework module, record that evidence.
+   Import prefixes also match framework tool and session modules.
+   `[facts] model_sdks = ["-google.adk"]` removes that built-in prefix.
+   A `module_sdk = "google.adk"` policy answers matching findings without removal of the prefix.
+7. Read the repository's rules beside the invariant list.
+   Read README, AGENTS.md, CLAUDE.md, the documentation index, and the first level of docs/.
+   Stop further document reading when new rules apply only to source outside the repository.
+   Add each applicable rule with a source citation or record why it is not an invariant.
+8. Examine `docs/map/figures/structure.svg`, then `docs/map/figures/system.svg`.
+   Use `systemap serve` to open the page when a browser is available.
+   Examine near-crossing routes, misplaced labels, isolated regions, empty layers, and sequence gaps.
+   Read each relation sentence from the source component.
+   Correct generic sentences that do not give the actual action and result.
+9. Run `systemap check && systemap judgement --strict`, then `systemap refresh`.
+   A removed flow can reopen a crossing-import finding. Do the judgement check after every layout change.
+10. If the model changed, do this procedure again. Before completion, do the language acceptance procedure.
 
-   ```toml
-   [judgement]
-   answered = [
-       # item: the exact line as printed (here a declared flow that is real and joined by nothing in the tree)
-       { item = "declared flow: Gateway -> Renderer (render job): no import joins them; find the evidence, name the mechanism in the sentence, or remove it", reason = "the job crosses to the render container as an HTTP request; the client is generated at build time and is not in the tree", evidence = "<digest from pending answer>" },
-       # items: several exact lines, one reason
-       { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package", evidence = "<digest from pending answer>" },
-       # crossing: every crossing-import line between any two of these components, either direction
-       { crossing = ["Page", "Figures", "Describe"], policy = true, reason = "the three drawers share the schematic's tables; every pair among them" },
-       # crossing_into: every crossing import into one component, whoever imports it
-       { crossing_into = "Model", policy = true, reason = "every part imports the schema for its type names; the model itself reaches each through the edge the map draws" },
-       # crossing_from: every crossing import out of one component, whatever it imports
-       { crossing_from = "CLI", policy = true, reason = "the commands import every part they run; the control edges are the ones the map draws" },
-       # kind: every line of one kind (single module, possible mis-fold, no sentence,
-       # thin layer, entry point, crossing import, declared flow, model sdk)
-       { kind = "single module", policy = true, reason = "a small package with one module per part; each card is a thing a reader would name" },
-       # module_sdk: every model sdk line for one import
-       { module_sdk = "google.adk", policy = true, reason = "the framework's tool and session modules import it too; the agents are the cards of kind agent" },
-   ]
-   ```
+## Answer records
 
-   The digest in an exact answer must be the SHA-256 value printed by a
-   pending answer after reviewing its current evidence. The placeholders
-   above are not usable digests. An old exact answer without a digest stays
-   open. A broad answer is a standing policy only with `policy = true`.
-   Add `reviewed = ["<printed line>", ...]` to record the instances reviewed
-   when the policy was written. The report counts current matches outside
-   that baseline.
+Seven forms are available. Each table has one reason.
+These placeholders are illustrative. Replace each quoted line and digest with actual output after source examination.
 
-   The list can run past what one tool call shows. `systemap judgement
-   --kind "crossing import"` prints one kind at a time (the head still
-   counts every open line, and `--strict` reads them all).
+```toml
+[judgement]
+answered = [
+    { item = "<exact printed line>", reason = "The source operation uses an HTTP client outside the extracted package.", evidence = "<current evidence digest>" },
+    { items = ["<first exact line>", "<second exact line>"], reason = "Each component has a different function in this small package.", evidence = "<current evidence digest>" },
+    { crossing = ["Page", "Figures", "Describe"], policy = true, reason = "These components use shared diagram tables without another artifact transfer." },
+    { crossing_into = "Model", policy = true, reason = "Components import the schema for type annotations." },
+    { crossing_from = "CLI", policy = true, reason = "Commands import the components that their control flows call." },
+    { kind = "single module", policy = true, reason = "Each component has a different function in this small package." },
+    { module_sdk = "google.adk", policy = true, reason = "The framework also has tool and session modules without model calls." },
+]
+```
 
-2. Review every claimed module, including modules with no judgement line.
-   `systemap facts --modules` is the complete list. For each module, compare
-   its docstring and public names from `systemap facts --module NAME` with its
-   card's `does`, plain sentence and `interface`. Read the source when those
-   facts do not establish its job. Check whether another card describes that
-   job more precisely; if neither card does, change the cards before marking
-   the assignment reviewed. A shared package, word or import is evidence of
-   proximity, not proof of purpose. Record an ambiguous choice in the
-   hand-back with the code evidence and the reason for keeping it. This pass
-   covers every module because a rule that only prints suspects cannot find
-   the wrong assignment it never suspects.
+An exact answer must have the SHA-256 evidence digest for the current finding.
+A placeholder or old digest is not sufficient.
+A broad answer is a standing policy only with `policy = true`.
+Use `reviewed = ["<printed line>", ...]` to record its examined baseline.
+The report counts current matches outside that baseline.
+Do not use a broad policy to avoid source examination.
 
-3. Walk every crossing import. The line reads: `crossing import: P
-   imports Q in N modules and no flow joins them`, one line per ordered
-   pair of cards; `systemap judgement --verbose` lists the imports under
-   it (`module A imports module B`). Open A, find the import, and ask
-   what travels, or which side calls the other. Three outcomes:
-   - an edge the reader needs: add a `Flow` with its artifact and kind, and
-     its sentence in `relations`;
-   - an import the reader does not need on the map (a type imported for an
-     annotation, a shared constant): answer the line in the configuration
-     saying so;
-   - a grouping error: A and B belong in the same component, or A is in
-     the wrong one; regroup. This is the most common finding.
+For long lists, use `systemap judgement --kind "crossing import"`.
+The header still counts all unanswered lines. `--strict` also reads all lines.
 
-4. Walk every declared flow. The line reads: `declared flow: P -> Q
-   (artifact): no import joins them`. The map claims an edge the facts
-   do not back: no module of P imports a module of Q or the other way
-   round, and neither the sentence nor the artifact names a mechanism
-   listed under `[flows] observed_by`. Four outcomes:
-   - the import is there and the claims are wrong: a module of P or Q
-     belongs to another card; regroup, then review the flow's direction;
-   - the parts are joined by something other than an import (a
-     subprocess, a queue, a file on disk, an HTTP call): name it in the
-     sentence, and list the word under `[flows] observed_by` in
-     `systemap.toml` to record structural evidence. Review the source,
-     direction and artifact before citing it as an observed flow;
-   - the edge was inferred and is not there: remove the flow and its
-     sentence;
-   - the edge is real and nothing in the tree joins the two (the other
-     end is generated, or reached through a path the facts cannot see):
-     answer the line in the configuration, saying what joins them.
-   A declared flow draws dashed until one of these is done.
+## Every nested map
 
-5. Walk every entry point. The line reads: `entry point X has no journey`.
-   Either write the journey (references/journeys-and-invariants.md) or
-   answer why this entry point does not matter to a reader.
+Do this procedure for every map in the tree.
+Nested finding lines include the map identifier, for example `Gateway: single module: ...`.
+An exact `item` answer includes that prefix.
+Broad forms such as `kind`, `crossing`, and `module_sdk` apply across maps.
 
-6. Walk every model sdk line: `module X imports <sdk> and its component P
-   is not an agent`. Five outcomes: P runs a model and is an agent
-   (change its kind, and give it context and tool flows); P calls a model
-   once and is deliberately not an agent, by the repository's own rule
-   (set `calls_model=True` on it: the flag answers the line, its context
-   and tool flows draw, and the Agents layer leaves it out); the import
-   is a client the reader should see as a tool flow; it is dead; or the
-   line is answered in the configuration, citing the rule. When the
-   repository defines what counts as an agent (an AGENTS.md, a design
-   rule), that definition wins over the SDK prompt. The built-in list
-   matches import prefixes,
-   so a framework such as `google.adk` matches for its non-model parts;
-   `[facts] model_sdks = ["-google.adk"]` removes the entry, and
-   `module_sdk = "google.adk"` answers every line it raised.
+An import between two internal components belongs to their nested map.
+An import across its boundary belongs to the parent map's corresponding components.
+Entry points and SDK imports use the deepest map with the applicable source assignment.
+A sequence on any map can cover an exact entry identity.
 
-7. Walk every rule the documents state. One pass, with the invariant
-   list beside you, over the documents the repository points a newcomer
-   at: the README, AGENTS.md, CLAUDE.md, and a docs index or the first
-   level of docs/. Not the whole docs tree: stop when the rules still
-   being found govern parts that are not in the tree (a design for a
-   part not yet written, a policy for a service the map does not hold).
-   Each rule found is an invariant with a citation, or a note in your
-   hand-back saying why not.
+## Completion conditions
 
-8. Look at the rendered figures, `docs/map/figures/structure.svg` (the
-   parts in their places) and then `docs/map/figures/system.svg` (every
-   edge), and the page: `systemap serve` prints its URL. Look for: a
-   route that passes close to a card it does not connect; a label sitting
-   in the wrong gutter; a region holding one card (is it a region?); a
-   component whose plain words repeat its id; a layer that holds almost no
-   cards (does it answer a question?); a journey that jumps across the map
-   between steps (a missing step?); a dashed edge (a declared flow the
-   list above has not settled).
+All of these conditions must hold:
 
-9. Reread every sentence in `relations` from the source side. A sentence
-   that could be said of any edge ("A uses B") is not a sentence yet.
+- `systemap check` has complete coverage and no layout failures.
+- After `refresh`, there must be no `stale` finding.
+- `systemap judgement --strict` exits 0, with no unanswered findings or stale answers.
+- A complete source examination causes no further model changes.
+- Unread documentation has no rules for source in the repository.
+- The language acceptance procedure is complete for all changed names and sentences.
 
-10. Run `systemap check && systemap judgement --strict`, then `systemap
-   refresh`. Together every round: a layout fix that drops an edge
-   reopens the crossing-import lines the edge answered, and the judgement
-   in the same round is what sees it. Go to 1.
+Give the maintainer the recorded decisions and evidence limits from SKILL.md.
 
-## Every map
+## Jev source questions
 
-The pass runs on every map of the tree. `systemap judgement` prints a
-sub-map's lines with its id in front (`Gateway: single module: ...`);
-an `item` answer quotes the line as printed, prefix included, and a
-bulk form (`kind`, `crossing`, `module_sdk`, ...) covers every map. A
-crossing import between two cards of one sub-map is that map's
-question; one between a card inside and a card outside is the top
-map's, between the two cards there. An entry point, or a model sdk
-import, is asked about once, on the deepest map whose card claims its
-module, and a journey on any map covers it.
+With `TYPESAFE_API_KEY`, run `systemap audit` after check and judgement pass.
+Jev can find differences between the source and authored claims.
+Each answer is a question for source examination, not source evidence.
 
-## The stop condition
-
-Stop when all three hold:
-
-- `systemap check` is clean: `coverage: N of N modules mapped` and
-  `map layout: clean`, no `stale` line after `refresh`.
-- `systemap judgement --strict` exits 0: every remaining line is answered
-  in `[judgement] answered`, and no answer is stale. The workflow `init`
-  writes runs it after `check`.
-- A full pass through steps 1 to 8 changed nothing in `map/model.py`.
-
-Then hand back (SKILL.md, "What to hand back"): the answers are already in
-`systemap.toml`.
-
-## A second opinion from Jev
-
-When `TYPESAFE_API_KEY` is set, `systemap audit` asks the Jev model the
-questions judgement cannot read from names and imports, and prints a line
-where its answer disagrees with the map. Run it once check and judgement
-are clean, before stopping. Each line is a question, not a verdict:
-
-| line | what to do |
+| line | action |
 |---|---|
-| `jev mis-fold: CARD claims M, which reads like OTHER` | read M; move it to the card whose job it does, or answer why it belongs |
-| `jev owner: M is claimed by no card; ...` | claim M in the named card or one of the closest three, or ignore it under `[coverage]` with a reason |
-| `jev sentence: CARD's sentence may not describe its modules` | reread the modules and rewrite the sentence, or answer why it holds |
-| `jev flow: A -> B ('x'): ...` (only with `--kind "jev flow"`, which caught fewer wrong flows on maps its threshold was not chosen on) | find the call that carries it; a call through an instance is not in Jev's evidence, so a real flow can be doubted for that alone; fix the sentence, or answer |
-| `jev governs: invariant N may govern CARD, ...` | add CARD to the invariant's `governs` when a change to it could break the rule, or answer |
+| `jev mis-fold` | Read the module. Correct its assignment or record the source reason. |
+| `jev owner` | Give the module a component assignment with source evidence or record a coverage exclusion. |
+| `jev sentence` | Compare the description with source. Correct it or record why it is correct. |
+| `jev flow` | Find the source call and artifact. Instance calls can be missing from Jev's input. |
+| `jev governs` | Examine whether a component change can break the invariant. Change `governs` only with source support. |
 
-Answer in `[judgement] answered` like a judgement line: `item` for one line,
-`kind = "jev flow"` (or another `jev` kind) for a family, always with a
-reason. `audit --dry-run` says what would be sent; answers are cached, so a
-second run over an unchanged map costs nothing.
+The `jev flow` question is opt-in through `--kind "jev flow"`.
+Its recorded experiment found fewer incorrect flows on maps not used for threshold selection.
+Keep that limit in decisions about its answers.
+Record audit answers under `[judgement] answered` with a reason.
+`audit --dry-run` shows inputs without a model call.
+Repeated identical requests can use the cache.

@@ -1,34 +1,9 @@
-"""Emit a figure of the system for embedding in a lesson or a document.
+"""The figure generator uses the same source facts and map renderer as the page.
 
-A lesson needs a picture of where a change landed, or of what a plan will
-reach. The map already draws that picture. Drawing a second one by hand
-would produce a rival diagram of the same system, and the hand-drawn one
-would drift the moment a component moved. So this runs the same generator on
-the same data and wraps the result in a figure.
-
-The picture is therefore a citation, not a restatement: it is regenerated
-from the facts every time, and it cannot disagree with the map it links to.
-
-Three sources for what is marked:
-
-    base and head refs    what a git range changed (mode change)
-    component ids         what a plan reaches, no git consulted (mode change)
-    mode system           nothing marked: the plain system figure
-
-And one layer or all of them: `layer` draws only the edges the page's
-layer switch shows for that layer (its own filter, `model.reading`), with
-every card, the legend reduced to that layer and the layer's question as
-the title. Structure has no edges at all; the whole map with every layer
-at once is too many arrows for a document, and one layer is the page's
-own answer to that.
-
-An interactive figure carries the map's focus interaction as a
-self-contained fragment: clicking a component dims the rest, thickens its
-edges in their layer colours with their labels, tags each neighbour with the
-verb that relates it, frames the component and its neighbours, and draws
-the relationship wheel in a panel under the figure. The figure opens at Fit
-and pans and zooms like the map page (wheel, pinch, drag, Fit / 100% / +
-/ -, Escape to go back). Plain DOM, no libraries.
+A system figure shows the map. A change figure uses explicit Git refs or component IDs
+from a plan. A layer selection shows that layer and all components. An interactive
+figure includes component focus, a relationship wheel, and zoom controls without
+external libraries.
 """
 
 from __future__ import annotations
@@ -49,17 +24,13 @@ GENERATOR = "systemap"
 
 
 class FigureError(Exception):
-    """The figure cannot be drawn as asked; the message says why."""
+    """The program cannot make the requested figure. The message gives the reason."""
 
 
 def bare_svg(svg: str, t: dict[str, Any]) -> str:
-    """The drawing alone, on its ground, for embedding as an image.
+    """This function gives the SVG drawing with a background rectangle for use as an image.
 
-    The scene draws no background of its own because the figure element
-    and the page supply one. An `<img>` on someone else's page supplies
-    nothing, so a ground rectangle the size of the viewBox is put behind
-    the drawing. Nothing else changes: the same element, the same style,
-    the same text at the same size.
+    It keeps the drawing geometry, style, and text size.
     """
     match = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
     if match is None:
@@ -90,8 +61,9 @@ def figure(
     detail_json: str | None,
     layer: str = "",
 ) -> str:
-    """The figure element. A detail JSON makes it interactive; a layer id
-    reduces the line legend to that one layer."""
+    """This function makes the figure element. Detail JSON permits interaction; a layer ID
+    selects the legend contents.
+    """
     swatches = "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
@@ -111,12 +83,15 @@ def figure(
     )
     if model.opening:
         swatches += (
-            f'<span style="display:inline-flex;align-items:center;gap:.4em;'
-            f'margin-right:1.1em;white-space:nowrap">'
-            f'<span style="width:.75em;height:.75em;border-radius:2px;'
-            f"background:{t['state']['built'][0]};border:1px solid {t['state']['built'][1]};"
-            f"{MARK_STYLE['map'].format(bg=t['state']['built'][0], ink=t['state']['built'][1])};"
-            f'display:inline-block"></span>has a map</span>'
+            '<span style="display:inline-flex;align-items:center;gap:.4em;margin-right:'
+            '1.1em;white-space:nowrap"><span style="width:.75em;height:.75em;border-rad'
+            "ius:2px;background:"
+            f"{t['state']['built'][0]}"
+            ";border:1px solid "
+            f"{t['state']['built'][1]}"
+            ";"
+            f"{MARK_STYLE['map'].format(bg=t['state']['built'][0], ink=t['state']['built'][1])}"
+            ';display:inline-block"></span>nested map</span>'
         )
     swatches += "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
@@ -128,10 +103,11 @@ def figure(
     )
     if layer != "structure":
         swatches += (
-            f'<span style="display:inline-flex;align-items:center;gap:.4em;'
-            f'margin-right:1.1em;white-space:nowrap">'
-            f'<span style="width:1em;height:0;border-top:2px dashed {t["ink_3"]};'
-            f'display:inline-block"></span>unreviewed flow</span>'
+            '<span style="display:inline-flex;align-items:center;gap:.4em;margin-right:'
+            '1.1em;white-space:nowrap"><span style="width:1em;height:0;border-top:2px '
+            "dashed "
+            f"{t['ink_3']}"
+            ';display:inline-block"></span>flow without source review</span>'
         )
     controls = ""
     panel = ""
@@ -145,17 +121,32 @@ def figure(
             'padding:0 .5em;cursor:pointer"'
         )
         controls = (
-            f'<span style="display:inline-flex;gap:.3em;margin-left:1em;white-space:nowrap">'
-            f'<button type="button" data-zoom="fit" data-for="{svg_id}" {btn}>Fit</button>'
-            f'<button type="button" data-zoom="actual" data-for="{svg_id}" {btn}>100%</button>'
-            f'<button type="button" data-zoom="in" data-for="{svg_id}" {btn} '
-            f'aria-label="Zoom in">+</button>'
-            f'<button type="button" data-zoom="out" data-for="{svg_id}" {btn} '
-            f'aria-label="Zoom out">-</button></span>'
+            '<span style="display:inline-flex;gap:.3em;margin-left:1em;white-space:nowr'
+            'ap"><button type="button" data-zoom="fit" data-for="'
+            f"{svg_id}"
+            '" '
+            f"{btn}"
+            '>Show all</button><button type="button" data-zoom="actual" data-for="'
+            f"{svg_id}"
+            '" '
+            f"{btn}"
+            '>100%</button><button type="button" data-zoom="in" data-for="'
+            f"{svg_id}"
+            '" '
+            f"{btn}"
+            ' aria-label="Increase zoom">+</button><button type="button" '
+            'data-zoom="out" data-for="'
+            f"{svg_id}"
+            '" '
+            f"{btn}"
+            ' aria-label="Decrease zoom">-</button></span>'
         )
         hint = (
-            f'<p style="margin:.4em 0 0;font-size:.76rem;color:{t["ink_3"]}">Scroll to zoom, '
-            "drag to pan, click a component to frame it, Escape to go back.</p>"
+            '<p style="margin:.4em 0 0;font-size:.76rem;color:'
+            f"{t['ink_3']}"
+            '">Use the mouse wheel to change zoom. Drag the map to change its '
+            "position. Click a component to show it. Use Escape to show the previous "
+            "view.</p>"
         )
         panel = (
             f'<div id="{panel_id}" class="systemap-panel" style="margin-top:.9em" '
@@ -215,16 +206,12 @@ def make(
     map_id: str = "",
     opens: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[str, list[str]]:
-    """(the figure HTML, the label and header problems the drawing reported).
+    """This function gives figure HTML and label or header diagnostics.
 
-    `mode` is "system" or "change"; empty picks "change" when a base ref or
-    component ids are given and "system" otherwise. Unknown component ids
-    are a ConfigError; an empty git range is a FigureError. `bare` returns
-    the SVG alone, on its ground, instead of the figure element. `layer`
-    is a layer's id; an id the page does not have is a ConfigError
-    naming the ones it does. `map_id` names the map inside a card when
-    the figure draws one (the caption cites its page), and `opens` is
-    what the panel prints for each card that opens a map.
+    An empty mode selects change if a base ref or component IDs are given; otherwise, it
+    selects system. Unknown component IDs give ConfigError. An empty Git range gives
+    FigureError. The bare option gives SVG only. The layer and map_id arguments select a
+    layer and nested map.
     """
     page_url = f"{cfg.out_dir}/{map_id}/index.html" if map_id else f"{cfg.out_dir}/index.html"
     facts_url = f"{cfg.out_dir}/{cfg.facts_file}"
@@ -248,17 +235,24 @@ def make(
         changed = set(ids)
         legend_mode = "reach"
         caption = caption or (
-            f"{inside}The system, with the {len(changed)} components a plan reaches as "
-            f"the figure. This marks a plan's reach, not a diff. Drawn by "
-            f"<code>{GENERATOR}</code>, the same generator the map uses, so "
-            f"this cannot disagree with <code>{page_url}</code>."
+            f"{inside}"
+            "The system with "
+            f"{len(changed)}"
+            " components in the plan. This figure shows the planned scope. It does not "
+            "show a diff. The generator is <code>"
+            f"{GENERATOR}"
+            "</code>, which also makes the map at <code>"
+            f"{page_url}"
+            "</code>."
         )
     elif mode == "change":
         if not base:
-            raise FigureError("a base ref is required for a change figure")
+            raise FigureError("A change figure must have a base ref.")
         ch = change_mod.compute(cfg, model, base, facts, head)
         if not ch["has_change"]:
-            raise FigureError(f"no change between {base} and {head}: nothing to draw")
+            raise FigureError(
+                f"No change occurs between {base} and {head}. No change figure is necessary."
+            )
         changed = ch["direct"]
         changed_modules = ch["modules"]
         adjacent = ch["adjacent"]
@@ -266,23 +260,39 @@ def make(
         hot = ch["flow_artifacts"]
         legend_mode = "change"
         caption = caption or (
-            f"{inside}The system, with this change as the figure. Drawn by "
-            f"<code>{GENERATOR}</code>, the same generator the map uses, so "
-            f"this cannot disagree with <code>{page_url}</code>."
+            f"{inside}"
+            "This figure shows the system with this change. The generator is <code>"
+            f"{GENERATOR}"
+            "</code>, which also makes the map at <code>"
+            f"{page_url}"
+            "</code>."
         )
     elif reading is not None:
         sub = reading.sub[:1].upper() + reading.sub[1:] if reading.sub else ""
         caption = caption or (
-            f"{inside}{reading.label}: {reading.question} {sub + '. ' if sub else ''}"
-            f"One layer of the system; the page at <code>{page_url}</code> has them "
-            f"all. Drawn by <code>{GENERATOR}</code> from <code>{facts_url}</code>; "
-            f"every card is code in the tree today."
+            f"{inside}"
+            f"{reading.label}"
+            ": "
+            f"{reading.question}"
+            " "
+            f"{(sub + '. ' if sub else '')}"
+            "This figure shows one layer. The page at <code>"
+            f"{page_url}"
+            "</code> has all layers. The generator is <code>"
+            f"{GENERATOR}"
+            "</code>. The source facts are at <code>"
+            f"{facts_url}"
+            "</code>. Each component shows source code at this snapshot."
         )
     else:
         caption = caption or (
-            f"{inside}The system as the map describes it. Drawn by <code>{GENERATOR}</code> "
-            f"from <code>{facts_url}</code>; every card is code in the tree today. "
-            f"Click a component to read what it is to its neighbours."
+            f"{inside}"
+            "This figure shows the system map. The generator is <code>"
+            f"{GENERATOR}"
+            "</code>. The source facts are at <code>"
+            f"{facts_url}"
+            "</code>. Each component shows source code at this snapshot. Click a "
+            "component to read its description and connections."
         )
 
     svg, detail = render_schematic(
@@ -308,7 +318,7 @@ def make(
 
     if legend_mode == "reach":
         rows = [
-            (legend_rows(t, "change")[0][0], t["change"], "in the plan's reach"),
+            (legend_rows(t, "change")[0][0], t["change"], "in the plan"),
             (t["ghost"][0], t["ghost"][1], "not in the plan"),
         ]
     else:
@@ -320,12 +330,9 @@ def make(
 
 
 def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
-    """The layer a figure is restricted to, or None for the whole map.
+    """This function selects a page layer, or all layers if no layer ID is given.
 
-    The ids are the page's: the standard layers, the agent layers when
-    the model has an agent, then the model's own. A wrong id is refused
-    with the right ones named, since a figure of a layer that is not on
-    the page would be a picture the page cannot back.
+    An unknown ID gives a diagnostic with the available layer IDs.
     """
     if not layer:
         return None
@@ -334,8 +341,7 @@ def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
         if lay.id == layer:
             return lay
     raise ConfigError(
-        f"unknown layer id: {layer}; the layers the page has are "
-        f"{', '.join(lay.id for lay in layers)}"
+        f"unknown layer id: {layer}. The page layer IDs are {', '.join(lay.id for lay in layers)}"
     )
 
 
@@ -346,11 +352,10 @@ def configured(
     facts: dict[str, Any],
     fig: Figure,
 ) -> tuple[str, list[str]]:
-    """One figure from the configuration's `[[figures]]` table, of the map `m`.
+    """This function makes a figure from a configuration entry for the selected map.
 
-    `systemap refresh` writes it and `systemap check` compares it, through
-    this one function, so the two cannot disagree about what the file
-    should hold. An `out` ending in `.svg` is the bare drawing.
+    Refresh writes the result and check compares it. An out path with .svg selects SVG
+    only.
     """
     return make(
         cfg,

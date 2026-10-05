@@ -116,10 +116,10 @@ def test_the_plan_names_its_cards_and_is_written_down(
     code = cmd_plan(args_for(repo, task="read the input in chunks"), send=send)
     assert code == 0
     out = capsys.readouterr().out
-    assert "2 cards this work will most likely change" in out
+    assert "2 components this work will probably change" in out
     assert "  Reader (0.8" in out and "  Writer (0.1" in out
     assert "flow: Reader -> Writer (request)" in out
-    assert "walk: input-to-output: An input becomes an output" in out
+    assert "sequence: input-to-output: An input becomes an output" in out
     assert "rule: 1. The writer never reads the input itself." in out
     saved = plan_mod.saved(repo)
     assert len(saved) == 1
@@ -133,7 +133,7 @@ def test_a_task_no_card_answers_to_says_so_rather_than_guessing(
     send = answering({"Reader": 0.02, "Writer": 0.01, "none of these": 0.97})
     assert cmd_plan(args_for(repo, task="rename the project"), send=send) == 0
     out = capsys.readouterr().out
-    assert "no card stands out for this work" in out
+    assert "no component is a clear candidate for this work" in out
     assert plan_mod.saved(repo) == [], "nothing is written down when nothing is named"
 
 
@@ -161,7 +161,7 @@ def test_a_card_that_changed_outside_the_plan_is_the_finding(
     assert cmd_plan(args_for(repo, check=plan_id)) == 1
     out = capsys.readouterr().out
     assert "not in the plan: Writer changed and the plan did not name it" in out
-    assert "the work reached a part the plan did not see" in out
+    assert "the work changed a part absent from the plan" in out
 
 
 def test_work_that_landed_where_it_was_projected_says_so(
@@ -178,7 +178,7 @@ def test_work_that_landed_where_it_was_projected_says_so(
         "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request) * 2\n"
     )
     assert cmd_plan(args_for(repo, check=plan_id)) == 0
-    assert "the work landed where it was projected to" in capsys.readouterr().out
+    assert "the changed components agree with the plan" in capsys.readouterr().out
 
 
 def test_a_plan_nobody_wrote_names_the_ones_that_exist(

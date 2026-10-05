@@ -1,36 +1,29 @@
 #!/usr/bin/env bash
-# Build and upload a release to PyPI from a working copy.
+# Make a release package and upload it to PyPI.
+# Prefer the release workflow, which uses PyPI trusted publishing without a stored token.
+# Use this script if that workflow cannot run.
 #
-# Prefer the release workflow: pushing a v<version> tag publishes through
-# PyPI's trusted publishing, where GitHub proves the build's identity and
-# no long-lived token exists anywhere. This script is the manual path, for
-# a release made from a laptop when that workflow cannot run.
-#
-# The token comes from the environment:
-#
+# Supply UV_PUBLISH_TOKEN through the environment:
 #   UV_PUBLISH_TOKEN=pypi-... scripts/publish.sh
 #
-# On macOS it can come from the login keychain instead, which keeps it out
-# of your shell history and your environment. Store one with:
-#
+# On macOS, the token can come from the login keychain.
+# Write a token with this command. The -w option asks for its value:
 #   security add-generic-password -U -a "$USER" -s pypi-token-systemap -w
+# Use SYSTEMAP_KEYCHAIN_ITEM for a different item name.
 #
-# (the -w with no value prompts for it), and name the item with
-# SYSTEMAP_KEYCHAIN_ITEM if you use a different one.
-#
-# Usage: scripts/publish.sh            build dist/ and upload
-#        scripts/publish.sh --dry-run  build and check only
+# scripts/publish.sh makes the package and uploads it.
+# scripts/publish.sh --dry-run makes the package without an upload.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 version="$(uv run python -c 'import systemap; print(systemap.__version__)')"
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "publish: the working tree has uncommitted changes; commit or stash first" >&2
+  echo "publish: The working tree has uncommitted changes. First commit or stash them." >&2
   exit 1
 fi
 if ! git tag --list "v${version}" | grep -q .; then
-  echo "publish: no tag v${version}; tag the release commit first: git tag v${version} && git push origin v${version}" >&2
+  echo "publish: No tag v${version} is available. First give the release commit its tag: git tag v${version} && git push origin v${version}" >&2
   exit 1
 fi
 
@@ -39,10 +32,10 @@ uv build
 # Not `ls dist`: parsing ls breaks on a name with a space or a newline in
 # it, and shellcheck refuses it (SC2012). The glob is the shell's own list.
 built="$(cd dist && printf '%s ' *)"
-echo "publish: built $built"
+echo "publish: Made $built"
 
 if [ "${1:-}" = "--dry-run" ]; then
-  echo "publish: dry run, nothing uploaded"
+  echo "publish: Dry run. No upload occurred."
   exit 0
 fi
 
@@ -52,9 +45,9 @@ if [ -z "$token" ] && command -v security >/dev/null 2>&1; then
   token="$(security find-generic-password -s "$item" -w 2>/dev/null || true)"
 fi
 if [ -z "$token" ]; then
-  echo "publish: no token. Set UV_PUBLISH_TOKEN, or store one in the keychain; see the header of this script." >&2
+  echo "publish: No token is available. Set UV_PUBLISH_TOKEN or store a token in the keychain. See the script header." >&2
   exit 1
 fi
 UV_PUBLISH_TOKEN="$token" uv publish
 unset token
-echo "publish: systemap ${version} uploaded; check https://pypi.org/project/systemap/${version}/"
+echo "publish: systemap ${version} uploaded. Examine https://pypi.org/project/systemap/${version}/"

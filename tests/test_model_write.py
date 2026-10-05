@@ -30,7 +30,7 @@ def test_replace_failure_restores_all_original_bytes(
         original_replace(source, target)
 
     monkeypatch.setattr(model_write.os, "replace", fail_second)
-    with pytest.raises(OSError, match="original models restored"):
+    with pytest.raises(OSError, match="original models are restored"):
         model_write.write_models(sources)
     assert all(path.read_bytes() == b"ORIGINAL = 0\r\n" for path in sources)
     assert sorted(tmp_path.iterdir()) == sorted(sources)
@@ -51,7 +51,7 @@ def test_rollback_failure_retains_original_and_reports_location(
         original_replace(source, target)
 
     monkeypatch.setattr(model_write.os, "replace", fail_after_first)
-    with pytest.raises(OSError, match="rollback incomplete") as error:
+    with pytest.raises(OSError, match="rollback has errors") as error:
         model_write.write_models(sources)
     backups = list(tmp_path.glob(".first.py-*"))
     assert len(backups) == 1

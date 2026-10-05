@@ -1,4 +1,4 @@
-"""Card text budgets and legends shared by the scene and its checks."""
+"""Card text limits, diagram legends and layout geometry."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def esc(text: object) -> str:
 
 
 def wrap_all(text: str, width: int) -> list[str]:
-    """Greedy word wrap with nothing dropped: a word wider than `width` stands alone."""
+    """Put words on lines up to `width` characters. Keep a longer word on a separate line."""
     lines: list[str] = []
     current = ""
     for word in text.split():
@@ -69,11 +69,10 @@ TWO_LINE_NAME_KINDS = ("component", "agent", "tool")
 
 
 def wrap_id(cid: str, width: int) -> list[str]:
-    """A CamelCase or snake_case id over as few lines as its parts allow.
+    """Separate CamelCase or snake_case identifiers at word boundaries.
 
-    The break points are the words of the name; a part wider than `width`
-    stands alone and is then reported by the caller.
-    """
+    Keep a name section longer than `width` on a separate line. The caller
+    gives a finding for this condition."""
     parts = re.findall(r"[A-Z]+[a-z0-9]*_*|[a-z0-9]+_*", cid)
     if "".join(parts) != cid:
         parts = [cid]
@@ -91,13 +90,10 @@ def wrap_id(cid: str, width: int) -> list[str]:
 
 
 def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], list[str]]:
-    """(the name lines, the plain lines, what does not fit) for one card.
+    """Give the name lines, plain text lines and size errors for one card.
 
-    Each problem states the budget the card kind has and what the text
-    measured: `actor cards fit about 26 characters on one line; this one
-    has 34`. The lines returned are what the drawing prints, cut to the
-    room the card has, since the check refuses the map anyway.
-    """
+    Each error gives the character limit and measured text size. The
+    diagram uses only the lines that fit. The map check rejects size errors."""
     problems: list[str] = []
     ruled = kind in ("store", "context")
     name_lines = [cid]
@@ -125,20 +121,17 @@ def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], li
 
 
 def _file_of(claim: str) -> str:
-    """The file one claim names, and the symbol after a colon for a symbol claim."""
+    """Give the file for a module claim. Add the symbol name after a colon for a symbol claim."""
     module, _, name = claim.partition(":")
     path = module.replace(".", "/") + ".py"
     return f"{path}:{name}" if name else path
 
 
 def lives_in(modules: list[str]) -> str:
-    """One muted line for a contributor: the file, or the package when many.
+    """Give source paths or a common package path for a component.
 
-    Three or fewer claims are named as files (a symbol claim as
-    `file.py:name`). More than that is a package, named by its common
-    directory with a count, so a component spread over a subpackage does
-    not turn the panel into a listing.
-    """
+    For three or fewer claims, give the files and symbol names. For more
+    claims, give the common directory and module count."""
     if not modules:
         return ""
     if len(modules) <= 3:
@@ -158,23 +151,21 @@ def lives_in(modules: list[str]) -> str:
 def legend_rows(
     t: dict[str, Any], mode: str, variables: bool = False
 ) -> list[tuple[str, str, str]]:
-    """(fill, stroke, label) for the legend the given mode needs.
+    """Give legend fill, stroke and label values for the specified mode.
 
-    `variables` writes each colour as `var(--token)`, for the page; a
-    figure takes the literals.
-    """
+    With `variables`, colors use CSS tokens. Figures use literal colors."""
     P = Palette(t, variables)
     if mode == "change":
         ghost_fill, ghost_stroke = P.ghost()
         rows = [
-            (P.changed_fill(), P["change"], "changed here"),
-            (P.reach_fill(), P["reach"], "reached by it"),
-            (ghost_fill, ghost_stroke, "untouched"),
+            (P.changed_fill(), P["change"], "changed source"),
+            (P.reach_fill(), P["reach"], "import connection"),
+            (ghost_fill, ghost_stroke, "unchanged source"),
         ]
         for key, label in (
             ("operations", "new operations"),
             ("types", "new types"),
-            ("refusals", "new refusals"),
+            ("refusals", "new exceptions"),
             ("tests", "new tests"),
         ):
             rows.append((P.delta(key), P.delta(key), label))
@@ -185,11 +176,9 @@ def legend_rows(
 def layer_rows(
     t: dict[str, Any], model: Model, meaning: Meaning, variables: bool = False
 ) -> list[tuple[str, str, str]]:
-    """(id, colour, label) for every layer that draws a line, in layer order.
+    """Give each layer identifier, color and label in layer order.
 
-    Structure draws no edges, so its colour would be a swatch of nothing;
-    it is left out of the legend.
-    """
+    The Structure layer has no flow lines and has no legend entry."""
     P = Palette(t, variables)
     return [
         (layer.id, P.layer(layer.id), layer.label)
@@ -199,7 +188,7 @@ def layer_rows(
 
 
 def kind_rows(t: dict[str, Any], model: Model) -> list[tuple[str, str]]:
-    """(kind, mark) for every agent kind the model draws, in kind order."""
+    """Give each agent card kind and its mark, in kind order."""
     present = {c.kind for c in model.components}
     marks: dict[str, str] = t.get("marks") or {}
     return [(kind, marks[kind]) for kind in AGENT_KINDS if kind in present and kind in marks]
@@ -207,17 +196,15 @@ def kind_rows(t: dict[str, Any], model: Model) -> list[tuple[str, str]]:
 
 @dataclass(frozen=True)
 class Geometry:
-    """What the router and the label pass are given, read off the model alone.
+    """Model geometry for the router and label placement.
 
-    `boxes` is every card's box; `blocks` what a route may not cross
-    besides a card (every header, and a container that holds neither a
-    card nor a region); `obstacles` what a label may not sit on, each
-    named for the collision report (the headers, the empty containers,
-    the cards with 3 clear around them); `headers` every header's box,
-    for the labels rule; `collisions` the headers their box cannot hold.
-    `systemap place` scores a candidate layout with this same geometry,
-    so the order it picks is measured on the drawing the page makes.
-    """
+    `boxes` contains card bounds. `blocks` contains headers and containers
+    with no cards or regions. Flow paths cannot cross these blocks.
+    `obstacles` contains named headers, empty containers and cards with
+    3 SVG user units of clearance. Labels cannot have an overlap with these obstacles.
+
+    `headers` contains header bounds. `collisions` contains header size
+    errors. `systemap place` uses this same geometry to measure layouts."""
 
     boxes: dict[str, Box]
     actors: set[str]
@@ -230,14 +217,11 @@ class Geometry:
 
 
 def container_header(box: Container) -> tuple[Box, list[str], list[str]]:
-    """A container's header obstacle, the sub lines drawn, and what its box cannot hold.
+    """Give the container header bounds, subtitle lines and size errors.
 
-    The header obstacle is the text, not the whole top edge of the box:
-    the factory's spans the canvas, and a wall that wide would close the
-    corridor every long edge runs along. A label wider than the box, or a
-    sub that needs more than two lines, is drawn as far as it fits and
-    reported, so a header never quietly runs into a card.
-    """
+    The obstacle contains the header text, not the full container width.
+    This leaves space for flow paths. A subtitle can have two lines.
+    Text that exceeds its bounds gives a size error."""
     x, y, w, _h = box.box
     chars = max(12, int((w - 26) / SUB_CHAR))
     all_lines = wrap_all(box.sub, chars)
@@ -256,7 +240,7 @@ def container_header(box: Container) -> tuple[Box, list[str], list[str]]:
 
 
 def region_header(region: Region) -> tuple[Box, list[str]]:
-    """A region's header obstacle (its number and label), and a label wider than the box."""
+    """Give region header bounds and errors for labels that exceed those bounds."""
     x, y, w, _h = region.box
     label_w = 31 - 6 + len(region.label) * LABEL_CHAR + 8
     collisions: list[str] = []
@@ -266,7 +250,7 @@ def region_header(region: Region) -> tuple[Box, list[str]]:
 
 
 def geometry(model: Model) -> Geometry:
-    """The router's and the label pass's inputs for a positioned model."""
+    """Give model geometry for flow routing and label placement."""
     boxes: dict[str, Box] = {}
     for c in model.components:
         left, top, _w, tall = c.box

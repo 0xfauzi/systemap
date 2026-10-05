@@ -83,7 +83,7 @@ def test_a_package_init_records_the_names_it_reexports(tmp_path: Path) -> None:
     assert check.check_interface(with_interface("Thing.go()"), facts) == []
     assert check.check_interface(with_interface("run() -> None"), facts) == []
     assert check.check_interface(with_interface("Item.go()"), facts) == [
-        "Core interface names Item.go, but Item has no public method go (pkg); closest: Thing"
+        "Core interface contains Item.go, but Item has no public method go (pkg). The nearest name is Thing"
     ]
 
 
@@ -149,7 +149,10 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     capsys.readouterr()
     # No facts yet: the fix is named.
     assert run("--root", str(tmp_path), "facts", "--modules") == 1
-    assert capsys.readouterr().out == "no facts at docs/map/map.json\nrun: systemap extract\n"
+    assert (
+        capsys.readouterr().out
+        == "No facts are available at docs/map/map.json\nrun: systemap extract\n"
+    )
     assert run("--root", str(tmp_path), "extract") == 0
     capsys.readouterr()
 
@@ -162,50 +165,34 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert run("--root", str(tmp_path), "facts", "--modules") == 0
     out = capsys.readouterr().out
     assert out == (
-        "modules: 3; each with the first sentence of its docstring, then its public names, "
-        "imports and tests counted\n"
-        "  pkg: empty package marker\n"
-        "  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n"
-        "  pkg.writer: no docstring (1 name, 1 import, 1 test)\n"
+        "modules: 3. Each line gives the opening docstring sentence and the public name, import, and test counts.\n  pkg: empty package marker\n  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n  pkg.writer: No docstring is available. (1 name, 1 import, 1 test)\n"
     )
     assert run("--root", str(tmp_path), "facts", "--docstrings") == 0
     assert capsys.readouterr().out == (
-        "docstrings: 2 of 3 modules have one; the first sentence of each\n"
-        "  pkg: empty package marker\n"
-        "  pkg.reader: Read things.\n"
-        "  pkg.writer: no docstring\n"
+        "docstrings: 2 of 3 modules have docstrings. Each line gives the opening sentence.\n  pkg: empty package marker\n  pkg.reader: Read things.\n  pkg.writer: No docstring is available.\n"
     )
 
     # One record, rendered: never the JSON, and never a test's name.
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.reader") == 0
     out = capsys.readouterr().out
     assert out == (
-        "pkg.reader (pkg/reader.py)\n"
-        "  docstring: Read things.\n"
-        "  public names: 4\n"
-        "    LIMIT: constant\n"
-        "    Request: class\n"
-        "    ReadError: error\n"
-        "    read: function\n"
-        "  imports: nothing from the package\n"
-        "  imported by: pkg.writer\n"
-        "  external: none\n"
-        "  tests: 2 import it (2 in a file named after it)\n"
+        "pkg.reader (pkg/reader.py)\n  docstring: Read things.\n  public names: 4\n    LIMIT: constant\n    Request: class\n    ReadError: error\n    read: function\n  imports: no internal imports\n  imported by: pkg.writer\n  external: none\n  tests: 2 tests import the module (2 in a test file with the module name)\n"
     )
     assert "test_read_returns_request" not in out and "{" not in out
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.writer") == 0
     out = capsys.readouterr().out
-    assert "  docstring: no docstring\n" in out
-    assert "  imports: pkg.reader\n  imported by: nothing in the package\n  external: yaml\n" in out
-    assert out.endswith("  tests: 1 import it (0 in a file named after it)\n")
+    assert "  docstring: No docstring is available.\n" in out
+    assert "  imports: pkg.reader\n  imported by: no internal importers\n  external: yaml\n" in out
+    assert out.endswith(
+        "  tests: 1 tests import the module (0 in a test file with the module name)\n"
+    )
     assert run("--root", str(tmp_path), "facts", "--module", "pkg") == 0
     assert capsys.readouterr().out == (
-        "pkg (pkg/__init__.py)\n"
-        "  empty package marker: an __init__ with no public names and no imports\n"
+        "pkg (pkg/__init__.py)\n  empty package marker: The __init__ has no public names or imports.\n"
     )
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.reder") == 1
     assert capsys.readouterr().out == (
-        "no module pkg.reder in the facts; closest: pkg.reader\nrun: systemap facts --modules\n"
+        "The facts contain no module pkg.reder. The nearest name is pkg.reader\nrun: systemap facts --modules\n"
     )
 
     # The public names with their kinds, for entry and interface.
@@ -218,28 +205,26 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
         "  read: function\n"
     )
     assert run("--root", str(tmp_path), "facts", "--names", "pkg.reder") == 1
-    assert "closest: pkg.reader" in capsys.readouterr().out
+    assert "The nearest name is pkg.reader" in capsys.readouterr().out
 
     assert run("--root", str(tmp_path), "facts", "--entry-points") == 0
     out = capsys.readouterr().out
-    assert out.startswith("entry points: 0; a journey names each that matters; the target is ")
+    assert out.startswith(
+        "entry points: 0. A sequence specifies each applicable entry point. The target is "
+    )
 
     assert run("--root", str(tmp_path), "facts", "--external") == 0
     assert capsys.readouterr().out == (
-        "external imports: 1; the model sdk line reads these\n  yaml: pkg.writer\n"
+        "external imports: 1. The model sdk diagnostic uses these imports.\n  yaml: pkg.writer\n"
     )
 
     assert run("--root", str(tmp_path), "facts", "--imports", "pkg.writer") == 0
     assert capsys.readouterr().out == (
-        "pkg.writer imports 1 modules of the package\n"
-        "  pkg.reader (the whole module)\n"
-        "pkg.writer is imported by 0 modules of the package\n"
+        "pkg.writer imports 1 modules of the package\n  pkg.reader (all of the module)\n0 modules of the package import pkg.writer\n"
     )
     assert run("--root", str(tmp_path), "facts", "--imports", "pkg.reader") == 0
     assert capsys.readouterr().out == (
-        "pkg.reader imports 0 modules of the package\n"
-        "pkg.reader is imported by 1 modules of the package\n"
-        "  pkg.writer\n"
+        "pkg.reader imports 0 modules of the package\n1 modules of the package import pkg.reader\n  pkg.writer\n"
     )
     # The views are exclusive.
     with pytest.raises(SystemExit):
@@ -266,8 +251,7 @@ def test_entry_points_view_prints_the_target_beside_each() -> None:
         ]
     }
     assert facts_mod.entry_points(facts) == [
-        "entry points: 5; a journey names each that matters; the target is the function a "
-        "console script calls, or the script a subcommand belongs to",
+        "entry points: 5. A sequence specifies each applicable entry point. The target is a console-script function or a subcommand script.",
         "  pkg (console script): pkg.cli, target main",
         "  main() in pkg.cli: pkg.cli, target main",
         "  python -m pkg: pkg.__main__",
@@ -312,33 +296,26 @@ def test_names_and_first_sentence_read_old_and_new_records() -> None:
 def test_the_skill_reads_the_facts_through_the_command() -> None:
     text = skill.text()
     step = text[text.index("1. **extract**") : text.index("2. **draft**")]
-    assert "systemap facts" in step and "never the JSON" in step
-    # The step names the views the draft needs, and sends the agent to the
-    # table for the rest, so the seven are written out once.
+    assert "systemap extract" in step and "systemap facts" in step
+    assert "Do not open the complete facts JSON" in step
     for view in (
-        "`--docstrings` for `does`",
-        "`--names NAME` for `entry` and `interface`",
-        "`--entry-points` for the journeys",
-        "`--module NAME` for one record in\n   full",
+        "`--docstrings` for source descriptions",
+        "`--names NAME` for public symbols",
+        "`--entry-points` for sequence inputs",
+        "`--module NAME` for a complete module record",
     ):
         assert view in step, view
-    assert "the command table below lists them" in step
-    # Every view, and what each gives, in the table.
     row = text[text.index("| `systemap facts` |") :].split("\n")[0]
     for view in (
-        "`--modules` (first sentence and counts per module)",
-        "`--docstrings`",
-        "`--module NAME` (one record, rendered)",
-        "`--names NAME` (public names with kinds)",
-        "`--entry-points` (with targets)",
-        "`--external`",
-        "`--imports NAME`",
+        "--modules",
+        "--docstrings",
+        "--module NAME",
+        "--names NAME",
+        "--entry-points",
+        "--external",
+        "--imports NAME",
     ):
         assert view in row, view
-    assert "`systemap.toml` exists but\n   the facts file does not" in step
-    assert "| `systemap facts` |" in text
     pitfalls = skill.files()["references/pitfalls.md"]
-    assert "## Reading the facts file whole" in pitfalls
     assert "systemap facts" in pitfalls
-    assert "`--docstrings`" in pitfalls and "`--names NAME`" in pitfalls
-    assert "none of them prints a test's name" in pitfalls
+    assert "--docstrings" in pitfalls and "--names NAME" in pitfalls

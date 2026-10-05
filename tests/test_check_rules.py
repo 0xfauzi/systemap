@@ -54,13 +54,13 @@ def test_module_not_in_the_facts_fails(tmp_path: Path, capsys: pytest.CaptureFix
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "entry: 1 problem" in out
-    assert "Writer names module pkg.planner which is not in the facts" in out
-    assert "fix: in map/model.py, name only modules the facts have" in out
-    assert "the map draws what exists today" in out
+    assert "Writer has a module claim for pkg.planner, which is missing from the facts." in out
+    assert "In map/model.py, use modules from the facts." in out
+    assert "The map shows code in the facts" in out
     # coverage also reports the now unclaimed module, and it outranks the
     # entry rule in the closing line: an unclaimed module is fixed first.
     assert "unmapped: pkg.writer" in out
-    assert out.rstrip().endswith("then run: systemap check")
+    assert out.rstrip().endswith("Then use systemap check.")
     # The same finding is not reported a second time under stale.
     assert out.count("pkg.planner") == 1
 
@@ -71,7 +71,7 @@ def test_component_with_no_module_fails(tmp_path: Path, capsys: pytest.CaptureFi
     edit_model(tmp_path, 'implemented_by=("pkg.writer",)', "implemented_by=()")
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "Writer names no module; a component is code in the tree" in out
+    assert "Writer has no module claim. A component shows source code." in out
 
 
 def test_actor_claims_no_code_and_is_not_checked(
@@ -103,8 +103,8 @@ def test_entry_the_modules_do_not_define_fails(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "entry: 1 problem" in out
-    assert "Writer names entry publish which none of its modules defines (pkg.writer)" in out
-    assert "set entry to a public name one of them defines" in out
+    assert "Writer has entry publish, but its modules do not define this entry (pkg.writer)." in out
+    assert "Set entry to a public name" in out
 
 
 def test_missing_entry_with_modules_present_fails(
@@ -115,7 +115,7 @@ def test_missing_entry_with_modules_present_fails(
     edit_model(tmp_path, 'entry="write",', "")
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "Writer names no entry; its modules are pkg.writer" in out
+    assert "Writer has no entry. Its modules are pkg.writer" in out
 
 
 # ---- stale ---------------------------------------------------------------------
@@ -131,7 +131,7 @@ def test_stale_facts_after_a_code_change(
     out = capsys.readouterr().out
     assert "stale: 1 problem" in out
     assert "facts: code changed since the map was built: pkg.reader" in out
-    assert "fix: run: systemap refresh" in out
+    assert "fix: Use systemap refresh." in out
     assert out.rstrip().endswith("run: systemap refresh")
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
@@ -145,9 +145,9 @@ def test_stale_page_after_a_model_change(
     edit_model(tmp_path, '"Reader": "the part that reads"', '"Reader": "the reading part"')
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "docs/map/index.html differs from what systemap renders" in out
-    assert "docs/map/figures/structure.svg differs from what systemap renders" in out
-    assert "docs/map/figures/system.svg differs from what systemap renders" in out
+    assert "docs/map/index.html differs from the rendered output." in out
+    assert "docs/map/figures/structure.svg differs from the rendered output." in out
+    assert "docs/map/figures/system.svg differs from the rendered output." in out
     assert "facts:" not in out, "the tree did not change, only the model"
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
@@ -161,11 +161,11 @@ def test_stale_figure_when_missing_or_edited(
     fig = tmp_path / "docs/map/figures/system.svg"
     fig.unlink()
     assert run("--root", str(tmp_path), "check") == 1
-    assert "docs/map/figures/system.svg has not been rendered" in capsys.readouterr().out
+    assert "docs/map/figures/system.svg has no rendered output." in capsys.readouterr().out
     assert run("--root", str(tmp_path), "refresh") == 0
     fig.write_text(fig.read_text() + "<!-- by hand -->")
     assert run("--root", str(tmp_path), "check") == 1
-    assert "docs/map/figures/system.svg differs from what systemap renders" in (
+    assert "docs/map/figures/system.svg differs from the rendered output." in (
         capsys.readouterr().out
     )
 
@@ -177,7 +177,7 @@ def test_stale_with_no_facts_names_extract(
     init_two_cards(tmp_path, "--no-ci")
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "no facts have been built yet" in out
+    assert "No extracted facts are available." in out
     assert out.rstrip().endswith("run: systemap extract")
 
 
@@ -288,8 +288,8 @@ def test_header_labels_wider_than_the_box_and_headers_on_cards_are_refused(sampl
     )
     _svg, detail = render_schematic(low, sample.meaning, sample.theme, sample.facts)
     problems = check.check_labels(json.loads(detail)["_meta"])
-    assert "header of container system touches card Reader" in problems
-    assert "header of region work touches card Reader" in problems
+    assert "header of container system touches component Reader" in problems
+    assert "header of region work touches component Reader" in problems
 
 
 def test_header_overflow_fails_check_and_refresh(
@@ -306,7 +306,7 @@ def test_header_overflow_fails_check_and_refresh(
     out = capsys.readouterr().out
     assert "header of container system: sub does not fit its box" in out
     assert run("--root", str(tmp_path), "refresh") == 1
-    assert "map: check failed" in capsys.readouterr().out
+    assert "map: The check found an error." in capsys.readouterr().out
 
 
 # ---- wheel: nothing leaves a drawing that sizes itself ---------------------------
@@ -345,7 +345,9 @@ def test_refresh_exits_1_when_the_check_fails_after_writing(
     out = capsys.readouterr().out
     assert "stale: 1 problem" in out
     assert "docs/map/index.html differs (simulated)" in out
-    assert out.rstrip().endswith("map: check failed after the refresh; run: systemap refresh")
+    assert out.rstrip().endswith(
+        "map: The check found an error after the refresh. run: systemap refresh"
+    )
     assert calls["n"] == 2, "the check ran once before writing and once after"
 
 

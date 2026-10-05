@@ -1,26 +1,18 @@
 name: systemap
 
-# Four things are checked here. The system map under docs/map is generated
-# from the code and the model module, committed so the page can be served
-# as-is and so the diff between two commits of the facts file records what
-# changed about the system; the first job fails when the committed map no
-# longer matches the tree or the renderer, and the fix is one command,
-# named in the failure. The test suite and the type and lint gates run on
-# Linux, macOS and Windows with the oldest and the newest Python the
-# package supports. The built wheel is installed into a clean virtual
-# environment on each of the three and run on a copy of this repository's
-# own map from a directory that is not a checkout. And the repository is
-# validated, added and installed as a Claude Code plugin with the CLI.
+# CI compares committed map output with source and tests the package on three operating systems.
+# Delta writes one pull-request comment and changes that comment after each push.
+# Fork tokens can prevent comments. The log still contains the delta report.
+# Installation uses an empty environment and a map copy outside the source checkout.
+# Plugin validation rejects all errors and warnings except the documented root CLAUDE.md warning.
+
 
 on:
   push:
     branches: [main]
   pull_request:
-  # By hand, from the Actions tab or `gh workflow run`: the push of 0.11.2
-  # produced no run, and there was no way to ask for one.
   workflow_dispatch:
 
-# Read-only for every job; the delta job widens it for itself alone.
 permissions:
   contents: read
 
@@ -46,40 +38,35 @@ jobs:
       - name: Install project
         run: uv sync --frozen --all-extras --dev
 
-      - name: facts match the tree
+      - name: Facts agree with source
         run: |
           uv run systemap extract --check || {
-            echo "::error title=Map is stale::the facts no longer describe the tree. Run systemap refresh and commit the output directory."
+            echo "::error title=Map is stale::The facts are different from the source. Run systemap refresh and commit the output directory."
             exit 1
           }
 
-      - name: layout, meaning and coverage are consistent
+      - name: Do map consistency checks
         run: |
           uv run systemap check || {
-            echo "::error title=Map check::the model contradicts itself or leaves a module unmapped; see the lines above."
+            echo "::error title=Map check::The model has incorrect claims or modules without component claims. See the lines above."
             exit 1
           }
 
-      - name: every judgement line is answered
+      - name: Do the strict judgement check
         run: |
           uv run systemap judgement --strict || {
-            echo "::error title=Judgement::a judgement line is unanswered. Act on it, or answer it under [judgement] answered in systemap.toml."
+            echo "::error title=Judgement::A judgement line has no answer. Act on it or write its answer under [judgement] answered in systemap.toml."
             exit 1
           }
 
-      - name: page matches the renderer
+      - name: Do the page output check
         run: |
           uv run systemap render --check || {
-            echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
+            echo "::error title=Map is stale::index.html is different from the rendered page. Run systemap refresh and commit the output directory."
             exit 1
           }
 
   delta:
-    # What the pull request does to the map, as one comment: posted once,
-    # then updated in place on every push. The base and head commits reach
-    # the command through the environment, never through the template. A
-    # pull request from a fork has a read-only token, so the comment step
-    # warns instead of failing there; the delta is in the log either way.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -101,7 +88,7 @@ jobs:
       - name: Install project
         run: uv sync --frozen --all-extras --dev
 
-      - name: what this change does to the map
+      - name: Show map changes
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -110,11 +97,11 @@ jobs:
           uv run systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
           echo "$code" > delta.code
           if [ ! -s delta.md ]; then
-            printf '<!-- systemap delta -->\n## What this change does to the map\n\nsystemap delta could not run (exit %s); see the workflow log.\n' "$code" > delta.md
+            printf '<!-- systemap delta -->\n## What this change does to the map\n\nsystemap delta could not run (exit %s). See the workflow log.\n' "$code" > delta.md
           fi
           cat delta.md
 
-      - name: post or update the comment
+      - name: Write the report comment
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -125,22 +112,17 @@ jobs:
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@delta.md > /dev/null
           else
             gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@delta.md > /dev/null
-          fi || echo "::warning title=Map delta::could not post the comment (a pull request from a fork has a read-only token); the delta is in the step above."
+          fi || echo "::warning title=Map delta::The report comment could not be written. A fork has a read-only token. See the delta in the step above."
 
-      - name: every line is acted on
+      - name: Reject open map decisions
         run: |
           code="$(cat delta.code)"
           if [ "$code" != "0" ]; then
-            echo "::error title=Map delta::the change needs the map's attention; see the comment on the pull request, act on each line, then run systemap refresh."
+            echo "::error title=Map delta::The map has open decisions. See the pull-request comment. Act on each line, then run systemap refresh."
           fi
           exit "$code"
 
   test:
-    # The suite, the type check and the linter on every operating system the
-    # package claims, with the oldest and the newest Python it supports.
-    # UV_PYTHON overrides the repository's .python-version for the whole job,
-    # so uv creates the environment with the matrix interpreter. Node is on
-    # the runner for the keyboard test, which drives the page's script.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -168,28 +150,19 @@ jobs:
       - name: Install project
         run: uv sync --frozen --all-extras --dev
 
-      - name: tests
+      - name: Run tests
         run: uv run pytest -q
 
-      - name: types
+      - name: Do the type check
         run: uv run mypy src --strict
 
-      - name: lint
+      - name: Do the lint check
         run: uv run ruff check .
 
-      - name: format
+      - name: Do the format check
         run: uv run ruff format --check src tests map bench
 
   install:
-    # The wheel, installed with pip into a virtual environment that holds
-    # nothing else, run on a copy of this repository's own map from a
-    # directory beside the checkout: no .git, no source tree on the path,
-    # no uv at run time. init keeps every file that exists and writes the
-    # skill; extract reads the facts; refresh renders the page and the
-    # figures, since the check refuses a page that is not rendered and the
-    # committed page names the commit it was rendered at, which a copy
-    # without .git cannot reproduce; check and judgement are the gates a
-    # consumer's workflow runs.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -212,10 +185,10 @@ jobs:
         with:
           version: latest
 
-      - name: build the wheel
+      - name: Make the wheel
         run: uv build --wheel
 
-      - name: install the wheel into a clean virtual environment
+      - name: Install the wheel in an empty environment
         run: |
           uv venv --seed venv
           if [ "$RUNNER_OS" = "Windows" ]; then . venv/Scripts/activate; else . venv/bin/activate; fi
@@ -223,7 +196,7 @@ jobs:
           systemap --version
           python -c "import systemap, sys; print(systemap.__version__, sys.version)"
 
-      - name: init, extract, refresh, check on a copy of the self-map beside the checkout
+      - name: Run map commands on a copy outside the checkout
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then . venv/Scripts/activate; else . venv/bin/activate; fi
           python -c "import shutil; shutil.copytree('.', '../selfmap', ignore=shutil.ignore_patterns('.git', '.venv', 'venv', 'dist', 'bench', 'node_modules', '__pycache__', '.mypy_cache', '.pytest_cache', '.ruff_cache'))"
@@ -237,15 +210,6 @@ jobs:
           systemap describe
 
   plugin:
-    # The repository is also a Claude Code plugin and its own marketplace.
-    # Both manifests, and the skill under skills/, are validated in strict
-    # mode so an unrecognised field or a missing description fails here.
-    # Then the checkout is added as a marketplace and the plugin installed
-    # from it with the CLI, into a configuration directory of its own, and
-    # the list must show it enabled: the install proof is mechanical.
-    # Adding a marketplace, installing and listing need no login (measured
-    # with an empty CLAUDE_CONFIG_DIR on the pinned version), so the job
-    # fails when any of the three does.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -258,24 +222,18 @@ jobs:
           node-version: 22
 
       - name: Install the Claude Code CLI
-        # A global tool has no lockfile to install from; the version is the
-        # one the plugin was validated with locally, bumped on purpose.
         run: npm install -g @anthropic-ai/claude-code@2.1.278 # zizmor: ignore[adhoc-packages]
 
-      - name: plugin manifest
-        # Strict, through a script that allows one warning and no others:
-        # the CLI advises against a CLAUDE.md at the plugin root, which is
-        # advice for a repository that is only a plugin. scripts/check_plugin_manifest.py
-        # says why, and fails on anything else the validator reports.
+      - name: Do the plugin manifest check
         run: python3 scripts/check_plugin_manifest.py .claude-plugin/plugin.json
 
-      - name: marketplace manifest
+      - name: Do the marketplace manifest check
         run: python3 scripts/check_plugin_manifest.py .claude-plugin/marketplace.json
 
-      - name: skills
+      - name: Do the skill check
         run: claude plugin validate skills --strict
 
-      - name: the checkout as a marketplace, the plugin installed from it, listed
+      - name: Install the plugin from the checkout marketplace
         env:
           CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
         run: |

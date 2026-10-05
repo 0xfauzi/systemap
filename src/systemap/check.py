@@ -1,57 +1,13 @@
-"""Check the map geometry and the meaning tables mechanically.
+"""The mechanical checks compare map geometry, map meaning, and source facts.
 
-The map's positions are fixed in the model (written by `systemap place`
-or by hand) and its relations are hand-authored, so two kinds of quiet
-lie are possible: a card drawn where the model does not claim it, or a
-sentence that names a flow the model no longer has. Both fail here
-instead of shipping.
+The checks include component positions, routes, labels, text size, and relationship
+wheels. They also include module coverage, nested maps, entries, and interfaces. The
+stale-output checks compare facts, pages, and figures with fresh generated output.
 
-What is checked, in order:
-
-    placement ..... every card inside its band, no two cards overlapping,
-                    every flow naming known components (the model)
-    routes ........ every edge an orthogonal path that passes through no
-                    card it does not connect and crosses no region box it
-                    neither starts nor ends in (both counted, each offender
-                    listed with the router's reason)
-    labels ........ every edge label seated without touching a card, a
-                    header or another label (the schematic's collision pass,
-                    re-verified from the boxes it reports), and every
-                    container and region header inside its box and off
-                    every card: a sub wraps to a second line and is
-                    refused past that
-    type size ..... nothing in the figure set below 11px
-    meaning ....... every flow has a layer and a sentence, every component a
-                    plain word, every journey step a real edge and real ids,
-                    every verb override a real edge
-    wheel ......... for every component, the relationship wheel's name labels
-                    stay off each other and off the centre (the wheel sizes
-                    itself to its labels, so nothing can leave the drawing)
-    coverage ...... every module in the facts is claimed by exactly one
-                    component, unless the configuration ignores it with a
-                    reason or it is an empty package marker; an incomplete
-                    map fails. The top map alone: a card that opens a map
-                    claims its modules once, for the whole tree
-    nesting ....... the map inside a card claims exactly the modules the
-                    card claims, no more and no fewer, each once; its
-                    actors are cards of the map it is inside
-    entry ......... every module a component names is in the facts, and the
-                    entry it names is a public module-level name one of
-                    them defines (a function, a class, an object); the map draws
-                    what exists today, so a name the code does not have
-                    would draw a part that is not there
-    interface ..... every `interface` line starts with a name the
-                    component's modules define (`Class.method` needs both),
-                    refused with the closest defined name
-    stale ......... the facts file describes the tree, the page is what the
-                    renderer draws from the facts and the model, and every
-                    configured figure is what the generator draws; the
-                    same comparisons `extract --check` and `render --check`
-                    make, run in one place
-
-The CLI prints one line per problem, the fix under each group, and exits
-1 when any is found. Every rule but coverage runs on every map of the
-tree (`run_tree`); a sub-map's lines carry its id in front.
+Each source module must have one component claim, unless an ignore reason or empty
+package marker lets the map omit the module. A nested map must contain the same modules
+as its parent component. Its actors must be other parent components. The CLI gives
+diagnostic lines and actions. Any check error gives exit code 1.
 """
 
 from __future__ import annotations
@@ -98,7 +54,7 @@ def _box(values: list[float]) -> Box:
 
 
 def check_labels(meta: dict[str, Any]) -> list[str]:
-    """The labels rule: edge labels and header text, from the boxes the drawing reports."""
+    """This function finds label and header overlaps from the reported drawing boxes."""
     out = list(meta.get("collisions", []))
     labels: list[dict[str, Any]] = meta.get("labels", [])
     cards: dict[str, list[float]] = meta.get("cards", {})
@@ -106,12 +62,12 @@ def check_labels(meta: dict[str, Any]) -> list[str]:
         hb = _box(header["box"])
         for cid, cb in cards.items():
             if _overlap(hb, _box(cb)):
-                out.append(f"header of {header['kind']} {header['id']} touches card {cid}")
+                out.append(f"header of {header['kind']} {header['id']} touches component {cid}")
     for k, lab in enumerate(labels):
         lb = _box(lab["box"])
         for cid, cb in cards.items():
             if _overlap(lb, _box(cb)):
-                out.append(f"label '{lab['artifact']}' touches card {cid}")
+                out.append(f"label '{lab['artifact']}' touches component {cid}")
         for other in labels[k + 1 :]:
             if _overlap(lb, _box(other["box"])):
                 out.append(f"label '{lab['artifact']}' touches label '{other['artifact']}'")
@@ -119,7 +75,7 @@ def check_labels(meta: dict[str, Any]) -> list[str]:
 
 
 def _seg_hits(a: list[float], b: list[float], box: Box) -> bool:
-    """Does the axis-aligned segment a-b cross the interior of box?"""
+    """This function finds whether segment a-b crosses the box interior."""
     bx, by, bw, bh = box
     (x0, y0), (x1, y1) = a, b
     if abs(y0 - y1) < 1e-6:
@@ -132,13 +88,10 @@ def _seg_hits(a: list[float], b: list[float], box: Box) -> bool:
 
 
 def check_routes(meta: dict[str, Any], model: Model) -> tuple[list[str], int, int]:
-    """(problems, edges through a foreign card, edges across a foreign region).
+    """This function finds routes across components other than its endpoints or regions.
 
-    A segment is judged against the exact card box (the router keeps a
-    margin, so a touch here is a real pass-through) and against every
-    region box other than the two the edge belongs to. An edge is counted
-    once per offence, and listed with the router's own reason when it had
-    to fall back.
+    It uses exact component boxes and excludes the endpoint regions. Each edge counts
+    once for each error type. Router notices supply the reason for a fallback route.
     """
     out: list[str] = []
     paths: dict[Any, list[list[float]]] = meta.get("paths", {})
@@ -181,7 +134,7 @@ def check_type_size(svg: str) -> list[str]:
     small = sorted(
         {float(m) for m in re.findall(r"font-size:\s*([0-9.]+)px", svg) if float(m) < TEXT_PX}
     )
-    return [f"text set at {s}px, below {TEXT_PX}px" for s in small]
+    return [f"text set at {s}px, less than {TEXT_PX}px" for s in small]
 
 
 # ---- the wheel, mirrored from schematic._INTERACTIVE_JS ----------------------
@@ -255,10 +208,10 @@ def wheel_boxes(
 
 
 def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) -> list[str]:
-    """Name labels on the wheel off the centre and off each other.
+    """This function finds wheel labels that touch the center or another label.
 
-    The page fits the wheel's viewBox to its labels (`wheelExtent`), so a
-    label cannot leave the drawing and no rule says so.
+    The page adjusts the viewBox to contain all labels, so no drawing-boundary check is
+    necessary.
     """
     out: list[str] = []
     layers = all_layers(model, meaning)
@@ -279,18 +232,12 @@ def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) ->
 
 @dataclass(frozen=True)
 class Coverage:
-    """What the coverage rule found.
+    """This record gives the module coverage result.
 
-    `checked` is false when there were no facts to check against, which is
-    itself a failure: a map cannot be called complete against nothing.
-    `total` counts every module in the facts and `mapped` how many are
-    accounted for: claimed by exactly one component, taken out of the rule
-    by an ignore with a reason (`ignored`, counted among the mapped), or an
-    empty package marker left out on its own (`markers`, likewise). Mapped
-    is total when the map is complete, and the total is the extract's.
-    `counted` is false for the map inside a card: the card claims its
-    modules once, on the map above, and the nesting rule holds the
-    sub-map to exactly those, so nothing is counted twice.
+    Without facts, `checked` is false. The `total` field counts all source modules. The
+    `mapped` count includes unique claims, ignored modules, and empty package markers.
+    Nested maps have `counted=False`, because their parent component supplies the
+    top-level coverage count.
     """
 
     checked: bool
@@ -307,21 +254,14 @@ class Coverage:
 
 
 def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore]) -> Coverage:
-    """Every module in the facts is claimed by exactly one component.
+    """This function validates one component claim for each source module.
 
-    A module no component claims is a hole in the map: the reader cannot
-    find that code on the page. A module two components claim is a lie in
-    the other direction: the page says one thing does it and another thing
-    also does it. An ignore in the configuration takes a module out of the
-    first rule, with its reason on record, by exact name or as `pkg.sub.*`
-    for a subtree; it never excuses the second. An empty package marker
-    (an `__init__` with no public names and no imports) is left out of
-    the first rule on its own. An ignore that matches nothing in the facts
-    is reported, so a stale entry cannot quietly outlive the module it
-    named, and so is one that names only markers, which is not needed.
+    An ignore reason lets a module have no claim, but not multiple claims. An empty
+    package marker can have no component claim. An ignore without a source match, or
+    with only empty markers, gives a diagnostic.
     """
     if not facts:
-        return Coverage(False, 0, 0, 0, ("no facts to check coverage against",))
+        return Coverage(False, 0, 0, 0, ("No facts are available for the coverage check.",))
     components = facts.get("components", {})
     modules = sorted(components)
     markers = {m for m in modules if extract.is_empty_marker(components[m])}
@@ -330,11 +270,11 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     for ignore in ignore_list:
         matched = [m for m in modules if module_matches(ignore.module, m)]
         if not matched:
-            problems.append(f"ignore names a module the facts do not have: {ignore.module}")
+            problems.append(f"ignore specifies a module missing from the facts: {ignore.module}")
         elif all(m in markers for m in matched):
             problems.append(
-                f"ignore is not needed: {ignore.module} is an empty package marker, left out "
-                "of the coverage rule on its own; remove the entry"
+                f"ignore is not necessary: {ignore.module} is an empty package marker. The "
+                f"coverage rule omits it automatically. Remove the ignore entry."
             )
     ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
     mapped = n_ignored = n_markers = 0
@@ -354,7 +294,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
             mapped += 1
             n_ignored += 1
         else:
-            problems.append(f"unmapped: {m} (no component claims it)")
+            problems.append(f"unmapped: {m} (no component has this module claim)")
     return Coverage(True, mapped, len(modules), n_ignored, tuple(problems), n_markers)
 
 
@@ -368,19 +308,11 @@ NOT_COUNTED = Coverage(True, 0, 0, 0, (), counted=False)
 def check_nesting(
     parent: Model, card: Component, sub: Model, facts: dict[str, Any], sub_label: str
 ) -> list[str]:
-    """The map inside `card` claims exactly what the card claims; its actors are cards above.
+    """This function compares nested-map module claims with the parent component claims.
 
-    The card claims its modules once, on the parent map, and coverage
-    counts them there. The sub-map must claim every one of them and
-    nothing else, each by exactly one card: a module it leaves out has
-    no place inside, and a module it adds is drawn twice, once on each
-    map. Symbol claims count for no module, as everywhere; an empty
-    package marker is left out, as the coverage rule leaves it out. The
-    sub-map's actors stand for the cards around `card` on the parent
-    map, so its edges to the outside have somewhere to land: every actor
-    id must be a card of the parent map, and not `card` itself. The
-    claims are compared through the facts, so with none only the actors
-    are checked; the entry rule names a module the facts do not have.
+    Each applicable module must have one nested component claim. Empty package markers
+    and symbol claims do not add module requirements. The nested actors must be other
+    parent components. Without facts, only actor checks run.
     """
     where = f"the map inside {card.id} ({sub_label})"
     out: list[str] = []
@@ -388,11 +320,11 @@ def check_nesting(
         if c.kind != "actor":
             continue
         if c.id == card.id:
-            out.append(f"{where} has actor {c.id}, the card it is inside")
+            out.append(f"{where} has actor {c.id}, the component that contains the map.")
         elif c.id not in parent.ids:
             out.append(
-                f"{where} has actor {c.id}, which is not a card of the map it is inside; "
-                "a sub-map's actors are the cards around its card"
+                f"{where} has actor {c.id}, which is not a component of the parent map. "
+                f"Nested-map actors are other parent components."
             )
     components = facts.get("components", {})
     if not components:
@@ -408,12 +340,15 @@ def check_nesting(
                 have.setdefault(m, []).append(c.id)
     for m, owners in have.items():
         if len(owners) > 1:
-            out.append(f"{where} claims {m} twice ({', '.join(owners)})")
+            out.append(f"{where} has a claim for {m} {len(owners)} times ({', '.join(owners)})")
     for m in sorted(set(have) - set(wanted)):
-        out.append(f"{where} claims {m}, which {card.id} does not claim ({', '.join(have[m])})")
+        out.append(
+            f"{where} has a claim for {m}, but {card.id} has no claim for it "
+            f"({', '.join(have[m])})."
+        )
     for m in wanted:
         if m not in have:
-            out.append(f"{where} leaves {m} unclaimed, which {card.id} claims")
+            out.append(f"{where} has no claim for {m}, but {card.id} has a claim for it.")
     return out
 
 
@@ -425,19 +360,12 @@ ENTRY_OPTIONAL = ("store", "context")
 
 
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
-    """Every component names modules the facts have and an entry they define.
+    """This function validates component modules, symbol claims, and entries against the
+    facts.
 
-    The map draws what exists. A module the facts do not have, an empty
-    entry, or an entry none of the claimed modules define would each draw
-    a part that is not in the tree, so all three are refused. A store or
-    a context card may have no entry (a constants table, a namespace):
-    its modules alone say it exists, and an entry it does give is checked
-    like any other. A symbol
-    claim (`pkg.mod:name`) must name a module the facts have, a public
-    name that module defines, and a module some component claims: the
-    symbol's card is a part inside that component's module, and a symbol
-    of a module nobody owns would be a card with no place. Actors claim
-    no code and are never checked.
+    A symbol claim must have a public symbol and a module owner. An actor has no
+    source-code checks. A store or context component can have an empty entry. Other
+    components must have a defined public entry.
     """
     components = facts.get("components", {})
     if not components:
@@ -451,35 +379,43 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
             if is_symbol(pattern):
                 continue
             if not any(module_matches(pattern, m) for m in components):
-                out.append(f"{c.id} names module {pattern} which is not in the facts")
+                out.append(
+                    f"{c.id} has a module claim for {pattern}, which is missing from the facts."
+                )
         symbols: list[str] = []
         for module, name in symbol_claims(c):
             symbol = f"{module}:{name}"
             if module not in components:
-                out.append(f"{c.id} claims symbol {symbol} of a module not in the facts")
+                out.append(
+                    f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
+                )
                 continue
             if name not in public_names(components[module]):
-                out.append(f"{c.id} claims symbol {symbol} which {module} does not define")
+                out.append(
+                    f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
+                )
                 continue
             if module not in owned:
                 out.append(
-                    f"{c.id} claims symbol {symbol} of a module nobody claims; a symbol "
-                    "claim needs the module's owner on the map"
+                    f"{c.id} has a symbol claim for {symbol} in a module with no owner. A symbol "
+                    f"claim must have a module owner on the map."
                 )
                 continue
             symbols.append(symbol)
         modules = claimed(c, components)
         if not modules and not symbols:
             if not c.implemented_by:
-                out.append(f"{c.id} names no module; a component is code in the tree")
+                out.append(f"{c.id} has no module claim. A component shows source code.")
             continue
         held = ", ".join(modules + symbols)
         if not c.entry:
             if c.kind not in ENTRY_OPTIONAL:
-                out.append(f"{c.id} names no entry; its modules are {held}")
+                out.append(f"{c.id} has no entry. Its modules are {held}")
             continue
         if not defines_entry(c, facts):
-            out.append(f"{c.id} names entry {c.entry} which none of its modules defines ({held})")
+            out.append(
+                f"{c.id} has entry {c.entry}, but its modules do not define this entry ({held})."
+            )
     return out
 
 
@@ -492,8 +428,9 @@ INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0
 
 
 def interface_head(text: str) -> tuple[str, str] | None:
-    """(the leading identifier, the method after a dot or empty), or None
-    when the line starts with no identifier at all."""
+    """This function reads the initial interface identifier and optional method name, or
+    gives `None` if there is no identifier.
+    """
     found = INTERFACE_HEAD.match(text)
     if found is None:
         return None
@@ -501,7 +438,7 @@ def interface_head(text: str) -> tuple[str, str] | None:
 
 
 def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
-    """The public methods one facts record gives a class, from their signatures."""
+    """This function gives public class methods from recorded signatures."""
     out: set[str] = set()
     for group in ("classes", "errors"):
         for cls in record.get(group, []):
@@ -515,7 +452,7 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
 
 
 def _reexport_sources(record: Mapping[str, Any], name: str) -> list[str]:
-    """The modules a record's `names` say define `name`, when it is re-exported."""
+    """This function finds the source modules for re-exported public names."""
     return [
         str(n["reexport_of"])
         for n in record.get("names", [])
@@ -529,17 +466,10 @@ def _closest(name: str, candidates: Iterable[str]) -> str:
 
 
 def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
-    """Every `interface` starts with a name the component's modules define.
+    """This function validates interface names against the component modules.
 
-    The interface line is what the reader is told other parts reach the
-    component by, so its leading identifier (the token before `(`, `.`,
-    `->` or whitespace) must be a public name one of the claimed modules
-    defines, a re-export included, or a name the component claims by
-    symbol. `Class.method` needs both: the class, and a public method of
-    it in the facts. The line is refused with the closest defined name,
-    since a session found most of its interface lines wrong after a check
-    that never read them. `interface` stays optional; an empty one is not
-    checked, and an actor claims no code.
+    A method name must have a public class and a public method. Re-exports can supply
+    these names.
     """
     components = facts.get("components", {})
     if not components:
@@ -553,11 +483,8 @@ def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
 
 
 def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
-    """The interface rule for one card: the problem line, or empty when it passes.
-
-    The one definition of the rule: `check_interface` reports it and
-    `systemap delta` compares it at two commits, so a name that vanished
-    is judged by the same words that refuse it.
+    """This function gives the interface diagnostic for one component, or an empty string
+    if the interface is correct.
     """
     if c.kind == "actor" or not c.interface.strip():
         return ""
@@ -571,15 +498,16 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
     head = interface_head(c.interface)
     if head is None:
         return (
-            f"{c.id} interface '{c.interface}' does not start with a name; start it "
-            f"with a public name one of its modules defines ({held})"
+            f"{c.id} interface '{c.interface}' does not start with a name. Start it with a "
+            f"public name from its modules ({held})"
         )
     name, method = head
     if name not in names:
         closest = _closest(name, names)
-        hint = f"; closest: {closest}" if closest else ""
+        hint = f". The nearest name is {closest}" if closest else ""
         return (
-            f"{c.id} interface starts with {name}, which none of its modules defines ({held}){hint}"
+            f"{c.id} interface starts with {name}, but none of its modules defines this "
+            f"name ({held}){hint}"
         )
     if not method:
         return ""
@@ -588,9 +516,9 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
         # The class's own methods first: a wrong method is usually a
         # misspelt one, not a module-level name.
         closest = _closest(method, methods) or _closest(method, names)
-        hint = f"; closest: {closest}" if closest else ""
+        hint = f". The nearest name is {closest}" if closest else ""
         return (
-            f"{c.id} interface names {name}.{method}, but {name} has no public method "
+            f"{c.id} interface contains {name}.{method}, but {name} has no public method "
             f"{method} ({held}){hint}"
         )
     return ""
@@ -599,7 +527,7 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
 def _interface_methods(
     modules: list[str], symbols: list[tuple[str, str]], components: Mapping[str, Any], name: str
 ) -> set[str]:
-    """Public methods on a claimed class, including methods from re-exports."""
+    """This function gives public methods from a class claim and its re-exports."""
     methods: set[str] = set()
     for m in modules:
         methods |= method_names(components[m], name)
@@ -636,15 +564,16 @@ def _reexport_methods(
 def stale_facts(
     fresh: dict[str, Any], stored: dict[str, Any], model: Model, prefixes: set[str]
 ) -> list[str]:
-    """Ways the stored facts no longer describe the tree, plus claims of
-    modules the tree does not have. The rule `extract --check` runs."""
+    """This function compares stored facts with fresh facts and finds claims for missing
+    source modules.
+    """
     problems = (
         extract.drift(fresh, stored)
         + extract.mapping_drift(fresh, model, prefixes)
         + extract.inventory_issue_lines(fresh)
     )
     if not stored:
-        problems.insert(0, "no facts have been built yet")
+        problems.insert(0, "No extracted facts are available.")
     return problems
 
 
@@ -653,19 +582,13 @@ def stale(
     tree: nest.Tree,
     fresh: dict[str, Any] | None = None,
 ) -> list[str]:
-    """Every output that is older than the tree or the model.
-
-    The facts are compared against a fresh extraction, every map's page
-    against a fresh render from the stored facts (the committed page must
-    match the committed facts, whatever the tree has since done), and
-    each configured figure against the generator. A model that
-    contradicts itself cannot be rendered honestly, so its page is not
-    compared then; the placement and meaning rules report the rest.
+    """This function compares saved facts, pages, and configured figures with fresh
+    generated output.
     """
     fresh = fresh if fresh is not None else extract.build(cfg)
     stored = extract.read_facts(cfg.facts_path)
     if not stored:
-        return ["no facts have been built yet"]
+        return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not
     # have is the entry rule's finding, and a placement problem is the
     # placement rule's, so neither is reported twice.
@@ -697,9 +620,9 @@ def stale(
 def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
     rel = cfg.rel(path)
     if not path.is_file():
-        return [f"{rel} has not been rendered"]
+        return [f"{rel} has no rendered output."]
     if path.read_text(encoding="utf-8") != expected:
-        return [f"{rel} differs from what systemap renders"]
+        return [f"{rel} differs from the rendered output."]
     return []
 
 
@@ -708,16 +631,8 @@ def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
 
 @dataclass(frozen=True)
 class Result:
-    """Everything one check run found.
-
-    `problems` are the placement, meaning, route, label, type-size and
-    wheel findings; `coverage` is the module rule; `entry` is the rule that
-    every card is code in the tree; `interface` the rule that a signature
-    names what the modules define; `nesting` the rule that the map inside
-    a card is that card and nothing else (on the sub-map's own result);
-    `stale` is filled in by the CLI, which has the configuration the
-    comparison needs; `through` and `across` count edges through a
-    foreign card and across a foreign region.
+    """This record contains geometry, meaning, coverage, entry, interface, and nested-map
+    check results.
     """
 
     problems: list[str]
@@ -754,15 +669,10 @@ def run(
     *,
     coverage: bool = True,
 ) -> Result:
-    """Check one map against the facts.
+    """This function does the checks for one map.
 
-    Placement and meaning are checked first; the drawing is only attempted
-    once those are clean, since a model that contradicts itself cannot be
-    drawn honestly. Coverage is checked regardless, because it reads the
-    facts and the claims only, never the drawing; `coverage=False` is the
-    map inside a card, whose modules the card counted once above.
-    `observed_by` is the repository's list of non-import mechanisms; it
-    changes what the drawing says of an edge, never what the check refuses.
+    Model contradictions prevent rendering. Other checks compare the model with source
+    facts.
     """
     problems = model_problems(model, meaning)
     through = across = 0
@@ -793,7 +703,9 @@ def run_tree(
     ignores: Iterable[Ignore] = (),
     observed_by: Iterable[str] = (),
 ) -> dict[str, Result]:
-    """Every map checked, by map id: coverage on the top, nesting on each sub-map."""
+    """This function does the checks for all maps. Coverage counts on the top map.
+    module-set checks run on nested maps.
+    """
     out: dict[str, Result] = {}
     for m in tree.maps:
         result = run(m.model, m.meaning, m.theme, facts, ignores, observed_by, coverage=m.top)
@@ -819,14 +731,15 @@ def _plural(n: int, noun: str) -> str:
 
 
 def coverage_line(cov: Coverage) -> str:
-    """`coverage: 144 of 144 modules mapped, 5 of them ignored with a reason,
-    9 of them empty package markers`: the mapped count includes both."""
+    """This function formats the coverage counts, including ignored modules and empty
+    package markers.
+    """
     line = f"coverage: {cov.mapped} of {cov.total} modules mapped"
     if cov.ignored:
-        line += f", {cov.ignored} of them ignored with a reason"
+        line += f", {cov.ignored} ignored with a reason"
     if cov.markers:
         noun = "an empty package marker" if cov.markers == 1 else "empty package markers"
-        line += f", {cov.markers} of them {noun}"
+        line += f", {cov.markers} {noun}"
     return line
 
 
@@ -837,20 +750,18 @@ def report(
     prefix: str = "",
     teach: bool = True,
 ) -> list[str]:
-    """The lines the CLI prints for one check run: each failing rule with
-    its findings and the fix under them. `prefix` is what a sub-map's
-    lines carry in front, its id and a colon.
+    """This function gives the CLI report for one map.
 
-    `teach` adds why a failing rule matters and what to do, from
-    `systemap.explain`, under the rule's own line. A rule that passed is
-    one line and needs no teaching; `--brief` turns it off everywhere."""
+    The report includes diagnostic groups and necessary actions. The optional prefix
+    identifies a nested map. The `teach` option adds an explanation for each diagnostic
+    group.
+    """
     lines = _report(model, result, model_file)
     return [prefix + line for line in (_taught(lines) if teach else lines)]
 
 
 def _taught(lines: list[str]) -> list[str]:
-    """Each failing group with its lesson under it. A group has failed when
-    findings are listed under it, which is how this report is written."""
+    """This function adds an explanation to each diagnostic group with errors."""
     out: list[str] = []
     for k, line in enumerate(lines):
         out.append(line)
@@ -861,22 +772,25 @@ def _taught(lines: list[str]) -> list[str]:
 
 
 def report_stale(lines: list[str], teach: bool = True) -> list[str]:
-    """The stale group, printed once for the whole tree after every map's rules."""
+    """This function gives one stale-output report for the full map tree."""
     if not lines:
         return []
     return [
         f"stale: {_plural(len(lines), 'problem')}",
         *(explain.rows("stale") if teach else []),
         *(f"  {line}" for line in lines),
-        "  fix: run: systemap refresh, then commit the output directory",
+        "  fix: Use systemap refresh. Then commit the output directory.",
     ]
 
 
 def _report(model: Model, result: Result, model_file: str) -> list[str]:
     through, across = result.through, result.across
     out = [
-        f"map routes: {through} edge{'s' if through != 1 else ''} through a card "
-        f"they do not connect, {across} across a region they neither start nor end in"
+        (
+            f"map routes: {through} edge{('s' if through != 1 else '')} across components "
+            f"other than its endpoints, {across} across regions other than its endpoint "
+            f"regions."
+        )
     ]
     cov = result.coverage
     if not cov.counted:
@@ -886,44 +800,44 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         out += [f"  {line}" for line in cov.problems]
         if cov.problems:
             out.append(
-                f"  fix: map every module in {model_file}, or ignore it with a reason "
-                "under [coverage] in the configuration"
+                f"  fix: Give each module a component in {model_file}, or give a reason to "
+                f"ignore it in [coverage] in the configuration."
             )
     else:
-        out.append("coverage: not checked, there are no facts; run: systemap extract")
+        out.append("coverage: No facts are available for the check. Use systemap extract.")
     if result.nesting:
         out.append(f"nesting: {_plural(len(result.nesting), 'problem')}")
         out += [f"  {line}" for line in result.nesting]
         out.append(
-            f"  fix: in {model_file}, claim exactly the modules the card that opens it "
-            "claims, each once, and name only cards of the map above as actors"
+            f"  fix: In {model_file}, give each module of the parent component one claim. "
+            f"Use other parent components as actors."
         )
     if result.entry:
         out.append(f"entry: {_plural(len(result.entry), 'problem')}")
         out += [f"  {line}" for line in result.entry]
         out.append(
-            f"  fix: in {model_file}, name only modules the facts have and set entry to "
-            "a public name one of them defines (a function, a class, an object such as "
-            "app); the map draws what exists today"
+            "  fix: The map shows code in the facts. "
+            f"In {model_file}, use modules from the facts. Set entry to a public "
+            f"name that one of these modules defines."
         )
     if result.interface:
         out.append(f"interface: {_plural(len(result.interface), 'problem')}")
         out += [f"  {line}" for line in result.interface]
         out.append(
-            f"  fix: in {model_file}, start interface with a public name one of the "
-            "component's modules defines (Class.method for a method), or leave it empty"
+            f"  fix: In {model_file}, start interface with a public name from the "
+            f"component modules (Class.method for a method), or leave it empty."
         )
     out.extend(_unknown_surface_report(result.unknown_surface))
     problems = result.problems
     if problems:
         out.append(f"map layout: {_plural(len(problems), 'problem')}")
         out += [f"  {line}" for line in problems]
-        out.append(f"  fix: edit {model_file}, then run: systemap check")
+        out.append(f"  fix: Change {model_file}. Then use systemap check.")
     else:
         n = len(model.components)
         out.append(
-            f"map layout: clean ({n} cards, {len(model.flows)} orthogonal labelled "
-            f"edges, {n} wheels, nothing below {TEXT_PX:g}px)"
+            f"map layout: has no errors ({n} components, {len(model.flows)} orthogonal "
+            f"labeled edges, {n} wheels, no text size less than {TEXT_PX:g}px)"
         )
     out += report_stale(result.stale)
     return out
@@ -935,5 +849,8 @@ def _unknown_surface_report(findings: list[str]) -> list[str]:
     return [
         f"unknown surface: {_plural(len(findings), 'finding')}",
         *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
-        "  fix: teach the TypeScript reader this syntax or restore the missing source mapping",
+        (
+            "  fix: Add parser support for this TypeScript syntax, or restore the missing "
+            "source mapping."
+        ),
     ]
