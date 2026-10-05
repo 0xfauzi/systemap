@@ -1,20 +1,7 @@
-"""The agent skill: the procedure a coding agent follows to map a repository.
+"""The skill supplies the coding-agent procedure for map creation and maintenance.
 
-The facts are mechanical and `systemap extract` reads them. The meaning
-tier (which modules form a component, its plain name, what each edge
-means, the journeys, the invariants) takes judgement. That judgement is
-drafted by a coding agent following the skill and reviewed by a person,
-which is why the skill ends by handing back the list of calls it made.
-
-The skill is a directory: `SKILL.md` (when to use it, the loop, what to
-hand back, the index of references) and `references/` (the schema, a
-worked example, the layers, the journey and invariant method, the second
-pass, the pitfalls), each read when the loop reaches it. It ships in the
-package under `skill/`, so the wheel carries it and this module only
-installs or prints it. `systemap init` installs the directory by default
-and `systemap skill` reinstalls it; every file is overwritten on every
-run and a reference the package no longer ships is removed, so an
-upgrade of the package refreshes the whole directory.
+The extractor supplies mechanical facts. The agent writes meaning from source evidence.
+The skill specifies ASD-STE100 Issue 9 for map names, descriptions, and documentation.
 """
 
 from __future__ import annotations
@@ -28,7 +15,9 @@ REFERENCES = "references"
 
 
 def files() -> dict[str, str]:
-    """Every file of the skill, relative path -> text, SKILL.md first."""
+    """This function indexes all packaged skill files by relative path, with SKILL.md
+    first.
+    """
     root = resources.files("systemap").joinpath("skill")
     out = {FILE_NAME: root.joinpath(FILE_NAME).read_text(encoding="utf-8")}
     refs = root.joinpath(REFERENCES)
@@ -39,16 +28,15 @@ def files() -> dict[str, str]:
 
 
 def text() -> str:
-    """SKILL.md, as shipped in the package."""
+    """This function reads the packaged SKILL.md."""
     return files()[FILE_NAME]
 
 
 def write(directory: Path) -> Path:
-    """Write the skill directory into `directory` and return SKILL.md's path.
+    """Write the packaged skill directory and return the SKILL.md path.
 
-    Every shipped file is written; a `.md` under `references/` that the
-    package no longer ships is removed, so the installed directory is the
-    shipped one and nothing else.
+    Remove obsolete Markdown files from references so the installed skill agrees with
+    the package.
     """
     shipped = files()
     for rel, content in shipped.items():

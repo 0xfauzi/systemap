@@ -94,16 +94,14 @@ def test_interface_leading_name_must_be_defined_by_the_modules(sample: Sample) -
         with_interface(sample, "Reader", "raed(source)").model, sample.facts
     )
     assert lines == [
-        "Reader interface starts with raed, which none of its modules defines "
-        "(pkg.reader); closest: read"
+        "Reader interface starts with raed, but none of its modules defines this name (pkg.reader). The nearest name is read"
     ]
     # Class.method: the class is defined, the method must be one of its public methods.
     lines = check.check_interface(
         with_interface(sample, "Ledger", "Ledger.recrod(parts)").model, sample.facts
     )
     assert lines == [
-        "Ledger interface names Ledger.recrod, but Ledger has no public method recrod "
-        "(pkg.ledger); closest: record"
+        "Ledger interface contains Ledger.recrod, but Ledger has no public method recrod (pkg.ledger). The nearest name is record"
     ]
     assert (
         check.check_interface(
@@ -116,13 +114,11 @@ def test_interface_leading_name_must_be_defined_by_the_modules(sample: Sample) -
         with_interface(sample, "Parser", "python -m pkg").model, sample.facts
     )
     assert lines == [
-        "Parser interface starts with python, which none of its modules defines "
-        "(pkg.parser); closest: parse"
+        "Parser interface starts with python, but none of its modules defines this name (pkg.parser). The nearest name is parse"
     ]
     lines = check.check_interface(with_interface(sample, "Parser", "--verbose").model, sample.facts)
     assert lines == [
-        "Parser interface '--verbose' does not start with a name; start it with a public "
-        "name one of its modules defines (pkg.parser)"
+        "Parser interface '--verbose' does not start with a name. Start it with a public name from its modules (pkg.parser)"
     ]
     # Optional: an empty line is not checked, and an actor claims no code.
     assert check.check_interface(with_interface(sample, "Parser", "").model, sample.facts) == []
@@ -163,8 +159,7 @@ def test_a_symbol_claim_counts_as_a_defined_name() -> None:
         model, components=(dataclasses.replace(tool, interface="lookup(term)"),)
     )
     assert check.check_interface(bad, facts) == [
-        "Search interface starts with lookup, which none of its modules defines "
-        "(bot.agent:search); closest: search"
+        "Search interface starts with lookup, but none of its modules defines this name (bot.agent:search). The nearest name is search"
     ]
 
 
@@ -176,11 +171,10 @@ def test_interface_failure_in_the_cli(tmp_path: Path, capsys: pytest.CaptureFixt
     out = capsys.readouterr().out
     assert "interface: 1 problem" in out
     assert (
-        "Writer interface starts with publish, which none of its modules defines "
-        "(pkg.writer); closest: write"
+        "Writer interface starts with publish, but none of its modules defines this name (pkg.writer). The nearest name is write"
     ) in out
-    assert "fix: in map/model.py, start interface with a public name" in out
-    assert out.rstrip().endswith("fix map/model.py, then run: systemap check")
+    assert "fix: In map/model.py, start interface with a public name" in out
+    assert out.rstrip().endswith("Correct map/model.py. Then use systemap check.")
     assert run("--root", str(tmp_path), "refresh") == 1
 
 
@@ -263,14 +257,8 @@ def test_fixture_interfaces_pass_and_a_wrong_head_is_refused() -> None:
     )
     lines = check.check_interface(broken, facts)
     assert lines == [
-        "Gateway interface starts with create_ap, which none of its modules defines "
-        "(wharf_server.gateway, wharf_server.gateway.__main__, wharf_server.gateway.app, "
-        "wharf_server.gateway.errors, wharf_server.gateway.extraction_run, "
-        "wharf_server.gateway.jobs, wharf_server.gateway.routes, "
-        "wharf_server.gateway.stub_run); closest: create_app",
-        "Sandbox interface names SandboxRunner.go, but SandboxRunner has no public method go "
-        "(wharf_server.sandbox, wharf_server.sandbox.container, wharf_server.sandbox.errors, "
-        "wharf_server.sandbox.runner, wharf_server.sandbox.tuning); closest: run",
+        "Gateway interface starts with create_ap, but none of its modules defines this name (wharf_server.gateway, wharf_server.gateway.__main__, wharf_server.gateway.app, wharf_server.gateway.errors, wharf_server.gateway.extraction_run, wharf_server.gateway.jobs, wharf_server.gateway.routes, wharf_server.gateway.stub_run). The nearest name is create_app",
+        "Sandbox interface contains SandboxRunner.go, but SandboxRunner has no public method go (wharf_server.sandbox, wharf_server.sandbox.container, wharf_server.sandbox.errors, wharf_server.sandbox.runner, wharf_server.sandbox.tuning). The nearest name is run",
     ]
 
 
@@ -308,8 +296,8 @@ def test_panel_carries_interface_entry_and_note(sample: Sample) -> None:
     for text in (
         "systemap-f__iface",
         "systemap-f__note",
-        "Entry: <b>",
-        "No entry point is named for this part",
+        "Entry point: <b>",
+        "The component has no entry name.",
         "d.entry_module",
     ):
         assert text in script, text
@@ -333,12 +321,10 @@ def test_an_interface_edit_renders_and_refresh_says_what_current_means(
     # The interface is a rendered field now: the page is stale after the edit.
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "docs/map/index.html differs from what systemap renders" in out
+    assert "docs/map/index.html differs from the rendered output." in out
     assert run("--root", str(tmp_path), "refresh") == 0
-    assert "map: updated" in capsys.readouterr().out
+    assert "map: The command updated" in capsys.readouterr().out
     assert "write(request) -> str" in (tmp_path / "docs/map/index.html").read_text()
     assert run("--root", str(tmp_path), "refresh") == 0
     assert capsys.readouterr().out == ALREADY_CURRENT + "\n"
-    assert ALREADY_CURRENT == (
-        "map: already current: the page matches the model's rendered fields and the facts"
-    )
+    assert ALREADY_CURRENT == ("map: The page agrees with the rendered model fields and the facts.")

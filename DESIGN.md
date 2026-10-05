@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Authored system maps with exact relationship evidence.
+description: Authored system maps with evidence for directed relationships.
 colors:
   primary: "#e5a84f"
   warm-bg: "#161310"
@@ -141,116 +141,149 @@ components:
 
 ## Overview
 
-The authored spatial map is the main artefact. A card represents a part of the
-system. A flow names something passed between parts. The inspector explains a
-selected part or exact flow beside the map. Reading view presents the same
-information as text.
+The authored spatial map is the main artifact. A component shows a system part.
+A flow shows something that goes between parts.
+The inspector shows a selected part or directed flow adjacent to the map.
+Text view gives the same information as text.
 
-The selected direction follows refined prototype revision 5. It uses compact
-controls, flat surfaces and visible card purposes. The user rejected the former
-operations-first atlas layout. These specifications describe the implementation;
-they do not certify runtime performance or accessibility.
+The design uses refined prototype revision 5. It has compact controls, flat
+surfaces, and visible part functions. The user rejected the operations-first
+atlas layout. These specifications give the implemented design.
+They do not give measurements of runtime performance or accessibility.
 
 ## Colors
 
-Warm is the default scheme. Graphite provides a cooler dark scheme. Paper
-provides a light scheme. A first visit follows a native light preference;
-a stored appearance choice takes precedence. Each scheme has the same roles in
-[theme.py](src/systemap/theme.py): background, surface, raised surface, borders,
-three text levels, accent, measurement, warning and error.
+Warm is the default scheme. Graphite is a cooler dark scheme.
+Paper is a light scheme. On a first visit, the page uses a native light
+preference. A stored appearance selection has precedence over that preference.
+Each scheme has the same roles in [theme.py](src/systemap/theme.py):
+background, surface, raised surface, borders, three text levels, accent,
+measurement, warning, and error.
 
-Accent identifies selection, focus and the part acting in a journey step.
-Steel identifies the part measuring that step. Layer hues identify a question
-about the system. Layer hues come from the tables in `theme.py`. A selected
-relationship uses accent while its inspector retains the layer name. Kind
-marks distinguish agents, tools and context cards by shape. Evidence also has
-a stroke pattern, so meaning does not depend on colour alone.
+Accent shows selection, focus, and the part that acts in a sequence step.
+Steel shows the part that measures that step.
+Layer hues show a question about the system.
+The tables in `theme.py` contain the layer hues.
+A selected relationship uses accent. Its inspector keeps the layer name.
+
+Kind marks use shapes to show agents, tools, and context components.
+A stroke pattern shows the evidence state.
+Thus, color is not the only indication of meaning.
 
 ## Typography
 
-System sans fonts carry explanations and controls. System monospace fonts carry
-identifiers, paths, commands and finding lines. The page loads no font files.
-Inspector prose uses the `inspector-body` role. Part purposes remain separate
-from code titles.
+System sans fonts show explanations and controls.
+System monospace fonts show identifiers, paths, commands, and finding lines.
+The page loads no font files.
+Inspector text uses the `inspector-body` role.
+Part functions and code titles use different text roles.
 
-The `snapshot` and `metadata` roles describe the current compact header text.
-The project title has its own role. Brand text becomes smaller on phones.
-Reference and reading titles identify sections below the map and in reading
-view. These are component roles, not a size progression for every heading.
+The `snapshot` and `metadata` roles show compact header text.
+The project title has a different role.
+The brand text is smaller on phones.
+Reference and reading titles show sections below the map and in reading
+view. These roles do not specify one size sequence for all headings.
 
-The SVG uses text at 11 units and part identifiers at 11.5 units before the map
-transform. Those values do not guarantee a readable physical size when the
-whole map is fitted. Reading view supplies the same parts and flows at text
-size. Keep identifiers intact and allow long source paths to wrap.
+The SVG uses 11 units for text and 11.5 units for part identifiers before the
+map transform. These values do not show the physical text size at Fit.
+Text view gives the same parts and flows at text size.
+Keep full identifiers. Show long source paths on more than one line.
 
 ## Layout
 
-Desktop uses a flexible map column and a fixed inspector column (340px), with a
-gap (12px). The inspector sticks within the viewport and scrolls independently.
-The map height is `calc(100vh - 220px)`, bounded by a minimum (460px) and maximum
-(1100px). Definitions are a disclosure above compact layer, view and journey
-controls. Reference material follows the map.
+The desktop layout has a flexible map column and a fixed inspector column
+(340px). The clearance between columns is 12px.
+The inspector stays in the viewport and scrolls independently.
+The map height is `calc(100vh - 220px)`.
+Its minimum is 460px. Its maximum is 1100px.
 
-At widths up to 1050px, the inspector moves below the map and loses its sticky
-position. The map uses a viewport-relative height (70vh), with a minimum
-(400px). At widths up to 640px, a native layer selector replaces segmented
-buttons. The map follows its authored aspect ratio. Reference and reading
-columns become single columns. Phone controls have a minimum height (44px).
-Zoom buttons also have a minimum width (44px).
+A disclosure above the controls gives the map terms.
+The compact controls select layers, views, and sequences.
+Reference material is below the map.
+
+At widths of 1050px or less, the inspector is below the map and has no sticky
+position. The map height is 70vh, with a minimum of 400px.
+At widths of 640px or less, a native layer selector replaces the segmented
+buttons. The map uses its authored aspect ratio.
+Reference and reading sections use single columns.
+
+Phone controls have a minimum height of 44px.
+Zoom buttons also have a minimum width of 44px.
 
 ## Elevation & Depth
 
-The map and inspector use background differences and thin borders for
-separation. The map has a faint dot grid with a repeat interval (18px).
-Selection adds an accent border and an inner vertical mark. A nested map opens
-in a dialog above an inert background. That dialog alone uses a broad shadow;
-its exact value is recorded in the sidecar.
+The map and inspector use different backgrounds and thin borders for separation.
+The map has a dot grid with an interval of 18px.
+Selection adds an accent border and an inner vertical mark.
+A nested map opens in a dialog above an inert background.
+Only that dialog has a broad shadow.
+The sidecar records the specified shadow value.
 
 ## Shapes
 
-Controls and spatial cards use the `control` radius. Map and inspector surfaces
-use the `map-surface` radius. Inspector notes and endpoint buttons use the
-`inspector-detail` radius. Layer hue indicators use the `layer-indicator` radius.
-A panel accompanying a standalone figure uses the `standalone-panel` radius.
-Cards that contain a nested map have a second card offset behind them (3 SVG
-units). Outside actors retain dashed borders.
+Controls and spatial components use the `control` radius.
+Map and inspector surfaces use the `map-surface` radius.
+Inspector notes and endpoint buttons use the `inspector-detail` radius.
+Layer hue indicators use the `layer-indicator` radius.
+A standalone figure panel uses the `standalone-panel` radius.
+
+A nested-map component has a second card behind it, with an offset of 3 SVG units.
+Outside actors keep dashed borders.
 
 ## Components
 
-Layer buttons combine a text label and hue indicator. Pressed state adds a
-surface fill and border. Hover adds a raised fill. Keyboard focus has a visible
-accent outline. The phone selector exposes the same layer state.
+Layer buttons have a text label and hue indicator.
+The pressed state adds a surface fill and border.
+Hover adds a raised fill.
+Keyboard focus has a visible accent outline.
+The phone selector gives the same layer state.
 
-The Fit control restores the complete map view. Its miniature shows authored
-part positions and the visible area. Journey controls advance an authored
-sequence. Back to journey restores the current step after inspection. End
-restores the selection and view that preceded the journey.
+The Fit control shows the full map.
+Its miniature shows authored part positions and the visible area.
+Sequence controls move through the authored sequence.
+Back to sequence shows the selected step after an inspection.
+End restores the selection and view from before the sequence.
 
-Flow labels and inspector choices select one exact directed relationship.
-The inspector shows the artifact, endpoints, layer, evidence and explanation
-before source details. Declared flows retain dashes during selection. At most
-one directional cue moves. Its cycle is 1.8 seconds. Native reduced motion or
-the page preference disables motion and transitions while retaining static
-selection and evidence marks.
+Flow labels and inspector choices select one directed relationship.
+The inspector first shows the artifact, endpoints, layer, evidence, and
+explanation. Source details come after these fields.
+Declared flows keep their dashes during selection.
+No more than one directional cue moves.
+Its cycle is 1.8 seconds.
 
-Search reports why a part matched. Part choices retain their plain purpose.
-Connected parts and source records use disclosures. Part notes remain visible
-before those disclosures. Nested maps preserve the opening control for focus
-restoration. Reading view retains the selected part, flow and journey.
+Native reduced motion or the page preference stops motion and transitions.
+Static selection and evidence marks stay visible.
 
-## Do's and Don'ts
+Search shows why a part matched.
+Part choices keep their plain function text.
+Connected parts and source records use disclosures.
+Part notes stay visible before these disclosures.
+Nested maps keep the opening control for focus restoration.
+Text view keeps the selected part, flow, and sequence.
 
-- Do preserve authored positions when switching layers or reading views.
-- Do keep a part's purpose readable while inspecting its relationships.
-- Do preserve exact finding lines and distinguish authored claims from facts.
-- Do keep selection, evidence and journey roles distinguishable without motion.
-- Don't restore the rejected operations-first atlas composition.
-- Don't imply that directional animation records an execution.
-- Don't hide missing evidence or convert a declared flow to observed evidence.
+## Design rules
+
+- Keep authored positions when you change the layer or view.
+
+- Keep a part's function readable during relationship inspection.
+
+- Do not change finding identifiers.
+
+- Show authored claims and facts in different fields.
+
+- Keep selection, evidence, and sequence roles clear without motion.
+
+- Do not use the rejected operations-first atlas layout.
+
+- Do not suggest that a directional animation records execution.
+
+- Do not hide missing evidence.
+
+- Do not change a declared flow to observed evidence.
 
 The implementation sources are [page_assets.py](src/systemap/page_assets.py),
 [schematic_style.py](src/systemap/schematic_style.py),
 [schematic_cards.py](src/systemap/schematic_cards.py),
-[schematic_script.py](src/systemap/schematic_script.py) and
-[page_atlas.py](src/systemap/page_atlas.py). Update these specifications when
-those sources change.
+[schematic_script.py](src/systemap/schematic_script.py), and
+[page_atlas.py](src/systemap/page_atlas.py).
+When those sources change, update these specifications.

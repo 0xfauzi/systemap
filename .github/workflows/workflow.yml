@@ -1,22 +1,11 @@
-# Publishing a release, with no token anywhere.
-#
-# Pushing a tag that names a version builds the package and uploads it to
-# PyPI through trusted publishing: GitHub signs a short-lived identity for
-# this workflow in this repository, and PyPI accepts the upload because it
-# was told to trust that identity. Nothing long-lived is stored here, in a
-# secret, or on anybody's laptop.
-#
-# The trusted publisher registered on PyPI names this repository, this file
-# (workflow.yml) and the environment pypi. All three are part of the identity
-# GitHub signs, so renaming this file or changing the environment breaks the
-# upload until the publisher on PyPI is changed to match.
+# A version tag starts a PyPI release through trusted publishing.
+# The PyPI publisher identity includes this repository, workflow.yml, and the pypi environment.
+# If an identity field changes, change the PyPI publisher configuration also.
+# Release execution must not restore a cache that another job can write.
 name: release
 
 on:
   push:
-    # Every tag that starts with v. The job checks the tag against the
-    # package's own version, which is the rule that matters, and a filter
-    # pattern is the wrong place to enforce it.
     tags:
       - "v*"
 
@@ -26,15 +15,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Without this the job inherits GitHub's six-hour default, so one hang
-    # bills six hours. Build and upload is a two-minute job.
     timeout-minutes: 10
-    # Named in the identity GitHub signs, and registered on PyPI beside the
-    # repository and this file's name.
     environment: pypi
     permissions:
       contents: read
-      # What signs the identity PyPI checks. It is the whole mechanism.
       id-token: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -42,9 +26,8 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          # A release must not restore a cache anything else can write.
           enable-cache: false
-      - name: the tag and the package agree
+      - name: Compare the tag and package version
         run: |
           tagged="${GITHUB_REF_NAME#v}"
           built="$(uv run python -c 'import systemap; print(systemap.__version__)')"
@@ -52,6 +35,6 @@ jobs:
             echo "::error title=Version mismatch::the tag says $tagged and the package says $built"
             exit 1
           fi
-      - name: build
+      - name: Make the package
         run: uv build
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

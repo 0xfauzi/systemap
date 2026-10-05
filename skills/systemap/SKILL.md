@@ -1,240 +1,211 @@
 ---
 name: systemap
-description: Map a repository with systemap, the map a coding agent draws of a system. Use when asked to "map this repository", "draw the system map", "update the map", write or refresh map/model.py, group modules into components, or make `systemap check` pass. Runs `systemap extract`, drafts the model (components, flows, journeys, invariants), places the cards with `systemap place`, runs `systemap check` until clean, renders with `systemap refresh`, then makes a second pass with `systemap judgement` until a full pass changes nothing, and answers the remaining judgement lines in `[judgement] answered` in systemap.toml for the maintainer. After the code changed, runs `systemap delta --base REF` and acts on its lines alone (the maintenance path).
+description: Make or update a system map from repository source code. Use for map/model.py, component assignments, flows, sequences, invariants, and map checks. Extract source facts, write the model in ASD-STE100, place components, examine source claims, render the map, and record decisions. Use systemap delta for source changes after the first map.
 license: MIT
-compatibility: Requires Python 3.11+ and the systemap package (uv tool install systemap)
+compatibility: Python 3.11+ and the systemap package (uv tool install systemap)
 ---
 
-# Mapping a repository with systemap
+# Make or update a system map
 
-You are drawing a map of this repository's system from two inputs. The
-facts (modules, what each exports, which tests import it, where a run
-starts) are read out of the code by `systemap extract`; nothing you write
-changes them. The model (which modules make one thing a reader would name,
-what moves between things, what each connection means) takes judgement:
-you draft it, and the maintainer reviews every judgement you made.
+A map has source facts and an authored model.
+`systemap extract` reads modules, exports, imports, and entry points from source code.
+The model gives component assignments for source modules and identifies each flow artifact.
+A maintainer must examine these claims against source code.
+A passing structural check does not show that a claim is correct.
 
-The model is one Python module, by default `map/model.py`, exporting `MODEL`
-and `MEANING`, built from the dataclasses `systemap` exports. Run every
-command from the repository root (`--root DIR` names another project);
-`systemap` and `uv run systemap` both resolve when the tool is installed.
-If there is no `systemap.toml`, run `systemap init` first.
+The model is a Python module, usually `map/model.py`, with `MODEL` and `MEANING`.
+Run commands from the repository root. Use `--root DIR` for another repository.
+If `systemap.toml` is missing, run `systemap init`.
 
-## When Jev is available
+## Mandatory language requirement
 
-Jev is TypeSafe's model; it judges questions names and imports cannot settle.
-With `TYPESAFE_API_KEY`, use `suggest --jev`, `audit` after `judgement`, and
-the Jev answers in `delta` and `triage`. Without a key, use plain commands
-and complete the module review in `references/second-pass.md`. The rules
-select questions; they do not verify unflagged modules. If Jev fails, report
-it and use the same code review path. Tell the user which path ran.
+You must use ASD-STE100 Issue 9 for all names and all text that a person reads.
+This requirement applies to every new map and every map update.
+Before you write, read [references/language.md](references/language.md) and the official ASD rules and dictionary.
+Use approved meanings and parts of speech. Use technical terms only with their glossary meanings.
+This includes component names, artifacts, layers, sequences, steps, invariants, explanations, and recorded reasons.
+Do not change commands, schema keys, identifiers, or quoted source evidence.
+If the official reference is unavailable, tell the maintainer. Do not complete language acceptance.
+Do not claim compliance from an automated word-list check.
+
+## Model decisions
+
+Jev is the TypeSafe model for decisions that imports and names cannot give.
+With `TYPESAFE_API_KEY`, use `suggest --jev` and `audit`.
+The `delta` and `triage` commands can also use Jev.
+Without a key, use source examination in `references/second-pass.md`.
+If Jev fails, show the failure and use the same source examination procedure.
+Tell the maintainer which procedure was used. Examine modules without findings also.
 
 ## The loop
 
-The first draft will be wrong in ways the checker cannot see: an edge the
-code has and the map does not, a grouping by directory rather than by
-purpose, an entry point with no walk through it. The check catches
-contradictions, not omissions; the second pass is the point of this skill.
+A first draft can omit flows or give a module an incorrect component assignment.
+Structural checks cannot find every omission. Source examination is necessary.
 
-1. **extract**: `systemap extract`, also when `systemap.toml` exists but
-   the facts file does not. Then read the facts through `systemap facts`,
-   never the JSON (hundreds of kilobytes on a real tree). Each view
-   answers one question, and the command table below lists them:
-   `--docstrings` for `does`, `--names NAME` for `entry` and `interface`,
-   `--entry-points` for the journeys, `--module NAME` for one record in
-   full. Every module must end up claimed by one component, except the
-   empty package markers the summary lists.
-2. **draft**: `systemap suggest --jev` (fallback: `systemap suggest`)
-   prints a first grouping, from Jev's answers about module pairs or one
-   proposal per package, and the imports between: a starting point to
-   revise, not the answer. Then write `map/model.py` from the facts and the repository's
-   own words: its README, AGENTS.md, CLAUDE.md, docs/. Write the
-   components and the flows with no `x` and `y`, then run `systemap
-   place`: it tries the region orders and keeps the one whose routes
-   have the fewest collisions, refusals, bends and length (never write
-   a helper to try orders), lays the regions out with the corridors the
-   edges need, puts every card on the grid, and writes the positions
-   into the file; after adding or removing a card, `systemap place
-   --all` lays every card out again, keeping only `pinned=True` cards.
-   `references/schema.md` has every field; `references/example.md` is a
-   complete small model; `references/layout.md`, what you still decide.
-3. **check**: `systemap check && systemap judgement --strict`, together,
-   every round: fix every check line, act on or answer every judgement
-   line, until only `stale` remains (the page is not rendered yet) and the
-   judgement exits 0. Dropping an edge reopens the crossing-import lines
-   it answered, and only `systemap judgement` reports that.
-4. **judgement**: `systemap judgement`. Act on every line, or answer it in
-   `[judgement] answered` in `systemap.toml` with a reason: one table per
-   answer, one form each (`references/second-pass.md` shows them written):
-   - `item = "<line>"`: the exact line as printed, without the indent.
-   - `items = ["<line>", ...]`: several exact lines, one reason; not empty.
-   - `crossing = ["A", "B", ...]`: every crossing import between any two of
-     the ids, either direction; two or more different ids.
-   - `crossing_into = "A"`: every crossing import into A; one id.
-   - `crossing_from = "A"`: every crossing import out of A; one id.
-   - `kind = "<kind>"`: every line of one kind, named as in the table.
-   - `module_sdk = "<import>"`: every model sdk line for that import name.
+1. **extract**: Run `systemap extract`. Read its output through `systemap facts`.
+   Do not open the complete facts JSON for routine examination.
+   Use `--docstrings` for source descriptions and `--names NAME` for public symbols.
+   Use `--entry-points` for sequence inputs and `--module NAME` for a complete module record.
+   Give every nonempty module a component assignment.
+2. **draft**: Use `systemap suggest --jev` when Jev is available.
+   Otherwise, use `systemap suggest`. Examine the proposed assignments against source.
+   Read the repository's own documentation: its README, AGENTS.md, CLAUDE.md, docs/.
+   Read `references/schema.md`, `references/example.md`, and `references/layout.md`.
+   Write components and flows without `x` and `y`. Run `systemap place`.
+   The command searches region orders and compares route collisions, refusals, bends, and length.
+   Do not substitute a helper script for this search.
+   After component additions or removals, run `systemap place --all`.
+   This command keeps only positions marked `pinned=True`.
+3. **check**: Run `systemap check && systemap judgement --strict` after each change.
+   Correct each check failure. Act on or answer each judgement line.
+   Before rendering, the check can have only a `stale` finding.
+   Removing a flow can reopen crossing-import findings. Do the judgement check again.
+4. **judgement**: Run `systemap judgement`. Record unanswered decisions in `systemap.toml`.
+   Use `[judgement] answered` with a reason and one of these forms:
 
-   Exact answers need a current evidence digest. Broad answers need `policy = true`.
-   Stale answers are reported. Never leave a line unanswered. The kinds of line:
+   - `item = "<line>"`: the full line without indentation.
+   - `items = ["<line>", ...]`: a nonempty list of full lines with one reason.
+   - `crossing = ["A", "B", ...]`: all crossing imports between two or more different identifiers, in either direction.
+   - `crossing_into = "A"`: all crossing imports into one component.
+   - `crossing_from = "A"`: all crossing imports from one component.
+   - `kind = "<kind>"`: all lines of one finding kind.
+   - `module_sdk = "<import>"`: all model SDK lines for one import name.
 
-   | kind | what it says | what to do |
+   Exact answers must have a current evidence digest. Broad answers must have `policy = true`.
+   Do not leave unanswered lines. Examine source again for each stale answer.
+
+   | kind | finding | action |
    |---|---|---|
-   | `single module` | a card claims one module | keep it if a reader would name it; else fold it into a neighbour |
-   | `possible mis-fold` | a module of a several-module card shares no word with the card's id, `does`, plain word or `interface`, and its package holds none of the card's other modules: it may be folded into the wrong card | move it to the card whose purpose it serves, or answer why it belongs |
-   | `no sentence` | a flow has no relation sentence | write one, from the source side |
-   | `thin layer` | a layer holds fewer than two cards; a standard kind never used counts | add the flows that layer is for, or answer that the system has none |
-   | `entry point` | an entry point in the facts that no journey names | write the journey, or answer why it does not matter to a reader |
-   | `journey start` | a journey names a way in the facts do not have | name it as `systemap facts --entry-points` does, or leave `starts` empty |
-   | `drafted journey` | an agent wrote this walk; nobody has read it against the code | read each step, fix what is wrong, then remove its `drafted=True` line |
-   | `crossing import` | modules of one card import modules of another and no flow joins the two; one line per pair, counting the modules (`--verbose` lists the imports) | add the edge with its sentence, regroup, or answer that the import carries nothing the reader needs |
-   | `declared flow` | a flow has no reviewed source or structural evidence | find and review supporting source, or remove the flow; naming a mechanism alone does not verify it |
-   | `flow review` | structural evidence or a stale source reference does not verify a flow | cite current source and confirm its direction and artifact, or revise the flow |
-   | `model sdk` | a module imports a model SDK and its card is neither an agent nor `calls_model` | make it an agent, set `calls_model`, draw the tool flow, or answer citing the repository's rule |
-   | `unknown surface` | TypeScript syntax, a test file, a package target, or inherited config could not be read or mapped with confidence | extend the extractor, correct the source or config, or answer why the limit is acceptable |
+   | `single module` | A component has one module. | Keep a different system part or put its modules in the applicable component. |
+   | `possible mis-fold` | A module and its component have no common name word or package. | Examine its function. Give it the correct component assignment or record the reason. |
+   | `no sentence` | A flow has no relation sentence. | Write its action from the source component. |
+   | `thin layer` | A layer has fewer than two components or no flows of its standard kind. | Add flows with source evidence or record why none apply. |
+   | `entry point` | An entry point has no sequence coverage. | Write its sequence or record why it is not necessary. |
+   | `journey start` | A sequence starts at an unknown entry point. | Use the facts label or an empty `starts` value. |
+   | `drafted journey` | An agent sequence still has no source examination. | Examine every step. Correct errors before removal of `drafted=True`. |
+   | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
+   | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
+   | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Renew the record or correct the claim. |
+   | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
+   | `unknown surface` | Source syntax, configuration, or an export could not be read with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 
-   Then `systemap audit`: act on or answer its `jev ...` lines the same way.
-5. **render**: `systemap refresh`, then `systemap describe`: the picture in
-   numbers (cards per region, bends per edge worst first, seats per gutter,
-   what each layer shows). Open the page if you can: `systemap serve`
-   prints its URL; `docs/map/figures/structure.svg` is the parts in their
-   places and `docs/map/figures/system.svg` every edge. Look for an edge with
-   many bends, a full gutter, a region of one card, a layer that shows nothing.
-6. **second pass**: follow `references/second-pass.md`: compare every claimed
-   module with its card's job, then walk every crossing import, every declared
-   flow, every entry point, every rule the documents state, on every map of the tree, and look at
-   the figure again. The document reread is one pass over what the
-   repository points a newcomer at (README, AGENTS.md, CLAUDE.md, a docs
-   index or the first level of docs/), and it stops when the rules still
-   being found govern parts that are not in the tree. Expect to find
-   missed edges and wrong groupings. Go to 3.
-7. **stop**: when check is clean, `judgement --strict` exits 0 (every
-   line answered, `systemap audit` too with a Jev key), a second pass
-   changed nothing, and the documents left unread govern nothing in the
-   tree.
-8. **hand back**: the answers are in `systemap.toml`; report modules reviewed
-   out of those claimed, the coverage line and ambiguous groupings.
+   When Jev is available, run `systemap audit`. Act on or answer its `jev ...` lines.
+5. **render**: Run `systemap refresh`, then `systemap describe`.
+   The description gives component counts, route bends, gutter use, and layer contents.
+   Run `systemap serve` and open its URL.
+   Examine `docs/map/figures/structure.svg` before `docs/map/figures/system.svg`.
+   Find routes with many bends, full gutters, isolated regions, and empty layers.
+6. **source review**: Do the procedure in `references/second-pass.md`.
+   Examine every module assignment, crossing import, declared flow, entry point, and applicable invariant.
+   Read README, AGENTS.md, CLAUDE.md, the documentation index, and the first level of docs/.
+   Stop further document reading when new rules apply only to source outside the repository.
+   Examine the figure again. If anything changes, return to step 3.
+7. **stop**: Complete the work only when all checks pass and `judgement --strict` exits 0.
+   With Jev, the audit must also have no unanswered lines.
+   A complete source examination must cause no further model changes.
+   Unread documentation must have no rules for source in this repository.
+   Complete the language acceptance procedure in `references/language.md`.
+8. **completion**: Give the maintainer the coverage result and the decisions recorded in `systemap.toml`.
+   Give the count of examined module assignments. Identify assignments that must receive a maintainer decision.
 
-Turn budgets, per step: extract 2, draft 10, place and check 15, judgement
-10, second pass 20. Not limits: a step that overruns is finished, and the
-hand-back names it.
+## Source changes after the first map
 
-## When the code changed
+Use `references/maintenance.md` for a map already in use.
+Do not replace the full model for a small source change.
 
-A mapped repository after a pull request is not a first draft. Never
-redraw the map to absorb a small change; follow `references/maintenance.md`:
+1. Run `systemap delta --base REF` against the base branch.
+   Each line identifies a change and the necessary map action.
+   A `hint:` or `delta --jev:` line means Jev did not supply answers. Tell the maintainer.
+2. Act on these lines in `map/model.py` and `systemap.toml`.
+3. Run `systemap refresh`, then `systemap check && systemap judgement --strict`.
+4. If delta identifies more than one-third of the components, do the full loop.
+5. Do the language acceptance procedure for every changed name and sentence.
 
-1. `systemap delta --base <the base branch>`: what the change did to the
-   map, one line per thing with its fix, from the facts at both commits;
-   exit 1 while a line needs a decision. It asks Jev with no flag; a `hint:` or
-   `delta --jev:` line means it did not, so say so.
-2. Act only on those lines, in `map/model.py` and `systemap.toml`.
-3. `systemap refresh`, then `systemap check && systemap judgement --strict`.
-4. When `delta` names over a third of the cards it says so: run the full
-   loop instead, and say so in the hand-back.
+## Model contents
 
-## What goes in the model
+A component is a system part with one clear function.
+Use source functions for component assignments, not only directories.
+`implemented_by` lists modules or exact `pkg.mod:name` symbols.
+`entry` identifies one public symbol from those modules.
+The kinds are `component`, `store`, `actor`, `agent`, `tool`, and `context`.
+An actor is a person or system outside the mapped source.
 
-- A component is something a reader would point at and name. A module is
-  not a part; a component usually holds three to ten, and a repository of
-  N modules usually has between N/10 and N/3 cards: `single module` argues
-  for fewer and larger cards, `possible mis-fold` and `crossing import`
-  for more. A module that does two things belongs with the one it is for.
-  `implemented_by` names its modules, or a symbol `pkg.mod:name` for a
-  part that lives inside another card's module; `entry` is one public name
-  they define (a function, a class, an object such as `app`); both must be
-  in the facts. Kinds: `component`, `store`, `actor` (a person or system
-  outside the code), and for agentic systems `agent`, `tool`, `context`.
-- A flow is one artifact moving from one component to another. Its kind is
-  `data` (an artifact moves) or `control` (one part drives another), the
-  agent kinds `context` and `tool`, or one of your own, declared in
-  `flow_kinds` and given a layer. The map draws the flows you declare, not
-  every import; `references/layers.md` says how to choose, and how the
-  facts' `external` imports and the `model sdk` judgement line find agents.
-- Every flow carries an evidence state. An import, shared module, or word
-  listed under `[flows] observed_by` is `structural`: it does not verify
-  direction or artifact. `observed` requires `source_refs` with current
-  source digests and a `review_digest` for the flow claim. `external` has
-  an actor at one end; `declared` has no structural or reviewed evidence.
-  Structural and declared flows draw dashed and require review.
-- One sentence per flow in `relations`, from the source side; a plain name
-  per component in `plain`, in the words a newcomer would use.
-- Journeys: one per way in that matters, each naming reviewed entry identities
-  in `covers` and using `starts` as a display label. Steps trace the flows
-  the walk uses. Invariants: rules the repository states, each citing its source
-  (`references/journeys-and-invariants.md`).
-- Positions: leave `x` and `y` out and run `systemap place` (step 2); it
-  keeps corridors between regions, since an edge may not cross a region it
-  does not belong to. You decide a card's region and which to pin
-  (`references/layout.md`). An artifact label is a noun phrase of
-  one to three words; `systemap check` refuses one that does not fit.
-- A card whose modules exceed ten, or any card once a map is past forty
-  cards, may open a map of its own: `map="gateway.py"` names a second
-  model module beside this one whose cards claim exactly the card's
-  modules and whose actors are the cards around it. Every command reads
-  every map in the tree, and a sub-map's lines carry its id (`references/layout.md`).
+A flow carries one artifact between two components.
+Standard kinds are `data`, `control`, `context`, and `tool`.
+Declare other kinds in `flow_kinds` and give each kind a layer assignment.
+Use one to three words for an artifact noun phrase.
+Write one relation sentence from the source component.
+Write one short name in `plain` for each component.
+
+Every flow has an evidence state:
+
+- `structural`: an import, common module, or configured observation gives structural evidence for a relation only.
+- `observed`: current source records and a claim digest support direction and artifact.
+- `external`: one endpoint is an actor.
+- `declared`: no structural evidence or examined source supports the flow.
+
+Structural and declared flows use dashed lines. Examine their source evidence.
+An import alone does not show an artifact or its direction.
+Never renew a digest without source examination.
+
+Write sequences for the entry points that matter to a reader.
+`starts` is a display label. `covers` contains exact examined entry identities.
+Examine coverage for each newly found entry point.
+Invariants come from repository rules, source clauses, assertions, or tests.
+Cite the source of each invariant. Do not put a proposed rule in the recorded invariant list.
+
+Select the region for each component. Use `systemap place` for positions.
+A route must not cross an unrelated region.
+Use `pinned=True` only for a position that must stay fixed.
+A component with more than ten modules can have a nested map.
+Maps with more than forty components also receive a nested-map suggestion.
+`map="gateway.py"` identifies a model beside the parent model.
+Its internal components must cover all of the parent's module claims, without additions.
+Its actors represent adjacent components. Commands examine every nested map.
 
 ## Commands
 
-| command | what it does |
+| command | result |
 |---|---|
-| `systemap init` | configuration, starter model, this skill, a workflow; never overwrites; `--no-ci` skips the workflow |
-| `systemap extract` | the facts, into the facts file; `--check` exits 1 when they no longer match the tree |
-| `systemap facts` | the facts read back, one view at a time: `--modules` (first sentence and counts per module), `--docstrings`, `--module NAME` (one record, rendered), `--names NAME` (public names with kinds), `--entry-points` (with targets), `--external`, `--imports NAME`; never open the JSON |
-| `systemap place` | a position for every card without one, written into the model, keeping every card that has one; `--all` lays every card out again and keeps only the cards marked `pinned=True`: run it after adding or removing a card; with no card kept the regions, containers and canvas are laid out too, in the region order the search scores best (every order tried, the best routed; the chosen order and its score are printed); `--keep-order` lays the regions as listed; `--print` prints instead |
-| `systemap render` | the page, from the facts and the model; `--check` exits 1 when it is stale; `refresh` runs it for you |
-| `systemap check` | every rule, on every map; exit 0 clean, 1 with each failure and its fix named, 2 when the configuration or the model cannot be used |
-| `systemap suggest` | a first grouping from the facts alone: one proposal per package with two or more modules, and the imports between proposals; a starting point to revise, not the answer; with a model, when a map is past forty cards and which cards to open; `--jev` (use it first) groups modules from Jev's answers about module pairs instead (needs `TYPESAFE_API_KEY`) |
-| `systemap judgement` | the list to act on or answer; answers live under `[judgement]` in `systemap.toml`; `--strict` exits 1 while a line is open, for CI; `--kind KIND` prints one kind when the list runs long; `--verbose` lists the imports behind each crossing-import line; `systemap audit` (needs `TYPESAFE_API_KEY`) asks the Jev model about meaning, answered the same way (`references/second-pass.md`) |
-| `systemap delta --base REF` | what a change did to the map, from the facts at two commits: modules moved, added, removed with their cards, names that vanished, new crossing imports, evidence lost; each line names its fix; under them, the cards a flow joins to the card holding most of what changed, as context to read, never a line to act on; exit 1 while a line needs a decision; `--format markdown` for a pull-request comment; with `TYPESAFE_API_KEY` set it also asks Jev to pair modules renamed and rewritten at once, and names a card for each unclaimed module (`--no-jev` sends nothing) |
-| `systemap triage "<issue>"` | the three cards an issue's fix will most likely change, by Jev, with their modules and neighbours |
-| `systemap describe` | what the picture shows, as numbers: cards per region, bends and length per edge, seats per gutter, cards and edges per layer |
-| `systemap refresh` | extract, check, render the page and every configured figure, then check what it wrote; `already current` when there is nothing to do |
-| `systemap figure --out FILE` | one figure from the same generator: `--mode system`, `--layer ID` for one layer, `--map ID` for the map inside a card, or `--components A,B` for a plan's reach |
-| `systemap journeys` | a walk written for a way into the system that no journey starts from: the agent under `[agent] command` reads the code from that way in; a step tracing a flow the map does not draw is refused and printed, not written; what holds is written `drafted=True`, which `judgement` prints until you confirm it and remove the mark |
-| `systemap plan "<task>"` | the cards a piece of work will most likely change, by Jev, each with the flows, walks and rules it sits in; the projection is saved, so `--check ID --base REF` later compares it with the cards the code changed (needs `TYPESAFE_API_KEY`) |
-| `systemap history` | how the system got here: the repository read at older commits, each one grouped into the cards the map has today, the largest windows first, each with the commits that wrote the modules which appeared |
-| `systemap explain KIND` | one kind of line in full: what it means, why it matters, what to do about it; `check`, `judgement` and `delta` print those rows under the first line of each kind, and `--brief` leaves them out |
-| `systemap serve` | serve the output directory over HTTP and print the URL; the page does not run from a file:// address |
-| `systemap skill` | reinstall this directory; `--print` writes SKILL.md to stdout |
+| `systemap init` | Write missing configuration, initial model, skill, and CI workflow. With `--no-ci`, do not write the workflow. |
+| `systemap extract` | Write source facts. `--check` exits 1 for stale facts. |
+| `systemap facts` | Show one source view: `--modules`, `--docstrings`, `--module NAME`, `--names NAME`, `--entry-points`, `--external`, or `--imports NAME`. |
+| `systemap place` | Write positions for unplaced components. `--all` keeps only pinned positions. `--keep-order` keeps region order. `--print` shows positions without file changes. |
+| `systemap render` | Write the page. `--check` exits 1 for stale output. |
+| `systemap check` | Examine map consistency and coverage. Exit 0 means success, 1 means failed checks, and 2 means unusable configuration or model. |
+| `systemap suggest` | Show initial package assignments. `--jev` uses model decisions. Examine all proposals against source. |
+| `systemap judgement` | Show decisions for action or a recorded answer. `--strict` exits 1 for unanswered lines. `--kind KIND` filters the list. `--verbose` lists crossing imports. |
+| `systemap audit` | Ask Jev about source meaning. Record its answers under `[judgement]`. |
+| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means action is necessary. `--format markdown` makes a pull request comment. `--no-jev` prevents model calls. |
+| `systemap triage "<issue>"` | Ask Jev for three components that the issue can affect, with modules and adjacent components. |
+| `systemap describe` | Show components per region, bends and length per route, gutter use, and layer contents. |
+| `systemap refresh` | Extract facts, do checks, render configured output, and examine the result. |
+| `systemap figure --out FILE` | Make one figure. Use `--mode system`, `--layer ID`, `--map ID`, or `--components A,B` as applicable. |
+| `systemap journeys` | Ask the configured agent for draft sequences. Invalid steps cause refusal. Examine each draft before removal of `drafted=True`. |
+| `systemap plan "<task>"` | Ask Jev which components the task can affect. `--check ID --base REF` compares a saved plan with source changes. |
+| `systemap history` | Show source changes at older commits, assigned to the current components. |
+| `systemap explain KIND` | Show the meaning, reason, and action for a finding kind. `--brief` removes explanations from other command output. |
+| `systemap serve` | Serve the output over HTTP and show its URL. |
+| `systemap skill` | Reinstall the complete skill. `--print` writes SKILL.md to stdout. |
 
-## What to hand back
+## Completion
 
-1. Every `judgement` and `audit` line you did not act on, answered in
-   `[judgement] answered` in `systemap.toml` with its reason, not in a chat.
-2. The coverage line from `systemap check` and its last line, and the
-   step that overran its turn budget, if one did.
-3. The groupings that could go another way. The edges the facts do not
-   back are the `declared flow` lines: fixed, answered, or removed.
-4. The files to commit: `map/model.py`, `systemap.toml`, `docs/map/`.
+Record every unacted judgement and audit line with its reason in `systemap.toml`.
+Give the maintainer the coverage result and the final check result.
+State any uncertainty about component assignments or source claims.
+Commit `map/model.py`, `systemap.toml`, and `docs/map/` with the source changes.
+The map must show current source, not proposed components.
+Do not put code or test counts on map components.
+Keep relationships on flows instead of replacing them with prose.
 
-## Rules
+## References
 
-- No code or test counts anywhere: the map names parts, not quantities.
-- The map draws what exists today: every module a card names is in the
-  facts; nothing on the map is a plan.
-- Prose is for emphasis; the relationships belong on the edges.
-- After every move, `systemap check && systemap judgement --strict`.
-
-## References, each read when the loop reaches it
-
-- `references/schema.md`: every dataclass and field, and the rules the
-  check applies. Read before the draft.
-- `references/example.md`: one worked model that passes the check, with
-  its configuration. Read with the schema.
-- `references/layout.md`: what `systemap place` does, what is still yours
-  to decide (a card's region, the regions' order, when to pin), and how to
-  read `systemap describe`. Read before the draft, and when the check
-  names a route or a label.
-- `references/layers.md`: the derived layers, the standard kinds, adding
-  one of your own, agentic systems. Read when choosing a kind.
-- `references/journeys-and-invariants.md`: where journeys and invariants
-  come from, and how each cites its source. Read at the draft and at the
-  second pass.
-- `references/second-pass.md`: the review loop and the stop condition.
-  Read at step 6, every time round.
-- `references/pitfalls.md`: mistakes seen on first drafts. Read before the
-  draft, and again when judgement runs long.
-- `references/maintenance.md`: the path when the code changed: `delta`,
-  its lines and what each asks, the third-of-the-cards rule, the budget.
-  Read instead of the loop when a map already exists.
+- `references/language.md`: mandatory ASD-STE100 rules, technical glossary, and language acceptance procedure. Read before every text change.
+- `references/schema.md`: dataclasses, fields, and structural checks. Read before the draft.
+- `references/example.md`: a complete small model and configuration. Read with the schema.
+- `references/layout.md`: automatic positions, pinned positions, routes, and descriptions. Read before placement.
+- `references/layers.md`: derived layers, standard kinds, and model-calling systems. Read before flow assignments.
+- `references/journeys-and-invariants.md`: source support for sequences and invariants. Read before the draft and source review.
+- `references/second-pass.md`: full source examination and completion conditions. Read at step 6.
+- `references/pitfalls.md`: known assignment and tooling errors. Read before the draft.
+- `references/maintenance.md`: delta actions and the one-third rule. Read for a map already in use.

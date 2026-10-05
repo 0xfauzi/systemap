@@ -1,30 +1,19 @@
-"""The map as something to walk: what a card feeds, what walks through it, what governs it.
+"""The graph gives component connections, sequence steps, and invariants as structured
+data.
 
-The model holds more than a list of parts. Each flow says that a named
-artifact moves from one card to another; each journey step traces one of
-those flows; each invariant names the cards whose code must keep it true.
+Each flow carries an artifact from one component to another. Sequence steps refer to
+flows. Invariants specify the components that must obey them. The graph traversal uses
+the flow direction.
 
-One thing it deliberately does not do is judge whether a journey's steps
-join up. Three rules for that were written and measured on the seven maps in
-bench/scratch: comparing neighbouring edges flagged 30 steps and a hand
-review found none real, asking that a step's actors acted the step before
-flagged 46, and asking that they appeared anywhere earlier flagged 27, still
-almost all of them walks that fan out and come back. A journey is written as
-a sequence of scenes, not as one chain, so continuity is not something the
-structure can decide. Nothing was shipped from it.
+Three continuity rules gave no usable sequence validation in seven benchmark maps.
+Adjacent-edge checks marked 30 steps. actor checks marked 46 and 27 steps. The manual
+examination found no real error in the 30 adjacent-edge results. The other results were
+mostly correct branches and returns. The code includes none of these rules.
 
-The walk itself was measured too, as the answer to "you changed this card,
-what else does that reach", against 366 pull requests. It found half the
-cards those changes actually touched where following the imports found all
-of them, so no `ripple` command exists; `bench/jev/ripple.py` holds the run.
-What the walk is used for is context, not prediction: `systemap plan` prints
-the flows, journeys and rules around each card it names, because a plan that
-names a card and not the walks through it is a plan with a hole in it.
-
-This module reads a model and a meaning and returns plain data, so everything
-that asks follows the same structure and can be tested without a repository.
-The walk follows flows in the direction they carry their artifact, and does
-not walk backwards.
+The traversal experiment used 366 pull requests. It found half of the changed
+components. import traversal found all changed components. Thus, no ripple command is
+available. The recorded experiment is in `bench/jev/ripple.py`. The plan command uses
+the graph for context, not impact prediction.
 """
 
 from __future__ import annotations
@@ -37,14 +26,14 @@ from systemap.model import Edge, Flow, Invariant, Journey, Meaning, Model
 
 @dataclass(frozen=True)
 class Hop:
-    """One step of a walk: the flow followed, and how many flows from the start."""
+    """This record gives a traversed flow and its depth from the start."""
 
     flow: Flow
     depth: int
 
 
 def out_flows(model: Model) -> dict[str, list[Flow]]:
-    """The flows leaving each card, by card id."""
+    """This function indexes outgoing flows by component ID."""
     out: dict[str, list[Flow]] = {}
     for f in model.flows:
         out.setdefault(f.src, []).append(f)
@@ -52,7 +41,7 @@ def out_flows(model: Model) -> dict[str, list[Flow]]:
 
 
 def in_flows(model: Model) -> dict[str, list[Flow]]:
-    """The flows arriving at each card, by card id."""
+    """This function indexes incoming flows by component ID."""
     out: dict[str, list[Flow]] = {}
     for f in model.flows:
         out.setdefault(f.dst, []).append(f)
@@ -60,16 +49,13 @@ def in_flows(model: Model) -> dict[str, list[Flow]]:
 
 
 def neighbours(model: Model, card: str) -> list[str]:
-    """The cards one flow away from this one, whichever way the artifact travels.
+    """This function gives components one flow from the specified component, in either
+    direction.
 
-    A change is felt by what a card feeds and by what feeds it, and the arrow
-    says only which way the artifact moves, so this ignores the direction.
-    Measured over 359 pull requests, seeded the way `delta` seeds it: this list
-    holds 6 cards at the median and at least one card the change really touched
-    in 72% of them. Following that card's imports instead holds 20 cards for a
-    77% hit: five points better, and three times as much to read. Neither is
-    good enough to be a claim about what else broke, which is why `delta`
-    prints this as context (`bench/jev/near.py`).
+    The experiment used 359 pull requests. The median list had 6 components. 72%
+    included a component with changed code. Import lists had 20 components and a 77% hit
+    rate. These results give context, not proof of impact. The recorded experiment is in
+    `bench/jev/near.py`.
     """
     found = {f.dst for f in model.flows if f.src == card}
     found |= {f.src for f in model.flows if f.dst == card}
@@ -77,7 +63,9 @@ def neighbours(model: Model, card: str) -> list[str]:
 
 
 def steps_on(meaning: Meaning) -> dict[Edge, list[tuple[Journey, int]]]:
-    """For each edge, the journey steps that trace it, as (journey, step number)."""
+    """This function indexes sequence steps by flow edge, with sequence IDs and step
+    numbers.
+    """
     out: dict[Edge, list[tuple[Journey, int]]] = {}
     for journey in meaning.journeys:
         for k, step in enumerate(journey.steps):
@@ -86,7 +74,7 @@ def steps_on(meaning: Meaning) -> dict[Edge, list[tuple[Journey, int]]]:
 
 
 def rules_on(model: Model) -> dict[str, list[Invariant]]:
-    """The invariants that name each card, by card id."""
+    """This function indexes invariants by component ID."""
     out: dict[str, list[Invariant]] = {}
     for rule in model.invariants:
         for cid in rule.governs:
@@ -103,7 +91,7 @@ def _always(_flow: Flow, _depth: int) -> bool:
 
 @dataclass
 class Walk:
-    """What a walk reached: the cards, how far each is, and the flows followed."""
+    """This record contains traversed components, depths, and flows."""
 
     start: frozenset[str]
     depth_of: dict[str, int] = field(default_factory=dict)
@@ -115,7 +103,7 @@ class Walk:
 
     @property
     def reached(self) -> list[str]:
-        """The cards the walk arrived at, without the ones it started from."""
+        """This function gives traversed components without the start components."""
         return sorted(c for c in self.depth_of if c not in self.start)
 
     @property
@@ -127,12 +115,11 @@ class Walk:
 
 
 def walk(model: Model, start: Iterable[str], keep: Keep = _always, max_depth: int = 3) -> Walk:
-    """Follow the flows out of `start` while `keep` says the artifact carries the change.
+    """This function traverses outgoing flows from start while keep lets traversal
+    continue.
 
-    `keep(flow, depth)` is asked once per flow considered. Answering no stops
-    the walk there: the artifact that flow carries is the same as before, so
-    nothing past it is reached through this edge. `max_depth` is the last
-    resort against a map where everything eventually reaches everything.
+    The keep callback runs once for each examined flow. A false result stops traversal
+    on that edge. The max_depth parameter limits traversal through connected cycles.
     """
     leaving = out_flows(model)
     found = Walk(start=frozenset(start))
@@ -150,7 +137,7 @@ def walk(model: Model, start: Iterable[str], keep: Keep = _always, max_depth: in
 
 
 def journeys_through(meaning: Meaning, edges: Iterable[Edge]) -> list[tuple[Journey, list[int]]]:
-    """The journeys that trace any of these edges, each with the step numbers."""
+    """This function gives sequences that use the selected edges and their step numbers."""
     wanted = set(edges)
     out = []
     for journey in meaning.journeys:
@@ -161,7 +148,9 @@ def journeys_through(meaning: Meaning, edges: Iterable[Edge]) -> list[tuple[Jour
 
 
 def rules_over(model: Model, cards: Iterable[str]) -> list[tuple[Invariant, list[str]]]:
-    """The invariants governing any of these cards, each with the cards it governs here."""
+    """This function gives invariants for the selected components and their applicable
+    component sets.
+    """
     wanted = set(cards)
     out = []
     for rule in model.invariants:

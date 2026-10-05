@@ -1,26 +1,12 @@
 #!/usr/bin/env python3
-"""Validate the plugin manifest in strict mode, with one warning allowed.
+"""Do the plugin manifest check with the Claude Code CLI.
 
-This repository is two things at once: a project a coding agent works in, and
-a Claude Code plugin that ships the systemap skill. `claude plugin validate
---strict` is the right gate for the manifest, because an unrecognised field or
-a missing description should fail CI rather than be tolerated at runtime.
+The repository has a root CLAUDE.md for source-development instructions.
+The plugin validator warns that this file is not loaded by the plugin.
+This warning is not applicable to repository development.
+The script lets this warning pass and rejects all other warnings and errors.
 
-It emits one warning that does not apply here:
-
-    CLAUDE.md at the plugin root is not loaded as project context.
-
-That is advice for a repository that is only a plugin. This one has a root
-`AGENTS.md` for every coding agent and a `CLAUDE.md` holding `@AGENTS.md` so
-Claude Code loads it, and a pre-commit hook holds the two to the same section
-structure. Neither file ships as plugin context, and neither is meant to.
-
-So this allows exactly that warning, on exactly that file, and fails on
-everything else: any error anywhere, and any other warning. If the CLI stops
-emitting it, nothing here changes; if it emits a different one, this fails and
-someone reads it.
-
-    python3 scripts/check_plugin_manifest.py .claude-plugin/plugin.json
+    uv run python scripts/check_plugin_manifest.py .claude-plugin/plugin.json
 """
 
 from __future__ import annotations
@@ -70,9 +56,9 @@ def main(argv: list[str]) -> int:
     except ValueError:
         print(done.stdout or done.stderr, file=sys.stderr)
         print(
-            f"could not read the validator's report for {target}. "
-            "It needs a Claude Code CLI with `plugin validate --json`, which "
-            "2.1.246 does not have and 2.1.278 does.",
+            f"The validator report could not be read for {target}. "
+            "Use a Claude Code CLI with `plugin validate --json`. Version "
+            "2.1.246 lacks this option. Version 2.1.278 has it.",
             file=sys.stderr,
         )
         return 1
@@ -83,7 +69,7 @@ def main(argv: list[str]) -> int:
         for line in found:
             print(f"  {line}", file=sys.stderr)
         return 1
-    note = "; the root CLAUDE.md warning does not apply here" if excused else ""
+    note = ". The root CLAUDE.md warning is not applicable here" if excused else ""
     print(f"{target}: valid{note}")
     return 0
 

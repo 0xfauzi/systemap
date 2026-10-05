@@ -49,18 +49,15 @@ def test_suggest_says_when_a_map_is_past_forty_cards_and_which_cards_to_open() -
     model, meaning, facts = _model({f"C{i}": (12 if i < 2 else 1) for i in range(41)})
     lines = suggest.nesting_lines(_tree(model, meaning), facts)  # type: ignore[arg-type]
     assert lines[0] == (
-        "nesting: the top map holds 41 cards, past 40; one canvas stops working there. Open a "
-        'map inside the cards with the most modules (map="map/<card>.py" on the card; its '
-        "cards claim exactly the card's modules):"
+        'nesting: the top map has 41 components, more than 40. A nested map can reduce the component count. Open a map in a component with many modules (set map="map/<card>.py". Use the same module set in the nested map):'
     )
     assert lines[1:] == ["  C0: 12 modules", "  C1: 12 modules"]
     # Under forty with no wide card: nothing to open; a wide card alone is named.
     model, meaning, facts = _model({"A": 3, "B": 4})
     assert suggest.nesting_lines(_tree(model, meaning), facts) == [  # type: ignore[arg-type]
-        "nesting: no map is past 40 cards and no card holds more than 10 modules; nothing to open"
+        "nesting: no map has more than 40 components and no component has more than 10 modules. No nested map is necessary."
     ]
     model, meaning, facts = _model({"A": 11, "B": 4})
     assert suggest.nesting_lines(_tree(model, meaning), facts) == [  # type: ignore[arg-type]
-        "nesting: the top map holds 2 cards; A (11 modules) past 10 modules: split the card, "
-        "or open a map inside it"
+        "nesting: the top map has 2 components: A (11 modules) more than 10 modules: Divide the component, or open a map inside it."
     ]

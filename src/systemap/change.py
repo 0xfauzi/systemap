@@ -1,22 +1,12 @@
-"""Work out what a branch changes about the system, in logical terms.
+"""The change analysis compares two committed source snapshots.
 
-A change view needs more than "these files differ". It needs to know which
-components changed, what each one gained or lost, which exported names were
-redefined, and which parts import changed modules. Imports name possible
-effects for the reader to investigate. They do not establish runtime impact.
+It gives changed components, public names, and direct importers of changed modules.
+Imports give possible effects for examination. They do not give evidence of runtime
+impact.
 
-Everything is derived from the same primitives the map itself uses: the
-public surface of a module is `extract.parse_surface` applied to the git
-blob on each side of the diff, and reach follows the name-level imports the
-facts record. Two answers about the same module can therefore never disagree,
-because there is only one definition of what the module exports.
-
-Reach and redefinition answer different questions. Reach names every direct
-importer of a changed module. Redefinition describes the public interface:
-only an exported name whose definition changed, and that some other module
-imports by name, counts as redefined on the wire. A whole-module import
-(`import m`) hides which names are used, so it contributes reach but never a
-named artifact; that blind spot is accepted rather than guessed at.
+The public surface comes from `extract.parse_surface` for each Git blob. The facts give
+the name-level imports. A named import can show a redefined artifact. A whole-module
+import gives importer scope but cannot identify an artifact.
 """
 
 from __future__ import annotations
@@ -39,7 +29,7 @@ BUCKETS = ("operations", "types", "refusals", "constants")
 
 
 class ChangeError(Exception):
-    """A requested comparison could not be made."""
+    """The program cannot make the requested source comparison."""
 
 
 def _run(args: list[str], cwd: Path) -> str:
@@ -48,12 +38,16 @@ def _run(args: list[str], cwd: Path) -> str:
 
 
 def _show(repo: Path, ref: str, path: str) -> str:
-    """The file's content at a ref, or empty where it does not exist there."""
+    """This function reads a file at a Git ref, or gives an empty string if the file is
+    missing.
+    """
     return _run(["git", "show", f"{ref}:{path}"], repo)
 
 
 def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
-    """Title and counts for a PR, or empty if gh cannot answer."""
+    """This function gets a pull request title and counts, or an empty record if gh gives
+    no usable answer.
+    """
     if not pr:
         return {}
     raw = _run(
@@ -74,7 +68,7 @@ def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
 
 
 def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
-    """Every path the diff touches, split on NUL so spaces in names survive."""
+    """This function lists changed paths. NUL delimiters keep spaces in path names."""
     proc = subprocess.run(
         ["git", "diff", "--name-only", "-z", merge_base, head, "--no-renames"],
         cwd=repo,
@@ -83,7 +77,7 @@ def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
         timeout=90,
     )
     if proc.returncode:
-        raise ChangeError(f"git could not compare {merge_base} and {head}")
+        raise ChangeError(f"Git could not compare {merge_base} and {head}")
     return [f for f in proc.stdout.split("\0") if f]
 
 
@@ -93,7 +87,9 @@ def _resolve(repo: Path, ref: str) -> str:
         repo,
     ).strip()
     if not revision:
-        raise ChangeError(f"unknown revision {ref}: give a commit, branch or tag git can find")
+        raise ChangeError(
+            f"unknown revision {ref}. Give a commit, branch, or tag that Git can resolve."
+        )
     return revision
 
 
@@ -101,7 +97,7 @@ def _comparison_revisions(repo: Path, base: str, head: str) -> tuple[str, str, s
     base_revision, head_revision = _resolve(repo, base), _resolve(repo, head)
     shared = _run(["git", "merge-base", base_revision, head_revision], repo).strip()
     if not shared:
-        raise ChangeError(f"{base} and {head} have no common ancestor to compare")
+        raise ChangeError(f"{base} and {head} have no common ancestor for the comparison.")
     return base_revision, head_revision, shared
 
 
@@ -110,7 +106,7 @@ def _empty_surface() -> dict[str, Any]:
 
 
 def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
-    """bucket -> name -> the fingerprint whose change means redefinition."""
+    """This function indexes public names and fingerprints by surface bucket."""
     if "api" in surface:
         grouped: dict[str, dict[str, list[str]]] = {bucket: {} for bucket in BUCKETS}
         for entry in surface["api"]:
@@ -133,10 +129,10 @@ def surface_delta(
     language: LanguageAdapter = extract.PYTHON,
     path: str = "",
 ) -> dict[str, Any] | None:
-    """What one module's public surface gained, lost, and changed.
+    """This function compares the public surfaces of two source files.
 
-    None means a side had source that does not parse, which is "cannot tell",
-    never "nothing changed".
+    If either source file cannot parse, the result is `None`. This result means that the
+    changes are unknown. The result does not show that no change occurred.
     """
     base = language.parse_surface(base_raw, path) if base_raw else _empty_surface()
     head = language.parse_surface(head_raw, path) if head_raw else _empty_surface()
@@ -281,14 +277,12 @@ def compute(
     head: str = "HEAD",
     artifact_owner: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Everything the change view needs, or an empty change if there is none.
+    """This function gives the change-view data for two explicit Git refs.
 
-    `head` names the tip under study. It is not always the checked-out branch:
-    pull requests stack, so a lesson or a review may ask about
-    `origin/<branch>` while the tree sits on something else. Both refs are
-    explicit for that reason. `artifact_owner` maps a flow label to the
-    module that defines what travels on it; without one no flow is ever lit
-    by a redefinition.
+    The head ref can differ from the branch in the working tree. The facts come from the
+    resolved head snapshot. The `artifact_owner` table assigns flow artifacts to their
+    defining modules. Without this table, public-name changes do not highlight flow
+    artifacts.
     """
     repo = cfg.root
     roots = cfg.roots

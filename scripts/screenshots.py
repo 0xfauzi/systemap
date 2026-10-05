@@ -1,23 +1,18 @@
-"""The page as a reader sees it: one screenshot per scheme, and the tour.
+"""Make screenshots of the map page and its controls.
 
-Renders systemap's own page once from the committed facts and model,
-writes a copy per scheme with the browser's storage seeded to that scheme
-(the page's own head script then stamps the root, the path a returning
-reader takes), serves them over the loopback address (the page's script
-does not run from a file address), and photographs each with headless
-Chrome at 1600 by 900. Then the tour: the warm page at a sequence of
-states (each reading, a card clicked, a spoke read, a journey stepped),
-each state driven by a short script appended to a copy of the page and
-photographed at 1600 by 1520 so the whole map is in the frame, then
-stitched by ffmpeg into one GIF of thirty seconds under four megabytes.
-Nothing here is a test: the screenshots are looked at, and the README
-embeds them.
+The script renders the page from stored facts and the model.
+It writes one page per scheme and serves the pages through HTTP.
+Headless Chrome makes scheme screenshots at 1600 by 900 pixels.
+It makes 12 tour frames at 1600 by 1520 pixels.
+Each frame shows a layer, component, or sequence step.
+ffmpeg puts the frames together in a 30-second GIF, with a 4 MiB size limit.
+Examine the images before use in the README.
 
-    uv run python scripts/screenshots.py            # writes docs/screenshots/
-    uv run python scripts/screenshots.py --keep     # keeps the scratch pages
+    uv run python scripts/screenshots.py
+    uv run python scripts/screenshots.py --keep
 
-Chrome sometimes writes the screenshot and does not exit; it is killed
-after fifteen seconds and the file is taken if it exists.
+Chrome can write an image without stopping.
+After 15 seconds, the script stops Chrome and uses the image if it is available.
 """
 
 from __future__ import annotations
@@ -79,13 +74,13 @@ function next(){{ document.getElementById('jnext').click(); }}
 
 
 def render(root: Path) -> str:
-    """The top map's page from the committed facts, as refresh writes it."""
+    """Make the top map page from stored facts."""
     cfg = config.load(root)
     tree = nest.load(cfg)
     m = tree.top
     facts = extract.read_facts(cfg.facts_path)
     if not facts:
-        raise SystemExit("no facts; run systemap refresh first")
+        raise SystemExit("No facts are available. First run systemap refresh.")
     return page.build(
         cfg,
         m.model,
@@ -126,12 +121,12 @@ def shoot(chrome: str, url: str, out: Path, profile: Path, window: str = WINDOW)
     except subprocess.TimeoutExpired:
         pass
     if not out.is_file():
-        raise SystemExit(f"chrome wrote no screenshot for {url}")
-    print(f"shot {out.name} ({out.stat().st_size // 1024} KB)")
+        raise SystemExit(f"Chrome wrote no screenshot for {url}")
+    print(f"Wrote {out.name} ({out.stat().st_size // 1024} KB)")
 
 
 def stitch(ffmpeg: str, frames: Path, out: Path) -> None:
-    """The frames as one GIF; the width comes down until it fits the limit."""
+    """Make a GIF from frames. Decrease its width until its size meets the limit."""
     for width in (1200, 1000, 800):
         filters = (
             f"scale={width}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];"
@@ -168,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", default="docs/screenshots")
     parser.add_argument("--chrome", default=CHROME)
     parser.add_argument("--ffmpeg", default=FFMPEG)
-    parser.add_argument("--keep", action="store_true", help="keep the scratch pages")
+    parser.add_argument("--keep", action="store_true", help="Keep the temporary pages")
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     out = root / args.out
@@ -210,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
         httpd.shutdown()
         httpd.server_close()
     if args.keep:
-        print(f"scratch kept at {scratch}")
+        print(f"Temporary pages are at {scratch}")
     return 0
 
 

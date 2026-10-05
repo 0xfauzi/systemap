@@ -1,9 +1,8 @@
-"""Which new module a module that disappeared became, between two commits.
+"""The move detector pairs removed modules with added modules.
 
-`delta` reports a move where these questions pair two modules: the same
-source, then the same public names, then a file name that reads the same and
-most of the same names. `delta --jev` adds the pairings Jev reads, for the
-modules the three leave unpaired, through `with_told`.
+It compares source content, then public names, then file names and public-name overlap.
+A weak same-name pair remains a candidate for source examination. External answers can
+add unpaired moves.
 """
 
 from __future__ import annotations
@@ -30,19 +29,12 @@ NAME_ALIKE = 0.6
 
 
 def _path(record: dict[str, Any]) -> PurePosixPath:
-    """Where a module's file sits, as the facts recorded it."""
+    """This function reads the module file path from its facts record."""
     return PurePosixPath(str(record.get("file", "")))
 
 
 def _affinity(old: dict[str, Any], cand: dict[str, Any]) -> tuple[int, int, int]:
-    """How alike two modules' files are: the tail of the path first, then
-    how alike the two file names read, then the head of the path.
-
-    The middle term is the one that earns its place. A package that
-    renumbers its migrations offers a file per number with the same one
-    class in each, so every other signal ties, and only `0003_widget.py`
-    reading like `0004_widget.py` says which became which.
-    """
+    """This function compares path endings, file names, and path starts for move ranking."""
     a, b = _path(old).parts, _path(cand).parts
     tail = 0
     for x, y in zip(reversed(a), reversed(b), strict=False):
@@ -58,24 +50,26 @@ def _affinity(old: dict[str, Any], cand: dict[str, Any]) -> tuple[int, int, int]
 
 
 def _first(score: tuple[int, int, int]) -> tuple[int, int, int]:
-    """The sort key that puts the likeliest pairing first."""
+    """This function gives the sort key for a module pair."""
     return (-score[0], -score[1], -score[2])
 
 
 def _alike(a: str, b: str) -> float:
-    """How alike two file names read, between 0 and 1."""
+    """This function calculates file-name similarity on the interval from 0 to 1."""
     return SequenceMatcher(None, a, b).ratio()
 
 
 def _overlap(a: set[str], b: set[str]) -> float:
-    """The share of the two surfaces' names that both of them have."""
+    """This function calculates the fraction of public names common to both modules."""
     union = a | b
     return len(a & b) / len(union) if union else 0.0
 
 
 @dataclass(frozen=True)
 class Pair:
-    """One old module and one new candidate, with their public names."""
+    """This record contains one removed module, one added candidate, and their public
+    names.
+    """
 
     old: dict[str, Any]
     new: dict[str, Any]
@@ -114,7 +108,7 @@ def _renamed_and_edited(p: Pair) -> bool:
 QUESTIONS: tuple[tuple[Callable[[Pair], bool], str], ...] = (
     (_same_content, "same content"),
     (_same_names, "same public names"),
-    (_renamed_and_edited, "a file name that reads the same and most of the same names"),
+    (_renamed_and_edited, "the same file name and most of the same public names"),
 )
 
 
@@ -124,7 +118,9 @@ def _assign(
     out: dict[str, tuple[str, str]],
     taken: set[str],
 ) -> None:
-    """The best-scored pairings first; each old and each new module once."""
+    """This function selects pairs in score order, with each old and new module in one pair
+    only.
+    """
     for _score, old, cand in sorted(pairs, key=lambda p: (_first(p[0]), p[1], p[2])):
         if old in out or cand in taken:
             continue
@@ -135,20 +131,10 @@ def _assign(
 def find(
     base: dict[str, Any], head: dict[str, Any], gone: list[str], new: list[str]
 ) -> dict[str, tuple[str, str]]:
-    """old module -> (new module, how it was recognised), for every move.
+    """This function pairs module moves by source identity, public-name identity, and
+    file-name similarity.
 
-    Three questions, the strongest first: the same source (the extractor's
-    sha), then the same public names, then a file name that reads the same
-    and most of the same names. Each new module is matched once.
-
-    Every pairing a question admits is scored by `_affinity` and the best
-    is taken, because a question can admit a great many at once. When a
-    package moves to a src layout, every empty `__init__.py` in it has the
-    same source as every other, and pairing each old module with the first
-    free candidate walks the whole set one place along, so each card is
-    told to rename its claim to its neighbour's module. Measured on the
-    renames git reports in five repositories, taking the best pairing
-    rather than the first turned 27 such wrong lines into 12.
+    The result gives each removed module, its new name, and the identification method.
     """
     surface = {m: public_names(r) for m, r in list(base.items()) + list(head.items())}
     out: dict[str, tuple[str, str]] = {}
@@ -172,7 +158,7 @@ def candidates(
     new: list[str],
     confirmed: Mapping[str, tuple[str, str]],
 ) -> dict[str, tuple[str, ...]]:
-    """Same-name pairs too weak to call moves; retain every alternative."""
+    """This function keeps all weak same-name pairs as candidates for source examination."""
     taken = {name for name, _how in confirmed.values()}
     out: dict[str, tuple[str, ...]] = {}
     for old in gone:
@@ -199,8 +185,9 @@ def with_told(
     gone: list[str],
     new: list[str],
 ) -> dict[str, tuple[str, str]]:
-    """The moves found, and the moves told from outside (`delta --jev`) for modules
-    the three questions left unpaired, each new module taken once."""
+    """This function adds external move answers for unpaired modules. Each new module can
+    occur in one pair only.
+    """
     out = dict(found)
     taken = {c for c, _ in found.values()}
     for old, (cand, how) in told.items():

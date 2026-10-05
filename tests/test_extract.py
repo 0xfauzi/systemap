@@ -289,8 +289,8 @@ def test_entry_may_be_any_public_name(tmp_path: Path, capsys: pytest.CaptureFixt
     model.write_text(model.read_text().replace('entry="app",', 'entry="_private",'))
     assert main(["--root", str(tmp_path), "check"]) == 1
     out = capsys.readouterr().out
-    assert "Reader names entry _private which none of its modules defines (pkg.app)" in out
-    assert "set entry to a public name one of them defines" in out
+    assert "Reader has entry _private, but its modules do not define this entry (pkg.app)." in out
+    assert "Use a public name in one of the modules of the component." in out
 
 
 WORKSPACE_TREE: dict[str, str] = {
@@ -388,8 +388,8 @@ def test_no_roots_names_the_candidate_directories(
     assert config.candidate_packages(tmp_path) == ["lib/x", "services/api/app"]
     assert main(["--root", str(tmp_path), "extract"]) == 2
     err = capsys.readouterr().err
-    assert "no package roots found" in err
-    assert "directories holding an __init__.py: lib/x, services/api/app" in err
+    assert "No package roots are available" in err
+    assert "Directories with an __init__.py: lib/x, services/api/app" in err
     assert "still" not in err, "five deep is past the depth the error searches"
 
 

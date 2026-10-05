@@ -1,4 +1,4 @@
-"""Styles for the authored map, its inspector and readable source records."""
+"""Styles for the map, inspector and source records."""
 
 CSS = r"""
 {ROOT}
@@ -66,7 +66,7 @@ align-items:center;font-size:12px;min-height:36px;white-space:nowrap}
 .mapwrap{position:relative;background:var(--surface);border:1px solid var(--line-2);
 border-radius:5px;overflow:hidden;
 background-image:radial-gradient(var(--line) .7px,transparent .7px);background-size:18px 18px}
-.stage{min-width:0}#stage{height:calc(100vh - 220px);min-height:460px;max-height:1100px}
+.stage{min-width:0;width:100%}#stage{height:calc(100vh - 220px);min-height:460px;max-height:1100px}
 .stage svg,.stage #schematic,.stage #changemap{display:block;width:100%;height:100%}
 .hint{font-size:12px;line-height:1.6;color:var(--ink-3);max-width:75ch}
 .map-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin:.8rem 0 1rem;font-size:12px}

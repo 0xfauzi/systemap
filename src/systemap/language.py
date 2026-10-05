@@ -1,8 +1,7 @@
-"""The source-language boundary shared by extraction and change analysis.
+"""The language adapter supplies source facts for extraction and change analysis.
 
-A language adapter reads syntax. The rest of systemap reads the facts the
-adapter produces, so a checker and a change view cannot disagree about what a
-module exports, imports or tests.
+It reads syntax. Other systemap modules use the resulting facts for exports, imports,
+and tests.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from typing import Any, Protocol
 
 
 class LanguageAdapter(Protocol):
-    """Everything extraction and change analysis ask of source syntax."""
+    """This protocol specifies the source operations for extraction and change analysis."""
 
     name: str
 

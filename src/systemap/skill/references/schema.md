@@ -1,241 +1,217 @@
-# The schema
+# Model and facts schema
 
-Everything is a frozen dataclass imported from `systemap`. Fields are
-listed in order; a default means the field is optional. `map/model.py`
-exports `MODEL` (a `Model`) and `MEANING` (a `Meaning`).
+The model uses frozen dataclasses exported by `systemap`.
+`map/model.py` exports `MODEL` as a `Model` and `MEANING` as a `Meaning`.
+Default values identify optional fields.
+Use ASD-STE100 names and prose as specified in `language.md`.
+Keep schema keys and source symbols exact.
 
 ## Model
 
 `Model(canvas, containers, regions, components, flows, flow_kinds, invariants=())`
 
-The hand-authored topology of one system. `canvas` is `(width, height)` of
-the drawing in canvas units. `containers`, `regions`, `components`, `flows`
-and `invariants` are tuples of the dataclasses below. `flow_kinds` is the
-tuple of the model's own flow kinds; `data`, `control`, `context` and
-`tool` are standard and need no declaring, so a model with no kind of its
-own passes `()`.
+`canvas` gives `(width, height)` in SVG coordinate units.
+The other collections are tuples of the dataclasses below.
+`flow_kinds` contains custom kinds only.
+The standard kinds `data`, `control`, `context`, and `tool` have no declaration requirement.
+Use `()` when there are no custom kinds.
 
 ## Container
 
 `Container(id, label, box, sub="", tone="host")`
 
-A hard boundary: a process, a host, a directory the system may not cross.
-`box` is `(x, y, width, height)`. `sub` is one line under the label saying
-what the boundary means. `tone` is `host`, `client`, `server` or
-`isolated`; it picks the stroke and fill from the theme. Actors are placed
-in a container, never in a region.
+A container is a map boundary for a process, host, or source directory.
+`box` gives `(x, y, width, height)`.
+`sub` gives a short boundary description below the label.
+`tone` selects theme colors for `host`, `client`, `server`, or `isolated`.
+Put actors in containers, not regions.
 
 ## Region
 
 `Region(id, label, box, container=None)`
 
-A soft band inside a container: a phase, a concern, a team. `container`
-names the container it sits inside, and the check refuses a region drawn
-outside it. Components, stores, agents, tools and context cards are placed
-in a region.
+A region groups components by function, phase, or team within a container.
+`container` identifies that parent container.
+The region box must stay inside its container.
+Components, stores, agents, tools, and context cards use regions.
 
 ## Component
 
 `Component(id, does, interface="", implemented_by=(), entry="", kind="component", region=None, container=None, x=None, y=None, note="", calls_model=False, map=None, pinned=False, source_review="")`
 
-One card on the map. `id` is a code name in CamelCase, unique on the map.
-`does` says what it is for in plain words, one or two sentences, with no
-counts of lines, files or tests.
+A component is one system part with a clear function.
+Its card shows its unique `id`, usually in CamelCase.
+Select new identifier words under the language policy.
+`does` gives one or two sentences about the function, without code or test counts.
+`plain` in Meaning gives its short display name.
 
-`interface` is the one line by which other parts reach it, shown in the
-detail panel (the click) under `does` as the card's signature. It starts
-with a public name one of the component's modules defines, a re-export or
-a name claimed by symbol included: `read(source) -> Request`,
-`Ledger.record / Ledger.history`, `app (the framework's App)`. The check
-reads the leading identifier, the token before `(`, `.`, `->` or
-whitespace, and for `Class.method` both parts, the method among the
-class's public methods in the facts; a line that starts with anything
-else is refused with the closest defined name. It is optional: a card
-with none shows no signature.
+### Source and interface
 
-`implemented_by` names the modules that are it: a module exactly
-(`"pkg.reader"`) or a package followed by `.*` (`"pkg.ui.*"`) for the
-package and everything beneath it. Every module named must be in the facts,
-and every module in the facts must be claimed by exactly one component, or
-ignored with a reason under `[coverage]` in `systemap.toml`, by exact name
-or as a subtree with the same `.*` form:
+`implemented_by` contains exact module names, package patterns, or source symbols:
 
-`source_review` is a SHA-256 digest recorded after reading a card's current
-source and checking its description, interface, incident flows, journeys and
-invariants. `systemap delta` keeps a changed card under `needs a decision`
-until this digest matches. Refresh does not write it. See the maintenance
-instructions for how to compute the value after the review.
+- `"pkg.reader"` gives one module a component assignment.
+- `"pkg.ui.*"` gives the package and its descendant modules a component assignment.
+- `"pkg.mod:name"` refers to a public symbol within a separately assigned module.
+
+Every nonempty module must have exactly one module assignment or a coverage exclusion.
+A symbol claim does not count as a module assignment.
+It must identify an existing public symbol in an assigned module.
+An actor has no source claims.
+
+`entry` identifies one public module-level function, class, or object.
+Copy its exact name from `systemap facts --module NAME`.
+For symbol-only components, use one of their claimed symbols.
+Stores and context cards can have an empty `entry` for a namespace without a public entry point.
+Other source components must have an entry.
+An entry supplied by any kind still receives the normal source check.
+
+`interface` is optional. It starts with an existing public symbol or re-export.
+Examples are `read(source) -> Request` and `Ledger.record / Ledger.history`.
+The checker reads the leading identifier before `(`, `.`, `->`, or whitespace.
+For `Class.method`, both the class and its public method must exist.
+Keep literal signatures exact. Write any additional description in ASD-STE100.
+
+An empty package marker has no public names, internal imports, external imports, or top-level execution.
+The coverage check includes these markers without a manual exclusion.
+An exclusion for markers alone is unnecessary and receives a finding.
+For actual exclusions, record a reason:
 
 ```toml
 [coverage]
 ignore = [
-    { module = "pkg.compat", reason = "a shim with no place on the map" },
-    { module = "pkg.vendor.*", reason = "third-party code carried in the tree" },
+    { module = "pkg.compat", reason = "Compatibility code has no separate function on this map." },
+    { module = "pkg.vendor.*", reason = "This directory contains third-party source code." },
 ]
 ```
 
-An `__init__.py` with no public names and no imports the facts record (the
-package's own modules, or third-party ones) is an empty package marker: `systemap extract` lists every one in its summary, and the
-coverage rule leaves them out on its own, so they need no ignore (an
-ignore that names only markers is refused as not needed). The coverage
-line counts them among the mapped: `coverage: 144 of 144 modules mapped,
-5 of them ignored with a reason, 9 of them empty package markers`.
+`source_review` records a SHA-256 digest after source examination.
+Examine the description, interface, incident flows, sequences, and invariants before you write it.
+Delta keeps a changed component under `needs a decision` until the digest agrees with the current claims and source.
+Refresh does not write this digest. See `maintenance.md` for the procedure.
 
-A third form claims one public name inside a module another card owns:
-`"pkg.mod:name"`, a symbol claim, for a part defined in a module another
-card claims (a tool defined beside the agent that invokes it; see
-`references/layers.md`). A symbol claim counts for no module in the
-coverage rule and conflicts with no claim: the module belongs to the card
-that names it in `implemented_by`. The check refuses a symbol claim of a module the facts
-do not have, of a name the module does not define, or of a module nobody
-claims.
+### Kind and appearance
 
-`entry` is one public module-level name the claimed modules define: a
-function, a class, or an object such as `app` or `root_agent`; copy it from
-`systemap facts --module NAME`, under `names`. For a card that claims only
-symbols, the entry is one of them. The panel shows it as `entry: name
-(module)`, the module being the one that defines it. The check refuses an
-entry no claimed module or symbol defines and a component that names no
-module. Two exceptions: an actor claims no code, and a `store` or
-`context` card may leave `entry` empty (a constants table, a namespace
-with no entry point), when the modules it claims are enough to show it is
-real code, and the panel
-reads `entry: none (a namespace)`; an entry it does give is checked like
-any other.
+| kind | function | card mark |
+|---|---|---|
+| `component` | A system part that does work. | Standard outline. |
+| `store` | Stored software data. | A line below its name. |
+| `actor` | A person or system outside the mapped source. | Dashed outline. |
+| `agent` | A model-calling part that acts on model output. | Inner ring. |
+| `tool` | A capability that an agent calls. | Notched corner. |
+| `context` | Stored content that enters a model context window. | Dotted outline. |
 
-On the page every card has a `state`, and `built` is its only value: the
-check refuses a component whose modules or entry are not in the facts, so
-what is drawn exists (an actor, which claims no code, shows `outside`).
+Source cards have the evidence state `built`. Actors show `outside`.
+This means the source identities exist. It does not show every authored description.
+`calls_model=True` identifies a model call without agent classification.
+Context flows can end there and tool flows can start there.
+The Context and Tools layers include those flows. The Agents layer does not include that component.
+The flag also answers its `model sdk` finding.
 
-`kind` is `component` (does work), `store` (holds state; drawn with a rule
-under its name), `actor` (a person or a system outside the code; dashed),
-`agent` (runs a model and acts on its output; inner ring), `tool` (a
-capability an agent invokes; notched corner) or `context` (a store whose
-content enters an agent's window; dotted). `region` places anything but an
-actor; `container` places an actor. `x` and `y` are the card's top-left
-corner; cards are 150 wide, and 56 tall (52 for a store or a context card,
-44 for an actor). Leave them out: `systemap place` writes them, on the
-grid inside the card's region, and the check refuses a card that has
-none until it does. `place` keeps a card that has them; `place --all`
-lays every card out again. `pinned` (default `False`) says a person
-chose the position: `place --all` keeps a pinned card where it is and
-lays the rest out around it (`references/layout.md`).
+### Positions and text
 
-The card has a text budget, and the check refuses what does not fit rather
-than cutting it: the `id` fits about 20 characters on one line (a
-component, agent or tool card wraps a longer CamelCase name over two lines
-at its words; a store, a context card and an actor do not), and the plain
-word about 26 characters per line, on two lines for a component, store,
-context, agent or tool card and one for an actor (one for a component under
-a two-line name). The refusal states the budget: `actor cards fit about 26
-characters on one line; this one has 34`. Nothing on the map is elided.
+`region` places a source component. `container` places an actor.
+`x` and `y` give the top-left corner.
+Card width is 150 units.
+Height is 56 units for components, agents, and tools, 52 for stores and context, and 44 for actors.
+Leave positions unset and run `systemap place`.
+`pinned=True` keeps a position during `systemap place --all`.
 
-`note` is a caveat the reader sees: the panel shows it
-as a line under the signature, and the card carries a dot in its top
-corner on the map and in every figure, with the note as its hover text.
+Card names and short descriptions have measured text limits.
+A component, agent, or tool can split a long CamelCase name into two lines.
+Other kinds use one name line.
+The short description uses two lines except for actors or a component with a two-line name.
+The checker gives the actual available dimensions when text does not fit.
+Do not remove part of an identifier or invent a shorter source name.
 
-`calls_model` marks a single-shot call site: a component that calls a
-model once and is not an agent by the repository's own rule. A context
-flow may end at it and a tool flow start from it, the Context and Tools
-layers show those flows, the panel reads `component, calls a model`,
-and the `model sdk` judgement line for its modules is answered by the
-flag. The Agents layer stays agents only.
+`note` gives a source limitation or other necessary qualification.
+The inspector shows it below the interface.
+A dot on the card also gives the note as hover text.
 
-`map` opens a map of the card's own, for a card whose modules exceed ten
-or any card once a map is past forty (`references/layout.md`, "When to
-open a map inside a card"): a path relative to the model file
-(`map="gateway.py"` beside `map/model.py`) to a module that exports
-`MODEL` and `MEANING` like any model. The map inside draws that card
-alone: its cards claim exactly the modules the card claims, no more and
-no fewer, each once (a symbol claim counts for no module, an empty
-package marker is left out); its actors are cards of the map it is
-inside, the ones around the card, so every edge leaving the card has an
-endpoint inside the map inside. The card claims the modules once, for coverage; the
-check's nesting rule holds the map inside to them, naming each module
-that differs. On the page the card is drawn with a second card behind it.
-Its panel reads `opens: Gateway (5 cards)` over a preview of the map inside and a
-button that opens it in place (a double-click on the card or a second
-Enter does the same), and the map's own page at
-`docs/map/Gateway/index.html` links back to it for whoever opens it
-directly. An actor cannot open a map. A map inside a map is named
-`Gateway/Routes`.
+### Nested map
+
+`map="gateway.py"` identifies a model beside the parent model.
+The nested model exports `MODEL` and `MEANING`.
+Its internal components must cover exactly the parent's modules, each once.
+Symbol claims do not add module coverage. Empty package markers are excluded.
+Its actors use adjacent parent-map component identifiers.
+An actor cannot have a nested map.
+
+The parent card keeps its flows and shows a second card behind it.
+The inspector has a preview and an open button.
+Double-click or a second Enter also opens the nested map.
+`docs/map/Gateway/index.html` has a parent link.
+A further nested map can have identifier `Gateway/Routes`.
+See `layout.md` for thresholds and commands.
 
 ## Flow
 
-`Flow(src, dst, artifact, kind)`
+`Flow(src, dst, artifact, kind, source_refs=(), review_digest="")`
 
-One artifact travelling from `src` to `dst`, both component ids. `artifact`
-is what moves, as the label on the line: a file, a record, a message, a
-call. `kind` is `data`, `control`, `context` (then `dst` must be an agent
-or a `calls_model` component), `tool` (then `src` must be one), or one of
-`flow_kinds`. Every flow needs a sentence in `relations`.
+A flow carries one artifact from component `src` to component `dst`.
+Use an artifact noun phrase of one to three words.
+Standard kinds are `data`, `control`, `context`, and `tool`.
+Other kinds must be declared in `flow_kinds`.
+A context destination must be an agent or `calls_model` component.
+A tool source must be an agent or `calls_model` component.
+Every flow must have a relation sentence.
 
-One flow per ordered pair: `(src, dst)` is the key of the sentence, the
-verb and the spoke on the wheel, so the check refuses a second flow from
-A to B. When two things travel the same way, pick the artifact that
-matters to the reader; when something travels back, draw the other
-direction as its own flow with its own sentence.
+One flow per ordered pair is permitted.
+The pair is the key for its sentence, direction verbs, and connection diagram.
+For multiple transfers in one direction, select the artifact that matters most to the reader.
+Represent the other direction as a separate flow with its own sentence.
 
-An import, shared module, or configured mechanism word is `structural`
-evidence. It does not verify the flow's direction or artifact. A flow is
-`observed` only when every `source_refs` entry resolves against the current
-source SHA-256 and `review_digest` matches the current flow fields and
-relation sentence. A reference has the form `module[:symbol]@<source_sha256>`.
-The module reference supports a reviewed claim; it does not prove its
-meaning mechanically. `external` has an actor at one end. `declared` has
-no source review or structural evidence. Structural and declared flows
-draw dashed and require review.
+An import, common module, or configured mechanism gives `structural` evidence only.
+`observed` must have current `source_refs` and a matching `review_digest` for the flow and relation sentence.
+A reference has the form `module[:symbol]@<source_sha256>`.
+Digests identify recorded source and claims. They do not show the claim's meaning automatically.
+`external` has an actor endpoint. `declared` has no examined source or structural support.
+Structural and declared flows use dashed lines. Examine their source evidence.
 
 ```toml
 [flows]
 observed_by = ["subprocess", "queue", "facts file"]
 ```
 
+These configured words classify structural mechanisms only. They do not establish observed evidence.
+
 ## Invariant
 
 `Invariant(n, text, governs=())`
 
-A numbered rule the repository states about itself, with its source in the
-text (a file and line, or a document heading), and the ids of the
-components it directly governs. Each rule has its own number; the check
-refuses two rules with one number, quoting both. The page lists invariants
-and the panel of a governed component points at them.
+An invariant gives a source-supported repository rule.
+`n` must be unique. `text` includes a file and line or a document heading citation.
+`governs` contains the directly affected component identifiers.
+The page and component inspector show the applicable rules.
 
 ## Journey
 
-`Journey(id, label, steps, starts="", covers=())`
+`Journey(id, label, steps, starts="", drafted=False, covers=())`
 
-An ordered walk through the map. The reader steps through it one edge at a
-time.
-`label` is what the selector shows. Write one per entry point that
-matters. `covers` lists exact entry identities as JSON array strings in the
-order `[kind, module, target, name]`. A nonempty walk covers only those
-identities. `starts` is a display label and legacy migration hint.
+The schema term `Journey` represents a sequence of ordered steps.
+`id` is its stable identifier. `label` is the selector text.
+`starts` is an entry display label and an old-format migration hint.
+`covers` contains exact entry identities as JSON array strings in `[kind, module, target, name]` order.
+A nonempty sequence covers only those identities.
+`drafted=True` means the agent answer still has no source examination.
 
 ## Step
 
 `Step(acts, measures, edge, say)`
 
-One step of a journey. `acts` are the ids that act, `measures` the ids that
-measure it (`()` when nothing does, and the page says so in red), `edge`
-the `(src, dst)` of a flow the model has, and `say` one sentence saying what
-happens there.
+`acts` identifies the components that act.
+`measures` identifies components that monitor or record the step. Use `()` when none applies.
+`edge` is the `(src, dst)` pair of an existing flow.
+`say` gives one ASD-STE100 sentence about the action and result.
 
 ## Layer
 
 `Layer(id, label, question="", sub="")`
 
-One layer the reader can switch to, best written as the
-question it answers. Only the model's own layers are declared here; the
-standard layers are derived and their ids (`structure`, `system`, `data`,
-`control`, `agents`, `context`, `tools`) and `all` may not be reused.
-
-A layer's colour comes from the theme, not the model: each scheme names
-the standard layers and the model's own take the scheme's palette in
-turn. The page offers three schemes (`warm`, the default; `graphite`;
-`paper`, the light one) and the reader picks in the header. `[theme]` in
-`systemap.toml` overrides any token: `scheme` names the default, a bare
-key applies to it, and `[theme.<scheme>]` lays tokens over one scheme:
+Declare only custom layers. Standard layer identifiers cannot be reused:
+`structure`, `system`, `data`, `control`, `agents`, `context`, `tools`, and `all`.
+The theme supplies layer colors. Custom layers use its palette in order.
+The page has Warm, Graphite, and Paper schemes.
+Theme overrides use `[theme]` or `[theme.<scheme>]`:
 
 ```toml
 [theme]
@@ -250,108 +226,106 @@ accent = "#8a5a1a"
 
 `Meaning(plain, layers=(), layer_of_kind={}, relations={}, journeys=(), layer_overrides={}, verbs={}, verb_overrides={})`
 
-The hand-authored meaning of the topology. `plain` maps every component id
-to its plain words. `layers` are the model's own layers, in the order they
-follow the standard ones. `layer_of_kind` maps each custom flow kind to a
-layer id. `relations` maps every `(src, dst)` to one sentence, read from the
-source side. `journeys` is the tuple of journeys. `layer_overrides` moves
-one edge to another layer. `verbs` gives, per layer id, the verb printed
-when the reader clicks the source and the verb when they click the target
-(`("hands to", "receives from")`); the standard layers have verbs already.
-`verb_overrides` does the same for one edge.
+| field | contents |
+|---|---|
+| `plain` | One short display name for every component identifier. |
+| `layers` | Custom layers, after standard layers. |
+| `layer_of_kind` | A layer identifier for each custom flow kind. |
+| `relations` | One sentence per `(src, dst)` pair, from the source component. |
+| `journeys` | The tuple of sequences. |
+| `layer_overrides` | A different layer for a specified flow pair. |
+| `verbs` | Source and destination direction verbs for a layer, such as `("sends to", "receives from")`. |
+| `verb_overrides` | Direction verbs for one flow pair. |
 
-## What the check refuses
+## Structural checks
 
-Placement: a card with no position, a card outside its band, two cards
-overlapping, a region outside
-its container, a flow naming an unknown component or a kind that is neither
-standard nor declared, two flows on one ordered pair, a context or tool flow whose agent end is neither an
-agent nor a `calls_model` component, an invariant governing an unknown id, two invariants with one
-number. Routes: an edge through a card it does not connect or across a
-band it neither starts nor ends in. Labels: a label touching a card, a
-header or another label (both labels named), a container or region header
-wider than its box or a `sub` that needs more than two lines, a header
-touching a card, a card whose name or plain word does not fit its budget.
-Type size: anything below 11px. Meaning: a flow with no sentence or no
-layer, a component with no plain word, a journey step naming an unknown id
-or edge, an override naming an unknown edge, a custom layer taking a
-standard id. Wheel: the relationship wheel is drawn for a card when it is
-clicked, one per card, a spoke per flow that touches it with the verb
-read from the card (the clean line counts them: `17 cards, 47 orthogonal
-labelled edges, 17 wheels`); one whose labels touch each other or the
-centre is refused. Coverage: a module claimed by nobody or by two, an ignore
-naming no module or only empty package markers. Entry: a module not in the facts, an
-entry not defined, a component with no module, no entry on any kind but
-a store or a context card. Interface: a line that
-starts with a name none of the component's modules defines, or
-`Class.method` where the class has no such public method. Nesting: the
-map inside a card claiming a module the card does not claim, leaving one
-of the card's modules unclaimed, claiming one twice, or naming an actor
-that is not a card of the map above (or is the card itself); an actor
-that opens a map. Stale: facts, a page (one per map) or a figure older
-than the tree or the model.
+The checker rejects these conditions:
+
+- Missing positions, overlapping cards, and components outside their region or container.
+- Unknown flow endpoints, invalid kinds, duplicate ordered pairs, and invalid context or tool endpoints.
+- Unknown invariant components and duplicate invariant numbers.
+- Routes through unrelated cards or regions.
+- Labels that touch cards, headers, other labels, or the center of a connection diagram.
+- Text that exceeds its box or is below the minimum type size of 11 units.
+- Missing relation sentences, plain names, or layer assignments.
+- Unknown sequence components or edges and invalid overrides.
+- Unassigned or multiply assigned modules and stale or unnecessary coverage exclusions.
+- Missing source modules, public entries, interface symbols, or required source claims.
+- Nested-map coverage differences, invalid external actors, or nested maps on actors.
+- Stale facts, pages, or configured figures.
+
+A connection diagram has one spoke per incident flow.
+Its direction verbs use the selected component as the point of reference.
+Passing these checks does not show source meaning or language compliance.
+
+## Facts file
+
+`systemap extract` writes `docs/map/map.json` by default.
+The exported `systemap.extract.FIELDS` table describes its records.
+The tables below give each field's purpose.
 
 ## The facts file
 
-`docs/map/map.json` by default, written by `systemap extract`. Every field,
-from the extractor's own table (`systemap.extract.FIELDS`):
+`systemap extract` writes `docs/map/map.json` by default.
+The following fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: the facts format; 4, with portable syntax hashes and compiler provenance; `extract --check` reports a file of an older format as stale.
-- `built_at_commit`: the commit the tree was read at (HEAD when extract ran), or empty outside git; the page prints it as `facts from <sha>`, and it is the commit before the one that records the facts, since they are committed after they are read.
-- `packages`: the import names of the package roots.
-- `provenance`: the source-language parser and extraction inputs used for these facts; a change requires a fresh review even when source files are unchanged.
-- `tests_dirs`: the directories test files were read from, relative to the root: the configured `tests_dir`, or every directory named `tests` or `test`.
-- `spec_sections`: the `##` headings of `spec_path`, each with `level` and `title`.
-- `entry_points`: where a run can start: one record per point, fields below.
-- `entry_point_issues`: package entry targets or Python decorators whose framework binding could not be verified; empty when none.
-- `test_file_issues`: TypeScript-only: test files that could not be parsed for their imports and names; empty when none.
-- `config_issues`: TypeScript-only: npm tsconfig packages named by `extends` that could not be read; empty when none.
-- `components`: one record per module, keyed by its dotted name, fields below.
+- `version`: The facts format is 4, with portable syntax hashes and compiler provenance. `extract --check` marks older formats stale.
+- `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction precedes the commit recording facts.
+- `packages`: The import names of package roots.
+- `provenance`: The parser and extraction inputs. A change makes a new source review necessary, even without source-file changes.
+- `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory named `tests` or `test`.
+- `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
+- `entry_points`: One record per entry point, with the fields below.
+- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. Empty if there are none.
+- `test_file_issues`: TypeScript test files with unresolved imports or names after a parse error. Empty if there are none.
+- `config_issues`: TypeScript npm tsconfig packages in `extends` that cannot be read. Empty if there are none.
+- `components`: One module record per dotted name, with the fields below.
 
 **Each module, under `components`**
 
-- `id`: the dotted module name.
-- `file`: the path relative to the root.
-- `package`: the first segment of the name.
-- `plane`: the second segment when `planes` names it, else `core`.
-- `loc`: lines in the file.
-- `sha`: twelve hex digits of the source's SHA-1: the change detector's key.
-- `source_sha256`: full SHA-256 of source bytes, for reviewed source references.
-- `syntax_sha`: digest of parsed syntax without comments or formatting, for source review.
-- `docstring`: the first paragraph of the module docstring, capped.
-- `functions`: public functions: `name` and `signature`.
-- `classes`: public classes that are not errors: `name` and `methods` (public method signatures).
-- `errors`: public classes named or based on Error or Exception, the same fields.
-- `constants`: UPPER_CASE assignments: `name` and `value`, the first 14.
-- `names`: every public module-level name in source order, with its `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), `object` (any other assignment, such as `app` or `root_agent`), or TypeScript `unknown` when the kind cannot be determined. A package `__init__` also lists every name it imports from the package's own modules, with `reexport_of` naming the module that defines it and the kind that module gives it (`module` for a submodule imported whole). A component's `entry` and `interface` may name any of them.
-- `api`: the complete exported identities used by surface diffs: exported name, display bucket, and a declaration fingerprint that excludes callable bodies.
-- `executes`: Python-only: a top-level call makes a package initializer more than an empty marker.
-- `unknown`: TypeScript-only surface entries the parser could not read or classify; each has a source line, reason and short source excerpt.
-- `uses`: the package's modules this one imports, each with the names taken from it, or `*` for the whole module.
-- `imports`: the keys of `uses`.
-- `imported_by`: the package's modules that import this one.
-- `external`: third-party modules imported, as the dotted names written in the import (`anthropic`, `google.adk`); the standard library and the package's own modules are left out. The judgement's `model sdk` line reads it.
-- `tests_total`: how many test functions import this module.
-- `tests_primary`: how many of those sit in a file named after the module.
-- `tests`: the names of up to 25 of those tests, primary first.
-- `tests_digest`: a digest of every qualified test identity, including those not displayed.
-- `parse_error`: Python-only: the source file could not be read or parsed, with line and parser version.
+- `id`: The dotted module name.
+- `file`: The root-relative source path.
+- `package`: The first module-name segment.
+- `plane`: The second module-name segment if `planes` includes it. If not, `core`.
+- `loc`: The file line count.
+- `sha`: The first twelve hex digits of the source SHA-1. This is the change-detector key.
+- `source_sha256`: The full SHA-256 of UTF-8 source text with normalized newlines, for source references.
+- `syntax_sha`: The parsed-syntax digest, without comments or formatting, for source review.
+- `docstring`: The first module-docstring paragraph, with a length limit.
+- `functions`: Public functions with `name` and `signature`.
+- `classes`: Public classes excluding errors, with `name` and public method signatures in `methods`.
+- `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
+- `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
+- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports with `reexport_of` and their defining kind. A full-module import uses kind `module`. `entry` and `interface` can use these names.
+- `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies.
+- `executes`: Python-only: a top-level call makes a package initializer nonempty.
+- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
+- `uses`: Imported local modules with the names taken from each. `*` means the full module.
+- `imports`: The keys of `uses`.
+- `imported_by`: Local modules that import this module.
+- `external`: Third-party dotted import names, such as `anthropic` or `google.adk`. Standard-library and local-package imports are excluded. `model sdk` findings read this field.
+- `tests_total`: The number of test functions with an import reference to this module.
+- `tests_primary`: The number of those functions in a file named for this module.
+- `tests`: Up to 25 test names, with primary tests first.
+- `tests_digest`: A digest of every qualified test identity, including hidden identities.
+- `parse_error`: Python source read or parse errors, with line and parser version.
 
 **Each entry point, under `entry_points`**
 
-- `kind`: `console_script`, `main_module`, `main_function`, `subcommand` or `public_function`.
-- `name`: the script name, the `python -m` line, `main`, the subcommand word, or the function name.
-- `module`: the module that defines it.
-- `target`: the function a console script names, or the console script a subcommand belongs to; else empty.
+- `kind`: `console_script`, `main_module`, `main_function`, `subcommand`, or `public_function`.
+- `name`: The script name, `python -m` command, `main`, subcommand name, or function name.
+- `module`: The defining module.
+- `target`: The console-script function, or the console script for a subcommand. Empty for other kinds.
 
 **The extract summary**
 
-The counts `systemap extract` prints, each mapped to a field above, and none of
-them for the map: `modules` counts the records under `components`; `functions`,
-`classes` and `errors` sum each module's field of that name; `tests` sums
-`tests_total`, and the number in a file named after the module `tests_primary`;
-`empty package markers` lists every `__init__` record with no public `names`
-and nothing under `imports` or `external`, which the coverage rule leaves out on
-its own.
+The quantities from `systemap extract` describe source facts.
+They do not describe component functions on the map.
+`modules` counts records under `components`.
+`functions`, `classes`, and `errors` sum the module fields with those names.
+`tests` sums `tests_total`. The count for same-name test files sums `tests_primary`.
+
+`empty package markers` counts `__init__` records without public `names`,
+`imports`, or `external` entries. Coverage automatically excludes these records.

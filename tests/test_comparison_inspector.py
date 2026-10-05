@@ -107,8 +107,8 @@ def test_comparison_inspector_shows_changes_and_limits(sample: Sample, tmp_path:
     ):
         assert value in report["Reader"]
     assert "pkg.writer" in report["Writer"] and "could not be parsed" in report["Writer"]
-    assert "possible import-derived effect" in report["Parser"]
-    assert "No source changes were recorded" in report["Ledger"]
-    assert "Selected relationship" in report["exactRelationship"]
+    assert "This component imports changed source. Examine possible effects." in report["Parser"]
+    assert "The comparison has no source changes for this component." in report["Ledger"]
+    assert "Selected flow" in report["exactRelationship"]
     assert report["selected"] == report["expectedEdge"]
     assert report["evidence"] == 1 and report["unsafe"] == 0

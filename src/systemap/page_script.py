@@ -1,4 +1,4 @@
-"""Interaction between map, task navigation and contextual evidence."""
+"""Map selection, sequence controls and source records."""
 
 JS = r"""
 (function(){
@@ -26,7 +26,7 @@ JS = r"""
     var L = A.state.layer, h = '';
     if(L === 'all'){
       h += '<span class="lstrip__l">All layers</span>';
-      h += '<span class="lstrip__q">Every flow at once, each in the colour of its layer.</span>';
+      h += '<span class="lstrip__q">All flows. Each flow has the color of its layer.</span>';
       h += '<span class="lstrip__row">';
       A.layers.forEach(function(l){
         h += '<button type="button" data-pick="' + esc(l.id) + '" title="' + esc(l.question)
@@ -44,8 +44,8 @@ JS = r"""
       h += '<span class="lstrip__l" style="--c:' + l.colour + '"><i></i>' + esc(l.label)
          + ' layer</span>';
       h += '<span class="lstrip__q">' + esc(l.question) + '</span>';
-      h += '<span class="lstrip__s">' + esc(l.sub) + '. ' + counted + '; click one.</span>';
-      h += '<details class="lstrip-members"><summary>Parts in this layer</summary>'
+      h += '<span class="lstrip__s">' + esc(l.sub) + '. ' + counted + '. Select one.</span>';
+      h += '<details class="lstrip-members"><summary>Components in this layer</summary>'
          + '<span class="lstrip__row">';
       list.forEach(function(id){
         h += '<button type="button" data-go="' + esc(id) + '">' + esc(id) + '</button>'; });
@@ -179,7 +179,7 @@ JS = r"""
     // The strip during a journey: every step as the edge it traces, the
     // current one lit, each one a jump. The sentence lives under the map.
     if(!lstrip){ return; }
-    var h = '<span class="lstrip__l" style="--c:var(--accent)"><i></i>journey</span>'
+    var h = '<span class="lstrip__l" style="--c:var(--accent)"><i></i>sequence</span>'
           + '<span class="lstrip__q">' + esc(j.label) + '</span><span class="lstrip__row">';
     j.steps.forEach(function(s, k){
       var e = A.edges[s.edge] || {from:'', to:'', art:''};
@@ -200,7 +200,7 @@ JS = r"""
     var e = A.edges[step.edge];
     if(e && e.evidence_says){ parts.push(esc(e.evidence_says)); }
     if(j.drafted){
-      parts.push('<span class="draft">written by an agent, not yet confirmed</span>');
+      parts.push('<span class="draft">Agent draft. Source review necessary.</span>');
     }
     return parts.join(' &middot; ');
   }
@@ -211,16 +211,14 @@ JS = r"""
     closeDrawer();
     var edge = A.edges[step.edge];
     if(edge){ setLayer(edge.layer); }
-    A.setJourney(step);
-    journeyView = {layer:A.state.layer, view:A.view.snapshot()};
     journeyStrip(j);
     if(strip){
       strip.hidden = false;
       stripN.textContent = (cur.s + 1) + ' / ' + j.steps.length;
       stripSay.textContent = step.say;
       var m = step.measures || [];
-      stripMeas.textContent = m.length ? 'measured by ' + m.join(', ')
-        : 'nothing measures this step';
+      stripMeas.textContent = m.length ? 'Measurement components: ' + m.join(', ')
+        : 'No measurement component for this step';
       stripMeas.classList.toggle('none', !m.length);
       stripFoot.innerHTML = footOf(j, step);
     }
@@ -232,6 +230,9 @@ JS = r"""
     if(count){ count.textContent = (cur.s + 1) + '/' + j.steps.length; }
     if(prev){ prev.disabled = cur.s === 0; }
     if(next){ next.disabled = cur.s >= j.steps.length - 1; }
+    // Frame after the controls and inspector have their final layout.
+    A.setJourney(step);
+    journeyView = {layer:A.state.layer, view:A.view.snapshot()};
   }
   function backToJourney(){
     if(cur.j < 0){ return; }
@@ -260,11 +261,11 @@ JS = r"""
     setMode('trace');
     cur.j = k; cur.s = 0;
     if(sel){ sel.value = String(k); }
-    showStep();
     var question = document.getElementById('activity-question');
     var map = document.getElementById('map');
     if(question){ question.textContent = A.journeys[k].label; }
     if(map){ map.scrollIntoView({block:'start'}); }
+    showStep();
   }
   if(sel){ sel.addEventListener('change', function(){
     if(sel.value === ''){ endJourney(); }
@@ -492,12 +493,12 @@ JS = r"""
       });
     var label = document.getElementById('activity-label');
     if(label){ label.textContent = {
-      understand:'Parts of the system', trace:'How the system works', review:'Review a change'
+      understand:'System components', trace:'Operation sequence', review:'Examine a change'
     }[name]; }
     var question = document.getElementById('activity-question');
     if(question){ question.textContent = {
-      understand:'What are the parts, and how do they fit?',
-      trace:'What happens when an operation runs?', review:'What does this change mean?'
+      understand:'What are the components and their connections?',
+      trace:'What are the operation steps?', review:'What changed at this revision?'
     }[name]; }
     if(name === 'review'){ renderReview(); }
     document.getElementById('change') &&
@@ -536,7 +537,7 @@ JS = r"""
     var found = 0, entries = all('.ix[data-go]');
     entries.forEach(function(b){
       var d = A.detail[b.dataset.go], s = W && W.sources[b.dataset.go];
-      var fields = [['Part name',d.id],['Purpose',d.does],['Purpose',d.plain || '']];
+      var fields = [['Component name',d.id],['Function',d.does],['Function',d.plain || '']];
       if(s){
         s.claims.forEach(function(m){ fields.push(['Claimed module',m]); });
         s.modules.forEach(function(m){ fields.push(['Module',m.id],['Source path',m.file]); });
@@ -560,7 +561,7 @@ JS = r"""
     var disclosure = document.getElementById('partlist-disclosure');
     if(disclosure && q){ disclosure.open = true; }
     var status = document.getElementById('searchcount');
-    if(status){ status.textContent = found + ' of ' + entries.length + ' parts'; }
+    if(status){ status.textContent = found + ' of ' + entries.length + ' components'; }
     var emptySearch = document.getElementById('searchempty');
     if(emptySearch){ emptySearch.hidden = found !== 0; }
   }
@@ -588,22 +589,22 @@ JS = r"""
         + '<p>Imported by: ' + esc((m.imported_by || []).join(', ') || 'none recorded') + '</p>'
         + '<p>External imports: ' + esc((m.external || []).join(', ') || 'none recorded') + '</p>'
         + unknown
-        + '<p>Tests referencing this module: '
+        + '<p>Tests with imports of this module: '
         + esc(m.tests.join(', ') || 'none recorded') + '. References do not prove coverage.</p>'
         + '</details>';
-    }).join('') || '<p>No source modules were recorded for this card.</p>';
+    }).join('') || '<p>The source data has no modules for this component card.</p>';
   }
   function sourceRows(id){
     if(!sourceDetail || !W){ return; }
     var d = A.detail[id], s = W.sources[id], h = '';
-    h += '<section class="source-section"><h3>Rules that govern this part</h3>';
+    h += '<section class="source-section"><h3>Rules for this component</h3>';
     (d.rules || []).forEach(function(n){
       var r = A.detail._meta.rules.filter(function(r){ return r.n === n; })[0];
       h += '<div class="rule-row"><b>' + n + '</b>'
          + esc(r ? r.text : 'Rule not recorded') + '</div>';
     });
-    h += d.rules.length ? '' : '<p>No governing rules are authored.</p>';
-    h += '</section><section class="source-section"><h3>Journeys through this part</h3>';
+    h += d.rules.length ? '' : '<p>The model has no rules for this component.</p>';
+    h += '</section><section class="source-section"><h3>Sequences with this component</h3>';
     var count = 0;
     A.journeys.forEach(function(j, k){
       var touches = j.steps.some(function(step){
@@ -612,25 +613,25 @@ JS = r"""
           step.acts.indexOf(id) >= 0 || step.measures.indexOf(id) >= 0;
       });
       if(touches){ count++; h += '<button type="button" class="journey-choice" data-journey="'
-        + k + '">' + esc(j.label) + '<small>' + esc(j.starts || 'Start not named')
+        + k + '">' + esc(j.label) + '<small>' + esc(j.starts || 'Entry label not supplied')
          + '</small></button>'; }
     });
-    h += count ? '' : '<p>No journey passes through this part.</p>';
+    h += count ? '' : '<p>The model has no sequence with this component.</p>';
     if(d.kind !== 'actor'){
       h += '</section><section class="source-section"><h3>Source evidence</h3>'
         + (s.unresolved_claims || []).map(function(claim){
-          return '<p class="source-unknown">No matching source was recorded for authored claim '
+          return '<p class="source-unknown">The source data has no source for this module claim: '
             + '<code>' + esc(claim) + '</code>.</p>';
         }).join('')
         + '<details class="source-records"><summary>Source records</summary>'
-        + '<p>Authored module claims: <code>'
+        + '<p>Module claims in the model: <code>'
         + esc(s.claims.join(', ') || 'none') + '</code>.</p>'
         + (s.symbol_claims || []).map(function(claim){
-          return '<p>Authored public name: <code>' + esc(claim.module + ':' + claim.name)
+          return '<p>Public name in the model: <code>' + esc(claim.module + ':' + claim.name)
             + '</code>.</p>';
         }).join('')
         + moduleRecords(s);
-      h += '<h3>Ways into this part</h3><p>A way in is where a run can start.</p>';
+      h += '<h3>Entry points</h3><p>An entry point is where a program can start.</p>';
       h += s.points.map(function(p){ return '<p><code>' + esc(p) + '</code></p>'; }).join('')
         || '<p>No entry points were extracted for these modules.</p>';
       h += '</details>';
@@ -660,16 +661,16 @@ JS = r"""
          + esc(item.line) + '</div>'
       + '<p>' + esc(item.means) + '</p><p>' + esc(item.why) + '</p>';
     if(item.reasons.length){
-      h += '<h3>Why it was answered</h3>' + item.reasons.map(function(r){
+      h += '<h3>Answer explanation</h3>' + item.reasons.map(function(r){
         return '<p class="review-reason">' + esc(r) + '</p>';
       }).join('');
     } else { h += '<h3>What to do</h3><p>' + esc(item.do) + '</p>'; }
     h += '<div class="review-cards">' + reviewCards(item.line).map(function(id){
-      return '<button type="button" data-inspect="' + esc(id) + '">Inspect ' + esc(id)
+      return '<button type="button" data-inspect="' + esc(id) + '">Examine ' + esc(id)
          + '</button>';
-    }).join('') + '</div><p>Keep the finding text unchanged when recording an answer in '
+    }).join('') + '</div><p>Keep the finding text unchanged when you record an answer in '
       + '<code>[judgement] answered</code>. Run <code>systemap judgement</code> against the '
-      + 'current tree before deciding.</p>';
+      + 'working tree before you make a decision.</p>';
     reviewDetail.innerHTML = h;
     all('[data-inspect]', reviewDetail).forEach(function(b){
       b.addEventListener('click', function(){ A.select(b.dataset.inspect); });
@@ -685,17 +686,17 @@ JS = r"""
       return '<button type="button" class="review-choice" data-review-item="' + k
         + '" aria-pressed="false">' + esc(item.kind) + '<small>' + esc(item.line)
          + '</small></button>';
-    }).join('') || '<p>' + (reviewFilter === 'open' ? 'No open mechanical findings for this map. '
-      + 'The authored meaning still needs a person to read it.'
-      : 'No recorded answers match these findings.') + '</p>';
+    }).join('') || '<p>' + (reviewFilter === 'open' ? 'This map has no findings without answers. '
+      + 'A person must still examine the map claims.'
+      : 'These findings have no applicable stored answers.') + '</p>';
     all('[data-review-item]').forEach(function(b){
       b.addEventListener('click', function(){
         A.clear(); pickReview(+b.dataset.reviewItem); visibility();
       });
     });
     reviewDetail.innerHTML = '<h2>Read the decisions.</h2>'
-      + '<p>Select a finding to read why it matters and what to do. '
-      + 'Answered findings include the recorded reason. Jev audits and checks of the current '
+      + '<p>Select a finding to read its explanation and the necessary action. '
+      + 'Answered findings contain the recorded explanation. Jev audits and checks of the working '
       + 'tree are separate commands.</p>';
     if(items.length){ pickReview(Math.max(0, Math.min(reviewPick, items.length - 1))); }
   }
@@ -712,7 +713,7 @@ JS = r"""
     b.addEventListener('click', function(){
       var status = document.getElementById('copystatus');
       if(!navigator.clipboard || !navigator.clipboard.writeText){
-        status.textContent = 'Clipboard unavailable. Select and copy the command text.'; return;
+        status.textContent = 'No clipboard access. Select and copy the command text.'; return;
       }
       navigator.clipboard.writeText(b.dataset.copy).then(function(){
         status.textContent = 'Copied: ' + b.dataset.copy;
@@ -735,8 +736,8 @@ JS = r"""
   function comparisonRows(id){
     var comparison = W.comparison, record = comparison.parts[id], h = '<h4>Source changes</h4>';
     if(!record){ return h + '<p>' + (comparison.adjacent.indexOf(id) >= 0
-      ? 'This part imports changed source. It has a possible import-derived effect to investigate.'
-      : 'No source changes were recorded for this part in the comparison.') + '</p>'; }
+      ? 'This component imports changed source. Examine possible effects.'
+      : 'The comparison has no source changes for this component.') + '</p>'; }
     var surface = record.surface || {}, count = 0;
     h += '<p>Changed source modules: <code>' + esc(record.modules.join(', ')) + '</code>.</p>';
     ['added','removed','changed'].forEach(function(action){
@@ -749,13 +750,13 @@ JS = r"""
     ['added','removed'].forEach(function(action){
       var names = surface['tests_' + action] || []; if(!names.length){ return; }
       count += names.length; h += '<p><b>Test references ' + action + '</b>: <code>'
-        + esc(names.join(', ')) + '</code>. References do not prove coverage.</p>';
+        + esc(names.join(', ')) + '</code>. Test references do not show test coverage.</p>';
     });
     if(!count){ h += '<p>No differences in recorded public names or test references were found. '
-      + 'The source files may still have changed.</p>'; }
+      + 'The source files can contain other changes.</p>'; }
     record.modules.filter(function(m){ return comparison.unparsed.indexOf(m) >= 0; })
       .forEach(function(m){ h += '<p class="source-unknown">Source differences could not be parsed '
-        + 'for <code>' + esc(m) + '</code>. Rerun the comparison after fixing the source '
+        + 'for <code>' + esc(m) + '</code>. Do the comparison again after you correct the source '
         + 'or extractor error.</p>'; });
     Object.keys(record.unknown || {}).forEach(function(m){
       Object.keys(record.unknown[m]).forEach(function(revision){

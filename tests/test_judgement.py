@@ -31,8 +31,8 @@ def test_words_and_shared_words() -> None:
 
 def test_single_module_lines(sample: Sample) -> None:
     lines = judgement.single_module(sample.model, sample.facts)
-    assert "single module: Reader is only pkg.reader" in lines
-    assert "single module: Ledger is only pkg.ledger" in lines
+    assert "single module: Reader contains only pkg.reader" in lines
+    assert "single module: Ledger contains only pkg.ledger" in lines
     # The actor claims nothing and is never listed.
     assert not any("User" in line for line in lines)
 
@@ -40,7 +40,7 @@ def test_single_module_lines(sample: Sample) -> None:
 def test_single_module_reads_implemented_by_without_facts() -> None:
     model, _ = sample_model()
     lines = judgement.single_module(model, {})
-    assert "single module: Ledger is only pkg.ledger" in lines
+    assert "single module: Ledger contains only pkg.ledger" in lines
 
 
 def test_mis_fold_lines(sample: Sample) -> None:
@@ -90,8 +90,7 @@ def test_mis_fold_fires_only_on_a_stranger_in_a_foreign_package() -> None:
     # pkg.util.retry: no word in common with Keeper, its does, its plain word or its
     # interface, and pkg.util holds no other module of Keeper's.
     assert judgement.mis_folds(_claims(*modules), meaning, _facts(*modules)) == [
-        "possible mis-fold: Keeper claims pkg.util.retry (no word shared with the "
-        "component, and no other module of it in pkg.util)"
+        "possible mis-fold: Keeper has the module claim pkg.util.retry (no same word with the component, and no other component module in pkg.util)"
     ]
     # A word in the full path clears it: the package segment counts.
     modules = ("pkg.ledger", "pkg.ledgers.retry")
@@ -136,8 +135,7 @@ def test_mis_fold_count_on_the_workspace_fixture() -> None:
         ),
     )
     assert judgement.mis_folds(moved, fixture_workspace.MEANING, facts) == [
-        "possible mis-fold: Config claims wharf_server.style.walker (no word shared with the "
-        "component, and no other module of it in wharf_server.style)"
+        "possible mis-fold: Config has the module claim wharf_server.style.walker (no same word with the component, and no other component module in wharf_server.style)"
     ]
 
 
@@ -165,8 +163,8 @@ def test_thin_layer_lines(sample: Sample) -> None:
     )
     lines = judgement.thin_layers(sample.model, thin)
     assert lines == [
-        "thin layer: memory lights 0 components",
-        "thin layer: audit lights 0 components",
+        "thin layer: memory shows 0 components",
+        "thin layer: audit shows 0 components",
     ]
     # A standard kind the model never uses is a thin standard layer: the
     # line asks whether it was missed. The derived readings are never thin.
@@ -175,7 +173,7 @@ def test_thin_layer_lines(sample: Sample) -> None:
         flows=tuple(f for f in sample.model.flows if f.kind != "control"),
     )
     lines = judgement.thin_layers(no_control, sample.meaning)
-    assert lines == ["thin layer: control lights 0 components"]
+    assert lines == ["thin layer: control shows 0 components"]
     assert not any("structure" in line or "system" in line for line in lines)
     one = dataclasses.replace(
         sample.model,
@@ -189,9 +187,9 @@ def test_thin_layer_lines(sample: Sample) -> None:
         layer_overrides={("Ledger", "Ledger"): "self"},
     )
     lines = judgement.thin_layers(one, only_self)
-    assert "thin layer: self lights 1 component" in lines
+    assert "thin layer: self shows 1 component" in lines
     lonely = dataclasses.replace(only_self, layers=(Layer("self", "Self"), Layer("x", "X")))
-    assert "thin layer: x lights 0 components" in judgement.thin_layers(one, lonely)
+    assert "thin layer: x shows 0 components" in judgement.thin_layers(one, lonely)
 
 
 def test_an_ignored_module_is_not_a_question(sample: Sample) -> None:
@@ -202,27 +200,30 @@ def test_an_ignored_module_is_not_a_question(sample: Sample) -> None:
 
 
 def test_report_wording() -> None:
-    assert judgement.report([]) == ["judgement: nothing to confirm"]
-    assert judgement.report(["a"]) == ["judgement: 1 item for the maintainer to confirm", "  a"]
+    assert judgement.report([]) == ["judgement: No decision is necessary"]
+    assert judgement.report(["a"]) == ["judgement: 1 item for maintainer decisions", "  a"]
 
 
 def test_answers_suppress_count_and_go_stale() -> None:
-    lines = ["single module: A is only p.a", "thin layer: control lights 0 components", "x"]
+    lines = ["single module: A contains only p.a", "thin layer: control shows 0 components", "x"]
     answers = (
-        Answer(("single module: A is only p.a",), "a real part; the module is the part"),
-        Answer(("thin layer: control lights 0 components", "gone: y"), "no control flow yet"),
+        Answer(("single module: A contains only p.a",), "a real part; the module is the part"),
+        Answer(("thin layer: control shows 0 components", "gone: y"), "no control flow yet"),
     )
     result = judgement.apply_answers(lines, answers)
     assert result.open == ["x"]
     assert result.answered == 2
     assert result.stale == ["gone: y"]
     assert judgement.report(result) == [
-        "judgement: 1 item for the maintainer to confirm, 2 answered, 1 stale",
+        "judgement: 1 item for maintainer decisions, 2 answered, 1 stale",
         "  x",
-        "  stale answer: 'gone: y' no longer appears; remove it from [judgement] answered",
+        "  stale answer: 'gone: y' is now missing. Remove it from [judgement] answered.",
     ]
     everything = judgement.apply_answers(lines[:2], answers[:2])
-    assert judgement.report(everything)[0] == "judgement: nothing to confirm, 2 answered, 1 stale"
+    assert (
+        judgement.report(everything)[0]
+        == "judgement: No decision is necessary, 2 answered, 1 stale"
+    )
     assert judgement.apply_answers([], ()) == judgement.Answered([], 0, [])
 
 
@@ -275,7 +276,7 @@ def test_exact_answer_evidence_ignores_ast_dump_spelling(
     cfg = config.load(tmp_path)
     tree = nest.load(cfg)
     facts = extract.build(cfg)
-    line = "single module: Reader is only pkg.reader"
+    line = "single module: Reader contains only pkg.reader"
     original = judgement.evidence_for_tree(tree, facts, tmp_path, [line])[line]
     other_parser = copy.deepcopy(facts)
     record = other_parser["components"]["pkg.reader"]
@@ -288,8 +289,8 @@ def test_exact_answer_evidence_ignores_ast_dump_spelling(
 
 
 def test_policy_reports_new_instances() -> None:
-    first = "single module: A is only pkg.a"
-    second = "single module: B is only pkg.b"
+    first = "single module: A contains only pkg.a"
+    second = "single module: B contains only pkg.b"
     lines = [first, second]
     evidence = {line: line for line in lines}
     legacy = judgement.apply_answers(
@@ -300,7 +301,7 @@ def test_policy_reports_new_instances() -> None:
     result = judgement.apply_answers(lines, [policy], evidence)
     assert result.open == []
     assert result.policies == [
-        'kind = "single module" covers 2 current lines; 1 outside its reviewed baseline'
+        'kind = "single module" covers 2 lines at this snapshot. 1 lines are outside the source-review baseline.'
     ]
 
 
@@ -319,54 +320,52 @@ def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixt
     toml = tmp_path / "systemap.toml"
     toml.write_text(
         toml.read_text()
-        + """
-[judgement]
-answered = [
-    { items = ["single module: Reader is only pkg.reader", "single module: Writer is only pkg.writer"], reason = "two real parts of a two-file package" },
-    { item = "thin layer: control lights 0 components", reason = "nothing drives anything yet" },
-    { item = "single module: Gone is only pkg.gone", reason = "answered before the card was removed" },
-]
-"""
+        + '\n[judgement]\nanswered = [\n    { items = ["single module: Reader contains only pkg.reader", "single module: Writer contains only pkg.writer"], reason = "two real parts of a two-file package" },\n    { item = "thin layer: control shows 0 components", reason = "nothing drives anything yet" },\n    { item = "single module: Gone contains only pkg.gone", reason = "answered before the card was removed" },\n]\n'
     )
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for the maintainer to confirm, 1 stale")
+    assert out.startswith("judgement: 4 items for maintainer decisions, 1 stale")
     assert "single module: Reader" in out
     assert out.count("pending answer:") == 2
     assert "ignored" not in out, "the ignored package root is not a question"
     assert (
-        "stale answer: 'single module: Gone is only pkg.gone' no longer appears; "
-        "remove it from [judgement] answered"
+        "stale answer: 'single module: Gone contains only pkg.gone' is now missing. Remove it from [judgement] answered."
     ) in out
     # An answer without a reason, with both forms, or with neither, is a configuration error.
     for bad, message in (
-        ('{ item = "x" }', "needs a reason"),
-        ('{ item = "x", items = ["y"], reason = "r" }', "needs exactly one of"),
-        ('{ reason = "r" }', "needs exactly one of"),
-        ('{ items = [], reason = "r" }', "non-empty list of lines"),
+        ('{ item = "x" }', "must contain a reason"),
+        ('{ item = "x", items = ["y"], reason = "r" }', "must contain one selector"),
+        ('{ reason = "r" }', "must contain one selector"),
+        ('{ items = [], reason = "r" }', "list with one or more lines"),
         ('{ item = "x", reason = "r", why = "w" }', "unknown key: why"),
-        ('{ crossing = ["A"], reason = "r" }', "two or more different component ids"),
-        ('{ crossing = ["A", "A"], reason = "r" }', "two or more different component ids"),
-        ('{ crossing = ["A", "B", "A"], reason = "r" }', "two or more different component ids"),
-        ('{ crossing_into = "", reason = "r" }', "crossing_into must name one component id"),
-        ('{ crossing_from = 3, reason = "r" }', "crossing_from must name one component id"),
+        ('{ crossing = ["A"], reason = "r" }', "two or more different component IDs"),
+        ('{ crossing = ["A", "A"], reason = "r" }', "two or more different component IDs"),
+        ('{ crossing = ["A", "B", "A"], reason = "r" }', "two or more different component IDs"),
+        ('{ crossing_into = "", reason = "r" }', "crossing_into must contain one component ID."),
+        ('{ crossing_from = 3, reason = "r" }', "crossing_from must contain one component ID."),
         ('{ kind = "odd fold", reason = "r" }', "kind must be one of single module"),
         ('{ module_sdk = "", reason = "r" }', "module_sdk must be an import name"),
-        ('{ kind = "single module" }', "needs a reason"),
+        ('{ kind = "single module" }', "must contain a reason"),
         ('{ item = "x", reason = "r", evidence = "bad" }', "SHA-256 digest"),
-        ('{ item = "x", reason = "r", policy = true }', "policy needs a broad form"),
+        (
+            '{ item = "x", reason = "r", policy = true }',
+            "policy is permitted only for a family selector",
+        ),
         (
             '{ kind = "single module", reason = "r", evidence = "a" }',
-            "evidence needs an exact item",
+            "evidence is permitted only for an exact item",
         ),
-        ('{ kind = "single module", reason = "r", reviewed = ["x"] }', "reviewed needs policy"),
+        (
+            '{ kind = "single module", reason = "r", reviewed = ["x"] }',
+            "reviewed is permitted only with policy",
+        ),
     ):
         toml.write_text(f"[judgement]\nanswered = [{bad}]\n")
         assert main(["--root", str(tmp_path), "judgement"]) == 2
         assert message in capsys.readouterr().err
     toml.write_text("[judgement]\nreplied = []\n")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
-    assert "judgement has unknown key: replied" in capsys.readouterr().err
+    assert "judgement has an unknown key: replied" in capsys.readouterr().err
     toml.write_text('[judgement]\nanswered = [{ item = "  x  ", reason = "r" }]\n')
     cfg = config.load(tmp_path)
     assert cfg.judgement_answered == (Answer(("x",), "r"),)
@@ -388,17 +387,17 @@ def test_judgement_command_always_exits_0(
     # Before extract: the model alone, and still exit 0.
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert "no facts at docs/map/map.json" in out
-    assert "single module: Reader is only pkg.reader" in out
+    assert "No facts are available at docs/map/map.json" in out
+    assert "single module: Reader contains only pkg.reader" in out
     assert main(["--root", str(tmp_path), "extract"]) == 0
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for the maintainer to confirm")
-    assert "single module: Reader is only pkg.reader" in out
-    assert "single module: Writer is only pkg.writer" in out
+    assert out.startswith("judgement: 4 items for maintainer decisions")
+    assert "single module: Reader contains only pkg.reader" in out
+    assert "single module: Writer contains only pkg.writer" in out
     # The starter has one data flow and no control flow: the standard layer is thin.
-    assert "thin layer: control lights 0 components" in out
+    assert "thin layer: control shows 0 components" in out
     # The ignored package root is not a question: its reason is under [coverage].
     assert "ignored" not in out
     # A model that contradicts itself is a configuration error, exit 2.
@@ -523,12 +522,12 @@ def test_entry_points_without_journey() -> None:
     # Prose mentioning an entry does not establish reviewed coverage. The
     # console script's main() and the matching main module are duplicates.
     assert lines == [
-        "entry point pkg (console script) has no journey (component CLI)",
-        "entry point open_thing() in pkg has no journey (component Reader)",
-        "entry point pkg init (subcommand) has no journey (component CLI)",
-        "entry point pkg check (subcommand) has no journey (component CLI)",
-        "entry point pkg render (subcommand) has no journey (component CLI)",
-        "entry point main() in pkg.worker has no journey (component Worker)",
+        "entry point pkg (console script) has no sequence (component CLI)",
+        "entry point open_thing() in pkg has no sequence (component Reader)",
+        "entry point pkg init (subcommand) has no sequence (component CLI)",
+        "entry point pkg check (subcommand) has no sequence (component CLI)",
+        "entry point pkg render (subcommand) has no sequence (component CLI)",
+        "entry point main() in pkg.worker has no sequence (component Worker)",
     ]
     # A journey must name the exact entries it has reviewed.
     covered = dataclasses.replace(
@@ -562,7 +561,7 @@ def test_crossing_imports_without_flow() -> None:
     # pkg.cli imports pkg.reader (a flow joins CLI and Reader: silent) and
     # pkg.ledger (no flow joins CLI and Ledger: asked). pkg.__main__ imports
     # pkg.cli inside the same component: silent.
-    assert lines == ["crossing import: CLI imports Ledger in 1 module and no flow joins them"]
+    assert lines == ["crossing import: CLI imports Ledger in 1 module and no flow connects them"]
     assert judgement.crossing_detail(model, entry_facts()) == {
         lines[0]: ["pkg.cli imports pkg.ledger"]
     }
@@ -584,8 +583,8 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     facts["components"]["pkg.worker"]["uses"] = {"pkg.cli": ["main"], "pkg.__main__": ["*"]}
     lines = judgement.crossing_imports_without_flow(model, facts)
     assert lines == [
-        "crossing import: CLI imports Ledger in 2 modules and no flow joins them",
-        "crossing import: Worker imports CLI in 1 module and no flow joins them",
+        "crossing import: CLI imports Ledger in 2 modules and no flow connects them",
+        "crossing import: Worker imports CLI in 1 module and no flow connects them",
     ]
     detail = judgement.crossing_detail(model, facts)
     assert detail[lines[0]] == ["pkg.__main__ imports pkg.ledger", "pkg.cli imports pkg.ledger"]
@@ -593,7 +592,7 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     # Both directions are two lines: the pair is ordered, the flow rule is not.
     facts["components"]["pkg.ledger"]["uses"] = {"pkg.cli": ["main"]}
     assert judgement.crossing_imports_without_flow(model, facts)[1] == (
-        "crossing import: Ledger imports CLI in 1 module and no flow joins them"
+        "crossing import: Ledger imports CLI in 1 module and no flow connects them"
     )
     assert judgement.CROSSING_LINE.match(lines[0]) is not None
     assert judgement.CROSSING_LINE.match(lines[0]).groups() == ("CLI", "Ledger")  # type: ignore[union-attr]
@@ -601,7 +600,7 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     # kind alone with --kind, the head still counting every open line.
     printed = judgement.report(lines, detail, teach=False)
     assert printed == [
-        "judgement: 2 items for the maintainer to confirm",
+        "judgement: 2 items for maintainer decisions",
         f"  {lines[0]}",
         "    pkg.__main__ imports pkg.ledger",
         "    pkg.cli imports pkg.ledger",
@@ -609,18 +608,18 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
         "    pkg.worker imports pkg.__main__",
         "    pkg.worker imports pkg.cli",
     ]
-    mixed = ["single module: Reader is only pkg.reader", *lines, "Sub: " + lines[0]]
+    mixed = ["single module: Reader contains only pkg.reader", *lines, "Sub: " + lines[0]]
     assert judgement.of_kind(mixed, "crossing import") == [*lines, "Sub: " + lines[0]]
     assert judgement.report(mixed, kind="single module", teach=False) == [
-        "judgement: 4 items for the maintainer to confirm; showing the 1 single module line",
-        "  single module: Reader is only pkg.reader",
+        "judgement: 4 items for maintainer decisions. The report shows 1 single module line",
+        "  single module: Reader contains only pkg.reader",
     ]
     # with the teaching on, the kind is explained once under its first line
     taught = judgement.report(mixed, kind="single module")
-    assert taught[1] == "  single module: Reader is only pkg.reader"
+    assert taught[1] == "  single module: Reader contains only pkg.reader"
     assert taught[2].startswith("      why: ") and taught[3].startswith("      do:  ")
     assert judgement.report(mixed, kind="no sentence")[0].endswith(
-        "showing the 0 no sentence lines"
+        "The report shows 0 no sentence lines"
     )
 
 
@@ -677,7 +676,7 @@ def test_model_sdks_configured(tmp_path: Path, capsys: pytest.CaptureFixture[str
     )
     (tmp_path / "systemap.toml").write_text("[facts]\nsdks = []\n")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
-    assert "facts has unknown key: sdks" in capsys.readouterr().err
+    assert "facts has an unknown key: sdks" in capsys.readouterr().err
 
 
 def test_run_orders_the_second_pass_last(sample: Sample) -> None:
@@ -698,14 +697,14 @@ def test_run_orders_the_second_pass_last(sample: Sample) -> None:
 
 def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
     lines = [
-        "single module: A is only p.a",
-        "single module: B is only p.b",
-        "crossing import: A imports B in 1 module and no flow joins them",
-        "crossing import: B imports A in 3 modules and no flow joins them",
-        "crossing import: A imports C in 1 module and no flow joins them",
+        "single module: A contains only p.a",
+        "single module: B contains only p.b",
+        "crossing import: A imports B in 1 module and no flow connects them",
+        "crossing import: B imports A in 3 modules and no flow connects them",
+        "crossing import: A imports C in 1 module and no flow connects them",
         "model sdk: module p.a imports google.adk and its component A is not an agent",
         "model sdk: module p.c imports openai and its component C is not an agent",
-        "entry point main() in p.a has no journey (component A)",
+        "entry point main() in p.a has no sequence (component A)",
     ]
     result = judgement.apply_answers(
         lines,
@@ -730,8 +729,7 @@ def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
     entry = judgement.apply_answers(lines, (Answer((), "a debugging hook", kind="entry point"),))
     assert lines[7] not in entry.open and entry.answered == 1
     assert judgement.report(result)[-1] == (
-        "  stale answer: 'module_sdk = \"anthropic\"' no longer appears; remove it from "
-        "[judgement] answered"
+        "  stale answer: 'module_sdk = \"anthropic\"' is now missing. Remove it from [judgement] answered."
     )
     # A configured answer round-trips with its form.
     assert Answer(("x", "y"), "r").label == "items = ['x', 'y']"
@@ -742,7 +740,7 @@ def test_crossing_answers_cover_into_from_and_every_pair() -> None:
     """One answer for every crossing import into a card, out of it, or among a set."""
 
     def line(a: str, b: str) -> str:
-        return f"crossing import: {a} imports {b} in 2 modules and no flow joins them"
+        return f"crossing import: {a} imports {b} in 2 modules and no flow connects them"
 
     lines = [line("A", "M"), line("B", "M"), line("M", "C"), line("A", "B"), line("C", "A")]
     into = judgement.apply_answers(lines, (Answer((), "the schema", crossing_into="M"),))
@@ -802,8 +800,8 @@ def test_crossing_into_and_from_in_the_configuration(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    into_reader = "crossing import: Extra imports Reader in 1 module and no flow joins them"
-    into_writer = "crossing import: Extra imports Writer in 1 module and no flow joins them"
+    into_reader = "crossing import: Extra imports Reader in 1 module and no flow connects them"
+    into_writer = "crossing import: Extra imports Writer in 1 module and no flow connects them"
     assert into_reader in out and into_writer in out
     # --verbose lists the imports under each line; --kind prints one kind and
     # the head still counts every open line; an unknown kind is refused.
@@ -813,14 +811,14 @@ def test_crossing_into_and_from_in_the_configuration(
     # without --brief the kind is taught once, under the first line of that kind
     assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
     out = capsys.readouterr().out
-    assert out.count("      why: The code has a connection the map does not show.") == 1
+    assert out.count("      why: The code has a connection that the map does not show.") == 1
     assert f"  {into_reader}\n    pkg.extra imports pkg.reader\n      why: " in out
     assert main(["--root", str(tmp_path), "judgement", "--kind", "crossing import"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: ") and "; showing the 2 crossing import lines\n" in out
+    assert out.startswith("judgement: ") and ". The report shows 2 crossing import lines\n" in out
     assert into_reader in out and "single module" not in out.split("\n", 1)[1]
     assert main(["--root", str(tmp_path), "judgement", "--kind", "no sentence"]) == 0
-    assert "showing the 0 no sentence lines\n" in capsys.readouterr().out
+    assert "The report shows 0 no sentence lines\n" in capsys.readouterr().out
     assert main(["--root", str(tmp_path), "judgement", "--strict", "--kind", "no sentence"]) == 1
     with pytest.raises(SystemExit):
         main(["--root", str(tmp_path), "judgement", "--kind", "crossing"])
@@ -881,9 +879,9 @@ answered = [
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 2 items for the maintainer to confirm, 3 answered, 1 stale")
-    assert "  thin layer: control lights 0 components" in out
-    assert 'stale answer: \'crossing = ["Reader", "Writer"]\' no longer appears' in out
+    assert out.startswith("judgement: 2 items for maintainer decisions, 3 answered, 1 stale")
+    assert "  thin layer: control shows 0 components" in out
+    assert 'stale answer: \'crossing = ["Reader", "Writer"]\' is now missing' in out
     cfg = config.load(tmp_path)
     assert cfg.judgement_answered[2] == Answer(
         (),
@@ -909,26 +907,18 @@ def test_strict_exits_1_while_a_line_is_open(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 1
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for the maintainer to confirm")
+    assert out.startswith("judgement: 4 items for maintainer decisions")
     assert out.rstrip().endswith(
-        "answer every line in [judgement] answered in systemap.toml, or act on it"
+        "Answer each line in [judgement] answered in systemap.toml, or do the specified action."
     )
     toml = tmp_path / "systemap.toml"
     toml.write_text(
         toml.read_text()
-        + """
-[judgement]
-answered = [
-    { kind = "single module", policy = true, reason = "two real parts" },
-    { kind = "thin layer", policy = true, reason = "nothing drives anything yet" },
-    { kind = "flow review", policy = true, reason = "the starter flow is reviewed" },
-    { item = "single module: Gone is only pkg.gone", reason = "stale, and reported, not failed" },
-]
-"""
+        + '\n[judgement]\nanswered = [\n    { kind = "single module", policy = true, reason = "two real parts" },\n    { kind = "thin layer", policy = true, reason = "nothing drives anything yet" },\n    { kind = "flow review", policy = true, reason = "the starter flow is reviewed" },\n    { item = "single module: Gone contains only pkg.gone", reason = "stale, and reported, not failed" },\n]\n'
     )
     assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: nothing to confirm, 4 answered, 1 stale")
+    assert out.startswith("judgement: No decision is necessary, 4 answered, 1 stale")
     assert main(["--root", str(tmp_path), "judgement"]) == 0
 
 
@@ -941,5 +931,5 @@ def test_model_sdks_removal() -> None:
     assert judgement.sdk_list(["anthropic"]) == judgement.MODEL_SDKS, (
         "an addition already listed is not doubled"
     )
-    with pytest.raises(config.ConfigError, match=r"removes housemodel, which is not on the list"):
+    with pytest.raises(config.ConfigError, match="removes housemodel, which is not on the list"):
         judgement.sdk_list(["-housemodel"])

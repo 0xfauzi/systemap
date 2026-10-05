@@ -1,8 +1,8 @@
-"""Digest the source and map claims a maintainer reviewed for one card.
+"""Hash the source and map claims examined for one component.
 
-The digest is an attestation value, not proof that a review happened. A
-maintainer writes it into `Component.source_review` after reading the changed
-source and checking the card's claims. Refresh never writes it automatically.
+The digest records a value for source review. It does not show that a maintainer
+examined the source. After source examination, a maintainer writes `Component.source_review`.
+Refresh does not write this value automatically.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from systemap.model import Component, Journey, Meaning, Model, claimed, is_symbo
 
 
 def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | None:
-    """Parsed source for every claimed module, or no usable snapshot."""
+    """Get parsed source for every claimed module, or None without a usable snapshot."""
     components = facts.get("components", {})
     if not isinstance(components, dict):
         return None
@@ -44,7 +44,7 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
 
 
 def _touches(journey: Journey, card_id: str) -> bool:
-    """Does a walk name this card as an actor, measure, or flow endpoint?"""
+    """Find whether a sequence names this component in actors, measures, or flow endpoints."""
     return any(
         card_id in step.acts or card_id in step.measures or card_id in step.edge
         for step in journey.steps
@@ -52,7 +52,7 @@ def _touches(journey: Journey, card_id: str) -> bool:
 
 
 def _claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
-    """The semantic claims whose changes require another source review."""
+    """Collect semantic claims that make a new source review necessary after changes."""
     flows = [
         (
             flow.src,
@@ -94,10 +94,10 @@ def _claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
 
 
 def digest(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any]) -> str | None:
-    """A stable digest of claimed parsed source and related semantic claims.
+    """Hash claimed parsed source and related semantic claims.
 
-    No digest is available if a claimed source record is missing or failed
-    parsing. Formatting and comments do not change the parsed-source hash.
+    Missing source records and parse errors prevent a digest.
+    Formatting and comments do not change the parsed-source hash.
     """
     source = _source(card, facts)
     if source is None:

@@ -1,51 +1,20 @@
-"""The map's look, as one table of tokens per scheme.
+"""Color palettes for the map, inspector and page.
 
-Everything visual lives here so the scene, the panel and the page cannot
-disagree about a colour. Three schemes, each a full table of the same
-tokens, and the reader picks one on the page:
+The warm, graphite and paper palettes contain the same CSS tokens.
+The reader selects a palette on the page. Default text colors have
+a contrast ratio of 4.5:1 or more on their background.
+tests/test_theme.py measures these contrast ratios.
 
-    warm ....... the default: ink #ece5d8 on a warm dark ground #161310,
-                 an amber accent #e5a84f, low-chroma layer hues
-    graphite ... the cool dark scheme: ink #e6e4df on graphite #121417,
-                 a muted amber #e0a458
-    paper ...... the light scheme: ink #1d2024 on paper #f4f2ee, with
-                 every hue that is read as text darkened until it clears
-                 4.5:1 on paper
+`[theme]` changes the default palette. A named table such as
+`[theme.paper]` changes that palette. The aliases `dark` and `light`
+select graphite and paper. Each layer has one color. Card kind marks
+use an inner ring, notch or dotted border. Selection and active
+sequence components use `accent`. Measurement components use `steel`.
 
-Every text token of every scheme clears 4.5:1 on its ground (measured, not
-guessed; the ratios are recorded in the commit that set them, and
-tests/test_theme.py holds them). A consumer picks the default with
-`scheme = "warm"` under `[theme]` and overrides any token from there
-(`[theme]` applies to the default scheme, `[theme.paper]` to one scheme);
-the result is merged over the scheme's table, so every token name is the
-same in all three. The names 0.11 used, `dark` and `light`, still pick
-graphite and paper.
-
-Colour carries meaning or is absent:
-
-    accent ...... you are interacting with this (selection, focus, the node
-                  that ACTS in a journey step)
-    steel ....... measurement (the node that MEASURES a step)
-    layers ...... one hue per layer of the map, printed in the page legend;
-                  the `layers` table names the standard layers' colours,
-                  and the model's own layers take `layer_palette` in order
-    marks ....... how an agent, a tool and a context card are told apart
-                  from a component: a mark per kind (ring, notch, dotted),
-                  never a colour
-    good ........ what is there (every card is; the check refuses the rest)
-    bad ......... only for "nothing measures this step" and a change map
-
-Nothing else on the page is coloured.
-
-The page draws through variables. Every colour its drawing and its panel
-take from the table is written as `var(--token)` (`Palette`, with
-`variables=True`), and the tables themselves are the `:root` blocks the
-page carries (`css_vars`), so the page switches schemes at runtime
-without a redraw. A figure that leaves the page (`systemap figure`, a
-README image) carries no table and is written with the literal colours
-(`Palette` without `variables`); the two are the same table read two
-ways, never two tables.
-"""
+Page colors use `var(--token)` through Palette with `variables=True`.
+The page contains each palette table as CSS declarations. A palette
+change does not cause another render. Separate figures use literal
+color values from the same table."""
 
 from __future__ import annotations
 
@@ -144,7 +113,7 @@ WARM: dict[str, Any] = {
     "bad": "#e26d5a",
     "violet": "#b48ec9",
     "state": {
-        "built": ["#27221a", "#8a7d63", "built"],
+        "built": ["#27221a", "#8a7d63", "source recorded"],
     },
     "ghost": ["#1a1713", "#2e2820"],
     "container": {
@@ -190,7 +159,7 @@ GRAPHITE: dict[str, Any] = {
     "bad": "#d97b6c",
     "violet": "#a99bd0",
     "state": {
-        "built": ["#1f2329", "#6b7380", "built"],
+        "built": ["#1f2329", "#6b7380", "source recorded"],
     },
     "ghost": ["#15181c", "#262b32"],
     "container": {
@@ -236,7 +205,7 @@ PAPER: dict[str, Any] = {
     "bad": "#b5412f",
     "violet": "#7059b1",
     "state": {
-        "built": ["#ffffff", "#7c838d", "built"],
+        "built": ["#ffffff", "#7c838d", "source recorded"],
     },
     "ghost": ["#efede8", "#d9d6cf"],
     "container": {
@@ -287,7 +256,7 @@ TEXT_TOKENS = (
 
 
 def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """`override` laid over `base`: tables merge by key, everything else replaces."""
+    """Combine tables by key. Replace other values from `base` with values from `override`."""
     out = copy.deepcopy(base)
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(out.get(key), dict):
@@ -298,28 +267,26 @@ def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
 
 
 def scheme_name(tokens: dict[str, Any]) -> str:
-    """The default scheme a consumer's `[theme]` names, the older names mapped.
+    """Give the palette name from `[theme]`, with support for the old aliases.
 
-    A word that is no scheme is refused with the three named: a typo that
-    quietly fell back to one of them would render a page the consumer did
-    not ask for.
-    """
+    Reject unknown names and list the available palettes."""
     scheme = tokens.get("scheme", DEFAULT_SCHEME)
     if not isinstance(scheme, str):
-        raise ValueError(f"theme scheme must be one of {', '.join(SCHEMES)}")
+        raise ValueError(f"Select a theme scheme from {', '.join(SCHEMES)}")
     name = ALIASES.get(scheme, scheme)
     if name not in SCHEMES:
         raise ValueError(
-            f"unknown theme scheme {scheme!r}; the schemes are {', '.join(SCHEMES)} "
-            f"(dark and light, the names 0.11 used, still pick graphite and paper)"
+            f"Unknown theme scheme {scheme!r}. The schemes are {', '.join(SCHEMES)} "
+            f"(the 0.11 aliases dark and light select graphite and paper)"
         )
     return name
 
 
 def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
-    """A colour for every layer of the map, in layer order: a layer named in
-    the `layers` table keeps its colour (the scheme names every standard
-    layer); the rest, the model's own, take the palette in order."""
+    """Assign one color to each layer in layer order.
+
+    Named layers keep their table color. Other layers use palette colors
+    in sequence."""
     named: dict[str, str] = dict(t.get("layers") or {})
     palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE_WARM)
     resolved: dict[str, str] = {}
@@ -334,16 +301,12 @@ def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
 
 
 def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
-    """The default scheme's table with a colour for every layer of the map,
-    carrying every scheme's table under `schemes`.
+    """Give the default palette table and all palette tables under `schemes`.
 
-    `tokens` is the consumer's `[theme]`: `scheme` names the default, a
-    sub-table named for a scheme (`[theme.paper]`) overrides that scheme,
-    and every other key overrides the default scheme. Each scheme's table
-    is merged the same way, so the page can carry all three and a token
-    name means the same thing in each. The result is what the drawing
-    reads; a figure reads the default's table alone.
-    """
+    `tokens` contains `[theme]` configuration. `scheme` selects the default
+    palette. A named table changes that palette. Other keys change the
+    default palette. The page uses all tables. Separate figures use only
+    the default table."""
     layers = list(layers)
     name = scheme_name(tokens)
     own = {k: v for k, v in tokens.items() if k != "scheme" and k not in SCHEMES}
@@ -351,7 +314,7 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
     for scheme, base in SCHEMES.items():
         override = tokens.get(scheme) or {}
         if not isinstance(override, dict):
-            raise ValueError(f"theme.{scheme} must be a table of tokens")
+            raise ValueError(f"theme.{scheme} must contain a table of CSS tokens")
         if scheme == name:
             override = merge(own, override)
         t = merge(base, override)
@@ -369,7 +332,7 @@ def _rgb(colour: str) -> tuple[int, int, int]:
 
 
 def mix(a: str, b: str, t: float) -> str:
-    """a towards b by t."""
+    """Mix color `a` with color `b` by the fraction `t`."""
     ra, ga, ba = _rgb(a)
     rb, gb, bb = _rgb(b)
     r = round(ra + (rb - ra) * t)
@@ -414,8 +377,7 @@ TAG_MIX = 0.16
 
 
 def tints(t: dict[str, Any]) -> dict[str, Any]:
-    """The colours derived from the table, computed in one place so the
-    `:root` block and a literal figure cannot disagree about a tint."""
+    """Calculate color mixtures for CSS declarations and separate figures."""
     return {
         "actor": mix(
             t["bg"], t["surface"] if t["color_scheme"] == "light" else t["line_2"], ACTOR_MIX
@@ -427,14 +389,10 @@ def tints(t: dict[str, Any]) -> dict[str, Any]:
 
 
 class Palette:
-    """Every colour the drawing writes, read from one table two ways.
+    """Give colors as CSS tokens or literal values from one palette table.
 
-    With `variables` each answer is `var(--token)`: the page carries the
-    tables as `:root` blocks and switches them at runtime, so its drawing
-    names tokens and never values. Without it each answer is the literal
-    colour, for a figure that leaves the page and carries no table. The
-    token names are the ones `css_vars` writes; nothing else names them.
-    """
+    With `variables`, values use `var(--token)` declarations from `css_vars`.
+    Without `variables`, values contain literal colors for separate figures."""
 
     def __init__(self, t: dict[str, Any], variables: bool = False) -> None:
         self.t = t
@@ -451,25 +409,25 @@ class Palette:
         return self._v(f"--l-{lid}", self.t["layers"][lid])
 
     def tag(self, lid: str) -> str:
-        """A verb tag's fill for a layer: the raised surface tinted with it."""
+        """Give the fill color for a layer direction verb label."""
         return self._v(f"--lt-{lid}", self._tints["tags"][lid])
 
     def state(self, name: str) -> tuple[str, str, str]:
-        """(fill, stroke, the legend's word) for a card in the given state."""
+        """Give the card fill, stroke and legend label for the specified state."""
         fill, stroke, label = self.t["state"][name]
         return self._v(f"--card-{name}", fill), self._v(f"--card-{name}-line", stroke), label
 
     def actor(self) -> tuple[str, str]:
-        """(fill, stroke) for an actor: a tint of the ground, the quiet ink."""
+        """Give the actor fill and stroke colors."""
         return self._v("--actor", self._tints["actor"]), self["ink_3"]
 
     def ghost(self) -> tuple[str, str]:
-        """(fill, stroke) for what a change map or a reach figure leaves unmarked."""
+        """Give fill and stroke colors for components outside the selection."""
         fill, stroke = self.t["ghost"]
         return self._v("--ghost", fill), self._v("--ghost-line", stroke)
 
     def container(self, tone: str) -> tuple[str, str]:
-        """(stroke, fill) for a container of the given tone, as the table orders them."""
+        """Give the container stroke and fill colors for the specified tone."""
         stroke, fill = self.t["container"][tone]
         return self._v(f"--box-{tone}-line", stroke), self._v(f"--box-{tone}", fill)
 
@@ -484,15 +442,12 @@ class Palette:
 
 
 def root_css(t: dict[str, Any]) -> str:
-    """The page's root blocks: the default scheme's table on `:root`, every
-    scheme's under `:root[data-theme="<name>"]`, and the light scheme's
-    under `prefers-color-scheme: light` for a root no script has stamped.
+    """Give default, named and system light-palette CSS declarations.
 
-    The page's head script stamps `data-theme` before the first paint
-    (the stored pick, else paper when the system prefers light, else the
-    default), so the attribute blocks are what a reader sees; the bare
-    `:root` and the media block carry a page whose script did not run.
-    """
+    The page script sets `data-theme` before the first render. The page uses a stored
+    selection first. Without a stored selection, it uses paper for a system
+    light preference or the default palette. CSS media declarations
+    supply the system preference when the script does not run."""
     schemes: dict[str, dict[str, Any]] = t.get("schemes") or {t["scheme"]: t}
     out = [f":root{{{css_vars(t)}}}"]
     out += [f':root[data-theme="{name}"]{{{css_vars(table)}}}' for name, table in schemes.items()]
@@ -505,8 +460,7 @@ def root_css(t: dict[str, Any]) -> str:
 
 
 def css_vars(t: dict[str, Any]) -> str:
-    """One scheme's declarations: every token the page's drawing and panel
-    name, plain and derived, as one `:root` block's body."""
+    """Give CSS declarations for all specified and calculated palette tokens."""
     d = tints(t)
     out = [f"color-scheme:{t['color_scheme']};"]
     out += [f"{name}:{t[key]};" for key, name in CSS_NAMES.items()]

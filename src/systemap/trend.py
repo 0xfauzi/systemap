@@ -1,28 +1,10 @@
-"""The system over a year, read in today's cards.
+"""The trend analysis compares historical snapshots with the component claims from the
+model.
 
-A map says what the system is now. This says how it got here: the tree is
-sampled back through history, the facts at each commit are read against the
-map as it stands today, and each window is what moved between two samples.
-
-    cards ........ how many modules each card claimed then and claims now
-    crossings .... which pairs of cards imported each other with no flow
-    ways in ...... how many places a run could start
-
-Reading today's cards backwards is deliberate. A card is a claim about
-purpose, and purpose outlives file names: a module that moved into a
-package still belongs to the card whose job it does, so the trend is about
-the system rather than about renames.
-
-Nothing here judges. A card that grew is not a fault; a card that grew by
-seventeen modules in a fortnight is something a maintainer should know they
-did. Each window names the commits that wrote the modules which appeared, so
-a number always leads back to the work behind it.
-
-Measured before it was built, on a year of mealie sampled every fortnight:
-25 samples took 29 seconds the first time and under a second with the facts
-cached, against a bar of five minutes warm; and of the five largest windows,
-five named a change a person can find in the commits of that window, against
-a bar of three. `bench/jev/history_eval.py` is the run.
+Each sample contains source facts at one commit. Each window compares two samples. The
+report gives module counts, entry point counts, component sizes, and new imports across
+component boundaries. It also gives commits that added modules. Rename detection pairs
+the same content only. Other pairs must have a source examination.
 """
 
 from __future__ import annotations
@@ -44,7 +26,7 @@ FILES_ASKED = 60
 
 @dataclass(frozen=True)
 class Sample:
-    """What the map would have said about the system at one commit."""
+    """This record contains the map counts at one historical commit."""
 
     sha: str
     cards: dict[str, int] = field(default_factory=dict)
@@ -58,7 +40,7 @@ class Sample:
 
 @dataclass(frozen=True)
 class Window:
-    """What moved between two samples, and the work that moved it."""
+    """This record contains changes between two samples and the commits that added modules."""
 
     base: str
     head: str
@@ -72,7 +54,7 @@ class Window:
 
     @property
     def size(self) -> int:
-        """How much moved, for deciding what a reader should look at first."""
+        """This property gives the total change count for window ranking."""
         return (
             abs(self.modules)
             + abs(self.ways_in)
@@ -82,7 +64,7 @@ class Window:
 
 
 def sample_at(cfg: Config, model: Model, sha: str) -> Sample:
-    """The facts at one commit, read in today's cards."""
+    """This function reads facts at one commit against the component claims from the model."""
     facts = history.facts_at(cfg, sha)
     components: dict[str, Any] = facts.get("components", {})
     owner = owners(model, facts)
@@ -106,7 +88,7 @@ def sample_at(cfg: Config, model: Model, sha: str) -> Sample:
 def _crossings(
     components: dict[str, Any], owner: dict[str, str], model: Model
 ) -> set[tuple[str, str]]:
-    """The card pairs one imports the other, where the map draws no flow."""
+    """This function finds import connections across components without a flow."""
     drawn = {f.edge for f in model.flows} | {(f.dst, f.src) for f in model.flows}
     out: set[tuple[str, str]] = set()
     for module, record in components.items():
@@ -119,7 +101,7 @@ def _crossings(
 
 
 def between(before: Sample, now: Sample) -> Window:
-    """What moved between two samples."""
+    """This function compares two samples."""
     before_cards = dict(before.cards)
     vanished = set(before.files) - set(now.files)
     appeared = set(now.files) - set(before.files)
@@ -151,7 +133,7 @@ def between(before: Sample, now: Sample) -> Window:
 
 
 def walk(cfg: Config, model: Model, shas: list[str]) -> list[Window]:
-    """Every window between the sampled commits, oldest first."""
+    """This function gives windows between sampled commits, in chronological order."""
     out: list[Window] = []
     before: Sample | None = None
     for sha in shas:
@@ -163,7 +145,7 @@ def walk(cfg: Config, model: Model, shas: list[str]) -> list[Window]:
 
 
 def with_causes(root: Path, window: Window, cap: int = 5) -> Window:
-    """The same window, with the commits that wrote the modules which appeared."""
+    """This function adds the commits that introduced modules to the window."""
     if not window.new_files:
         return window
     try:
@@ -192,37 +174,48 @@ def with_causes(root: Path, window: Window, cap: int = 5) -> Window:
 
 
 def report(windows: list[Window], root: Path, since: str, every: int, top: int) -> list[str]:
-    """The trend as a person reads it: the largest windows first, with the work behind them."""
+    """This function formats the largest change windows and their source commits."""
     moved = [w for w in windows if w.size]
     head = (
-        f"history: {len(windows) + 1} samples since {since}, one every {every} days; "
-        f"{len(moved)} of {len(windows)} windows moved the map"
+        f"history: {len(windows) + 1} samples since {since}, one every {every} days. "
+        f"{len(moved)} of {len(windows)} windows changed the map."
     )
     if not moved:
         return [
             head,
-            "  nothing the map can see changed in that time: no module came or went, "
-            "no card grew, no new import crossed a card boundary",
+            (
+                "  No map change occurs in this period. Module counts, component sizes, and "
+                "imports across component boundaries stayed the same."
+            ),
         ]
-    out = [head, f"  the {min(top, len(moved))} largest, most recent first where they tie:"]
+    out = [
+        head,
+        (
+            f"  The {min(top, len(moved))} largest windows follow. Equal sizes use the "
+            f"last window in chronological order first:"
+        ),
+    ]
     for window in sorted(moved, key=lambda w: w.size, reverse=True)[:top]:
         out += _window_lines(with_causes(root, window))
-    out.append("  card counts match today's module claims to each historical tree")
-    out.append("  exact-content renames are paired; changed renames need source review")
+    out.append("  Component counts use the module claims from the model for each historical tree.")
+    out.append(
+        "  Renames with the same content form pairs. Renames with changed content must "
+        "have a source review."
+    )
     return out
 
 
 def _window_lines(window: Window) -> list[str]:
     out = [f"  {window.base[:7]}..{window.head[:7]}"]
     if window.modules or window.ways_in:
-        out.append(f"      modules {window.modules:+d}, ways in {window.ways_in:+d}")
+        out.append(f"      modules {window.modules:+d}, entry points {window.ways_in:+d}")
     if window.grew:
         moved = ", ".join(f"{cid} {n:+d}" for cid, n in sorted(window.grew.items()))
-        out.append(f"      cards: {moved}")
+        out.append(f"      components: {moved}")
     if window.new_crossings:
         left = len(window.new_crossings) - 5
         pairs = ", ".join(f"{a} -> {b}" for a, b in window.new_crossings[:5])
         more = f", and {left} more" if left > 0 else ""
         out.append(f"      new crossing imports: {pairs}{more}")
-    out += [f"      written by: {title[:100]}" for title in window.caused_by]
+    out += [f"      added by commit: {title[:100]}" for title in window.caused_by]
     return out

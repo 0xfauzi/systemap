@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import xml.etree.ElementTree as ET
 
 from conftest import Sample, sample_model
 
@@ -30,13 +31,16 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     for url in set(re.findall(r"https?://[^\s\"'<)]+", html)):
         assert url.startswith("http://www.w3.org/"), url
     assert "<title>sample system map</title>" in html
-    assert "OUTSIDE THE SYSTEM" in html
+    assert "EXTERNAL COMPONENTS" in html
     assert 'id="schematic"' in html
+    stage_style = re.search(r"\.stage\{([^}]+)\}", html)
+    assert stage_style and "width:100%" in stage_style[1].split(";")
 
 
 def test_schematic_reports_layout_and_detail(sample: Sample) -> None:
     model, meaning = sample.model, sample.meaning
     svg, detail = render_schematic(model, meaning, sample.theme, sample.facts)
+    assert ET.fromstring(svg).attrib["preserveAspectRatio"] == "xMidYMid meet"
     data = json.loads(detail)
     meta = data["_meta"]
     assert meta["collisions"] == []
@@ -72,8 +76,8 @@ def test_check_passes_on_sample(sample: Sample) -> None:
     assert result.coverage.markers == 1, "the package root is an empty package marker"
     assert result.ok
     lines = check.report(sample.model, result)
-    assert "coverage: 5 of 5 modules mapped, 1 of them an empty package marker" in lines
-    assert any(line.startswith("map layout: clean") for line in lines)
+    assert "coverage: 5 of 5 modules mapped, 1 an empty package marker" in lines
+    assert any(line.startswith("map layout: has no errors") for line in lines)
     # A label on a shorter segment was once a note on a clean check; it is
     # not a rule, so it is not printed.
     assert not any("note:" in line for line in lines)
@@ -111,10 +115,10 @@ def test_reach_figure(sample: Sample) -> None:
     )
     assert collisions == []
     assert html.startswith('<figure data-generated="systemap"')
-    assert "in the plan's reach" in html
+    assert "components in the plan" in html
     assert "IN REACH" in html
     assert "svg.systemap" in html
-    assert "endstate" not in html and "planned" not in html
+    assert not re.search(r'class="node[^\"]*\b(?:endstate|planned)\b', html)
 
 
 def test_the_three_schemes_share_one_token_table() -> None:

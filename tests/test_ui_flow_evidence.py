@@ -1,6 +1,6 @@
 """The generated inspector preserves the limits of each flow's evidence.
 
-Acceptance: zero unreviewed claims labelled source reviewed, zero missing
+Acceptance: zero unreviewed claims labelled source review recorded, zero missing
 review warnings or source records, and zero substituted flow selections.
 Selection preserves every original dash and has at most one moving cue.
 Reduced motion has zero moving cues. The local DOM harness checks interaction
@@ -139,7 +139,7 @@ def test_generated_metadata_retains_review_and_independent_structure(
     assert sample.model.flows[4].source_refs[0].split("@")[-1] != ledger_hash
     assert edges[3]["import_present"] and not edges[3]["source_refs"]
     svg, _ = render_schematic(sample.model, sample.meaning, sample.theme, sample.facts)
-    assert ', source reviewed"' in svg
+    assert ', source review recorded"' in svg
     assert ', observed"' not in svg
 
 
@@ -193,7 +193,7 @@ def test_inspector_keeps_exact_review_state_warnings_and_escaped_refs(
 ) -> None:
     for flow in flow_report["flows"]:
         expected = flow["metadata"]
-        label = "source reviewed" if flow["index"] == 1 else expected["evidence"]
+        label = "source review recorded" if flow["index"] == 1 else expected["evidence"]
         assert [s["focus"] for s in flow["states"]][1:3] == [expected["to"], expected["from"]]
         for state in flow["states"]:
             assert state["edge"] == flow["index"]
@@ -214,17 +214,20 @@ def test_inspector_keeps_exact_review_state_warnings_and_escaped_refs(
                 assert "source digest" in state["sourceDetails"]
     reviewed = flow_report["flows"][0]["states"][0]
     structural = flow_report["flows"][1]["states"][0]
-    assert "Execution has not been recorded" in reviewed["reason"]
-    assert "Direction and artifact still need source review" in structural["reason"]
+    assert "There is no record of program execution." in reviewed["reason"]
+    assert "Source review of direction and artifact is necessary." in structural["reason"]
     assert UNSAFE_REF in flow_report["flows"][3]["states"][0]["sourceRefs"]
     changed = flow_report["flows"][2]["states"][0]
     unresolved = flow_report["flows"][3]["states"][0]
     assert len(changed["warnings"]) == 1
-    assert "recorded review digest is missing or does not match" in changed["warnings"][0]
+    assert (
+        "recorded review digest is missing or different from the flow claim digest"
+        in changed["warnings"][0]
+    )
     assert len(unresolved["warnings"]) == 1
-    assert "references do not resolve at this source snapshot" in unresolved["warnings"][0]
+    assert "references do not identify source at this revision" in unresolved["warnings"][0]
     assert not reviewed["warnings"] and not structural["warnings"]
-    assert "source reviewed" in flow_report["readingLabels"][1]
+    assert "source review recorded" in flow_report["readingLabels"][1]
     assert all("observed" not in label for label in flow_report["readingLabels"])
 
 

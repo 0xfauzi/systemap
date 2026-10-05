@@ -1,9 +1,9 @@
-"""The commands that ask Jev: `audit`, `triage`, and the `--jev` of `delta` and `suggest`.
+"""Run commands that call Jev or a configured coding agent.
 
-They live apart from cli.py so the offline commands never import a network
-path, and so cli.py does not grow. Every one of them sends nothing without
-`TYPESAFE_API_KEY`, prints what a run cost, and exits 0 unless it could not
-run at all: none of them is a gate.
+These commands are outside cli.py to keep the CLI module small.
+Jev calls must have `TYPESAFE_API_KEY` and print usage.
+Completed semantic reports exit 0. Request errors exit 1.
+Plan comparison can exit 1 for changes outside the recorded plan.
 """
 
 from __future__ import annotations
@@ -48,23 +48,18 @@ MOVE_AT = 0.8
 # card per package by 0.18 on average, and lost on two maps of five.
 SAME_AT = 0.4
 
-TRIAGE_Q = (
-    "`report` is an issue filed against this system. Which component will "
-    "the fix most likely have to change?"
-)
+TRIAGE_Q = "`report` is an issue for this system. Which component will the fix probably change?"
 BECAME_Q = (
-    "In one commit `old_module` disappeared and the modules in the options "
-    "appeared. Which new module is the old one, moved or renamed and perhaps "
-    "edited? If it was deleted, say so."
+    "The commit removed `old_module` and added the option modules. Which "
+    "new module is the removed module after a move, rename, or edit? If no option "
+    "continues the removed module, select the deleted option."
 )
 NOT_MOVED = "not moved: deleted"
 # How many new modules the question offers: the measured cap.
 MOVE_OPTIONS = 250
 SAME_Q = (
-    "Do `module_a` and `module_b` belong to the same component of "
-    "this system: one part with one job that a reader would point at "
-    "and name? Two parts that merely call each other or share types "
-    "are two components."
+    "Do `module_a` and `module_b` have the same system function and belong to one "
+    "component? Components that only call each other or share types stay different."
 )
 
 
@@ -85,35 +80,33 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
 # What the commands that stay offline say Jev would add, when no key is set.
 # Each figure is measured (bench/jev) and quoted as measured.
 JUDGEMENT_HINT = (
-    "hint: with a TypeSafe key in TYPESAFE_API_KEY, systemap audit adds Jev's second "
-    "opinion on meaning: it caught 95% of modules moved into a neighbouring card, where "
-    "the word rule behind possible mis-fold caught 32% (bench/jev). "
-    "[jev] enabled = false in systemap.toml silences this."
+    "hint: TYPESAFE_API_KEY enables systemap audit. It found 95% of planted assignments to "
+    "an adjacent component. The possible mis-fold word rule found 32% (bench/jev). "
+    "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
-    "hint: with a TypeSafe key in TYPESAFE_API_KEY, delta also asks Jev which new module "
-    "each removed one became: on renames in five repositories that found 82 where delta "
-    "alone found 66, 16 of its 17 additions right (bench/jev). "
-    "[jev] enabled = false in systemap.toml silences this."
+    "hint: TYPESAFE_API_KEY enables Jev rename questions. Across five repositories, "
+    "Jev and delta found 82 renames; delta found 66. Sixteen of 17 added pairs were "
+    "correct (bench/jev). Set [jev] enabled = false in systemap.toml to stop this "
+    "hint."
 )
 
 
 def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
-    """`--jev` or `--no-jev` when given; else Jev when a key is set and `[jev]` allows it."""
+    """Use an explicit flag, or the configured Jev policy and available API key."""
     if flag is not None:
         return flag
     return cfg.jev_enabled and jev.has_key()
 
 
 def usage_to_stderr(client: jev.Jev) -> None:
-    """What the run cost, on stderr, so the report and the pull-request comment
-    stay the report; nothing when no question was asked."""
+    """Print usage to stderr when a run used Jev or its cache."""
     if client.usage.sent or client.usage.cached:
         print(client.usage.line(), file=sys.stderr)
 
 
 def hint(cfg: config.Config, text: str) -> None:
-    """What Jev would add, on stderr, when no key is set and `[jev]` allows it."""
+    """Print a Jev hint to stderr when enabled without an API key."""
     if cfg.jev_enabled and not jev.has_key():
         print(text, file=sys.stderr)
 
@@ -122,7 +115,7 @@ def hint(cfg: config.Config, text: str) -> None:
 
 
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
-    """A second opinion on the map from Jev. A report: exit 0, or 1 when it could not run."""
+    """Give Jev findings with exit 0, or exit 1 if the request cannot complete."""
     cfg = config.load(args.root_path)
     facts = _facts(cfg)
     if facts is None:
@@ -171,7 +164,7 @@ def _neighbours(model: Any, cid: str) -> str:
 
 
 def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
-    """Which card an issue's fix will most likely change: the top three, with where to read."""
+    """Predict the three components an issue fix will probably change."""
     cfg = config.load(args.root_path)
     facts = _facts(cfg)
     if facts is None:
@@ -200,7 +193,7 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     print(f"triage: confidence {answer.get('confidence', 0):.2f}{cut}")
     for cid, p in audit._top(answer.get("probabilities", {}), 3):
         if cid == audit.NONE:
-            print(f"  {p:.2f}  none of the cards")
+            print(f"  {p:.2f}  none of the components")
             continue
         mods = by.get(cid, [])
         more = f" and {len(mods) - 5} more" if len(mods) > 5 else ""
@@ -231,7 +224,7 @@ def unclaimed_in(lines: list[str]) -> list[str]:
 def owner_suggestions(
     cfg: config.Config, tree: nest.Tree, head: dict[str, Any], modules: list[str], client: jev.Jev
 ) -> list[str]:
-    """One line per unclaimed module: the card Jev reads it as, or the closest three."""
+    """Give one owner prediction or three candidates per unclaimed module."""
     if not modules:
         return []
     plan = audit.Plan()
@@ -253,7 +246,7 @@ JOURNEY_CAP = 3
 
 
 def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None) -> int:
-    """Write a journey for a way into the system that no journey walks from."""
+    """Write sequences for entry points without examined sequence coverage."""
     cfg = config.load(args.root_path)
     facts = _facts(cfg)
     if facts is None:
@@ -277,7 +270,7 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
         )
         left.extend((current, group) for group in groups)
     if not left:
-        print("journeys: every way into the system already has a walk from it")
+        print("journeys: every entry point has an examined sequence")
         return OK
     if args.dry_run or not agent.has_agent(cfg):
         print(*_would_write(left, cfg), sep="\n")
@@ -286,17 +279,17 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
 
 
 def _would_write(left: list[tuple[nest.Map, journeys.Group]], cfg: config.Config) -> list[str]:
-    """What there is to write, and what it would take, without writing it.
+    """List proposed sequences without file changes.
 
-    A crowd of ways in of one kind into one card counts as one walk to write,
-    the way `systemap judgement` counts it as one line to answer.
+    An entry-point group of one type in one component counts as one proposed sequence.
+    Judgement uses the same grouping for its findings.
     """
     total = sum(len(group.ways_in) for _map, group in left)
-    ways, them = ("way", "it") if total == 1 else ("ways", "them")
-    head = f"journeys: {total} {ways} into the system with no walk from {them}"
+    ways, them = ("entry point", "it") if total == 1 else ("entry points", "them")
+    head = f"journeys: {total} {ways} without a sequence for {them}"
     if len(left) < total:
-        walks = "walk" if len(left) == 1 else "walks"
-        head += f", {len(left)} {walks} to write: a card's crowd is walked once"
+        walks = "sequence" if len(left) == 1 else "sequences"
+        head += f", {len(left)} {walks} to write: one per component group"
     out = [head + ":"]
     out += [f"  {current.prefix}{group.label} ({current.rel})" for current, group in left[:20]]
     if len(left) > 20:
@@ -312,7 +305,7 @@ def _write_journeys(
     take: list[tuple[nest.Map, journeys.Group]],
     run_command: agent.Run | None,
 ) -> int:
-    """Ask the agent for each walk, check it, and write the ones that hold."""
+    """Get agent sequences, examine map consistency, and write accepted sequences."""
     try:
         writer = agent.from_cfg(cfg, run_command)
     except agent.AgentError as exc:
@@ -344,7 +337,7 @@ def _record_journey(
     out: list[str],
 ) -> None:
     if draft.journey is None:
-        out.append(f"journeys: no walk written for {group.label}")
+        out.append(f"journeys: no sequence written for {group.label}")
         out += [f"      {p}" for p in draft.problems]
         return
     source = sources.get(current.path)
@@ -352,7 +345,7 @@ def _record_journey(
         source = current.path.read_text(encoding="utf-8")
     grown = journeys.add_to_source(source, draft.journey)
     if grown is None:
-        out.append(f"journeys: {current.rel} has no journeys to add to; paste this in:")
+        out.append(f"journeys: {current.rel} has no journeys list. Add this source:")
         out += journeys.as_source(draft.journey)
         return
     sources[current.path] = grown
@@ -370,7 +363,7 @@ def _commit_journeys(
     written: dict[Path, list[str]],
     out: list[str],
 ) -> bool:
-    """Validate all proposed source before writing any journey files."""
+    """Validate proposed source before writing any sequence files."""
     try:
         model_write.write_models(sources)
     except (SyntaxError, OSError) as exc:
@@ -378,13 +371,13 @@ def _commit_journeys(
         return False
     for path, ids in written.items():
         out.append(f"  {len(ids)} written into {cfg.rel(path)}, each marked drafted=True")
-    out.append("  read each one against the code, then remove the drafted line")
+    out.append("  examine each sequence against source. Then remove its drafted line")
     out.append("  run: systemap check && systemap judgement")
     return True
 
 
 def _atomic_model_write(path: Path, source: str) -> None:
-    """Validate the complete source, then replace the model in one operation."""
+    """Validate full source, then replace the model in one operation."""
     model_write.write_models({path: source})
 
 
@@ -429,8 +422,10 @@ def _move_ask(base: dict[str, Any], old: str, criteria: dict[str, str]) -> Ask:
 def jev_moves(
     base: dict[str, Any], head: dict[str, Any], client: jev.Jev
 ) -> dict[str, tuple[str, str]]:
-    """old module -> (new module, how), for the modules that disappeared and that
-    delta's own questions left unpaired, where Jev names one at MOVE_AT or more."""
+    """Pair removed modules with new modules at confidence MOVE_AT or more.
+
+    Delta's rules first remove known pairs. Jev selects from the unpaired candidates.
+    """
     b, h = base.get("components", {}), head.get("components", {})
     gone = sorted(set(b) - set(h))
     new = sorted(set(h) - set(b))
@@ -440,7 +435,7 @@ def jev_moves(
     if not left or not options:
         return {}
     criteria = {m: _brief(h[m]) for m in options[:MOVE_OPTIONS]}
-    criteria[NOT_MOVED] = "The old module was deleted; none of the new modules continues it."
+    criteria[NOT_MOVED] = "The removed module was deleted. No new module continues its function."
     asks = [_move_ask(b, old, criteria) for old in left]
     answered = client.ask(asks)
     picks = sorted(
@@ -458,7 +453,7 @@ def jev_moves(
 
 
 def pair_candidates(facts: dict[str, Any], mods: list[str]) -> list[tuple[str, str]]:
-    """Import-joined pairs, and neighbours in name order within one package."""
+    """Get import-connected pairs and adjacent module names within each package."""
     known = set(mods)
     by_package: dict[str, list[str]] = {}
     for m in mods:
@@ -472,7 +467,7 @@ def pair_candidates(facts: dict[str, Any], mods: list[str]) -> list[tuple[str, s
 
 
 def groups(mods: list[str], edges: list[tuple[str, str]]) -> list[list[str]]:
-    """Connected components of the pairs called one part, largest first."""
+    """Get connected groups from accepted module pairs, with the largest first."""
     parent = {m: m for m in mods}
 
     def find(m: str) -> str:
@@ -515,8 +510,9 @@ def suggest_groups(cfg: config.Config, facts: dict[str, Any], client: jev.Jev) -
     found = groups(mods, edges)
     out = [
         f"suggest --jev: {len(found)} groups from {len(asks)} questions about module pairs; "
-        f"a pair is one part at P >= {SAME_AT}. A grouping to argue with: on two of five "
-        "development maps it did worse than one card per package",
+        f"a pair forms one component at P >= {SAME_AT}. Examine these proposed groups. "
+        "On two of five "
+        "development maps, accuracy was lower than one component per package",
     ]
     for k, g in enumerate(found, 1):
         out.append(f"  group {k} ({len(g)} modules): {', '.join(g)}")
@@ -534,7 +530,7 @@ def run_or_explain(fn: Callable[[], list[str]], label: str) -> tuple[list[str], 
 
 
 def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
-    """The cards a piece of work will most likely change, and what each sits in."""
+    """Predict changed components and give their adjacent flows, sequences, and rules."""
     cfg = config.load(args.root_path)
     if args.check:
         return _check_plan(cfg, args)
@@ -574,17 +570,17 @@ def _plan_question(top: nest.Map) -> dict[str, Any]:
 
 
 def _plan_lines(made: plan_mod.Projection, cfg: config.Config, where: Path | None) -> list[str]:
-    """The projection as a person reads it: each card, then what it sits in."""
+    """Give each predicted component and its adjacent map context."""
     if not made.cards:
         return [
-            "plan: no card stands out for this work",
-            "  say what the work touches in the system's own words, or run: systemap triage",
+            "plan: no component is a clear candidate for this work",
+            "  give the task in the system's terms, or run: systemap triage",
         ]
-    out = [f"plan {made.id}: {len(made.cards)} cards this work will most likely change"]
+    out = [f"plan {made.id}: {len(made.cards)} components this work will probably change"]
     for one in made.around:
         out.append(f"  {one.card} ({made.weights.get(one.card, 0):.2f})")
         out += _some("flow", one.flows)
-        out += _some("walk", one.journeys)
+        out += _some("sequence", one.journeys)
         out += _some("rule", one.rules)
     out.append(f"  written to {cfg.rel(where)}" if where else "  not written down")
     out.append(f"  after the work: systemap plan --check {made.id} --base <ref>")
@@ -597,7 +593,7 @@ AROUND_CAP = 6
 
 
 def _some(word: str, found: tuple[str, ...]) -> list[str]:
-    """A card's surroundings, cut where a reader stops reading."""
+    """Give adjacent map context up to the display limit."""
     out = [f"      {word}: {x}" for x in found[:AROUND_CAP]]
     if len(found) > AROUND_CAP:
         out.append(f"      {word}: and {len(found) - AROUND_CAP} more")
@@ -605,7 +601,7 @@ def _some(word: str, found: tuple[str, ...]) -> list[str]:
 
 
 def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
-    """What changed and was not projected, and what was projected and did not change."""
+    """Compare projected components with changed components."""
     found = plan_mod.load(cfg, args.check)
     if found is None:
         known = ", ".join(plan_mod.saved(cfg)) or "none yet"
@@ -625,7 +621,7 @@ def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
 
 
 def _plan_facts(cfg: config.Config, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The facts where the work started, and the facts in the tree now."""
+    """Get base facts and working-tree facts for plan comparison."""
     sha = delta.merge_base(cfg.root, base, "HEAD")
     return history.facts_at(cfg, sha), extract.build(cfg)
 
@@ -635,15 +631,15 @@ def _check_lines(
 ) -> list[str]:
     out = [
         f"plan {found.get('id', '')} against the code since {base}: "
-        f"{len(changed)} cards changed, {len(found.get('cards', []))} were projected"
+        f"{len(changed)} components changed, {len(found.get('cards', []))} were projected"
     ]
     for cid in missed:
         out.append(f"  not in the plan: {cid} changed and the plan did not name it")
     out += [f"  in the plan, untouched: {cid}" for cid in untouched]
     if missed:
-        out.append("  read each one: the work reached a part the plan did not see")
+        out.append("  examine each component: the work changed a part absent from the plan")
     elif not untouched:
-        out.append("  the work landed where it was projected to")
+        out.append("  the changed components agree with the plan")
     return out
 
 
@@ -653,16 +649,16 @@ def _check_lines(
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
     s = sub.add_parser(
         "audit",
-        help="Jev's second opinion on the calls the map makes about meaning",
-        description="A second opinion from TypeSafe's Jev on the calls the map makes about "
-        "meaning: modules that read like another card, a card for each unclaimed module, card "
-        "sentences that may not describe their modules, flows the code may not carry, and "
-        "invariants that may govern a card they do not name. It sends the facts and the model "
-        "text to the API, so it needs TYPESAFE_API_KEY.",
+        help="get Jev's second opinion on semantic map claims",
+        description="Jev examines module ownership, component sentences, flow claims, and "
+        "invariants. "
+        "It can propose owners for unclaimed modules and identify claims that "
+        "disagree with source. "
+        "The command sends facts and model text to the API. Set TYPESAFE_API_KEY before use.",
     )
     add_root(s)
     s.add_argument(
-        "--dry-run", action="store_true", help="count what would be sent, and send nothing"
+        "--dry-run", action="store_true", help="count proposed questions without sending data"
     )
     s.add_argument(
         "--kind",
@@ -670,69 +666,67 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         default=[],
         choices=config.AUDIT_KINDS,
         metavar="KIND",
-        help="ask and print only this kind; repeat for more (one of: "
+        help="select this question type. Use the flag again for more types (one of: "
         + ", ".join(f'"{k}"' for k in config.AUDIT_KINDS)
-        + '); without it, every kind but "jev flow", which fell short on maps its '
-        "threshold was not chosen on",
+        + '). The default excludes "jev flow", which did not meet the holdout threshold',
     )
     s.add_argument(
         "--brief",
         action="store_true",
-        help="the lines alone, without the two rows that say why each matters and what to do; "
-        "systemap explain KIND prints one in full",
+        help=(
+            "print findings without explanation rows. systemap explain KIND gives the "
+            "full explanation"
+        ),
     )
     s.set_defaults(func=lambda args: cmd_audit(_rooted(args)))
 
     s = sub.add_parser(
         "journeys",
-        help="write a walk through the system for a way in that no journey starts from",
-        description="A way into the system with no journey is a path through it nobody has "
-        "written down. This asks the agent named under [agent] to read the code from that way "
-        "in, and to answer with the cards a run passes through and a sentence for each step. "
-        "The walk is checked against the map, then written into the model as a draft for you to "
-        "confirm.",
+        help="write a sequence for an entry point without examined sequence coverage",
+        description="An entry point without a sequence has no authored account of its operation. "
+        "The configured [agent] command reads source and gives component steps with sentences. "
+        "systemap compares the steps with map flows and writes accepted sequences as drafts. "
+        "Examine each draft against source before acceptance.",
     )
     add_root(s)
     s.add_argument(
         "--limit",
         type=int,
         default=JOURNEY_CAP,
-        help=f"how many walks to write in one run (default {JOURNEY_CAP})",
+        help=f"maximum sequences per run (default {JOURNEY_CAP})",
     )
     s.add_argument(
-        "--dry-run", action="store_true", help="list the ways in that have no walk, and write none"
+        "--dry-run", action="store_true", help="list proposed sequences without file changes"
     )
     s.set_defaults(func=lambda args: cmd_journeys(_rooted(args)))
 
     s = sub.add_parser(
         "plan",
-        help="the cards a piece of work will change, and afterwards what it did change",
-        description="Which cards a piece of work will touch is easier to say before the work than "
-        "after. Jev reads the task against every card's purpose, and around each card it names, "
-        "the map prints the flows, walks and rules that card sits in. The projection is saved, "
-        "so --check can later compare it with what the code actually changed. Needs "
-        "TYPESAFE_API_KEY.",
+        help="predict changed components, then compare the plan with the changes",
+        description="Jev compares a task with each component's function. "
+        "The output gives predicted components with their flows, sequences, and rules. "
+        "The saved projection lets --check compare the plan with changed code. "
+        "Set TYPESAFE_API_KEY before use.",
     )
     add_root(s)
-    s.add_argument("task", nargs="?", help="the work in your own words, or - to read stdin")
-    s.add_argument("--check", metavar="ID", help="compare a saved plan with what changed")
+    s.add_argument("task", nargs="?", help="give the task, or - to read stdin")
+    s.add_argument("--check", metavar="ID", help="compare a saved plan with changed components")
     s.add_argument(
         "--base",
         default="origin/main",
-        help="with --check, the ref the work started from (default origin/main)",
+        help="select the base revision for --check (default origin/main)",
     )
     s.set_defaults(func=lambda args: cmd_plan(_rooted(args)))
 
     s = sub.add_parser(
         "triage",
-        help="the cards an issue's fix will most likely change",
-        description="An issue usually names no files. Jev reads it against every card's purpose "
-        "and names the three cards whose code the fix will most likely change, each with its "
-        "modules and neighbours. Give the text as an argument, or - to read it from stdin. "
-        "Needs TYPESAFE_API_KEY.",
+        help="predict the three components that an issue fix will probably change",
+        description="Jev compares the issue with each component's function. "
+        "It predicts three changed components with their modules and neighbours. "
+        "Give the text as an argument, or - to read stdin. Set TYPESAFE_API_KEY before use.",
     )
     add_root(s)
-    s.add_argument("text", help="the issue's title and body, or - to read them from stdin")
+    s.add_argument("text", help="give the issue title and body, or - to read stdin")
     s.set_defaults(func=lambda args: cmd_triage(_rooted(args)))
 
 

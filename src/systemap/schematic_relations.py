@@ -1,4 +1,4 @@
-"""Exact relationship selection and the inspector, using the stored scene data."""
+"""Flow selection and source records in the inspector."""
 
 RELATION_JS = r"""// ---- the readings ---------------------------------------------------------
 // A kind layer shows the edges of its kind and hides the rest. A derived
@@ -171,7 +171,7 @@ function wheelSvg(cid){
   h += '</defs>';
   if(!w.spokes.length){
     h += '<text class="systemap-w__empty" x="' + w.cx + '" y="' + (w.cy - 30) + '">'
-       + 'no flow touches this yet</text>';
+       + 'No flow for this component</text>';
   }
   w.spokes.forEach(function(s){
     var x0 = w.cx + s.r0 * s.ux, y0 = w.cy + s.r0 * s.uy;
@@ -183,7 +183,7 @@ function wheelSvg(cid){
              + '" y2="' + y1.toFixed(1) + '"';
     h += '<g class="systemap-w__spoke" data-edge="' + s.i + '" data-go="' + esc(s.other)
        + '" tabindex="0" role="button" aria-label="'
-       + esc('Inspect ' + s.e.art + ': ' + s.e.from + ' to ' + s.e.to + ', '
+       + esc('Examine ' + s.e.art + ': ' + s.e.from + ' to ' + s.e.to + ', '
          + s.e.layer + ', ' + evidenceLabel(s.e.evidence)) + '" aria-pressed="'
          + (s.i === state.edge ? 'true' : 'false') + '">';
     h += '<line class="systemap-w__hit"' + ends + '/>';
@@ -226,43 +226,43 @@ function endpointButton(id, role){
     + esc(d ? d.plain : '') + '</span></button>';
 }
 function evidenceLabel(state){
-  return state === 'observed' ? 'source reviewed' : state;
+  return state === 'observed' ? 'source review recorded' : state;
 }
 function evidenceReason(e){
   if(e.evidence === 'external'){
-    return 'This relationship crosses the code boundary. Extracted imports cannot verify it.';
+    return 'This flow crosses the code boundary. Imports cannot show its direction or artifact.';
   }
   if(e.evidence === 'declared'){
-    return 'This flow is authored without supporting structural evidence. Its direction and '
-      + 'artifact still need source review. A judgement answer does not change the flow evidence.';
+    return 'This flow has no structural evidence. Source review of its direction and '
+      + 'artifact is necessary. A judgement answer does not change the flow evidence.';
   }
   if(e.evidence === 'observed'){
-    return 'Source references resolve at this snapshot, and the flow matches its recorded '
-      + 'review digest. This records a source review claim. Execution has not been recorded.';
+    return 'The source references identify this source revision. The flow agrees with its recorded '
+      + 'review digest. This is a source review claim. There is no record of program execution.';
   }
   var support=[];
-  if(e.import_present){support.push('An import joins the parts.');}
-  if(e.shared_module){support.push('The parts share a module.');}
-  if(e.mechanism){support.push('The authored flow names the configured mechanism "'
+  if(e.import_present){support.push('An import connects the components.');}
+  if(e.shared_module){support.push('Both components have a claim for the same module.');}
+  if(e.mechanism){support.push('The model names the configured mechanism "'
     +e.mechanism+'".');}
-  return support.join(' ')+' These facts show a possible connection. Direction and artifact '
-    +'still need source review.';
+  return support.join(' ')+' These facts show a possible connection. Source review of direction '
+    +'and artifact is necessary.';
 }
 function evidenceReview(e){
   var h='',refs=e.source_refs || [],unresolved=e.unresolved_refs || [];
   if(e.claim_changed){
-    h+='<p class="systemap-f__review-warning" data-claim-changed>Source review pending. '
-      +'The recorded review digest is missing or does not match this flow and its explanation.</p>';
+    h+='<p class="systemap-f__review-warning" data-claim-changed>Source review necessary. '
+      +'The recorded review digest is missing or different from the flow claim digest.</p>';
   }
   if(unresolved.length){
-    h+='<div class="systemap-f__review-warning" data-unresolved-refs><p>Source review pending. '
-      +'These references do not resolve at this source snapshot.</p><ul>'
+    h+='<div class="systemap-f__review-warning" data-unresolved-refs><p>Source review necessary. '
+      +'These references do not identify source at this revision.</p><ul>'
       +unresolved.map(function(ref){return '<li><code>'+esc(ref)+'</code></li>';}).join('')
       +'</ul></div>';
   }
   if(refs.length){
-    h+='<details class="systemap-f__refs"><summary>Cited source ('+refs.length+')</summary>'
-      +'<p>A source digest identifies the source text recorded at review.</p><ul>'
+    h+='<details class="systemap-f__refs"><summary>Source references ('+refs.length+')</summary>'
+      +'<p>A source digest identifies the source text for a source review.</p><ul>'
       +refs.map(function(ref){return '<li><code>'+esc(ref)+'</code></li>';}).join('')+'</ul>';
     if(e.review_digest){h+='<p>Recorded flow review digest: <code>'+esc(e.review_digest)
       +'</code></p>';}
@@ -272,17 +272,17 @@ function evidenceReview(e){
 }
 function relationshipHtml(i){
   var e = EDGES[i];
-  if(!e){ return '<p class="systemap-f__hint">Select a route label or a connected part '
-    + 'below to inspect its exact relationship.</p>'; }
+  if(!e){ return '<p class="systemap-f__hint">Select a flow label or a connected component '
+    + 'below to examine the flow.</p>'; }
   var layer = LAYER_AT[e.layer];
-  return '<h4>Selected relationship</h4><p class="systemap-f__artifact">' + esc(e.art)
+  return '<h4>Selected flow</h4><p class="systemap-f__artifact">' + esc(e.art)
     + '</p><div class="systemap-f__endpoints">' + endpointButton(e.from, 'From')
     + endpointButton(e.to, 'To') + '</div><p class="systemap-f__metadata">'
     + esc(layer ? layer.label : e.layer) + ' <span class="systemap-f__state '
     + esc(e.evidence) + '" data-evidence-state="'+esc(e.evidence)+'">'
     + esc(evidenceLabel(e.evidence)) + '</span></p>'
     + '<p class="systemap-f__say" data-say>'
-    + esc(e.say || 'No authored explanation is recorded for this relationship.') + '</p>'
+    + esc(e.say || 'The model has no explanation for this flow.') + '</p>'
     + '<p class="systemap-f__evidence" data-evidence>' + esc(e.evidence_says || '') + '</p>'
     + '<p class="systemap-f__reason">' + esc(evidenceReason(e)) + '</p>' + evidenceReview(e);
 }
@@ -297,13 +297,13 @@ function flowChoices(d){
   }).join('');
 }
 function partDetails(d){
-  var h = '<details class="systemap-f__details"><summary>Part details</summary>'
+  var h = '<details class="systemap-f__details"><summary>Component details</summary>'
     + '<p class="systemap-f__does">' + esc(d.does) + '</p>';
   if(d.interface){ h += '<p class="systemap-f__iface">Interface: ' + esc(d.interface) + '</p>'; }
   if(d.kind !== 'actor'){
-    h += '<p class="systemap-f__entry">Entry: <b>'
+    h += '<p class="systemap-f__entry">Entry point: <b>'
       + (d.entry ? esc(d.entry) + (d.entry_module ? ' (' + esc(d.entry_module) + ')' : '')
-        : 'No entry point is named for this part') + '</b></p>';
+        : 'The component has no entry name.') + '</b></p>';
   }
   if(d.modules && d.modules.length){
     h += '<p>Claimed modules</p><ul class="systemap-f__modules">'
@@ -333,16 +333,14 @@ function describe(d){
     }
   }
   h += '<section class="systemap-f__relationship" data-relationship>'
-    + relationshipHtml(state.edge >= 0 ? state.edge : state.peek) + '</section>';
-  h += '<details class="systemap-f__connections" open><summary>Connected parts</summary>'
+    + relationshipHtml(state.edge) + '</section>';
+  h += '<details class="systemap-f__connections" open><summary>Connected components</summary>'
     + '<div class="systemap-f__wheel">' + wheelSvg(d.id) + '</div>'
     + '<div class="systemap-f__flow-list">' + flowChoices(d) + '</div></details>';
   return h + partDetails(d) + '</div>';
 }
-function updateRelationship(){
+function updateSpokes(){
   if(!panel){ return; }
-  var section = panel.querySelector('[data-relationship]');
-  if(section){ section.innerHTML = relationshipHtml(state.edge >= 0 ? state.edge : state.peek); }
   Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
     var i = +s.dataset.edge;
     s.classList.toggle('peek', i === state.peek || i === state.edge);
@@ -352,11 +350,11 @@ function updateRelationship(){
 function peek(i){
   if(!EDGES[i]){ return; }
   state.peek = i;
-  paint(); updateRelationship();
+  paint(); updateSpokes();
 }
 function unpeek(){
   state.peek = -1;
-  paint(); updateRelationship();
+  paint(); updateSpokes();
 }
 function edgesBetween(a, b){
   return EDGES.map(function(e, i){
@@ -542,12 +540,12 @@ function openHash(){
   var id, status = document.getElementById('linkstatus');
   function report(text){if(status){status.textContent = text;}}
   try { id = decodeURIComponent((location.hash || '').slice(1)); }
-  catch(_e){report('The part link could not be read. Find a part by name or use Fit.');return;}
+  catch(_e){report('Cannot read this link. Find a component by name or use Show all.');return;}
   if(id && DETAIL[id] && id !== '_meta'){
     report('');if(id !== state.focus){select(id);}return;
   }
   if(!id || document.getElementById(id)){report('');return;}
-  report('No part or page section matches this link. Find a part by name or use Fit.');
+  report('No component or page section has this link. Find a component by name or use Show all.');
 }
 window.addEventListener('hashchange', openHash);
 openHash();

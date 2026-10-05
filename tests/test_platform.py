@@ -57,7 +57,7 @@ def test_paths_are_printed_and_recorded_with_forward_slashes(
     write_tree(tmp_path, TINY_PACKAGE)
     init_two_cards(tmp_path)
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/systemap/ (SKILL.md and 8 references)" in out
+    assert "The command wrote .claude/skills/systemap/ (SKILL.md and 9 references)" in out
     assert run("--root", str(tmp_path), "extract") == 0
     facts = (tmp_path / "docs/map/map.json").read_text(encoding="utf-8")
     assert '"file":"pkg/reader.py"' in facts.replace(" ", "")

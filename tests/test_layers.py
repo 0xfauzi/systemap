@@ -252,8 +252,8 @@ def test_agent_model_checks_clean_and_draws_the_marks(agentic: Sample) -> None:
     edges = {(e["from"], e["to"]): e for e in data["_meta"]["edges"]}
     assert edges[("Prompt", "Planner")]["layer"] == "context"
     assert edges[("Planner", "Shell")]["layer"] == "tools"
-    assert edges[("Planner", "Shell")]["out"] == "invokes"
-    assert edges[("Prompt", "Planner")]["in"] == "reads"
+    assert edges[("Planner", "Shell")]["out"] == "calls"
+    assert edges[("Prompt", "Planner")]["in"] == "receives input from"
     assert kind_rows(agentic.theme, agentic.model) == [
         ("agent", "ring"),
         ("tool", "notch"),
@@ -282,21 +282,21 @@ def test_context_and_tool_flows_need_an_agent_end(agentic: Sample) -> None:
     )
     found = "\n".join(problems(demoted, agentic.meaning))
     assert (
-        "flow Prompt -> Planner has kind context but Planner is not an agent; a context "
-        "flow ends at the agent whose window it enters: set Planner's kind to agent, mark "
-        "it calls_model=True if it makes a single-shot call, or give the flow the kind data"
+        "flow Prompt -> Planner has kind context but Planner is not a model caller. "
+        "A context flow ends at its model caller. Set Planner's kind to agent, "
+        "or set calls_model=True for one model call. As an alternative, use kind data for the flow"
     ) in found
     assert (
-        "flow Planner -> Shell has kind tool but Planner is not an agent; a tool flow "
-        "starts at the agent that invokes it: set Planner's kind to agent, mark it "
-        "calls_model=True if it makes a single-shot call, or give the flow the kind control"
+        "flow Planner -> Shell has kind tool but Planner is not a model caller. "
+        "A tool flow starts at its model caller. Set Planner's kind to agent, "
+        "or set calls_model=True for one model call. As an alternative, use kind control for the flow"
     ) in found
     # The wrong end: a context flow leaving the agent is refused too.
     backwards = dataclasses.replace(
         agentic.model, flows=(*agentic.model.flows, Flow("Planner", "Prompt", "x", "context"))
     )
     found = "\n".join(problems(backwards, agentic.meaning))
-    assert "flow Planner -> Prompt has kind context but Prompt is not an agent" in found
+    assert "flow Planner -> Prompt has kind context but Prompt is not a model caller" in found
 
 
 def test_agent_kinds_are_cards_that_claim_code(agentic: Sample) -> None:
@@ -310,7 +310,9 @@ def test_agent_kinds_are_cards_that_claim_code(agentic: Sample) -> None:
         ),
     )
     lines = check.check_entry(missing, agentic.facts)
-    assert lines == ["Shell names entry absent which none of its modules defines (bot.shell)"]
+    assert lines == [
+        "Shell has entry absent, but its modules do not define this entry (bot.shell)."
+    ]
 
 
 # ---- a figure of one agent reading marks its subjects and dims the rest ----------

@@ -1,28 +1,8 @@
-"""Route every flow orthogonally through the gutters between cards.
+"""The router makes orthogonal flow paths through gaps between components.
 
-A flow is a Manhattan path: it leaves its source card through a port on one
-side, runs along lanes in the gutters between cards, bends at right angles,
-and enters its target card through a port. It never passes through a card it
-does not connect and never enters a region it neither starts nor ends in;
-those two are hard walls, checked again by check_layout.py from the paths
-this module reports.
-
-The lanes are derived from the card grid, not typed by hand: every gap
-between two card columns carries a few parallel vertical lanes, every gap
-between two card rows a few horizontal ones, and the cards' own port
-positions are lanes too, so a stub leaving a card meets the grid at once.
-Each flow is routed by Dijkstra over that grid with a cost that prefers a
-short path, then few bends, then lanes no other flow already runs along and
-ports no other flow already uses. Flows are routed shortest first, so a
-local flow takes the direct lane and a long one goes round it.
-
-When no corridor exists that avoids every foreign region the flow is routed
-once more with regions as costs rather than walls and the reason is
-recorded on the route, so the failure is listed, never hidden.
-
-The artifact label sits on the longest segment of its path, centred on the
-line where that touches nothing, never on a corner and never over the
-arrowhead. What could not be placed cleanly is reported alongside.
+Each path uses endpoint ports and gutter lanes. It avoids unrelated components and, when
+possible, unrelated regions. The label-placement algorithm searches positions on path
+segments and gives collisions or insufficient space.
 """
 
 from __future__ import annotations
@@ -57,7 +37,7 @@ SIDES = ("left", "right", "top", "bottom")
 
 @dataclass
 class Route:
-    """One routed flow: its polyline from port to port, and how it got there."""
+    """This record contains a routed polyline, endpoint ports, and any fallback reason."""
 
     points: list[Point]
     src_side: str
@@ -67,12 +47,10 @@ class Route:
 
 @dataclass
 class Placed:
-    """Where a label ended up and whether that was the rule or a compromise.
+    """This record gives a label position and collision details.
 
-    `hits` names what a compromised seat touches; `fix` says which of the
-    fixes applies, from the router's own seat counts: the gutter is full
-    (every seat off a card is taken by another label) or the label is
-    wider than any run of its path can hold.
+    The hits field identifies touched obstacles. The fix field gives the action from
+    measured gutter capacity or label width.
     """
 
     box: Box
@@ -92,11 +70,9 @@ SEAT_GAP = 2.0
 
 @dataclass(frozen=True)
 class Gutter:
-    """One free band between two card rows or two card columns, or a margin.
+    """This record gives a free band between component rows or columns, or a canvas margin.
 
-    `before` and `after` are the cards of the row (column) on each side,
-    so a diagnosis can name the region the gutter runs through; a margin
-    has cards on one side only.
+    The before and after fields identify the components on each side.
     """
 
     lo: float
@@ -117,8 +93,7 @@ Run = tuple[float, float, tuple[str, ...]]
 
 
 def _runs(cards: dict[str, Box], rows: bool) -> list[Run]:
-    """The card rows (or columns): runs of cards whose spans touch or
-    overlap, each with its cards in reading order along the run."""
+    """This function groups overlapping component spans into ordered rows or columns."""
     along, across = (1, 0) if rows else (0, 1)
     out: list[tuple[float, float, list[str]]] = []
     for cid, box in sorted(cards.items(), key=lambda kv: (kv[1][along], kv[1][across])):
@@ -134,15 +109,15 @@ def _runs(cards: dict[str, Box], rows: bool) -> list[Run]:
 
 
 def _named(ids: tuple[str, ...]) -> str:
-    """Up to three cards by name; the rest counted."""
+    """This function lists at most three component IDs and counts the remaining IDs."""
     shown = ", ".join(ids[:3])
     return shown if len(ids) <= 3 else f"{shown} and {len(ids) - 3} more"
 
 
 def _bands(runs: list[Run], hi: float, rows: bool) -> list[Gutter]:
-    """The gutters around and between the runs, each named by its
-    neighbours and its coordinates: `between the row of A, B and the row
-    of C (y 160 to 226)`."""
+    """This function gives gutter bands with adjacent component names and coordinate
+    ranges.
+    """
     if not runs:
         return []
     word, axis = ("row", "y") if rows else ("column", "x")
@@ -168,22 +143,15 @@ def _bands(runs: list[Run], hi: float, rows: bool) -> list[Gutter]:
 def gutters(
     cards: dict[str, Box], canvas: tuple[float, float]
 ) -> tuple[list[Gutter], list[Gutter]]:
-    """(row gutters, column gutters), named by their neighbours and coordinates.
-
-    A card row is a run of cards whose vertical spans touch or overlap; a
-    column likewise. The gutters are the bands between consecutive rows
-    (columns), plus the margin above the first and below the last (left
-    of the first, right of the last), so every label seat lies in one.
-    Each is named by the cards on either side and the span it covers,
-    since a row number maps to nothing in the model.
-    """
+    """This function gives row and column gutters from overlapping component spans."""
     w, h = canvas
     return _bands(_runs(cards, True), h, True), _bands(_runs(cards, False), w, False)
 
 
 def seats(size: float, across: float) -> int:
-    """How many labels `across` units deep stack in a gutter `size` units wide,
-    each SEAT_GAP from the next and CARD_CLEAR from the cards on either side."""
+    """This function calculates label capacity from gutter size, label depth, seat spacing,
+    and component clearance.
+    """
     return max(0, int((size - 2 * CARD_CLEAR + SEAT_GAP) // (across + SEAT_GAP)))
 
 
@@ -192,12 +160,10 @@ def find_gutter(bands: list[Gutter], centre: float) -> Gutter | None:
 
 
 def locate(box: Box, horizontal: bool, rows: list[Gutter], cols: list[Gutter]) -> Gutter | None:
-    """The gutter a label seat lies in.
+    """This function finds the gutter for a label position.
 
-    A label on a horizontal run sits in the row gutter its centre falls in;
-    when its centre is level with a card row (a run down an empty column,
-    say), it sits in the column gutter instead. A label on a vertical run
-    is looked up the other way round.
+    Horizontal paths use row gutters. If no row gutter contains the label, a column
+    gutter can contain it.
     """
     cy, cx = box[1] + box[3] / 2, box[0] + box[2] / 2
     first, second = (rows, cy), (cols, cx)
@@ -218,7 +184,7 @@ def _lanes(a: float, b: float) -> list[float]:
 
 
 def _gaps(spans: list[tuple[float, float]], lo: float, hi: float) -> list[tuple[float, float]]:
-    """The free intervals in [lo, hi] once the given spans are covered."""
+    """This function removes occupied spans from the interval lo to hi."""
     out: list[tuple[float, float]] = []
     cursor = lo
     for a, b in sorted(spans):
@@ -231,7 +197,7 @@ def _gaps(spans: list[tuple[float, float]], lo: float, hi: float) -> list[tuple[
 
 
 def _seg_hits(a: Point, b: Point, box: Box) -> bool:
-    """Does the axis-aligned segment a-b cross the interior of box?"""
+    """This function finds whether segment a-b crosses the box interior."""
     bx, by, bw, bh = box
     (x0, y0), (x1, y1) = a, b
     if abs(y0 - y1) < 1e-9:
@@ -251,7 +217,9 @@ def _inside(p: Point, box: Box) -> bool:
 
 
 class Router:
-    """The lane grid and the state every routed flow leaves on it."""
+    """This class contains the routing grid and the occupancy state from previously routed
+    flows.
+    """
 
     def __init__(
         self,
@@ -336,7 +304,9 @@ class Router:
 
     # ---- ports --------------------------------------------------------
     def _ports(self, cid: str) -> list[tuple[str, float, Point, tuple[int, int], int, float]]:
-        """(side, offset, port point, exit node, exit orientation, cost)."""
+        """This method gives endpoint port sides, offsets, grid nodes, orientations, and
+        costs.
+        """
         x, y, w, h = self.cards[cid]
         cx, cy = x + w / 2, y + h / 2
         xs, ys = self.xs, self.ys
@@ -383,7 +353,7 @@ class Router:
         if found is None:
             found = self._search(src, dst, allowed, strict=False)
             if found is None:
-                raise RuntimeError(f"no route at all for {src} -> {dst}")
+                raise RuntimeError(f"No route is available for {src} -> {dst}")
             crossed = sorted(
                 {
                     self.node_region[n]
@@ -391,7 +361,7 @@ class Router:
                     if n in self.node_region and self.node_region[n] not in allowed
                 }
             )
-            fallback = "no corridor avoids " + ", ".join(crossed or ["a foreign region"])
+            fallback = "No corridor avoids " + ", ".join(crossed or ["an unrelated region"])
         points, src_side, dst_side, nodes = found
         for a, b in zip(nodes, nodes[1:], strict=False):
             (i0, j0), (i1, j1) = a, b
@@ -515,7 +485,9 @@ def route_all(
     region_of: dict[str, str],
     canvas: tuple[float, float],
 ) -> dict[int, Route]:
-    """Route every (src, dst) pair, shortest first. Keyed by edge index."""
+    """Route each endpoint pair, with the shortest distance first. Index the results by
+    edge number.
+    """
     router = Router(cards, actors, blocks, regions, region_of, canvas)
 
     def span(k: int) -> float:
@@ -529,7 +501,7 @@ def route_all(
 
 
 def path_d(points: list[Point], radius: float = 6.0) -> str:
-    """The SVG path: straight runs with a quarter-circle at every bend."""
+    """This function makes an SVG path with quarter-circle curves at bends."""
     if len(points) < 2:
         return ""
     d = [f"M {points[0][0]:.1f} {points[0][1]:.1f}"]
@@ -584,11 +556,10 @@ def _overlap_area(a: Box, b: Box) -> float:
 def label_candidates(
     points: list[Point], lw: float, lh: float, canvas: tuple[float, float]
 ) -> list[tuple[int, bool, Box]]:
-    """Every place this label may sit: (segment, on the longest, box).
+    """This function gives candidate label positions in segment-length order.
 
-    Segments are tried longest first; on each, the centre first and then
-    outward, on the line first and then just beside it. The label never
-    covers a corner, the port, or the arrowhead.
+    It examines each segment center first, then more distant positions on and near the
+    path. Candidates never extend beyond the segment.
     """
     segs = list(zip(points, points[1:], strict=False))
     lengths = [abs(b[0] - a[0]) + abs(b[1] - a[1]) for a, b in segs]
@@ -648,13 +619,10 @@ def place_labels(
     cards: dict[str, Box] | None = None,
     region_of: dict[str, str] | None = None,
 ) -> dict[int, Placed]:
-    """Seat every label; shortest path first, since it has the fewest places.
+    """Place labels in path-length order, with the shortest path first.
 
-    `names` gives each label the name a collision report calls it by; a
-    label without one is `label <index>`. With `cards`, a label that could
-    not be seated cleanly also carries the fix that applies (`Placed.fix`),
-    worked out from the gutters the cards leave; with `region_of` (card id
-    to region id) the fix names the region whose pitch to raise.
+    The names argument supplies labels for collision diagnostics. The cards argument
+    supplies component obstacles.
     """
     names = names or {}
     bands = gutters(cards, canvas) if cards is not None else None
@@ -681,11 +649,10 @@ def place_labels(
         return sum(_overlap_area(pad(box), o.box) for j, o in placed.items() if j not in skip)
 
     def seat(k: int, skip: set[int]) -> Placed | None:
-        """The best seat for k given what is placed, or None if none is clean.
+        """This method selects a label position from the occupancy state.
 
-        The rule: the longest segment. A clean seat elsewhere beats a
-        collision on the longest, and a collision on the longest beats one
-        elsewhere.
+        A collision-free position on the longest segment has priority. A collision-free
+        position elsewhere has priority over a collision on the longest segment.
         """
         best: Placed | None = None
         for n, (seg, on_longest, box) in enumerate(cands[k]):
@@ -763,19 +730,10 @@ def _diagnose(
     bands: tuple[list[Gutter], list[Gutter]],
     region_of: dict[str, str] | None = None,
 ) -> str:
-    """Which fix applies to a label the router could not seat cleanly.
+    """This function selects an action for a label without a collision-free position.
 
-    Every candidate seat of a collided label costs something: it touches a
-    card or a header (a fixed obstacle) or another label. The seats that
-    touch no card or header are the gutter's seats, counted as distinct
-    rows across the gutter the label landed in; when there are any, every
-    one is taken by another label and the gutter is full, so the fix is to
-    move a card or raise the pitch of the region the gutter runs through
-    (named from the cards on either side of it; the pitch is a starting
-    value, and a dense region may have its own). When there are none, the
-    geometry has no seat for a label this wide: the fix is to shorten the
-    artifact, and the line says by how much (the label's width over the
-    longest run of its path, or over the column gutter it crosses).
+    It uses gutter capacity if all available seats are occupied. Otherwise, it compares
+    label width with available path or gutter space.
     """
     points = route.points
     horizontal = _horizontal(points, seat.segment)
@@ -801,7 +759,7 @@ def _diagnose(
         regions = sorted({region_of[c] for c in home.before + home.after if region_of.get(c)})
         where = f" of region {' or '.join(regions)}" if regions else ""
         return (
-            f"gutter {home.name} holds {n} of {n} seats: move a card or {verb} the "
+            f"gutter {home.name} has {n} of {n} seats: Move a component or {verb} the "
             f"{pitch} pitch{where}"
         )
     segs = list(zip(points, points[1:], strict=False))
@@ -815,5 +773,8 @@ def _diagnose(
     room = max(runs) if runs else (home.size - 2 * CARD_CLEAR if home is not None else lw)
     over = lw - room
     if over > 0:
-        return f"label is {math.ceil(over)} units wider than its seat: shorten the artifact"
+        return (
+            f"label is {math.ceil(over)} units wider than its seat. Decrease the length of "
+            f"the artifact label."
+        )
     return ""

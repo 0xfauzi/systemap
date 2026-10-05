@@ -1,78 +1,76 @@
 <p align="center">
-  <picture>
+ <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero.svg">
     <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero-light.svg">
-    <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero.svg" alt="systemap: the map your coding agent draws of your system" width="100%">
-  </picture>
+    <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/assets/hero.svg" alt="systemap: the system map that your coding agent writes" width="100%">
+ </picture>
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/systemap/"><img alt="the version on PyPI" src="https://img.shields.io/pypi/v/systemap?label=PyPI&color=e0a458&labelColor=121417"></a>
-  <a href="https://pypi.org/project/systemap/"><img alt="the Python versions it runs on" src="https://img.shields.io/pypi/pyversions/systemap?color=b3b1aa&labelColor=121417"></a>
-  <a href="LICENSE"><img alt="the licence" src="https://img.shields.io/pypi/l/systemap?color=8fbfa6&labelColor=121417"></a>
-  <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
+ <a href="https://pypi.org/project/systemap/"><img alt="the version on PyPI" src="https://img.shields.io/pypi/v/systemap?label=PyPI&color=e0a458&labelColor=121417"></a>
+ <a href="https://pypi.org/project/systemap/"><img alt="the Python versions it runs on" src="https://img.shields.io/pypi/pyversions/systemap?color=b3b1aa&labelColor=121417"></a>
+ <a href="LICENSE"><img alt="the license" src="https://img.shields.io/pypi/l/systemap?color=8fbfa6&labelColor=121417"></a>
+ <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
-Your coding agent writes code faster than you can read it. You review the
-diff, you merge, and one day you notice you are no longer sure how the pieces
-of your own Python or TypeScript project fit together.
+A coding agent can write code faster than you can read it. After many changes,
+you can forget parts of your Python or TypeScript system.
 
-**systemap gives you one page that shows how they fit.** Your agent draws it
-from your code. A checker then refuses to let that page go out of date, and
-every pull request tells you which parts and connections it changed before
-you merge it.
+**systemap gives you one page that shows the parts of your system and their
+connections.** Your coding agent writes the map from your code. Commands find
+changes that make the map incorrect. A pull-request report shows changed parts
+and connections before you merge the code.
 
-This page defines the three words the map uses, then shows how to get one,
-then shows what stops it going out of date. The words come first because
-nothing else here reads without them.
+This page gives the map terms, the installation procedure, and the commands
+that compare the map with the code.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching between views, clicking a card to highlight what it connects to, walking a journey step by step" width="100%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching between views, selecting a component to show its connections, reading a sequence step by step" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://0xfauzi.github.io/systemap/map/"><b>Open the live map</b></a>, which is
+ <a href="https://0xfauzi.github.io/systemap/map/"><b>Open the live map</b></a>, which is
   systemap's map of itself.
 </p>
 
-## What is a card, a line and a journey?
+## What are a component, a flow, and a sequence?
 
-**A card is one part of your system.** A few modules that together do one job
-you would name out loud: the part that reads the code, the part that sends
-mail, the part that talks to the database. Not a file and not a folder. A job.
+A **component** is a part of the system. Its modules have one function, such as code
+extraction, email delivery, or database access. The component shows a function,
+not a file or directory.
 
-**A line between two cards means something travels between them**, and the
-label says what: a request, a recipe, a file on disk.
+A **flow** is a connection between two components. Its line has a label that
+shows what goes between the components: for example, a request or a file.
 
-**A journey is one trip through the system**, step by step. A request arrives
-here, is checked there, is written down over there. The page shows one step
-at a time.
-
-That is the whole notation. No other symbols to learn.
+A **sequence** is an authored set of ordered steps for an operation. The page shows
+one step at a time. A sequence does not record an execution.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/map/figures/structure.svg" alt="systemap's map of itself: every part in its place, no lines" width="100%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/map/figures/structure.svg" alt="systemap's map of itself: every part in its place, no lines" width="100%">
 </p>
 
-The picture above is systemap's own map with the lines hidden, so you can see
-the parts and how they group. Turn the lines on and you can ask one question
-at a time: what crosses the boundary of the system, what data moves, who
-calls whom. Click a card and the page highlights only the cards it connects
-to, each one labelled with what it does for that card.
+The figure shows systemap's own map with no flow lines. A **layer** shows the
+flows that answer one question. Examples include connections across the system
+boundary, data flow, and control flow. Select a component to see its connected components
+and the explanation for each connection.
 
-The picture tells you one more thing no hand-drawn diagram can. A solid line
-means an import in your code really joins those two parts. A dashed line
-means no import joins them, so the line is a claim the code does not
-support. You can see which is which without reading any code, and so can
-your reviewer.
+Flow lines also show evidence. A solid internal line shows a source review
+with references and a claim digest that match the stored source snapshot.
+A short dashed line shows structural evidence: an import, a shared module,
+or a configured mechanism. A long dashed line shows a declared flow
+without that evidence. Structural evidence does not show direction or the
+artifact that a flow carries. External flows have an actor at one end.
+None of these states records execution.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
-  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/graphite.png" alt="the graphite scheme" width="32%">
-  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/paper.png" alt="the paper scheme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/graphite.png" alt="the graphite scheme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/paper.png" alt="the paper scheme" width="32%">
 </p>
 
-## How do you start?
+## How do you install systemap?
+
+Install systemap. Then write the initial files:
 
     uv tool install systemap        # or: uv add --dev systemap
     systemap init                   # --no-ci to skip the workflow
@@ -81,56 +79,76 @@ For a TypeScript repository, install the parser extra:
 
     uv tool install 'systemap[typescript]'
 
-The TypeScript adapter reads `.ts` and `.tsx` modules, named and default
-exports, local re-exports, imports, and package `bin` and `exports` entries.
-It reads JSONC `tsconfig.json` files and inherited path aliases. `outDir` and
-`rootDir` map compiled package entries back to source files. A path in an
-inherited config that starts with `${configDir}` means the folder of your own
-`tsconfig.json`, as it does for `tsc`. When `rootDir` is not set, systemap
-takes the root your own TypeScript version would: on TypeScript 5, the
-longest common folder of the files `include`, `files` and `exclude` select;
-on 6 and later, or with `composite`, the `tsconfig.json` folder. It reads the
-version from `node_modules/typescript`, then from `package.json`. When neither
-names it, both roots are tried and a target maps only when exactly one fits. Common test names
-are recognized by extraction and change analysis; add repository-specific
-globs with `test_patterns = ["**/*.check.ts"]`. If no emit directories are
-configured, a `dist/`, `distribution/`, `build/` or `lib/` target maps to a
-unique matching file under `src/` or `source/` when one exists. If TypeScript
-syntax cannot be parsed or a package target cannot be mapped, the facts keep
-an explicit unknown. `systemap check` reports unknowns without failing; `systemap
-judgement --strict` requires each one to be fixed or answered. A missing npm
-package named by `tsconfig.json` `extends` is also reported as unknown, so
-extraction can continue without `node_modules`. The current TypeScript grammar
-rejects some valid generic call signatures; those modules remain in the facts
-with an unknown surface.
+The TypeScript adapter reads `.ts` and `.tsx` modules. These records include:
 
-By default, TypeScript discovery uses `src/`, then the repository root. In a
-monorepo or a repository without `src/`, set `[package_roots]` to the
-application packages you want mapped so scripts and fixtures do not become
+- Named exports, default exports, and local re-exports.
+
+- Imports and package `bin` and `exports` entries.
+
+- JSONC `tsconfig.json` files and inherited path aliases.
+
+The `outDir` and `rootDir` options connect compiled package entries to source
+files. An inherited path that starts with `${configDir}` uses the directory of
+your own `tsconfig.json`. This is also the `tsc` behavior.
+
+If `rootDir` is missing, systemap uses the rule for your TypeScript version:
+
+- TypeScript 5 uses the longest common directory of the selected input files.
+  The `include`, `files`, and `exclude` options select these files.
+
+- TypeScript 6 and later use the `tsconfig.json` directory.
+
+- The `composite` option uses the `tsconfig.json` directory on all versions.
+
+systemap reads the version from `node_modules/typescript`, then from
+`package.json`. If the two files do not give a version, systemap tries the two roots.
+A compiled target maps to source only if one root gives a match and the other does not.
+
+Extraction and change analysis show common test filenames. For other
+filenames, add repository-specific globs, such as
+`test_patterns = ["**/*.check.ts"]`. If no emit directory is configured,
+systemap can connect a compiled target to a unique source file.
+The target directories are `dist/`, `distribution/`, `build/`, and `lib/`.
+The source directories are `src/` and `source/`.
+
+If the parser cannot read syntax or map a package target, the facts include an
+explicit unknown record. `systemap check` prints these records but does not
+reject the map for them. Each unknown record must have a correction or
+an accepted answer before `systemap judgement --strict` accepts it. A missing npm package in
+`tsconfig.json` `extends` also gives an unknown record. Extraction can thus
+continue without `node_modules`. The TypeScript grammar used by the reader rejects some
+correct generic call signatures. These modules stay in the facts with an unknown
+public surface.
+
+TypeScript discovery first uses `src/`, then the repository root. For a
+monorepo or a repository without `src/`, configure `[package_roots]` for the
+application packages. This prevents scripts and fixtures from becoming
 application modules.
 
-`init` writes a configuration file, an empty map for your agent to fill in,
-the instructions your agent will follow, and a CI workflow. Then it prints the
-one sentence you hand to your agent:
+The `init` command writes the configuration, an empty map, the skill
+instructions, and a CI workflow. The command then prints this instruction:
 
-> Map this repository with systemap. Follow the systemap skill.
+> Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9.
 
-That is all you have to do. The agent reads your code, decides which
-modules belong to which card, writes the lines between them, runs the checker
-until it reports no failures, and then goes round again looking for what it
-missed. When it stops, you read the handful of calls it had to make, change
-the ones you disagree with, and commit the page.
+Give the instruction to your agent. The agent reads the code, selects a component
+for each module, writes flows, and does the checks. A second examination finds missing claims.
+Read the recorded decisions when the agent stops. Correct the decisions with
+which you do not agree. Then commit the page.
 
-Using Claude Code? The repository is its own plugin marketplace:
+For Claude Code, use the repository's plugin marketplace:
 
     /plugin marketplace add 0xfauzi/systemap
     /plugin install systemap@systemap
 
-Any agent that can read instructions and run a command works the same way.
+Other agents can use the same instructions if they can read files and execute commands.
+
+All map names, sequence steps, interface text, and documentation must use ASD-STE100 Issue 9.
+The [language policy](src/systemap/skill/references/language.md) gives the official reference, glossary, and required examination procedure.
 
 ### TypeScript example
 
-Suppose your repository has these files:
+This example repository has three files. `src/service.ts` exports a function.
+`src/index.ts` re-exports the function. The test imports the source module.
 
 ```text
 src/index.ts
@@ -166,7 +184,7 @@ language = "typescript"
 "src" = "example"
 ```
 
-Then read what systemap found:
+To read the extracted records, execute these commands:
 
 ```sh
 systemap extract
@@ -174,136 +192,136 @@ systemap facts --names example.service
 systemap facts --module example.service
 ```
 
-The facts name `greet` as an export of `example.service` and attribute
-`tests/service.test.ts` to that module. Give the sentence printed by `init`
-to your agent to fill in the map. Then run:
+The facts show `greet` as an export of `example.service`.
+They also connect `tests/service.test.ts` to that module.
+Give your agent the instruction from `init` to write the map.
+Then execute the checks:
 
 ```sh
 systemap check && systemap judgement --strict
 ```
 
-For a larger TypeScript fixture with path aliases, TSX, and a package binary,
-see
-[`tests/fixtures/typescript-app`](tests/fixtures/typescript-app).
+The larger fixture in
+[`tests/fixtures/typescript-app`](tests/fixtures/typescript-app) includes path
+aliases, TSX, and a package binary.
 
-## Why let an agent draw it?
+## Why does an agent write the map?
 
-Half of a map is mechanical: which modules exist, what each one exports, which
-tests cover it. A script reads that out of your code in a second and never
-gets it wrong.
+Extraction finds modules, public names, imports, and test references.
+These facts do not show which modules have one function. Test references also do not
+show test coverage. Unknown records show information that extraction
+cannot show.
 
-The other half is judgement. Which four modules are really one part? What is
-the line between two parts actually for? A script cannot answer that. An
-import graph lists every import and still does not say which modules form
-one part. A person can answer it, but rarely has the patience to keep
-answering it through every refactor.
+A person or agent must make the semantic decisions. For example, four modules
+can form one part, but an import graph does not show that assignment.
+The same limitation applies to a flow's direction and artifact.
 
-An agent can do both halves, on two conditions. It follows a written
-procedure, so it decides the same way every time. And something checks its
-work and rejects it when it is wrong. systemap supplies both: the procedure
-your agent follows, and the commands that reject a map that does not match
-the code.
+systemap gives the agent a procedure and commands to compare the result with
+the code. The procedure includes a second pass over the modules and claims.
+The commands reject mechanical contradictions. They do not show that every
+semantic decision is correct.
 
-## How does the map stay true to the code?
+## How do you keep the map consistent with the code?
 
-Two commands, and your agent runs both until neither reports anything.
-
-**`systemap check` compares the map with the code.** It fails when a module
-belongs to no card, when a card points at a function the code no longer has,
-when a line runs through a card it does not connect, when two labels overlap,
-or when the page is older than the code. Eleven rules, and every failure names
-the fix.
-
-**`systemap judgement` prints the questions a rule cannot answer.** This card
-holds a single module, so is it really a part of its own? Here is a way into
-your system that no journey covers. These two cards import each other and your
-map draws no line between them. You either change the map, or write the reason
-it is correct as it stands into `systemap.toml`, where it stays, so the same
-question is not asked twice.
-
-A quiet `judgement` report does not verify every card assignment. Its
-name-and-import rules can miss a module placed in the wrong card. Without
-Jev, the mapping skill's second pass reviews every claimed module against
-the card's job and reads the source where the facts leave that job unclear.
-The agent or maintainer makes that judgement from the code.
+Execute the two commands after a change:
 
     systemap check && systemap judgement --strict
 
-Six repositories have been mapped this way from start to finish, four of them
-written by somebody else, each finishing unattended with both commands quiet
-([docs/benchmarks.md](docs/benchmarks.md)).
+The agent corrects the findings and runs the commands again until no open finding stays.
 
-## What did this pull request change about your system?
+**`systemap check` compares the map with the code.** Its rules reject
+unclaimed modules, missing entry names, incorrect geometry, and stale outputs.
+Geometry findings include a line through an unrelated component and overlapping
+labels. Each finding gives a correction.
 
-Git tells you which lines of code changed. `systemap delta --base main` tells
-you which parts, connections and claims changed, one line per thing, each
-with the fix:
+**`systemap judgement` prints questions for a decision.** Examples
+include a single-module component, an entry point with no sequence, and an import
+across components with no flow. Change the map or record a reason in
+`systemap.toml`. Exact answers must have evidence for the stored source snapshot. Family answers must have
+an explicit policy. Changed evidence can open an exact finding again.
+
+A report with no open findings does not show that every component assignment is correct.
+The rules use names and imports. They can miss a module in the incorrect component.
+Without Jev, the skill's second pass compares every claimed module with its
+component's function. If the facts are not sufficient, the agent or maintainer reads the source.
+
+Six repositories completed the procedure recorded at that time. Four came from other authors.
+All six completed without intervention. The two commands showed no open findings. The run records are in [docs/benchmarks.md](docs/benchmarks.md).
+
+## What does a pull request change in the map?
+
+Git shows changed lines of code. `systemap delta --base main` shows changed
+parts, connections, and claims. Each finding gives a correction.
+This example keeps finding identifiers from an earlier version:
 
     moved: pkg.old -> pkg.new (same content); Gateway names pkg.old in
       implemented_by: rename it in map/model.py
     added: pkg.thing, claimed by no card; name it in a card's implemented_by
     entry vanished: Gateway names entry serve, which its modules no longer define
 
-Gateway is a card. `implemented_by` is the list of modules a card claims, and
-`entry` is the one function it tells a newcomer to start reading at.
+`Gateway` is a component. Its `implemented_by` field contains the claimed modules.
+Its `entry` field shows a public name at which a reader can start.
 
-The workflow `init` writes posts exactly that as one comment on the pull
-request and keeps it up to date as you push. So review starts with what the
-change did to the parts and their connections, rather than with four hundred
-lines of diff, and CI fails while anything on that list still needs a
-decision.
+The workflow from `init` posts one report comment on the pull request.
+New pushes update that comment. The report starts the inspection with changes
+to parts and connections. CI rejects the pull request while the report contains
+an open decision.
 
-Your agent then fixes those lines instead of redrawing the whole map. On
-three merged pull requests of one 111-module repository, that path cost 2.31,
-4.39 and 2.50 dollars, against between 3 and 26 dollars to map a repository
-from scratch. Three pull requests of one repository is a small sample, and
-[docs/benchmarks.md](docs/benchmarks.md) has each run.
+The agent can correct these findings without a full new map.
+Three merged pull requests from one 111-module repository cost 2.31, 4.39, and
+2.50 dollars through this procedure. First-map runs cost between 3 and 26
+dollars. Three pull requests from one repository form a small sample.
+[docs/benchmarks.md](docs/benchmarks.md) gives each run.
 
-## What else can it tell you?
+## What other commands can you use?
 
-- **Ask why.** Every line systemap prints comes with two more: why it matters
-  and what to do. `systemap explain "<kind>"` prints any of them in full.
-- **Let an agent write a journey** for a way into your system that nobody has
-  written one for. Each step is checked against the map before it is kept.
-- **See how the system changed over the past year.** `systemap history`
-  samples your repository back through time and says which parts grew, and
-  which commits grew them.
-- **Say what you are about to do.** `systemap plan "<task>"` names the parts
-  the work will most likely touch, and afterwards compares that with the parts
-  it did touch.
-- **Have TypeSafe's Jev model check** the judgement calls a name-and-import
-  checker cannot make. It needs `TYPESAFE_API_KEY`. `check` and `judgement`
-  make no network requests, so CI runs offline unless you set that variable.
+- **Read a finding's explanation.** Each printed finding type has text about its meaning,
+  its effect on the map, and the necessary action.
+  `systemap explain "<kind>"` prints the full explanation.
 
-Every threshold in there was measured before the feature was built, and the
-features that failed their test were written down rather than shipped
-([bench/jev](bench/jev)). `systemap --help` lists every command, and
-[docs/reference.md](docs/reference.md) has every option, rule and setting.
+- **Write a missing sequence.** An agent can write steps for an entry point.
+  systemap compares each step with the map before it writes the sequence.
 
-## What is systemap not?
+- **Read changes across a year.** `systemap history` reads repository samples.
+  Its report shows parts that grew and the associated commits.
 
-It reads Python, TypeScript and TSX. TypeScript support reads exported names,
-imports, tests, package binaries, package export roots and configured
-`tsconfig.json` path aliases. `delta` and `history` read the same TypeScript
-facts from committed trees. Framework-specific routes are not read yet. It is
-not a call graph: the map shows the lines your agent declared and defended,
-not every function call. It is not a
-dependency diagram: modules are not parts, and the map shows parts. It is not
-a UML tool: one picture, one layout, and nothing to learn beyond card, line
-and journey.
+- **Make a work plan.** `systemap plan "<task>"` shows parts likely to change.
+  After the work, the command compares the projection with the changed parts.
 
-## How do you work on systemap itself?
+- **Get a second opinion.** TypeSafe's Jev model answers semantic questions that
+  the mechanical rules cannot answer. Set `TYPESAFE_API_KEY` for this option.
+  `check` and `judgement` make no network requests.
+  Other commands can use Jev if you set the key.
+
+The experiments set acceptance thresholds before implementation.
+The experiment records include features that did not meet their thresholds and
+did not ship. See [bench/jev](bench/jev).
+`systemap --help` lists all commands.
+[docs/reference.md](docs/reference.md) gives all options, rules, and settings.
+
+## What are the limits?
+
+systemap reads Python, TypeScript, and TSX. TypeScript records include exports,
+imports, test references, package binaries, export roots, and configured path
+aliases. `delta` and `history` read the same records from committed trees.
+systemap does not read framework-specific TypeScript routes.
+
+The map contains authored and examined flows. It does not contain all function
+calls or one component for each module. Systemap is not a UML tool.
+It uses one picture and one layout, with components, flows, and sequences.
+
+## How do you develop systemap?
 
     uv sync
     uv run pytest -q
     uv run systemap check && uv run systemap judgement --strict
 
-CI runs the tests, the types and the linter on Linux, macOS and Windows with
-Python 3.11 and 3.13, and installs the built package into an empty environment
-on each one to run the commands against a copy of this repository's own map.
+CI executes tests, type checks, and lint checks on Linux, macOS, and Windows.
+The Python versions are 3.11 and 3.13. Each platform also installs the built
+package into an empty environment. The installation job executes the commands
+against a copy of this repository's map.
 
-MIT licensed.
+systemap uses the MIT license.
 
-Map something with it. If something blocks you, open an issue. Every
-version so far came out of somebody's log of where they got stuck, most of
-them an agent's.
+If systemap prevents you from completing a map, open an issue.
+Previous versions used reports of problems from people and agents.

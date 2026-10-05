@@ -35,12 +35,14 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         assert (tmp_path / rel).is_file(), rel
     assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text()
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/systemap/ (SKILL.md and 8 references)" in out
-    assert "SKILL.md\n" not in out.replace("(SKILL.md and 8 references)\n", "")
-    assert out.rstrip().endswith("Map this repository with systemap. Follow the systemap skill.")
+    assert "wrote .claude/skills/systemap/ (SKILL.md and 9 references)" in out
+    assert "SKILL.md\n" not in out.replace("(SKILL.md and 9 references)\n", "")
+    assert out.rstrip().endswith(
+        "Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9."
+    )
     # One note names the two gates a strict repository runs, with the exact
     # pyproject lines deptry needs; mypy is answered in the file itself.
-    assert "\n".join(scaffold.TOOLING_NOTE) + "\nnext:" in out
+    assert "\n".join(scaffold.TOOLING_NOTE) + "\nNext," in out
     assert "mypy --strict" in out and "deptry" in out
     assert (
         '\n    [tool.deptry.per_rule_ignores]\n    DEP001 = ["systemap"]\n    DEP003 = ["systemap"]\n'
@@ -48,7 +50,8 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     )
     model = (tmp_path / "map/model.py").read_text()
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
-    assert "prints the pyproject lines that answer deptry" in model
+    assert "ASD-STE100 Issue 9" in model
+    assert "installed systemap skill language policy" in model
 
     # The starter model is empty: the check has one line to say, and says only that.
     assert run("--root", str(tmp_path), "check") == 1
@@ -72,10 +75,10 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     # Facts but no page yet: every rule is clean except stale, and the fix is refresh.
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "map layout: clean" in out
-    assert "docs/map/index.html has not been rendered" in out
-    assert "docs/map/figures/structure.svg has not been rendered" in out
-    assert "docs/map/figures/system.svg has not been rendered" in out
+    assert "map layout: has no errors" in out
+    assert "docs/map/index.html has no rendered output." in out
+    assert "docs/map/figures/structure.svg has no rendered output." in out
+    assert "docs/map/figures/system.svg has no rendered output." in out
     assert out.rstrip().endswith("run: systemap refresh")
     assert run("--root", str(tmp_path), "render") == 0
     page = (tmp_path / "docs/map/index.html").read_text()
@@ -86,10 +89,12 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert run("--root", str(tmp_path), "refresh") == 0
     assert (tmp_path / "docs/map/figures/structure.svg").is_file()
     assert (tmp_path / "docs/map/figures/system.svg").is_file()
-    assert "map: updated" in capsys.readouterr().out
+    assert "map: The command updated" in capsys.readouterr().out
     assert run("--root", str(tmp_path), "check") == 0
     assert run("--root", str(tmp_path), "refresh") == 0
-    assert "already current" in capsys.readouterr().out
+    assert (
+        "The page agrees with the rendered model fields and the facts." in capsys.readouterr().out
+    )
     # Init never overwrites what exists.
     assert run("--root", str(tmp_path), "init") == 0
     assert "kept systemap.toml" in capsys.readouterr().out
@@ -99,7 +104,7 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
     model = (tmp_path / "map/model.py").read_text()
-    assert model.startswith("# ruff: noqa: E501\n# The map is prose held in strings")
+    assert model.startswith('# ruff: noqa: E501\n"""The system map of')
     assert "F401" not in model, "every import is used, so no pragma to trip RUF100"
     assert "COMPONENTS: tuple[Component, ...] = ()" in model
     assert "FLOWS: tuple[Flow, ...] = ()" in model
@@ -117,7 +122,7 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
         assert f"{pin} {command}" in workflow, command
     assert workflow.index("systemap check") < workflow.index("judgement --strict")
     assert "uv sync" not in workflow and "uv run" not in workflow
-    assert "needs no dependency on it" in workflow
+    assert "package version that made it" in workflow
     # A workflow linter's three complaints, answered: every action pinned to a
     # commit with the version beside it, least privilege, no persisted token.
     import re
@@ -208,11 +213,11 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "extract") == 2
     err = capsys.readouterr().err
     assert "unknown key: nam" in err
-    assert "fix systemap.toml" in err
+    assert "Correct systemap.toml" in err
 
     write_tree(tmp_path, {"systemap.toml": 'name = "ok"\n'})
     assert run("--root", str(tmp_path), "extract") == 2
-    assert "model module not found" in capsys.readouterr().err
+    assert "The model module is missing" in capsys.readouterr().err
 
     write_tree(tmp_path, {"map/model.py": "MODEL = 1\n"})
     assert run("--root", str(tmp_path), "check") == 2
@@ -226,18 +231,18 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
     assert (
-        "map/model.py failed to import: name 'Layer' is not defined; add the missing name to the import from systemap"
+        "map/model.py could not import: name 'Layer' is not defined. Add the missing name to the import from systemap"
         in err
     )
     assert "Traceback" not in err
     write_tree(tmp_path, {"map/model.py": "from systemap import Model, Layers\n"})
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "map/model.py failed to import: cannot import name 'Layers' from 'systemap'" in err
-    assert "add the missing name to the import from systemap" in err
+    assert "map/model.py could not import: cannot import name 'Layers' from 'systemap'" in err
+    assert "Add the missing name to the import from systemap" in err
     write_tree(tmp_path, {"map/model.py": "raise ValueError('boom')\n"})
     assert run("--root", str(tmp_path), "check") == 2
-    assert "map/model.py failed to import: ValueError: boom" in capsys.readouterr().err
+    assert "map/model.py could not import: ValueError: boom" in capsys.readouterr().err
 
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\ntheme = "dark"\n'})
     (tmp_path / "systemap.toml").unlink()
@@ -250,11 +255,11 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     )
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "unknown theme scheme 'sepia'; the schemes are warm, graphite, paper" in err
+    assert "Unknown theme scheme 'sepia'. The schemes are warm, graphite, paper" in err
     assert "Traceback" not in err
     write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\npaper = 3\n"})
     assert run("--root", str(tmp_path), "check") == 2
-    assert "theme.paper must be a table of tokens" in capsys.readouterr().err
+    assert "theme.paper must contain a table of CSS tokens" in capsys.readouterr().err
 
     # The issue link template left with the field it served; an old key is refused.
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "https://x/{n}"\n'})
@@ -272,7 +277,7 @@ def test_check_fails_on_overlapping_fixture(
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "placement: Reader overlaps Writer" in out
-    assert "fix map/model.py" in out
+    assert "Correct map/model.py" in out
     assert run("--root", str(tmp_path), "refresh") == 1
 
 
@@ -303,7 +308,7 @@ def test_figure_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     capsys.readouterr()
     assert run("--root", str(tmp_path), "figure", "--static", "--out", "figures/one.svg") == 0
     assert (tmp_path / "docs/map/figures/one.svg").read_text().startswith("<svg ")
-    assert capsys.readouterr().out.startswith("wrote docs/map/figures/one.svg (")
+    assert capsys.readouterr().out.startswith("The command wrote docs/map/figures/one.svg (")
     assert not (Path.cwd() / "figures/one.svg").exists()
     assert run("--root", str(tmp_path), "figure", "--components", "Nope", "--out", str(out)) == 2
     assert "unknown component ids: Nope" in capsys.readouterr().err
@@ -317,13 +322,14 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     assert written.is_file()
     out = capsys.readouterr().out
     assert f"wrote {written}" in out
-    assert "references/ (8 files)" in out
+    assert "references/ (9 files)" in out
     text = written.read_text()
     assert text.startswith("---\nname: systemap\n")
     assert "systemap check" in text
     assert "systemap extract" in text
     # The directory comes with it: every reference SKILL.md names.
     for ref in (
+        "language",
         "schema",
         "example",
         "layout",
@@ -362,7 +368,7 @@ def test_extract_on_tiny_package_via_cli(
         "facts for the change detector (these never appear on the map):\n  modules:          3\n"
         in out
     )
-    assert "written to docs/map/map.json" in out
+    assert "The command wrote docs/map/map.json" in out
 
 
 def test_serve_serves_the_output_directory(tmp_path: Path) -> None:
@@ -423,7 +429,8 @@ def test_serve_command_prints_the_url_and_stops_on_interrupt(
     capsys.readouterr()
     assert run("--root", str(tmp_path), "serve") == 0
     assert (
-        capsys.readouterr().out == "serving docs/map at http://127.0.0.1:8765/ (Ctrl-C to stop)\n"
+        capsys.readouterr().out
+        == "The server serves docs/map at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.\n"
     )
     assert made == {
         "directory": tmp_path / "docs/map",

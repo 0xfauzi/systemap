@@ -1,22 +1,8 @@
-"""Nested maps: a card that opens a map of its own, and the tree they form.
+"""The nested-map loader makes a tree of maps from component map paths.
 
-One canvas cannot hold a large repository legibly, and past forty cards
-the layers stop separating anything. A component may carry `map`, a path
-relative to its model file naming a sub-model module that exports `MODEL`
-and `MEANING` like any model. The sub-map draws the inside of that one
-card: its cards claim exactly the modules the card claims (symbol claims
-allowed, empty package markers left out as the coverage rule leaves them
-out), no more and no fewer, and its actors are cards of the map it is
-inside, so its edges to the outside have somewhere to land. The parent
-claims the modules once for coverage; the nesting rule of `systemap
-check` holds the sub-map to them.
-
-Every command that reads the model walks the tree this module loads:
-the top map first, then each sub-map depth first in the order the parent
-lists its cards. A map is named by the cards that open it, joined by
-`/` (`Gateway`, `Gateway/Routes`); the top map's id is empty. A sub-map's
-page is written under the output directory at `<id>/index.html`, and the
-lines a command prints for a sub-map carry `<id>: ` in front.
+The top map contains components that can open their own internal maps. Each nested map
+has an ID from the parent component path. A nested map cannot open itself or another
+ancestor model.
 """
 
 from __future__ import annotations
@@ -39,12 +25,11 @@ MODULES_PER_CARD = 10
 
 @dataclass(frozen=True)
 class Map:
-    """One map in the tree: the top map, or the map inside one card.
+    """This record contains the top map or one nested map.
 
-    `id` is empty for the top map and the opening cards' ids joined by
-    `/` below it; `card` is the parent card that opens this map and
-    `parent` the parent map's id. `rel` is the model file relative to
-    the root, the name messages call it by.
+    The top map has an empty ID. Nested IDs use component IDs separated by slashes. The
+    card field identifies the parent component. The parent field identifies the parent
+    map.
     """
 
     id: str
@@ -62,22 +47,26 @@ class Map:
 
     @property
     def prefix(self) -> str:
-        """What a line printed for this map carries in front: nothing for the top."""
+        """This property gives the diagnostic prefix for a nested map, or an empty string
+        for the top map.
+        """
         return f"{self.id}: " if self.id else ""
 
     @property
     def inside(self) -> int:
-        """How many cards the map holds of its own: every card but the actors."""
+        """This property counts internal components without actors."""
         return sum(1 for c in self.model.components if c.kind != "actor")
 
     def page_path(self, cfg: Config) -> Path:
-        """Where the map's page is written: `index.html` under the map's directory."""
+        """This method gives index.html in the map output directory."""
         return cfg.out_path / self.id / "index.html" if self.id else cfg.page_path
 
 
 @dataclass(frozen=True)
 class Tree:
-    """Every map, the top first, then depth first in the parents' card order."""
+    """This record lists the top map first, then nested maps in component depth-first
+    order.
+    """
 
     maps: tuple[Map, ...]
 
@@ -109,7 +98,9 @@ class Tree:
         return None if m.parent is None else self.get(m.parent)
 
     def opening_card(self, m: Map) -> Component | None:
-        """The parent's card that opens `m`; None for the top map."""
+        """This function gives the parent component that opens the map, or None for the top
+        map.
+        """
         parent = self.parent_of(m)
         return None if parent is None else parent.model.component(m.card)
 
@@ -119,12 +110,10 @@ def _child_id(parent: Map, card: str) -> str:
 
 
 def load(cfg: Config) -> Tree:
-    """The tree of maps under the configured model, every module loaded.
+    """This function loads all model modules in the map tree.
 
-    A sub-model that does not import, or names no MODEL and MEANING, is
-    refused the way the top model is; a sub-map that names a model file
-    already on the path above it is a cycle and refused too. An actor's
-    `map` is not followed: the placement rule reports it.
+    An import error, missing MODEL or MEANING, missing file, or model cycle gives a
+    configuration error.
     """
     model, meaning = load_model(cfg.model_path, cfg.model)
     top = Map("", cfg.model_path, cfg.model, model, meaning, _theme(cfg, model, meaning), None, "")
@@ -149,13 +138,13 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
         if path in above:
             chain = " -> ".join(cfg.rel(p) for p in above)
             raise ConfigError(
-                f"{parent.rel}: {c.id} opens {rel}, which is already a map above it "
-                f"({chain}); a map cannot open itself"
+                f"{parent.rel}: {c.id} opens {rel}, which is already a parent map ({chain}). A "
+                f"map cannot open itself."
             )
         if not path.is_file():
             raise ConfigError(
-                f"{parent.rel}: {c.id} opens {rel}, which does not exist; write the "
-                f"sub-model module there, or remove map from the card"
+                f"{parent.rel}: {c.id} opens {rel}, which is missing. Write the nested model "
+                f"module at this path, or remove map from the component."
             )
         model, meaning = load_model(path, rel)
         child = Map(
@@ -173,12 +162,11 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
 
 
 def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:
-    """What each opening card of `m` opens, for the panel: name, link, cards, preview.
+    """This function gives nested-map names, links, component counts, and preview data for
+    the panel.
 
-    The link is relative to the map's own page (`<card>/index.html`); a
-    figure, which may be embedded anywhere, is given none. `preview` is
-    the drawing the page fills in (`page.nesting_of`, the sub-map's
-    Structure layer as a small SVG); empty here and in a figure.
+    Page links are relative to the selected map. Figures omit these links because their
+    location can differ.
     """
     return {
         child.card: {
@@ -192,8 +180,8 @@ def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:
 
 
 def unknown_map(tree: Tree, map_id: str) -> ConfigError:
-    """The refusal for a map id the tree does not have, with the ids it does."""
+    """This function gives an unknown-map diagnostic with the available map IDs."""
     known = ", ".join(m.id for m in tree.maps if m.id) or "none"
     return ConfigError(
-        f"unknown map id: {map_id}; the maps inside a card are {known} (the top map needs no --map)"
+        f"unknown map id: {map_id}. The nested map IDs are {known} (the top map uses no --map)."
     )

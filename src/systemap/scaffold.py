@@ -1,21 +1,11 @@
-"""What `systemap init` writes: a configuration, a starter model, a workflow.
+"""Files that the init command writes for a new system map.
 
-The starter model is empty on purpose: one container holding four regions
-in a two-by-two grid, and no components, no flows, no positions. A
-placeholder card would be a lie the first check had to catch; instead the
-check says the model has no components yet and points at the skill, and
-the agent following it (installed by the same command, see skill.py)
-writes the real cards from the facts, without positions, and runs
-`systemap place`, which lays the regions out on the grid the corridor
-rule needs and puts every card on it. The four regions are there to be
-renamed and to show the shape.
+The initial model has one container, four regions, and no components.
+The installed skill gives the source examination and ASD-STE100 language requirements.
+The agent writes components from source facts and calculates positions with the placement command.
 
-The workflow runs the check on every push and pull request with the
-released package, pinned to the version that wrote it (`uvx --from
-"systemap==<this version>"`), so the project needs no dependency on
-systemap. It is written by default and skipped with `--no-ci`, since not
-every repository runs on the one forge the workflow is written for.
-"""
+The optional CI workflow uses the released package version that made it.
+The project does not need systemap as a declared dependency."""
 
 from __future__ import annotations
 
@@ -23,38 +13,34 @@ from pathlib import Path
 
 from systemap import __version__
 
-CONFIG = """# systemap configuration. Every key is optional; these are the defaults
-# except name, which defaults to [project] name in pyproject.toml, then
-# the git repository's directory, then this directory's name.
+CONFIG = """# systemap configuration. All keys are optional.
+# The project name comes from pyproject.toml or the repository directory.
 language = "{language}"
 name = "{name}"
-# Where the packages are: "path" = "import name". Leave it out to discover
-# every top-level directory (or src/<dir>) that holds an __init__.py, in
-# the root and in every [tool.uv.workspace] member.
+# Package roots use "path" = "import name".
+# Without explicit roots, the extractor finds top-level Python packages
+# in the repository and its uv workspace members.
 {roots}
-# Where test files live: one directory or a list. Leave it out to read every
-# directory named tests or test under the root.
+# Test directories can be one path or a list of paths.
+# Without this key, the extractor finds directories called tests or test.
 # tests_dir = ["tests"]
 model = "map/model.py"
 out_dir = "docs/map"
 # spec_path = "docs/design.md"
 
-# `systemap check` refuses a map that leaves a module unclaimed. A module
-# that has no place on the map is ignored here, and every ignore needs a
-# reason, so the hole is on record rather than hidden.
+# Each source module must have a component assignment or a recorded ignore.
+# Each ignore must give an explanation.
 # [coverage]
-# ignore = [{{ module = "{package}.compat", reason = "a shim with no place on the map" }}]
+# ignore = [{{ module = "{package}.compat", reason = "Compatibility code outside the mapped system." }}]
 
-# `systemap judgement` lines the maintainer has answered, each with why; an
-# answered line is suppressed and counted, a stale one is reported.
+# An exact answer identifies a complete judgement finding and its explanation.
+# The command counts answered findings and gives stale-answer findings.
 # [judgement]
-# answered = [{{ item = "single module: Reader is only {package}.reader", reason = "a real part" }}]
+# answered = [{{ item = "single module: Reader is only {package}.reader", reason = "The reader is a separate component." }}]
 
-# Figures `systemap refresh` regenerates beside the page. mode is "system"
-# (nothing marked) or "reach" (the named components marked as a plan's reach);
-# layer = "structure" (or "system", "data", "control", a layer of your own)
-# draws one layer only, with every card and none of the other edges. An
-# out ending in .svg is the bare drawing, for a README or a document.
+# The refresh command renders these figures beside the page.
+# mode is "system" for all components or "reach" for a plan selection.
+# layer selects the flow view. A .svg path gives an SVG figure.
 [[figures]]
 out = "figures/structure.svg"
 mode = "system"
@@ -71,41 +57,25 @@ interactive = false
 """
 
 MODEL = '''# ruff: noqa: E501
-# The map is prose held in strings: a sentence per flow, a step per journey,
-# a rule per invariant. A sentence is not wrapped, so the line-length rule
-# does not apply to this file. The schema is imported whole and every name
-# is used below, so a card written later finds every name and the linter
-# has nothing to say.
-"""The system map of {name}: what the parts are and what they are to each other.
+"""The system map of {name}.
 
-Everything in this file is written on purpose. The facts about the code
-(which modules exist, what they export, which tests import them) are read
-by `systemap extract`; this file says what the system is MEANT to be, and
-the map draws the two together. The map draws what exists today: a
-component names the modules that are it and one entry they define, and
-`systemap check` refuses a name the code does not have.
+All reader text must use ASD-STE100 Issue 9.
+Before you write names or sentences, read the installed systemap skill language policy.
+Use the official writing rules and dictionary, including approved word meanings.
 
-Positions are fixed in this file because this is a topology, not a chart:
-a card's place carries meaning. A card written without `x` and `y` is
-placed by `systemap place`, which lays the regions out on a grid with
-corridors between them and puts every such card on the grid; `systemap
-place --all` lays every card out again after one is added or removed,
-keeping the cards marked `pinned=True`. `systemap check` verifies every
-card sits in its band, no two overlap, every flow has a layer and a
-sentence, and every route and label is clean.
+The extractor supplies source facts. This file records component purposes and flow claims.
+Each component identifies its source modules and an applicable public entry point.
+A maintainer must examine the source before recording support for a claim.
 
-This file starts empty: one container holding four regions in a two-by-two
-grid, and no components. The skill says how to write the cards from the
-facts; references/layout.md says what is still yours to decide.
+The initial model has one container and four regions, without components.
+Write components from source facts. Then run systemap place to calculate positions.
+With --all, the placement command calculates positions again but keeps pinned cards.
+Read references/layout.md for the applicable geometry rules.
 """
 
 from __future__ import annotations
 
-# systemap is a tool this repository runs, not a dependency it declares,
-# so a strict type checker cannot find the import and a dependency
-# checker reports it. The ignore below answers mypy (and is not itself
-# reported as unused where systemap happens to be installed); `systemap
-# init` prints the pyproject lines that answer deptry (DEP001, DEP003).
+# The generated model uses the systemap tool package.
 from systemap import (  # type: ignore[import-not-found, unused-ignore]
     Component,
     Container,
@@ -119,28 +89,19 @@ from systemap import (  # type: ignore[import-not-found, unused-ignore]
     Step,
 )
 
+# Containers give system boundaries.
 CONTAINERS = (
     Container(
         id="system",
         label="{upper}",
-        sub="one process; say what the boundary means",
+        sub="one process",
         box=(16, 16, 876, 536),
         tone="server",
     ),
 )
 
-# Four regions in a two-by-two grid. The 48 units between the region
-# columns and the 36 between the region rows are corridors: an edge may not
-# cross a region it neither starts nor ends in, and the corridors form a
-# cross, so from any region there is a route to any other. Rename the
-# regions after the phases, concerns or teams the parts fall into; drop one
-# you do not need; add one you do. `systemap place` lays them out again on
-# the same kind of grid, sized to the cards each holds, when no card is
-# pinned, so the boxes here are a shape to start from, not a rule.
-#
-# The position tables stay one line per row: the formatter is turned off
-# around them so the grid stays readable, and on again below.
 # fmt: off
+# Regions group components. The initial grid has 48-unit column corridors and 36-unit row corridors.
 REGIONS = (
     Region(id="a", label="REGION A", box=(40, 60, 390, 216), container="system"),
     Region(id="b", label="REGION B", box=(478, 60, 390, 216), container="system"),
@@ -149,33 +110,20 @@ REGIONS = (
 )
 # fmt: on
 
-# One card per thing a reader would point at and name. `implemented_by`
-# names the modules that are it (from the facts file), `entry` one public
-# name they define. Write no x or y: `systemap place` writes them, on the
-# grid, and `systemap place --all` writes them again after a card is added
-# or removed; `pinned=True` marks a card whose place you chose. For example:
-#
-#     Component(
-#         id="Reader",
-#         region="a",
-#         does="Reads the input and turns it into a request.",
-#         interface="read(source) -> Request",
-#         implemented_by=("{package}.reader",),
-#         entry="read",
-#     ),
 # fmt: off
+# Write one component per source responsibility.
+# implemented_by gives source modules. entry gives a public source symbol.
+# Omit x and y until the placement command runs.
 COMPONENTS: tuple[Component, ...] = ()
 # fmt: on
 
-# (from, to, the artifact carried, the kind). Two kinds are standard and
-# need no declaring: data (an artifact moves) and control (one part drives
-# another). A kind of your own is declared in FLOW_KINDS and given a layer.
-# The artifact is a noun phrase of one to three words, never a sentence.
+# Each flow gives source, target, artifact, and kind.
+# Use at most three words for a new artifact noun.
 FLOWS: tuple[Flow, ...] = ()
 
 FLOW_KINDS: tuple[str, ...] = ()
 
-# Rules the repository states about itself, each citing its source.
+# Record source-supported rules with source references and applicable component identifiers.
 INVARIANTS: tuple[Invariant, ...] = ()
 
 MODEL = Model(
@@ -188,25 +136,19 @@ MODEL = Model(
     invariants=INVARIANTS,
 )
 
-# ---- meaning: the plain words, the layers, one sentence per flow ---------
 
-# The plain words a newcomer would use for each card, by id.
+# Give short component descriptions, layer questions, and one sentence per flow.
 PLAIN: dict[str, str] = {{}}
 
-# The page derives Structure, System context, Data flow and Control flow
-# from the model. A layer of your own goes here, as the question it
-# answers, with its kind mapped to it in LAYER_OF_KIND.
 LAYERS: tuple[Layer, ...] = ()
 
 LAYER_OF_KIND: dict[str, str] = {{}}
 
-# One sentence per flow, read from the source side.
 RELATIONS: dict[tuple[str, str], str] = {{}}
 
-VERBS: dict[str, tuple[str, str]] = {{"data": ("hands to", "receives from")}}
+VERBS: dict[str, tuple[str, str]] = {{"data": ("sends to", "receives from")}}
 
-# One journey per entry point that matters, one Step per edge it traces;
-# a journey's steps are a tuple of Step.
+# Each sequence starts at an entry point. Each step identifies its components and flow.
 Steps = tuple[Step, ...]
 JOURNEYS: tuple[Journey, ...] = ()
 
@@ -222,26 +164,17 @@ MEANING = Meaning(
 
 WORKFLOW = """name: systemap
 
-# The system map under docs/map is generated from the code and the model
-# module. It is committed so the page can be served as-is and so the diff
-# between two commits of the facts file records what changed about the
-# system. This job fails when the committed map no longer matches the tree
-# or the renderer; the fix is one command, named in the failure.
-#
-# systemap runs from the released package, pinned to the version that
-# wrote this file, so the project needs no dependency on it. Bump the pin
-# when you upgrade. Every
-# action is pinned to a commit, with the version beside it; the jobs read
-# the tree and nothing else, the checkout keeps no token, and the one job
-# that writes (the delta comment on a pull request) says so beside its
-# permission, so a workflow linter passes it as written.
+# The committed map must match the source facts and renderer.
+# This workflow uses the package version that made it.
+# Change the package pin when you install a new systemap version.
+# Only the delta job has permission to write a pull request comment.
+
 
 on:
   push:
     branches: [main]
   pull_request:
 
-# Read-only for every job; the delta job widens it for itself alone.
 permissions:
   contents: read
 
@@ -264,40 +197,35 @@ jobs:
           version: latest
           enable-cache: true
 
-      - name: facts match the tree
+      - name: Source facts match
         run: |
           uvx --from "systemap==__VERSION__" systemap extract --check || {
-            echo "::error title=Map is stale::the facts no longer describe the tree. Run systemap refresh and commit the output directory."
+            echo "::error title=Stale map::Source facts do not match the repository. Run systemap refresh and commit the output directory."
             exit 1
           }
 
-      - name: layout, meaning and coverage are consistent
+      - name: Map consistency checks
         run: |
           uvx --from "systemap==__VERSION__" systemap check || {
-            echo "::error title=Map check::the model contradicts itself or leaves a module unmapped; see the lines above."
+            echo "::error title=Map check::The model has inconsistent fields or unmapped modules. Examine the findings above."
             exit 1
           }
 
-      - name: every judgement line is answered
+      - name: Judgement answers
         run: |
           uvx --from "systemap==__VERSION__" systemap judgement --strict || {
-            echo "::error title=Judgement::a judgement line is unanswered. Act on it, or answer it under [judgement] answered in systemap.toml."
+            echo "::error title=Judgement::A judgement finding has no answer. Change the map or record an answer under [judgement] answered in systemap.toml."
             exit 1
           }
 
-      - name: page matches the renderer
+      - name: Rendered page matches
         run: |
           uvx --from "systemap==__VERSION__" systemap render --check || {
-            echo "::error title=Map is stale::index.html differs from what systemap renders. Run systemap refresh and commit the output directory."
+            echo "::error title=Stale map::index.html does not match the renderer output. Run systemap refresh and commit the output directory."
             exit 1
           }
 
   delta:
-    # What the pull request does to the map, as one comment: posted once,
-    # then updated in place on every push. The base and head commits reach
-    # the command through the environment, never through the template. A
-    # pull request from a fork has a read-only token, so the comment step
-    # warns instead of failing there; the delta is in the log either way.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -316,7 +244,7 @@ jobs:
           version: latest
           enable-cache: true
 
-      - name: what this change does to the map
+      - name: Map change results
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -325,11 +253,11 @@ jobs:
           uvx --from "systemap==__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
           echo "$code" > delta.code
           if [ ! -s delta.md ]; then
-            printf '<!-- systemap delta -->\\n## What this change does to the map\\n\\nsystemap delta could not run (exit %s); see the workflow log.\\n' "$code" > delta.md
+            printf '<!-- systemap delta -->\\n## Map change results\\n\\nsystemap delta could not run (exit %s). Examine the workflow log.\\n' "$code" > delta.md
           fi
           cat delta.md
 
-      - name: post or update the comment
+      - name: Write the delta comment
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -340,13 +268,13 @@ jobs:
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@delta.md > /dev/null
           else
             gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@delta.md > /dev/null
-          fi || echo "::warning title=Map delta::could not post the comment (a pull request from a fork has a read-only token); the delta is in the step above."
+          fi || echo "::warning title=Map delta::The command could not write the comment. A fork pull request has a read-only token. The preceding step contains the delta."
 
-      - name: every line is acted on
+      - name: Delta findings answered
         run: |
           code="$(cat delta.code)"
           if [ "$code" != "0" ]; then
-            echo "::error title=Map delta::the change needs the map's attention; see the comment on the pull request, act on each line, then run systemap refresh."
+            echo "::error title=Map delta::The change has unanswered map findings. Examine the pull request comment, answer each finding, then run systemap refresh."
           fi
           exit "$code"
 """
@@ -357,14 +285,13 @@ jobs:
 # checker and a dependency checker both need telling. mypy is answered in
 # the file; deptry by these lines, printed so they can be pasted.
 TOOLING_NOTE = (
-    "note: map/model.py imports systemap, a tool this repository runs and need not depend on:",
-    "  mypy --strict: the import line carries # type: ignore[import-not-found, "
-    "unused-ignore], so it passes as written",
+    "note: map/model.py imports the systemap tool package:",
+    "  mypy --strict: the import has # type: ignore[import-not-found, unused-ignore]",
     "  deptry: add these lines to pyproject.toml",
     "    [tool.deptry.per_rule_ignores]",
     '    DEP001 = ["systemap"]',
     '    DEP003 = ["systemap"]',
-    "  run every CI command the repository runs on the map's files, not only pre-commit",
+    "  run all repository CI commands on the map files",
 )
 
 
@@ -375,11 +302,10 @@ def files(
     ci: bool = True,
     language: str = "python",
 ) -> dict[str, str]:
-    """path -> content for every file `systemap init` writes.
+    """Get initial file paths and contents.
 
-    The skill is not in this table: it is package text that is refreshed
-    on every init, where everything here is written once and then kept.
-    """
+    The init command installs the skill separately on each run.
+    Existing configuration, model, and workflow files stay unchanged."""
     if roots:
         lines = ["[package_roots]"] + [f'"{path}" = "{pkg}"' for path, pkg in roots]
         roots_block = "\n".join(lines)
@@ -412,12 +338,12 @@ def write(
     ci: bool = True,
     language: str = "python",
 ) -> list[str]:
-    """Write every file that does not exist yet; return one line per file."""
+    """Write missing files. Give one output line for each written or existing file."""
     out: list[str] = []
     for rel, content in files(name, package, roots, ci, language).items():
         path = root / rel
         if path.exists():
-            out.append(f"kept {rel} (already exists)")
+            out.append(f"kept {rel} (file exists)")
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8", newline="\n")

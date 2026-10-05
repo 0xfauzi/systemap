@@ -132,7 +132,11 @@ def test_the_palette_answers_one_table_two_ways(sample: Sample) -> None:
     assert tokens.tag("data") == "var(--lt-data)"
     assert literal.tag("data") == theme_mod.mix(t["raised"], t["layers"]["data"], theme_mod.TAG_MIX)
     assert literal.state("built") == tuple(t["state"]["built"])
-    assert tokens.state("built") == ("var(--card-built)", "var(--card-built-line)", "built")
+    assert tokens.state("built") == (
+        "var(--card-built)",
+        "var(--card-built-line)",
+        "source recorded",
+    )
     assert tokens.container("server") == ("var(--box-server-line)", "var(--box-server)")
     assert literal.container("server") == tuple(t["container"]["server"])
     assert tokens.actor() == ("var(--actor)", "var(--ink-3)")
@@ -226,7 +230,7 @@ def test_the_schemes_are_three_full_tables_and_the_default_is_warm() -> None:
         )
     warm = theme_mod.WARM
     assert warm["bg"] == "#161310" and warm["accent"] == "#e5a84f" and warm["ink"] == "#ece5d8"
-    assert warm["state"]["built"] == ["#27221a", "#8a7d63", "built"]
+    assert warm["state"]["built"] == ["#27221a", "#8a7d63", "source recorded"]
     assert warm["container"]["isolated"] == ["#6b4a3d", "#1d1613"]
     assert list(warm["layers"].values()) == [
         "#d9cdb2",
@@ -266,10 +270,10 @@ def test_overrides_apply_per_scheme_and_bare_keys_to_the_default(sample: Sample)
     assert t["scheme"] == "paper" and t["accent"] == "#111111" and t["bad"] == "#444444"
     assert t["schemes"]["warm"]["accent"] == theme_mod.WARM["accent"]
     with pytest.raises(
-        ValueError, match="unknown theme scheme 'sepia'; the schemes are warm, graphite, paper"
+        ValueError, match="Unknown theme scheme 'sepia'. The schemes are warm, graphite, paper"
     ):
         theme_mod.resolve({"scheme": "sepia"}, layers)
-    with pytest.raises(ValueError, match="theme.warm must be a table of tokens"):
+    with pytest.raises(ValueError, match="theme.warm must contain a table of CSS tokens"):
         theme_mod.resolve({"warm": "#fff"}, layers)
 
 

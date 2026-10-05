@@ -1,15 +1,13 @@
-# A worked example of every part
+# A complete model example
 
-A small pipeline: a person types input, a reader turns it into a request,
-a parser splits it, a writer joins the parts and records the result in a
-ledger. The modules are `pkg.reader`, `pkg.parser`, `pkg.writer` and
-`pkg.ledger`. This model passes `systemap check` against those modules as
-written; the test suite runs it. Its positions are written in so the
-example is the whole file; a first draft leaves `x` and `y` out and runs
-`systemap place`, which writes them.
+This illustrative model shows an input sequence with a reader, parser, writer, and record store.
+The modules are `pkg.reader`, `pkg.parser`, `pkg.writer`, and `pkg.ledger`.
+The tests do the model checks against a source fixture with these modules.
+The example gives the positions so that the example is a complete file.
+For an initial model, omit `x` and `y`. Then run `systemap place`.
 
 ```python
-"""The system map of pkg: what the parts are and what they are to each other."""
+"""The system map of pkg and its component connections."""
 
 from __future__ import annotations
 
@@ -26,30 +24,30 @@ from systemap import (
     Step,
 )
 
-# The grid: card columns 190 apart, rows 160 apart here because the two
-# regions are stacked. Cards on the grid leave straight corridors for edges.
+# Columns are 190 units apart. Rows are 160 units apart.
+# The spaces between cards give routes for the flows.
 COL = {"c1": 270, "c2": 460, "c3": 650}
 ROW = {"r1": 90, "r2": 250}
 
 CONTAINERS = (
-    # A hard boundary. The person is outside the system; the code is one process.
+    # The user is outside the system. The source code runs in one process.
     Container("outside", "OUTSIDE", (16, 16, 186, 368), tone="host"),
     Container("system", "SYSTEM", (222, 16, 662, 368), sub="one process", tone="server"),
 )
 
 REGIONS = (
-    # Soft bands inside the system: the region that processes, the one that stores.
+    # One region contains processing components. The other contains the record store.
     Region("work", "WORK", (240, 50, 626, 130), container="system"),
     Region("keep", "KEEP", (240, 210, 626, 130), container="system"),
 )
 
 COMPONENTS = (
-    # An actor: outside the code, placed by container, claims no modules.
+    # This actor has a container position and no source modules.
     Component("User", "Types the input.", kind="actor", container="outside", x=34, y=96),
-    # A component: its entry `read` is a real function in pkg.reader.
+    # The entry point read is a function in pkg.reader.
     Component(
         id="Reader",
-        does="Reads the input and turns it into a request.",
+        does="Reads the input and makes a request.",
         interface="read(source) -> Request",
         implemented_by=("pkg.reader",),
         entry="read",
@@ -59,7 +57,7 @@ COMPONENTS = (
     ),
     Component(
         id="Parser",
-        does="Splits a request into the parts the writer needs.",
+        does="Divides a request into the parts for the writer.",
         interface="parse(request) -> list[str]",
         implemented_by=("pkg.parser",),
         entry="parse",
@@ -67,10 +65,10 @@ COMPONENTS = (
         x=COL["c2"],
         y=ROW["r1"],
     ),
-    # A store: it holds state. Its entry is a class.
+    # The store keeps records. Its entry point is a class.
     Component(
         id="Ledger",
-        does="Keeps every record ever written.",
+        does="Keeps all records from the writer.",
         interface="Ledger.record / Ledger.history",
         implemented_by=("pkg.ledger",),
         entry="Ledger",
@@ -81,7 +79,7 @@ COMPONENTS = (
     ),
     Component(
         id="Writer",
-        does="Joins the parts and records the result.",
+        does="Puts the parts together and records the result.",
         interface="write(parts, ledger) -> str",
         implemented_by=("pkg.writer",),
         entry="write",
@@ -91,8 +89,8 @@ COMPONENTS = (
     ),
 )
 
-# (from, to, the artifact carried, the kind). data and control are
-# standard; record is this model's own kind, declared below.
+# Each flow gives its source, target, artifact, and kind.
+# data and control are standard kinds. record is a custom kind.
 FLOWS = (
     Flow("User", "Reader", "input", "data"),
     Flow("Reader", "Parser", "parse", "control"),
@@ -104,9 +102,11 @@ FLOWS = (
 FLOW_KINDS = ("record",)
 
 INVARIANTS = (
-    # Copied from the repository's own words, with the source named.
+    # Each invariant identifies its source document.
     Invariant(1, "The writer never reads the input itself (README, Design).", governs=("Writer",)),
-    Invariant(2, "Every record is written once (docs/ledger.md).", governs=("Writer", "Ledger")),
+    Invariant(
+        2, "The writer records each result once (docs/ledger.md).", governs=("Writer", "Ledger")
+    ),
 )
 
 MODEL = Model(
@@ -119,46 +119,43 @@ MODEL = Model(
     invariants=INVARIANTS,
 )
 
-# ---- meaning: the plain words, the layers, one sentence per flow ---------
+# Names, layers, and flow sentences.
 
 PLAIN = {
-    "User": "the person typing",
+    "User": "the input user",
     "Reader": "the part that reads",
-    "Parser": "the part that splits",
-    "Ledger": "the record book",
+    "Parser": "the request parser",
+    "Ledger": "the record store",
     "Writer": "the part that writes",
 }
 
-# The model's own layers, after Structure, System context, Data flow and
-# Control flow, which the page derives. Each is the question it answers.
+# Custom layers follow the standard layers. Each layer gives its question.
 LAYERS = (
-    Layer("record", "Record", question="What is written down?"),
-    Layer("memory", "Memory", question="What does the system remember?"),
+    Layer("record", "Record", question="Which results does the writer record?"),
+    Layer("memory", "Memory", question="Which earlier records does the parser use?"),
 )
 
-# Every custom kind belongs to one layer; one edge is moved to another.
+# Each custom kind uses one layer. An override selects a different layer for one flow.
 LAYER_OF_KIND = {"record": "record"}
 LAYER_OVERRIDES = {("Ledger", "Parser"): "memory"}
 
-# One sentence per edge, read from the source side.
+# Each flow has a sentence from its source endpoint.
 RELATIONS = {
     ("User", "Reader"): "The user types one input at a time.",
     ("Reader", "Parser"): "The reader calls the parser on each request.",
     ("Parser", "Writer"): "The parser gives the writer the parts in order.",
-    ("Writer", "Ledger"): "The writer records every result it produces.",
-    ("Ledger", "Parser"): "The ledger tells the parser what was written before.",
+    ("Writer", "Ledger"): "The writer records each result.",
+    ("Ledger", "Parser"): "The ledger supplies earlier records to the parser.",
 }
 
-# The verb on one arm of the panel's ring of connected cards: (when the
-# clicked card is the source,
-# when it is the target), per layer, and per edge where one edge differs.
-# The standard layers have verbs already; data is given better ones here.
+# Each label pair gives the source-side and target-side text.
+# Layer labels apply unless a flow has an override.
 VERBS = {
-    "data": ("hands to", "receives from"),
-    "record": ("records in", "is written by"),
-    "memory": ("reminds", "remembers through"),
+    "data": ("sends to", "receives from"),
+    "record": ("records in", "receives records from"),
+    "memory": ("supplies records to", "receives records from"),
 }
-VERB_OVERRIDES = {("User", "Reader"): ("types into", "is typed by")}
+VERB_OVERRIDES = {("User", "Reader"): ("types into", "receives input from")}
 
 JOURNEYS = (
     Journey(
@@ -167,8 +164,13 @@ JOURNEYS = (
         steps=(
             Step(("User",), (), ("User", "Reader"), "The user types an input."),
             Step(("Reader",), (), ("Reader", "Parser"), "The reader calls the parser."),
-            Step(("Parser",), ("Ledger",), ("Parser", "Writer"), "The parser splits it."),
-            Step(("Writer",), ("Ledger",), ("Writer", "Ledger"), "The writer records it."),
+            Step(
+                ("Parser",),
+                ("Ledger",),
+                ("Parser", "Writer"),
+                "The parser divides the request into parts.",
+            ),
+            Step(("Writer",), ("Ledger",), ("Writer", "Ledger"), "The writer records the result."),
         ),
     ),
 )
@@ -185,18 +187,15 @@ MEANING = Meaning(
 )
 ```
 
-The configuration beside it, `systemap.toml`, needs nothing for this
-model to check. The package root `pkg` is an `__init__.py` with a
-docstring and nothing else: an empty package marker, which `systemap
-extract` lists in its summary and the coverage rule leaves out on its
-own, so the check reports `coverage: 5 of 5 modules mapped, 1 of them an
-empty package marker`. A module that has code and no place on the map is
-ignored with a reason, by name or as a subtree:
+An empty `pkg/__init__.py` is a package marker in this example.
+The extractor records that module. Coverage includes the marker without a component claim.
+If a module with source code is outside the map, record a coverage ignore with an explanation.
+The following configuration is illustrative:
 
 ```toml
 [coverage]
 ignore = [
-    { module = "pkg.compat", reason = "a shim kept for one release; nothing reaches it" },
-    { module = "pkg.vendor.*", reason = "third-party code carried in the tree" },
+    { module = "pkg.compat", reason = "Compatibility code for one release. No component imports it." },
+    { module = "pkg.vendor.*", reason = "External package code in this repository." },
 ]
 ```

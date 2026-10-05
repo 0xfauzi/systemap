@@ -1,119 +1,95 @@
-# Layout: what is still yours to decide
+# Component positions and routes
 
-`systemap place` places every card that has no `x` and `y` and keeps
-every card that has them; `systemap place --all` lays every card out
-again and keeps only the cards marked `pinned=True`. Write the components
-and the flows without positions, run `place`, then run the check; after
-adding or removing a card, run `place --all`. What it does, so that you
-do not do it by hand:
+`systemap place` writes positions for components without `x` and `y`.
+It keeps existing positions.
+After component additions or removals, use `systemap place --all`.
+That command keeps only positions with `pinned=True`.
+Then run `systemap check && systemap judgement --strict`.
 
-- Regions go on a two-column grid inside their container, in the order
-  the search below chooses, with the corridors, the gaps kept clear
-  between region boxes so edges have somewhere to run, already
-  there: 48 units between the region columns, 36 between the region
-  rows. An edge may not cross a region it does not belong to, and on
-  this grid every pair of regions is joined by a corridor.
-- The order of the regions on the grid is searched. Every order is
-  tried when there are at most six regions (past six, a greedy start
-  and pairwise swaps); each is laid out whole and estimated by the
-  bends its edges need at least and their length, and the best twelve
-  by that estimate, plus the order the model lists, are routed with
-  the real router and scored by label collisions, then routes that had
-  to cross a foreign region, then bends, then length. The lowest score wins;
-  a tie goes to the order listed first. `place` prints the order it
-  chose and the score (`region order: gateway, contracts, ...; 40
-  bends, 7,909 units; 720 orders tried, 13 routed`), and `describe`
-  prints the order and the score of the map as written.
-  `systemap place --keep-order` lays the regions as the model lists them.
-- Cards go on the grid inside their region, columns 190 apart and rows
-  92 apart, three deep before the region takes a second column. A
-  region's box follows its card count and a container's box its
-  regions. An actor, or any card in a container and no region, sits
-  in a column beside the regions, level with the cards it exchanges
-  something with.
-- The cards of a region are ordered by a few barycentre sweeps over the
-  flows, so the parts that exchange something sit together.
-- The positions are written into `map/model.py` in place, as the values
-  of `x` and `y`, and the boxes and the canvas with them; nothing else in
-  the file changes. `systemap place --print` prints them instead.
+## Automatic placement
 
-The check decides, as before. `place` is deterministic: the same model
-always gets the same positions, and a second run changes nothing. When
-`place` says a region has no free slot for a new card, run `place
---all`: the boxes were sized for the cards the region had.
+Regions use a two-column grid inside their container.
+The grid keeps corridors between region boxes: 48 units between columns and 36 units between rows.
+A route must not cross an unrelated region.
+The corridors connect all region pairs.
 
-## What you decide
+For up to six regions, the command examines every region order.
+For more regions, it uses a greedy initial order and pairwise swaps.
+The initial estimate uses minimum bends and route length.
+The router examines the best twelve estimates and the original model order.
+The final score compares label collisions, unrelated-region crossings, bends, and length, in that order.
+The lowest score wins. An equal score keeps the earlier order.
+Use `--keep-order` when the grid must keep the model's region order.
 
-- **Which region a card is in.** A region is a phase, a concern or a
-  team; the parts that exchange the most belong in one region or in adjacent
-  ones. This is the placement decision that carries meaning, and
-  `place` never makes it.
-- **The order of the regions.** Only when you must: `place` searches
-  it and prints what it chose. List the regions in the order a reader
-  would walk them (the list is the order `describe` and the page's
-  index use, and the tie-breaker of the search), and pass
-  `--keep-order` only when the grid must follow that order too: the
-  search scores the drawing, and an order it did not choose costs
-  bends.
-- **When to pin a card.** A card marked `pinned=True` (with its `x`
-  and `y`) is one a person placed on purpose: `place --all` keeps it
-  where it is and lays the other cards out around it, in the free
-  slots of the boxes as written; with no pinned card, `place --all`
-  lays the boxes and the canvas out again too. Pin a card when the
-  check names a route through it and moving it is the fix, or when its
-  place must say something the grid does not. A position without the
-  flag is `place`'s own: `place` keeps it, `place --all` may move it.
-- **The artifact labels.** A label is a noun phrase of one to three
-  words (`facts`, `the fix`, `package roots`), never a sentence. When a
-  label cannot be seated the check says which fix applies, from the
-  router's own seat counts: `gutter between the row of A, B and the row
-  of C (y 160 to 226) holds 3 of 3 seats: move a card or raise the row
-  pitch of region X` (no label seat is left in that gutter: pin a card
-  elsewhere, or give that region's cards positions 110 or 130 apart and
-  grow its box), or `label is 41 units wider than its seat: shorten the
-  artifact` (no run of the path is long enough for the words).
+Component columns are 190 units apart. Rows are 92 units apart.
+After three rows, the region uses another column.
+Region size depends on its components. Container size depends on its regions.
+Actors and components without a region use a column beside the regions.
+Their vertical positions depend on connected components.
+Barycenter sweeps put components with many flows near one another.
 
-## When to open a map inside a card
+Placement changes positions, boxes, and canvas dimensions in the model file.
+It does not change component functions or flow claims.
+Use `--print` to show positions without file changes.
+The same model gives the same positions. A second placement changes nothing.
+If a region has no free position, use `systemap place --all`.
 
-One canvas holds about forty cards. Past that every layer holds nearly
-every card, so switching layers separates nothing, and no placement leaves
-a corridor. `systemap suggest` says
-when a map is past forty and names the cards with the most modules as
-the candidates; a card whose modules exceed ten is a candidate on any
-map. To open one:
+## Placement decisions
 
-- Give the card `map="gateway.py"`: a path relative to the model file.
-- Write that module like any model, exporting `MODEL` and `MEANING`,
-  with no positions: its cards claim exactly the modules the card
-  claims, each once, and nothing else (a symbol claim is allowed); its
-  actors are the cards around the card on the map above, by their ids,
-  so the edges that leave the card land on them.
-- Run the loop as before. `systemap place` places every map; `systemap
-  check` runs every rule on every map and the nesting rule between
-  them, and refuses any difference with the modules named, a sub-map's
-  lines prefixed by its id (`Gateway: `); `refresh` writes one page per
-  map (`docs/map/Gateway/index.html`, linked from the card's panel and
-  back); `figure --map Gateway` draws one; `describe` and `judgement`
-  prefix their lines the same way; `delta` names a moved module's card
-  on every map it is drawn on, and the map's file.
+Select each component's region by system function, phase, or team.
+Keep components with many flows in the same or adjacent regions.
+Automatic placement does not select the region assignment.
 
-The top map keeps the card, its flows and its sentences: the map inside
-is a closer look, not a replacement. A map inside a map is opened the
-same way; its id is `Gateway/Routes`.
+The region list also determines document order and the search tie-breaker.
+Select an order that helps a reader learn the system.
+Use `--keep-order` only when that grid order is necessary.
+A forced order can have more route bends than the selected search result.
 
-## Reading the picture without opening it
+Use `pinned=True` for a position that must stay fixed.
+With pinned components, placement uses free positions in the existing boxes.
+Without pinned components, `--all` can change boxes and the canvas.
+A position without the flag can move during `--all`.
 
-`systemap describe` prints, as numbers, what the page shows: how
-many cards are pinned (the flag), how many `place` wrote, and how many
-it positioned for the look only; the
-cards each region holds; every edge with its bends and length, worst
-first, and the gutter its label sits in; every gutter, named by the cards
-on either side of it and its coordinates (`between the row of A, B and
-the row of C (y 160 to 226)`), with the seats used at its fullest point
-of the seats it has (a seat is one label across the gutter, 13 units
-with a 2-unit gap and 3 units clear of the cards); how many edges are
-observed, external and declared; and the cards and edges each layer
-shows. Run it after every check, and open the page (`systemap serve`)
-only if you can. A gutter at its seat count, an edge with five bends, a
-layer that holds two cards: each is a thing to fix (a card in another
-region, the regions reordered, a card pinned) before the second pass.
+Use ASD-STE100 artifact noun phrases of one to three words.
+If a label has no free position in a gutter, move a component or increase row spacing.
+If a label is wider than its route segment, shorten the artifact without a change to its meaning.
+Use the actual dimensions printed by the checker.
+Do not select spacing from an invented measurement.
+
+## Nested maps
+
+The suggestion threshold is forty components for a map or more than ten modules for one component.
+These are tool thresholds, not a readability guarantee.
+For a suggested nested map:
+
+1. Set `map="gateway.py"` on the parent component.
+   The path is relative to the parent model file.
+2. Write `MODEL` and `MEANING` in that module without positions.
+   Assign exactly the parent's modules or source symbols to its internal components.
+   Do not include unrelated source claims.
+3. Use the parent map's adjacent component identifiers for the nested map actors.
+4. Run the normal mapping loop for every map.
+
+`systemap place` and `systemap check` examine every nested map.
+The nesting check rejects differences in source coverage.
+Nested findings have a map prefix, for example `Gateway: `.
+`refresh` writes `docs/map/Gateway/index.html` with parent and child links.
+`figure --map Gateway` makes its figure.
+`describe`, `judgement`, and `delta` also identify the applicable map.
+The parent component and its flows stay on the parent map.
+A further nested map can have an identifier such as `Gateway/Routes`.
+
+## Read the layout measurements
+
+`systemap describe` shows these measurements:
+
+- Pinned, stored, and automatically displayed positions.
+- Components in each region.
+- Bends and length for each route, with the worst routes first.
+- Label gutters and their occupied positions.
+- Flow evidence states and layer contents.
+
+A gutter label position uses 13 units, a 2-unit gap, and 3 units of component clearance.
+The command gives actual gutter coordinates and occupancy.
+Examine full gutters, routes with many bends, isolated regions, and empty layers.
+Use `systemap serve` to examine the page when a browser is available.

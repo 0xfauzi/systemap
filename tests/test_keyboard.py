@@ -89,7 +89,7 @@ def check_counts(report: dict[str, object]) -> None:
         actors = sum(1 for c in listed if c["kind"] == "actor")
         says = strip["says"]
         assert isinstance(says, str)
-        assert says.endswith(f". {counted(len(listed) - actors, actors)}; click one."), (
+        assert says.endswith(f". {counted(len(listed) - actors, actors)}. Select one."), (
             layer,
             says,
         )
@@ -217,7 +217,7 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
         "animation:none!important}}" in html
     )
     assert "@media (prefers-reduced-motion:reduce){#schematic .flow.hot{animation:none" in html
-    assert "Tab reaches cards and flow labels. Enter inspects." in html
+    assert "Tab selects cards and flow labels. Enter opens their data." in html
 
 
 def test_the_schemes_accents_differ() -> None:

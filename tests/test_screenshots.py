@@ -112,7 +112,7 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
         if line.strip()
     ]
     quoted = re.search(
-        r"that path cost ([\d., and]+) dollars, against\s+between (\d+) and (\d+) dollars",
+        r"repository cost ([\d., and]+) dollars through this procedure. First-map runs cost between (\d+) and (\d+)",
         readme.replace("\n", " "),
     )
     assert quoted, "the README no longer quotes the measured costs in the form the test reads"

@@ -1,24 +1,22 @@
-"""The one door to TypeSafe's Jev: typed questions out, typed answers back.
+"""Send typed questions to TypeSafe's Jev and read typed answers.
 
-systemap has no dependencies, and this module keeps it that way: it speaks
-the System One HTTP API with `urllib` (POST /v1/systemone, GET /v1/models)
-and nothing else. Nothing is sent unless a command that asks Jev runs and
-`TYPESAFE_API_KEY` is set; `TYPESAFE_BASE_URL` points it elsewhere.
+The module uses `urllib` without external dependencies for the System One HTTP
+API: POST /v1/systemone and GET /v1/models. Calls use `TYPESAFE_API_KEY`.
+`TYPESAFE_BASE_URL` can select a different server.
 
-Every answer is cached on disk (`[jev] cache`, `.systemap/jev-cache.json` by
-default), keyed by a hash of the model's name and release date, the state
-and the questions. A second run over an unchanged map sends nothing, and a
-new release of the model invalidates every cached answer at once, because
-the release date is read from GET /v1/models at the start of each run (one
-request, no tokens) and is part of every key.
+Disk caching uses `[jev] cache`, with `.systemap/jev-cache.json` as the default.
+Each key hashes model name, release date, state, and questions.
+Unchanged questions use cached answers. A new model release changes the keys.
+The release date comes from GET /v1/models at the start of each run.
+That call uses no model tokens.
 
-A failure is never answered with a guess. Rate limits, overload and server
-errors are retried with backoff; anything still failing raises `JevError`
-with the status and the API's message, and the answers already received
-stay in the cache so the next run resumes.
+Rate limits, overload, server errors, and connection errors cause retries with
+backoff. A terminal error raises `JevError` with the status and API message.
+Received answers stay cached. The next run can continue without duplicate calls.
+No error is replaced by a guessed answer.
 
-`send` is injectable: a function (method, path, body) -> parsed JSON. The
-tests pass one that replays responses recorded from real calls.
+Tests inject `send`: a function from method, path, and body to parsed JSON.
+It supplies recorded responses from API calls.
 """
 
 from __future__ import annotations
@@ -49,7 +47,7 @@ Answers = dict[str, dict[str, Any]]
 
 
 class JevError(Exception):
-    """A call to Jev failed for good, or cannot be made; the message says why."""
+    """A Jev call cannot complete. The message gives the cause."""
 
 
 class _Retryable(Exception):
@@ -70,7 +68,7 @@ def _message(status: int, text: str) -> str:
 
 
 def http_send(key: str, base: str = API) -> Send:
-    """The real transport: one HTTPS request per call, JSON both ways."""
+    """Send one HTTPS request per call, with JSON input and output."""
 
     def send(method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
         data = json.dumps(body).encode() if body is not None else None
@@ -96,7 +94,7 @@ def http_send(key: str, base: str = API) -> Send:
 
 
 def with_retries(send: Send, attempts: int = ATTEMPTS, pause: float = 0.5) -> Send:
-    """Retry rate limits, overload, server errors and dropped connections, with backoff."""
+    """Try rate limits, overload, server errors, and connection errors again with backoff."""
 
     def retrying(method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
         for attempt in range(attempts):
@@ -113,7 +111,7 @@ def with_retries(send: Send, attempts: int = ATTEMPTS, pause: float = 0.5) -> Se
 
 @dataclass(frozen=True)
 class Ask:
-    """One request: a key the caller chooses, the state, and the questions about it."""
+    """One request with a caller-selected key, state, and questions."""
 
     key: str
     state: Any
@@ -131,10 +129,9 @@ def cache_key(model: str, release: str, ask: Ask) -> str:
 
 
 class Cache:
-    """Answers on disk, by `cache_key`. Written whole, through a temporary file.
+    """Keep disk answers by `cache_key` and replace the full file through a temporary file.
 
-    `systemap.agent` keeps its prose here too, so a cache holds whatever the
-    thing that wrote it put there; each reader knows the shape of its own.
+    `systemap.agent` also keeps responses here. Each caller selects its data format.
     """
 
     def __init__(self, path: Path | None) -> None:
@@ -157,7 +154,7 @@ class Cache:
 
 @dataclass
 class Usage:
-    """What a run cost: calls sent, answers served from the cache, tokens."""
+    """Record sent calls, cached answers, and input/output tokens."""
 
     sent: int = 0
     cached: int = 0
@@ -173,7 +170,7 @@ class Usage:
 
 
 class Jev:
-    """Ask many questions of one model, from the cache when it can."""
+    """Get answers from one model, using cached answers when available."""
 
     def __init__(self, send: Send, model: str = "jev-latest", cache: Cache | None = None) -> None:
         self.send = send
@@ -183,18 +180,18 @@ class Jev:
         self._release: str | None = None
 
     def release(self) -> str:
-        """The model's release date, read once per run; part of every cache key."""
+        """Read the model release date one time per run for all cache keys."""
         if self._release is None:
             listed = self.send("GET", "/models", None).get("models", [])
             dates = [m.get("release_date", "") for m in listed if m.get("name") == self.model]
             if not dates:
                 names = ", ".join(sorted(m.get("name", "") for m in listed))
-                raise JevError(f"model {self.model} is not offered; the API lists: {names}")
+                raise JevError(f"model {self.model} is not available. The API lists: {names}")
             self._release = dates[0]
         return self._release
 
     def pending(self, asks: list[Ask]) -> list[Ask]:
-        """The asks the cache cannot answer."""
+        """Get questions without cached answers."""
         release = self.release()
         return [a for a in asks if cache_key(self.model, release, a) not in self.cache.entries]
 
@@ -209,8 +206,11 @@ class Jev:
         return answers
 
     def ask(self, asks: list[Ask], concurrency: int = CONCURRENCY) -> dict[str, Answers]:
-        """Every ask's answers, by its key. Raises JevError when a call fails for good;
-        the answers received before it are kept in the cache."""
+        """Get answers by request key.
+
+        A terminal call error raises JevError.
+        Received answers stay in the cache.
+        """
         release = self.release()
         keys = {a.key: cache_key(self.model, release, a) for a in asks}
         todo = [a for a in asks if keys[a.key] not in self.cache.entries]
@@ -226,11 +226,11 @@ class Jev:
 
 
 def from_env(model: str, cache_path: Path | None, send: Send | None = None) -> Jev:
-    """A client for this run: the injected transport, or HTTPS with the key from the environment."""
+    """Make a client with injected transport, or HTTPS with an environment key."""
     if send is None:
         key = os.environ.get(KEY_ENV, "").strip()
         if not key:
-            raise JevError(f"set {KEY_ENV} to ask Jev; nothing was sent")
+            raise JevError(f"set {KEY_ENV} to call Jev. No data was sent")
         send = http_send(key, os.environ.get(BASE_ENV, "").strip() or API)
     return Jev(with_retries(send), model, Cache(cache_path))
 

@@ -1,4 +1,4 @@
-"""Scoped scene, evidence and inspector styles for pages and figures."""
+"""Diagram and inspector styles for pages and figures."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from systemap.theme import Palette
 
 
 def _svg_style(svg_id: str, t: Palette) -> str:
-    """Selection preserves readable card text and each flow's evidence pattern."""
+    """Keep card text colors and flow evidence patterns during selection."""
     s = f"#{svg_id}"
     return (
         "<style>"
@@ -56,36 +56,34 @@ def _svg_style(svg_id: str, t: Palette) -> str:
 
 
 def _defs(svg_id: str, t: Palette) -> str:
-    """Arrowheads: one per layer colour, plus the change-map colours.
+    """Make arrowheads for layer and change colors.
 
-    Sized in user units so a thick focused edge and a hairline ghost edge
-    carry the same head; the thickness is the emphasis, the head is the
-    direction.
-    """
+    Arrowheads use SVG user units. Line thickness changes emphasis without
+    a change to the arrowhead size. The arrowhead shows direction."""
     heads = {lid: t.layer(lid) for lid in t.t["layers"]}
     heads["change"] = t["change"]
     heads["reach"] = t["reach"]
     heads["selected"] = t["accent"]
     out = ["<defs>"]
-    for name, colour in heads.items():
+    for name, color in heads.items():
         out.append(
             f'<marker id="{svg_id}-m-{name}" viewBox="0 0 8 8" refX="7" refY="4" '
             f'markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" '
             f'orient="auto-start-reverse">'
-            f'<path d="M0,0 L8,4 L0,8 z" fill="{colour}"/></marker>'
+            f'<path d="M0,0 L8,4 L0,8 z" fill="{color}"/></marker>'
         )
     out.append("</defs>")
     return "".join(out)
 
 
 def panel_css(t: dict[str, Any], variables: bool = False) -> str:
-    """The exact relationship reads before connected parts and source details."""
+    """Show the selected flow before connected components and source details."""
     P = Palette(t, variables)
     return (
         f".systemap-panel{{font-family:{P['font_ui']};font-size:13px;line-height:1.5;"
         f"color:{P['ink_2']};background:{P['surface']};border:1px solid {P['line']};"
         "border-radius:8px;padding:1rem;min-height:3rem;overflow-wrap:anywhere}"
-        f".systemap-panel:empty::before{{content:'Select a part or route label to inspect it.';"
+        f".systemap-panel:empty::before{{content:'Select a card or flow label to examine it.';"
         f"color:{P['ink_3']}}}"
         f".systemap-f__code{{font-family:{P['font_mono']};font-size:19px;color:{P['ink']};"
         "font-weight:600;line-height:1.25;margin:0;letter-spacing:-.02em}"

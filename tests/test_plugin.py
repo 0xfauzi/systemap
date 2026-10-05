@@ -23,6 +23,7 @@ MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
 MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
 
 REFERENCES = (
+    "language.md",
     "schema.md",
     "example.md",
     "layout.md",
@@ -86,7 +87,7 @@ def test_skill_front_matter_fits_the_plugin_limits() -> None:
     fields = dict(line.split(": ", 1) for line in head.strip().splitlines())
     assert fields["name"] == "systemap"
     assert len(fields["description"]) <= 1024
-    for phrase in ("map this repository", "draw the system map", "update the map"):
+    for phrase in ("Make or update a system map", "ASD-STE100", "systemap delta"):
         assert phrase in fields["description"], phrase
     assert fields["license"] == "MIT"
-    assert fields["compatibility"].startswith("Requires Python 3.11+")
+    assert fields["compatibility"].startswith("Python 3.11+")

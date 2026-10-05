@@ -1,4 +1,4 @@
-"""Read TypeScript declarations into the public names systemap can explain."""
+"""The TypeScript surface reader records declarations and public names."""
 
 from __future__ import annotations
 
@@ -248,7 +248,9 @@ def _local_exports(
         kind = kinds.get(local, "unknown")
         names.append({"name": public, "kind": kind})
         if kind == "unknown":
-            unknown.append(_unknown(node, f"the local export {local!r} could not be classified"))
+            unknown.append(
+                _unknown(node, f"the local export {local!r} has an unknown declaration kind.")
+            )
     return names, unknown
 
 
@@ -261,13 +263,13 @@ def _unknown(node: Node, reason: str) -> dict[str, Any]:
 
 
 def parse_problem(raw: str, path: str = "") -> dict[str, Any]:
-    """The first parser error, for an otherwise retained module record."""
+    """This function gives the initial parser error for a retained module record."""
     root = _tree(raw, path)
     node = next((child for child in _walk(root) if child.type == "ERROR" or child.is_missing), root)
     source = _one_line(_text(node))[:120]
-    reason = "TypeScript syntax could not be parsed"
+    reason = "The parser could not parse the TypeScript syntax."
     if source:
-        reason += f" near {source!r}"
+        reason += f" Source excerpt: {source!r}"
     return {"line": node.start_point.row + 1, "reason": reason, "source": source}
 
 
@@ -397,7 +399,7 @@ def _record_export_without_declaration(
     surface["names"].extend(local)
     surface["unknown"].extend(local_unknown)
     if not local and not reexports:
-        surface["unknown"].append(_unknown(export, "the export form has no recorded public name"))
+        surface["unknown"].append(_unknown(export, "The export form has no recorded public name."))
 
 
 def _record_default_value(export: Node, value: Node, surface: dict[str, Any]) -> None:
@@ -406,7 +408,7 @@ def _record_default_value(export: Node, value: Node, surface: dict[str, Any]) ->
         return
     surface["names"].append({"name": "default", "kind": "unknown"})
     surface["unknown"].append(
-        _unknown(export, "the default export expression could not be classified")
+        _unknown(export, "The default export expression has an unknown declaration kind.")
     )
 
 
@@ -446,12 +448,12 @@ def _record_unknown_declaration(
     added = surface["names"][start:]
     if default and added and added[-1].get("name") == "default":
         surface["unknown"].append(
-            _unknown(export, "the default expression is not a named declaration")
+            _unknown(export, "The default expression is not a named declaration.")
         )
         return
     if added:
         return
-    surface["unknown"].append(_unknown(export, "the declaration form is not supported"))
+    surface["unknown"].append(_unknown(export, "The parser cannot read this declaration form."))
     _record_unknown_name(declaration, surface["names"])
 
 
@@ -469,7 +471,9 @@ def _record_unknown_name(declaration: Node, names: list[dict[str, Any]]) -> None
 
 
 def _syntax(node: Node, *, omit_body: bool = False) -> str:
-    """A token identity that ignores layout and, for callable code, its body."""
+    """This function calculates a token identity without layout or callable implementation
+    bodies.
+    """
     body = node.child_by_field_name("body") if omit_body else None
     tokens: list[str] = []
 
@@ -642,7 +646,9 @@ def _clause_export_api(
 
 
 def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
-    """The exported surface of one TypeScript or TSX module, with unknowns explicit."""
+    """This function gives the public surface of a TypeScript or TSX module, including
+    unknown declarations.
+    """
     root = _root(raw, path)
     if root is None:
         return None
@@ -679,7 +685,9 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
 
 
 def test_names(raw: str, path: str = "") -> list[str]:
-    """The literal names passed to `test` and `it`, including nested suites."""
+    """This function gives literal names passed to test and it, including nested test
+    suites.
+    """
     root = _root(raw, path)
     if root is None:
         return []

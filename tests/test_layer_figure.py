@@ -107,12 +107,12 @@ def test_the_legend_and_caption_reduce_to_the_layer(sample: Sample) -> None:
     assert collisions == []
     assert "Control flow</span>" in html
     assert "Data flow</span>" not in html and "Record</span>" not in html
-    assert "Control flow: Who drives whom?" in html
-    assert "One layer of the system" in html
+    assert "Control flow: Which components cause other components to act?" in html
+    assert "This figure shows one layer." in html
     html, _ = figure.make(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, layer="structure"
     )
-    assert "Structure: What are the parts, and where does each sit?" in html
+    assert "Structure: Which components are in each region and container?" in html
     assert "width:1em;height:3px" not in html, "structure draws no line, so no line swatch"
     assert "Control flow</span>" not in html and "Data flow</span>" not in html
     with pytest.raises(figure.ConfigError, match="unknown layer id: nope"):
@@ -142,7 +142,7 @@ def test_unknown_layer_exits_2_with_the_fix_named(
     )
     svg = out.read_text()
     assert svg.startswith("<svg ")
-    assert "<title>Data flow: What moves, and where does it go?</title>" in svg
+    assert "<title>Data flow: Which artifacts move between components?</title>" in svg
     assert drawn_edges(svg) == [("Reader", "Writer", "data")], "the starter model's one flow"
 
 
@@ -166,7 +166,7 @@ def test_configured_layer_figures_are_refreshed_and_checked(
     capsys.readouterr()
     (tmp_path / "docs/map/figures/data.svg").write_text(data + "<!-- by hand -->")
     assert run("--root", str(tmp_path), "check") == 1
-    assert "docs/map/figures/data.svg differs from what systemap renders" in (
+    assert "docs/map/figures/data.svg differs from the rendered output." in (
         capsys.readouterr().out
     )
     assert run("--root", str(tmp_path), "refresh") == 0

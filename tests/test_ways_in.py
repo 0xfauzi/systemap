@@ -180,14 +180,14 @@ def test_a_card_that_takes_a_crowd_of_routes_is_asked_once(sample: Any) -> None:
     points = [route(f"GET /r{n}", "pkg.reader") for n in range(6)]
     facts = facts_with(points, modules)
     lines = judgement.entry_points_without_journey(sample.model, Meaning(plain={}), facts)
-    assert lines == ["entry point 6 routes into Reader have no journey (component Reader)"]
+    assert lines == ["entry point 6 routes into Reader have no sequence (component Reader)"]
     # a few are still asked about one by one, so the map can be fixed one at a time
     facts = facts_with(points[:3], modules)
     lines = judgement.entry_points_without_journey(sample.model, Meaning(plain={}), facts)
     assert lines == [
-        "entry point GET /r0 (route) has no journey (component Reader)",
-        "entry point GET /r1 (route) has no journey (component Reader)",
-        "entry point GET /r2 (route) has no journey (component Reader)",
+        "entry point GET /r0 (route) has no sequence (component Reader)",
+        "entry point GET /r1 (route) has no sequence (component Reader)",
+        "entry point GET /r2 (route) has no sequence (component Reader)",
     ]
 
 
@@ -213,6 +213,6 @@ def test_a_journey_that_starts_nowhere_says_so(sample: Any) -> None:
     walk = Journey(id="read", label="read one", steps=(), starts="GET /gone")
     lines = judgement.journey_problems(Meaning(plain={}, journeys=(walk,)), facts)
     assert lines == [
-        "journey start: read has no steps; an empty walk covers no way in",
-        "journey start: read starts at GET /gone, which the facts have no way in for",
+        "journey start: read has no steps. An empty sequence gives no entry point coverage.",
+        "journey start: read starts at GET /gone, but the facts contain no such entry point.",
     ]

@@ -1,52 +1,8 @@
-"""What a change does to the map: `systemap delta --base REF [--head REF]`.
+"""The delta compares source facts at two commits and gives the necessary map changes.
 
-The loop in the skill is built for the first draft. After a pull request
-moves a module, `extract --check` fails, says the map is stale, and the
-only answer used to be the whole loop again, at first-draft cost. This
-module reads the facts at two commits and says, in the map's terms, what
-the change did:
-
-    moved ................ a module at a new path, with the same content,
-                           the same public names, or a file name that reads
-                           the same and most of the same names; the card
-                           that names the old path is told to rename it
-    added ................ a new module, and the card that claims it; a new
-                           module no card claims is coverage lost, and the
-                           line says so
-    removed .............. a module that is gone, and the card that still
-                           names it
-    entry vanished ....... a card's entry that its modules defined at the
-                           base commit and no longer do
-    interface vanished ... the same for the name an interface line starts
-                           with, by the check's own interface rule
-    new crossing import .. an import that crosses a card boundary at the
-                           head commit, did not at the base, and has no
-                           flow and no answer under [judgement]
-    evidence lost ........ a flow an import backed at the base commit and
-                           nothing backs now
-
-Each line names its fix. A line needs a decision, or it does not, and
-the exit code says which: 0 when nothing needs a decision, 1 when
-something does. A decision is one nobody else can take: which card
-claims a new module, whether a new dependency across a boundary
-belongs, what a card's entry point is now. The rest is a line the map
-as written already covers, such as a new module a `pkg.*` pattern
-claims, and `systemap refresh` is the whole of the fix.
-`--format markdown` prints the same report as a pull-request comment.
-
-The facts at each commit are read from the git tree (`git archive` into
-a temporary directory, then the extractor as usual), so the working copy
-is not touched and an extraction here cannot differ from what `systemap
-extract` would read at that commit. The model is the one on disk, the map
-as it is now, the file the person edits: a card that names a module's new
-path is taken to have claimed the old one at the base commit, and a card
-that still names the old path is judged as if renamed, so a pending rename
-is one line, not four.
-
-The comparison runs on every map of the tree (`compute_tree`): the top
-map over every module, and the map inside a card over the modules that
-card claims, so a moved module names its card on each map it is drawn
-on, and the map's file. A sub-map's lines carry its id in front.
+It finds added, removed, and moved modules, missing public names, new imports, and
+changes to flow evidence. The model on disk supplies the component claims. The report
+identifies decisions and gives actions without changing the model.
 """
 
 from __future__ import annotations
@@ -103,7 +59,7 @@ KINDS = (
 
 
 class DeltaError(Exception):
-    """The two commits cannot be compared; the message says why."""
+    """The program cannot compare the requested commits. The message gives the reason."""
 
 
 # ---- git: the facts at a commit, without touching the working copy -----------
@@ -114,16 +70,17 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
 
 
 def resolve(repo: Path, ref: str) -> str:
-    """The full commit sha a ref names, or a DeltaError naming the ref."""
+    """This function resolves a Git ref to a full commit SHA, or raises DeltaError."""
     proc = _git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
     if proc.returncode != 0 or not proc.stdout.strip():
-        raise DeltaError(f"unknown ref {ref}; give a commit, a branch or a tag git can find")
+        raise DeltaError(f"unknown ref {ref}. Give a commit, branch, or tag that Git can resolve.")
     return proc.stdout.decode("utf-8").strip()
 
 
 def merge_base(repo: Path, base: str, head: str) -> str:
-    """The commit the two share, so a base branch that moved on is not a change;
-    the base itself when git cannot say (no shared history)."""
+    """This function finds a common ancestor, or uses the base commit if Git cannot find
+    one.
+    """
     proc = _git(repo, "merge-base", base, head)
     out = proc.stdout.decode("utf-8").strip()
     return out if proc.returncode == 0 and out else base
@@ -139,11 +96,12 @@ def _extract_all(tar: tarfile.TarFile, into: Path) -> None:
 
 
 def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
-    """The facts for the tree at `sha`, extracted from git, never from the working copy."""
+    """This function extracts facts at a Git commit without reading the working tree."""
     proc = _git(cfg.root, "archive", "--format=tar", sha)
     if proc.returncode != 0:
         raise DeltaError(
-            f"git archive {sha[:7]} failed: {proc.stderr.decode('utf-8', 'replace').strip()}"
+            f"git archive {sha[:7]} returned an error: "
+            f"{proc.stderr.decode('utf-8', 'replace').strip()}"
         )
     with tempfile.TemporaryDirectory(prefix="systemap-delta-") as tmp:
         into = Path(tmp).resolve()
@@ -155,7 +113,7 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
 
 
 def remote_repository(repo: Path) -> str:
-    """`owner/name` of the origin remote when it is on GitHub, else empty."""
+    """This function gets owner/name from a GitHub origin remote, or gives an empty string."""
     proc = _git(repo, "remote", "get-url", "origin")
     if proc.returncode != 0:
         return ""
@@ -165,13 +123,9 @@ def remote_repository(repo: Path) -> str:
 
 
 def figure_url(cfg: Config, sha: str) -> str:
-    """The committed whole-map figure at `sha`, as the URL a comment renders, or empty.
+    """This function gives a URL for the committed full-map figure, or an empty string.
 
-    A comment cannot show a relative path, and GitHub's own writing guide
-    gives the form for an image in the repository from an issue or a pull
-    request: the blob URL with `?raw=true`. The figure is the first
-    configured `.svg` that draws every reading (no `layer`), else the first
-    `.svg`; nothing when the file is not in the tree at that commit.
+    A comment must have an absolute URL to show a repository image.
     """
     owner = remote_repository(cfg.root)
     if not owner:
@@ -190,7 +144,7 @@ def figure_url(cfg: Config, sha: str) -> str:
 
 @dataclass(frozen=True)
 class Line:
-    """One thing the change did to the map, with its fix when a person is needed."""
+    """This record gives one map change and its necessary action."""
 
     kind: str
     text: str
@@ -200,7 +154,7 @@ class Line:
 
 @dataclass(frozen=True)
 class Delta:
-    """Everything `systemap delta` reports about two commits."""
+    """This record contains the map-change report for two commits."""
 
     base: str
     head: str
@@ -237,7 +191,9 @@ class Delta:
 
 
 def _mapped(pattern: str, mapping: dict[str, str]) -> str:
-    """One `implemented_by` entry with a moved module renamed; patterns stay."""
+    """This function renames a moved module in one implemented_by entry. It keeps package
+    patterns.
+    """
     if is_symbol(pattern):
         module, _, name = pattern.partition(":")
         return f"{mapping.get(module, module)}:{name}"
@@ -245,7 +201,9 @@ def _mapped(pattern: str, mapping: dict[str, str]) -> str:
 
 
 def with_claims(model: Model, mapping: dict[str, str]) -> Model:
-    """The model with every claim renamed through `mapping`, positions and all."""
+    """This function renames model claims through the module mapping and keeps the
+    geometry.
+    """
     return dataclasses.replace(
         model,
         components=tuple(
@@ -258,7 +216,9 @@ def with_claims(model: Model, mapping: dict[str, str]) -> Model:
 
 
 def _names_it(c: Component, module: str) -> bool:
-    """Does a card name `module` outright, by name or as a symbol's module?"""
+    """This function finds an exact module claim or a symbol claim for the specified
+    module.
+    """
     return module in c.implemented_by or any(m == module for m, _n in symbol_claims(c))
 
 
@@ -276,13 +236,10 @@ def compute(
     prefix: str = "",
     told: Mapping[str, tuple[str, str]] = moves_mod.NO_MOVES,
 ) -> Delta:
-    """What the change from `base` to `head` does to the map the model draws.
+    """This function compares base and head facts against the model on disk.
 
-    `model_file` is the file the fixes name (the configured model when
-    empty); `within` names the card a sub-map is inside, whose claims
-    bound what a new module may be ignored from; `prefix` is what the
-    sub-map's judgement lines carry, so an answered crossing import is
-    matched as printed; `told` holds moves found elsewhere (`delta --jev`).
+    The model_file parameter supplies the path for correction instructions. The within
+    parameter identifies the parent component of a nested map.
     """
     b: dict[str, Any] = base.get("components", {})
     h: dict[str, Any] = head.get("components", {})
@@ -314,8 +271,10 @@ def compute(
         lines.append(
             Line(
                 "move candidate",
-                f"move candidate: {old} and {', '.join(alternatives)} share public names; "
-                "review source before treating any pair as a move",
+                (
+                    f"move candidate: {old} and {', '.join(alternatives)} have some of the same "
+                    f"public names. Examine the source before you accept a pair as a move."
+                ),
                 (who,) if who else (),
                 decide=True,
             )
@@ -330,8 +289,22 @@ def compute(
             lines.append(
                 Line(
                     "moved",
-                    f"moved: {old} -> {new_name} ({how}); {who} names {old} in implemented_by: "
-                    f"rename it to {new_name} in {model_file}",
+                    (
+                        "moved: "
+                        f"{old}"
+                        " -> "
+                        f"{new_name}"
+                        " ("
+                        f"{how}"
+                        "). "
+                        f"{who}"
+                        " specifies "
+                        f"{old}"
+                        " in implemented_by. Change this claim to "
+                        f"{new_name}"
+                        " in "
+                        f"{model_file}"
+                    ),
                     tuple(explicit),
                     decide=True,
                 )
@@ -345,14 +318,24 @@ def compute(
             lines.append(
                 Line(
                     "moved",
-                    f"moved: {old} -> {new_name} ({how}); no card claims {new_name}: name it in "
-                    f"a card's implemented_by in {model_file}",
+                    (
+                        "moved: "
+                        f"{old}"
+                        " -> "
+                        f"{new_name}"
+                        " ("
+                        f"{how}"
+                        "). No component has a claim for "
+                        f"{new_name}"
+                        ". Add it to a component implemented_by in "
+                        f"{model_file}"
+                    ),
                     (was,) if was else (),
                     decide=True,
                 )
             )
         else:
-            where = f", claimed by {claimed_by}" if claimed_by else ", ignored under [coverage]"
+            where = f", with a claim in {claimed_by}" if claimed_by else ", ignored in [coverage]"
             lines.append(
                 Line(
                     "moved",
@@ -365,24 +348,28 @@ def compute(
             continue
         claimed_by = owner_written.get(module)
         if claimed_by:
-            lines.append(Line("added", f"added: {module}, claimed by {claimed_by}", (claimed_by,)))
+            lines.append(
+                Line("added", f"added: {module}, with a claim in {claimed_by}", (claimed_by,))
+            )
         elif extract.is_empty_marker(h[module]):
             lines.append(Line("added", f"added: {module}, an empty package marker"))
         elif ignored(module) and not within:
-            lines.append(Line("added", f"added: {module}, ignored under [coverage]"))
+            lines.append(Line("added", f"added: {module}, ignored in [coverage]"))
         else:
             # Inside a card there is no ignoring: the sub-map claims
             # exactly what the card claims.
             way_out = (
-                f"the map inside {within} claims exactly what {within} claims"
+                f"the map inside {within} has the same module claims as {within}"
                 if within
-                else "or ignore it with a reason under [coverage]"
+                else "or give a reason to ignore it in [coverage]"
             )
             lines.append(
                 Line(
                     "added",
-                    f"added: {module}, claimed by no card; name it in a card's implemented_by "
-                    f"in {model_file}, {way_out}",
+                    (
+                        f"added: {module}, No component has a claim for it. Add it to a component "
+                        f"implemented_by in {model_file}, {way_out}"
+                    ),
                     decide=True,
                 )
             )
@@ -398,17 +385,26 @@ def compute(
             lines.append(
                 Line(
                     "removed",
-                    f"removed: {module}; {who} names it in implemented_by: drop it in {model_file}",
+                    (
+                        "removed: "
+                        f"{module}"
+                        ". "
+                        f"{who}"
+                        " specifies it in implemented_by. Remove the claim in "
+                        f"{model_file}"
+                    ),
                     tuple(explicit),
                     decide=True,
                 )
             )
         elif symbols:
-            who = ", ".join(f"{cid} claims symbol {module}:{name}" for cid, name in symbols)
+            who = ", ".join(
+                f"{cid} has a symbol claim for {module}:{name}" for cid, name in symbols
+            )
             lines.append(
                 Line(
                     "removed",
-                    f"removed: {module}; {who}: drop it in {model_file}",
+                    f"removed: {module}. {who}. Remove the claim in {model_file}",
                     tuple(cid for cid, _n in symbols),
                     decide=True,
                 )
@@ -417,13 +413,13 @@ def compute(
             lines.append(
                 Line(
                     "removed",
-                    f"removed: {module}; the [coverage] ignore that names it is stale: remove it",
+                    f"removed: {module}. Its [coverage] ignore is stale. Remove the entry.",
                     decide=True,
                 )
             )
         else:
             was = owner_base.get(module)
-            tail = f", was claimed by {was} through a pattern" if was else ""
+            tail = f", with a previous claim in {was} through a pattern" if was else ""
             lines.append(Line("removed", f"removed: {module}{tail}", (was,) if was else ()))
 
     # ---- entry and interface names that vanished ---------------------------------
@@ -437,9 +433,17 @@ def compute(
             lines.append(
                 Line(
                     "entry vanished",
-                    f"entry vanished: {c_head.id} names entry {c_head.entry}, which its modules "
-                    f"defined{at_base} and no longer do; set entry to a public name they define "
-                    f"in {model_file}",
+                    (
+                        "entry vanished: "
+                        f"{c_head.id}"
+                        " has entry "
+                        f"{c_head.entry}"
+                        ", which its modules defined"
+                        f"{at_base}"
+                        " but no longer define it. Set entry to an available public "
+                        "name in "
+                        f"{model_file}"
+                    ),
                     (c_head.id,),
                     decide=True,
                 )
@@ -452,9 +456,18 @@ def compute(
             lines.append(
                 Line(
                     "interface vanished",
-                    f"interface vanished: {c_head.id}'s interface starts with {name}, which its "
-                    f"modules defined{at_base} and no longer do; start it with a public name "
-                    f"they define in {model_file}, or leave it empty",
+                    (
+                        "interface vanished: "
+                        f"{c_head.id}"
+                        "'s interface starts with "
+                        f"{name}"
+                        ", which its modules defined"
+                        f"{at_base}"
+                        " but no longer define it. Start with a public name from these "
+                        "modules in "
+                        f"{model_file}"
+                        ", or leave it empty"
+                    ),
                     (c_head.id,),
                     decide=True,
                 )
@@ -481,9 +494,23 @@ def compute(
             lines.append(
                 Line(
                     "new crossing import",
-                    f"new crossing import: {module} (card {p}) imports {target} (card {q}) and "
-                    f"no flow joins {p} and {q}; add the flow with its sentence in {model_file}, "
-                    "or answer it under [judgement] answered",
+                    (
+                        "new crossing import: "
+                        f"{module}"
+                        " (component "
+                        f"{p}"
+                        ") imports "
+                        f"{target}"
+                        " (component "
+                        f"{q}"
+                        ") and no flow connects "
+                        f"{p}"
+                        " and "
+                        f"{q}"
+                        ". Add the flow and its description in "
+                        f"{model_file}"
+                        ", or answer the diagnostic in [judgement] answered."
+                    ),
                     (p, q),
                     decide=True,
                 )
@@ -519,7 +546,7 @@ def _flow_review_lines(
     at_base: str,
     model_file: str,
 ) -> list[Line]:
-    """Report a flow losing reviewed source or structural support."""
+    """This function gives flows with lost source or structural evidence."""
     lines: list[Line] = []
     for f in model.flows:
         was_observed = ev_base[f.edge].state == evidence.OBSERVED
@@ -527,9 +554,19 @@ def _flow_review_lines(
             lines.append(
                 Line(
                     "evidence lost",
-                    f"evidence lost: {f.src} -> {f.dst} ({f.artifact}) was observed{at_base} and "
-                    "no import joins them now; find the evidence, name the mechanism in the "
-                    f"sentence, or remove the flow in {model_file}",
+                    (
+                        "evidence lost: "
+                        f"{f.src}"
+                        " -> "
+                        f"{f.dst}"
+                        " ("
+                        f"{f.artifact}"
+                        ") was observed"
+                        f"{at_base}"
+                        " and no import connects them now. Find the evidence, give the "
+                        "mechanism, or remove the flow in "
+                        f"{model_file}"
+                    ),
                     (f.src, f.dst),
                     decide=True,
                 )
@@ -538,9 +575,11 @@ def _flow_review_lines(
             lines.append(
                 Line(
                     "source evidence lost",
-                    f"source evidence lost: {f.src} -> {f.dst} ({f.artifact}) was source "
-                    f"reviewed{at_base} and is now {ev_head[f.edge].state}; review its source "
-                    "references, direction and artifact",
+                    (
+                        f"source evidence lost: {f.src} -> {f.dst} ({f.artifact}) was source "
+                        f"reviewed{at_base} and is now {ev_head[f.edge].state}. Examine its source "
+                        f"references, direction, and artifact."
+                    ),
                     (f.src, f.dst),
                     decide=True,
                 )
@@ -552,8 +591,16 @@ def _flow_review_lines(
             lines.append(
                 Line(
                     "structural evidence lost",
-                    f"structural evidence lost: {f.src} -> {f.dst} ({f.artifact}) had an import "
-                    "or declared mechanism at the base commit and does not now; review the flow",
+                    (
+                        "structural evidence lost: "
+                        f"{f.src}"
+                        " -> "
+                        f"{f.dst}"
+                        " ("
+                        f"{f.artifact}"
+                        ") had an import or declared mechanism at the base commit. "
+                        "That evidence is missing now. Examine the flow."
+                    ),
                     (f.src, f.dst),
                     decide=True,
                 )
@@ -573,7 +620,9 @@ def _evidence_review_lines(
     at_base: str,
     model_file: str,
 ) -> list[Line]:
-    """Report flows that lost support and cards whose source needs review."""
+    """This function gives flows with lost evidence and components with changed source
+    claims.
+    """
     lines: list[Line] = []
     b: dict[str, Any] = base.get("components", {})
     h: dict[str, Any] = head.get("components", {})
@@ -596,8 +645,14 @@ def _evidence_review_lines(
             lines.append(
                 Line(
                     "source review",
-                    f"source review: {card.id} has changed code in {', '.join(affected)}; "
-                    "review its description, flows, journeys and invariants against the new source",
+                    (
+                        "source review: "
+                        f"{card.id}"
+                        " has changed code in "
+                        f"{', '.join(affected)}"
+                        ". Compare its description, flows, sequences, and invariants "
+                        "with the new source."
+                    ),
                     (card.id,),
                     decide=True,
                 )
@@ -613,17 +668,17 @@ def _around(
     new: list[str],
     owner: dict[str, str],
 ) -> tuple[int, str, tuple[str, ...]]:
-    """How many modules were rewritten, the card most of them belong to, and its neighbours."""
+    """This function counts changed modules and identifies the primary changed component
+    and its connected components.
+    """
     rewritten = {m for m in set(b) & set(h) if b[m].get("sha") != h[m].get("sha")}
     seed = _seed(rewritten | set(new), owner)
     return len(rewritten), seed, tuple(graph.neighbours(model, seed)) if seed else ()
 
 
 def _seed(touched: set[str], owner: dict[str, str]) -> str:
-    """The card the change is most of: the one claiming the most changed modules.
-
-    Ties go to the first card by name, so two runs of the same change print
-    the same card.
+    """This function selects the component with the most changed modules. Equal counts use
+    component name order.
     """
     counted: dict[str, int] = {}
     for module in touched:
@@ -634,7 +689,7 @@ def _seed(touched: set[str], owner: dict[str, str]) -> str:
 
 
 def _view(facts: dict[str, Any], modules: set[str]) -> dict[str, Any]:
-    """The facts restricted to `modules`: what a map inside a card compares."""
+    """This function selects the facts for the specified nested-map module set."""
     components: dict[str, Any] = facts.get("components", {})
     return {**facts, "components": {m: r for m, r in components.items() if m in modules}}
 
@@ -648,15 +703,10 @@ def compute_tree(
     head_ref: str = "",
     told: Mapping[str, tuple[str, str]] = moves_mod.NO_MOVES,
 ) -> Delta:
-    """The change on every map of the tree, as one report.
+    """This function compares all maps in one report.
 
-    The top map is compared over every module. The map inside a card is
-    compared over the modules the card claims, at each commit (a moved
-    module counts on both sides, through the card's renamed claims), so
-    a module the card lost or gained names the sub-map's card and file
-    too, and nothing outside the card is the sub-map's business. The
-    counts are the top map's; the cards named are every map's, a
-    sub-map's under `<map>/<card>`.
+    The top map uses all modules. Each nested map uses its parent component modules at
+    each commit. The move mapping keeps renamed modules in the nested comparison.
     """
     top = compute(cfg, tree.top.model, tree.top.meaning, base, head, base_ref, head_ref, told=told)
     b: dict[str, Any] = base.get("components", {})
@@ -700,7 +750,7 @@ def compute_tree(
 
 
 def with_claims_of(card: Component, mapping: dict[str, str]) -> Component:
-    """One card with its claims renamed through `mapping`."""
+    """This function renames the claims of one component through the module mapping."""
     return dataclasses.replace(
         card, implemented_by=tuple(_mapped(p, mapping) for p in card.implemented_by)
     )

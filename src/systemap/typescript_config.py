@@ -1,4 +1,6 @@
-"""Read the TypeScript project settings systemap needs."""
+"""The TypeScript configuration reader supplies package settings, compiler paths, aliases,
+and source inputs.
+"""
 
 from __future__ import annotations
 
@@ -38,10 +40,11 @@ Options = dict[str, tuple[Any, Path]]
 
 @dataclass(frozen=True)
 class InputSpec:
-    """`files`, `include` and `exclude`, as paths relative to the tsconfig folder.
+    """This record gives files, include, and exclude patterns relative to the tsconfig
+    directory.
 
-    None for `include` or `exclude` means the key was not written, which tsc
-    treats differently from an empty list.
+    A None value means that the key is missing. An empty list means that the key is
+    available without entries.
     """
 
     files: tuple[str, ...] | None = None
@@ -51,7 +54,7 @@ class InputSpec:
 
 @dataclass(frozen=True)
 class TypeScriptConfig:
-    """Resolved compiler paths and output directories for one project."""
+    """This record contains resolved compiler paths and output directories for a project."""
 
     aliases: tuple[tuple[str, tuple[Path, ...]], ...] = ()
     base_url: Path | None = None
@@ -66,7 +69,7 @@ class TypeScriptConfig:
 
 
 def compiler_settings(config: TypeScriptConfig, repo: Path) -> dict[str, Any]:
-    """Compiler settings with paths relative to the repository, for provenance."""
+    """This function gives compiler settings with repository-relative paths for provenance."""
 
     def relative(value: Any) -> Any:
         if isinstance(value, Path):
@@ -81,7 +84,9 @@ def compiler_settings(config: TypeScriptConfig, repo: Path) -> dict[str, Any]:
 
 
 def package_json(root: Path) -> dict[str, Any]:
-    """The package metadata, or an empty table when it is absent."""
+    """This function reads package metadata, or gives an empty table if package.json is
+    missing.
+    """
     path = root / "package.json"
     if not path.is_file():
         return {}
@@ -93,7 +98,9 @@ def package_json(root: Path) -> dict[str, Any]:
 
 
 def typescript_name(root: Path) -> str:
-    """The TypeScript package name, using the folder name when unnamed."""
+    """This function selects the TypeScript package name, or the directory name if there is
+    no package name.
+    """
     name = package_json(root).get("name")
     if not isinstance(name, str) or not name.strip():
         return root.name.replace("-", "_")
@@ -101,11 +108,8 @@ def typescript_name(root: Path) -> str:
 
 
 def typescript_major(root: Path) -> int | None:
-    """The major version of the project's TypeScript, or None when nothing says.
-
-    The installed package is the truth when it is present. Otherwise the range
-    in package.json names the major first, as in `^5.9.3` or `~6.0`. A range
-    with no digit, such as `latest`, says nothing.
+    """This function gets the installed TypeScript major version, or the package.json
+    version range if no package is installed.
     """
     installed = package_json(root / "node_modules" / "typescript").get("version")
     if isinstance(installed, str) and (match := re.match(r"\d+", installed)):
@@ -122,7 +126,7 @@ def typescript_major(root: Path) -> int | None:
 
 
 def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
-    """The conventional TypeScript source root for a configured project."""
+    """This function finds the standard TypeScript source root for a project."""
     if not (root / "tsconfig.json").is_file():
         return []
     for candidate in (root / "src", root):
@@ -140,7 +144,9 @@ def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
 
 
 def _strip_jsonc(text: str) -> str:
-    """Remove JSONC comments and trailing commas without touching strings."""
+    """This function removes JSONC comments and trailing commas without changing string
+    values.
+    """
 
     def blank_comment(match: re.Match[str]) -> str:
         token = match.group(0)
@@ -160,14 +166,14 @@ def _read_config(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(_strip_jsonc(path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"could not read {path}: {exc}") from exc
+        raise ValueError(f"The parser could not read {path}: {exc}") from exc
     if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain an object")
+        raise ValueError(f"{path} must contain an object.")
     return value
 
 
 def _config_reference(parent: Path, reference: str) -> Path:
-    """Resolve one relative or node_modules `extends` reference."""
+    """This function resolves a relative or node_modules extends reference."""
     ref = Path(reference)
     candidates: list[Path] = []
     if ref.is_absolute():
@@ -183,7 +189,7 @@ def _config_reference(parent: Path, reference: str) -> Path:
         found = next((choice for choice in choices if choice.is_file()), None)
         if found is not None:
             return found.resolve()
-    raise ValueError(f"could not resolve tsconfig extends {reference!r} from {parent}")
+    raise ValueError(f"The parser could not resolve tsconfig extends {reference!r} from {parent}")
 
 
 def _compiler_options(
@@ -192,10 +198,12 @@ def _compiler_options(
     inputs: Options,
     active: frozenset[Path] = frozenset(),
 ) -> Options:
-    """The compiler options of one config and its bases; `inputs` fills as it goes."""
+    """This function reads compiler options and inherited settings, and records input
+    specifications.
+    """
     path = path.resolve()
     if path in active:
-        raise ValueError(f"circular tsconfig extends at {path}")
+        raise ValueError(f"A circular tsconfig extends relation occurs at {path}")
     data = _read_config(path)
     options: Options = {}
     for reference in _extends_references(data, path):
@@ -208,7 +216,7 @@ def _compiler_options(
 
 
 def _extends_references(data: dict[str, Any], path: Path) -> list[str]:
-    """The configs this one extends: one, several, or none."""
+    """This function reads one or more inherited configuration references."""
     extends = data.get("extends")
     if isinstance(extends, str):
         return [extends]
@@ -216,7 +224,7 @@ def _extends_references(data: dict[str, Any], path: Path) -> list[str]:
         return extends
     if extends is None:
         return []
-    raise ValueError(f"{path}: extends must be a string or a list of strings")
+    raise ValueError(f"{path}: extends must be a string or a list of strings.")
 
 
 def _inherited_options(
@@ -237,7 +245,7 @@ def _inherited_options(
 
 
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
-    """Read comments, inherited compiler options, aliases and emit directories."""
+    """This function reads compiler options, aliases, comments, and output directories."""
     path = repo / "tsconfig.json"
     if not path.is_file():
         return TypeScriptConfig()
@@ -264,11 +272,10 @@ def _issue_path(source: Path, repo: Path) -> str:
 
 
 def _expand(value: str, config_dir: Path) -> str:
-    """Replace a leading `${configDir}` with the top-level tsconfig's folder.
+    """This function replaces an initial ${configDir} with the top-level tsconfig
+    directory.
 
-    The result is an absolute path, so joining it onto the declaring file's
-    folder leaves it unchanged. Anywhere else in the value the text is kept,
-    which is what tsc does.
+    The result is an absolute path. Other occurrences of the token stay the same.
     """
     if value.startswith(CONFIG_DIR):
         return str(config_dir) + value[len(CONFIG_DIR) :]
@@ -324,7 +331,9 @@ def _option_paths(options: Options, name: str, config_dir: Path) -> tuple[Path, 
 
 
 def _input_spec(inputs: Options, config_dir: Path) -> InputSpec:
-    """`files`, `include` and `exclude` rewritten relative to the tsconfig folder."""
+    """This function converts files, include, and exclude patterns to tsconfig-relative
+    paths.
+    """
 
     def entries(key: str) -> tuple[str, ...] | None:
         option = inputs.get(key)
@@ -339,20 +348,19 @@ def _input_spec(inputs: Options, config_dir: Path) -> InputSpec:
 
 
 def _relative_pattern(entry: str, origin: Path, config_dir: Path) -> str:
-    """One `files`, `include` or `exclude` entry, relative to the tsconfig folder.
+    """This function resolves one input pattern relative to its declaring configuration.
 
-    A relative entry means the folder of the file that declares it, and a
-    leading `${configDir}` means the tsconfig folder, as for compiler options.
+    An initial ${configDir} uses the top-level tsconfig directory instead.
     """
     joined = os.path.normpath(os.path.join(origin, _expand(entry, config_dir)))
     return Path(os.path.relpath(joined, config_dir)).as_posix()
 
 
 def _glob_regex(pattern: str, config_dir: Path) -> re.Pattern[str]:
-    """The regular expression for one tsconfig glob, over folder-relative paths.
+    """This function makes a regular expression for a directory-relative tsconfig pattern.
 
-    `**/` crosses folders, `*` and `?` stay inside one, and an entry that
-    names a folder means everything under it.
+    The **/ pattern crosses directories. The * and ? patterns stay inside a directory. A
+    directory name includes its contents.
     """
     escaped = re.escape(pattern.strip("/"))
     regex = (
@@ -367,11 +375,11 @@ def _glob_regex(pattern: str, config_dir: Path) -> re.Pattern[str]:
 
 
 def input_files(config: TypeScriptConfig) -> list[Path]:
-    """The non-declaration source files the compiler would take as input.
+    """This function selects source files from compiler input patterns, without declaration
+    files.
 
-    With neither `files` nor `include` written, everything under the tsconfig
-    folder counts, as it does for tsc. `outDir` and systemap's skipped folders
-    are left out. Test files count: tsc does not know they are tests.
+    If files and include are missing, all source files under the tsconfig directory are
+    candidates. The selection excludes outDir and systemap temporary directories.
     """
     root, spec = config.config_dir, config.inputs
     if root is None or spec is None:
@@ -389,14 +397,16 @@ def input_files(config: TypeScriptConfig) -> list[Path]:
 
 
 def _include_patterns(spec: InputSpec) -> tuple[str, ...]:
-    """What `include` selects: everything when neither it nor `files` is written."""
+    """This function reads include patterns, or selects all files if include and files are
+    missing.
+    """
     if spec.include is None and spec.files is None:
         return ("**/*",)
     return spec.include or ()
 
 
 def _exclude_patterns(spec: InputSpec, config: TypeScriptConfig) -> list[str]:
-    """What `exclude` removes, plus `outDir`, which tsc never reads from."""
+    """This function reads exclusion patterns and adds outDir to the exclusions."""
     exclude = list(spec.exclude or ())
     root = config.config_dir
     if root is not None and config.out_dir is not None and config.out_dir.is_relative_to(root):
@@ -428,7 +438,9 @@ def _candidate_inputs(root: Path, wanted: list[re.Pattern[str]]) -> Iterable[Pat
 
 
 def common_source_dir(paths: Iterable[Path]) -> Path | None:
-    """The longest folder every path is under, or None with nothing to compare."""
+    """This function finds the longest common parent directory, or gives None if there are
+    no paths.
+    """
     folders = [str(path.parent) for path in paths]
     if not folders:
         return None
@@ -436,13 +448,10 @@ def common_source_dir(paths: Iterable[Path]) -> Path | None:
 
 
 def root_candidates(config: TypeScriptConfig, inputs: Iterable[Path]) -> tuple[Path, ...]:
-    """The folders the project's tsc takes as `rootDir`, in the order to try.
+    """This function lists possible compiler source roots in resolution order.
 
-    An explicit `rootDir` is the answer. `composite` makes tsc use the tsconfig
-    folder on every version. Otherwise the project's TypeScript major decides:
-    5 takes the longest common folder of the input files, 6 and later take the
-    tsconfig folder. When nothing names the version, both are returned, and the
-    caller accepts a mapping only when exactly one of them fits.
+    An explicit rootDir has priority. The composite option uses the tsconfig directory.
+    Otherwise, the TypeScript version controls the inferred root.
     """
     if config.root_dir is not None:
         return (config.root_dir,)
@@ -460,7 +469,7 @@ def root_candidates(config: TypeScriptConfig, inputs: Iterable[Path]) -> tuple[P
 
 
 def alias_targets(specifier: str, config: TypeScriptConfig, repo: Path) -> list[Path]:
-    """Paths matching a configured alias, preserving tsconfig-relative roots."""
+    """This function resolves configured alias targets relative to the tsconfig roots."""
     matches: list[tuple[tuple[int, int, int], tuple[Path, ...], str]] = []
     for pattern, targets in config.aliases:
         before, marker, after = pattern.partition("*")
@@ -482,17 +491,17 @@ def alias_targets(specifier: str, config: TypeScriptConfig, repo: Path) -> list[
 
 
 def _replace_star(target: Path, matched: str) -> Path:
-    """Substitute a wildcard in a resolved alias target."""
+    """This function replaces a wildcard in a resolved alias target."""
     return Path(str(target).replace("*", matched))
 
 
 def source_targets(
     target: str, repo: Path, config: TypeScriptConfig, roots: Iterable[Path]
 ) -> list[Path]:
-    """Where a package target such as `dist/index.js` came from, one path per root.
+    """This function resolves package output targets to source paths for each root.
 
-    A target outside `outDir`, or with no `outDir` configured, is taken as it
-    is written: a `bin` may name a source file directly.
+    A target outside outDir, or without configured outDir, stays unchanged because it
+    can already refer to source.
     """
     built = (repo / target).resolve()
     if config.out_dir is None or not built.is_relative_to(config.out_dir):

@@ -1,21 +1,4 @@
-"""`systemap place`: a position for every card without one, and `--all`.
-
-What `place` is held to, each as a test: the anonymised
-144-module fixture with every position stripped is placed and the
-geometry check is clean with no manual move, in under ten seconds; a
-card with a position is kept where it was; a second run changes nothing;
-the self-map with its positions stripped is clean after `place`. Then
-the edit in place: only the `x=` and `y=` values, the boxes and the
-canvas move, byte for byte, and the file reloads to the positions
-computed. Then `place --all`: every card laid out again but the ones
-marked `pinned=True`, which stay, and the refusal for a full box names
-it.
-
-"Clean" here is the geometry the placement decides: placement, routes,
-labels, type size and wheels (`check.Result.problems`, `through` and
-`across`). The fixture's facts are module names only, so its coverage
-and entry rules are not what these tests measure.
-"""
+'`systemap place`: a position for every card without one, and `--all`.\n\nWhat `place` is held to, each as a test: the anonymised\n144-module fixture with every position stripped is placed and the\ngeometry check is clean with no manual move, in under ten seconds; a\ncard with a position is kept where it was; a second run changes nothing;\nthe self-map with its positions stripped is clean after `place`. Then\nthe edit in place: only the `x=` and `y=` values, the boxes and the\ncanvas move, byte for byte, and the file reloads to the positions\ncomputed. Then `place --all`: every card laid out again but the ones\nmarked `pinned=True`, which stay, and the refusal for a full box names\nit.\n\n"Clean" here is the geometry the placement decides: placement, routes,\nlabels, type size and wheels (`check.Result.problems`, `through` and\n`across`). The fixture\'s facts are module names only, so its coverage\nand entry rules are not what these tests measure.\n'
 
 from __future__ import annotations
 
@@ -179,7 +162,7 @@ def test_place_all_lays_every_card_out_again_and_keeps_the_pinned_ones() -> None
     nothing = place.compute(fresh)
     assert nothing.positions == {} and len(nothing.kept) == 28 and not nothing.all_cards
     assert place.lines(nothing) == [
-        f"place: 0 cards placed, 28 kept (already positioned): {place.NOTHING_TO_PLACE}"
+        f"place: 0 components placed, 28 kept (already positioned): {place.NOTHING_TO_PLACE}"
     ]
     # With --all the pinned card is the one kept; the boxes stay as written.
     placement = place.compute(fresh, all_cards=True)
@@ -194,7 +177,7 @@ def test_place_all_lays_every_card_out_again_and_keeps_the_pinned_ones() -> None
         picker.y,
     )
     assert_clean(again, meaning, fixture_workspace.facts())
-    assert place.lines(placement)[0] == "place: 27 cards placed, 1 kept (pinned)"
+    assert place.lines(placement)[0] == "place: 27 components placed, 1 kept (pinned)"
     # Deterministic: --all on its own result computes the same placement.
     assert place.compute(again, all_cards=True) == placement
     # Every card pinned: nothing to lay out again, and the line says so.
@@ -202,7 +185,7 @@ def test_place_all_lays_every_card_out_again_and_keeps_the_pinned_ones() -> None
         fresh, components=tuple(dataclasses.replace(c, pinned=True) for c in fresh.components)
     )
     assert place.lines(place.compute(pinned, all_cards=True)) == [
-        f"place: 0 cards placed, 28 kept (pinned): {place.EVERY_CARD_PINNED}"
+        f"place: 0 components placed, 28 kept (pinned): {place.EVERY_CARD_PINNED}"
     ]
     # No card pinned: --all is the whole layout again, boxes and canvas included.
     unpinned = dataclasses.replace(
@@ -235,8 +218,7 @@ def test_fill_puts_the_card_that_talks_next_to_its_neighbour_and_refuses_a_full_
     # the pin instead.
     with pytest.raises(
         place.PlaceError,
-        match=r"r has 2 free slots for 3 cards \(B, C, D\): run: systemap place --all, which lays "
-        r"every card out again and keeps only the cards marked pinned=True; or widen",
+        match="r has 2 free slots for 3 components \\(B, C, D\\): Use systemap place --all to set unpinned component positions again, or increase the box width or height\\.",
     ):
         place.compute(model("B", "C", "D"))
     full = model("B", "C", "D")
@@ -249,8 +231,7 @@ def test_fill_puts_the_card_that_talks_next_to_its_neighbour_and_refuses_a_full_
     )
     with pytest.raises(
         place.PlaceError,
-        match=r"r has 2 free slots for 3 cards \(B, C, D\): unpin a card \(drop pinned=True\), "
-        r"widen or heighten its box, or move a pinned card",
+        match="r has 2 free slots for 3 components \\(B, C, D\\): remove pinned=True from a component, increase the box width or height, or move a pinned component\\.",
     ):
         place.compute(full, all_cards=True)
     # A card pinned off the grid blocks the slots it comes near.
@@ -287,8 +268,10 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     before = model_path.read_text(encoding="utf-8")
     assert main(["--root", str(tmp_path), "place", "--print"]) == 0
     printed = capsys.readouterr().out
-    assert printed.startswith("place: 28 cards placed, 0 kept, every box and the canvas laid out\n")
-    assert "\n  region order: " in printed and "; 720 orders tried, 13 routed\n" in printed
+    assert printed.startswith(
+        "place: 28 components placed, 0 kept. The command set all boxes and the canvas.\n"
+    )
+    assert "\n  region order: " in printed and "; 720 orders examined, 13 routed\n" in printed
     assert "  Gateway: x=" in printed and "  region gateway: box=(" in printed
     assert "  container server: box=(" in printed and "  canvas: (" in printed
     assert model_path.read_text(encoding="utf-8") == before, "--print writes nothing"
@@ -299,9 +282,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     # regions, so every one of the 720 orders was tried, and the twelve
     # best by the estimate plus the order as listed were routed.
     assert re.fullmatch(
-        r"place: wrote map/model.py: 28 cards placed, 0 kept; every box and the canvas "
-        r"laid out\n  region order: (\w+, ){5}\w+; \d+ bends, [\d,]+ units; 720 orders tried, "
-        r"13 routed\nrun: systemap check\n",
+        "place: The command wrote map/model.py: 28 components placed, 0 kept. The command set all boxes and the canvas\\n  region order: (\\w+, ){5}\\w+; \\d+ bends, [\\d,]+ units; 720 orders examined, 13 routed\\nrun: systemap check\\n",
         out,
     ), out
     after = model_path.read_text(encoding="utf-8")
@@ -331,7 +312,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     # Idempotent: a second run has nothing to place and changes nothing.
     assert main(["--root", str(tmp_path), "place"]) == 0
     assert capsys.readouterr().out == (
-        f"place: 0 cards placed, 28 kept (already positioned): {place.NOTHING_TO_PLACE}\n"
+        f"place: 0 components placed, 28 kept (already positioned): {place.NOTHING_TO_PLACE}\n"
     )
     assert model_path.read_text(encoding="utf-8") == after
 
@@ -339,7 +320,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     # and a second --all changes nothing more; the result is clean.
     assert main(["--root", str(tmp_path), "place", "--all"]) == 0
     assert capsys.readouterr().out == (
-        "place: wrote map/model.py: 27 cards placed, 1 kept (pinned)\nrun: systemap check\n"
+        "place: The command wrote map/model.py: 27 components placed, 1 kept (pinned)\nrun: systemap check\n"
     )
     relaid = model_path.read_text(encoding="utf-8")
     assert re.sub(r"\d+", "N", relaid) == re.sub(r"\d+", "N", after)
@@ -417,7 +398,7 @@ def test_check_refuses_a_card_without_a_position() -> None:
             dataclasses.replace(c, x=None) if c.id == "Parser" else c for c in model.components
         ),
     )
-    assert "placement: Parser has no position (x, y); run: systemap place" in problems(
+    assert "placement: Parser has no position (x, y). Run: systemap place" in problems(
         partial, meaning
     )
     assert not [p for p in partial.layout_problems() if "overlaps" in p or "outside" in p]
@@ -455,14 +436,13 @@ def test_describe_reports_placed_and_pinned(
     # Pinned is the flag, not a position: Reader is pinned, Writer is placed
     # for this look only.
     assert (
-        "positions: 1 pinned, 0 placed, 1 placed for this look and not yet written (Writer); "
-        "run: systemap place\n"
+        "positions: 1 pinned, 0 placed, 1 positions for this report are missing from the model (Writer). Use systemap place.\n"
     ) in out
     assert "evidence: " in out
     # The check does not place: it refuses the card until place has written it.
     assert main(["--root", str(tmp_path), "check"]) == 1
     assert (
-        "placement: Writer has no position (x, y); run: systemap place" in capsys.readouterr().out
+        "placement: Writer has no position (x, y). Run: systemap place" in capsys.readouterr().out
     )
 
 
@@ -475,7 +455,7 @@ def test_first_layout_refuses_a_card_with_no_home_and_places_loose_regions() -> 
         flows=(),
         flow_kinds=(),
     )
-    with pytest.raises(place.PlaceError, match="A names no region or container"):
+    with pytest.raises(place.PlaceError, match="A has no region or container"):
         place.compute(homeless)
     # Regions with no container form the grid straight on the canvas, and a
     # container with a long sub is widened until the sub fits two lines.
@@ -544,7 +524,7 @@ def test_the_search_picks_an_order_the_router_scores_no_worse_than_the_listed_on
     # Deterministic: the same search twice is the same placement.
     assert place.compute(model) == searched
     assert re.fullmatch(
-        r"region order: (\w+, ){5}\w+; \d+ bends, [\d,]+ units; 720 orders tried, 13 routed",
+        "region order: (\\w+, ){5}\\w+; \\d+ bends, [\\d,]+ units; 720 orders examined, 13 routed",
         place.order_line(searched),
     )
     assert place.order_line(listed) == (
@@ -646,8 +626,7 @@ def test_describe_prints_the_region_order_for_the_look_and_as_written(
     assert main(["--root", str(tmp_path), "describe"]) == 0
     out = capsys.readouterr().out
     assert re.search(
-        r"^region order: (\w+, ){5}\w+; \d+ bends, [\d,]+ units; 720 orders tried, 13 routed, "
-        r"for this look; run: systemap place$",
+        "^region order: (\\w+, ){5}\\w+\\. \\d+ bends, [\\d,]+ units\\. 720 orders examined, 13 routed for this report\\. Use systemap place\\.$",
         out,
         flags=re.M,
     ), out
@@ -657,8 +636,7 @@ def test_describe_prints_the_region_order_for_the_look_and_as_written(
     assert main(["--root", str(tmp_path), "describe"]) == 0
     out = capsys.readouterr().out
     assert re.search(
-        r"^region order: gateway, contracts, content, orchestration, style, layout; "
-        r"\d+ bends, [\d,]+ units; as written$",
+        "^region order: gateway, contracts, content, orchestration, style, layout\\. \\d+ bends, [\\d,]+ units\\. as written$",
         out,
         flags=re.M,
     ), out

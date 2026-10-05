@@ -17,8 +17,10 @@ from typing import Any
 import pytest
 from conftest import Sample
 
-from systemap import judgement, page, page_data
+from systemap import config, judgement, page, page_data, theme
 from systemap.config import Answer
+from systemap.model import all_layers
+from systemap.schematic import render
 
 
 def payload(html: str) -> dict[str, Any]:
@@ -79,10 +81,28 @@ def test_operations_search_and_review_share_the_same_map(sample: Sample, tmp_pat
     assert report["steps"] == report["expectedSteps"]
     assert report["activeStart"] == report["activeClicked"] == "1"
     assert report["activeNext"] == "2"
-    assert "Rules to preserve" in report["evidence"]
+    assert "Rules for this step" in report["evidence"]
     assert report["partMode"] == "trace" and report["partFocus"]
     assert report["partPurpose"]
     assert report["matches"] == ["Reader"] and report["searchOpened"]
     assert report["emptySearch"] and report["comparisonPrompt"]
     assert report["reviewItems"]
     assert judgement.run(sample.model, sample.meaning, sample.facts)[0] in report["findingText"]
+
+
+def test_self_map_language_rule_is_in_the_page_and_component_rules() -> None:
+    """Acceptance: the language rule is visible in the page and every component in its scope."""
+    root = Path(__file__).resolve().parent.parent
+    cfg = config.load(root)
+    model, meaning = config.load_model(root / "map/model.py")
+    tokens = theme.resolve({}, all_layers(model, meaning))
+    rule = next(inv for inv in model.invariants if "ASD-STE100 Issue 9" in inv.text)
+    assert "AGENTS.md, Language requirement" in rule.text
+    assert {"Agent", "Skill", "Scaffold", "SecondOpinion", "Page", "CLI"} <= set(rule.governs)
+    _, details = render(model, meaning, tokens, {})
+    data = json.loads(details)
+    assert next(row for row in data["_meta"]["rules"] if row["n"] == rule.n)["text"] == rule.text
+    for component in rule.governs:
+        assert rule.n in data[component]["rules"]
+    html = page.build(cfg, model, meaning, tokens, {}, {})
+    assert rule.text in html

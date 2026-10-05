@@ -1,4 +1,4 @@
-"""The page's source records and mechanical review, read from the stored snapshot."""
+"""Source records and map findings from the stored snapshot."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from systemap.model import (
 def review(
     cfg: Config, model: Model, meaning: Meaning, facts: dict[str, Any], prefix: str = ""
 ) -> dict[str, Any]:
-    """Programmatic findings cannot attest to a model file they did not load."""
+    """Program findings cannot support a model file that the program did not load."""
     lines = judgement.run(
         model, meaning, facts, judgement.sdk_list(cfg.model_sdks), cfg.observed_by
     )
@@ -30,7 +30,7 @@ def review(
 
 
 def tree_review(cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> dict[str, Any]:
-    """Use the CLI's tree review so a child journey also covers a parent's way in."""
+    """Use the CLI map tree checks, with child sequences that cover parent entry points."""
     lines = judgement.run_tree(tree, facts, judgement.sdk_list(cfg.model_sdks), cfg.observed_by)
     local = [line for line in lines if line.startswith(m.prefix)]
     if m.top:
@@ -49,7 +49,7 @@ def review_lines(
     current: dict[str, str],
     all_lines: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Retain exact findings and use the CLI's evidence-bound answer rules."""
+    """Keep exact findings and use the CLI rules for answers and their evidence."""
     whole = lines if all_lines is None else all_lines
     given = [a for a in cfg.judgement_answered if not a.kind or a.kind in judgement.KIND_PREFIX]
     result = judgement.apply_answers(whole, given, current)
@@ -116,7 +116,7 @@ def _unresolved_claims(component: Component, modules: dict[str, Any]) -> list[st
 
 
 def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:
-    """Source records are evidence, not claims that imports prove a flow's meaning."""
+    """Give source records. Imports do not show the direction or artifact of a flow."""
     modules = facts.get("components", {})
     points = facts.get("entry_points", [])
     out = {}
@@ -135,7 +135,7 @@ def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:
 
 
 def provenance(cfg: Config, facts: dict[str, Any], model_file: str = "") -> dict[str, Any]:
-    """Name the stored sources without treating extraction's HEAD as a clean tree."""
+    """Name stored sources. Extraction at HEAD does not imply a clean working tree."""
     return {
         "facts_file": f"{cfg.out_dir}/{cfg.facts_file}",
         "model_file": model_file or cfg.model,
@@ -147,7 +147,7 @@ def provenance(cfg: Config, facts: dict[str, Any], model_file: str = "") -> dict
 
 
 def comparison(ch: dict[str, Any]) -> dict[str, Any]:
-    """A supplied revision comparison, without inferring runtime impact from imports."""
+    """Give the revision comparison. Imports do not prove effects on program execution."""
     if not ch.get("has_change") and not ch.get("comparison_requested"):
         return {}
     return {

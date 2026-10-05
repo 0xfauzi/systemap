@@ -12,7 +12,7 @@ import pytest
 from conftest import STARTER_MODULES, Sample, init_two_cards, write_tree
 from jev_replay import Recording, serve
 
-from systemap import audit, jev, jev_cli, nest
+from systemap import audit, extract, jev, jev_cli, nest
 from systemap.cli import main
 from systemap.config import Answer, ConfigError
 from systemap.config import load as load_config
@@ -203,7 +203,7 @@ def test_config_accepts_audit_kinds_and_a_jev_table(tmp_path: Path) -> None:
     assert cfg.jev_cache_path == tmp_path / "cache/jev.json"
     assert cfg.judgement_answered[0].kind == "jev flow"
     (tmp_path / "systemap.toml").write_text('[jev]\nmodels = "x"\n')
-    with pytest.raises(ConfigError, match="jev has unknown key: models"):
+    with pytest.raises(ConfigError, match="jev has an unknown key: models"):
         load_config(tmp_path)
 
 
@@ -252,7 +252,9 @@ def test_cache_answers_a_second_run_and_a_new_release_invalidates_it(tmp_path: P
 
 def test_a_model_the_api_does_not_offer_is_refused_before_anything_is_asked() -> None:
     client = jev.Jev(Counting(), model="jev-9")
-    with pytest.raises(jev.JevError, match="model jev-9 is not offered; the API lists: jev-latest"):
+    with pytest.raises(
+        jev.JevError, match="model jev-9 is not available. The API lists: jev-latest"
+    ):
         client.ask([jev.Ask("a", {}, {})])
 
 
@@ -276,17 +278,46 @@ def test_retries_then_succeeds_or_raises_with_the_status() -> None:
 
 def test_no_key_sends_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
-    with pytest.raises(jev.JevError, match="set TYPESAFE_API_KEY to ask Jev; nothing was sent"):
+    with pytest.raises(jev.JevError, match="set TYPESAFE_API_KEY to call Jev. No data was sent"):
         jev.from_env("jev-latest", tmp_path / "c.json")
 
 
 # ---- recorded answers from the real API, through the real CLI ----------------------
 
 
-def test_audit_on_recorded_answers(sample: Sample) -> None:
+# These exact prompt strings are historical evidence for the unchanged recordings.
+HISTORICAL_QUESTIONS = {
+    "owner": "Which component of this system does `module` belong to? Each option is one part of the system with one job, a part a reader would point at and name. Pick the part whose job this module carries out.",
+    "describes": "Does `sentence` accurately describe what the code in `modules` does, taken together as one part of the system?",
+    "holds": "Does the code in `code` support the claim in `claim`: that `claim.from` passes `claim.artifact` to `claim.to` in the way `claim.sentence` describes? `ends` says what each component is.",
+    "governs": "Does `rule` directly govern `component`: is it one of the parts whose code must keep this rule true, so a change to it could break the rule?",
+}
+
+
+def historical_asks(asks: list[jev.Ask]) -> list[jev.Ask]:
+    """Use the original request text only for exact replay of historical evidence."""
+    out = []
+    for ask in asks:
+        questions = {}
+        for key, question in ask.questions.items():
+            copied = {**question, "instructions": HISTORICAL_QUESTIONS[key]}
+            if key == "owner":
+                copied["criteria"] = {
+                    **question["criteria"],
+                    audit.NONE: "No component on this map carries out what this module does.",
+                }
+            questions[key] = copied
+        out.append(jev.Ask(ask.key, ask.state, questions))
+    return out
+
+
+def test_historical_audit_on_exact_recorded_answers(sample: Sample) -> None:
     recording = Recording("jev_sample")
     client = jev.Jev(recording.send)
-    found = audit.run(tree_of(sample), sample.facts, sample.cfg, client, audit.KINDS)
+    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, audit.KINDS)
+    asks = historical_asks(plan.asks)
+    assert asks[0].questions != plan.asks[0].questions
+    found = audit.lines(plan, client.ask(asks))
     # What the real model said about the sample, recorded. Every module reads like its own
     # card. Both flows are doubted: Reader -> Parser rightly (nothing in pkg.reader calls the
     # parser; the parser only imports Request), Writer -> Ledger because the evidence is the
@@ -333,6 +364,61 @@ def test_audit_answers_need_evidence_or_explicit_policy() -> None:
     ]
 
 
+class Synthetic:
+    """Supply explicit test answers to current prompts, with no model accuracy claim."""
+
+    def __init__(self) -> None:
+        self.requests: list[dict[str, Any]] = []
+
+    def send(self, method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
+        if path == "/models":
+            return MODELS
+        assert method == "POST" and path == "/systemone" and body is not None
+        self.requests.append(body)
+        instructions = {
+            "owner": audit.OWNER_Q,
+            "describes": audit.DESCRIBES_Q,
+            "holds": audit.VERIFY_Q,
+            "governs": audit.GOVERNS_Q,
+            "where": jev_cli.TRIAGE_Q,
+        }
+        answers = {}
+        for key, question in body["questions"].items():
+            assert question["instructions"] == instructions[key]
+            if question["type"] == "choice":
+                assert question["criteria"][audit.NONE] == (
+                    "No component on this map has the function of this module."
+                )
+                names = [name for name in question["criteria"] if name != audit.NONE]
+                assert names
+                answers[key] = {
+                    "type": "choice",
+                    "choice": names[0],
+                    "confidence": 0.9,
+                    "probabilities": {name: 1 / len(names) for name in names},
+                }
+            else:
+                answers[key] = {"type": "noul", "noul": 0.5}
+        return {
+            "model": "synthetic",
+            "answers": answers,
+            "usage": {"input_tokens": 10, "output_tokens": 2},
+        }
+
+
+def test_current_audit_prompts_use_explicit_synthetic_answers(sample: Sample) -> None:
+    synthetic = Synthetic()
+    client = jev.Jev(synthetic.send)
+    assert audit.run(tree_of(sample), sample.facts, sample.cfg, client, audit.KINDS) == []
+    assert len(synthetic.requests) == 15
+    assert {key for body in synthetic.requests for key in body["questions"]} == {
+        "owner",
+        "describes",
+        "holds",
+        "governs",
+    }
+
+
 @pytest.fixture
 def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
@@ -345,16 +431,59 @@ def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+def test_historical_two_card_audit_replays_exact_requests(two_cards: Path) -> None:
+    cfg = load_config(two_cards)
+    facts = extract.read_facts(cfg.facts_path)
+    assert facts is not None
+    plan = audit.make_plan(nest.load(cfg), facts, cfg)
+    recording = Recording("jev_two_cards")
+    client = jev.Jev(recording.send)
+    found = audit.lines(plan, client.ask(historical_asks(plan.asks)))
+    assert found == []
+    assert client.usage.sent == len(plan.asks) == 5
+
+
+def test_historical_triage_replays_the_exact_request(two_cards: Path) -> None:
+    cfg = load_config(two_cards)
+    top = nest.load(cfg).top
+    criteria = {
+        **audit.owner_criteria(top.model, top.meaning),
+        audit.NONE: "No component on this map carries out what this module does.",
+    }
+    question = {
+        "type": "choice",
+        "instructions": "`report` is an issue filed against this system. Which component will the fix most likely have to change?",
+        "criteria": criteria,
+    }
+    assert question["instructions"] != jev_cli.TRIAGE_Q
+    ask = jev.Ask(
+        "triage",
+        {
+            "system": cfg.name,
+            "report": "Reading a file with a BOM leaves the BOM in the first request's body",
+        },
+        {"where": question},
+    )
+    recording = Recording("jev_two_cards")
+    client = jev.Jev(recording.send)
+    answers = client.ask([ask])["triage"]["where"]
+    assert answers["choice"] == "Reader"
+    assert client.usage.sent == 1
+
+
 def test_audit_cli_end_to_end_over_http(
     two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    recording = Recording("jev_two_cards")
-    with serve(recording) as url:
+    synthetic = Synthetic()
+    with serve(synthetic) as url:
         monkeypatch.setenv(jev.BASE_ENV, url)
         assert main(["--root", str(two_cards), "audit"]) == 0
         first = capsys.readouterr().out
+        first_calls = len(synthetic.requests)
+        assert first_calls > 0
         assert main(["--root", str(two_cards), "audit"]) == 0
         second = capsys.readouterr().out
+    assert len(synthetic.requests) == first_calls
     assert first.splitlines()[0].startswith("audit: ")
     assert "from the cache" in second and "jev: 0 sent" in second
     assert (two_cards / ".systemap/jev-cache.json").exists()
@@ -382,11 +511,13 @@ def test_audit_without_a_key_says_so_and_exits_1(
 def test_triage_names_the_cards_with_their_modules(
     two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    recording = Recording("jev_two_cards")
-    with serve(recording) as url:
+    synthetic = Synthetic()
+    with serve(synthetic) as url:
         monkeypatch.setenv(jev.BASE_ENV, url)
         text = "Reading a file with a BOM leaves the BOM in the first request's body"
         assert main(["--root", str(two_cards), "triage", text]) == 0
+    assert len(synthetic.requests) == 1
+    assert synthetic.requests[0]["state"]["report"] == text
     out = capsys.readouterr().out.splitlines()
     assert out[0].startswith("triage: confidence ")
     assert any("pkg.reader" in line or "pkg.writer" in line for line in out)

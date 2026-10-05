@@ -1,15 +1,8 @@
-"""Read project settings from `systemap.toml` or `[tool.systemap]`.
+"""The configuration reader gets project settings from `systemap.toml` or
+`[tool.systemap]`.
 
-The settings locate source, tests, the map model, output, figures, themes,
-and evidence mechanisms. `docs/reference.md` lists every key and default.
-Unknown keys fail validation so a misspelling cannot silently change what
-the commands read.
-
-`[judgement] answered` records a reason for each decision. An exact `item`
-or `items` decision also records an evidence digest. Changed evidence
-reopens it. A broad answer needs `policy = true`, and `reviewed` can list
-the instances known when the policy was written. Unmatched answers are
-reported as stale.
+These settings specify source roots, tests, the model, outputs, figures, themes, and
+evidence mechanisms. The reference document lists the keys and defaults.
 """
 
 from __future__ import annotations
@@ -89,12 +82,12 @@ AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev gov
 
 
 class ConfigError(Exception):
-    """The configuration cannot be used; the message says what to fix."""
+    """The configuration has an error. The message gives the necessary correction."""
 
 
 @dataclass(frozen=True)
 class Figure:
-    """One figure `systemap refresh` regenerates beside the page."""
+    """This record specifies one configured figure for `systemap refresh`."""
 
     out: str
     mode: str = "system"
@@ -108,10 +101,9 @@ class Figure:
 
 @dataclass(frozen=True)
 class Ignore:
-    """One module the coverage rule may leave unmapped, and why.
+    """This record lets the map omit a module from coverage and gives the reason.
 
-    `module` is an exact module name or a package with `.*` for its
-    subtree, the same convention `implemented_by` uses.
+    The module selector uses an exact name or a package pattern with `.*`.
     """
 
     module: str
@@ -120,19 +112,12 @@ class Ignore:
 
 @dataclass(frozen=True)
 class Answer:
-    """One or more judgement lines the maintainer has answered, and why.
+    """This record gives a maintainer decision for exact diagnostic lines or a family of
+    lines.
 
-    `items` are the lines exactly as `systemap judgement` prints them
-    (without the two-space indent). The bulk forms answer a family with
-    one reason: `crossing` every crossing-import line between any two of
-    its ids (two or more) in either direction, `crossing_into` every one
-    whose imported module belongs to the named card, `crossing_from`
-    every one whose importing module does, `kind` every line of one kind,
-    `module_sdk` every model sdk line for one import. Exactly one form
-    is set. The answer is the hand-back: it lives in the repository
-    beside the model, not in a conversation. `evidence` binds exact
-    decisions to the source reviewed. `policy` deliberately covers a
-    family, and `reviewed` marks the instances known when it was recorded.
+    Exact items contain the full printed line without the two-space indent. Family
+    selectors use component IDs, a diagnostic kind, or an SDK import. Evidence binds
+    exact answers to source data. A policy lets family answers accept diagnostics.
     """
 
     items: tuple[str, ...]
@@ -148,7 +133,9 @@ class Answer:
 
     @property
     def label(self) -> str:
-        """The answer as the configuration wrote it, for the stale report."""
+        """This property gives the answer selector as configuration text for stale-answer
+        reports.
+        """
         if self.crossing is not None:
             return "crossing = [" + ", ".join(f'"{cid}"' for cid in self.crossing) + "]"
         if self.crossing_into:
@@ -175,7 +162,7 @@ class Config:
     facts_file: str = "map.json"
     spec_path: str = ""
     planes: tuple[str, ...] = ()
-    outside_label: str = "OUTSIDE THE SYSTEM"
+    outside_label: str = "EXTERNAL COMPONENTS"
     theme: dict[str, Any] = field(default_factory=dict)
     figures: tuple[Figure, ...] = ()
     coverage_ignore: tuple[Ignore, ...] = ()
@@ -219,7 +206,7 @@ class Config:
 
     @property
     def roots(self) -> list[tuple[Path, str]]:
-        """(package directory, import name) for every package root that exists."""
+        """This property gives each existing package directory and import name."""
         out: list[tuple[Path, str]] = []
         for rel, name in self.package_roots:
             pkg = self.root / rel
@@ -233,11 +220,13 @@ class Config:
 
     @property
     def test_dirs(self) -> tuple[str, ...]:
-        """The directories test files are read from: configured, else discovered."""
+        """This property gives configured test directories, or discovered directories if
+        none are configured.
+        """
         return self.tests_dirs or tuple(discover_tests(self.root))
 
     def rel(self, path: Path) -> str:
-        """A path shown to the user, relative to the root when it is under it."""
+        """This method gives a path relative to the root when the path is inside the root."""
         try:
             return path.relative_to(self.root).as_posix()
         except ValueError:
@@ -245,7 +234,9 @@ class Config:
 
 
 def find_root(start: Path) -> Path | None:
-    """The nearest ancestor (or `start`) holding a configuration or a .git."""
+    """This function finds the nearest parent directory with configuration or .git,
+    including the start directory.
+    """
     for candidate in (start, *start.parents):
         if (candidate / CONFIG_FILE).is_file():
             return candidate
@@ -268,7 +259,9 @@ def _pyproject(root: Path) -> dict[str, Any]:
 
 
 def workspace_members(root: Path) -> list[Path]:
-    """The directories `[tool.uv.workspace] members` names, by its globs."""
+    """This function finds the directories selected by `[tool.uv.workspace] members`
+    patterns.
+    """
     workspace = _pyproject(root).get("tool", {}).get("uv", {}).get("workspace", {})
     members = workspace.get("members", []) if isinstance(workspace, dict) else []
     out: list[Path] = []
@@ -282,10 +275,8 @@ def workspace_members(root: Path) -> list[Path]:
 
 
 def discover_roots(root: Path) -> list[tuple[str, str]]:
-    """Every top-level directory holding an __init__.py, plus src/<pkg> layouts.
-
-    The root is searched, then every workspace member (`packages/<m>/src/<pkg>`
-    and `packages/<m>/<pkg>`), so a uv workspace needs no configuration.
+    """This function finds package directories with __init__.py, including src layouts and
+    uv workspace members.
     """
     found: list[tuple[str, str]] = []
     for base in (root, *workspace_members(root)):
@@ -303,7 +294,7 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
 
 
 def _walk(root: Path, depth: int | None = None) -> list[Path]:
-    """Every directory under `root`, skipping what a walk never enters."""
+    """This function lists directories under the root, except for excluded directories."""
     out: list[Path] = []
     for dirpath, dirnames, _files in os.walk(root):
         here = Path(dirpath)
@@ -317,9 +308,8 @@ def _walk(root: Path, depth: int | None = None) -> list[Path]:
 
 
 def discover_tests(root: Path) -> list[str]:
-    """Every directory named tests or test under the root, relative, in walk order.
-
-    A found directory is not entered again: its subdirectories are its own.
+    """This function finds test and tests directories under the root. It does not search
+    inside a discovered test directory.
     """
     out: list[str] = []
     for dirpath, dirnames, _files in os.walk(root):
@@ -337,10 +327,8 @@ def discover_tests(root: Path) -> list[str]:
 
 
 def candidate_packages(root: Path, depth: int = CANDIDATE_DEPTH) -> list[str]:
-    """Directories holding an __init__.py up to `depth` below the root, relative.
-
-    Listed when discovery finds no package root, so the fix names what is
-    there rather than asking the reader to search.
+    """This function lists relative package-directory paths within the specified depth for
+    a missing-root diagnostic.
     """
     return [
         d.relative_to(root).as_posix() for d in _walk(root, depth) if (d / "__init__.py").is_file()
@@ -348,11 +336,10 @@ def candidate_packages(root: Path, depth: int = CANDIDATE_DEPTH) -> list[str]:
 
 
 def default_name(root: Path) -> str:
-    """`[project] name`, else the git repository's directory, else the root's name.
+    """This function selects the project name, Git repository directory name, or root
+    directory name.
 
-    The repository's directory is the one holding the common git dir, so
-    a worktree is named after the checkout it belongs to, not after the
-    worktree's own directory.
+    A worktree uses the common Git directory to identify its repository.
     """
     project = _pyproject(root).get("project", {})
     name = project.get("name") if isinstance(project, dict) else None
@@ -377,7 +364,9 @@ def default_name(root: Path) -> str:
 
 
 def read_raw(root: Path) -> tuple[dict[str, Any], str]:
-    """The raw table and where it came from: systemap.toml first, then pyproject."""
+    """This function reads the configuration table from systemap.toml first, then
+    pyproject.toml.
+    """
     toml = root / CONFIG_FILE
     if toml.is_file():
         try:
@@ -399,19 +388,19 @@ def read_raw(root: Path) -> tuple[dict[str, Any], str]:
 def _str(raw: dict[str, Any], key: str, default: str, source: str) -> str:
     value = raw.get(key, default)
     if not isinstance(value, str):
-        raise ConfigError(f"{source}: {key} must be a string")
+        raise ConfigError(f"{source}: {key} must be a string.")
     return value
 
 
 def _str_list(raw: dict[str, Any], key: str, source: str) -> tuple[str, ...]:
     value = raw.get(key, [])
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-        raise ConfigError(f"{source}: {key} must be a list of strings")
+        raise ConfigError(f"{source}: {key} must be a list of strings.")
     return tuple(value)
 
 
 def load(root: Path) -> Config:
-    """The configuration for the project at `root`, defaults filled in."""
+    """This function reads and validates the project configuration, including defaults."""
     root = root.resolve()
     raw, source = read_raw(root)
     where = source or "defaults"
@@ -441,10 +430,10 @@ def load(root: Path) -> Config:
             raise ConfigError(f"{where}: figures[{k}] must be a table")
         bad = sorted(set(item) - FIGURE_KEYS)
         if bad:
-            raise ConfigError(f"{where}: figures[{k}] has unknown key: {', '.join(bad)}")
+            raise ConfigError(f"{where}: figures[{k}] has an unknown key: {', '.join(bad)}")
         out = item.get("out")
         if not isinstance(out, str) or not out:
-            raise ConfigError(f"{where}: figures[{k}] needs an out file name")
+            raise ConfigError(f"{where}: figures[{k}] must contain an out file name.")
         mode = _str(item, "mode", "system", where)
         if mode not in ("system", "reach"):
             raise ConfigError(f'{where}: figures[{k}] mode must be "system" or "reach"')
@@ -485,7 +474,7 @@ def load(root: Path) -> Config:
         facts_file=_str(raw, "facts_file", "map.json", where),
         spec_path=_str(raw, "spec_path", "", where),
         planes=_str_list(raw, "planes", where),
-        outside_label=_str(raw, "outside_label", "OUTSIDE THE SYSTEM", where),
+        outside_label=_str(raw, "outside_label", "EXTERNAL COMPONENTS", where),
         theme=theme,
         figures=tuple(figures),
         source=source,
@@ -493,13 +482,13 @@ def load(root: Path) -> Config:
 
 
 def _coverage_ignore(raw: dict[str, Any], where: str) -> tuple[Ignore, ...]:
-    """The `[coverage] ignore` list; an entry without a reason is refused."""
+    """This function reads `[coverage] ignore`. Each ignore entry must have a reason."""
     coverage = raw.get("coverage", {})
     if not isinstance(coverage, dict):
         raise ConfigError(f"{where}: coverage must be a table")
     bad = sorted(set(coverage) - COVERAGE_KEYS)
     if bad:
-        raise ConfigError(f"{where}: coverage has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{where}: coverage has an unknown key: {', '.join(bad)}")
     entries = coverage.get("ignore", [])
     if not isinstance(entries, list):
         raise ConfigError(f"{where}: coverage.ignore must be a list of tables")
@@ -511,54 +500,57 @@ def _coverage_ignore(raw: dict[str, Any], where: str) -> tuple[Ignore, ...]:
             )
         bad = sorted(set(item) - IGNORE_KEYS)
         if bad:
-            raise ConfigError(f"{where}: coverage.ignore[{k}] has unknown key: {', '.join(bad)}")
+            raise ConfigError(f"{where}: coverage.ignore[{k}] has an unknown key: {', '.join(bad)}")
         module = item.get("module")
         if not isinstance(module, str) or not module:
-            raise ConfigError(f"{where}: coverage.ignore[{k}] needs a module name")
+            raise ConfigError(f"{where}: coverage.ignore[{k}] must contain a module name.")
         reason = item.get("reason")
         if not isinstance(reason, str) or not reason.strip():
             raise ConfigError(
-                f"{where}: coverage.ignore[{k}] ({module}) needs a reason: "
-                "say why the map may leave this module unmapped"
+                f"{where}: coverage.ignore[{k}] ({module}) must contain a reason. Give the "
+                f"reason that the map can omit this module."
             )
         out.append(Ignore(module=module, reason=reason))
     return tuple(out)
 
 
 def _facts(raw: dict[str, Any], where: str) -> tuple[str, ...]:
-    """The `[facts]` table: `model_sdks` extends the judgement's built-in list."""
+    """This function reads `[facts]`, including additions and removals for the model SDK
+    list.
+    """
     facts = raw.get("facts", {})
     if not isinstance(facts, dict):
         raise ConfigError(f"{where}: facts must be a table")
     bad = sorted(set(facts) - FACTS_KEYS)
     if bad:
-        raise ConfigError(f"{where}: facts has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{where}: facts has an unknown key: {', '.join(bad)}")
     return _str_list(facts, "model_sdks", f"{where}: facts")
 
 
 def _flows(raw: dict[str, Any], where: str) -> tuple[str, ...]:
-    """The `[flows]` table: `observed_by` names the non-import mechanisms."""
+    """This function reads `[flows]`. The observed_by list specifies mechanisms other than
+    imports.
+    """
     flows = raw.get("flows", {})
     if not isinstance(flows, dict):
         raise ConfigError(f"{where}: flows must be a table")
     bad = sorted(set(flows) - FLOWS_KEYS)
     if bad:
-        raise ConfigError(f"{where}: flows has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{where}: flows has an unknown key: {', '.join(bad)}")
     names = _str_list(flows, "observed_by", f"{where}: flows")
     if any(not name.strip() for name in names):
-        raise ConfigError(f"{where}: flows.observed_by must name each mechanism with a word")
+        raise ConfigError(f"{where}: flows.observed_by must contain a word for each mechanism.")
     return tuple(name.strip() for name in names)
 
 
 def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
-    """The `[jev]` table: which model the Jev commands ask, where answers are cached,
-    and whether delta asks it on its own when a key is set."""
+    """This function reads the Jev model, cache, and automatic-request settings."""
     jev = raw.get("jev", {})
     if not isinstance(jev, dict):
         raise ConfigError(f"{where}: jev must be a table")
     bad = sorted(set(jev) - JEV_KEYS)
     if bad:
-        raise ConfigError(f"{where}: jev has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{where}: jev has an unknown key: {', '.join(bad)}")
     model = _str(jev, "model", "jev-latest", f"{where}: jev").strip()
     cache = _str(jev, "cache", ".systemap/jev-cache.json", f"{where}: jev").strip()
     if not model or not cache:
@@ -570,32 +562,31 @@ def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
 
 
 def _agent(raw: dict[str, Any], where: str) -> dict[str, Any]:
-    """The `[agent]` table: the command that writes prose, where its answers are
-    cached, and how long it may take."""
+    """This function reads the agent command, cache path, and timeout."""
     agent = raw.get("agent", {})
     if not isinstance(agent, dict):
         raise ConfigError(f"{where}: agent must be a table")
     bad = sorted(set(agent) - AGENT_KEYS)
     if bad:
-        raise ConfigError(f"{where}: agent has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{where}: agent has an unknown key: {', '.join(bad)}")
     command = _str(agent, "command", "", f"{where}: agent").strip()
     cache = _str(agent, "cache", ".systemap/agent-cache.json", f"{where}: agent").strip()
     timeout = agent.get("timeout", 300.0)
     if not isinstance(timeout, int | float) or isinstance(timeout, bool) or timeout <= 0:
-        raise ConfigError(f"{where}: agent.timeout must be a number of seconds above zero")
+        raise ConfigError(f"{where}: agent.timeout must be a number of seconds more than zero.")
     if not cache:
         raise ConfigError(f"{where}: agent.cache must not be empty")
     return {"agent_command": command, "agent_cache": cache, "agent_timeout": float(timeout)}
 
 
 def _answer_selector(form: str, value: Any, location: str) -> Answer:
-    """Validate the selected answer form without its reason or evidence."""
+    """Validate the answer selector without its reason or evidence."""
     if form in ("item", "items"):
         return Answer(items=_answer_lines(form, value, location), reason="")
     if form == "crossing":
         return Answer(items=(), reason="", crossing=_answer_crossing(value, location))
     if form in ("crossing_into", "crossing_from"):
-        name = _answer_name(value, f"{location} {form} must name one component id")
+        name = _answer_name(value, f"{location} {form} must contain one component ID.")
         if form == "crossing_into":
             return Answer(items=(), reason="", crossing_into=name)
         return Answer(items=(), reason="", crossing_from=name)
@@ -608,7 +599,7 @@ def _answer_selector(form: str, value: Any, location: str) -> Answer:
                 f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
             )
         return Answer(items=(), reason="", kind=name)
-    name = _answer_name(value, f"{location} module_sdk must be an import name")
+    name = _answer_name(value, f"{location} module_sdk must be an import name.")
     return Answer(items=(), reason="", module_sdk=name)
 
 
@@ -620,13 +611,13 @@ def _answer_name(value: Any, error: str) -> str:
 
 def _answer_lines(form: str, value: Any, location: str) -> tuple[str, ...]:
     if form == "item":
-        return (_answer_name(value, f"{location} item must be a line"),)
+        return (_answer_name(value, f"{location} item must be a line."),)
     if (
         not isinstance(value, list)
         or not value
         or not all(isinstance(v, str) and v.strip() for v in value)
     ):
-        raise ConfigError(f"{location} items must be a non-empty list of lines")
+        raise ConfigError(f"{location} items must be a list with one or more lines.")
     return tuple(v.strip() for v in value)
 
 
@@ -634,19 +625,22 @@ def _answer_crossing(value: Any, location: str) -> tuple[str, ...]:
     ids = [v.strip() for v in value] if isinstance(value, list) else []
     if len(ids) < 2 or not all(isinstance(v, str) and v for v in ids) or len(set(ids)) != len(ids):
         raise ConfigError(
-            f'{location} crossing must name two or more different component ids, ["A", "B"]'
+            f"{location} crossing must contain two or more different component IDs, such "
+            f'as ["A", "B"].'
         )
     return tuple(ids)
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
-    """The `[judgement] answered` list; an entry without a reason is refused."""
+    """This function reads and validates `[judgement] answered`, including reasons and
+    evidence.
+    """
     judgement = raw.get("judgement", {})
     if not isinstance(judgement, dict):
         raise ConfigError(f"{where}: judgement must be a table")
     bad = sorted(set(judgement) - JUDGEMENT_KEYS)
     if bad:
-        raise ConfigError(f"{where}: judgement has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{where}: judgement has an unknown key: {', '.join(bad)}")
     entries = judgement.get("answered", [])
     if not isinstance(entries, list):
         raise ConfigError(f"{where}: judgement.answered must be a list of tables")
@@ -658,17 +652,15 @@ def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
 
 def _answer_entry(entry: Any, location: str) -> Answer:
     if not isinstance(entry, dict):
-        raise ConfigError(f"{location} must be a table with item (or items) and reason")
+        raise ConfigError(f"{location} must be a table with item (or items) and reason.")
     bad = sorted(set(entry) - ANSWER_KEYS)
     if bad:
-        raise ConfigError(f"{location} has unknown key: {', '.join(bad)}")
+        raise ConfigError(f"{location} has an unknown key: {', '.join(bad)}")
     forms = [form for form in ANSWER_FORMS if entry.get(form) is not None]
     if len(forms) != 1:
         raise ConfigError(
-            f"{location} needs exactly one of item (one line), "
-            "items (a list), crossing (two or more component ids), crossing_into or "
-            "crossing_from (one component id), kind (a line kind) or module_sdk (an "
-            f"import name); it has {len(forms)}"
+            f"{location} must contain one selector: item, items, crossing, crossing_into, "
+            f"crossing_from, kind, or module_sdk. The selector count is {len(forms)}"
         )
     (form,) = forms
     answer = _answer_selector(form, entry[form], location)
@@ -676,8 +668,7 @@ def _answer_entry(entry: Any, location: str) -> Answer:
     reason = entry.get("reason")
     if not isinstance(reason, str) or not reason.strip():
         raise ConfigError(
-            f"{location} ({answer.label}) needs a reason: "
-            "say why the line is answered rather than acted on"
+            f"{location} ({answer.label}) must contain a reason. Give the reason for the answer."
         )
     return dataclasses.replace(
         answer, reason=reason, evidence=evidence, policy=policy, reviewed=reviewed
@@ -692,25 +683,22 @@ def _answer_review(
     policy = entry.get("policy", False)
     reviewed = entry.get("reviewed", [])
     if not isinstance(evidence, str) or (evidence and not exact):
-        raise ConfigError(f"{location} evidence needs an exact item")
+        raise ConfigError(f"{location} evidence is permitted only for an exact item.")
     if evidence and re.fullmatch(r"[0-9a-f]{64}", evidence) is None:
         raise ConfigError(f"{location} evidence must be a SHA-256 digest")
     if not isinstance(policy, bool) or (policy and exact):
-        raise ConfigError(f"{location} policy needs a broad form")
+        raise ConfigError(f"{location} policy is permitted only for a family selector.")
     if not isinstance(reviewed, list) or not all(isinstance(v, str) and v for v in reviewed):
         raise ConfigError(f"{location} reviewed must be a list of lines")
     if reviewed and not policy:
-        raise ConfigError(f"{location} reviewed needs policy = true")
+        raise ConfigError(f"{location} reviewed is permitted only with policy = true.")
     return evidence, policy, tuple(reviewed)
 
 
 @contextlib.contextmanager
 def _beside(folder: Path) -> Iterator[None]:
-    """The model's own directory on the path while it runs, and nothing kept after.
-
-    A map outgrows one file, and `import journeys` beside the model is how a
-    person would split it. Afterwards the directory comes off the path and
-    what it imported is dropped, so the next run reads what is on disk.
+    """This context puts the model directory on the import path during model execution. It
+    restores the path afterward.
     """
     sys.path.insert(0, str(folder))
     held = set(sys.modules)
@@ -726,23 +714,13 @@ def _beside(folder: Path) -> Iterator[None]:
 
 
 def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
-    """Import the model module by path and return its MODEL and MEANING.
+    """This function imports the model file and gets MODEL and MEANING.
 
-    `label` is the name the messages call the module by (the configured
-    `model`, `map/model.py`); the path itself when not given. A name the
-    module could not import or does not know is reported as such, with
-    the fix: the starter imports every schema name, and an agent that
-    trims the import and then uses `Layer` gets one line, not a traceback.
-
-    The source is compiled and run directly rather than through the import
-    system's loader: that loader keeps bytecode keyed by the source's size
-    and whole-second mtime, so an edit that changes neither (one name for
-    another of the same length, within the same second) would be read back
-    as the old model. An agent runs the check after every edit; the model it
-    checks must be the one on disk.
+    The optional label supplies the path name in error messages. An import error gives a
+    configuration diagnostic.
     """
     if not path.is_file():
-        raise ConfigError(f"model module not found: {path}")
+        raise ConfigError(f"The model module is missing: {path}")
     label = label or str(path)
     name = f"systemap_model_{abs(hash(str(path)))}"
     module = types.ModuleType(name)
@@ -755,10 +733,10 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
             exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - it is code
     except (ImportError, NameError) as exc:
         raise ConfigError(
-            f"{label} failed to import: {exc}; add the missing name to the import from systemap"
+            f"{label} could not import: {exc}. Add the missing name to the import from systemap."
         ) from exc
     except Exception as exc:  # noqa: BLE001 - the consumer's module may fail any way
-        raise ConfigError(f"{label} failed to import: {type(exc).__name__}: {exc}") from exc
+        raise ConfigError(f"{label} could not import: {type(exc).__name__}: {exc}") from exc
     finally:
         sys.modules.pop(name, None)
     model = getattr(module, "MODEL", None)

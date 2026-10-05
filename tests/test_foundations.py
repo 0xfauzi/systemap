@@ -50,7 +50,7 @@ def test_the_agent_is_asked_once_and_remembered(tmp_path: Path) -> None:
     assert again.ask("What does this change mean?", {"cards": ["Parser"]}) == first
     assert len(asked) == 1, "the second run read the cache"
     assert again.usage.cached == 1 and again.usage.called == 0
-    assert "1 from the cache" in again.usage.line()
+    assert "1 cached answers" in again.usage.line()
     # a different question is a different answer
     one.ask("What does this change mean?", {"cards": ["Store"]})
     assert len(asked) == 2
@@ -66,8 +66,36 @@ def test_without_a_command_nothing_runs_and_the_reason_is_said(tmp_path: Path) -
     (tmp_path / "systemap.toml").write_text('name = "x"\nmodel = "map/model.py"\n')
     cfg = load_config(tmp_path)
     assert cfg.agent_command == "" and not agent.has_agent(cfg)
-    with pytest.raises(agent.AgentError, match="no agent is set"):
+    with pytest.raises(agent.AgentError, match="No agent is configured"):
         agent.from_cfg(cfg)
+
+
+def test_language_policy_reaches_the_agent_and_invalidates_old_answers(tmp_path: Path) -> None:
+    run, asked = recorder(["The source supplies records."])
+    cache = agent.Cache(tmp_path / "language.json")
+    old_key = agent.cache_key("agent -p", "Write a sequence.", None)
+    cache.entries[old_key] = {"prose": "An old answer without the language policy."}
+    cache.save()
+    configured = agent.Agent("agent -p", tmp_path, cache, run_command=run)
+
+    assert configured.ask("Write a sequence.") == "The source supplies records."
+    assert len(asked) == 1
+    assert asked[0].startswith(agent.LANGUAGE_POLICY)
+    assert "ASD-STE100 Issue 9" in asked[0]
+    assert "Component names" in asked[0] and "Sequence names" in asked[0]
+    assert configured.ask("Write a sequence.") == "The source supplies records."
+    assert len(asked) == 1
+
+
+def test_changed_language_policy_requires_a_new_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run, asked = recorder(["First answer.", "New policy answer."])
+    configured = agent.Agent("agent -p", tmp_path, agent.Cache(None), run_command=run)
+    configured.ask("q")
+    monkeypatch.setattr(agent, "LANGUAGE_POLICY", agent.LANGUAGE_POLICY + "\nNew requirement.")
+    assert configured.ask("q") == "New policy answer."
+    assert len(asked) == 2
 
 
 def test_a_failing_command_is_reported_never_answered(tmp_path: Path) -> None:
@@ -92,7 +120,7 @@ def test_the_agent_table_is_read_and_checked(tmp_path: Path) -> None:
     with pytest.raises(config.ConfigError, match="agent.timeout"):
         load_config(tmp_path)
     toml.write_text('name = "x"\n[agent]\nmodel = "x"\n')
-    with pytest.raises(config.ConfigError, match="agent has unknown key: model"):
+    with pytest.raises(config.ConfigError, match="agent has an unknown key: model"):
         load_config(tmp_path)
 
 
@@ -183,7 +211,7 @@ def test_a_lesson_prints_as_two_rows_under_the_line() -> None:
 def test_explain_prints_one_entry_whole_and_names_the_kinds_it_knows() -> None:
     out = explain.whole("crossing import")
     assert out[0] == "crossing import"
-    assert any("why it matters" in line for line in out)
+    assert any("importance" in line for line in out)
     missing = explain.whole("nonsense")
     assert "there is no line kind" in missing[0] and "crossing import" in missing[1]
 
@@ -198,13 +226,15 @@ def test_explain_lists_every_kind_and_prints_one_whole(
 
     assert main(["--root", str(tmp_path), "explain"]) == 0
     out = capsys.readouterr().out
-    assert "the kinds of line systemap prints" in out
+    assert "The diagnostic kinds and their meanings follow." in out
     for kind in ("crossing import", "coverage", "jev owner", "new crossing import"):
         assert f"  {kind}: " in out
     assert main(["--root", str(tmp_path), "explain", "crossing import"]) == 0
     whole = capsys.readouterr().out
     assert whole.startswith("crossing import\n")
-    assert "why it matters:" in whole and "what to do:" in whole
+    assert "importance:" in whole and "action:" in whole
+    lesson = explain.LESSONS["crossing import"]
+    assert lesson.means in whole and lesson.why in whole and lesson.do in whole
     # a kind nobody prints is refused, and the refusal names the ones there are
     assert main(["--root", str(tmp_path), "explain", "nonsense"]) == 1
     assert "there is no line kind" in capsys.readouterr().out

@@ -1,10 +1,4 @@
-"""How the system got here: the tree sampled back through time.
-
-`systemap history` reads the facts at each sampled commit against today's
-map, and prints what moved between them: cards that grew, crossing imports
-that appeared, ways in added or removed, and the commits that wrote the
-modules which appeared.
-"""
+"How the system got here: the tree sampled back through time.\n\n`systemap history` reads the facts at each sampled commit against today's\nmap, and prints what moved between them: cards that grew, crossing imports\nthat appeared, ways in added or removed, and the commits that wrote the\nmodules which appeared.\n"
 
 from __future__ import annotations
 
@@ -88,7 +82,7 @@ def test_a_crossing_is_a_pair_the_map_draws_no_flow_between(sample: object) -> N
 
 def test_a_quiet_stretch_says_so_rather_than_printing_a_chart(repo: Path) -> None:
     commit_free = trend.report([], repo, "1 year ago", 14, 5)
-    assert "nothing the map can see changed in that time" in commit_free[1]
+    assert "No map change occurs in this period" in commit_free[1]
 
 
 def test_the_command_prints_the_largest_windows_and_what_wrote_them(
@@ -96,10 +90,10 @@ def test_the_command_prints_the_largest_windows_and_what_wrote_them(
 ) -> None:
     assert main(["--root", str(repo), "history", "--since", "30 years ago", "--every", "1"]) == 0
     out = capsys.readouterr().out
-    assert "windows moved the map" in out
-    assert "cards: Writer +1" in out
-    assert "written by: shipping, written into the writer" in out
-    assert "match today's module claims" in out
+    assert "windows changed the map" in out
+    assert "components: Writer +1" in out
+    assert "added by commit: shipping, written into the writer" in out
+    assert "use the module claims from the model" in out
 
 
 def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -111,7 +105,7 @@ def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str
     ).stdout.strip()
     argv = ["--root", str(repo), "history", "--since", "30 years ago", "--ref", first]
     assert main(argv) == 0
-    assert "ask for a longer time" in capsys.readouterr().out
+    assert "Use a longer time range" in capsys.readouterr().out
 
 
 def test_the_facts_at_a_commit_are_read_once(repo: Path) -> None:

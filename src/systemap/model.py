@@ -1,50 +1,28 @@
-"""The schema a system map is written in, and the checks that keep it honest.
+"""The schema for a system map and its consistency checks.
 
-A map has two hand-authored halves and one derived one:
+Model contains containers, regions, components, flows, and invariants.
+Meaning contains component names, layer questions, flow sentences, and sequences.
+The extractor supplies source facts separately.
 
-    Model ..... the topology: containers (hard boundaries), regions (soft
-                bands), components (with a fixed place on the canvas), the
-                flows between them with the artifact each carries, and the
-                invariants that govern them
-    Meaning ... what the topology means: a plain word per component, the
-                layers a reader can switch between, one sentence per flow,
-                the journeys a reader can step through, and the verb each
-                spoke of the relationship wheel prints
-    facts ..... read out of the code by `systemap extract`: every module,
-                its public surface, and the tests that import it
+Each source component identifies its modules and a public entry point where applicable.
+The checks compare those references with the source facts.
+An import connection alone does not show a flow sentence.
+A maintainer must examine source support for each authored claim.
 
-The map draws what exists today. Every component names the modules that are
-it and one entry point those modules define (any public module-level name:
-a function, a class, an object such as `app`); `systemap check` refuses a
-module or an entry the facts do not have, so a card on the page is always
-code in the tree. Nothing on the map is a plan; nothing is declared done.
+The model records fixed card positions. The placement command keeps existing positions.
+With --all, the command calculates positions again, except for pinned cards.
+The layout checks compare card boundaries, regions, flow endpoints, and kinds.
+The meaning checks compare references with the model.
 
-Positions are fixed in the model because this is a topology, not a chart:
-a box's place carries meaning. A fixed layout also means the same system
-always draws the same picture, so a change in the drawing is a change in
-the system. `systemap place` writes a first placement for every card
-without one and keeps every card that has one; `systemap place --all`
-lays every card out again except the ones marked `pinned`, which a
-person placed on purpose. `Model.layout_problems()` checks the placement
-mechanically and `meaning_problems()` checks that the meaning names only
-what the model has.
+The six component kinds are component, store, actor, agent, tool, and context.
+An agent calls a model and acts on its output.
+A component with calls_model makes a model call without the agent classification.
+A context flow ends at either kind of model caller. A tool flow starts there.
 
-Six node kinds are drawn differently on purpose. A `component` does work, a
-`store` holds state, an `actor` is outside the system. In an agentic system
-an `agent` runs a model and acts on its output, a `tool` is a capability an
-agent invokes, and a `context` is a store whose content enters an agent's
-window. Drawing a store as if it were a processing step is the most common
-lie in architecture diagrams.
-
-A layer is one question the map answers, and the edges that answer it.
-Three are derived from the model with no
-authoring (Structure, System context, and Agents when the model has an
-agent or a `calls_model` component), four belong to the standard flow
-kinds (data, control, context, tool; the last two likewise), and the rest
-are the model's own, one per custom kind. The Agents layer shows agents
-only; the Context and Tools layers show every context and tool flow,
-whichever end runs the model.
-"""
+The standard layers show structure, system context, data flow, and control flow.
+For a model caller, the page also supplies Agents, Context, and Tools.
+Agents shows agent components. Context and Tools show the applicable flow kinds.
+Custom flow kinds use the layers in Meaning."""
 
 from __future__ import annotations
 
@@ -73,7 +51,7 @@ CARD_H: dict[str, int] = {
 
 @dataclass(frozen=True)
 class Container:
-    """A hard boundary: a process, a host, a directory the system may not cross."""
+    """A system boundary, such as a process, host, or source directory."""
 
     id: str
     label: str
@@ -84,7 +62,7 @@ class Container:
 
 @dataclass(frozen=True)
 class Region:
-    """A soft band inside a container: a phase, a concern, a team."""
+    """A component group with layout bounds inside an optional container."""
 
     id: str
     label: str
@@ -94,29 +72,26 @@ class Region:
 
 @dataclass(frozen=True)
 class Component:
-    """One card on the map.
+    """A component card with source references and an optional fixed position.
 
-    `region` places a component or store; `container` places an actor. `x`
-    and `y` are the card's top-left corner in canvas units; a card with
-    neither is placed by `systemap place` and refused by the check until
-    it is, a card with both is kept by `systemap place` and laid out again
-    by `systemap place --all`. `pinned` says a person chose the position:
-    `place --all` keeps a pinned card where it is and lays the rest out
-    around it. `note` is a
-    caveat the reader should see; `interface` is the one-line signature the
-    reader is told. `entry` is required for every kind but `store` and
-    `context`, which may be a namespace with no way in. `calls_model` marks
-    a single-shot call site: a part that calls a model once and is not an
-    agent by the repository's own rule; a context or tool flow may end or
-    start at it, and the model sdk judgement line is answered by the flag.
-    `map` opens a map of the card's own: a path, relative to the model
-    file, to a module that exports `MODEL` and `MEANING` like any model,
-    whose cards claim exactly the modules this card claims and whose
-    actors are cards of this map (`systemap.nest` walks the tree).
-    `source_review` records a maintainer's review of the current parsed
-    source and the card's description, flows, journeys and invariants.
-    `systemap delta` reopens the review when that digest changes.
-    """
+    region identifies the group for a component or store.
+    container identifies the group for an actor.
+    x and y give the top-left card position in map coordinates.
+    The placement command supplies missing positions. With --all, it keeps only pinned positions.
+
+    note gives additional information for the reader.
+    interface gives the component input and output.
+    All kinds except store and context must have a public entry point.
+    calls_model identifies a model call without the agent classification.
+    A context flow can end there. A tool flow can start there.
+
+    map gives a nested model path relative to this model file.
+    The nested model must export MODEL and MEANING.
+    Its source components must cover exactly the parent component modules.
+    Its actors must refer to components in the parent model.
+
+    source_review records an examination of source facts and component claims.
+    The delta command opens the source review again when its digest changes."""
 
     id: str
     does: str
@@ -136,20 +111,17 @@ class Component:
 
     @property
     def opens(self) -> bool:
-        """Does the card open a map of its own? A `map` path is given."""
+        """True when the component has a nested map path."""
         return bool(self.map)
 
     @property
     def positioned(self) -> bool:
-        """Has the card a position? Both `x` and `y` given."""
+        """True when the component has both position coordinates."""
         return self.x is not None and self.y is not None
 
     @property
     def model_end(self) -> bool:
-        """May a context flow end here, or a tool flow start here?
-
-        An agent, or a single-shot call site marked `calls_model`.
-        """
+        """True for an agent or a component with calls_model."""
         return self.kind == "agent" or self.calls_model
 
     @property
@@ -159,18 +131,17 @@ class Component:
     @property
     def box(self) -> Box:
         if self.x is None or self.y is None:
-            raise ValueError(f"{self.id} has no position; run: systemap place")
+            raise ValueError(f"{self.id} has no position. Run: systemap place")
         return self.x, self.y, CARD_W, CARD_H[self.kind]
 
 
 @dataclass(frozen=True)
 class Flow:
-    """One artifact travelling from `src` to `dst`, in one dataflow `kind`.
+    """A directed flow with one artifact, two endpoints, and one kind.
 
-    `source_refs` records source reviewed for this claim. Each reference names
-    a module, an optional symbol, and the digest of that module's source.
-    `review_digest` binds that review to the flow fields and its sentence.
-    """
+    source_refs identifies the source records for the flow claim.
+    Each record contains a module, an optional symbol, and a source digest.
+    review_digest connects that source review to the flow fields and relation sentence."""
 
     src: str
     dst: str
@@ -186,7 +157,7 @@ class Flow:
 
 @dataclass(frozen=True)
 class Invariant:
-    """A load-bearing rule, numbered, and the components it directly governs."""
+    """A numbered rule with the identifiers of the applicable components."""
 
     n: int
     text: str
@@ -195,7 +166,7 @@ class Invariant:
 
 @dataclass(frozen=True)
 class Step:
-    """One step of a journey: who acts, who measures, the edge it traces."""
+    """A sequence step with acting components, measured components, a flow, and a sentence."""
 
     acts: tuple[str, ...]
     measures: tuple[str, ...]
@@ -205,13 +176,12 @@ class Step:
 
 @dataclass(frozen=True)
 class Journey:
-    """One walk through the system, as a reader would take it.
+    """An ordered sequence of steps through the system.
 
-    `starts` displays the way in or card where the walk begins. `covers`
-    lists exact identities of the entries reviewed in the walk. Each identity
-    records kind, module, target, and local name, so a newly found route on
-    the same card needs its own review.
-    """
+    starts identifies the initial entry point or component.
+    covers contains exact entry point identities examined for this sequence.
+    Each identity contains a kind, module, target, and local name.
+    A new entry point on the same component is a separate source review."""
 
     id: str
     label: str
@@ -225,7 +195,7 @@ class Journey:
 
 @dataclass(frozen=True)
 class Layer:
-    """One reading of the map: the question it answers and a sub-line."""
+    """A map view with a name, question, and additional description."""
 
     id: str
     label: str
@@ -242,26 +212,26 @@ STANDARD_LAYERS: tuple[Layer, ...] = (
     Layer(
         "structure",
         "Structure",
-        question="What are the parts, and where does each sit?",
-        sub="every component inside its region and container; no edges",
+        question="Which components are in each region and container?",
+        sub="components inside regions and containers, without flows",
     ),
     Layer(
         "system",
         "System context",
-        question="Who and what is outside, and how does it reach in?",
-        sub="the actors, and every edge that crosses the boundary",
+        question="Which actors connect to the system?",
+        sub="actors and flows across the system boundary",
     ),
     Layer(
         "data",
         "Data flow",
-        question="What moves, and where does it go?",
-        sub="an artifact moves: a file, a record, a message, a response",
+        question="Which artifacts move between components?",
+        sub="artifacts such as files, records, messages, and responses",
     ),
     Layer(
         "control",
         "Control flow",
-        question="Who drives whom?",
-        sub="one part invokes, schedules or drives another: a call, a command, an event",
+        question="Which components cause other components to act?",
+        sub="calls, commands, and events that cause component actions",
     ),
 )
 
@@ -269,20 +239,20 @@ AGENT_LAYERS: tuple[Layer, ...] = (
     Layer(
         "agents",
         "Agents",
-        question="Which parts run a model, and what do they reach?",
-        sub="every agent, and every edge that touches one",
+        question="Which agents call a model, and which components connect to them?",
+        sub="agents and their connected flows",
     ),
     Layer(
         "context",
         "Context",
-        question="What enters each agent's window, and from where?",
-        sub="a prompt, a memory, retrieved knowledge, a log: what an agent reads",
+        question="Which inputs does each model caller receive?",
+        sub="model inputs such as prompts, memory, search results, and logs",
     ),
     Layer(
         "tools",
         "Tools",
-        question="What can each agent do, and through what?",
-        sub="every capability an agent invokes: a shell, an API, a search, an editor",
+        question="Which tools does each model caller use?",
+        sub="tool calls such as shell commands, API calls, searches, and file changes",
     ),
 )
 
@@ -302,16 +272,16 @@ RESERVED_LAYER_IDS = frozenset(
     [layer.id for layer in STANDARD_LAYERS + AGENT_LAYERS] + list(LAYER_OF_STANDARD_KIND) + ["all"]
 )
 STANDARD_VERBS: dict[str, tuple[str, str]] = {
-    "data": ("hands to", "receives from"),
-    "control": ("drives", "is driven by"),
-    "context": ("informs", "reads"),
-    "tools": ("invokes", "is invoked by"),
+    "data": ("sends to", "receives from"),
+    "control": ("starts", "receives control from"),
+    "context": ("supplies input to", "receives input from"),
+    "tools": ("calls", "receives calls from"),
 }
 
 
 @dataclass(frozen=True)
 class Model:
-    """The hand-authored topology of one system."""
+    """The authored structure of one system."""
 
     canvas: tuple[int, int]
     containers: tuple[Container, ...]
@@ -327,16 +297,12 @@ class Model:
 
     @property
     def opening(self) -> tuple[Component, ...]:
-        """The cards that open a map of their own, in model order."""
+        """Components with nested maps, in model order."""
         return tuple(c for c in self.components if c.opens)
 
     @property
     def agentic(self) -> bool:
-        """Does the model run a model anywhere? The agent layers appear only then.
-
-        An agent, or a component marked `calls_model`: the Context and Tools
-        readings exist for the flows into and out of either.
-        """
+        """True when an agent or a component with calls_model is in the model."""
         return any(c.model_end for c in self.components)
 
     def _model_end(self, cid: str) -> bool:
@@ -355,24 +321,18 @@ class Model:
         raise KeyError(cid)
 
     def rules_of(self, cid: str) -> list[int]:
-        """The invariant numbers governing a component, in invariant order."""
+        """The applicable invariant numbers, in numerical order."""
         return [inv.n for inv in sorted(self.invariants, key=lambda i: i.n) if cid in inv.governs]
 
     def layout_problems(self) -> list[str]:
-        """Ways the placed topology contradicts itself. Empty means clean.
+        """Find inconsistent layout fields and model references.
 
-        Every card must have a position and sit inside the region (or
-        container) the model assigns it, no two cards may overlap, a region
-        that names a
-        container must sit inside it, every flow must name known components
-        and a kind that is standard or declared, no ordered pair may carry
-        two flows, a context or tool flow
-        must have an agent or a `calls_model` component at its agent end, every invariant must
-        carry its own number and govern known components, and a card that opens a map is not
-        an actor. A card outside its band would draw a
-        topology the model does not claim, which is the one lie a
-        fixed layout can tell.
-        """
+        Each card must have a position inside its region or container.
+        Cards must not overlap. Each region must fit inside its container.
+        Flow endpoints and kinds must exist. Each ordered endpoint pair can have only one flow.
+        Context and tool flows must connect to an agent or a component with calls_model.
+        Invariant numbers must have different values, and their component references must exist.
+        An actor must not open a nested map."""
         out: list[str] = []
         regions = {r.id: r.box for r in self.regions}
         containers = {c.id: c.box for c in self.containers}
@@ -385,9 +345,13 @@ class Model:
             if c.kind not in KINDS:
                 out.append(f"{c.id} has unknown kind {c.kind}")
             if c.map is not None and not c.map.strip():
-                out.append(f"{c.id} opens a map with an empty path; name the sub-model module")
+                out.append(
+                    f"{c.id} opens a map with an empty path. Give the nested model module path"
+                )
             elif c.opens and c.kind == "actor":
-                out.append(f"{c.id} is an actor and opens a map ({c.map}); an actor claims no code")
+                out.append(
+                    f"{c.id} is an actor and opens a map ({c.map}). An actor has no source modules"
+                )
         for box in self.containers:
             if box.tone not in TONES:
                 out.append(f"container {box.id} has unknown tone {box.tone}")
@@ -396,7 +360,7 @@ class Model:
                 continue
             outer = containers.get(region.container)
             if outer is None:
-                out.append(f"region {region.id} names unknown container {region.container}")
+                out.append(f"region {region.id} has unknown container {region.container}")
             elif not _inside(region.box, outer):
                 out.append(f"region {region.id} is not inside {region.container}")
         for c in self.components:
@@ -404,11 +368,11 @@ class Model:
                 continue
             outer = regions.get(c.home) or containers.get(c.home)
             if not c.home:
-                out.append(f"{c.id} names no region or container")
+                out.append(f"{c.id} has no region or container")
             elif outer is None:
-                out.append(f"{c.id} names unknown region or container {c.home}")
+                out.append(f"{c.id} has unknown region or container {c.home}")
             elif not c.positioned:
-                out.append(f"{c.id} has no position (x, y); run: systemap place")
+                out.append(f"{c.id} has no position (x, y). Run: systemap place")
             elif not _inside(c.box, outer):
                 out.append(f"{c.id} is drawn outside {c.home}")
         drawable = [c for c in self.components if c.kind in CARD_H and c.positioned]
@@ -419,12 +383,12 @@ class Model:
         pairs: dict[Edge, Flow] = {}
         for f in self.flows:
             if f.src not in ids or f.dst not in ids:
-                out.append(f"flow {f.src} -> {f.dst} names an unknown component")
+                out.append(f"flow {f.src} -> {f.dst} has an unknown component")
             if f.edge in pairs:
                 out.append(
                     f"flow {f.src} -> {f.dst} appears twice ('{pairs[f.edge].artifact}' and "
-                    f"'{f.artifact}'); one flow per ordered pair: pick the artifact that "
-                    "matters, or draw one each way when something travels back"
+                    f"'{f.artifact}'). Each ordered pair can have only one flow. "
+                    "Select one artifact, or add a reverse flow for a return artifact"
                 )
             pairs.setdefault(f.edge, f)
             if f.kind not in STANDARD_KINDS and f.kind not in self.flow_kinds:
@@ -434,47 +398,46 @@ class Model:
                 )
             if f.kind == "context" and not self._model_end(f.dst):
                 out.append(
-                    f"flow {f.src} -> {f.dst} has kind context but {f.dst} is not an agent; "
-                    f"a context flow ends at the agent whose window it enters: set {f.dst}'s "
-                    "kind to agent, mark it calls_model=True if it makes a single-shot call, "
-                    "or give the flow the kind data"
+                    f"flow {f.src} -> {f.dst} has kind context but {f.dst} is not a model caller. "
+                    f"A context flow ends at its model caller. Set {f.dst}'s "
+                    "kind to agent, or set calls_model=True for one model call. "
+                    "As an alternative, use kind data for the flow"
                 )
             if f.kind == "tool" and not self._model_end(f.src):
                 out.append(
-                    f"flow {f.src} -> {f.dst} has kind tool but {f.src} is not an agent; "
-                    f"a tool flow starts at the agent that invokes it: set {f.src}'s kind "
-                    "to agent, mark it calls_model=True if it makes a single-shot call, or "
-                    "give the flow the kind control"
+                    f"flow {f.src} -> {f.dst} has kind tool but {f.src} is not a model caller. "
+                    f"A tool flow starts at its model caller. Set {f.src}'s kind "
+                    "to agent, or set calls_model=True for one model call. "
+                    "As an alternative, use kind control for the flow"
                 )
         numbered: dict[int, Invariant] = {}
         for inv in self.invariants:
             if inv.n in numbered:
                 out.append(
                     f"invariant {inv.n} is numbered twice: '{numbered[inv.n].text}' and "
-                    f"'{inv.text}'; give each rule its own number"
+                    f"'{inv.text}'. Give each rule its own number"
                 )
             else:
                 numbered[inv.n] = inv
             for cid in inv.governs:
                 if cid not in ids:
-                    out.append(f"invariant {inv.n} governs unknown component {cid}")
+                    out.append(f"invariant {inv.n} has unknown component {cid}")
         return out
 
 
 @dataclass(frozen=True)
 class Meaning:
-    """The hand-authored meaning of one system.
+    """The authored names and explanations for a system model.
 
-    `plain` is the plain word per component id. `layers` are the model's
-    own layers, shown after the standard ones in this order; a model with
-    no custom kind leaves it empty. `layer_of_kind` maps a custom flow kind
-    to a layer (the standard kinds have theirs already) and
-    `layer_overrides` moves single edges to another layer. `relations` is
-    one sentence per edge, read from the source side. `verbs` gives (verb
-    when the clicked component is the source, verb when it is the target)
-    per layer, over the standard verbs; `verb_overrides` does the same per
-    edge.
-    """
+    plain gives a short description for each component identifier.
+    layers gives custom layers after the standard layers, in the specified order.
+    layer_of_kind connects each custom flow kind to its layer.
+    layer_overrides selects a different layer for an individual flow.
+    relations gives a sentence for each flow, from its source endpoint.
+
+    verbs gives the source-side and target-side labels for each layer.
+    verb_overrides supplies these labels for an individual flow.
+    journeys contains the ordered sequences."""
 
     plain: Mapping[str, str]
     layers: tuple[Layer, ...] = ()
@@ -486,11 +449,8 @@ class Meaning:
     verb_overrides: Mapping[Edge, tuple[str, str]] = field(default_factory=dict)
 
     def layer_for(self, edge: Edge, kind: str) -> str:
-        """The one layer a flow belongs to.
-
-        The override if any, else the layer the model gives the kind, else
-        the standard kind's own layer. An undeclared custom kind is a
-        KeyError, which the meaning check reports.
+        """Select the flow override, custom kind layer, or standard kind layer.
+        Missing kinds cause KeyError.
         """
         layer = (
             self.layer_overrides.get(edge)
@@ -502,7 +462,7 @@ class Meaning:
         return layer
 
     def verb_for(self, edge: Edge, layer: str, from_clicked: bool) -> str:
-        """The verb to print on a spoke, read from the clicked component."""
+        """Get the connection label for the selected component and flow direction."""
         pair = (
             self.verb_overrides.get(edge)
             or self.verbs.get(layer)
@@ -512,32 +472,22 @@ class Meaning:
 
 
 def all_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]:
-    """Every layer the page shows, in the order it shows them.
-
-    Structure, System context, Data flow, Control flow; then Agents,
-    Context and Tools when the model has an agent; then the model's own.
-    The first is the one the page opens on.
-    """
+    """Get standard layers, applicable agent layers, and custom layers in page order."""
     standard = STANDARD_LAYERS + (AGENT_LAYERS if model.agentic else ())
     return standard + tuple(meaning.layers)
 
 
 def flow_layers(model: Model, meaning: Meaning) -> tuple[Layer, ...]:
-    """The layers a flow belongs to by its kind: every layer but the derived ones."""
+    """Get layers for flow kinds. Do not include derived layers."""
     return tuple(layer for layer in all_layers(model, meaning) if layer.id not in DERIVED_LAYERS)
 
 
 def edge_in_layer(model: Model, layer_id: str, edge_layer: str, src: str, dst: str) -> bool:
-    """The one per-layer filter: does a flow belong to the reading `layer_id`?
+    """True when a layer includes the flow.
 
-    A kind layer holds the flows of its kind; `edge_layer` is the layer
-    `Meaning.layer_for` gave the flow. A derived reading is computed from
-    the endpoints instead: Structure shows no edge, System context the
-    edges that cross the boundary (an actor at either end), Agents the
-    edges that touch an agent. The page reads this function's result out
-    of the detail JSON rather than deciding again in the browser, so a
-    figure of one layer and the page's layer switch cannot disagree.
-    """
+    Structure includes no flows. System context includes flows with an actor endpoint.
+    Agents includes flows with an agent endpoint. Other layers use the recorded kind or override.
+    The page and figures use this same selection procedure."""
     if layer_id == "all":
         return True
     if layer_id == "structure":
@@ -560,12 +510,7 @@ SUBJECT_KIND: dict[str, str] = {
 
 
 def subject_of_layer(model: Model, layer_id: str, cid: str) -> bool:
-    """A card the reading is about even when no edge it shows touches it.
-
-    Structure is about every card. System context is about the actors,
-    Agents about the agents, Context about the context cards and Tools
-    about the tools, whether or not an edge of the reading reaches them.
-    """
+    """True when the component kind is a subject of the layer, with or without connected flows."""
     if layer_id == "structure":
         return True
     kind = SUBJECT_KIND.get(layer_id)
@@ -573,7 +518,7 @@ def subject_of_layer(model: Model, layer_id: str, cid: str) -> bool:
 
 
 def reading(model: Model, meaning: Meaning, layer_id: str) -> tuple[list[int], list[str]]:
-    """(the flows the reading shows, by index; the cards it is about, by id)."""
+    """Get the flow indexes and component identifiers for a layer."""
     edges = [
         i
         for i, f in enumerate(model.flows)
@@ -584,7 +529,7 @@ def reading(model: Model, meaning: Meaning, layer_id: str) -> tuple[list[int], l
 
 
 def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
-    """Ways the meaning names something the model does not have, or misses one."""
+    """Find missing explanations and references that do not exist in the model."""
     out: list[str] = []
     ids = model.ids
     edges = {f.edge for f in model.flows}
@@ -593,7 +538,7 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
     layer_ids = {layer.id for layer in STANDARD_LAYERS + AGENT_LAYERS + meaning.layers}
     for own in meaning.layers:
         if own.id in RESERVED_LAYER_IDS:
-            out.append(f"layer {own.id} is a standard layer; it is derived, not declared")
+            out.append(f"layer {own.id} is a standard layer. Do not declare it as a custom layer")
     for f in model.flows:
         if f.edge not in meaning.relations:
             out.append(f"flow {f.src} -> {f.dst} has no sentence in relations")
@@ -603,59 +548,57 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
             out.append(f"flow {f.src} -> {f.dst} has kind {f.kind} with no layer")
             continue
         if layer not in layer_ids:
-            out.append(f"flow {f.src} -> {f.dst} names unknown layer {layer}")
+            out.append(f"flow {f.src} -> {f.dst} has unknown layer {layer}")
     for edge in meaning.relations:
         if edge not in edges:
-            out.append(f"relations names a flow the model does not have: {edge[0]} -> {edge[1]}")
+            out.append(f"relations has an unknown flow: {edge[0]} -> {edge[1]}")
     for edge in meaning.layer_overrides:
         if edge not in edges:
-            out.append(f"layer_overrides names an unknown flow: {edge[0]} -> {edge[1]}")
+            out.append(f"layer_overrides has an unknown flow: {edge[0]} -> {edge[1]}")
     for edge in meaning.verb_overrides:
         if edge not in edges:
-            out.append(f"verb_overrides names an unknown flow: {edge[0]} -> {edge[1]}")
+            out.append(f"verb_overrides has an unknown flow: {edge[0]} -> {edge[1]}")
     for cid in ids:
         if cid not in meaning.plain:
             out.append(f"{cid} has no plain word")
     for cid in meaning.plain:
         if cid not in ids:
-            out.append(f"plain names an unknown component: {cid}")
+            out.append(f"plain has an unknown component: {cid}")
     for j in meaning.journeys:
         out.extend(_journey_problems(j, ids, edges))
     return out
 
 
 def _journey_problems(journey: Journey, ids: set[str], edges: set[Edge]) -> list[str]:
-    """Invalid references in one reviewed journey, in authored step order."""
+    """Find unknown sequence references, in step order."""
     out: list[str] = []
     if not journey.steps:
-        out.append(f"journey {journey.id} has no steps; add the reviewed walk or remove it")
+        out.append(f"journey {journey.id} has no steps. Add the examined sequence or remove it")
     for k, step in enumerate(journey.steps, start=1):
         where = f"journey {journey.id} step {k}"
         for role, members in (("acts", step.acts), ("measures", step.measures)):
             for cid in members:
                 if cid not in ids:
-                    out.append(f"{where} {role} names unknown component {cid}")
+                    out.append(f"{where} {role} has unknown component {cid}")
         if step.edge not in edges:
-            out.append(
-                f"{where} traces a flow the model does not have: {step.edge[0]} -> {step.edge[1]}"
-            )
+            out.append(f"{where} has an unknown flow: {step.edge[0]} -> {step.edge[1]}")
     return out
 
 
 def problems(model: Model, meaning: Meaning) -> list[str]:
-    """Every placement and meaning problem, each prefixed with its kind."""
+    """Get layout and meaning findings with their kind prefixes."""
     out = [f"placement: {p}" for p in model.layout_problems()]
     out += [f"meaning: {p}" for p in meaning_problems(model, meaning)]
     return out
 
 
 def is_symbol(pattern: str) -> bool:
-    """Is one `implemented_by` entry a symbol claim, `pkg.mod:name`?"""
+    """True when an implemented_by value is a symbol claim in pkg.mod:name form."""
     return ":" in pattern
 
 
 def symbol_claims(component: Component) -> list[tuple[str, str]]:
-    """The (module, name) pairs a component claims by symbol."""
+    """Get the module and public name pairs for component symbol claims."""
     out: list[tuple[str, str]] = []
     for pattern in component.implemented_by:
         if is_symbol(pattern):
@@ -665,17 +608,12 @@ def symbol_claims(component: Component) -> list[tuple[str, str]]:
 
 
 def module_matches(pattern: str, module: str) -> bool:
-    """Does one `implemented_by` entry name this module?
+    """True when an implemented_by pattern covers a module.
 
-    An entry is an exact module name, or a package name followed by `.*`,
-    which names the package module itself and everything beneath it. A
-    symbol claim (`pkg.mod:name`) names one public name inside a module
-    and never the module: the module's owner is whoever claims the
-    module, so a symbol claim counts for no module and conflicts with no
-    claim. This is the one place the convention is defined; the build
-    state, the coverage rule, the drift check and the change map all read
-    it from here so they cannot disagree about what a component claims.
-    """
+    An exact module name covers that module only.
+    A package name with .* covers the package and its descendant modules.
+    A symbol claim covers a public name, not the containing module.
+    Coverage, source change, and map checks use this same procedure."""
     if is_symbol(pattern):
         return False
     if pattern.endswith(".*"):
@@ -685,7 +623,7 @@ def module_matches(pattern: str, module: str) -> bool:
 
 
 def claimed(component: Component, modules: Iterable[str]) -> list[str]:
-    """The modules, among `modules`, that the component's `implemented_by` names."""
+    """Select the modules that the component implemented_by patterns cover."""
     patterns = component.implemented_by
     return [m for m in modules if any(module_matches(p, m) for p in patterns)]
 
@@ -694,13 +632,10 @@ BUILT = "built"
 
 
 def public_names(record: Mapping[str, Any]) -> set[str]:
-    """Every public module-level name one facts record declares.
+    """Get public names from a module source record.
 
-    The `names` list carries them all with their kinds (a function, a
-    class, an error, an UPPER_CASE constant, any other object such as
-    `app` or `root_agent`); a facts file from before it was recorded has
-    only functions and classes to offer.
-    """
+    The names field includes functions, classes, constants, and other public objects.
+    Older source records supply only the functions and classes fields."""
     names = record.get("names")
     if names is not None:
         return {n["name"] for n in names}
@@ -710,14 +645,7 @@ def public_names(record: Mapping[str, Any]) -> set[str]:
 
 
 def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
-    """Does one of the component's claimed modules define its entry?
-
-    The entry rule of `systemap check` reads this; it is the one place the
-    lookup is written, so a rule and a drawing cannot disagree about
-    whether a name exists. Any public module-level name counts, in a
-    claimed module or claimed by symbol (then the symbol rule checks that
-    the module defines it).
-    """
+    """True when a component module or symbol claim includes its entry point."""
     components = facts.get("components", {})
     if any(component.entry in public_names(components[m]) for m in claimed(component, components)):
         return True
@@ -725,11 +653,9 @@ def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
 
 
 def entry_module(component: Component, facts: Mapping[str, Any]) -> str:
-    """The module that defines the component's entry, for the panel's `entry: name (module)`.
+    """Get the first component module with its entry point.
 
-    The first claimed module (in the facts' order) whose public names hold
-    the entry, else the module of the symbol claim that names it, else
-    empty: an entry the check refused, or a store or context with none.
+    Otherwise, get the module of its symbol claim.
     """
     components = facts.get("components", {})
     for m in claimed(component, components):
@@ -742,13 +668,10 @@ def entry_module(component: Component, facts: Mapping[str, Any]) -> str:
 
 
 def build_state(component: Component, facts: Mapping[str, Any]) -> str:
-    """The one build state a drawn component has: `built`.
+    """Get the fixed build state identifier built.
 
-    There is nothing to derive. A component whose modules or entry are not
-    in the facts never reaches the drawing, because the entry rule of
-    `systemap check` refuses it; what is drawn exists. The function stays
-    so the word is defined in one place and read from it.
-    """
+    The check stops rendering when source references do not exist.
+    This identifier does not show the component purpose or flow claims."""
     del component, facts
     return BUILT
 

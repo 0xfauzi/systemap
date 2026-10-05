@@ -1,29 +1,13 @@
-"""A journey written for a way in nothing walks from yet.
+"""Write a draft sequence for entry points without a sequence.
 
-`systemap judgement` says which ways into the system no journey walks from.
-This writes one: the agent reads the code from that way in and answers with
-a walk, and systemap checks the walk against the map before it is written
-into the model.
+The configured agent examines source code from the entry point.
+It writes ordered steps under the mandatory ASD-STE100 language policy.
+systemap refuses steps with absent flows or unknown component identifiers.
+Accepted drafts have `drafted=True` until the maintainer examines them against source.
 
-What systemap supplies is the map's own vocabulary: the cards with their
-sentences, the flows already drawn, and the way in with the module behind
-it. What the agent supplies is the judgement: which cards a run really
-passes through, in what order, and one sentence per step.
-
-What systemap refuses is a walk the map cannot hold: a step tracing a flow
-that is not there, or naming a card that does not exist. Those come back as
-lines to fix rather than as a journey, since a journey that names flows the
-map does not draw would fail `systemap check` a moment later.
-
-A generated journey is a draft: it is written into the model with the way in
-it starts from, and `systemap judgement` asks the maintainer to confirm it
-until they answer the line. Nothing here writes prose of its own, and with
-no agent set nothing runs at all.
-
-The walk was first proposed from the imports instead, and measured: the
-cards it named overlapped the ones a person wrote by 0.28 where the bar was
-0.60, because the module behind a command line imports the whole system.
-`bench/jev/propose.py` keeps that attempt and `bench/jev/paths.py` scores it.
+The earlier import-based experiment had overlap 0.28 against acceptance value 0.60.
+The CLI module imported components that the actual sequence did not use.
+`bench/jev/propose.py` and `bench/jev/paths.py` keep that experiment and its measurements.
 """
 
 from __future__ import annotations
@@ -44,43 +28,42 @@ from systemap.evidence import owners
 from systemap.extract import entry_identity, entry_label
 from systemap.model import Journey, Meaning, Model, Step
 
-QUESTION = """You are reading a repository to write one journey for its system map.
+QUESTION = """Examine the repository and write one sequence for its system map.
 
-A journey is the walk a reader takes through the system when a run starts at
-one way in: which parts it passes through, in order, and what happens at each
-step. It is written for a newcomer, in plain words.
+A sequence contains the ordered steps that start at an entry point.
+Each step shows the components that act and the artifact that moves.
+You must use ASD-STE100 Issue 9 for the identifier, label, and step sentences.
+Use the project glossary supplied in the language policy.
 
-Read the code from the way in named below. Then answer with JSON only, in this
-shape, and nothing else:
+Read the source code from the entry point below. Write only JSON with this shape:
 
-{"id": "short-id", "label": "what a person would call this walk",
+{"id": "short-id", "label": "short sequence name",
  "steps": [{"edge": ["CardA", "CardB"], "acts": ["CardA"], "measures": [],
-            "say": "one sentence, from the acting side"}]}
+            "say": "one sentence from the acting component"}]}
 
-Rules:
-- Every `edge` must be one of the flows listed below, exactly as given.
-- Every card named in `acts` and `measures` must be one of the cards listed.
-- `measures` names a card that watches or records the step, or is empty.
-- Four to eight steps. Each sentence says what happens, not how the code does it.
-- The walk must be what the code does, not what it could do.
+Requirements:
+- Keep every edge identical to a listed flow.
+- Use only listed component identifiers in acts and measures.
+- Use measures for a component that monitors or records the step. Otherwise, use an empty list.
+- Write four to eight steps.
+- Write one sentence per step about the action and its result.
+- Write only steps that the source code supports.
 """
 
-
-# The same question, for a crowd. This is the wording measured in
-# `bench/jev/group_journeys.py`: 19 crowds over mealie, paperless-ngx and
-# poetry, and every answer came back as a walk the map could hold.
+# The earlier group experiment accepted all answers for 19 entry point groups.
+# `bench/jev/group_journeys.py` records those tests on mealie, paperless-ngx, and poetry.
 GROUP_QUESTION = QUESTION.replace(
-    "Read the code from the way in named below.",
-    "Below is a group of ways in of one kind, all of them into the same part of "
-    "the system. Write ONE journey that stands for the whole group: the walk "
-    "they share, not the special case of any one of them. Read the code behind "
-    "two or three of them first.",
+    "Read the source code from the entry point below.",
+    "The entry points below have the same kind and component. "
+    "Write one sequence for their common steps. "
+    "Do not substitute a special case from one entry point. "
+    "First read the source code for two or three of the entry points.",
 )
 
 
 @dataclass(frozen=True)
 class Group:
-    """What one walk is asked for: a way in, or a crowd of them into one card."""
+    """The entry points assigned to one requested sequence."""
 
     ways_in: tuple[dict[str, str], ...]
     card: str = ""
@@ -91,7 +74,7 @@ class Group:
 
     @property
     def whole(self) -> bool:
-        """Is this a crowd, walked once for the card rather than once each?"""
+        """Return whether one sequence represents the component's entry point group."""
         return bool(self.card) and len(self.ways_in) > judgement.TOGETHER_AT
 
     @property
@@ -102,19 +85,17 @@ class Group:
 
     @property
     def starts(self) -> str:
-        """What the journey records as the way in it walks from.
+        """The display label for the entry point or its component.
 
-        A crowd is recorded as the card, because a walk that stands for a
-        hundred routes cannot name one of them without claiming to be about
-        that one. `systemap judgement` reads a card here as covering every way
-        in of that kind the card claims.
+        A group uses the component identifier instead of one specific entry point.
+        Coverage still requires the exact identities in `covers`.
         """
         return self.card if self.whole else self.one["name"]
 
 
 @dataclass
 class Draft:
-    """What came back for one way in: a journey, or the reasons it was refused."""
+    """The draft sequence or the reasons for refusal."""
 
     entry: dict[str, str]
     journey: Journey | None = None
@@ -128,7 +109,7 @@ def uncovered(
     owner: dict[str, str] | None = None,
     covered: Collection[str] | None = None,
 ) -> list[dict[str, str]]:
-    """The ways in no journey walks from, by the rule `systemap judgement` uses."""
+    """Return entry points without recorded sequence coverage."""
     return judgement.ways_in_without_journey(meaning, facts, owner=owner, covered=covered)
 
 
@@ -140,11 +121,10 @@ def gather(
     modules: Collection[str] | None = None,
     covered: Collection[str] | None = None,
 ) -> list[Group]:
-    """The ways in with no walk, as the questions to ask: crowds first.
+    """Group uncovered entry points into requests, with large groups first.
 
-    A card that takes a hundred routes is one question, not a hundred, which
-    is how `systemap judgement` already prints it. Everything else is asked
-    about on its own.
+    Entry points of the same kind and component can share one request.
+    Other entry points each have a separate request.
     """
     owner = owners(model, facts)
     held: dict[tuple[str, str], list[dict[str, str]]] = {}
@@ -160,7 +140,7 @@ def gather(
 
 
 def context(model: Model, meaning: Meaning, facts: dict[str, Any], group: Group) -> dict[str, Any]:
-    """What the agent is told: the way in, the cards, the flows, and where to read."""
+    """Supply the entry points, components, flows, and source paths to the agent."""
     return {
         "way_in": _asked(facts, group),
         "cards": {
@@ -181,7 +161,7 @@ SHOWN = 14
 
 
 def _asked(facts: dict[str, Any], group: Group) -> dict[str, Any]:
-    """The way in, or the crowd, as the agent is told about it."""
+    """Make the source records for one entry point or entry point group."""
     records = facts.get("components", {})
 
     def one(p: dict[str, str]) -> dict[str, Any]:
@@ -225,7 +205,7 @@ def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
             or not isinstance(step.get("say"), str)
             or not step["say"].strip()
         ):
-            problems.append(f"step {k} needs string card lists and a sentence")
+            problems.append(f"step {k} needs lists of component identifiers and a sentence")
             continue
         edge = tuple(step["edge"])
         acts = tuple(step["acts"])
@@ -236,14 +216,14 @@ def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
                 f"step {k} traces {' -> '.join(edge) or 'nothing'}, which is not a flow"
             )
         elif unknown:
-            problems.append(f"step {k} names {', '.join(unknown)}, which the map has no card for")
+            problems.append(f"step {k} has unknown component identifiers: {', '.join(unknown)}")
         else:
             out.append(Step(acts=acts, measures=measures, edge=edge, say=step["say"]))
     return tuple(out)
 
 
 def read_answer(text: str, model: Model, group: Group) -> Draft:
-    """The agent's answer as a journey, or the reasons it cannot be one."""
+    """Parse the draft sequence or give the reasons for refusal."""
     entry = group.one
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end < start:
@@ -259,7 +239,7 @@ def read_answer(text: str, model: Model, group: Group) -> Draft:
     problems: list[str] = []
     steps = _steps(raw.get("steps"), model, problems)
     if not steps:
-        problems.append("no step of the walk could be used")
+        problems.append("no sequence step could be used")
     if problems:
         return Draft(entry=entry, problems=tuple(problems), answer=text)
     journey = Journey(
@@ -276,7 +256,7 @@ def read_answer(text: str, model: Model, group: Group) -> Draft:
 def write_one(
     agent: Agent, model: Model, meaning: Meaning, facts: dict[str, Any], group: Group
 ) -> Draft:
-    """Ask the agent for the walk, one way in or a crowd, and check what comes back."""
+    """Ask the agent for one sequence and validate the returned steps."""
     question = GROUP_QUESTION if group.whole else QUESTION
     supplied = context(model, meaning, facts, group)
     supplied["source_snapshot"] = _source_snapshot(agent.root, facts)
@@ -285,7 +265,7 @@ def write_one(
 
 
 def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
-    """Hash source bytes, including uncommitted edits, for journey answer reuse."""
+    """Hash current source bytes for the sequence answer cache."""
     digest = hashlib.sha256()
     for relative in sorted({record["file"] for record in facts.get("components", {}).values()}):
         path = root / relative
@@ -293,7 +273,7 @@ def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
             content = path.read_bytes()
         except OSError as exc:
             raise ValueError(
-                f"cannot review journey: source {relative} is unavailable: {exc}"
+                f"cannot examine sequence: source {relative} is unavailable: {exc}"
             ) from exc
         digest.update(relative.encode())
         digest.update(b"\0")
@@ -303,8 +283,9 @@ def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
 
 
 def add_to_source(source: str, journey: Journey) -> str | None:
-    """The model module with one journey written into it, or None when there is
-    nowhere to put it: the file names its journeys somewhere this cannot find."""
+    """Insert one sequence into the model source.
+
+    Return None if the sequence assignment cannot be found."""
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
     except tokenize.TokenError:
@@ -343,14 +324,14 @@ def _insert_journey(source: str, journey: Journey, offset: int) -> str | None:
 
 
 def as_source(journey: Journey) -> list[str]:
-    """One journey as it is written in the model module, ready to paste in."""
+    """Serialize one sequence as model source lines."""
     out = [
         "    Journey(",
         f"        id={json.dumps(journey.id, ensure_ascii=False)},",
         f"        label={json.dumps(journey.label, ensure_ascii=False)},",
         f"        starts={json.dumps(journey.starts, ensure_ascii=False)},",
         f"        covers={journey.covers!r},",
-        "        drafted=True,  # read it, then remove this line",
+        "        drafted=True,  # examine each step against source before removal",
         "        steps=(",
     ]
     for step in journey.steps:

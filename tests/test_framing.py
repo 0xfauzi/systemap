@@ -161,3 +161,53 @@ def test_a_lit_set_larger_than_the_area_is_fitted_whole() -> None:
     report = drive(SELF_MAP, "700x300")
     check(report)
     assert any(c["view"]["k"] < ZMIN for c in report["cases"]), "some frame went under ZMIN"
+
+
+SEQUENCE_LAYOUT = r"""
+function sequencelayout(page) {
+  const {doc,svg,A,win}=page, X=svg.workspace, calls=[],events=[];
+  const original=A.setJourney, map=doc.getElementById('map');
+  map.scrollIntoView=()=>events.push('scroll');
+  A.setJourney=function(step){
+    events.push('frame');
+    calls.push({heading:doc.getElementById('activity-question').textContent,
+      stripHidden:doc.getElementById('strip').hidden,
+      step:doc.getElementById('stripn').textContent,
+      previousDisabled:doc.getElementById('jprev').disabled,
+      nextDisabled:doc.getElementById('jnext').disabled,
+      controlsHidden:doc.getElementById('tracecontrols').hidden});
+    return original(step);
+  };
+  X.trace(0);runFrames(win);
+  X.traceStep(1);runFrames(win);
+  return {calls,events,label:A.journeys[0].label,steps:A.journeys[0].steps.length};
+}
+"""
+
+
+@needs_node
+def test_sequence_frames_after_controls_heading_and_scroll(sample: Sample, tmp_path: Path) -> None:
+    """Acceptance: zero framing calls before the sequence controls, heading and scroll state update."""
+    html = sample_page(sample, tmp_path)
+    driver = DRIVER.read_text(encoding="utf-8").replace(
+        "const scenarios = {keyboard, framing, submap, theme, workspace};",
+        "const scenarios = {keyboard, framing, submap, theme, workspace, sequencelayout};",
+    )
+    harness = tmp_path / "sequence-layout.js"
+    harness.write_text(driver + SEQUENCE_LAYOUT, encoding="utf-8")
+    result = subprocess.run(
+        [shutil.which("node") or "node", str(harness), str(html), "--scenario", "sequencelayout"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    assert report["events"] == ["scroll", "frame", "frame"]
+    assert len(report["calls"]) == 2 and report["steps"] > 1
+    for index, call in enumerate(report["calls"]):
+        assert call["heading"] == report["label"]
+        assert not call["stripHidden"] and not call["controlsHidden"]
+        assert call["step"] == f"{index + 1} / {report['steps']}"
+        assert call["previousDisabled"] == (index == 0)
+        assert call["nextDisabled"] == (index + 1 == report["steps"])

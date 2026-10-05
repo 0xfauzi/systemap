@@ -1,29 +1,8 @@
-"""Readable views of the facts file: what `systemap facts` prints.
+"""The facts command prints selected views of extracted source data.
 
-The facts file runs to hundreds of kilobytes on a real tree, and an agent
-that reads it whole spends its context on JSON it will not use. These
-views are what the skill's first step reads instead, one question each:
-
-    --modules          one line per module: the first sentence of its
-                       docstring, then its public names, imports and
-                       tests counted
-    --docstrings       one line per module: the first sentence of its
-                       docstring, and nothing else
-    --module NAME      one module's record, rendered: its docstring, its
-                       public names with their kinds, what it imports,
-                       what imports it, its third-party imports, and how
-                       many tests import it (never their names)
-    --names NAME       one module's public names with their kinds, a
-                       re-export marked with the module that defines it
-    --entry-points     where a run can start, the way a person names it,
-                       each with its target: the function a console
-                       script calls, or the script a subcommand belongs to
-    --external         every third-party import, and the modules that use it
-    --imports NAME     what one module imports, and what imports it
-
-Nothing here is a fact the file does not hold; every line is read out of
-the same records `systemap check` reads. No view prints a test's name:
-the map says what, never how much, and a test name is a how-much.
+Each option gives module summaries, docstrings, public names, imports, or entry points.
+The views use the same records as the map checks. They give test counts without test
+names.
 """
 
 from __future__ import annotations
@@ -37,7 +16,9 @@ from systemap.model import public_names
 
 
 class UnknownModule(KeyError):
-    """A module name the facts do not have; `closest` is the nearest they do."""
+    """The requested module is missing from the facts. The closest attribute gives the
+    nearest available name.
+    """
 
     def __init__(self, name: str, closest: str) -> None:
         super().__init__(name)
@@ -58,27 +39,31 @@ def _plural(n: int, noun: str) -> str:
 
 
 def first_sentence(text: str) -> str:
-    """The first sentence of a docstring's opening paragraph, or empty."""
+    """This function gives the opening sentence of the initial docstring paragraph, or an
+    empty string.
+    """
     text = " ".join((text or "").split())
     if not text:
         return ""
     return re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0]
 
 
-NO_DOCSTRING = "no docstring"
+NO_DOCSTRING = "No docstring is available."
 EMPTY_MARKER = "empty package marker"
 
 
 def _opening(record: dict[str, Any]) -> str:
-    """What a module's line says about it: its first sentence, or that it has none."""
+    """This function gives the opening docstring sentence or a notice that no docstring is
+    available.
+    """
     return first_sentence(record.get("docstring", "")) or NO_DOCSTRING
 
 
 def kinds(record: dict[str, Any]) -> list[tuple[str, str]]:
-    """Every public name with its kind, in source order; a re-export says whence.
+    """This function gives public names and their kinds in source order.
 
-    A facts file from before `names` was recorded offers its functions,
-    classes, errors and constants, which is what it has.
+    Re-exports give their defining modules. Older facts use the recorded functions,
+    classes, errors, and constants.
     """
     names = record.get("names")
     if names is not None:
@@ -97,11 +82,13 @@ def kinds(record: dict[str, Any]) -> list[tuple[str, str]]:
 
 
 def modules(facts: dict[str, Any]) -> list[str]:
-    """One line per module, in name order: the first sentence, then the counts."""
+    """This function gives a summary line for each module in name order."""
     components: dict[str, Any] = facts.get("components", {})
     out = [
-        f"modules: {len(components)}; each with the first sentence of its docstring, "
-        "then its public names, imports and tests counted"
+        (
+            f"modules: {len(components)}. Each line gives the opening docstring sentence "
+            f"and the public name, import, and test counts."
+        )
     ]
     for name in sorted(components):
         record = components[name]
@@ -120,11 +107,14 @@ def modules(facts: dict[str, Any]) -> list[str]:
 
 
 def docstrings(facts: dict[str, Any]) -> list[str]:
-    """One line per module: the first sentence of its docstring."""
+    """This function gives the opening docstring sentence for each module."""
     components: dict[str, Any] = facts.get("components", {})
     with_one = sum(1 for r in components.values() if first_sentence(r.get("docstring", "")))
     out = [
-        f"docstrings: {with_one} of {len(components)} modules have one; the first sentence of each"
+        (
+            f"docstrings: {with_one} of {len(components)} modules have docstrings. Each "
+            f"line gives the opening sentence."
+        )
     ]
     for name in sorted(components):
         record = components[name]
@@ -137,28 +127,30 @@ def _listed(items: list[str], none: str) -> str:
 
 
 def module(facts: dict[str, Any], name: str) -> list[str]:
-    """One module's record, rendered for a reader; never a test's name."""
+    """This function formats one module record without test names."""
     record = _record(facts, name)
     out = [f"{name} ({record.get('file', '')})"]
     if is_empty_marker(record):
-        out.append(f"  {EMPTY_MARKER}: an __init__ with no public names and no imports")
+        out.append(f"  {EMPTY_MARKER}: The __init__ has no public names or imports.")
         return out
     out.append(f"  docstring: {_opening(record)}")
     named = kinds(record)
     out.append(f"  public names: {len(named)}")
     out += [f"    {n}: {kind}" for n, kind in named]
-    out.append(f"  imports: {_listed(list(record.get('imports', [])), 'nothing from the package')}")
+    out.append(f"  imports: {_listed(list(record.get('imports', [])), 'no internal imports')}")
     out.append(
-        f"  imported by: {_listed(list(record.get('imported_by', [])), 'nothing in the package')}"
+        f"  imported by: {_listed(list(record.get('imported_by', [])), 'no internal importers')}"
     )
     out.append(f"  external: {_listed(list(record.get('external', [])), 'none')}")
     total, primary = int(record.get("tests_total", 0)), int(record.get("tests_primary", 0))
-    out.append(f"  tests: {total} import it ({primary} in a file named after it)")
+    out.append(
+        f"  tests: {total} tests import the module ({primary} in a test file with the module name)"
+    )
     return out
 
 
 def names(facts: dict[str, Any], name: str) -> list[str]:
-    """One module's public names with their kinds, in source order."""
+    """This function gives the public names and kinds of one module in source order."""
     record = _record(facts, name)
     named = kinds(record)
     out = [f"{name}: {_plural(len(named), 'public name')}"]
@@ -167,11 +159,13 @@ def names(facts: dict[str, Any], name: str) -> list[str]:
 
 
 def entry_points(facts: dict[str, Any]) -> list[str]:
-    """Where a run can start, each with its target beside it."""
+    """This function gives entry point names and their source targets."""
     points: list[dict[str, str]] = facts.get("entry_points", [])
     out = [
-        f"entry points: {len(points)}; a journey names each that matters; the target is the "
-        "function a console script calls, or the script a subcommand belongs to"
+        (
+            f"entry points: {len(points)}. A sequence specifies each applicable entry "
+            f"point. The target is a console-script function or a subcommand script."
+        )
     ]
     for p in points:
         target = f", target {p['target']}" if p.get("target") else ""
@@ -180,39 +174,39 @@ def entry_points(facts: dict[str, Any]) -> list[str]:
 
 
 def external(facts: dict[str, Any]) -> list[str]:
-    """Every third-party import, with the modules that import it."""
+    """This function gives external imports and the modules that use them."""
     components: dict[str, Any] = facts.get("components", {})
     by_import: dict[str, list[str]] = {}
     for name in sorted(components):
         for imported in components[name].get("external", []):
             by_import.setdefault(imported, []).append(name)
-    out = [f"external imports: {len(by_import)}; the model sdk line reads these"]
+    out = [f"external imports: {len(by_import)}. The model sdk diagnostic uses these imports."]
     out += [f"  {imported}: {', '.join(users)}" for imported, users in sorted(by_import.items())]
     return out
 
 
 def imports(facts: dict[str, Any], name: str) -> list[str]:
-    """What one module imports from the package, and what imports it."""
+    """This function gives internal imports to and from one module."""
     record = _record(facts, name)
     uses: dict[str, list[str]] = record.get("uses", {})
     out = [f"{name} imports {len(uses)} modules of the package"]
     for target, taken_names in sorted(uses.items()):
-        taken = "the whole module" if taken_names == ["*"] else ", ".join(taken_names)
+        taken = "all of the module" if taken_names == ["*"] else ", ".join(taken_names)
         out.append(f"  {target} ({taken})")
     importers: list[str] = record.get("imported_by", [])
-    out.append(f"{name} is imported by {len(importers)} modules of the package")
+    out.append(f"{len(importers)} modules of the package import {name}")
     out += [f"  {m}" for m in importers]
     return out
 
 
 VIEWS = (
-    "views: --modules (one line per module: first sentence, counts), --docstrings (first "
-    "sentence only), --module NAME (its record, rendered), --names NAME (its public names "
-    "with kinds), --entry-points (with targets), --external, --imports NAME (what it "
-    "imports and what imports it)"
+    "views: Use --modules for module summaries, --docstrings for opening "
+    "sentences, --module NAME for a module record, and --names NAME for public "
+    "names. Use --entry-points for entry point targets, --external for external "
+    "imports, and --imports NAME for internal imports."
 )
 
 
 def overview(summary: list[str]) -> list[str]:
-    """What `systemap facts` prints with no option: the extract summary and the views."""
+    """This function gives the extraction summary and available facts views."""
     return [*summary, VIEWS]

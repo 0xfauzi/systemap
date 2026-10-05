@@ -1,64 +1,72 @@
-# Working on systemap
+# Work on systemap
 
-systemap helps one person keep an accurate view of a system larger than they
-can remember in full. Everything here serves that: the map is the artefact,
-the commands keep it matching the code, and the words are how a reader learns
-what the map says.
+systemap makes a map of a software system. The map shows components, flows,
+and sequences. A component is a part of the system. A flow carries an artifact
+between components. A sequence shows the steps that start at an entry point.
 
-## How should the words be written?
+## Language requirement
 
-systemap talks to someone who is learning the system, not to someone who
-already knows it. That means:
+You must use ASD-STE100 Issue 9 for all text that a person reads.
+This requirement includes all new names and all map updates.
+It includes component names, flow artifacts, layers, sequences, invariants,
+explanations, command help, errors, agent answers, and documentation.
 
-- **The line reports the finding. The rows under it explain it.** Every line a
-  command prints is also an identifier: the maintainer quotes it in
-  `[judgement] answered`, and some are read back by code. Never change a
-  line's text to make it friendlier. Add to it instead, in `explain.py`,
-  where each kind of line has three sentences: what it means, why it matters
-  to your view of the system, and what to do. `--brief` leaves them out.
-- **The reason comes before the instruction.** "A card is a promise that its
-  modules do one job; move the module to the card whose job it serves" reads
-  as teaching. "Move the module" reads as a rule.
-- **Define a term the first time it is used.** A journey, a card, a flow, a
-  way in: each of these is ordinary English being used precisely, and a
-  reader who guesses wrong stays wrong for the rest of the page.
-- **Use the literal words.** Write "a parameter worth varying", not "a dial
-  worth turning". A metaphor carries meanings the writer did not choose and
-  cannot control, and it makes the reader do the decoding.
-- **No emoji. No em dashes.** A hyphen, a colon or a full stop.
-- **Short sentences.** A line a reader has to re-read has failed.
+Before you write text, read
+[the language policy](src/systemap/skill/references/language.md).
+Use the official ASD-STE100 rules and dictionary.
+Use each approved word only with its approved meaning and part of speech.
+Use technical terms only with the meanings in the project glossary.
+If the reference is not available, tell the maintainer. Do not give an ASD-STE100 acceptance result.
 
-A reader needs the explanation as much as the finding, so when a new kind of
-line is added, add its entry to `explain.py`. A test fails when a kind of line
-has no entry there.
+Do not change commands, schema keys, source symbols, or quoted evidence.
+These technical identities are not permission to write new text in unrestricted English.
+Do not change recorded measurements or historical command output.
+Do not change the meaning of a claim to make its words shorter.
 
-## How is a feature decided?
+Before you write or examine documentation, read `~/.claude/WRITING.md` in full.
+Use literal words. Do not use emoji or em dashes.
 
-- **A number chosen after the run is chosen to pass, so state it first.**
-  Write the acceptance number in the experiment's own docstring, then run it.
-  `bench/jev/README.md` records every run, including the ones that failed.
-- **Work nobody records is work someone repeats, so a feature that misses its
-  number is written down rather than shipped.** Record the numbers and the
-  reason it failed. `systemap ripple` and the import-derived journey paths are
-  both there.
-- **Never invent a number.** If it has not been measured, say so.
-- **A wrong answer costs more than no answer, so never substitute one.** If a
-  command cannot do what was asked, it says so and exits, rather than doing
-  something else without saying.
+## Findings and explanations
 
-## Which gates must pass?
+A finding line is also an identifier. The configuration can contain the full line under `[judgement] answered`.
+Do not change finding identifiers without an explicit migration.
+For each new finding kind, add three sentences to `explain.py`:
 
-`uv run pytest`, `uv run pre-commit run --all-files`. Between them they
-enforce: ruff, mypy, cognitive complexity at 15 for anything this commit adds
-or worsens, cyclomatic complexity that never grows, no file past 800 lines,
-`SKILL.md` at 240 lines, no em dashes, and the three copies of the skill
-directory identical.
+- What the finding tells the reader.
+- Why the finding matters to the map.
+- What the reader must do.
 
-Jev is the TypeSafe model systemap asks for the judgement calls the facts
-cannot settle. No test sends anything to Jev, and no test runs a coding
-agent. Both are injected, and recorded answers are replayed, so the suite
-costs nothing and cannot fail because a service was slow.
+The `--brief` option removes these explanations.
 
-This repository is mapped with systemap. After changing the source, run
-`systemap refresh`, `systemap check` and `systemap judgement`, and name any
-new module in a card.
+## Measurements and failures
+
+Use `uv` for all Python commands. Keep dependencies in `pyproject.toml`.
+Before an experiment, write its acceptance value in its docstring.
+Record all results in `bench/jev/README.md`, including failures.
+Do not invent measurements. When a value is unknown, say that a measurement is necessary.
+If a command cannot do the specified work, show the failure and stop.
+Do not silently substitute a different answer.
+
+## Required checks
+
+Do these checks before a commit:
+
+```sh
+uv run pytest
+uv run pre-commit run --all-files
+uv run systemap refresh
+uv run systemap check
+uv run systemap judgement
+```
+
+The checks include ruff, mypy, complexity, file length, and skill copy consistency.
+New or increased cognitive complexity must not exceed 15.
+Cyclomatic complexity must not increase.
+Python files must not exceed 800 lines. `SKILL.md` must not exceed 240 lines.
+The three skill directories must have identical contents.
+Add each new source module to a component.
+
+Jev is the TypeSafe model for decisions that source facts cannot give.
+Tests must use recorded answers and injected agents. Tests must not call Jev or a coding agent.
+Before you complete the work, examine the text against ASD-STE100 and the project glossary.
+Automated tests do not show correct word meanings or language compliance.

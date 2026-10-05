@@ -1,13 +1,4 @@
-"""`systemap delta`: what a change did to the map, from the facts at two commits.
-
-A synthetic repository with two commits exercises every line kind at
-once: a module moved with the same content and one with the same public
-names, modules added (claimed through a pattern, an empty marker, ignored,
-and claimed by nobody), modules removed (named outright, named by a stale
-ignore, claimed through a pattern), an entry and an interface name that
-vanished, a new crossing import with no flow beside one the configuration
-answers, and a flow whose import went away.
-"""
+"`systemap delta`: what a change did to the map, from the facts at two commits.\n\nA synthetic repository with two commits exercises every line kind at\nonce: a module moved with the same content and one with the same public\nnames, modules added (claimed through a pattern, an empty marker, ignored,\nand claimed by nobody), modules removed (named outright, named by a stale\nignore, claimed through a pattern), an entry and an interface name that\nvanished, a new crossing import with no flow beside one the configuration\nanswers, and a flow whose import went away.\n"
 
 from __future__ import annotations
 
@@ -228,42 +219,36 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     out = capsys.readouterr().out
     lines = out.splitlines()
     assert lines[0] == (
-        f"delta: HEAD~1 ({base}) -> HEAD ({git(repo, 'rev-parse', 'HEAD')[:7]}): "
-        "4 modules changed, 6 added, 3 removed, 2 moved; 5 of 6 cards named"
+        f"delta: HEAD~1 ({base}) -> HEAD ({git(repo, 'rev-parse', 'HEAD')[:7]}): 4 modules changed, 6 added, 3 removed, 2 moved. 5 of 6 components specified"
     )
     expected_open = [
-        "moved: pkg.old_tool -> pkg.tools.tool (same content); Writer names pkg.old_tool in "
-        "implemented_by: rename it to pkg.tools.tool in map/model.py",
-        "moved: pkg.helper -> pkg.helpers.help (same public names); no card claims "
-        "pkg.helpers.help: name it in a card's implemented_by in map/model.py",
-        "added: pkg.fresh, claimed by no card; name it in a card's implemented_by in "
-        "map/model.py, or ignore it with a reason under [coverage]",
-        "removed: pkg.spare; Spare names it in implemented_by: drop it in map/model.py",
-        "removed: pkg.util; the [coverage] ignore that names it is stale: remove it",
-        f"interface vanished: Reader's interface starts with Request.send, which its modules "
-        f"defined at {base} and no longer do; start it with a public name they define in "
-        "map/model.py, or leave it empty",
-        f"entry vanished: Parser names entry parse, which its modules defined at {base} and "
-        "no longer do; set entry to a public name they define in map/model.py",
-        "new crossing import: pkg.writer (card Writer) imports pkg.reader (card Reader) and "
-        "no flow joins Writer and Reader; add the flow with its sentence in map/model.py, or "
-        "answer it under [judgement] answered",
-        "structural evidence lost: Reader -> Parser (request) had an import or declared "
-        "mechanism at the base commit and does not now; review the flow",
+        "moved: pkg.old_tool -> pkg.tools.tool (same content). Writer specifies pkg.old_tool in implemented_by. Change this claim to pkg.tools.tool in map/model.py",
+        "moved: pkg.helper -> pkg.helpers.help (same public names). No component has a claim for pkg.helpers.help. Add it to a component implemented_by in map/model.py",
+        "added: pkg.fresh, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]",
+        "removed: pkg.spare. Spare specifies it in implemented_by. Remove the claim in map/model.py",
+        "removed: pkg.util. Its [coverage] ignore is stale. Remove the entry.",
+        f"interface vanished: Reader's interface starts with Request.send, which its modules defined at {base} but no longer define it. Start with a public name from these modules in map/model.py, or leave it empty",
+        f"entry vanished: Parser has entry parse, which its modules defined at {base} but no longer define it. Set entry to an available public name in map/model.py",
+        "new crossing import: pkg.writer (component Writer) imports pkg.reader (component Reader) and no flow connects Writer and Reader. Add the flow and its description in map/model.py, or answer the diagnostic in [judgement] answered.",
+        "structural evidence lost: Reader -> Parser (request) had an import or declared mechanism at the base commit. That evidence is missing now. Examine the flow.",
     ]
     expected_quiet = [
         "added: pkg.helpers, an empty package marker",
-        "added: pkg.more.x, claimed by Writer",
+        "added: pkg.more.x, with a claim in Writer",
         "added: pkg.tools, an empty package marker",
         "added: pkg.vendor, an empty package marker",
-        "added: pkg.vendor.lib, ignored under [coverage]",
-        "removed: pkg.more.gone, was claimed by Writer through a pattern",
+        "added: pkg.vendor.lib, ignored in [coverage]",
+        "removed: pkg.more.gone, with a previous claim in Writer through a pattern",
     ]
-    start = next(i for i, line in enumerate(lines) if line.startswith("needs a decision ("))
-    open_lines = lines[start + 1 : lines.index(f"changed, nothing to do ({len(expected_quiet)}):")]
+    start = next(i for i, line in enumerate(lines) if line.startswith("A decision is necessary ("))
+    open_lines = lines[
+        start + 1 : lines.index(
+            f"No action is necessary for these changes ({len(expected_quiet)}):"
+        )
+    ]
     assert all(f"  {item}" in open_lines for item in expected_open)
     assert sum(line.startswith("  source review:") for line in open_lines) == 5
-    start = lines.index(f"changed, nothing to do ({len(expected_quiet)}):")
+    start = lines.index(f"No action is necessary for these changes ({len(expected_quiet)}):")
     assert lines[start + 1 : start + 1 + len(expected_quiet)] == [f"  {t}" for t in expected_quiet]
     # The answered crossing import (Ledger -> Parser) is not asked again.
     assert "new crossing import: pkg.ledger" not in out
@@ -276,12 +261,11 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     taught = capsys.readouterr().out.splitlines()
     whys = [line for line in taught if line.startswith("      why: ")]
     assert len(whys) == len(set(whys)), "no kind is taught twice"
-    assert any("this is the moment an architecture changes" in line.lower() for line in whys)
+    assert any("the code now has a connection" in line.lower() for line in whys)
     first = taught.index("  " + expected_open[0])
     assert taught[first + 1].startswith("      why: "), "the teaching sits under its line"
     assert lines[-1] == (
-        "act on each line above, then run: systemap refresh && systemap check && "
-        "systemap judgement --strict"
+        "Do the action for each diagnostic. Then use systemap refresh && systemap check && systemap judgement --strict"
     )
 
 
@@ -295,9 +279,9 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     lines = out.splitlines()
     assert lines[0] == delta.MARKER
     assert lines[1] == "## What this change does to the map"
-    assert "**Needs a decision (14)**" in lines
-    assert "**Changed, nothing to do (6)**" in lines
-    assert "- `added: pkg.fresh, claimed by no card; " in out
+    assert "**A decision is necessary (14)**" in lines
+    assert "**No action is necessary for these changes (6)**" in lines
+    assert "- `added: pkg.fresh, No component has a claim for it. " in out
     assert f"> {delta.FULL_LOOP[0].upper()}{delta.FULL_LOOP[1:]}." in lines
     url = f"https://github.com/acme/demo/blob/{head}/docs/map/figures/system.svg?raw=true"
     assert f"![the map at {head[:7]}]({url})" in lines
@@ -308,7 +292,7 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--format", "markdown"]) == 1
     out = capsys.readouterr().out
     assert "![" not in out
-    assert f"No committed figure to show at `{head[:7]}`" in out
+    assert "No committed figure is available at `" in out
 
 
 def test_nothing_to_do_and_no_change_exit_zero(
@@ -321,12 +305,12 @@ def test_nothing_to_do_and_no_change_exit_zero(
     git(repo, "commit", "-q", "-am", "body")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
-    assert "1 modules changed, 0 added, 0 removed, 0 moved; 1 of 6 cards named" in out
+    assert "1 modules changed, 0 added, 0 removed, 0 moved. 1 of 6 components specified" in out
     assert "source review: Writer has changed code in pkg.writer" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")
-    assert "the map is unaffected" in out
+    assert "the map has no source-fact change" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD", "--format", "markdown"]) == 0
     assert "No module changed" in capsys.readouterr().out
 
@@ -429,7 +413,7 @@ def test_unknown_ref_is_refused(repo: Path, capsys: pytest.CaptureFixture[str]) 
     assert main(["--root", str(repo), "delta", "--base", "no-such-ref"]) == 2
     err = capsys.readouterr().err
     assert "unknown ref no-such-ref" in err
-    assert "give delta a ref git can resolve" in err
+    assert "Give delta a Git ref that Git can resolve" in err
 
 
 def test_with_claims_renames_modules_and_symbols_and_keeps_patterns() -> None:
@@ -451,7 +435,7 @@ def test_with_claims_renames_modules_and_symbols_and_keeps_patterns() -> None:
 
 
 def record(file: str, sha: str, *names: str) -> dict[str, object]:
-    """One module's facts, as much of them as the matcher reads."""
+    "One module's facts, as much of them as the matcher reads."
     return {"file": file, "sha": sha, "names": [{"name": n, "kind": "function"} for n in names]}
 
 
@@ -518,10 +502,10 @@ def test_the_cards_next_to_the_change_are_printed_as_context(
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
     assert "next to the change:" in out
-    said = next(line for line in out.splitlines() if "one flow away" in line)
-    assert said.strip().startswith("Writer holds most of what changed")
-    assert said.strip().endswith("one flow away sit Ledger")
-    assert "Read it as context, not as a warning." in out, "the teaching is under it"
+    said = next(line for line in out.splitlines() if "Its connected components" in line)
+    assert said.strip().startswith("Writer has the most changed modules")
+    assert said.strip().endswith("Its connected components are Ledger")
+    assert "Use this information as context." in out, "the teaching is under it"
 
 
 def test_the_context_is_in_the_pull_request_comment_once(repo: Path) -> None:
@@ -531,8 +515,8 @@ def test_the_context_is_in_the_pull_request_comment_once(repo: Path) -> None:
     head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
     d = delta.compute(cfg, top.model, top.meaning, base, head, "HEAD~1", "HEAD")
     text = delta.markdown(d)
-    assert text.count("**Next to the change**") == 1
-    assert "Writer holds most of what changed; one flow away sit Ledger." in text
+    assert text.count("**Components connected to the change**") == 1
+    assert "Writer has the most changed modules. Its connected components are Ledger" in text
 
 
 def test_a_card_joined_to_a_third_of_the_map_names_none() -> None:
@@ -544,8 +528,7 @@ def test_a_card_joined_to_a_third_of_the_map_names_none() -> None:
     )  # fmt: skip
     lines = delta.near_lines(d)
     assert lines[1].strip() == (
-        "Hub holds most of what changed, and a flow joins it to 3 of the 6 cards, "
-        "so naming them would say nothing"
+        "Hub has the most changed modules. It has flows to 3 of the 6 components, so the list gives no useful context."
     )
     assert not any("why:" in line for line in lines), "nothing to teach when nothing is named"
 

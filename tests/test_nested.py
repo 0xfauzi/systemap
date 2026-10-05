@@ -304,24 +304,32 @@ def test_the_check_runs_on_every_map_and_counts_coverage_once(
     assert run("--root", str(nested), "check") == 1
     out = capsys.readouterr().out
     assert out.count("coverage:") == 1
-    assert "coverage: 10 of 10 modules mapped, 1 of them an empty package marker" in out
+    assert "coverage: 10 of 10 modules mapped, 1 an empty package marker" in out
     assert "claimed twice" not in out
-    assert "map layout: clean (5 cards, 4 orthogonal labelled edges, 5 wheels" in out
-    assert "Gateway: map layout: clean (5 cards, 4 orthogonal labelled edges, 5 wheels" in out
-    assert "Style: map layout: clean (4 cards, 3 orthogonal labelled edges, 4 wheels" in out
-    assert "Gateway: map routes: 0 edges through a card" in out
+    assert "map layout: has no errors (5 components, 4 orthogonal labeled edges, 5 wheels" in out
+    assert (
+        "Gateway: map layout: has no errors (5 components, 4 orthogonal labeled edges, 5 wheels"
+        in out
+    )
+    assert (
+        "Style: map layout: has no errors (4 components, 3 orthogonal labeled edges, 4 wheels"
+        in out
+    )
+    assert "Gateway: map routes: 0 edges across components other than its endpoints" in out
     assert "nesting" not in out
     for rel in ("index.html", "Gateway/index.html", "Style/index.html"):
-        assert f"docs/map/{rel} has not been rendered" in out, rel
+        assert f"docs/map/{rel} has no rendered output." in out, rel
     assert out.rstrip().endswith("run: systemap refresh")
     assert run("--root", str(nested), "refresh") == 0
     assert (
-        "map: updated docs/map/map.json, docs/map/index.html, docs/map/Gateway/index.html, docs/map/Style/index.html"
+        "map: The command updated docs/map/map.json, docs/map/index.html, docs/map/Gateway/index.html, docs/map/Style/index.html"
         in capsys.readouterr().out
     )
     assert run("--root", str(nested), "check") == 0
     assert run("--root", str(nested), "refresh") == 0
-    assert "already current" in capsys.readouterr().out
+    assert (
+        "The page agrees with the rendered model fields and the facts." in capsys.readouterr().out
+    )
 
 
 def test_the_exact_claim_rule_refuses_an_extra_and_a_missing_module(
@@ -339,16 +347,16 @@ def test_the_exact_claim_rule_refuses_an_extra_and_a_missing_module(
     out = capsys.readouterr().out
     assert "Gateway: nesting: 1 problem" in out
     assert (
-        "Gateway:   the map inside Gateway (map/gateway.py) claims pkg.style.cache, which "
-        "Gateway does not claim (Routes)" in out
+        "Gateway:   the map inside Gateway (map/gateway.py) has a claim for pkg.style.cache, "
+        "but Gateway has no claim for it (Routes)." in out
     )
     assert (
-        "Gateway:   fix: in map/gateway.py, claim exactly the modules the card that opens it "
-        "claims, each once, and name only cards of the map above as actors" in out
+        "Gateway:   fix: In map/gateway.py, give each module of the parent component one claim. "
+        "Use other parent components as actors." in out
     )
     # The top map's coverage is untouched: the parent claims the module once.
     assert "coverage: 10 of 10 modules mapped" in out and "claimed twice" not in out
-    assert out.rstrip().endswith("fix map/gateway.py, then run: systemap check")
+    assert out.rstrip().endswith("Correct map/gateway.py. Then use systemap check.")
     # A missing module: the Store card drops its claim.
     edit(
         nested,
@@ -365,8 +373,8 @@ def test_the_exact_claim_rule_refuses_an_extra_and_a_missing_module(
     assert run("--root", str(nested), "check") == 1
     out = capsys.readouterr().out
     assert (
-        "Gateway:   the map inside Gateway (map/gateway.py) leaves pkg.gateway.store unclaimed, "
-        "which Gateway claims" in out
+        "Gateway:   the map inside Gateway (map/gateway.py) has no claim for pkg.gateway.store, "
+        "but Gateway has a claim for it." in out
     )
     # A symbol claim counts for no module, so it is neither extra nor twice.
     assert "claims pkg.gateway.routes" not in out
@@ -381,11 +389,12 @@ def test_the_exact_claim_rule_refuses_an_extra_and_a_missing_module(
     assert run("--root", str(nested), "check") == 1
     out = capsys.readouterr().out
     assert (
-        "the map inside Gateway (map/gateway.py) claims pkg.gateway.app twice (App, Store)" in out
+        "the map inside Gateway (map/gateway.py) has a claim for pkg.gateway.app 2 times (App, Store)"
+        in out
     )
     assert run("--root", str(nested), "refresh") == 1
     assert (
-        "map: check failed; fix map/gateway.py, then run: systemap refresh"
+        "map: The check found an error. Correct map/gateway.py. Then use systemap refresh."
         in capsys.readouterr().out
     )
 
@@ -411,11 +420,12 @@ def test_a_sub_maps_actors_are_cards_of_the_parent(
     out = capsys.readouterr().out
     assert "Style: nesting: 2 problems" in out
     assert (
-        "Style:   the map inside Style (map/style.py) has actor Nobody, which is not a card of "
-        "the map it is inside; a sub-map's actors are the cards around its card" in out
+        "Style:   the map inside Style (map/style.py) has actor Nobody, which is not a "
+        "component of the parent map. Nested-map actors are other parent components." in out
     )
     assert (
-        "Style:   the map inside Style (map/style.py) has actor Style, the card it is inside" in out
+        "Style:   the map inside Style (map/style.py) has actor Style, the component that contains the map."
+        in out
     )
     # An actor cannot open a map; a map that opens itself, or a missing file, is refused.
     edit(
@@ -426,7 +436,7 @@ def test_a_sub_maps_actors_are_cards_of_the_parent(
     )
     assert run("--root", str(nested), "check") == 1
     assert (
-        "placement: User is an actor and opens a map (style.py); an actor claims no code"
+        "placement: User is an actor and opens a map (style.py). An actor has no source modules"
         in capsys.readouterr().out
     )
     edit(
@@ -438,14 +448,12 @@ def test_a_sub_maps_actors_are_cards_of_the_parent(
     assert run("--root", str(nested), "check") == 2
     err = capsys.readouterr().err
     assert (
-        "map/gateway.py: App opens map/model.py, which is already a map above it (map/model.py -> map/gateway.py); a map cannot open itself"
+        "map/gateway.py: App opens map/model.py, which is already a parent map (map/model.py -> map/gateway.py). A map cannot open itself."
         in err
     )
     edit(nested, "map/gateway.py", 'map="model.py"', 'map="nowhere.py"')
     assert run("--root", str(nested), "check") == 2
-    assert (
-        "map/gateway.py: App opens map/nowhere.py, which does not exist" in capsys.readouterr().err
-    )
+    assert "map/gateway.py: App opens map/nowhere.py, which is missing" in capsys.readouterr().err
 
 
 def test_pages_are_written_per_map_with_the_links_up_and_down(
@@ -465,9 +473,9 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     # map inside and its preview (the sub-map's Structure reading, drawn
     # under an id of its own, every card and no edge).
     assert top.count('class="node__map"') == 2
-    assert "stacked card opens a map inside" in top
+    assert "stacked card opens a child map" in top
     assert (
-        '<summary>Maps inside</summary><a href="Gateway/index.html">Gateway</a>, <a href="Style/index.html">Style</a>'
+        '<summary>Child maps</summary><a href="Gateway/index.html">Gateway</a>, <a href="Style/index.html">Style</a>'
         in top
     )
     assert (
@@ -493,7 +501,7 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert "Double-click a card that opens a map" in top
     assert 'id="submap"' not in gateway and ">Open map</button>" in gateway
     assert "Double-click a card that opens a map" not in gateway
-    # A sub-page: the card it is inside, the link up, no mark, the model file it came from.
+    # A sub-page: the component that contains the map., the link up, no mark, the model file it came from.
     assert '<h1><a href="../index.html">demo</a> / Gateway</h1>' in gateway
     assert 'class="node__map"' not in gateway and "Maps inside" not in gateway
     assert "<code>map/gateway.py</code>" in gateway
@@ -501,7 +509,7 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert 'data-id="Cache"' in style and 'data-id="App"' not in style
     # render --check covers every page; a missing sub-page is stale.
     assert run("--root", str(nested), "render", "--check") == 0
-    assert "docs/map/Gateway/index.html is current" in capsys.readouterr().out
+    assert "docs/map/Gateway/index.html agrees with the rendered output." in capsys.readouterr().out
     (nested / "docs/map/Style/index.html").unlink()
     assert run("--root", str(nested), "render", "--check") == 1
     out = capsys.readouterr().out
@@ -509,7 +517,7 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
         "run: systemap refresh"
     )
     assert run("--root", str(nested), "check") == 1
-    assert "docs/map/Style/index.html has not been rendered" in capsys.readouterr().out
+    assert "docs/map/Style/index.html has no rendered output." in capsys.readouterr().out
 
 
 def _detail_json(html: str) -> str:
@@ -579,7 +587,7 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     )
     text = out.read_text()
     assert 'data-id="App"' in text and 'data-id="Routes"' in text and 'data-id="Writer"' not in text
-    assert "Inside Gateway: The system as the map describes it." in text
+    assert "Inside Gateway: This figure shows the system map." in text
     assert 'class="node__map"' not in text
     assert (
         run(
@@ -596,18 +604,16 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
         == 0
     )
     text = out.read_text()
-    assert "Inside Style: Control flow: Who drives whom?" in text
-    assert "the page at <code>docs/map/Style/index.html</code>" in text
+    assert "Inside Style: Control flow: Which components cause other components to act?" in text
+    assert "The page at <code>docs/map/Style/index.html</code>" in text
     # The top map by default: the mark, the legend row, the panel names the map without a link.
     assert run("--root", str(nested), "figure", "--interactive", "--out", str(out)) == 0
     text = out.read_text()
-    assert text.count('class="node__map"') == 2 and "has a map" in text
+    assert text.count('class="node__map"') == 2 and "opens a map" in text
     assert '"map":{"name":"Gateway","href":"","cards":3,"preview":""}' in text
     capsys.readouterr()
     assert run("--root", str(nested), "figure", "--map", "Nope", "--out", str(out)) == 2
-    assert (
-        "unknown map id: Nope; the maps inside a card are Gateway, Style" in capsys.readouterr().err
-    )
+    assert "unknown map id: Nope. The nested map IDs are Gateway, Style" in capsys.readouterr().err
     # A configured figure of a sub-map is refreshed and checked like any other.
     (nested / "systemap.toml").write_text(
         CONFIG
@@ -634,13 +640,18 @@ def test_place_writes_into_a_sub_maps_file(
     capsys.readouterr()
     assert run("--root", str(nested), "place", "--print") == 0
     out = capsys.readouterr().out
-    assert f"place: 0 cards placed, 5 kept (already positioned): {place.NOTHING_TO_PLACE}" in out
-    assert "Style: place: 4 cards placed, 0 kept, every box and the canvas laid out" in out
+    assert (
+        f"place: 0 components placed, 5 kept (already positioned): {place.NOTHING_TO_PLACE}" in out
+    )
+    assert (
+        "Style: place: 4 components placed, 0 kept. The command set all boxes and the canvas."
+        in out
+    )
     assert "Style:   Cache: x=" in out
     assert run("--root", str(nested), "place") == 0
     out = capsys.readouterr().out
     assert (
-        "Style: place: wrote map/style.py: 4 cards placed, 0 kept; every box and the canvas laid out"
+        "Style: place: The command wrote map/style.py: 4 components placed, 0 kept. The command set all boxes and the canvas"
         in out
     )
     assert "Gateway: place: wrote" not in out
@@ -654,10 +665,10 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
 ) -> None:
     assert run("--root", str(nested), "judgement") == 0
     out = capsys.readouterr().out
-    assert "  single module: Reader is only pkg.reader\n" in out
-    assert "  Gateway: single module: App is only pkg.gateway.app\n" in out
-    assert "  Style: single module: Compiler is only pkg.style.compiler\n" in out
-    assert "  Gateway: thin layer: data lights 2 components" not in out
+    assert "  single module: Reader contains only pkg.reader\n" in out
+    assert "  Gateway: single module: App contains only pkg.gateway.app\n" in out
+    assert "  Style: single module: Compiler contains only pkg.style.compiler\n" in out
+    assert "  Gateway: thin layer: data shows 2 components" not in out
     # The crossing import from the gateway routes into the style cache is
     # the top map's question (Gateway -> Style has a flow) and not the sub-map's.
     assert "crossing import" not in out
@@ -665,8 +676,8 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
     (nested / "systemap.toml").write_text(
         CONFIG + "\n[judgement]\nanswered = [\n"
         '  { kind = "single module", policy = true, reason = "small parts" },\n'
-        '  { item = "Gateway: thin layer: data lights 2 components", reason = "one record" },\n'
-        '  { item = "thin layer: control lights 0 components", reason = "stale on purpose" },\n'
+        '  { item = "Gateway: thin layer: data shows 2 components", reason = "one record" },\n'
+        '  { item = "thin layer: control shows 0 components", reason = "stale on purpose" },\n'
         "]\n"
     )
     assert run("--root", str(nested), "judgement") == 0
@@ -675,12 +686,12 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
     assert "  Gateway: single module:" not in out
     assert "Gateway: thin layer: data" in out
     assert "stale answer:" in out
-    assert "stale answer: 'thin layer: control lights 0 components' no longer appears" in out
+    assert "stale answer: 'thin layer: control shows 0 components' is now missing." in out
     assert run("--root", str(nested), "describe") == 0
     out = capsys.readouterr().out
     assert out.startswith("canvas ")
     assert "\nGateway: canvas " in out and "\nStyle: canvas " in out
-    assert "Gateway: regions: the cards each holds\nGateway:   serve: 3 cards (" in out
+    assert "Gateway: regions: The component counts follow.\nGateway:   serve: 3 components (" in out
     assert "Style: positions: 0 pinned, 4 placed" in out
 
 
@@ -706,11 +717,11 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     for rel in ("index.html", "Gateway/index.html"):
         html = (nested / "docs/map" / rel).read_text()
         assert (
-            f'<p>Extracted at HEAD <code title="HEAD when the working tree was read">{sha[:10]}</code>.</p>'
+            f'<p>HEAD at extraction: <code title="HEAD at extraction of the working tree">{sha[:10]}</code>.</p>'
             in html
         ), rel
-        assert "Stored snapshot" in html
-        assert "This page cannot detect later changes." in html
+        assert "Stored source data" in html
+        assert "This page cannot detect subsequent changes." in html
         assert "Extraction reads the working tree, which can contain uncommitted changes." in html
         assert "Built at" not in html, rel
     # The field table the facts view and the skill's schema read says the same.
@@ -719,9 +730,8 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     assert (
         "facts",
         "built_at_commit",
-        "the commit the tree was read at (HEAD when extract ran), or empty outside git; the "
-        "page prints it as `facts from <sha>`, and it is the commit before the one that "
-        "records the facts, since they are committed after they are read",
+        "The commit read during extraction (`HEAD`), or empty outside Git. "
+        "The page prints `facts from <sha>`. Extraction precedes the commit recording facts",
     ) in FIELDS
 
 
@@ -740,22 +750,24 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
     out = capsys.readouterr().out
     # The top map: the pattern claims the new path, nothing to do there.
     assert (
-        "  moved: pkg.gateway.store -> pkg.gateway.db (same content), claimed by Gateway\n" in out
+        "  moved: pkg.gateway.store -> pkg.gateway.db (same content), with a claim in Gateway\n"
+        in out
     )
-    assert "  added: pkg.style.extra, claimed by Style\n" in out
+    assert "  added: pkg.style.extra, with a claim in Style\n" in out
     # The map inside Gateway: its Store card names the old path, in its own file.
     assert (
-        "  Gateway: moved: pkg.gateway.store -> pkg.gateway.db (same content); Store names "
-        "pkg.gateway.store in implemented_by: rename it to pkg.gateway.db in map/gateway.py\n"
+        "  Gateway: moved: pkg.gateway.store -> pkg.gateway.db (same content). Store specifies "
+        "pkg.gateway.store in implemented_by. Change this claim to pkg.gateway.db in map/gateway.py\n"
     ) in out
     # The map inside Style: the new module has no card there, and no ignore can excuse it.
     assert (
-        "  Style: added: pkg.style.extra, claimed by no card; name it in a card's "
-        "implemented_by in map/style.py, the map inside Style claims exactly what Style claims\n"
+        "  Style: added: pkg.style.extra, No component has a claim for it. "
+        "Add it to a component implemented_by in map/style.py, "
+        "the map inside Style has the same module claims as Style\n"
     ) in out
-    assert "needs a decision (" in out
+    assert "A decision is necessary (" in out
     assert "source review:" in out
-    assert "4 of 9 cards named" in out
+    assert "4 of 9 components specified" in out
     assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1
     assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in capsys.readouterr().out
 
@@ -766,5 +778,5 @@ def test_suggest_reads_the_tree_from_the_command(
     assert run("--root", str(nested), "suggest") == 0
     out = capsys.readouterr().out
     assert out.rstrip().endswith(
-        "nesting: no map is past 40 cards and no card holds more than 10 modules; nothing to open"
+        "nesting: no map has more than 40 components and no component has more than 10 modules. No nested map is necessary."
     )
