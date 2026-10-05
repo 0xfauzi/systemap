@@ -1,20 +1,8 @@
-"""The page from the keyboard, driven under Node with the readings table.
+"""The Node harness runs the generated page keyboard controls.
 
-`tests/page_driver.js` loads a rendered page into a DOM of its own, runs
-the page's scripts as written, presses the keys, and reports what the
-state did. Node is on every runner the workflow uses; where it is not on
-the PATH the test skips and says so, rather than testing a stand-in.
-
-What is asserted: the left and right arrows walk the readings in the
-order of the readings table the page carries (`_meta.readings`, decided in
-Python) and wrap through All; the cards are written in reading order (row
-by row, left to right) and each takes focus; Enter on a focused card opens
-its wheel with one focusable spoke per edge; Escape closes the wheel and
-hands focus back to the card; a journey takes the arrows while it is on
-and Escape ends it; with prefers-reduced-motion the framing sets the view
-once per framing, never tweened; the header and the strip count the cards
-the same way (components, then actors named apart); and the focus ring is
-drawn in the accent token, whose value each scheme's root block sets.
+Acceptance: each component flow has one button in the inspector. Focus on a
+button previews its flow. Escape closes the inspector and returns focus to
+the card. Sequence arrows select the current step.
 """
 
 from __future__ import annotations
@@ -141,8 +129,8 @@ def check_keyboard(report: dict[str, object]) -> None:
     assert enter["focus"] == enter["id"]
     assert enter["drawerHidden"] is False and enter["panelOn"] is True
     assert enter["dock"] in ("left", "right")
-    assert enter["spokes"] == enter["edges"] and enter["edges"] > 1
-    assert enter["spokesFocusable"] is True
+    assert enter["choices"] == enter["edges"] and enter["edges"] > 1
+    assert enter["choicesFocusable"] is True
     assert enter["hash"] == f"#{enter['id']}"
     assert enter["activeElement"] == enter["id"], "focus stays on the card"
     assert isinstance(report["peekOnFocus"], int) and report["peekOnFocus"] >= 0
@@ -211,13 +199,13 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
     assert (
         "#schematic .node:focus-visible .node__box{stroke:var(--accent);stroke-width:2.6}" in html
     )
-    assert ".systemap-w__spoke:focus-visible .systemap-w__name{fill:var(--accent)}" in html
+    assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:2.2}" in html
     assert (
         "@media (prefers-reduced-motion:reduce){*{transition:none!important;"
         "animation:none!important}}" in html
     )
     assert "@media (prefers-reduced-motion:reduce){#schematic .flow.hot{animation:none" in html
-    assert "Tab selects cards and flow labels. Enter opens their data." in html
+    assert "Tab selects cards and flow paths. Enter opens their data." in html
 
 
 def test_the_schemes_accents_differ() -> None:

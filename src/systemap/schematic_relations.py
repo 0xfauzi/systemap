@@ -1,11 +1,8 @@
 """Flow selection and source records in the inspector."""
 
 RELATION_JS = r"""// ---- the readings ---------------------------------------------------------
-// A kind layer shows the edges of its kind and hides the rest. A derived
-// reading (Structure, System context, Agents) is computed from the
-// endpoints, in Python, and read from the table above; on the page the
-// rest are dimmed, not hidden, and the edges shown are painted in the
-// reading's own hue.
+// The selected layer limits the paths. Component selection keeps only its
+// flow paths. Flow selection and sequence steps keep only one path.
 function edgeIn(i, L){
   if(L === 'all'){ return true; }
   return !!(IN_READING[L] && IN_READING[L][i]);
@@ -69,14 +66,15 @@ function paint(){
     if(edgeIn(i, L)){ inLayer[e.from] = true; inLayer[e.to] = true; } });
   flows.forEach(function(p){
     var i = +p.dataset.edge, on = edgeIn(i, L);
-    var hot = chosen >= 0 ? i === chosen : !!(lit && lit.edges.indexOf(i) >= 0);
-    var vis = on || hot || derived || i === state.peek;
-    var m = {off:!vis, hot:hot, dim:vis && !hot && (!!f || !!j || (derived && !on)),
-      peek:i === state.peek};
-    setCls(p, m);
+    var hot = i === chosen, preview = i === state.peek;
+    var vis = chosen >= 0 ? hot : (j ? false : (lit ? lit.edges.indexOf(i) >= 0 : on));
+    vis = vis || preview;
+    setCls(p, {off:!vis, hot:hot, dim:false, peek:preview});
+    p.setAttribute('tabindex', vis ? '0' : '-1');
+    p.setAttribute('aria-pressed', hot ? 'true' : 'false');
     if(labelOf[i]){
-      setCls(labelOf[i], m);
-      labelOf[i].setAttribute('aria-pressed', i === chosen ? 'true' : 'false');
+      setCls(labelOf[i], {off:!hot && !preview, hot:hot, dim:false, peek:preview});
+      labelOf[i].setAttribute('aria-pressed', hot ? 'true' : 'false');
     }
     recolour(i, derived && on ? LCOL[L] : '', hot);
   });
@@ -93,129 +91,6 @@ function paint(){
   });
   svg.classList.toggle('focused', !!f);
   syncMotion(chosen);
-}
-
-// ---- the relationship wheel --------------------------------------------
-function wrapName(id){
-  var parts = id.match(/[A-Z]+[a-z0-9]*|[a-z0-9]+/g) || [id];
-  var lines = [], cur = '';
-  parts.forEach(function(p){
-    if(cur && (cur + p).length > 10){ lines.push(cur); cur = p; } else { cur += p; }
-  });
-  if(cur){ lines.push(cur); }
-  return lines;
-}
-function wheelLayout(cid){
-  // Spokes grouped by layer in LAYERS order, clockwise from the top, with a
-  // half-slot of daylight between groups. Mirrored in check_layout.py.
-  var d = DETAIL[cid];
-  var idx = (d.edges || []).slice();
-  idx.sort(function(a, b){ return (LORD[EDGES[a].layer] - LORD[EDGES[b].layer]) || (a - b); });
-  var groups = 0, prev = null;
-  idx.forEach(function(i){ if(EDGES[i].layer !== prev){ groups++; prev = EDGES[i].layer; } });
-  var gap = groups > 1 ? 0.5 : 0;
-  var step = 360 / (idx.length + gap * groups);
-  var W = 400, H = 400, cx = 200, cy = 200, R = 118;
-  var hw = Math.max(34, cid.length * 3.7 + 12), hh = 15;
-  var spokes = [], a = -90; prev = null;
-  idx.forEach(function(i){
-    var e = EDGES[i];
-    if(prev !== null && e.layer !== prev){ a += gap * step; }
-    prev = e.layer;
-    var th = a * Math.PI / 180; a += step;
-    var ux = Math.cos(th), uy = Math.sin(th);
-    var r0 = Math.min(hw / Math.max(Math.abs(ux), 1e-6), hh / Math.max(Math.abs(uy), 1e-6)) + 8;
-    var other = e.from === cid ? e.to : e.from;
-    var deg = th * 180 / Math.PI;
-    spokes.push({i:i, e:e, other:other, out:(e.from === cid), ux:ux, uy:uy, r0:r0,
-      deg:deg, verb:(e.from === cid ? e.out : e['in']), colour:LCOL[e.layer],
-      lines:wrapName(other)});
-  });
-  return {W:W, H:H, cx:cx, cy:cy, R:R, hw:hw, hh:hh, spokes:spokes};
-}
-function wheelExtent(w){
-  // The box the wheel actually occupies: the centre, plus every name label,
-  // estimated at 6.6px per glyph. The viewBox is fitted to it so a component
-  // with one spoke does not sit in a square of dead space.
-  var x0 = w.cx - w.hw, y0 = w.cy - w.hh, x1 = w.cx + w.hw, y1 = w.cy + w.hh;
-  w.spokes.forEach(function(s){
-    var ex = w.cx + (w.R + 9) * s.ux, ey = w.cy + (w.R + 9) * s.uy;
-    var n = s.lines.length, lw = 0;
-    s.lines.forEach(function(l){ lw = Math.max(lw, l.length * 6.6); });
-    var left, top;
-    if(Math.abs(s.ux) < 0.35){
-      left = ex - lw / 2; top = (s.uy < 0 ? ey - 4 - (n - 1) * 13 : ey + 12) - 10;
-    } else {
-      left = s.ux > 0 ? ex + 2 : ex - 2 - lw; top = ey + 4 - (n - 1) * 6.5 - 10;
-    }
-    x0 = Math.min(x0, left); y0 = Math.min(y0, top);
-    x1 = Math.max(x1, left + lw); y1 = Math.max(y1, top + n * 13);
-  });
-  var pad = 8;
-  if(!w.spokes.length){ x0 = w.cx - 100; x1 = w.cx + 100; y0 = w.cy - 44; }
-  return {x:x0 - pad, y:y0 - pad, w:x1 - x0 + 2 * pad, h:y1 - y0 + 2 * pad};
-}
-function wheelSvg(cid){
-  var w = wheelLayout(cid);
-  var box = wheelExtent(w);
-  var h = '<svg viewBox="' + box.x.toFixed(1) + ' ' + box.y.toFixed(1) + ' ' + box.w.toFixed(1)
-        + ' ' + box.h.toFixed(1) + '" style="max-width:' + box.w.toFixed(0) + 'px" role="group" '
-        + 'aria-label="relationship wheel of ' + esc(cid) + '">';
-  h += '<defs>';
-  LAYERS.forEach(function(l){
-    h += '<marker id="wm-' + esc(l.id) + '" viewBox="0 0 8 8" refX="7" refY="4" '
-       + 'markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" '
-       + 'orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="' + l.colour
-       + '"/></marker>';
-  });
-  h += '</defs>';
-  if(!w.spokes.length){
-    h += '<text class="systemap-w__empty" x="' + w.cx + '" y="' + (w.cy - 30) + '">'
-       + 'No flow for this component</text>';
-  }
-  w.spokes.forEach(function(s){
-    var x0 = w.cx + s.r0 * s.ux, y0 = w.cy + s.r0 * s.uy;
-    var x1 = w.cx + w.R * s.ux, y1 = w.cy + w.R * s.uy;
-    var rm = (s.r0 + w.R) / 2, mx = w.cx + rm * s.ux, my = w.cy + rm * s.uy;
-    var rot = s.ux < 0 ? s.deg + 180 : s.deg;
-    var marker = (s.out ? ' marker-end' : ' marker-start') + '="url(#wm-' + esc(s.e.layer) + ')"';
-    var ends = ' x1="' + x0.toFixed(1) + '" y1="' + y0.toFixed(1) + '" x2="' + x1.toFixed(1)
-             + '" y2="' + y1.toFixed(1) + '"';
-    h += '<g class="systemap-w__spoke" data-edge="' + s.i + '" data-go="' + esc(s.other)
-       + '" tabindex="0" role="button" aria-label="'
-       + esc('Examine ' + s.e.art + ': ' + s.e.from + ' to ' + s.e.to + ', '
-         + s.e.layer + ', ' + evidenceLabel(s.e.evidence)) + '" aria-pressed="'
-         + (s.i === state.edge ? 'true' : 'false') + '">';
-    h += '<line class="systemap-w__hit"' + ends + '/>';
-    // The wheel preserves each unreviewed evidence state's pattern.
-    var dash = s.e.evidence === 'declared' ? ' stroke-dasharray="6 4"' :
-      s.e.evidence === 'structural' ? ' stroke-dasharray="3 4"' : '';
-    h += '<line class="systemap-w__line"' + ends + ' stroke="' + s.colour + '"' + marker + dash
-       + '/>';
-    h += '<text class="systemap-w__verb" x="' + mx.toFixed(1) + '" y="' + (my + 4).toFixed(1)
-       + '" fill="' + s.colour + '" transform="rotate(' + rot.toFixed(1) + ' ' + mx.toFixed(1)
-       + ' ' + my.toFixed(1) + ')">' + esc(s.verb) + '</text>';
-    var ex = w.cx + (w.R + 9) * s.ux, ey = w.cy + (w.R + 9) * s.uy;
-    var n = s.lines.length, anchor, lx, first;
-    if(Math.abs(s.ux) < 0.35){
-      anchor = 'middle'; lx = ex;
-      first = s.uy < 0 ? ey - 4 - (n - 1) * 13 : ey + 12;
-    } else {
-      anchor = s.ux > 0 ? 'start' : 'end'; lx = ex + (s.ux > 0 ? 2 : -2);
-      first = ey + 4 - (n - 1) * 6.5;
-    }
-    h += '<text class="systemap-w__name" text-anchor="' + anchor + '">';
-    s.lines.forEach(function(line, k){
-      h += '<tspan x="' + lx.toFixed(1) + '" y="' + (first + k * 13).toFixed(1) + '">'
-         + esc(line) + '</tspan>';
-    });
-    h += '</text></g>';
-  });
-  h += '<g class="systemap-w__centre"><rect x="' + (w.cx - w.hw) + '" y="' + (w.cy - w.hh)
-     + '" width="' + (2 * w.hw) + '" height="' + (2 * w.hh) + '" rx="5"/>';
-  h += '<text x="' + w.cx + '" y="' + (w.cy + 4) + '">' + esc(cid) + '</text></g>';
-  h += '</svg>';
-  return h;
 }
 
 // ---- the inspector -------------------------------------------------------
@@ -272,8 +147,7 @@ function evidenceReview(e){
 }
 function relationshipHtml(i){
   var e = EDGES[i];
-  if(!e){ return '<p class="systemap-f__hint">Select a flow label or a connected component '
-    + 'below to examine the flow.</p>'; }
+  if(!e){ return '<p class="systemap-f__hint">Select a flow path or a flow from the list.</p>'; }
   var layer = LAYER_AT[e.layer];
   return '<h4>Selected flow</h4><p class="systemap-f__artifact">' + esc(e.art)
     + '</p><div class="systemap-f__endpoints">' + endpointButton(e.from, 'From')
@@ -286,14 +160,21 @@ function relationshipHtml(i){
     + '<p class="systemap-f__evidence" data-evidence>' + esc(e.evidence_says || '') + '</p>'
     + '<p class="systemap-f__reason">' + esc(evidenceReason(e)) + '</p>' + evidenceReview(e);
 }
+function flowChoice(i){
+  var e = EDGES[i];
+  return '<button type="button" class="systemap-f__flow-choice" data-inspect-edge="' + i
+    + '" data-evidence-state="' + esc(e.evidence) + '" aria-pressed="'
+    + (i === state.edge ? 'true' : 'false') + '"><b>' + esc(e.art)
+    + '</b><span>' + esc(e.from) + ' to ' + esc(e.to) + '</span><small>'
+    + esc(evidenceLabel(e.evidence)) + '</small></button>';
+}
 function flowChoices(d){
-  return (d.edges || []).map(function(i){
-    var e = EDGES[i], layer = LAYER_AT[e.layer];
-    return '<button type="button" class="systemap-f__flow-choice" data-inspect-edge="' + i
-      + '" aria-pressed="' + (i === state.edge ? 'true' : 'false') + '"><b>' + esc(e.art)
-      + '</b><span>' + esc(e.from) + ' to ' + esc(e.to) + '</span><small>'
-      + esc(layer ? layer.label : e.layer) + ' / ' + esc(evidenceLabel(e.evidence))
-      + '</small></button>';
+  if(!(d.edges || []).length){ return '<p>No flow for this component</p>'; }
+  return LAYERS.map(function(layer){
+    var edges = (d.edges || []).filter(function(i){ return EDGES[i].layer === layer.id; });
+    if(!edges.length){ return ''; }
+    return '<section class="systemap-f__flow-group" data-flow-layer="' + esc(layer.id)
+      + '"><h4>' + esc(layer.label) + '</h4>' + edges.map(flowChoice).join('') + '</section>';
   }).join('');
 }
 function partDetails(d){
@@ -335,31 +216,31 @@ function describe(d){
   h += '<section class="systemap-f__relationship" data-relationship>'
     + relationshipHtml(state.edge) + '</section>';
   h += '<details class="systemap-f__connections" open><summary>Connected components</summary>'
-    + '<div class="systemap-f__wheel">' + wheelSvg(d.id) + '</div>'
     + '<div class="systemap-f__flow-list">' + flowChoices(d) + '</div></details>';
   return h + partDetails(d) + '</div>';
-}
-function updateSpokes(){
-  if(!panel){ return; }
-  Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
-    var i = +s.dataset.edge;
-    s.classList.toggle('peek', i === state.peek || i === state.edge);
-    s.setAttribute('aria-pressed', i === state.edge ? 'true' : 'false');
-  });
 }
 function peek(i){
   if(!EDGES[i]){ return; }
   state.peek = i;
-  paint(); updateSpokes();
+  paint();
 }
 function unpeek(){
   state.peek = -1;
-  paint(); updateSpokes();
+  paint();
 }
-function edgesBetween(a, b){
-  return EDGES.map(function(e, i){
-    return (e.from === a && e.to === b) || (e.from === b && e.to === a) ? i : -1;
-  }).filter(function(i){ return i >= 0; });
+function previewLeave(ev){
+  var next = ev.relatedTarget && ev.relatedTarget.closest
+    ? ev.relatedTarget.closest('.flow, .flowlbl, [data-inspect-edge]') : null;
+  var current = ev.currentTarget;
+  var i = +(current.dataset.inspectEdge || current.dataset.edge);
+  if(next && +(next.dataset.inspectEdge || next.dataset.edge) === i){ return; }
+  unpeek();
+}
+function bindPreview(control, i){
+  control.addEventListener('mouseenter', function(){ peek(i); });
+  control.addEventListener('focus', function(){ peek(i); });
+  control.addEventListener('mouseleave', previewLeave);
+  control.addEventListener('blur', unpeek);
 }
 function opensPage(cid){
   var d = DETAIL[cid];
@@ -373,16 +254,14 @@ function openMap(cid, opener){
 }
 function bindPanel(){
   if(!panel){ return; }
-  Array.prototype.slice.call(panel.querySelectorAll('.systemap-w__spoke')).forEach(function(s){
-    s.addEventListener('mouseenter', function(){ peek(+s.dataset.edge); });
-    s.addEventListener('focus', function(){ peek(+s.dataset.edge); });
-    s.addEventListener('mouseleave', unpeek);
+  Array.prototype.slice.call(panel.querySelectorAll('[data-inspect-edge]')).forEach(function(s){
+    bindPreview(s, +s.dataset.inspectEdge);
   });
 }
 function panelFocusKey(){
   var active = document.activeElement;
   if(!panel || !active || !panel.contains(active)){ return null; }
-  var attributes = ['data-endpoint', 'data-inspect-edge', 'data-edge', 'data-open-map'];
+  var attributes = ['data-endpoint', 'data-inspect-edge', 'data-open-map'];
   for(var i = 0; i < attributes.length; i++){
     var value = active.getAttribute(attributes[i]);
     if(value !== null){ return {attribute:attributes[i], value:value}; }
@@ -392,7 +271,7 @@ function panelFocusKey(){
 function restorePanelFocus(key){
   if(!key){ return; }
   var candidates = Array.prototype.slice.call(panel.querySelectorAll(
-    '[data-endpoint], [data-inspect-edge], .systemap-w__spoke, [data-open-map]'));
+    '[data-endpoint], [data-inspect-edge], [data-open-map]'));
   var target = candidates.filter(function(control){
     return control.getAttribute(key.attribute) === key.value;
   })[0];
@@ -431,8 +310,7 @@ function inspectFlow(i, endpoint){
 }
 if(panel){
   function panelAction(ev){
-    var target = ev.target.closest('[data-endpoint], [data-inspect-edge], '
-      + '.systemap-w__spoke, [data-open-map]');
+    var target = ev.target.closest('[data-endpoint], [data-inspect-edge], [data-open-map]');
     if(!target){ return; }
     ev.preventDefault();
     if(target.dataset.endpoint){
@@ -463,14 +341,9 @@ nodes.forEach(function(n){
     }
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); select(n.dataset.id); }
   });
-  n.addEventListener('mouseenter', function(){
-    if(!state.focus || n.dataset.id === state.focus){ return; }
-    var candidates = edgesBetween(state.focus, n.dataset.id);
-    if(candidates.length === 1){ peek(candidates[0]); }
-  });
-  n.addEventListener('mouseleave', function(){ if(state.focus){ unpeek(); } });
 });
-labels.forEach(function(label){
+flows.concat(labels).forEach(function(label){
+  bindPreview(label, +label.dataset.edge);
   label.addEventListener('click', function(e){
     e.stopPropagation(); inspectFlow(+label.dataset.edge);
   });
@@ -479,7 +352,7 @@ labels.forEach(function(label){
   });
 });
 svg.addEventListener('click', function(e){
-  if(!e.target.closest('.node, .flowlbl')){ clearAll(); }
+  if(!e.target.closest('.node, .flow, .flowlbl')){ clearAll(); }
 });
 function setMotion(enabled){
   state.motion = !!enabled;
@@ -499,7 +372,14 @@ svg.systemap = {
   peek: peek,
   setMotion: setMotion,
   state: state,
-  setLayer: function(id){ state.layer = id; state.peek = -1; paint(); },
+  setLayer: function(id){
+    state.layer = id; state.peek = -1;
+    if(state.edge >= 0 && !edgeIn(state.edge, id)){
+      select(state.focus);
+      state.peek = -1;
+    }
+    paint();
+  },
   layerIds: layerIds,
   setJourney: function(step){
     state.focus = ''; state.edge = -1; state.peek = -1;
@@ -548,6 +428,7 @@ function openHash(){
   report('No component or page section has this link. Find a component by name or use Show all.');
 }
 window.addEventListener('hashchange', openHash);
+paint();
 openHash();
 booted = true;
 """

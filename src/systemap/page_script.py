@@ -69,6 +69,7 @@ JS = r"""
       b.setAttribute('aria-pressed', b.dataset.layerBtn === id ? 'true' : 'false'); });
     if(layerSelect){ layerSelect.value = id; }
     layerStrip();
+    if(A.state.focus){ frameBeside(A.state.focus); }
     svg.dispatchEvent(new CustomEvent('systemap:workspace'));
   }
   layerBtns.forEach(function(b){
@@ -90,9 +91,7 @@ JS = r"""
   }
   var frameVersion = 0, restoringView = false;
   function frameBeside(id, instant){
-    // The lit set framed in the part of the map the drawer leaves visible,
-    // measured on the next frame, once the drawer is laid out and the page
-    // has scrolled the map into view.
+    // Frame the selected components after the inspector layout.
     var version = frameVersion;
     window.requestAnimationFrame(function(){
       if(A.state.focus === id && version === frameVersion){ A.view.frameFocus(cover(), instant); }
@@ -208,7 +207,7 @@ JS = r"""
     var j = A.journeys[cur.j];
     if(!j){ return; }
     var step = j.steps[cur.s];
-    closeDrawer();
+    A.setJourney(null); closeDrawer();
     var edge = A.edges[step.edge];
     if(edge){ setLayer(edge.layer); }
     journeyStrip(j);
@@ -430,7 +429,7 @@ JS = r"""
     }
   });
 
-  // ---- selection, hash, index ------------------------------------------
+  svg.addEventListener('systemap:flow', function(e){ setLayer(A.edges[e.detail.edge].layer); });
   var opened = '';
   svg.addEventListener('systemap:select', function(e){
     var id = e.detail.id;

@@ -1,7 +1,7 @@
 """Keyboard inspection retains the exact relationship and its active control.
 
 Acceptance: zero lost focused controls across endpoint following, flow choice
-and wheel activation. Each activation retains the exact flow index it names.
+and path activation. Each activation retains the exact flow index it names.
 The generated page runs against recorded local data, without external services.
 """
 
@@ -20,16 +20,18 @@ from systemap import page
 
 SCENARIO = r"""
 function inspectorfocus(page) {
-  const {doc, win, A, key} = page;
+  const {doc, win, svg, A, key} = page;
   const panel = doc.getElementById('panel');
   const results = [];
   A.inspectFlow(0, A.edges[0].from); runFrames(win);
   function activate(control, attribute, value, edge, kind) {
+    const inPanel=panel.contains(control);
     control.focus(); key('Enter', control); runFrames(win);
     const active = doc.activeElement;
     results.push({kind, edge, selected:A.state.edge, focusInPanel:panel.contains(active),
       attribute:active.getAttribute(attribute), expected:String(value),
-      oldRemoved:!panel.contains(control), wheel:active.classList.contains('systemap-w__spoke')});
+      oldRemoved:!panel.contains(control), expectedInPanel:inPanel,
+      path:active.classList.contains('flow'),samePath:active===control});
   }
   const endpoint = A.edges[0].to;
   activate(panel.querySelector('[data-endpoint="'+endpoint+'"]'),
@@ -37,8 +39,10 @@ function inspectorfocus(page) {
   const choice = panel.querySelector('[data-inspect-edge]');
   activate(choice, 'data-inspect-edge', choice.dataset.inspectEdge,
     +choice.dataset.inspectEdge, 'flow choice');
-  const wheel = panel.querySelector('.systemap-w__spoke');
-  activate(wheel, 'data-edge', wheel.dataset.edge, +wheel.dataset.edge, 'wheel');
+  const other = panel.querySelectorAll('[data-inspect-edge]').find(el=>+el.dataset.inspectEdge!==A.state.edge);
+  activate(other, 'data-inspect-edge', other.dataset.inspectEdge, +other.dataset.inspectEdge, 'other flow');
+  const path = svg.querySelector('.flow[data-edge="'+A.state.edge+'"]');
+  activate(path, 'data-edge', path.dataset.edge, +path.dataset.edge, 'path');
   return results;
 }
 """
@@ -70,7 +74,8 @@ def test_keyboard_inspection_restores_the_exact_control(sample: Sample, tmp_path
     records: list[dict[str, Any]] = json.loads(result.stdout)
     for record in records:
         assert record["oldRemoved"], record
-        assert record["focusInPanel"], record
+        assert record["focusInPanel"] == record["expectedInPanel"], record
         assert record["attribute"] == record["expected"], record
         assert record["selected"] == record["edge"], record
-        assert record["wheel"] == (record["kind"] == "wheel"), record
+        assert record["path"] == (record["kind"] == "path"), record
+        assert record["samePath"] == (record["kind"] == "path"), record

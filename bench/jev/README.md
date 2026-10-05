@@ -693,3 +693,61 @@ Run these commands from the repository root:
 uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.json
 uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.json
 ```
+
+
+## Does flow selection reduce map crowding?
+
+The acceptance conditions were specified before browser measurements on 2026-10-05.
+Structure must show zero flow lines after component selection.
+Other layers must show only flows connected to the selected component.
+Only a selected flow has the selection line width.
+
+Without a preview, flow selection and each sequence step must show one flow line and one flow label.
+The selected label must have zero intersections with component text or other flow labels.
+Selected endpoint cards must fit completely in the map viewport.
+
+The inspector must give access to every connected flow, with direction and evidence state.
+A preview must cause zero changes to inspector contents or camera position.
+
+The Node harness gives event and state results.
+Browser measurements give screen geometry for desktop and phone views.
+These checks do not measure spoken screen-reader use or comprehension.
+The first test subset had 46 passing tests and six failures.
+Three failures used the old generated map.
+Three style assertions were corrected to agree with the implemented preview state.
+A later subset had ten passing tests and one old-map test excluded.
+
+The first full run had 547 passing tests, one skipped test, one failed test, and four errors.
+The failed tests still used the removed wheel controls.
+The corrected tests kept all flow evidence, source reference, dash pattern, and focus requirements.
+The repaired subset had seven passing tests.
+The next full run had 552 passing tests and one skipped test.
+
+The first browser pass found no label intersections, endpoint card clips, or horizontal page overflow in 92 sequence step views.
+It also found a sequence transition error.
+A layer change could open the previous component inspector before the sequence cleared its selection.
+The corrected transition clears selection before the layer change.
+A regression test shows that the sequence closes the old inspector and End restores the previous selection and camera.
+
+The final browser pass examined all 46 steps in all 11 sequences at 1280 by 720 and 390 by 844 pixels.
+All 92 views showed one flow line and its label.
+There were zero intersections with component text or other flow labels, zero endpoint card clips, and zero horizontal page overflows.
+Check selection showed zero flows in Structure and six connected flows in Data flow on desktop and phone.
+All showed all 76 flow lines with no labels until selection or preview.
+A desktop keyboard preview kept the inspector contents and camera transform unchanged.
+
+The final test run had 553 passing tests and one skipped test.
+The pre-commit checks, mypy, map check, and strict judgement check passed.
+The map check recorded full coverage of 53 source modules.
+The strict judgement check recorded seven answered decisions and no necessary decision.
+No test or map command sent a Jev request.
+
+The commit check found cognitive complexity of 18 in the new flow group test.
+The limit for new functions is 15.
+The group assertions were moved to a helper function, with each assertion kept.
+
+The static design check gave three warnings: map canvas padding, type hierarchy, and the Paper palette.
+The canvas has its own map controls, and the palette is an existing design selection.
+These warnings do not measure flow visibility or browser text intersections.
+The three appearance images use 1280 by 720 pixels.
+The updated tour has 12 frames and a duration of 30 seconds.

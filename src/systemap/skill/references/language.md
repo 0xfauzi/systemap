@@ -110,6 +110,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | export, re-export | A public source symbol, including one supplied through another module. |
 | fixture | Recorded test input or a small source project used by a test. |
 | flow | A directed relation with one artifact and two component endpoints. |
+| flow path | The calculated line between two component endpoints in a map. |
 | function | A named executable unit in source code. |
 | Git commit | A recorded revision in a Git repository. |
 | heuristic | A specified procedure that gives an approximate result (category 7). |
@@ -180,6 +181,11 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | import connection | An extracted source import between two component module sets. |
 | layout geometry | The coordinates and bounds used by the map layout (category 7). |
 | legend | The diagram explanation for its colors and marks. |
+| keyboard focus | The user interface control that receives keyboard input. |
+| label | The text that identifies a user interface control or a map flow. |
+| list | A user interface group with one selection control for each record. |
+| pointer | The screen position that receives mouse or touch input. |
+| preview | A temporary map view that shows a flow before selection. |
 | measurement | A quantitative value with specified units and conditions (category 7). |
 | module match | A paired source module record in a revision comparison. |
 | newline | The character or character sequence that ends a text line. |

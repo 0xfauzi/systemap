@@ -54,6 +54,13 @@ flows that answer one question. Examples include connections across the system
 boundary, data flow, and control flow. Select a component to see its connected components
 and the explanation for each connection.
 
+`Structure` shows no flow lines after a component selection.
+Other layers show only flow lines that connect to the selected component.
+Without a preview, a selected flow or the selected sequence step shows only its flow line.
+The map shows a flow label only for the selected flow or a preview.
+Use the pointer or keyboard focus for a flow preview.
+The inspector keeps all component connections, with direction and evidence.
+
 Flow lines also show evidence. A solid internal line shows a source review
 with references and a claim digest that match the stored source snapshot.
 A short dashed line shows structural evidence: an import, a shared module,

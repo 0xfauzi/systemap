@@ -1,18 +1,8 @@
-"""The framing on click, driven under Node with a stub viewport.
+"""The frame contains the selected card and active-layer incident flows.
 
-A selection frames what it lights, and only that: the card, the edges of
-it the reading shows (every edge on All and on Structure, which has no
-edges of its own), and their other ends; the framed rectangle is centred
-in the part of the map the reader can see, the map's box clipped to the
-window less the drawer's column; a lit set larger than that area at the
-minimum zoom is fitted whole, never cropped; and a resize with the focus
-held frames it again for the new window.
-
-`tests/page_driver.js --scenario framing` selects several cards on every
-reading and reports what was lit, what was framed, and where the view
-landed; the geometry is done again here from the stub's numbers (the
-viewBox, the window, the drawer's box), so the script's own account of
-the visible area is checked, not trusted.
+Acceptance: all selected cards, visible paths, and endpoints fit in the frame.
+Structure has no flows. All contains every incident flow. A resize calculates
+another frame for the new viewport. The Node harness supplies fixed geometry.
 """
 
 from __future__ import annotations
@@ -68,11 +58,11 @@ def expected_area(report: dict[str, Any], case: dict[str, Any]) -> tuple[float, 
 
 
 def expected_lit(report: dict[str, Any], case: dict[str, Any]) -> tuple[set[str], set[int]]:
-    """What the readings table says a focus lights on this reading."""
+    """Return the selected card and incident flows for the active layer."""
     cid, reading = case["id"], case["reading"]
     edges: list[int] = report["detailEdges"][cid]
-    shown = [] if reading == "all" else report["readings"][reading]["edges"]
-    lit_edges = [i for i in edges if i in shown] if shown else edges
+    shown = edges if reading == "all" else report["readings"][reading]["edges"]
+    lit_edges = [i for i in edges if i in shown]
     ids = {cid}
     for i in lit_edges:
         ids.add(report["edges"][i]["from"])
@@ -169,6 +159,7 @@ function sequencelayout(page) {
   const original=A.setJourney, map=doc.getElementById('map');
   map.scrollIntoView=()=>events.push('scroll');
   A.setJourney=function(step){
+    if(!step){ return original(step); }
     events.push('frame');
     calls.push({heading:doc.getElementById('activity-question').textContent,
       stripHidden:doc.getElementById('strip').hidden,

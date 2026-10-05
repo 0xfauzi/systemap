@@ -22,7 +22,6 @@ The command exits 1 if a rule rejects the map.
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
 | meaning | A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id. |
-| wheel | Relationship-wheel labels touch each other or the center. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
 
 The labels rule rejects these conditions:

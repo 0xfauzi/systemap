@@ -2,8 +2,8 @@
 
 A system figure shows the map. A change figure uses explicit Git refs or component IDs
 from a plan. A layer selection shows that layer and all components. An interactive
-figure includes component focus, a relationship wheel, and zoom controls without
-external libraries.
+figure includes component selection, a flow list, and zoom controls without external
+libraries.
 """
 
 from __future__ import annotations

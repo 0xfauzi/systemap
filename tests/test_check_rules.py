@@ -16,7 +16,7 @@ from conftest import TWO_CARD_MODEL, Sample, init_two_cards, write_tree
 from systemap import check, route
 from systemap import theme as theme_mod
 from systemap.cli import main
-from systemap.model import Container, all_layers
+from systemap.model import Container
 from systemap.schematic import render as render_schematic
 
 STARTER_MODULES = {
@@ -307,20 +307,6 @@ def test_header_overflow_fails_check_and_refresh(
     assert "header of container system: sub does not fit its box" in out
     assert run("--root", str(tmp_path), "refresh") == 1
     assert "map: The check found an error." in capsys.readouterr().out
-
-
-# ---- wheel: nothing leaves a drawing that sizes itself ---------------------------
-
-
-def test_wheel_labels_may_reach_past_the_old_frame(sample: Sample) -> None:
-    # Three spokes put one at thirty degrees, where a thirty-character name
-    # runs well past the 400-unit frame the old rule refused.
-    names = [f"averyveryverylongcomponentname{k}" for k in range(3)]
-    edges = [{"from": "Reader", "to": name, "layer": "data"} for name in names]
-    _centre, boxes = check.wheel_boxes("Reader", edges, all_layers(sample.model, sample.meaning))
-    assert any(x + w > 400 for _name, (x, _y, w, _h) in boxes)
-    assert check.check_wheels(edges, sample.model, sample.meaning) == []
-    assert not hasattr(check, "W"), "the frame is gone with the rule"
 
 
 # ---- refresh verifies what it wrote --------------------------------------------
