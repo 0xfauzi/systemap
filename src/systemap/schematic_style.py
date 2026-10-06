@@ -13,6 +13,8 @@ def _svg_style(svg_id: str, t: Palette) -> str:
     return (
         "<style>"
         f"{s} .node{{cursor:pointer}}"
+        f'{s} .node [data-layer="job"] text{{font-family:Arial,"Liberation Sans",sans-serif;'
+        "font-kerning:none;font-variant-ligatures:none}"
         f"{s} .node.subject .node__box{{stroke:var(--subject)}}"
         f"{s} .node.subject rect.node__mark{{stroke:var(--subject)}}"
         f"{s} .node.subject path.node__mark{{fill:var(--subject)}}"

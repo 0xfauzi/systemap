@@ -65,6 +65,7 @@ from systemap.schematic_cards import (
     RADIUS,
     container_header,
     esc,
+    plain_inset,
 )
 from systemap.schematic_cards import (
     SUB_CHAR as SUB_CHAR,
@@ -480,7 +481,16 @@ def render(
         g.append(
             '<g data-layer="job">'
             + "".join(
-                L(x + 10, first + k * 12, line, TEXT_PX, INK_3, "400", False, "start")
+                L(
+                    x + 10 + plain_inset(line),
+                    first + k * 12,
+                    line,
+                    TEXT_PX,
+                    INK_3,
+                    "400",
+                    False,
+                    "start",
+                )
                 for k, line in enumerate(plain_lines)
             )
             + "</g>"

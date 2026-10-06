@@ -134,7 +134,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="3d4f204aff328c6cdd3a66413a867b4271505127840fbdec95ad8565d9a78a19",
+        source_review="f111731ca2e7308561b234794eed83165d3dcedc47c6900b53a16ace980a0247",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Identifies TypeScript syntax that it cannot parse as unknown. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -170,7 +170,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="0c54aa090228c6a82e024d18f2a3607b439d0934f1aa2c7cbedc86068a569719",
+        source_review="be9e1a02a4c7aa168c1c2c98ca9277d9dff43752c1f80795e47cb10753ee4f90",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, model, placement)",
         implemented_by=("systemap.place",),
@@ -193,7 +193,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="138ac3c25ee0b5a5b2456b70dd90535d1d0ed73db2167cea2ff5250eb7635c51",
+        source_review="aa1b19242db7d57c4da6010e19e8dc8530e8809b3733a2524630ec658458b513",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -213,7 +213,7 @@ COMPONENTS = (
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="470b8877a685f25dc5744bb05e2e412aaf8bb2465732fc6d60bb4d9da9fb5f0e",
+        source_review="cc9fcf2931dfa9e8c06ad5a1dd93823912022a4fac819b3d10ff20979c952d7e",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=("systemap.route",),
@@ -224,7 +224,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="50907933da9233aa23889bb7759c71a5be5b6c7275fdaa1a1d94f4025b217e69",
+        source_review="d6b85718d9e9b2e3bdf467e56480a938f2b377b80a07553a550907742fd7841b",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for layers. Shows connected components and selected sequence steps. Gives controls for layers, map position and zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -242,7 +242,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="557e57bd9573be78117c1e5d025ac9a4fffc4061ac07b7031b293fa1f868d860",
+        source_review="fd3fa5453367bf8e6d5bd2a7ef44f3b893a66823b3bb4cb8ae9509dc37ba964a",
         does="Makes the map page. Shows model positions, flows, sequences and source records in one inspector. Text view shows the same components and flows. Shows judgement reasons and revision comparisons. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -259,7 +259,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
-        source_review="7440bfc7480a220c47b4b20931f9288a0ff283d4784f8ff49b98a866800a0e39",
+        source_review="14c16decae1b5320552be0966da074a75f6ff057688e5e069a05c055a09f9c09",
         does="Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
@@ -271,7 +271,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="7badf8e2a1ff0bb2a9edd308730b837818c4196e76fba06533a578fcf7c6e7a3",
+        source_review="e3f000dfaf449b2b8c6e68ea8ba688a98374a873f51e0f1e71b3f5dc16dc1151",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=("systemap.check",),
@@ -318,7 +318,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="11c782b8a237caea243de6e16b9421775c8a9c5c181fe6bebc306b8e4fe0db29",
+        source_review="c75870ebc2a11c71aade60b350f41db73c9c4dcb3a05951eca3dea9f75ff5e69",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),
@@ -362,7 +362,7 @@ _SOURCE_SHA = {
     'systemap.place': '93a9261e4c84f20a35a47b4f9fe585707e182bdd1a04f5d4dac62e156809815e',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
     'systemap.scaffold': '94740a7aacedfba884504500ad8d5aeffa7c6ab5f02ec469eba284b6ec8be281',
-    'systemap.schematic': '38a5e0d336b2203dc56ee9e549679eb503ab7a57192ebd926ced399fa1880653',
+    'systemap.schematic': '57b720f7c2887151608474b4f364b9989e8d17e129d21542d63127320eaf4e84',
     'systemap.skill': '71bde7489e07dd6f2555e01b059e52a53c1742fb3e962c581f52a8dec64d901e',
     'systemap.page_data': '3d4141cc124f0e56644ac2618195cc8f7103686bf1f43bbae5c19ffc83e63b4e',
 }
