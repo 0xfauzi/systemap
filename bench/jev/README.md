@@ -693,3 +693,131 @@ Run these commands from the repository root:
 uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.json
 uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.json
 ```
+
+
+## Flow selection measurements
+
+The measurement plan specified these necessary results before browser measurements on 2026-10-05.
+`Structure` must show zero flow lines after component selection.
+Other layers must show only flows connected to the selected component.
+Only a selected flow has the selection line width.
+
+Without a preview, flow selection and each sequence step must show one flow line and one flow label.
+The selected label must have zero overlaps with component text or other flow labels.
+The map viewport must contain the full selected endpoint cards.
+
+The inspector must give access to each connected flow, with its direction and evidence state.
+A preview must cause zero changes to inspector contents or camera position.
+
+The Node test script gives results for browser procedures and map selection.
+Browser measurements give the positions and dimensions of map items for desktop and phone views.
+These checks do not measure screen-reader speech or user comprehension.
+
+The first test subset gave 46 satisfactory results and six failures.
+Three tests used the previous rendered map and gave failures.
+Three corrected style assertions agreed with the preview condition.
+A subsequent subset gave ten satisfactory results and did not include one test of the previous map.
+
+The first full test suite gave 547 satisfactory results, one `skipped` result, one `failed` result, and four errors.
+The tests with failures used the removed wheel controls.
+The corrected tests kept all requirements for evidence state, source references, dash patterns, and keyboard focus.
+The repaired subset gave seven satisfactory results.
+The next full test suite gave 552 satisfactory results and one `skipped` result.
+
+The first browser measurements found zero label overlaps, zero endpoint cards with clipping, and zero horizontal page overflows in 92 sequence step views.
+The measurements also found an error during a sequence change.
+A layer change could open the previous component inspector before the sequence cleared its selection.
+The corrected sequence code clears selection before the layer change.
+In a regression test, the sequence closes the previous inspector and End restores the previous selection and camera.
+
+The last browser measurements examined all 46 steps in all 11 sequences at 1280 by 720 and 390 by 844 pixels.
+All 92 views showed one flow line and its label.
+There were zero overlaps with component text or other flow labels.
+There were zero endpoint cards with clipping and zero horizontal page overflows.
+
+Selection of `Check` showed zero flows in `Structure` and six connected flows in `Data flow` on desktop and phone.
+`All` showed all 76 flow lines with no labels until selection or preview.
+A desktop keyboard preview caused zero changes to the inspector contents or camera.
+
+The last full test suite gave 553 satisfactory results and one `skipped` result.
+The pre-commit checks, mypy, map check, and `systemap judgement --strict` gave satisfactory results.
+The map check recorded component assignments for all 53 source modules.
+The `systemap judgement --strict` command recorded seven decisions with recorded answers and no necessary decision.
+No test or map command sent a Jev request.
+
+The commit check found cognitive complexity of 18 in the new flow group test.
+The limit for new functions is 15.
+The correction moved the group assertions to a different function and kept each assertion.
+
+The static design check gave three warnings: map canvas padding, type hierarchy, and the Paper palette.
+The map canvas has map controls, and the palette is a previous color selection.
+These warnings do not measure flow visibility or browser text overlaps.
+The three appearance images use 1280 by 720 pixels.
+The updated tour shows 12 frames in 30 seconds.
+
+## Card width measurements (2026-10-06)
+
+The measurement plan specified these necessary results before the card width measurements.
+All text must stay between the horizontal card margins of 10 units.
+The vertical card bounds must contain all text.
+The cards must contain the full descriptions and keep their previous dimensions.
+The minimum `font-size` must be 11px.
+
+The browser baseline found one text overflow in 40 card text lines.
+The `Describe` description had a width of 145.795 units.
+The description had an overflow of 5.795 units at the card border.
+
+The correction uses ArialMT version `5.01.2x` and the [Liberation Sans 2.1.5 release](https://github.com/liberationfonts/liberation-fonts/releases/tag/2.1.5).
+The font measurements found equal advances for all 95 printable ASCII characters.
+The description style uses `font-weight:400`, `font-kerning:none`, and `font-variant-ligatures:none`.
+The width table includes measured overhangs for the two sides of each glyph.
+The origin correction is the smallest multiple of 0.1 units that is not less than the measured left overhang.
+The `Describe` description uses two lines: `The diagram` and `measurements`.
+
+The CoreText measurements found zero text overflows in 41 lines.
+The browser measurements examined all 20 cards and 41 text lines in three schemes at 1600 by 900 and 390 by 844 pixels.
+The six views supplied 246 line measurements.
+There were zero margin failures and zero vertical failures.
+
+The first full test suite after the correction gave 564 satisfactory results, five `failed` results, and one `skipped` result.
+All five failures occurred at the `Sidebar` description in the placement fixture.
+Its width was 130.25439453125 units, more than the limit of 130 units.
+The corrected fixture uses `The add-in interface`, with a width of 97.83447265625 units.
+All 15 placement tests then gave satisfactory results.
+
+Six GitHub CI jobs gave failures because the PNG screenshots used 1280 by 720 pixels.
+The screenshot tests specified dimensions of 1600 by 900 pixels.
+The corrected PNG screenshots use 1600 by 900 pixels.
+The tour keeps its 12 frames and 30-second time.
+All five screenshot tests then gave satisfactory results.
+
+The width table contains measurements for only the 95 printable ASCII characters in the two specified fonts.
+Measurements for other fonts and glyphs are necessary.
+For a description character with no measurement, `card_text` gives no description lines.
+It gives one diagnostic for each different character: `card {cid}: description width is not measured for character {char!r}`.
+The previous dimension diagnostics keep their identifiers for measured descriptions.
+
+All 21 tests in the first card subset gave satisfactory results.
+A source review by a different agent then found that Unicode spaces gave no character diagnostic.
+The source code removed these characters before it measured the description width.
+The correction uses the full description for the character diagnostic.
+New test inputs include Unicode spaces `U+00A0` and `U+2003`.
+Other test inputs include ASCII separator controls.
+
+The ASCII separator controls `\t`, `\n`, and `\r` keep their previous word separation.
+The code replaces these controls with ASCII spaces before it calculates widths.
+The controls `\v` and `\f` give character diagnostics.
+
+The last full test suite gave 578 satisfactory results and one disabled test in 95.14 seconds.
+All 29 card text tests gave satisfactory results.
+The last source review found no remaining defects.
+
+The map check and `systemap judgement --strict` gave satisfactory results.
+All 53 source modules have component assignments in a map with 20 components and 76 flows.
+The map check found zero flow paths through components or regions that contain no endpoint of the flow.
+The minimum `font-size` is 11px.
+The `systemap judgement --strict` command recorded seven decisions and no necessary decision.
+Mypy found no errors in 53 source files.
+
+The previous pre-commit checks gave satisfactory results.
+The last pre-commit checks gave satisfactory results after the document changes.

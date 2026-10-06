@@ -145,11 +145,11 @@ def test_the_document_reread_is_bounded() -> None:
     assert "Unread documentation has no rules for source in the repository" in reference
 
 
-def test_schema_defines_state_the_wheel_and_the_pair_rule() -> None:
+def test_schema_defines_state_the_flow_list_and_the_pair_rule() -> None:
     schema = skill.files()["references/schema.md"]
     assert "evidence state `built`" in schema and "Actors show `outside`" in schema
-    assert "A connection diagram has one spoke per incident flow" in schema
-    assert "selected component as the point of reference" in schema
+    assert "one selection control for each flow connected to the component" in schema
+    assert "artifact, direction, layer, and evidence state" in schema
     assert "One flow per ordered pair is permitted" in schema
     assert "other direction as a separate flow" in schema
     assert "empty package marker" in schema

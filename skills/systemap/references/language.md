@@ -110,6 +110,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | export, re-export | A public source symbol, including one supplied through another module. |
 | fixture | Recorded test input or a small source project used by a test. |
 | flow | A directed relation with one artifact and two component endpoints. |
+| flow path | The calculated line between two component endpoints in a map. |
 | function | A named executable unit in source code. |
 | Git commit | A recorded revision in a Git repository. |
 | heuristic | A specified procedure that gives an approximate result (category 7). |
@@ -180,6 +181,11 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | import connection | An extracted source import between two component module sets. |
 | layout geometry | The coordinates and bounds used by the map layout (category 7). |
 | legend | The diagram explanation for its colors and marks. |
+| keyboard focus | The user interface control that receives keyboard input. |
+| label | The text that identifies a user interface control or a map flow. |
+| list | A user interface group with one selection control for each record. |
+| pointer | The screen position that receives mouse or touch input. |
+| preview | A temporary map view that shows a flow before selection. |
 | measurement | A quantitative value with specified units and conditions (category 7). |
 | module match | A paired source module record in a revision comparison. |
 | newline | The character or character sequence that ends a text line. |
@@ -207,6 +213,67 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | exact match | A full identity comparison with no wildcard or substring matching. |
 | source pattern | A module name or wildcard expression used for component assignment. |
 | wildcard | A pattern symbol that matches a specified set of names. |
+
+| Term | Technical meaning |
+|---|---|
+| advance | The font distance between the origin of a glyph and the origin of the next glyph. |
+| animation | A display that shows a group of images one after the other. |
+| appearance | The colors, fonts, and shapes that a user interface shows. |
+| ASCII | The character code standard used for the measured characters in the font table. |
+| assertion | A software test statement that gives an error if a specified condition is not correct. |
+| assignment | The recorded component for a source module. |
+| bearing | The signed distance in a font between a glyph outline and its origin or advance limit. |
+| border | The line that shows the limits of a card or page item. |
+| bounds | The coordinate limits that contain a glyph, text line, or diagram item (category 7). |
+| canvas | The page area that contains the map and its controls. |
+| character | One text item, such as a letter or symbol. |
+| CI job | A named set of commands that a CI configuration executes together. |
+| clipping | The renderer operation that shows only the image parts in specified bounds. |
+| cognitive complexity | The number that complexipy calculates for a function to compare the structure of its source code (category 7). |
+| coordinate | A number that gives a position in a geometric system (category 7). |
+| coordinate precision | The smallest difference between two different permitted coordinate values (category 7). |
+| desktop | A computer with a keyboard and a screen used for the larger browser measurements. |
+| design | The specified structure and appearance of a user interface. |
+| font | A named set of glyphs and their dimensions for text. |
+| font metrics | The recorded dimensions that a font supplies for glyph positions and text width. |
+| font size | The font dimension in CSS pixels that controls the scale of its glyphs. |
+| font unit | A unit in the coordinate system of a font (category 9). |
+| frame | One image in a video or animation. |
+| glyph | A shape that a font supplies for a character or a group of characters. |
+| image | A digital figure that software keeps or shows. |
+| infinity | The mathematical value that is more than all finite numbers (category 7). |
+| keyboard | The input device that supplies keys for text entry and user interface control. |
+| kerning | A font adjustment to the distance between specified glyph pairs. |
+| ligature | One glyph that a font uses for two or more characters. |
+| margin | The specified space between glyph outlines and card bounds. |
+| multiple | The result of a specified number multiplied by an integer (category 7). |
+| normalization | The procedure that changes equivalent software data into one specified representation. |
+| offset | The coordinate difference between a text origin and its specified position (category 7). |
+| origin | The specified reference position for a glyph or text line. |
+| outline | The contour that gives the shape of a glyph. |
+| overhang | A glyph shape extension that is not between its origin and its advance limit. |
+| overflow | The condition in which specified bounds do not contain all text or page contents. |
+| padding | The specified distance between a page item and its contents. |
+| phone | The computer device used for the smaller browser measurements. |
+| pixel | A unit for image or browser dimensions (category 9). |
+| placement | The procedure that gives card positions to a map. |
+| renderer | The software that makes a page or figure from a model and source facts. |
+| requirement | A condition that gives a necessary result (category 15). |
+| rounding | The procedure that changes a number to a permitted value under a specified rule (category 7). |
+| screen | The computer device that shows the user interface. |
+| screen reader | A software tool that gives users access to user interface contents through voice output. |
+| screenshot | A recorded image of a page or screen at a specified time. |
+| separator | A character that divides a description into words. |
+| space character | A character that gives separation between words. |
+| speech | The voice output that a screen reader supplies. |
+| static design check | A software check that compares the source code of a user interface with its design requirements. |
+| style | The software values that control text and image appearance. |
+| subset | A group that includes only items from a specified group (category 7). |
+| tour | The recorded map animation that shows its controls and views. |
+| type hierarchy | The specified differences in font dimensions and style between user interface text groups. |
+| Unicode | The character code standard that gives codes for text from different languages. |
+| user comprehension | A test result that measures if the user knows the component and flow information in a map (category 7). |
+| visibility | The condition in which the viewport shows a map item. |
 
 Documentation terms such as language policy, sentence, paragraph, glossary,
 description, heading, reference, text, dictionary, and writing rule belong to category 15.

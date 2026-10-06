@@ -244,6 +244,16 @@ Sequence controls move through the authored sequence.
 Back to sequence shows the selected step after an inspection.
 End restores the selection and view from before the sequence.
 
+When no component, flow, or sequence is selected, `All` shows all flow lines.
+`Structure` shows no flow lines after a component selection.
+Other layers show only flow lines that connect to the selected component.
+These flow lines keep their usual width.
+Without a preview, a selected flow or the selected sequence step shows only its flow line.
+
+The map shows a flow label only for the selected flow or a preview.
+Use the pointer or keyboard focus for a flow preview.
+The same label rule applies when `All` shows all flow lines.
+
 Flow labels and inspector choices select one directed relationship.
 The inspector first shows the artifact, endpoints, layer, evidence, and
 explanation. Source details come after these fields.
@@ -257,6 +267,14 @@ Static selection and evidence marks stay visible.
 Search shows why a part matched.
 Part choices keep their plain function text.
 Connected parts and source records use disclosures.
+
+The inspector shows all connections of the selected component in a flow list.
+The list has groups for the flow layers and horizontal rows.
+Each group shows its layer.
+Each row shows the artifact, direction, and evidence state.
+Layer selection does not remove connections from the inspector.
+Select a row to examine one flow.
+
 Part notes stay visible before these disclosures.
 Nested maps keep the opening control for focus restoration.
 Text view keeps the selected part, flow, and sequence.
@@ -284,6 +302,7 @@ Text view keeps the selected part, flow, and sequence.
 The implementation sources are [page_assets.py](src/systemap/page_assets.py),
 [schematic_style.py](src/systemap/schematic_style.py),
 [schematic_cards.py](src/systemap/schematic_cards.py),
-[schematic_script.py](src/systemap/schematic_script.py), and
+[schematic_script.py](src/systemap/schematic_script.py),
+[schematic_relations.py](src/systemap/schematic_relations.py), and
 [page_atlas.py](src/systemap/page_atlas.py).
 When those sources change, update these specifications.

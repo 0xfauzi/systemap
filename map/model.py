@@ -94,7 +94,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="096cc778e44be2c269cc47a250e3cc95bc061d32b592a4e6bf6030050013aca0",
+        source_review="4a794a77e08c1042710d479a87c71008f3b069c55c93b1f45b86c5b4326905e5",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__"),
@@ -117,7 +117,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="053911918b221eb8cc41050fc5ad871c9539ff971b2a76d0bec7cebe644f6713",
+        source_review="973253b687da768ca81a1a17ddbff9430c0af76a2dab697b044f14e8070404ec",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys and entries without reasons.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -134,7 +134,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="a75a1f77a95fc101a72cf1ccbee5fabd1d77fe0fe4dae7b728085b96423ead97",
+        source_review="f111731ca2e7308561b234794eed83165d3dcedc47c6900b53a16ace980a0247",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Identifies TypeScript syntax that it cannot parse as unknown. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -152,7 +152,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="f2070d8ac16912edc977d5c0420d5384b2aaba87d1cfd88e66e7c7cb1be10235",
+        source_review="c0c5d7e5030f839d472546da6cecd9fb5f52e4df728d9b6479f0c0682f7bf8e6",
         does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -170,7 +170,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="8c3eac41f8e0622409da87460f7a6a4e7b24f1523c1bda7c149bd3a8eee4b108",
+        source_review="be9e1a02a4c7aa168c1c2c98ca9277d9dff43752c1f80795e47cb10753ee4f90",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, model, placement)",
         implemented_by=("systemap.place",),
@@ -193,7 +193,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="bfa495bd070183401a0d88969a48babc2a7712e555a3055d6344c4cf769c39e8",
+        source_review="aa1b19242db7d57c4da6010e19e8dc8530e8809b3733a2524630ec658458b513",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -213,7 +213,7 @@ COMPONENTS = (
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="e3e9d160ca61c1409b0d3803d47727b8f1b6bb6d617e3bace2096832fb1dcfbe",
+        source_review="cc9fcf2931dfa9e8c06ad5a1dd93823912022a4fac819b3d10ff20979c952d7e",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=("systemap.route",),
@@ -224,7 +224,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="27853248765180bbd78107e83ac578bf11172fa98b74a29955dfb4412e3f8e26",
+        source_review="d6b85718d9e9b2e3bdf467e56480a938f2b377b80a07553a550907742fd7841b",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for layers. Shows connected components and selected sequence steps. Gives controls for layers, map position and zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -242,7 +242,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="5168eb99fddd16f77fd5bea0b589e98e679da31fd5f07904853d06828d12cb20",
+        source_review="fd3fa5453367bf8e6d5bd2a7ef44f3b893a66823b3bb4cb8ae9509dc37ba964a",
         does="Makes the map page. Shows model positions, flows, sequences and source records in one inspector. Text view shows the same components and flows. Shows judgement reasons and revision comparisons. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -259,7 +259,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
-        source_review="507ad9be6010ced166a5610a41a97ec39b83f04c945c49e95d16de73b165deb9",
+        source_review="14c16decae1b5320552be0966da074a75f6ff057688e5e069a05c055a09f9c09",
         does="Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
@@ -271,8 +271,8 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="11768d40f7afd87bf754e5fa145e864b5952871a8e0a1d32120b85bc600157ca",
-        does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning, connection diagrams and outputs. Gives all findings. Returns exit code 1 if there are errors.",
+        source_review="e3f000dfaf449b2b8c6e68ea8ba688a98374a873f51e0f1e71b3f5dc16dc1151",
+        does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=("systemap.check",),
         entry="run",
@@ -282,7 +282,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="27c50bebe7c2391bad271a282e049435596e7ba1bceacb4dd34520a3c247e80b",
+        source_review="22d029bd6573f5bdc90644ebc582112bc348bbcd4daf8f772c95aaab5948b229",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -318,7 +318,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="e815367dc309cdcc2ebb1363c4e1c2a7c5251d824a0edc00e53c226faca53db2",
+        source_review="c75870ebc2a11c71aade60b350f41db73c9c4dcb3a05951eca3dea9f75ff5e69",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),
@@ -340,7 +340,7 @@ _SOURCE_SHA = {
     'systemap.audit': '83179216c0e7efaad8656ce451884829dbf4a37a9ca3e9e196a40dc22ab1ea9f',
     'systemap.card_review': '1977f0f653a067d44c14d04050937d73f4a2c8319f7c69cd691bc6792eb55081',
     'systemap.change': '383e5edd780b0b3a1a3d17abc1197609e60fca81194883bc07c31779b88fc810',
-    'systemap.check': 'd531d9db079a49dec34625bb8ee04d777de61bcb9c14b4b86d638e1ff4e66bfc',
+    'systemap.check': '61fefc71ed6ae84680446fa2a2d78f0f9c66b00b5e7f895291dd576fc623959e',
     'systemap.cli': '6f8025a8cf006ace0e221b2e2f5d3b1f49c4f61b7b9a6d7d91bcbd15942ab6db',
     'systemap.config': 'ca965cca10e3f29685f022843f26bf2a1196b33bafc9bcd4bf6ca7ebfa4e7faa',
     'systemap.delta': '9a2d3eccabf6ab3c9430ef968f6d09e14bfb8f61d8d985452f4f385679ee499b',
@@ -350,7 +350,7 @@ _SOURCE_SHA = {
     'systemap.explain': 'b9c1b6a833d9b92752f9c3cf23e43ba316436b6c308b6bfaea0d88f3682e6cca',
     'systemap.extract': '88656627caebc8941368681eeefa8a7ce69293046035e011e69bc843aac4d522',
     'systemap.facts': 'd3b7cab7a8c468f13443efc58d1df42e6958a0f65c7116fc10da6991a690ca1d',
-    'systemap.figure': '3c49ac06a7bb3d16c0f3a8ea4253cb123c02d3f9b4bf5f2175f1380aaddf5b5c',
+    'systemap.figure': '20f79f749788e66998fbe867a7b328d2f210ffa06bcbba39908f90c0644c7413',
     'systemap.jev_cli': '21b959de69553bf2818cf204727136186cbdcbaeeefa9804b5e55b0841933867',
     'systemap.journey_coverage': '44d615ed243a6c3a636e16e1d4deeb6562121c93300395d049c1f1f0993bd19d',
     'systemap.journeys': '9939bec6e79dc2813d2081cf8cbd4030b50e2207a46f030c18713b6fe4ad148f',
@@ -358,11 +358,11 @@ _SOURCE_SHA = {
     'systemap.judgement': '745a0d1871fd28377afc9d6acc30216ae31ffb40b1cae26d3edf2ac8fd28be53',
     'systemap.model': 'c932400b182ad6a8ad1d9d0d4ea1fafd7bef7c4558856a89766bf9752965a158',
     'systemap.nest': '3208e3d99fff532e59aaadc5d8308391212e2e48e5d59d3d2143035225907e03',
-    'systemap.page': '8956023d1ef5e8dff7d5c646d2c3cd6bd05145d3b61ab7e388ece8241745a298',
+    'systemap.page': '0dd46e0411b558f81539149812db4425725f0b64537a5d9d6384a7ac003f883d',
     'systemap.place': '93a9261e4c84f20a35a47b4f9fe585707e182bdd1a04f5d4dac62e156809815e',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
     'systemap.scaffold': '94740a7aacedfba884504500ad8d5aeffa7c6ab5f02ec469eba284b6ec8be281',
-    'systemap.schematic': '7a30d77d17a8c3b3e5409dc3289dce90dab562064630e17f44c950bea35b008f',
+    'systemap.schematic': '57b720f7c2887151608474b4f364b9989e8d17e129d21542d63127320eaf4e84',
     'systemap.skill': '71bde7489e07dd6f2555e01b059e52a53c1742fb3e962c581f52a8dec64d901e',
     'systemap.page_data': '3d4141cc124f0e56644ac2618195cc8f7103686bf1f43bbae5c19ffc83e63b4e',
 }
@@ -380,8 +380,8 @@ _FLOW_REVIEWS = {
     'CLI -> Judgement': ('systemap.cli systemap.judgement', 'cd82dedcfc314c87c54d0be806f9cbf71342d6c67ee2d3d8217b4f3395d5e483'),
     'CLI -> Describe': ('systemap.cli systemap.describe', '37a945d0799f78139428563168915cfe01a062245af946f802b0e17ebba917c1'),
     'CLI -> SecondOpinion': ('systemap.cli systemap.jev_cli', 'a877b643ee2df94022275153af427609bb6cf94e19ab66e9162cbf5610997625'),
-    'Check -> Page': ('systemap.check systemap.page', '71a6148a6360e1544f99d9692eef71852ea6fde527f63ca2cdd626e7415da1d5'),
-    'Check -> Figures': ('systemap.check systemap.figure', '25da548e48062008e289aa5637ea93547f068ab901e1c77bb24dca6c8226989a'),
+    'Check -> Page': ('systemap.check systemap.page', 'e134c80f5fb9c5931cc8e78e7cf3689cf40460b4c38256f19f0852a578ce2d98'),
+    'Check -> Figures': ('systemap.check systemap.figure', '390f4dd7e404f9709039c178305bd9c4ba9b50df4b8b7a7247aa22f8b3434eaf'),
     'Check -> ChangeDetector': ('systemap.check systemap.delta', 'f4e03421fffd6da5ec858dd42a7fd0a8afa680c2da47e3061a7949c983164f40'),
     'Config -> CLI': ('systemap.config systemap.cli', '910330f62ce33ad8801edd36c67b6f740e65195d91bf64c411e00b4edd7c3f75'),
     'Config -> FactsExtractor': ('systemap.config systemap.extract', '21c916dd89d0ce20d3990255eb52f2958ac0c293161bd37e4d99be04dd2bfc0a'),
@@ -407,7 +407,7 @@ _FLOW_REVIEWS = {
     'Placer -> Model': ('systemap.place', '871179bb5d44bc1520042fb490607844a4f27613d7e0cf9c64cd887190acf065'),
     'Model -> FactsExtractor': ('systemap.model systemap.extract', '54439c3951f301f91f6cb34a34c6fca6a28bf385fa6710cfec18b2ea9fcc33eb'),
     'Model -> ChangeDetector': ('systemap.model systemap.card_review systemap.change systemap.delta', '721c07bdf70572e059ff14d643bde4c8338206d1eb6aca24914c29be08c0dc32'),
-    'Model -> Schematic': ('systemap.model systemap.schematic', '298753a99fc36d3a4eaf636da098ddf86866674f98badf16489de4af2954646a'),
+    'Model -> Schematic': ('systemap.model systemap.schematic', '1da68d8790030f26473f92a5e87464b6e0b0ed45aa607f812a2b2eb43a264b3e'),
     'Model -> Check': ('systemap.model systemap.check', '7e8131de6d95128792420a156da252441300909138923d6108b4e66b83638663'),
     'Model -> CLI': ('systemap.model systemap.nest systemap.cli', 'a1476494d9bbe7348f957b0642c91d045d79c7ad3b035ca2ae0424c5412c00dd'),
     'Config -> Model': ('systemap.config systemap.nest', '9277a32e4a9295866140a9bf2908710cc9a493bac91c7e51a316bfd3509201f2'),
@@ -421,7 +421,7 @@ _FLOW_REVIEWS = {
     'Placer -> Describe': ('systemap.place systemap.describe', 'fc44a64c970c5b658446a4045565577718820d58b5570cec4405b74be2e42abe'),
     'Schematic -> Page': ('systemap.schematic systemap.page', 'f0062784874c305491524d444a6ae48a388c3cadae90003152d59f6f5e29c749'),
     'Schematic -> Figures': ('systemap.schematic systemap.figure', '5b8e3c9f7b1ed5b3825fc39516a641db395bc175da327e521fc03137ec585343'),
-    'Schematic -> Check': ('systemap.schematic systemap.check', 'b0b03c6011dfa47b71c6e1595f0aac13de23892277d4b00281308b7a1c33da98'),
+    'Schematic -> Check': ('systemap.schematic systemap.check', '6d6ffdc28151384719d625fbf9e5a2350d2bafe222c84862842ccb717b54acf2'),
     'Schematic -> Describe': ('systemap.schematic systemap.describe', '7e55c2ae06cf8f8ece344efd6574c8a4d20d2e260ba8eec32fd2867b7320d8b0'),
     'Model -> Judgement': ('systemap.model systemap.judgement', '9172b8e1e49dbda2300c6c45fa478925fcb3e5efe55ccde6903a7d01db11e15a'),
     'Judgement -> Check': ('systemap.explain systemap.check', 'd1a74cca2fcd7f8a2068cb8ad652976234f70b313ad57be0c35cb7efa8437666'),
@@ -679,8 +679,8 @@ _RELATIONS = {
     "CLI -> Figures": "figure writes one figure. refresh writes all figures in the configuration.",
     "CLI -> Judgement": "judgement gives findings for examination or answers. With --strict, it returns exit code 1 if findings without answers stay.",
     "CLI -> Describe": "describe makes the same diagram as the page and shows its measurements.",
-    "Check -> Page": "The output check makes the page from stored facts. It compares the result with the committed page.",
-    "Check -> Figures": "The output check makes all configured figures. It compares each result with the committed figure.",
+    "Check -> Page": "The output check makes the page from stored facts. It compares the result with the stored page.",
+    "Check -> Figures": "The output check makes all configured figures. It compares each result with the stored figure.",
     "Check -> ChangeDetector": "delta uses the interface rule from check to find errors when an interface name is missing.",
     "Config -> CLI": "The configuration gives the package roots, model path and output paths to the commands.",
     "Config -> FactsExtractor": "The package roots and test directories set the source files that the extractor reads.",
@@ -700,7 +700,7 @@ _RELATIONS = {
     "Placer -> Model": "The placer writes positions, boxes and canvas size in map/model.py. It keeps all other file bytes unchanged.",
     "Model -> FactsExtractor": "The extractor uses model claims to find modules that are no longer in the repository.",
     "Model -> ChangeDetector": "The change detector gives changed modules their component identifiers. It compares recorded source reviews with digests of source and claims.",
-    "Model -> Schematic": "The diagram shows model positions and relationships. The connection diagram shows model text.",
+    "Model -> Schematic": "The diagram shows model positions and relationships. The flow list shows model text.",
     "Model -> Check": "The check finds model errors before it makes a diagram. It also does module coverage, entry and interface checks.",
     "Model -> CLI": "The commands load the model and meaning through the map tree. They find model errors before the render operation.",
     "Config -> Model": "The map tree reads the model path from the configuration. The loader validates MODEL and MEANING against their schema.",
@@ -713,7 +713,7 @@ _RELATIONS = {
     "FactsExtractor -> Page": "The page shows stored source records for a selected component. Imports show connections, not evidence for the flow explanation.",
     "Judgement -> Page": "The page keeps exact finding identifiers and accepted answer explanations from judgement.",
     "Schematic -> Figures": "A figure contains the same SVG in an HTML figure element or as an SVG image.",
-    "Schematic -> Check": "The check makes the diagram and reads its geometry: paths, labels, text sizes and connection diagrams.",
+    "Schematic -> Check": "The check makes the diagram and reads its geometry: paths, labels and text sizes.",
     "Schematic -> Describe": "describe makes the diagram and reads geometry for regions, flows, spaces and layers.",
     "Describe -> Agent": "After refresh, the agent reads diagram measurements if it cannot open the page.",
     "Page -> Maintainer": "The maintainer opens the page and examines layers and sequences. Map position and zoom controls show diagram data.",

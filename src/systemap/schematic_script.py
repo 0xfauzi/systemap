@@ -14,8 +14,8 @@ def interactive_script(
 ) -> str:
     """Make the script for map selection and viewport controls.
 
-    Selection shows connected cards and makes their flow lines thicker. The inspector
-    shows the connections, direction verbs and selected flow. The viewport
+    Selection shows the connected cards in the selected layer. Only a selected
+    flow has a thicker line. The inspector shows all connections by layer. The viewport
     controls zoom and movement. Selection and sequence steps frame the
     selected components in the visible area. `view.frameFocus(cover)`
     uses the area outside the inspector. A double-click on a region label
@@ -26,8 +26,8 @@ def interactive_script(
     `svg.systemap.view` gives fit, 100%, step, back and framing data.
 
     The script contains the detail JSON. Escaping `</` prevents artifact
-    text from closing the script. With `variables`, the default direction
-    verb color uses a CSS token instead of a literal color value."""
+    text from closing the script. With `variables`, colors use CSS tokens
+    instead of literal values."""
     # The layout audit (label boxes, card boxes) is for checkers, not the
     # page; it is dropped from the inlined copy to keep a figure small.
     parsed = json.loads(detail_json)
@@ -56,11 +56,9 @@ var LAYERS = META.layers || [];
 var EDGES = META.edges || [];
 var RULES = {};
 (META.rules || []).forEach(function(r){ RULES[r.n] = r.text; });
-// A layer's colour and its verb tag's fill, both from the theme (on the
-// page, as the tokens the root block carries).
-var LCOL = {}, LTAG = {}, LORD = {}, LAYER_AT = {};
-LAYERS.forEach(function(l, i){
-  LCOL[l.id] = l.colour; LTAG[l.id] = l.tag; LORD[l.id] = i; LAYER_AT[l.id] = l; });
+// Layer colors come from the theme.
+var LCOL = {}, LAYER_AT = {};
+LAYERS.forEach(function(l){ LCOL[l.id] = l.colour; LAYER_AT[l.id] = l; });
 // Which edges and which cards each reading shows, decided in Python
 // (systemap.model.reading) and carried in the detail, so the page's layer
 // switch and a figure of one layer read the same table.
@@ -87,19 +85,16 @@ var state = {focus:'', layer:'all', journey:null, edge:-1, peek:-1, motion:true}
 // The focused card, the edges of it the reading shows, and their other
 // ends: one set, read from the readings table, that the dimming, the
 // tags and the framing all use, so what is framed is exactly what is lit.
-// A reading with no edges of its own (Structure) lights every edge of the
-// card, as All does: there the click is how the edges are seen at all.
 function focusEdges(f, L){
   var all = DETAIL[f] && DETAIL[f].edges || [];
-  if(L === 'all' || !(READINGS[L] && READINGS[L].edges && READINGS[L].edges.length)){
-    return all.slice();
-  }
+  if(L === 'structure'){ return []; }
   return all.filter(function(i){ return edgeIn(i, L); });
 }
 function litSet(){
   var f = state.focus;
   if(!f || !DETAIL[f]){ return null; }
-  var ids = {}, edges = state.edge >= 0 ? [state.edge] : focusEdges(f, state.layer);
+  var chosen = selectedEdge();
+  var ids = {}, edges = chosen >= 0 ? [chosen] : (state.journey ? [] : focusEdges(f, state.layer));
   ids[f] = true;
   edges.forEach(function(i){ ids[EDGES[i].from] = true; ids[EDGES[i].to] = true; });
   return {id:f, ids:ids, edges:edges};

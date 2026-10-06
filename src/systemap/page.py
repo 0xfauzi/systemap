@@ -376,7 +376,7 @@ def _inspector() -> str:
         '<aside class="inspector" aria-label="Component data and evidence">'
         '<div class="inspector-empty" id="inspector-empty">'
         "<h2>Examine the system</h2><p>Select a component card to read its function and source. "
-        "Select a flow label to examine the flow and its evidence.</p>"
+        "Select a flow path to examine the flow and its evidence.</p>"
         "<p>The map keeps its model positions when you change layers. "
         "Text view shows the same components and flows as text.</p>"
         '<button type="button" class="text-action" data-mode="trace">Read an operation</button>'
@@ -597,7 +597,7 @@ def build(
         f'<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">{system_svg}'
         '</div></div></div><p class="hint">Scroll to zoom. Drag to move the map. '
         "Show all shows all components. "
-        "Tab selects cards and flow labels. Enter opens their data. Arrow keys change layers or "
+        "Tab selects cards and flow paths. Enter opens their data. Arrow keys change layers or "
         "sequence steps. Escape shows the previous view.</p>"
         '<p id="linkstatus" role="status" aria-live="polite"></p>'
         '<div class="map-actions"><button type="button" id="resetmap">Show all</button>'

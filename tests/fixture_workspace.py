@@ -815,7 +815,7 @@ MODEL = Model(
 # ---- meaning: the plain words, the layers, one sentence per flow ---------
 
 PLAIN = {
-    "Sidebar": "the add-in the person uses",
+    "Sidebar": "The add-in interface",
     "ModelProvider": "the model on the wire",
     "OfficeSuite": "the suite that renders",
     "Gateway": "the front door of the server",

@@ -35,7 +35,8 @@ function flowevidence(page) {
   const moving = () => svg.querySelectorAll('.moving').length;
   const report = {reduced:page.reduced, originalDashes:dashes(), flows:[]};
   function snapshot(i) {
-    const spoke=panel.querySelector('.systemap-w__spoke[data-edge="'+i+'"]');
+    const choice=panel.querySelector('[data-inspect-edge="'+i+'"]');
+    const path=svg.querySelector('.flow[data-edge="'+i+'"]');
     const refs=panel.querySelector('.systemap-f__refs');
     return {edge:A.state.edge, focus:A.state.focus,
       artifact:panel.querySelector('.systemap-f__artifact').textContent,
@@ -50,9 +51,12 @@ function flowevidence(page) {
       sourceRefs:panel.querySelectorAll('.systemap-f__refs li code').map(c=>c.textContent),
       sourceDetails:refs ? refs.textContent : '',
       injected:panel.querySelectorAll('img, script').length,
-      wheelDash:spoke.querySelector('.systemap-w__line').getAttribute('stroke-dasharray'),
-      wheelLabel:spoke.getAttribute('aria-label'),
-      wheelSelected:spoke.getAttribute('aria-pressed'),
+      pathDash:path.getAttribute('stroke-dasharray'),
+      pathLabel:path.getAttribute('aria-label'),
+      pathSelected:path.getAttribute('aria-pressed'),
+      choiceSelected:choice.getAttribute('aria-pressed'),
+      choiceEvidence:choice.dataset.evidenceState,
+      choiceLabel:choice.querySelector('small').textContent,
       selected:svg.querySelectorAll('.flowlbl[aria-pressed="true"]').map(l=>+l.dataset.edge),
       dashes:dashes(), moving:moving()};
   }
@@ -64,8 +68,10 @@ function flowevidence(page) {
       panel.querySelector('[data-endpoint="'+id+'"]').click();runFrames(win);
       states.push(snapshot(i));
     });
-    const spoke=panel.querySelector('.systemap-w__spoke[data-edge="'+i+'"]');
-    spoke.focus();page.key('Enter',spoke);runFrames(win);states.push(snapshot(i));
+    const choice=panel.querySelector('[data-inspect-edge="'+i+'"]');
+    choice.focus();page.key('Enter',choice);runFrames(win);states.push(snapshot(i));
+    const path=svg.querySelector('.flow[data-edge="'+i+'"]');
+    path.focus();page.key('Enter',path);runFrames(win);states.push(snapshot(i));
     report.flows.push({index:i,metadata:e,states:states});
   });
   A.setMotion(false);report.userReduced=moving();
@@ -207,8 +213,10 @@ def test_inspector_keeps_exact_review_state_warnings_and_escaped_refs(
             assert state["unresolved"] == expected["unresolved_refs"]
             assert state["sourceRefs"] == expected["source_refs"]
             assert state["injected"] == 0
-            assert state["wheelSelected"] == "true"
-            assert label in state["wheelLabel"]
+            assert state["choiceSelected"] == state["pathSelected"] == "true"
+            assert state["choiceEvidence"] == expected["evidence"]
+            assert state["choiceLabel"] == label
+            assert label in state["pathLabel"]
             if expected["source_refs"]:
                 assert expected["review_digest"] in state["sourceDetails"]
                 assert "source digest" in state["sourceDetails"]
@@ -233,11 +241,11 @@ def test_inspector_keeps_exact_review_state_warnings_and_escaped_refs(
 
 def test_review_states_keep_dash_patterns_and_motion_limit(flow_report: dict[str, Any]) -> None:
     assert flow_report["originalDashes"][1:] == [None, "7 5", "3 4", "7 5"]
-    wheel_dashes = {1: None, 2: "6 4", 3: "3 4", 4: "6 4"}
+    path_dashes = {1: None, 2: "7 5", 3: "3 4", 4: "7 5"}
     for flow in flow_report["flows"]:
         for state in flow["states"]:
             assert state["dashes"] == flow_report["originalDashes"]
-            assert state["wheelDash"] == wheel_dashes[flow["index"]]
+            assert state["pathDash"] == path_dashes[flow["index"]]
             assert state["moving"] == (0 if flow_report["reduced"] else 1)
     assert flow_report["userReduced"] == 0
     assert flow_report["restoredMotion"] == (0 if flow_report["reduced"] else 1)

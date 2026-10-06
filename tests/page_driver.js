@@ -166,10 +166,16 @@ class Element {
   focus() {
     const focusable = this.hasAttribute('tabindex') || ['button', 'select', 'a', 'input'].includes(this.tag);
     if (!focusable || this.disabled) return;
+    if (focused === this) return;
+    if (focused) focused.blur();
     focused = this;
     this.dispatchEvent(new EventImpl('focus', {bubbles: false}));
   }
-  blur() { if (focused === this) focused = null; }
+  blur() {
+    if (focused !== this) return;
+    focused = null;
+    this.dispatchEvent(new EventImpl('blur', {bubbles: false}));
+  }
   getBoundingClientRect() {
     // The stub screen: the figure at its viewBox's coordinates, the drawer
     // (when shown) a column over the docked side of it, everything else
@@ -371,6 +377,7 @@ class EventImpl {
     this.type = type;
     this.bubbles = !!init.bubbles;
     this.detail = init.detail;
+    this.relatedTarget = init.relatedTarget || null;
     this.key = init.key || '';
     this.altKey = !!init.altKey; this.ctrlKey = !!init.ctrlKey; this.metaKey = !!init.metaKey;
     this.shiftKey = !!init.shiftKey;
@@ -569,8 +576,7 @@ function keyboard(page) {
   });
   report.svgTabindex = svg.getAttribute('tabindex');
 
-  // Enter on a focused card opens its wheel; Escape closes it and gives
-  // the focus back.
+  // Enter opens the component data. Escape returns focus to the card.
   const drawer = doc.getElementById('drawer');
   const panel = doc.getElementById('panel');
   const withEdges = nodes.find((n) => (A.detail[n.dataset.id].edges || []).length > 1);
@@ -584,20 +590,19 @@ function keyboard(page) {
     drawerHidden: drawer.hidden,
     dock: drawer.dataset.dock,
     panelOn: panel.classList.contains('on'),
-    spokes: panel.querySelectorAll('.systemap-w__spoke').length,
+    choices: panel.querySelectorAll('.systemap-f__flow-choice').length,
     edges: (A.detail[withEdges.dataset.id].edges || []).length,
-    spokesFocusable: panel.querySelectorAll('.systemap-w__spoke').every((s) => s.getAttribute('tabindex') === '0' && s.getAttribute('role') === 'button'),
+    choicesFocusable: panel.querySelectorAll('.systemap-f__flow-choice').every((s) => s.tag === 'button' && !s.disabled),
     hash: REPORT.replaceStates[REPORT.replaceStates.length - 1],
     rafCallsForFraming: rafCalls - before.rafCalls,
     viewEventsForFraming: page.views() - before.views,
     activeElement: doc.activeElement.dataset ? doc.activeElement.dataset.id : doc.activeElement.tag,
   };
-  // Focus moves into the wheel (Tab, in a browser; here the spoke is focused
-  // directly) and Escape from there closes the drawer and returns to the card.
-  const spoke = panel.querySelector('.systemap-w__spoke');
-  spoke.focus();
+  // Focus on a flow choice previews its label. Escape returns to the card.
+  const choice = panel.querySelector('.systemap-f__flow-choice');
+  choice.focus();
   report.peekOnFocus = A.state.peek;
-  const escPrevented = key('Escape', spoke);
+  const escPrevented = key('Escape', choice);
   report.escape = {
     prevented: escPrevented,
     focus: A.state.focus,
@@ -673,7 +678,7 @@ function framing(page) {
   const snapshot = (reading, id) => {
     const frame = A.view.frame();
     const lit = nodes.filter((n) => !n.classList.contains('dim')).map((n) => ({id: n.dataset.id, box: boxOf(n)}));
-    const litEdges = svg.querySelectorAll('.flow.hot').map((p) => ({edge: +p.dataset.edge, box: p.getBBox()}));
+    const litEdges = svg.querySelectorAll('.flow').filter((p) => !p.classList.contains('off')).map((p) => ({edge: +p.dataset.edge, box: p.getBBox()}));
     return {
       reading, id, frame, lit, litEdges,
       view: parseTransform(svg.querySelector('.view').getAttribute('transform')),

@@ -245,7 +245,7 @@ The checker rejects these conditions:
 - Unknown flow endpoints, invalid kinds, duplicate ordered pairs, and invalid context or tool endpoints.
 - Unknown invariant components and duplicate invariant numbers.
 - Routes through unrelated cards or regions.
-- Labels that touch cards, headers, other labels, or the center of a connection diagram.
+- Labels that touch cards, headers, or other labels.
 - Text that exceeds its box or is below the minimum type size of 11 units.
 - Missing relation sentences, plain names, or layer assignments.
 - Unknown sequence components or edges and invalid overrides.
@@ -254,8 +254,8 @@ The checker rejects these conditions:
 - Nested-map coverage differences, invalid external actors, or nested maps on actors.
 - Stale facts, pages, or configured figures.
 
-A connection diagram has one spoke per incident flow.
-Its direction verbs use the selected component as the point of reference.
+The inspector has one selection control for each flow connected to the component.
+Each control shows the artifact, direction, layer, and evidence state.
 Passing these checks does not show source meaning or language compliance.
 
 ## Facts file

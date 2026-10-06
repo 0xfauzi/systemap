@@ -65,6 +65,7 @@ from systemap.schematic_cards import (
     RADIUS,
     container_header,
     esc,
+    plain_inset,
 )
 from systemap.schematic_cards import (
     SUB_CHAR as SUB_CHAR,
@@ -344,6 +345,9 @@ def render(
             f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
             f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
             f'data-kind="{esc(kind)}" data-layer="{own}" data-evidence="{ev.state}" '
+            f'role="button" tabindex="0" aria-pressed="false" '
+            f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
+            f'{esc(own)}, {esc(evidence_label)}" '
             f'd="{path_d(route.points)}" '
             f'fill="none" stroke="{colour}" stroke-opacity="{0.95 if art_hot else 0.82}" '
             f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round"{dashed} '
@@ -362,7 +366,7 @@ def render(
         label_parts[i] = (
             f'<g class="flowlbl {kind}" data-edge="{i}" '
             f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}" '
-            f'role="button" tabindex="0" aria-pressed="false" '
+            f'role="button" tabindex="-1" aria-pressed="false" '
             f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
             f'{esc(own)}, {esc(evidence_label)}">'
             f'<rect class="flowlbl__hit" x="{lbox[0]}" y="{lbox[1] - 6}" '
@@ -477,7 +481,16 @@ def render(
         g.append(
             '<g data-layer="job">'
             + "".join(
-                L(x + 10, first + k * 12, line, TEXT_PX, INK_3, "400", False, "start")
+                L(
+                    x + 10 + plain_inset(line),
+                    first + k * 12,
+                    line,
+                    TEXT_PX,
+                    INK_3,
+                    "400",
+                    False,
+                    "start",
+                )
                 for k, line in enumerate(plain_lines)
             )
             + "</g>"

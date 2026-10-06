@@ -1,7 +1,7 @@
 """The mechanical checks compare map geometry, map meaning, and source facts.
 
-The checks include component positions, routes, labels, text size, and relationship
-wheels. They also include module coverage, nested maps, entries, and interfaces. The
+The checks include component positions, routes, labels, and text size.
+They also include module coverage, nested maps, entries, and interfaces. The
 stale-output checks compare facts, pages, and figures with fresh generated output.
 
 Each source module must have one component claim, unless an ignore reason or empty
@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import difflib
 import json
-import math
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
@@ -25,10 +24,8 @@ from systemap import explain, extract, figure, nest, page
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
-    Layer,
     Meaning,
     Model,
-    all_layers,
     claimed,
     defines_entry,
     is_symbol,
@@ -135,96 +132,6 @@ def check_type_size(svg: str) -> list[str]:
         {float(m) for m in re.findall(r"font-size:\s*([0-9.]+)px", svg) if float(m) < TEXT_PX}
     )
     return [f"text set at {s}px, less than {TEXT_PX}px" for s in small]
-
-
-# ---- the wheel, mirrored from schematic._INTERACTIVE_JS ----------------------
-# The page lays the wheel out in the browser; this is the same arithmetic in
-# Python so the label geometry can be checked without one. Keep the two in
-# step: a change to one is a change to both.
-
-CX, CY, R = 200.0, 200.0, 118.0
-MONO_CHAR_W = 6.6
-NAME_LINE_H = 13.0
-
-
-def wrap_name(cid: str) -> list[str]:
-    parts = re.findall(r"[A-Z]+[a-z0-9]*|[a-z0-9]+", cid) or [cid]
-    lines: list[str] = []
-    cur = ""
-    for p in parts:
-        if cur and len(cur + p) > 10:
-            lines.append(cur)
-            cur = p
-        else:
-            cur += p
-    if cur:
-        lines.append(cur)
-    return lines[:3]
-
-
-def wheel_boxes(
-    cid: str, edges: list[dict[str, str]], layers: tuple[Layer, ...]
-) -> tuple[Box, list[tuple[str, Box]]]:
-    order = {layer.id: i for i, layer in enumerate(layers)}
-    idx = sorted(
-        (i for i, e in enumerate(edges) if cid in (e["from"], e["to"])),
-        key=lambda i: (order[edges[i]["layer"]], i),
-    )
-    groups = 0
-    prev: str | None = None
-    for i in idx:
-        if edges[i]["layer"] != prev:
-            groups += 1
-            prev = edges[i]["layer"]
-    gap = 0.5 if groups > 1 else 0.0
-    step = 360.0 / (len(idx) + gap * groups) if idx else 360.0
-    hw, hh = max(34.0, len(cid) * 3.7 + 12), 15.0
-    centre: Box = (CX - hw, CY - hh, 2 * hw, 2 * hh)
-    boxes: list[tuple[str, Box]] = []
-    a = -90.0
-    prev = None
-    for i in idx:
-        e = edges[i]
-        if prev is not None and e["layer"] != prev:
-            a += gap * step
-        prev = e["layer"]
-        th = math.radians(a)
-        a += step
-        ux, uy = math.cos(th), math.sin(th)
-        other = e["to"] if e["from"] == cid else e["from"]
-        lines = wrap_name(other)
-        n = len(lines)
-        lw = max(len(line) for line in lines) * MONO_CHAR_W
-        ex, ey = CX + (R + 9) * ux, CY + (R + 9) * uy
-        if abs(ux) < 0.35:
-            first = ey - 4 - (n - 1) * NAME_LINE_H if uy < 0 else ey + 12
-            left = ex - lw / 2
-        else:
-            first = ey + 4 - (n - 1) * 6.5
-            left = ex + 2 if ux > 0 else ex - 2 - lw
-        top = first - 10
-        boxes.append((other, (left, top, lw, (n - 1) * NAME_LINE_H + NAME_LINE_H)))
-    return centre, boxes
-
-
-def check_wheels(edges: list[dict[str, str]], model: Model, meaning: Meaning) -> list[str]:
-    """This function finds wheel labels that touch the center or another label.
-
-    The page adjusts the viewBox to contain all labels, so no drawing-boundary check is
-    necessary.
-    """
-    out: list[str] = []
-    layers = all_layers(model, meaning)
-    for c in model.components:
-        cid = c.id
-        centre, boxes = wheel_boxes(cid, edges, layers)
-        for k, (name, box) in enumerate(boxes):
-            if _overlap(box, centre):
-                out.append(f"wheel of {cid}: label {name} touches the centre")
-            for other, ob in boxes[k + 1 :]:
-                if _overlap(box, ob):
-                    out.append(f"wheel of {cid}: labels {name} and {other} touch")
-    return out
 
 
 # ---- coverage: every module claimed once --------------------------------------
@@ -683,7 +590,6 @@ def run(
         problems += route_problems
         problems += check_labels(meta)
         problems += check_type_size(svg)
-        problems += check_wheels(meta["edges"], model, meaning)
     counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
     return Result(
         problems,
@@ -837,7 +743,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         n = len(model.components)
         out.append(
             f"map layout: has no errors ({n} components, {len(model.flows)} orthogonal "
-            f"labeled edges, {n} wheels, no text size less than {TEXT_PX:g}px)"
+            f"labeled edges, no text size less than {TEXT_PX:g}px)"
         )
     out += report_stale(result.stale)
     return out

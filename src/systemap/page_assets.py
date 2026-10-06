@@ -81,7 +81,7 @@ padding:1.1rem;scrollbar-width:thin;scrollbar-color:var(--line-2) var(--surface)
 .systemap-f__plain{font-size:14px!important;line-height:1.5!important}
 .systemap-f__kind{display:block;margin-top:.3rem}.systemap-f__iface{overflow-wrap:anywhere}
 .systemap-f__say,.systemap-f__evidence{font-size:13px!important;line-height:1.6!important}
-.systemap-f__wheel{margin:.8rem 0}.systemap-f__chips{margin-top:.8rem}
+.systemap-f__chips{margin-top:.8rem}
 .source-section{border-top:1px solid var(--line);padding-top:1rem;margin-top:1rem}
 .source-section h3{font-size:13px;margin:0 0 .5rem}
 .connection{display:block;width:100%;text-align:left;padding:.7rem .5rem;margin:.4rem 0}

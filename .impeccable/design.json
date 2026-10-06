@@ -70,12 +70,7 @@
       {
         "name": "flow-emphasis",
         "value": "stroke-width .18s ease-out",
-        "purpose": "Highlights a selected or previewed flow route."
-      },
-      {
-        "name": "connection-emphasis",
-        "value": "stroke-width .12s ease-out",
-        "purpose": "Highlights a connection in the inspector."
+        "purpose": "Increases the width of a selected flow line or a line in a preview."
       },
       {
         "name": "direction-cue",
@@ -104,7 +99,18 @@
       "src/systemap/schematic_cards.py",
       "src/systemap/schematic_style.py",
       "src/systemap/schematic_script.py",
+      "src/systemap/schematic_relations.py",
       "src/systemap/page_atlas.py"
+    ],
+    "behavior": [
+      "When no component, flow, or sequence is selected, All shows all flow lines.",
+      "Structure shows no flow lines after a component selection.",
+      "Other layers show only flow lines that connect to the selected component. These flow lines keep their usual width.",
+      "Without a preview, a selected flow or the selected sequence step shows only its flow line.",
+      "The map shows a flow label only for the selected flow or a preview. Use the pointer or keyboard focus for a flow preview.",
+      "The same label rule applies when All shows all flow lines.",
+      "The inspector shows all connections of the selected component in a flow list. The list has groups for the flow layers and horizontal rows.",
+      "Each group shows its layer. Each row shows the artifact, direction, and evidence state. Layer selection does not remove connections from the inspector."
     ],
     "limitations": [
       "These values record the implemented design. They do not give measured load time, interaction latency, or accessibility results.",
@@ -176,6 +182,7 @@
     "dos": [
       "Keep authored positions when the reader changes layers or views.",
       "Keep component purposes visible beside their connections.",
+      "Keep all component connections in the inspector, with direction and evidence.",
       "Keep finding identifiers exact. Separate authored claims from source facts.",
       "Make selection, evidence, and sequence roles clear without motion."
     ],
