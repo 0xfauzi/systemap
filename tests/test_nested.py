@@ -496,7 +496,7 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert 'id="submap"' not in gateway and ">Open map</button>" in gateway
     assert "Double-click a card that opens a map" not in gateway
     # A sub-page: the component that contains the map., the link up, no mark, the model file it came from.
-    assert '<h1><a href="../index.html">demo</a> / Gateway</h1>' in gateway
+    assert '<h1 class="project-name"><a href="../index.html">demo</a> / Gateway</h1>' in gateway
     assert 'class="node__map"' not in gateway and "Maps inside" not in gateway
     assert "<code>map/gateway.py</code>" in gateway
     assert 'data-id="App"' in gateway and 'data-id="Writer"' not in gateway

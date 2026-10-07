@@ -210,16 +210,19 @@ A nonempty sequence covers only those identities.
 Declare only custom layers. Standard layer identifiers cannot be reused:
 `structure`, `system`, `data`, `control`, `agents`, `context`, `tools`, and `all`.
 The theme supplies layer colors. Custom layers use its palette in order.
-The page has Warm, Graphite, and Paper schemes.
+The page has Dark, Light, and Clay themes.
+The `scheme` field selects the palette for figures.
+The initial theme uses the device theme.
+The page uses a stored selection when one exists.
 Theme overrides use `[theme]` or `[theme.<scheme>]`:
 
 ```toml
 [theme]
-scheme = "warm"
+scheme = "dark"
 [theme.layers]
 record = "#e3b778"
-[theme.paper]
-accent = "#8a5a1a"
+[theme.clay]
+accent = "#cf8b6b"
 ```
 
 ## Meaning

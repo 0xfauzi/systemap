@@ -209,6 +209,19 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | test suite | The repository tests executed as one set. |
 | text encoding | The specified mapping between text characters and stored bytes. |
 | theme | The style values that control the page appearance. |
+| Clay | The named theme with a terracotta accent and dark surfaces (category 17). |
+| terracotta | The brown-orange color from 0xfauzi.com used in the Clay theme (category 17). |
+| device theme | The Light or Dark theme that the browser reads from the computer. |
+| isometric projection, projection | The diagram transform with two axes at equal angles to the horizontal (category 7). |
+| plate | The rounded surface that represents a component in the map with an isometric projection. |
+| sequence role | The acting or measurement classification of a component in a sequence step (category 19). |
+| acting component | A component in the `acts` field of a sequence step (category 19). |
+| measurement component | A component in the `measures` field of a sequence step (category 19). |
+| application | A computer program with a user interface (category 19). |
+| reduced motion | The browser or page preference that stops interface animation (category 19). |
+| source evidence | Source records and review data that support a map claim (category 19). |
+| stroke pattern | The SVG line marks that show a map evidence state (category 19). |
+| caption | The horizontal component name in a plate. |
 | threshold curve | The measured results across specified threshold values (category 7). |
 | exact match | A full identity comparison with no wildcard or substring matching. |
 | source pattern | A module name or wildcard expression used for component assignment. |

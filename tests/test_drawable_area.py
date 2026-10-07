@@ -49,8 +49,8 @@ function drawable(page) {
     {side:'right',rect:rect(right-180,g.pane.top,180,g.pane.height)}];
   const boxOf=n=>{
     const b=n.querySelector('.node__box');
-    return {x:+b.getAttribute('x'),y:+b.getAttribute('y'),
-      w:+b.getAttribute('width'),h:+b.getAttribute('height')};
+    return projectedBounds(svg,{x:+b.getAttribute('x'),y:+b.getAttribute('y'),
+      w:+b.getAttribute('width'),h:+b.getAttribute('height')});
   };
   const cases=[];
   covers.forEach(cover=>{
@@ -60,7 +60,7 @@ function drawable(page) {
       cases.push({cover:cover,edge:i,area:A.view.visibleArea(cover),
         view:A.view.snapshot(),endpoints:[edge.from,edge.to].map(id=>
           boxOf(svg.querySelector('.node[data-id="'+id+'"]'))),
-        route:{x:route.x,y:route.y,w:route.width,h:route.height}});
+        route:projectedBounds(svg,{x:route.x,y:route.y,w:route.width,h:route.height})});
     });
   });
   A.view.frameFocus(null,true);

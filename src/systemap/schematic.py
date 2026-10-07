@@ -250,13 +250,14 @@ def render(
             stroke, fill = P["line"], P["bg"]
         _header, sub_lines, _unfit = container_header(box)
         floor.append(
-            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
+            f'<g class="boundary"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
             f'fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>'
             + L(x + 13, y + 19, box.label, TEXT_PX, INK_3, "600", True, "start", ".13em")
             + "".join(
                 L(x + 13, y + 33 + 12 * k, line, TEXT_PX, INK_3, "400", False, "start")
                 for k, line in enumerate(sub_lines)
             )
+            + "</g>"
         )
 
     zones: list[str] = []

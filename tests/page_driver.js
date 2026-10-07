@@ -86,7 +86,13 @@ class Element {
   _setClasses(s) { this.setAttribute('class', Array.from(s).join(' ')); }
   get className() { return this.getAttribute('class') || ''; }
   getAttribute(n) { return this.attrs.has(n) ? this.attrs.get(n) : null; }
-  setAttribute(n, v) { this.attrs.set(n, String(v)); }
+  setAttribute(n, v) {
+    this.attrs.set(n, String(v));
+    if(n==='viewBox' && this._liveBox){
+      const values=String(v).trim().split(/[\s,]+/).map(Number);
+      ['x','y','width','height'].forEach((key,k)=>{this._liveBox[key]=values[k];});
+    }
+  }
   removeAttribute(n) { this.attrs.delete(n); }
   hasAttribute(n) { return this.attrs.has(n); }
   get hidden() { return this.hasAttribute('hidden'); }
@@ -210,7 +216,8 @@ class Element {
   getScreenCTM() { return {a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, inverse() { return this; }}; }
   get viewBox() {
     const v = (this.getAttribute('viewBox') || '0 0 0 0').trim().split(/[\s,]+/).map(Number);
-    return {baseVal: {x: v[0], y: v[1], width: v[2], height: v[3]}};
+    if(!this._liveBox){this._liveBox={x:v[0],y:v[1],width:v[2],height:v[3]};}
+    return {baseVal:this._liveBox};
   }
   setPointerCapture() {}
 }
@@ -652,6 +659,17 @@ function keyboard(page) {
   return report;
 }
 
+function projectedBounds(svg, box) {
+  const a = +svg.dataset.projection;
+  if (!a) return box;
+  const points = [[box.x, box.y], [box.x + box.w, box.y],
+    [box.x, box.y + box.h], [box.x + box.w, box.y + box.h]];
+  const xs = points.map(([x,y]) => a*x - a*y);
+  const ys = points.map(([x,y]) => .5*x + .5*y);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return {x, y, w: Math.max(...xs)-x, h: Math.max(...ys)-y};
+}
+
 function parseTransform(value) {
   // translate(tx ty) scale(k), as the script writes it.
   const m = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/.exec(value || '');
@@ -667,7 +685,8 @@ function framing(page) {
   const nodes = svg.querySelectorAll('.node');
   const boxOf = (n) => {
     const b = n.querySelector('.node__box');
-    return {x: +b.getAttribute('x'), y: +b.getAttribute('y'), w: +b.getAttribute('width'), h: +b.getAttribute('height')};
+    return projectedBounds(svg, {x: +b.getAttribute('x'), y: +b.getAttribute('y'),
+      w: +b.getAttribute('width'), h: +b.getAttribute('height')});
   };
   const withEdges = nodes.filter((n) => (A.detail[n.dataset.id].edges || []).length);
   // The first, the last and four from the middle: cards from every part of the map.
@@ -678,7 +697,10 @@ function framing(page) {
   const snapshot = (reading, id) => {
     const frame = A.view.frame();
     const lit = nodes.filter((n) => !n.classList.contains('dim')).map((n) => ({id: n.dataset.id, box: boxOf(n)}));
-    const litEdges = svg.querySelectorAll('.flow').filter((p) => !p.classList.contains('off')).map((p) => ({edge: +p.dataset.edge, box: p.getBBox()}));
+    const litEdges = svg.querySelectorAll('.flow').filter((p) => !p.classList.contains('off')).map((p) => {
+      const b = p.getBBox(), box = projectedBounds(svg, {x:b.x, y:b.y, w:b.width, h:b.height});
+      return {edge: +p.dataset.edge, box:{x:box.x, y:box.y, width:box.w, height:box.h}};
+    });
     return {
       reading, id, frame, lit, litEdges,
       view: parseTransform(svg.querySelector('.view').getAttribute('transform')),
@@ -803,15 +825,14 @@ function theme(page) {
   const report = {
     onLoad: root.getAttribute('data-theme'),
     pickValue: pick ? pick.value : null,
-    options: pick ? pick.querySelectorAll('option').map((o) => o.getAttribute('value')) : [],
+    options: pick ? pick.querySelectorAll('[data-scheme]').map((o) => o.dataset.scheme) : [],
     blocks: (style.match(/:root\[data-theme="([a-z]+)"\]\{/g) || []).map((m) => m.slice(18, -3)),
     storedOnLoad: stored(),
     switches: [],
   };
   if (pick) {
     report.options.forEach((name) => {
-      pick.value = name;
-      pick.dispatchEvent(new EventImpl('change', {bubbles: true}));
+      pick.querySelector('[data-scheme="'+name+'"]').dispatchEvent(new EventImpl('click', {bubbles:true}));
       report.switches.push({picked: name, attr: root.getAttribute('data-theme'), pickValue: pick.value, stored: stored()});
     });
   }

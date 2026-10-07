@@ -2,9 +2,129 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+from math import sqrt
 from typing import Any
 
 from systemap.theme import Palette
+
+SVG_NS = "{http://www.w3.org/2000/svg}"
+ISO_X = sqrt(3) / 2
+
+
+def _plate(node: ET.Element) -> None:
+    """Put a second border under the plate. Put its text above the plate center."""
+    box = node.find(f"{SVG_NS}rect[@class='node__box']")
+    assert box is not None
+    x, y, w, h = (float(box.attrib[key]) for key in ("x", "y", "width", "height"))
+    base = ET.Element(f"{SVG_NS}rect", dict(box.attrib))
+    base.attrib.update({"class": "node__base", "x": str(x + 6), "y": str(y + 6), "rx": "10"})
+    node.insert(0, base)
+    box.set("rx", "10")
+    plate = ET.Element(f"{SVG_NS}g", {"class": "node__plate"})
+    for child in list(node):
+        if child.tag != f"{SVG_NS}text" and child.get("data-layer") != "job" and child is not base:
+            node.remove(child)
+            plate.append(child)
+    node.insert(1, plate)
+    crease = ET.SubElement(plate, f"{SVG_NS}path", {"class": "node__crease"})
+    crease.set("d", f"M{x + 16} {y + 12} H{x + w - 16}")
+    for k, text in enumerate(node.findall(f"{SVG_NS}text")):
+        text.set("x", str(x + w / 2))
+        text.set("y", str(y + h / 2))
+        text.set("data-iso-line", str(k - 1))
+        text.set("style", "text-anchor:middle;font-weight:400")
+        text.set("data-caption", node.attrib["data-id"])
+    job = node.find(f"{SVG_NS}g[@data-layer='job']")
+    assert job is not None
+    for k, text in enumerate(job.findall(f"{SVG_NS}text")):
+        text.set("x", str(x + w / 2))
+        text.set("y", str(y + h / 2))
+        text.set("data-iso-line", str(k))
+        text.set("style", "text-anchor:middle")
+        text.set("data-description", node.attrib["data-id"])
+
+
+def _upright(text: ET.Element) -> None:
+    """Keep the glyphs horizontal at the text origin."""
+    x, y = text.attrib["x"], text.attrib["y"]
+    text.set("data-iso-x", x)
+    text.set("data-iso-y", y)
+    text.set("data-iso-style", text.get("style", ""))
+    inverse_x = 1 / (2 * ISO_X)
+    text.set("transform", f"translate({x} {y}) matrix({inverse_x} {-inverse_x} 1 1 0 0)")
+    text.set("x", "0")
+    text.set("y", "0")
+
+
+def _boundary_labels(boundary: ET.Element) -> None:
+    """Keep header text on one vertical line after projection."""
+    texts = boundary.findall(f"{SVG_NS}text")
+    first = texts[0]
+    x, y = float(first.attrib["x"]), float(first.attrib["y"])
+    for text in texts:
+        offset = float(text.attrib["y"]) - y
+        text.set("x", str(x + offset))
+        text.set("y", str(y + offset))
+
+
+def project_svg(source: str, *, flat: bool = False) -> str:
+    """Use an isometric projection for page figures.
+
+    Keep model coordinates in the source records."""
+    ET.register_namespace("", SVG_NS[1:-1])
+    root = ET.fromstring(source)
+    root.set("data-flat-box", root.attrib["viewBox"])
+    for text in root.iter(f"{SVG_NS}text"):
+        text.set("data-flat-x", text.attrib["x"])
+        text.set("data-flat-y", text.attrib["y"])
+        text.set("data-flat-style", text.get("style", ""))
+    view = root.find(f"{SVG_NS}g[@class='view']")
+    assert view is not None
+    left, top, width, height = map(float, root.attrib["viewBox"].split())
+    width += left * 2
+    height += top * 2
+    scene = ET.Element(
+        f"{SVG_NS}g",
+        {"class": "projection", "transform": f"matrix({ISO_X} .5 {-ISO_X} .5 0 0)"},
+    )
+    for child in list(view):
+        view.remove(child)
+        scene.append(child)
+    view.append(scene)
+    root.set(
+        "viewBox",
+        f"{-ISO_X * height - 36} -36 {ISO_X * (width + height) + 72} {(width + height) / 2 + 104}",
+    )
+    root.set("data-projection", str(ISO_X))
+    root.set("data-iso-box", root.attrib["viewBox"])
+    root.set("data-plane", "isometric")
+    root.set(
+        "aria-label",
+        root.attrib["aria-label"].replace(
+            "Fill shows source state.", "Dashed borders show external actors."
+        ),
+    )
+    for node in scene.findall(f"{SVG_NS}g"):
+        if node.get("class", "").startswith("node "):
+            _plate(node)
+    for boundary in scene.findall(f"{SVG_NS}g[@class='boundary']"):
+        _boundary_labels(boundary)
+    for text in scene.iter(f"{SVG_NS}text"):
+        _upright(text)
+    if flat:
+        root.set("viewBox", root.attrib["data-flat-box"])
+        root.set("data-projection", "0")
+        root.set("data-plane", "flat")
+        scene.set("transform", "matrix(1 0 0 1 0 0)")
+        for text in scene.iter(f"{SVG_NS}text"):
+            text.set("x", text.attrib["data-flat-x"])
+            text.set("y", text.attrib["data-flat-y"])
+            text.set("style", text.attrib["data-flat-style"])
+            text.attrib.pop("transform")
+    output = ET.tostring(root, encoding="unicode").replace("&gt;", ">")
+    opening = f'<svg xmlns="{SVG_NS[1:-1]}" id="{root.attrib["id"]}"'
+    return output.replace(opening, f'<svg id="{root.attrib["id"]}" xmlns="{SVG_NS[1:-1]}"', 1)
 
 
 def _svg_style(svg_id: str, t: Palette) -> str:
@@ -18,23 +138,53 @@ def _svg_style(svg_id: str, t: Palette) -> str:
         f"{s} .node.subject .node__box{{stroke:var(--subject)}}"
         f"{s} .node.subject rect.node__mark{{stroke:var(--subject)}}"
         f"{s} .node.subject path.node__mark{{fill:var(--subject)}}"
-        f"{s} .node.sel .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
-        f"{s} .node.endpoint .node__box{{stroke:{t['accent']};stroke-width:2}}"
+        f"{s} .node.sel .node__box{{stroke:{t['accent']};stroke-width:1.6}}"
+        f"{s} .node.endpoint .node__box{{stroke:{t['accent']};stroke-width:1.4}}"
         f"{s} .node.meas .node__box{{stroke:{t['steel']};stroke-width:2.2}}"
         f"{s} .node.acts .node__box{{stroke:{t['accent']};stroke-width:2.4}}"
         f"{s} .node__ring{{display:none;fill:none;stroke:{t['steel']};stroke-width:1.6}}"
         f"{s} .node.meas .node__ring{{display:inline}}"
         f"{s} .node__selection{{display:none}}"
         f"{s} .node.sel .node__selection,{s} .node.endpoint .node__selection{{display:inline}}"
-        f"{s} .node:focus-visible{{outline:none}}"
-        f"{s} .node:focus-visible .node__box{{stroke:{t['accent']};stroke-width:2.6}}"
-        f"{s} .node:hover .node__box{{stroke-width:1.8}}"
+        f"{s} .node:focus{{outline:none}}"
+        f"{s} .node:focus-visible .node__box{{stroke:{t['accent']};stroke-width:1.6}}"
+        f"{s} .node:hover .node__box{{stroke:{t['ink']};stroke-width:1.2}}"
+        f"{s} .projection .node__box{{fill:{t['surface']};stroke-width:.9;"
+        "vector-effect:non-scaling-stroke}"
+        f"{s} .node__base{{fill:{t['bg']};stroke:{t['line_2']};stroke-width:.9;"
+        "vector-effect:non-scaling-stroke}"
+        f"{s} .node__crease{{fill:none;stroke:{t['line_2']};stroke-width:.9;"
+        "vector-effect:non-scaling-stroke}"
+        f"{s} .projection .flow{{stroke-width:.9;vector-effect:non-scaling-stroke}}"
+        f"{s} .projection .flow.hot{{stroke-width:1.8}}"
+        f"{s} .projection .flow.peek{{stroke-width:1.6}}"
+        f"{s} .projection .boundary>rect{{fill:{t['bg']};stroke:{t['line_2']};stroke-opacity:.25;"
+        "stroke-width:.9;vector-effect:non-scaling-stroke}"
+        f"{s} .projection [data-layer=zones]>rect{{stroke-dasharray:none;stroke-opacity:.35;"
+        "stroke-width:.9;vector-effect:non-scaling-stroke}"
+        f"{s} .projection .node__selection{{display:none}}"
+        f"{s} .node.sel .node__base{{stroke:{t['accent']}}}"
+        f"{s}[data-plane=flat] .node__base,{s}[data-plane=flat] .node__crease{{display:none}}"
+        f"{s}[data-plane=flat] .node__plate{{transform:none!important}}"
+        f"{s}[data-plane=isometric] [data-caption]{{font-family:{t['font_ui']};"
+        f"font-weight:500;paint-order:stroke;stroke:{t['surface']};stroke-width:5px;"
+        "stroke-linejoin:round}"
+        f"{s} .projection .zone__h circle{{display:none}}"
+        f"{s} .region-summary{{visibility:hidden;cursor:pointer}}"
+        f"{s}.overview .region-summary{{visibility:visible}}"
+        f"{s}.overview .node,{s}.overview .flow,{s}.overview .flowlbl,"
+        f"{s}.overview .boundary,{s}.overview [data-layer=zones]{{visibility:hidden}}"
+        f"{s}.detail-focus .node.dim{{visibility:hidden}}"
+        f"{s}.detail-focus .boundary,{s}.detail-focus [data-layer=zones]{{visibility:hidden}}"
+        f"{s} .region-summary rect{{fill:{t['surface']};stroke:{t['line_2']};"
+        "stroke-width:1;vector-effect:non-scaling-stroke}"
+        f"{s} .region-summary:focus rect{{stroke:{t['accent']};stroke-width:2}}"
         f"{s} .flow{{cursor:pointer;pointer-events:stroke;outline:none;"
         "transition:stroke-width .18s ease-out}"
         f"{s} .flow.off:not(.peek),{s} .flowlbl.off:not(.peek){{display:none}}"
         f"{s} .flow.dim{{stroke-opacity:.38}}"
-        f"{s} .flow.hot{{stroke-opacity:1;stroke-width:2.6}}"
-        f"{s} .flow.peek{{stroke-opacity:1;stroke-width:2.2}}"
+        f"{s} .flow.hot{{stroke-opacity:1;stroke-width:1.8}}"
+        f"{s} .flow.peek{{stroke-opacity:1;stroke-width:1.6}}"
         f"{s} .flow.moving,{s} .flowtrace.moving{{animation:systemapflow 1.8s linear infinite}}"
         f"{s} .flow.moving[data-evidence=structural]{{animation-name:systemapstructural}}"
         f"{s} .flowtrace{{fill:none;stroke:{t['ink']};stroke-width:2;"
@@ -53,7 +203,9 @@ def _svg_style(svg_id: str, t: Palette) -> str:
         "@media (prefers-reduced-motion:reduce){"
         f"{s} .flow.hot{{animation:none}}"
         f"{s} .moving{{animation:none!important}}"
-        f"{s} .node,{s} .flow,{s} .flowlbl{{transition:none}}}}"
+        f"{s} .node,{s} .node__plate,{s} .flow,{s} .flowlbl{{transition:none}}"
+        "}"
+        f":root[data-reduce-motion=true] {s} .node__plate{{transition:none}}"
         "</style>"
     )
 
@@ -89,7 +241,7 @@ def panel_css(t: dict[str, Any], variables: bool = False) -> str:
         f".systemap-panel:empty::before{{content:'Select a card or flow path to examine it.';"
         f"color:{P['ink_3']}}}"
         f".systemap-f__code{{font-family:{P['font_mono']};font-size:19px;color:{P['ink']};"
-        "font-weight:600;line-height:1.25;margin:0;letter-spacing:-.02em}"
+        "font-weight:500;line-height:1.25;margin:0;letter-spacing:-.02em}"
         f".systemap-f__plain{{font-size:14px;color:{P['ink_2']};line-height:1.45;margin:.35rem 0}}"
         f".systemap-f__kind{{color:{P['ink_3']};font-size:12px;margin:.2rem 0 .7rem}}"
         f".systemap-f__note{{margin:.75rem 0;padding:.65rem .75rem;"

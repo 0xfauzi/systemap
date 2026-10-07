@@ -35,6 +35,7 @@ SCRIPT = r"""
   var A=svg.systemap,X=svg.workspace,W=window.systemapWorkspace;
   var drawing=document.getElementById('spatialmap'),mapButton=document.getElementById('view-map');
   var readingButton=document.getElementById('view-reading');
+  var isoButton=document.getElementById('view-isometric');
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function layerName(id){
@@ -137,12 +138,15 @@ SCRIPT = r"""
   }
   function setView(reading){
     root.hidden=!reading;drawing.hidden=reading;
-    mapButton.setAttribute('aria-pressed',String(!reading));
+    mapButton.setAttribute('aria-pressed',String(!reading && svg.dataset.plane==='flat'));
+    isoButton.setAttribute('aria-pressed',String(!reading && svg.dataset.plane!=='flat'));
     readingButton.setAttribute('aria-pressed',String(reading));
     document.body.dataset.view=reading ? 'reading' : 'map';render();
     if(!reading){svg.dispatchEvent(new CustomEvent('systemap:view-resize'));}
   }
   mapButton.addEventListener('click',function(){setView(false);});
+  isoButton.addEventListener('click',function(){setView(false);});
+  svg.addEventListener('systemap:projection',function(){setView(root.hidden===false);});
   readingButton.addEventListener('click',function(){setView(true);});
   root.addEventListener('click',function(event){
     var b=event.target.closest('button');if(!b){return;}
@@ -165,6 +169,9 @@ SCRIPT = r"""
     var mark=document.createElementNS(ns,'rect');
     ['x','y','width','height'].forEach(function(a){mark.setAttribute(a,box.getAttribute(a));});
     mark.setAttribute('fill','var(--ink-3)');mini.appendChild(mark);
+    if(svg.dataset.projection){
+      mark.setAttribute('transform',svg.querySelector('.projection').getAttribute('transform'));
+    }
   });
   var windowMark=document.createElementNS(ns,'rect');
   windowMark.setAttribute('fill','none');windowMark.setAttribute('stroke','var(--accent)');
@@ -173,6 +180,10 @@ SCRIPT = r"""
   fitButton.setAttribute('title','Component positions and visible area. Show all components.');
   function overviewWindow(){
     if(drawing.hidden){return;}
+    mini.setAttribute('viewBox',svg.getAttribute('viewBox'));
+    Array.prototype.forEach.call(mini.querySelectorAll('rect:not(:last-child)'),function(mark){
+      mark.setAttribute('transform',svg.querySelector('.projection').getAttribute('transform'));
+    });
     var area=A.view.visibleArea(null),view=A.view.snapshot();
     windowMark.setAttribute('x',(area.x-view.tx)/view.k);
     windowMark.setAttribute('y',(area.y-view.ty)/view.k);

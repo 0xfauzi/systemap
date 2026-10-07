@@ -79,8 +79,10 @@ function relationships(page) {
   const state=()=>({journey:X.state().j,step:X.state().s,roles:A.state.journey});
   report.journeyBefore=state();
   ['components','invariants','review'].forEach(id=>{
-    const anchor=doc.querySelector('.header-links a[href="#'+id+'"]');
-    anchor.click();runFrames(win);
+    const mode=id==='components' ? 'understand' : 'review';
+    doc.querySelector('button[data-mode="'+mode+'"]').click();
+    if(id==='invariants'){doc.getElementById(id).setAttribute('open','');}
+    runFrames(win);
     const section=doc.getElementById(id);
     let exposed=true;
     for(let parent=section;parent&&parent!==doc;parent=parent.parentNode){

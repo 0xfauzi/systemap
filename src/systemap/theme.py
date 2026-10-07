@@ -1,13 +1,12 @@
 """Color palettes for the map, inspector and page.
 
-The warm, graphite and paper palettes contain the same CSS tokens.
+The Dark, Light and Clay palettes contain the same CSS tokens.
 The reader selects a palette on the page. Default text colors have
 a contrast ratio of 4.5:1 or more on their background.
 tests/test_theme.py measures these contrast ratios.
 
 `[theme]` changes the default palette. A named table such as
-`[theme.paper]` changes that palette. The aliases `dark` and `light`
-select graphite and paper. Each layer has one color. Card kind marks
+`[theme.light]` changes that palette. Each layer has one color. Card kind marks
 use an inner ring, notch or dotted border. Selection and active
 sequence components use `accent`. Measurement components use `steel`.
 
@@ -35,36 +34,7 @@ SANS = (
 )
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
-# The ground, the ink and the accent each scheme is named for.
-WARM_GROUND = "#161310"
-WARM_INK = "#ece5d8"
-WARM_AMBER = "#e5a84f"
-GRAPHITE_GROUND = "#121417"
-GRAPHITE_INK = "#e6e4df"
-GRAPHITE_AMBER = "#e0a458"
-PAPER_GROUND = "#f4f2ee"
-PAPER_INK = "#1d2024"
-PAPER_AMBER = "#905c1a"
-
-# The standard layers' hues per scheme: the two derived readings, the two
-# standard kinds, and the three agent readings. Each reads apart from the
-# others and stays quieter than the accent. Then the hues for the model's
-# own layers, taken in order; a map with more custom layers than this
-# wraps around. Warm's four were searched for the widest CIELAB distance
-# from its standard hues at low chroma (the first is the eighth hue of the
-# scheme; the other three were picked by that search and looked at).
-STANDARD_LAYERS_WARM: dict[str, str] = {
-    "structure": "#d9cdb2",
-    "system": "#82a7ba",
-    "data": "#e39a86",
-    "control": "#dd9bbd",
-    "agents": "#b48ec9",
-    "context": "#86c9a9",
-    "tools": "#b7c27c",
-}
-LAYER_PALETTE_WARM: list[str] = ["#e3b778", "#bbc1f1", "#7ed1d6", "#e7b8bb"]
-
-STANDARD_LAYERS_GRAPHITE: dict[str, str] = {
+STANDARD_LAYERS_DARK: dict[str, str] = {
     "structure": "#d8d3c6",
     "system": "#8fb0c4",
     "data": "#8fbfa6",
@@ -73,10 +43,54 @@ STANDARD_LAYERS_GRAPHITE: dict[str, str] = {
     "context": "#c186c1",
     "tools": "#86c189",
 }
-LAYER_PALETTE_GRAPHITE: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
 
-# Graphite's hues darkened in HSL until each clears 4.5:1 as text on paper.
-STANDARD_LAYERS_PAPER: dict[str, str] = {
+LAYER_PALETTE_DARK: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
+
+DARK: dict[str, Any] = {
+    "name": "systemap",
+    "scheme": "dark",
+    "color_scheme": "dark",
+    "bg": "#08090a",
+    "surface": "#101014",
+    "raised": "#19191d",
+    "line": "#252529",
+    "line_2": "#424249",
+    "ink": "#fafafa",
+    "ink_2": "#bcbcc4",
+    "ink_3": "#9898a3",
+    "accent": "#fafafa",
+    "accent_soft": "#fafafa14",
+    "steel": "#8fb0c4",
+    "good": "#8cbf8a",
+    "warn": "#d6b14a",
+    "bad": "#d97b6c",
+    "violet": "#a99bd0",
+    "state": {"built": ["#101014", "#71717a", "source recorded"]},
+    "ghost": ["#101014", "#252529"],
+    "container": {
+        "host": ["#424249", "#0d0e11"],
+        "client": ["#424249", "#0d0e11"],
+        "server": ["#424249", "#0d0e11"],
+        "isolated": ["#66666f", "#121216"],
+    },
+    "region": "#9898a3",
+    "change": "#d97b6c",
+    "reach": "#fafafa",
+    "flow": "#52525b",
+    "layer_palette": LAYER_PALETTE_DARK,
+    "layers": dict(STANDARD_LAYERS_DARK),
+    "marks": dict(KIND_MARKS),
+    "delta": {
+        "operations": "#8fb0c4",
+        "types": "#8cbf8a",
+        "refusals": "#d97b6c",
+        "tests": "#fafafa",
+    },
+    "font_ui": SANS,
+    "font_mono": MONO,
+}
+
+STANDARD_LAYERS_LIGHT: dict[str, str] = {
     "structure": "#71674d",
     "system": "#466c84",
     "data": "#417158",
@@ -85,160 +99,113 @@ STANDARD_LAYERS_PAPER: dict[str, str] = {
     "context": "#954c95",
     "tools": "#3c743f",
 }
-LAYER_PALETTE_PAPER: list[str] = ["#a1513d", "#7059b1", "#616d3b", "#396aa0"]
 
-# Each table: `scheme` is its name, `color_scheme` what the browser is told
-# (its form controls and scrollbars follow). A card's `state` is its fill,
-# its stroke, then the word the legend prints; there is one state, a card
-# is code that exists today. `ghost` is what a change map or a reach figure
-# draws for the parts it does not mark, (fill, stroke). `container` holds
-# the hard boundaries, (stroke, fill) per tone.
-WARM: dict[str, Any] = {
-    "name": "systemap",
-    "scheme": "warm",
-    "color_scheme": "dark",
-    "bg": WARM_GROUND,
-    "surface": "#1e1a15",
-    "raised": "#27221a",
-    "line": "#2e2820",
-    "line_2": "#4a4237",
-    "ink": WARM_INK,
-    "ink_2": "#c4b9a4",
-    "ink_3": "#a2967f",
-    "accent": WARM_AMBER,
-    "accent_soft": "#e5a84f2e",
-    "steel": "#82a7ba",
-    "good": "#8fc470",
-    "warn": "#d9b036",
-    "bad": "#e26d5a",
-    "violet": "#b48ec9",
-    "state": {
-        "built": ["#27221a", "#8a7d63", "source recorded"],
-    },
-    "ghost": ["#1a1713", "#2e2820"],
-    "container": {
-        "host": ["#4a4237", "#1a1713"],
-        "client": ["#4a4237", "#1a1713"],
-        "server": ["#3b3428", "#1b1814"],
-        "isolated": ["#6b4a3d", "#1d1613"],
-    },
-    "region": "#a2967f",
-    "change": "#e26d5a",
-    "reach": WARM_AMBER,
-    "flow": "#5e5548",
-    "layer_palette": LAYER_PALETTE_WARM,
-    "layers": dict(STANDARD_LAYERS_WARM),
-    "marks": dict(KIND_MARKS),
-    "delta": {
-        "operations": "#82a7ba",
-        "types": "#8fc470",
-        "refusals": "#e26d5a",
-        "tests": WARM_AMBER,
-    },
-    "font_ui": SANS,
-    "font_mono": MONO,
-}
+LAYER_PALETTE_LIGHT: list[str] = ["#a1513d", "#7059b1", "#616d3b", "#396aa0"]
 
-GRAPHITE: dict[str, Any] = {
+LIGHT: dict[str, Any] = {
     "name": "systemap",
-    "scheme": "graphite",
-    "color_scheme": "dark",
-    "bg": GRAPHITE_GROUND,
-    "surface": "#181b1f",
-    "raised": "#1f2329",
-    "line": "#262b32",
-    "line_2": "#3a4149",
-    "ink": GRAPHITE_INK,
-    "ink_2": "#b3b1aa",
-    "ink_3": "#868b93",
-    "accent": GRAPHITE_AMBER,
-    "accent_soft": "#e0a4582e",
-    "steel": "#8fb0c4",
-    "good": "#8cbf8a",
-    "warn": "#d6b14a",
-    "bad": "#d97b6c",
-    "violet": "#a99bd0",
-    "state": {
-        "built": ["#1f2329", "#6b7380", "source recorded"],
-    },
-    "ghost": ["#15181c", "#262b32"],
-    "container": {
-        "host": ["#3a4149", "#15181c"],
-        "client": ["#3a4149", "#15181c"],
-        "server": ["#2f353d", "#16191d"],
-        "isolated": ["#6b5347", "#1a1715"],
-    },
-    "region": "#868b93",
-    "change": "#d97b6c",
-    "reach": GRAPHITE_AMBER,
-    "flow": "#4a515a",
-    "layer_palette": LAYER_PALETTE_GRAPHITE,
-    "layers": dict(STANDARD_LAYERS_GRAPHITE),
-    "marks": dict(KIND_MARKS),
-    "delta": {
-        "operations": "#8fb0c4",
-        "types": "#8cbf8a",
-        "refusals": "#d97b6c",
-        "tests": GRAPHITE_AMBER,
-    },
-    "font_ui": SANS,
-    "font_mono": MONO,
-}
-
-PAPER: dict[str, Any] = {
-    "name": "systemap",
-    "scheme": "paper",
+    "scheme": "light",
     "color_scheme": "light",
-    "bg": PAPER_GROUND,
+    "bg": "#ffffff",
     "surface": "#ffffff",
-    "raised": "#ebe9e4",
-    "line": "#d9d6cf",
-    "line_2": "#b9b5ac",
-    "ink": PAPER_INK,
-    "ink_2": "#55534d",
-    "ink_3": "#646870",
-    "accent": PAPER_AMBER,
-    "accent_soft": "#905c1a2e",
+    "raised": "#f4f4f4",
+    "line": "#e5e5e5",
+    "line_2": "#b8b8bd",
+    "ink": "#0a0a0a",
+    "ink_2": "#525252",
+    "ink_3": "#646464",
+    "accent": "#0a0a0a",
+    "accent_soft": "#0a0a0a0d",
     "steel": "#466c84",
     "good": "#41733f",
     "warn": "#7f641d",
     "bad": "#b5412f",
     "violet": "#7059b1",
-    "state": {
-        "built": ["#ffffff", "#7c838d", "source recorded"],
-    },
-    "ghost": ["#efede8", "#d9d6cf"],
+    "state": {"built": ["#ffffff", "#a1a1aa", "source recorded"]},
+    "ghost": ["#f4f4f4", "#e5e5e5"],
     "container": {
-        "host": ["#b9b5ac", "#efede8"],
-        "client": ["#b9b5ac", "#efede8"],
-        "server": ["#c4c0b7", "#f1efea"],
-        "isolated": ["#b08a7c", "#f3ece8"],
+        "host": ["#b8b8bd", "#fafafa"],
+        "client": ["#b8b8bd", "#fafafa"],
+        "server": ["#b8b8bd", "#fafafa"],
+        "isolated": ["#a1a1aa", "#f4f4f4"],
     },
-    "region": "#646870",
+    "region": "#646464",
     "change": "#b5412f",
-    "reach": PAPER_AMBER,
-    "flow": "#b4b8be",
-    "layer_palette": LAYER_PALETTE_PAPER,
-    "layers": dict(STANDARD_LAYERS_PAPER),
+    "reach": "#0a0a0a",
+    "flow": "#a1a1aa",
+    "layer_palette": LAYER_PALETTE_LIGHT,
+    "layers": dict(STANDARD_LAYERS_LIGHT),
     "marks": dict(KIND_MARKS),
     "delta": {
         "operations": "#466c84",
         "types": "#41733f",
         "refusals": "#b5412f",
-        "tests": PAPER_AMBER,
+        "tests": "#0a0a0a",
     },
     "font_ui": SANS,
     "font_mono": MONO,
 }
 
-# The schemes in the order the page offers them.
-SCHEMES: dict[str, dict[str, Any]] = {"warm": WARM, "graphite": GRAPHITE, "paper": PAPER}
-# The names 0.11 knew the two older schemes by.
-ALIASES: dict[str, str] = {"dark": "graphite", "light": "paper"}
-# The scheme a consumer gets when it names none.
-DEFAULT_SCHEME = "warm"
-# The scheme a first visit gets when the reader's system prefers light.
-LIGHT_SCHEME = "paper"
+STANDARD_LAYERS_CLAY: dict[str, str] = {
+    "structure": "#d9cdb2",
+    "system": "#82a7ba",
+    "data": "#e39a86",
+    "control": "#dd9bbd",
+    "agents": "#b48ec9",
+    "context": "#86c9a9",
+    "tools": "#b7c27c",
+}
+
+LAYER_PALETTE_CLAY: list[str] = ["#e3b778", "#bbc1f1", "#7ed1d6", "#e7b8bb"]
+
+CLAY: dict[str, Any] = {
+    "name": "systemap",
+    "scheme": "clay",
+    "color_scheme": "dark",
+    "bg": "#111214",
+    "surface": "#17181b",
+    "raised": "#1e1f21",
+    "line": "#292a2c",
+    "line_2": "#4d4e52",
+    "ink": "#fbfcfc",
+    "ink_2": "#cdcecf",
+    "ink_3": "#9a9b9d",
+    "accent": "#cf8b6b",
+    "accent_soft": "#cf8b6b1a",
+    "steel": "#82a7ba",
+    "good": "#8fc470",
+    "warn": "#c4a077",
+    "bad": "#dda5a1",
+    "violet": "#b48ec9",
+    "state": {"built": ["#17181b", "#85868a", "source recorded"]},
+    "ghost": ["#17181b", "#292a2c"],
+    "container": {
+        "host": ["#4d4e52", "#141518"],
+        "client": ["#4d4e52", "#141518"],
+        "server": ["#4d4e52", "#141518"],
+        "isolated": ["#8c6251", "#1b1716"],
+    },
+    "region": "#9a9b9d",
+    "change": "#dda5a1",
+    "reach": "#cf8b6b",
+    "flow": "#65605e",
+    "layer_palette": LAYER_PALETTE_CLAY,
+    "layers": dict(STANDARD_LAYERS_CLAY),
+    "marks": dict(KIND_MARKS),
+    "delta": {
+        "operations": "#82a7ba",
+        "types": "#8fc470",
+        "refusals": "#dda5a1",
+        "tests": "#cf8b6b",
+    },
+    "font_ui": SANS,
+    "font_mono": MONO,
+}
+
+SCHEMES: dict[str, dict[str, Any]] = {"dark": DARK, "light": LIGHT, "clay": CLAY}
+DEFAULT_SCHEME = "dark"
+LIGHT_SCHEME = "light"
+
 # The tokens that are read as text somewhere on the page, held to 4.5:1
 # on the ground; a layer hue is text too (an edge's label, a verb tag).
 TEXT_TOKENS = (
@@ -267,18 +234,15 @@ def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
 
 
 def scheme_name(tokens: dict[str, Any]) -> str:
-    """Give the palette name from `[theme]`, with support for the old aliases.
+    """Give the palette name from `[theme]`, from the configuration.
 
     Reject unknown names and list the available palettes."""
     scheme = tokens.get("scheme", DEFAULT_SCHEME)
     if not isinstance(scheme, str):
         raise ValueError(f"Select a theme scheme from {', '.join(SCHEMES)}")
-    name = ALIASES.get(scheme, scheme)
+    name = scheme
     if name not in SCHEMES:
-        raise ValueError(
-            f"Unknown theme scheme {scheme!r}. The schemes are {', '.join(SCHEMES)} "
-            f"(the 0.11 aliases dark and light select graphite and paper)"
-        )
+        raise ValueError(f"Unknown theme scheme {scheme!r}. The schemes are {', '.join(SCHEMES)}")
     return name
 
 
@@ -288,7 +252,7 @@ def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
     Named layers keep their table color. Other layers use palette colors
     in sequence."""
     named: dict[str, str] = dict(t.get("layers") or {})
-    palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE_WARM)
+    palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE_DARK)
     resolved: dict[str, str] = {}
     unnamed = 0
     for layer in layers:
@@ -445,11 +409,11 @@ def root_css(t: dict[str, Any]) -> str:
     """Give default, named and system light-palette CSS declarations.
 
     The page script sets `data-theme` before the first render. The page uses a stored
-    selection first. Without a stored selection, it uses paper for a system
-    light preference or the default palette. CSS media declarations
-    supply the system preference when the script does not run."""
+    selection first. Without a stored selection, it uses Light for a system
+    light preference or Dark. CSS media declarations supply the device theme
+    without the script."""
     schemes: dict[str, dict[str, Any]] = t.get("schemes") or {t["scheme"]: t}
-    out = [f":root{{{css_vars(t)}}}"]
+    out = [f":root{{{css_vars(schemes.get(DEFAULT_SCHEME, t))}}}"]
     out += [f':root[data-theme="{name}"]{{{css_vars(table)}}}' for name, table in schemes.items()]
     light = schemes.get(LIGHT_SCHEME)
     if light is not None:
