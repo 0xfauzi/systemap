@@ -195,7 +195,7 @@ def test_svg_figure_is_the_bare_drawing_on_its_ground(
     assert 'xmlns="http://www.w3.org/2000/svg"' in svg
     assert svg.rstrip().endswith("</svg>")
     assert "<figure" not in svg and "<script" not in svg
-    assert f'fill="{theme_mod.WARM_GROUND}"/>' in svg, "the ground rectangle carries the theme's bg"
+    assert f'fill="{theme_mod.DARK["bg"]}"/>' in svg, "the ground rectangle carries the theme's bg"
     assert svg.index("<rect") < svg.index("<defs>"), "the ground is drawn first"
     assert run("--root", str(tmp_path), "check") == 0
     capsys.readouterr()

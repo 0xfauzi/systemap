@@ -70,10 +70,22 @@ artifact that a flow carries. External flows have an actor at one end.
 None of these states records execution.
 
 <p align="center">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/warm.png" alt="the warm scheme" width="32%">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/graphite.png" alt="the graphite scheme" width="32%">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/paper.png" alt="the paper scheme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/dark.png" alt="the Dark theme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/light.png" alt="the Light theme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/clay.png" alt="the Clay theme" width="32%">
 </p>
+
+Components and Sequences show above the phone map and in the desktop navigation panel.
+Reference contains rules and review records. Theme contains Dark, Light, and Clay.
+The first visit uses the device theme.
+
+Flat and Isometric show the same map. The control shows an animation between projections.
+In Isometric, plate height identifies acting and measurement components in the current sequence step.
+Component text stays horizontal.
+At a small map scale, region names and counts replace overlapping component names.
+Region summaries include flow and source module counts.
+The information below the diagram gives source modules, entry points, related sequences, and evidence states.
+These values come from the current model and recorded source data.
 
 ## How do you install systemap?
 

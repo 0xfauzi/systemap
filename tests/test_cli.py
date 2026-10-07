@@ -255,11 +255,11 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     )
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "Unknown theme scheme 'sepia'. The schemes are warm, graphite, paper" in err
+    assert "Unknown theme scheme 'sepia'. The schemes are dark, light, clay" in err
     assert "Traceback" not in err
-    write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\npaper = 3\n"})
+    write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\nlight = 3\n"})
     assert run("--root", str(tmp_path), "check") == 2
-    assert "theme.paper must contain a table of CSS tokens" in capsys.readouterr().err
+    assert "theme.light must contain a table of CSS tokens" in capsys.readouterr().err
 
     # The issue link template left with the field it served; an old key is refused.
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "https://x/{n}"\n'})

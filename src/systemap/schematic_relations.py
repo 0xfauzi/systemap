@@ -394,16 +394,22 @@ svg.systemap = {
     zoomBy: function(f){ var c = centre(); zoomAt(f, c.x, c.y); },
     zoom: function(){ return base() * goal.k; },
     isFit: function(){ return isFit(); },
-    snapshot: function(){ return {k:goal.k, tx:goal.tx, ty:goal.ty}; },
-    restore: function(v, instant){
+    snapshot: viewSnapshot,
+    restore: function(v, instant, preserve){
       if(!v || !Number.isFinite(v.k) || v.k <= 0
         || !Number.isFinite(v.tx) || !Number.isFinite(v.ty)){ return false; }
-      framed = false; saved = null; lastFrame = null;
-      setView({k:v.k, tx:v.tx, ty:v.ty}, instant);
+      if(!preserve){framed = false; saved = null;}
+      lastFrame = null;
+      setView(viewPosition(v), instant);
       return true;
     },
     frameFocus: frameFocus,
+    frameJourney: frameJourney,
     frameRegion: frameRegion,
+    frameGroup: function(ids){
+      var box=unionBox(ids,[]);
+      if(box){frameRect(box,visibleArea(null));}
+    },
     frame: function(){ return lastFrame; },
     visibleArea: visibleArea,
     fracOf: fracOf,

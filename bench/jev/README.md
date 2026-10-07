@@ -821,3 +821,296 @@ Mypy found no errors in 53 source files.
 
 The previous pre-commit checks gave satisfactory results.
 The last pre-commit checks gave satisfactory results after the document changes.
+
+## Theme contrast measurements (2026-10-06)
+
+Acceptance: each text color must give a contrast ratio of at least 4.5:1 on each page surface.
+The probe also measures the actor description on its calculated fill.
+The probe measures 64 color pairs for each palette.
+
+| Theme | Minimum ratio | Text | Surface |
+|---|---:|---|---|
+| Dark | 5.8425:1 | Error text | Raised surface |
+| Light | 5.0752:1 | Tools layer | Raised surface |
+| Clay | 5.3692:1 | Actor description | Actor fill |
+
+The initial probe passed for all three palettes.
+These measurements do not show border visibility or user comprehension.
+
+The first test subset gave 47 passes and five failures.
+Two failures used an incorrect theme list or the previous generated page.
+Three failures used the previous focus stroke width.
+The corrections update the assertions and the generated page.
+
+The second test subset gave 49 passes and three failures.
+The failures used the previous flow preview width.
+After correction, the test subset gave 58 passes.
+
+The first preview command failed with `ModuleNotFoundError: No module named 'scripts'`.
+The same command with the repository in `PYTHONPATH` started the preview server.
+
+The first map check reported seven stale records after later source and test changes.
+The refresh updates these records before the final map check.
+
+The first full test suite gave 582 passes, two failures, and one skipped test.
+One assertion used the removed `WARM_GROUND` symbol.
+The other failure found duplicate glossary rows through a skill symlink.
+The corrections use the Dark background and one copy of each glossary row.
+
+At a 390-pixel viewport, the document width was 390 pixels.
+The theme, layer, zoom, and view controls had a height of 44 pixels.
+
+The final test suite gave 584 passes and one skipped test.
+The pre-commit checks passed. The mypy check found no errors in 53 source files.
+The map check found no layout errors and mapped all 53 source modules.
+Judgement reported 14 items for maintainer decisions.
+The source reviews for six Page flows remain pending after the source change.
+
+The image command wrote all three theme images and 12 tour frames.
+The tour GIF was 1.33 MiB at a width of 1200 pixels.
+
+## Isometric page measurements (2026-10-06)
+
+Acceptance: the page projection must keep all 20 components and 76 flows.
+Component captions must not overlap or extend beyond the map area.
+Both transformed text axes must agree with the original axes within 1e-12.
+The camera must contain selected plates, endpoints, and flow paths.
+
+The initial candidate kept all 20 components and 76 flows.
+Browser measurements found zero caption overlaps and zero clipped captions.
+At a 390-pixel viewport, the document width was 390 pixels.
+All 20 captions stayed separate and inside the map area.
+The theme and layer controls had a height of 44 pixels.
+
+The first test subset gave 34 passes and five failures.
+Four camera assertions used the previous coordinate plane.
+One nested-map assertion used the previous SVG attribute order.
+The corrected camera harness applies the projection to the four rectangle corners.
+The second subset gave 38 passes and one failure.
+The remaining assertion used the previous header markup.
+The correction uses the new project name element.
+
+The projection tests gave two passes.
+The first full test suite gave 586 passes and one skipped test.
+The first pre-commit command formatted one file and reported that change as a failure.
+The first Ruff command found 13 long source lines.
+A separate Ruff command found a missing `strict` argument for `zip()` in a new test.
+The corrections divide the long lines and specify `strict=False`.
+Complexipy measured a maximum cognitive complexity of six in the changed style module.
+The acceptance limit was 15.
+
+Source reads failed for `schematic_nodes.py`, `schematic_shapes.py`, and `page_camera.py`.
+These files do not exist.
+The source inspection used the actual card, style, and script modules after file discovery.
+The GitHub browser tool could not read the package directory.
+The Hairline design page and the previously retrieved source CSS supplied the reference.
+
+The browser showed an unwanted focus outline around the projected component group.
+The correction removes that outline and keeps the accent stroke for keyboard focus.
+
+The final test suite gave 586 passes and one skipped test.
+The final pre-commit checks passed.
+Mypy found no errors in 53 source files.
+The map check mapped all 53 source modules and found no layout errors.
+The map check examines the authored plane.
+Browser measurements examine the page with its isometric projection.
+
+Sequence navigation changed the selected step from one to two.
+Text view kept the selected sequence and step.
+The first browser selection failed because the control name was `Next step`, not `Next`.
+The corrected selection used the control name from the accessibility tree.
+
+The image command wrote three theme images and 12 tour frames.
+All three theme images were 1600 by 900 pixels.
+The tour GIF was 1200 by 1140 pixels, with 12 frames and 919435 bytes.
+The first image probe failed because `PIL` was absent.
+The same probe with Pillow supplied through `uv --with pillow` gave the image dimensions and frame count.
+
+The dictionary command with `--help` failed because it treated the option as a file path.
+The source file and skill instructions supplied the supported command form.
+The format check found two unformatted number literals in the new projection test.
+Ruff formatted them. The projection tests then gave two passes.
+The tour image read failed at the temporary root because the image was in the `frames` directory.
+The image read from that directory succeeded.
+
+The last render and projection subset gave eight passes after the accessible label correction.
+A later pre-commit command reported file changes during two hooks.
+A map refresh operated at the same time.
+The repeated pre-commit command after the refresh passed.
+
+Judgement reported 22 items for maintainer decisions.
+Source changes made 13 flow reviews pending for the Page and Schematic components.
+The source claims and recorded review decisions keep their previous contents.
+The language examination corrected the new paragraphs and ordinary words.
+The document checker also reported errors in existing design text and technical identities.
+This result does not give language acceptance for the complete design document.
+
+## Map workspace acceptance (2026-10-06)
+
+The page must show Components and Sequences controls in its initial viewport.
+The page must use Flat as its initial map view.
+Flat and Isometric must preserve every component, flow, selected item, and sequence step.
+The transition must end at the specified matrix and stop immediately with reduced motion.
+Visible component text must have a minimum font size of 12 CSS pixels.
+Visible component names must not overlap at desktop and phone widths.
+At 390 pixels, the document must have no horizontal overflow.
+The theme control must contain Dark, Light, and Clay.
+Reference must give access to source rules and review records.
+
+The first workspace probe replaced the page heading with the project title.
+Components and Sequences use one navigation panel.
+At a 1280-pixel viewport, the document width was 1280 pixels.
+The projected plate widths were between 79.6396 and 84.5658 pixels.
+This width measurement requires a different text layout for the isometric view.
+
+The requested `~/.claude/WRITING.md` file was absent.
+Source reads also failed for `map/components.py` and `schematic_draw.py`.
+File discovery found the model in `map/model.py` and card output in `schematic.py`.
+
+The first workspace subset gave 26 passes and 15 failures.
+Theme tests still required the removed native selector. The correction tests the three Theme buttons.
+The first complete suite gave 563 passes, 15 failures, eight errors, and one skipped test.
+The navigation tests still required the removed header links and project-title span.
+The updated navigation subset gave 56 passes.
+
+A phone list remained open after Close list.
+The event handler also matched the body element and reopened the list for each click.
+The correction restricts the handler to navigation buttons.
+The phone sequence probe then showed the controls and current step above the map.
+
+The initial region overview had an external label outside the viewport and one overlapping label pair.
+The label placement correction gave zero overlapping pairs and zero labels outside the viewport.
+At 390 pixels, the document width was 390 pixels.
+
+One edit command failed with an unterminated string literal before it changed files.
+A subsequent patch applied the specified edits.
+A source read failed for `schematic_view.py`. The camera implementation is in `schematic_script.py`.
+
+The first projection control test failed its camera acceptance value.
+The DOM test harness kept a stale viewBox object after projection changes.
+The harness now supplies a live viewBox object, as the browser does.
+The repeated projection test gave three passes.
+It confirms exact state, exact matrices, intermediate animation frames, immediate reduced motion, and restored camera coordinates.
+The coordinate acceptance value was 1e-6 units.
+
+The first workspace pre-commit command corrected one import and found two long CSS lines.
+The source correction divides those CSS lines.
+The desktop browser probe at 1280 pixels showed all 20 component names without overlap.
+The document width was 1280 pixels.
+Two font probes failed because the browser read interface does not expose parseFloat or getScreenCTM.
+The subsequent probe read font sizes, viewport bounds, camera scale, and the viewBox from the DOM.
+
+The full suite after the control corrections gave 587 passes and one skipped test.
+Mypy found no errors in 54 source files.
+The computed-style font probe gave 11.99998 CSS pixels after the viewport scale.
+The font control specifies 12 CSS pixels. The computed-style text contains rounded values.
+A broader text probe found two overlaps between region headings and component names.
+The heading correction moves a region heading above text that intersects it.
+Six long JavaScript source lines failed Ruff. The correction divides those lines.
+
+The desktop Flat and Isometric probes then found zero overlaps between visible text elements.
+The phone isometric sequence probe initially showed region summaries instead of the selected step participants.
+The correction gives the selected components and sequence participants their own text space at small scales.
+The phone probe then showed the Agent, CLI, their functions, and the commands flow.
+The document width stayed at 390 pixels. The sequence list closed after selection.
+The control and projection subset gave 46 passes after this correction.
+A later Ruff command found two long JavaScript lines. The source correction divides them.
+
+A later font correction reads the displayed camera scale during camera animation.
+Its first test gave 21 passes, 14 failures, and 11 errors because the initial view had no transform attribute.
+The correction permits that initial condition. The repeated subset gave 46 passes.
+The image command made three theme images, a sequence image, and a 12-frame tour.
+A subsequent image command used four independent Chrome profiles for the same capture procedure.
+All captures completed. The images include the new heading and sequence controls.
+The language examination found that upper and act are not approved for the new caption.
+The caption now refers to plate height and sequence roles.
+The glossary defines acting components and measurement components from their schema fields.
+
+## Generated map information acceptance (2026-10-07)
+
+The map information must use the current model and stored source records.
+The information must show module counts, entry points, and flow evidence without repository-specific values.
+A selected component must show its function and source counts below the diagram.
+A selected flow must show its artifact, direction, and evidence state.
+An active sequence must show its acting and measurement components.
+Region summaries must show component and flow counts.
+Maps without authored regions must retain access to every component at small scales.
+At 390 pixels, the document must have no horizontal overflow.
+Visible text must retain the previous 12-pixel and zero-overlap acceptance values.
+
+The final subset command failed because `tests/test_view.py` does not exist.
+File discovery found `tests/test_view_state.py`.
+The corrected subset gave 46 passes. The complete pre-commit command passed.
+The phone external group probe showed all four external components within the viewport.
+The document width and scroll width were both 390 pixels.
+
+The first test without regions removed the container assignment as well as the region assignment.
+Its routing command failed for `Ledger -> Parser`.
+The corrected fixture retains a container for every component.
+A subsequent test called the absent `Model.validate_layout` method and failed before rendering.
+The correction uses `Model.layout_problems`.
+Both repository fixtures then passed their data and control tests.
+
+The phone sequence probe found labels outside the viewport after the projection change.
+The correction frames the step participants throughout the projection transition.
+It also keeps their text within the viewport and hides unrelated diagram boundaries at small scales.
+The repeated probe found zero overlapping text pairs and zero clipped text elements.
+The document width and scroll width were both 390 pixels.
+The diagram occupied 464 pixels of the 844-pixel phone viewport.
+Previous and Next stay above the diagram. The step sentence follows the diagram on phones.
+The isometric legend names acting and measurement components from the current step.
+
+The complete suite gave 589 passes and one skipped test in 77.92 seconds.
+The subsequent data, projection, and relationship subset gave 13 passes.
+The explicit pre-commit command for the new files passed.
+The required `~/.claude/WRITING.md` file remains absent.
+The language examination uses the available official ASD-STE100 reference and project glossary.
+
+The first phone export contained cropped controls because the Chrome window exceeded the requested image width.
+The export now gives the document a width of 390 pixels.
+The browser probe uses the native 390-pixel viewport without that export style.
+The complete PNG images have their final IEND records.
+Dark contains 142428 bytes. Light contains 129515 bytes. Clay contains 143574 bytes.
+The sequence image contains 216790 bytes. The phone image contains 46299 bytes.
+The tour contains 1018503 bytes and 12 frames at 1200 pixels wide.
+
+The final desktop layout reserves space for map information in the first viewport.
+At 1280 by 900 pixels, the diagram height was 605.4609375 pixels.
+The map information ended at 844.03125 pixels.
+The first font probe failed because the initial camera had no transform attribute.
+The repeated probe permits that initial condition.
+It found all 20 component names, zero text overlaps, and no horizontal overflow.
+The computed-style font value was 11.999992057567534 pixels after scale conversion.
+The font control specifies 12 pixels. Computed-style values contain rounded text.
+The Isometric probe also found all 20 names and zero text overlaps.
+
+The inspection test now requires component information during an active sequence.
+The source correction prevents the current sequence flow from replacing the inspected component information.
+The data, projection, camera, and relationship subset gave 16 passes before that correction.
+The drawable area, projection, data, and image subset gave 19 passes after that correction.
+The language examination corrected paragraph length and ordinary words in the new design text.
+The remaining word-list results refer to glossary terms and interface labels.
+
+The complete staged pre-commit command passed every applicable hook.
+A subsequent complete test suite gave 588 passes, one failure, and one skipped test.
+The reduced-motion test counted three camera events instead of two.
+Map information used a camera event to request text placement after a layout change.
+The correction uses the existing layout event and keeps camera events for camera changes.
+The page now shows the diagram before a projection change from Text view.
+Text placement ignores a hidden diagram.
+
+The theme audit found that a configured Clay palette replaced the device theme on a first visit.
+The correction uses Dark or Light from the device preference before a saved selection exists.
+The CSS default also uses Dark. Its media rule supplies Light without JavaScript.
+The figure palette keeps its configured value.
+
+The corrected keyboard, projection, theme, and information subset gave 45 passes.
+The final complete suite gave 590 passes and one skipped test in 74.49 seconds.
+The complete staged pre-commit command passed every applicable hook.
+Mypy found no issues in 54 source files.
+The refresh command updated the recorded map and figures.
+The map check found coverage of 54 out of 54 modules, with no flow path or layout errors.
+The judgement command reported 22 maintainer decisions and seven pending recorded answers.
+The three skill directories had identical contents.
+The browser showed the Isometric selection after a change from Text view.
+The design text now states that reduced motion stops camera animation, not camera changes.

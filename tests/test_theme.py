@@ -9,7 +9,7 @@ here on the rendered output, not on the tables.
 
 Three schemes, each a full table, every text token at 4.5:1 on its
 ground; and the picker: the page carries all three tables, stamps the
-root before the first paint (the stored pick, else paper when the system
+root before the first paint (the stored pick, else light when the system
 prefers light, else the configured default), and a pick restamps the
 root and is kept in this browser when storage allows.
 """
@@ -213,26 +213,26 @@ def test_actor_and_inspector_text_clear_four_and_a_half_on_actual_fills(scheme: 
     assert all(ratio >= 4.5 for ratio in ratios.values()), ratios
 
 
-def test_the_schemes_are_three_full_tables_and_the_default_is_warm() -> None:
-    assert list(theme_mod.SCHEMES) == ["warm", "graphite", "paper"]
-    assert theme_mod.DEFAULT_SCHEME == "warm" and theme_mod.LIGHT_SCHEME == "paper"
+def test_the_schemes_are_three_full_tables_and_the_default_is_dark() -> None:
+    assert list(theme_mod.SCHEMES) == ["dark", "light", "clay"]
+    assert theme_mod.DEFAULT_SCHEME == "dark" and theme_mod.LIGHT_SCHEME == "light"
     keys = {name: set(t) for name, t in theme_mod.SCHEMES.items()}
-    assert keys["warm"] == keys["graphite"] == keys["paper"]
+    assert keys["clay"] == keys["dark"] == keys["light"]
     for name, t in theme_mod.SCHEMES.items():
         assert t["scheme"] == name
-        assert t["color_scheme"] == ("light" if name == "paper" else "dark")
-        assert set(t["layers"]) == set(theme_mod.STANDARD_LAYERS_WARM)
+        assert t["color_scheme"] == ("light" if name == "light" else "dark")
+        assert set(t["layers"]) == set(theme_mod.STANDARD_LAYERS_CLAY)
         assert len(set(t["layers"].values())) == len(t["layers"]), (
             "every standard layer its own hue"
         )
         assert not set(t["layer_palette"]) & set(t["layers"].values()), (
             "a custom layer never takes a standard hue"
         )
-    warm = theme_mod.WARM
-    assert warm["bg"] == "#161310" and warm["accent"] == "#e5a84f" and warm["ink"] == "#ece5d8"
-    assert warm["state"]["built"] == ["#27221a", "#8a7d63", "source recorded"]
-    assert warm["container"]["isolated"] == ["#6b4a3d", "#1d1613"]
-    assert list(warm["layers"].values()) == [
+    clay = theme_mod.CLAY
+    assert clay["bg"] == "#111214" and clay["accent"] == "#cf8b6b" and clay["ink"] == "#fbfcfc"
+    assert clay["state"]["built"] == ["#17181b", "#85868a", "source recorded"]
+    assert clay["container"]["isolated"] == ["#8c6251", "#1b1716"]
+    assert list(clay["layers"].values()) == [
         "#d9cdb2",
         "#82a7ba",
         "#e39a86",
@@ -241,40 +241,45 @@ def test_the_schemes_are_three_full_tables_and_the_default_is_warm() -> None:
         "#86c9a9",
         "#b7c27c",
     ]
-    assert warm["layer_palette"][0] == "#e3b778"
-    assert theme_mod.PAPER["accent"] == "#905c1a"
+    assert clay["layer_palette"][0] == "#e3b778"
+    assert theme_mod.LIGHT["accent"] == "#0a0a0a"
 
 
 def test_overrides_apply_per_scheme_and_bare_keys_to_the_default(sample: Sample) -> None:
     layers = all_layers(sample.model, sample.meaning)
     t = theme_mod.resolve(
-        {"accent": "#111111", "paper": {"accent": "#222222", "layers": {"data": "#333333"}}},
+        {"accent": "#111111", "light": {"accent": "#222222", "layers": {"data": "#333333"}}},
         layers,
     )
-    assert t["scheme"] == "warm" and t["accent"] == "#111111"
+    assert t["scheme"] == "dark" and t["accent"] == "#111111"
     schemes = t["schemes"]
-    assert list(schemes) == ["warm", "graphite", "paper"]
-    assert schemes["warm"]["accent"] == "#111111"
-    assert schemes["graphite"]["accent"] == theme_mod.GRAPHITE["accent"], (
-        "bare keys are the default's"
-    )
-    assert schemes["paper"]["accent"] == "#222222"
-    assert schemes["paper"]["layers"]["data"] == "#333333"
-    assert schemes["paper"]["layers"]["record"] == theme_mod.LAYER_PALETTE_PAPER[0]
-    assert "schemes" not in schemes["paper"], "a scheme's table is not nested again"
+    assert list(schemes) == ["dark", "light", "clay"]
+    assert schemes["dark"]["accent"] == "#111111"
+    assert schemes["clay"]["accent"] == theme_mod.CLAY["accent"], "bare keys are the default's"
+    assert schemes["light"]["accent"] == "#222222"
+    assert schemes["light"]["layers"]["data"] == "#333333"
+    assert schemes["light"]["layers"]["record"] == theme_mod.LAYER_PALETTE_LIGHT[0]
+    assert "schemes" not in schemes["light"], "a scheme's table is not nested again"
     # With the default moved, the bare keys move with it; a sub-table for
     # the default is laid over them.
     t = theme_mod.resolve(
-        {"scheme": "light", "accent": "#111111", "paper": {"bad": "#444444"}}, layers
+        {"scheme": "light", "accent": "#111111", "light": {"bad": "#444444"}}, layers
     )
-    assert t["scheme"] == "paper" and t["accent"] == "#111111" and t["bad"] == "#444444"
-    assert t["schemes"]["warm"]["accent"] == theme_mod.WARM["accent"]
+    assert t["scheme"] == "light" and t["accent"] == "#111111" and t["bad"] == "#444444"
+    assert t["schemes"]["clay"]["accent"] == theme_mod.CLAY["accent"]
     with pytest.raises(
-        ValueError, match="Unknown theme scheme 'sepia'. The schemes are warm, graphite, paper"
+        ValueError, match="Unknown theme scheme 'sepia'. The schemes are dark, light, clay"
     ):
         theme_mod.resolve({"scheme": "sepia"}, layers)
-    with pytest.raises(ValueError, match="theme.warm must contain a table of CSS tokens"):
-        theme_mod.resolve({"warm": "#fff"}, layers)
+    with pytest.raises(ValueError, match="theme.clay must contain a table of CSS tokens"):
+        theme_mod.resolve({"clay": "#fff"}, layers)
+
+
+@pytest.mark.parametrize("name", ["warm", "graphite", "paper"])
+def test_removed_themes_are_unavailable(name: str) -> None:
+    """The removed theme names must give a configuration error."""
+    with pytest.raises(ValueError, match="Unknown theme scheme"):
+        theme_mod.resolve({"scheme": name}, [])
 
 
 # ---- the picker, under the Node driver ------------------------------------------
@@ -290,76 +295,79 @@ def drive_theme(html: Path, *flags: str) -> dict[str, Any]:
 
 def test_the_page_carries_every_scheme_and_stamps_the_default(sample: Sample) -> None:
     layers = all_layers(sample.model, sample.meaning)
-    t = theme_mod.resolve({"paper": {"accent": "#123456"}}, layers)
+    t = theme_mod.resolve({"light": {"accent": "#123456"}}, layers)
     html = page.build(
         sample.cfg, sample.model, sample.meaning, t, sample.facts, {"has_change": False}
     )
     head = html.split("</head>")[0]
     # The default's table on the bare root, every scheme's under its
-    # attribute, and paper under the light preference for a root no script
+    # attribute, and light under the light preference for a root no script
     # stamped; the head script names the default and the three.
     assert head.count(":root{") == 1
-    for name in ("warm", "graphite", "paper"):
+    for name in ("dark", "light", "clay"):
         assert f':root[data-theme="{name}"]{{' in head, name
     bare = re.search(r":root\{([^}]*)\}", head)
-    warm = re.search(r':root\[data-theme="warm"\]\{([^}]*)\}', head)
-    paper = re.search(r':root\[data-theme="paper"\]\{([^}]*)\}', head)
+    dark = re.search(r':root\[data-theme="dark"\]\{([^}]*)\}', head)
+    light = re.search(r':root\[data-theme="light"\]\{([^}]*)\}', head)
     media = re.search(
         r"@media \(prefers-color-scheme:light\)\{:root:not\(\[data-theme\]\)\{([^}]*)\}", head
     )
-    assert bare and warm and paper and media
-    assert bare.group(1) == warm.group(1)
-    assert media.group(1) == paper.group(1)
-    assert "--accent:#123456;" in paper.group(1) and "--accent:#123456;" not in warm.group(1)
-    assert "color-scheme:dark;" in warm.group(1) and "color-scheme:light;" in paper.group(1)
+    assert bare and dark and light and media
+    assert bare.group(1) == dark.group(1)
+    assert media.group(1) == light.group(1)
+    assert "--accent:#123456;" in light.group(1) and "--accent:#123456;" not in dark.group(1)
+    assert "color-scheme:dark;" in dark.group(1) and "color-scheme:light;" in light.group(1)
     assert 'localStorage.getItem("systemap-theme")' in head
-    assert '["warm", "graphite", "paper"].indexOf(s)<0' in head
-    assert '\'(prefers-color-scheme: light)\').matches)?"paper":"warm"' in head
+    assert '["dark", "light", "clay"].indexOf(s)<0' in head
+    assert '\'(prefers-color-scheme: light)\').matches)?"light":"dark"' in head
     assert "document.documentElement.setAttribute('data-theme',s)" in head
     assert head.index("<script>") < head.index("<style>"), "the root is stamped before the styles"
     # The picker in the header, one option per scheme.
-    assert '<label class="scheme">Appearance <select id="scheme" aria-label="Scheme">' in html
-    assert re.findall(r'<option value="(\w+)">', html.split("</header>")[0]) == [
-        "warm",
-        "graphite",
-        "paper",
+    assert '<div id="scheme" role="group" aria-label="Theme">' in html
+    assert re.findall(r'data-scheme="(\w+)"', html.split("</header>")[0]) == [
+        "dark",
+        "light",
+        "clay",
     ]
-    # A configured default lands on the bare root and in the head script.
-    t = theme_mod.resolve({"scheme": "paper"}, layers)
+    # The device theme replaces the configured figure palette on the page.
+    t = theme_mod.resolve({"scheme": "light"}, layers)
     html = page.build(
         sample.cfg, sample.model, sample.meaning, t, sample.facts, {"has_change": False}
     )
     head = html.split("</head>")[0]
     bare = re.search(r":root\{([^}]*)\}", head)
-    assert bare and "color-scheme:light;" in bare.group(1)
-    assert '\'(prefers-color-scheme: light)\').matches)?"paper":"paper"' in head
+    assert bare and "color-scheme:dark;" in bare.group(1)
+    assert '\'(prefers-color-scheme: light)\').matches)?"light":"dark"' in head
 
 
 @needs_node
 @pytest.mark.parametrize(
     ("scheme", "flags", "expected"),
     [
-        ("warm", (), "warm"),
-        ("graphite", (), "graphite"),
-        ("warm", ("--light",), "paper"),
-        ("warm", ("--stored", "graphite"), "graphite"),
-        ("warm", ("--light", "--stored", "warm"), "warm"),
-        ("warm", ("--stored", "sepia"), "warm"),
-        ("warm", ("--light", "--stored", "sepia"), "paper"),
-        ("warm", ("--no-storage",), "warm"),
-        ("warm", ("--light", "--no-storage"), "paper"),
+        ("dark", ("--stored", "warm"), "dark"),
+        ("dark", ("--stored", "graphite"), "dark"),
+        ("dark", ("--light", "--stored", "paper"), "light"),
+        ("clay", (), "dark"),
+        ("light", (), "dark"),
+        ("dark", (), "dark"),
+        ("clay", ("--light",), "light"),
+        ("clay", ("--stored", "dark"), "dark"),
+        ("clay", ("--light", "--stored", "clay"), "clay"),
+        ("clay", ("--stored", "sepia"), "dark"),
+        ("clay", ("--light", "--stored", "sepia"), "light"),
+        ("clay", ("--no-storage",), "dark"),
+        ("clay", ("--light", "--no-storage"), "light"),
     ],
 )
 def test_the_scheme_on_load(
     sample: Sample, tmp_path: Path, scheme: str, flags: tuple[str, ...], expected: str
 ) -> None:
-    """The stored pick is read first; with none, paper when the system
-    prefers light, else the configured default; storage refused or absent
-    changes nothing about the page."""
+    """The page reads the stored selection first. Without a stored selection,
+    the page uses the device theme. The controls also operate without storage."""
     report = drive_theme(sample_page(sample, tmp_path, scheme), *flags)
     assert report["onLoad"] == expected, report
     assert report["pickValue"] == expected, "the picker shows what the root carries"
-    assert report["options"] == report["blocks"] == ["warm", "graphite", "paper"]
+    assert report["options"] == report["blocks"] == ["dark", "light", "clay"]
 
 
 @needs_node
@@ -368,23 +376,23 @@ def test_a_pick_restamps_the_root_and_is_kept(sample: Sample, tmp_path: Path) ->
     assert report["storedOnLoad"] is None, "nothing is stored until the reader picks"
     assert report["switches"] == [
         {"picked": name, "attr": name, "pickValue": name, "stored": name}
-        for name in ("warm", "graphite", "paper")
+        for name in ("dark", "light", "clay")
     ]
     # With storage refused the pick still restamps the root; it is not kept.
     report = drive_theme(sample_page(sample, tmp_path), "--no-storage")
     assert report["storedOnLoad"] == "unavailable"
     assert [(s["picked"], s["attr"], s["stored"]) for s in report["switches"]] == [
-        (name, name, "unavailable") for name in ("warm", "graphite", "paper")
+        (name, name, "unavailable") for name in ("dark", "light", "clay")
     ]
 
 
 @needs_node
-def test_the_self_map_page_stamps_warm_and_switches() -> None:
+def test_the_self_map_page_stamps_dark_and_switches() -> None:
     assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
     report = drive_theme(SELF_MAP)
-    assert report["onLoad"] == "warm"
-    assert [s["attr"] for s in report["switches"]] == ["warm", "graphite", "paper"]
-    assert drive_theme(SELF_MAP, "--light")["onLoad"] == "paper"
+    assert report["onLoad"] == "dark"
+    assert [s["attr"] for s in report["switches"]] == ["dark", "light", "clay"]
+    assert drive_theme(SELF_MAP, "--light")["onLoad"] == "light"
 
 
 def _relative_luminance(value: str) -> float:

@@ -105,8 +105,21 @@ function setCls(el, map){
 }
 function boxOf(n){
   var r = n.querySelector('.node__box');
-  return {x:+r.getAttribute('x'), y:+r.getAttribute('y'),
-    w:+r.getAttribute('width'), h:+r.getAttribute('height')};
+  var width = +r.getAttribute('width');
+  var b = projectBox({x:+r.getAttribute('x'), y:+r.getAttribute('y'),
+    w:width, h:+r.getAttribute('height')});
+  if(+svg.dataset.projection){
+    b.w = Math.max(b.w, +svg.dataset.projection * width + width / 2);
+    b.h += 42;
+  }
+  return b;
+}
+function projectBox(b){
+  var p = (+svg.dataset.projection || 0) / (Math.sqrt(3) / 2);
+  if(!p){ return b; }
+  var a = 1 + (Math.sqrt(3) / 2 - 1) * p, c = -Math.sqrt(3) / 2 * p;
+  return {x:a * b.x + c * (b.y + b.h), y:p / 2 * b.x + (1-p/2) * b.y,
+    w:a * b.w - c * b.h, h:p / 2 * b.w + (1-p/2) * b.h};
 }
 function el(name, attrs, text){
   var e = document.createElementNS(NS, name);
@@ -193,6 +206,29 @@ function setView(v, instant, kmin){
   }
   anim = requestAnimationFrame(tick);
 }
+function projectionMatrix(p){
+  var u=Math.sqrt(3)/2;
+  return [1+(u-1)*p,p/2,-u*p,1-p/2];
+}
+function viewSnapshot(){
+  var v={k:goal.k,tx:goal.tx,ty:goal.ty};
+  if(svg.dataset.flatBox){
+    v.projection=(+svg.dataset.projection || 0)/(Math.sqrt(3)/2);
+    v.box=[VB.x,VB.y,VB.width,VB.height];v.zoom=base()*goal.k;
+  }
+  return v;
+}
+function viewPosition(v){
+  var p=(+svg.dataset.projection || 0)/(Math.sqrt(3)/2);
+  if(!v.box || v.projection===p){return v;}
+  if(v.k===1 && v.tx===0 && v.ty===0){return {k:1,tx:0,ty:0};}
+  var m=projectionMatrix(v.projection),d=m[0]*m[3]-m[1]*m[2];
+  var x=(v.box[0]+v.box[2]/2-v.tx)/v.k,y=(v.box[1]+v.box[3]/2-v.ty)/v.k;
+  var ax=(m[3]*x-m[2]*y)/d,ay=(-m[1]*x+m[0]*y)/d;
+  m=projectionMatrix(p);var k=v.zoom/base();
+  return {k:k,tx:VB.x+VB.width/2-k*(m[0]*ax+m[2]*ay),
+    ty:VB.y+VB.height/2-k*(m[1]*ax+m[3]*ay)};
+}
 function userView(v, instant){
   // The reader moved the view: it is theirs now, and there is nothing to
   // go back to until the next framing.
@@ -243,7 +279,7 @@ function frameRect(r, area, instant){
   var b = base();
   var k = Math.min(ZCAP / b, area.w / r.w, area.h / r.h);
   var cx = area.x + area.w / 2, cy = area.y + area.h / 2;
-  if(!framed){ saved = goal; framed = true; }
+  if(!framed){ saved = viewSnapshot(); framed = true; }
   lastFrame = {rect:r, area:area, k:k};
   setView({k:k, tx:cx - k * (r.x + r.w / 2), ty:cy - k * (r.y + r.h / 2)}, instant, k);
 }
@@ -259,7 +295,10 @@ function unionBox(ids, edgeIdx){
     var p = flowOf[i];
     if(!p || !p.getBBox){ return; }
     var bb = p.getBBox();
-    if(bb.width || bb.height){ add(bb.x, bb.y, bb.width, bb.height); }
+    if(bb.width || bb.height){
+      var pb = projectBox({x:bb.x, y:bb.y, w:bb.width, h:bb.height});
+      add(pb.x, pb.y, pb.w, pb.h);
+    }
   });
   if(x0 === Infinity){ return null; }
   return {x:x0 - FRAME_PAD, y:y0 - FRAME_PAD, w:x1 - x0 + 2 * FRAME_PAD, h:y1 - y0 + 2 * FRAME_PAD};
@@ -286,7 +325,8 @@ function frameRegion(id){
   var box = null;
   (META.regions || []).forEach(function(z){ if(z.id === id && z.box){ box = z.box; } });
   if(!box){ return; }
-  frameRect({x:box[0] - 12, y:box[1] - 12, w:box[2] + 24, h:box[3] + 24}, visibleArea(null));
+  var b = projectBox({x:box[0] - 12, y:box[1] - 12, w:box[2] + 24, h:box[3] + 24});
+  frameRect(b, visibleArea(null));
 }
 function back(){
   // The view before the framing chain began; nothing if the reader has
@@ -294,7 +334,7 @@ function back(){
   if(!saved){ return; }
   var v = saved;
   saved = null; framed = false;
-  setView(v);
+  setView(viewPosition(v));
 }
 function fracOf(id){
   // Where the card's centre sits across the visible area (the last framing's,

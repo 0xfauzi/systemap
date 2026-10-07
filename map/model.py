@@ -251,6 +251,7 @@ COMPONENTS = (
             "systemap.page_assets",
             "systemap.page_script",
             "systemap.page_atlas",
+            "systemap.page_workspace",
         ),
         entry="build",
         region="draw",

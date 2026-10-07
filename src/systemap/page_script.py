@@ -408,6 +408,7 @@ JS = r"""
       (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey)){
       var search = document.getElementById('partsearch');
       if(search){
+        setMode('understand');document.body.dataset.browse='true';
         var section = document.getElementById('components');
         if(section){ section.hidden = false; }
         var details = search.closest('details');
