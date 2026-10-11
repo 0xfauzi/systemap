@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -577,8 +578,14 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         "window.matchMedia('(prefers-color-scheme: light)').matches)?"
         f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(theme_mod.DEFAULT_SCHEME)}}}"
         "document.documentElement.setAttribute('data-theme',s)})();</script>"
-        f"<style>{panel_css(t, variables=True)}{CSS.replace('{ROOT}', theme_mod.root_css(t))}"
-        f"{page_atlas.CSS}{extra_css}</style></head>"
+        "<style>"
+        + _compact_css(
+            panel_css(t, variables=True)
+            + CSS.replace("{ROOT}", theme_mod.root_css(t))
+            + page_atlas.CSS
+            + extra_css
+        )
+        + "</style></head>"
     )
 
 
@@ -704,3 +711,12 @@ def _compact(js: str) -> str:
     The page scripts have no template literals, so no string continues on a second line."""
     lines = (line.strip() for line in js.splitlines())
     return "\n".join(line for line in lines if line and not line.startswith("//"))
+
+
+def _compact_css(css: str) -> str:
+    """Remove comments, line breaks and indentation from the page styles.
+
+    A line break after a semicolon, a brace or a comma goes. A different line
+    break becomes one space, because it can separate two values."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    return re.sub(r"([;{},])?[ \t]*\n\s*", lambda m: m.group(1) or " ", css).strip()
