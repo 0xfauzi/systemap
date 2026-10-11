@@ -50,7 +50,7 @@ from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
 from systemap.serve import make_server
 
-OK, STALE, BAD_CONFIG = 0, 1, 2
+OK, STALE = 0, 1
 
 
 @dataclass(frozen=True)
