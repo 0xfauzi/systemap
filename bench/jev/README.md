@@ -1532,3 +1532,73 @@ The new page ran with the panel open, which is the default, and with the panel c
 The new page passed. The largest increase is 14.3 percent: the selected card with the panel open in run 2.
 The differences between runs of one page are as large as the differences between the pages.
 A drag of the map does not start the pointer highlight. The new effects use no filter.
+
+## Paper theme surfaces and highlighter (2026-10-11)
+
+The maintainer said that the Paper theme looked bad. Before the change, screenshots of all views in Ink and Paper
+at 1440 by 900 and 390 by 844 pixels and these values of the base (9defc3d) showed the causes:
+
+| Item | Paper on the base | Ink |
+|---|---|---|
+| OKLCH chroma of bg, surface, raised, map, card | 0.0098 to 0.0170, hue 86 to 91 | 0.0043 to 0.0088 |
+| OKLCH hue of the highlighter `hl` | 92 (`#FFD33D`), the hue of the surfaces | no highlighter |
+| Panel against map | panel darker than map (L 0.949 and 0.965) | map darker than panel |
+| Map surface | dark grain at 6 percent, a brown dark edge | light grain, dark edge |
+| Selection | ink ring, yellow glow, highlighter 11 px at 90 percent under an ink line | amber ring and glow |
+| `ink_3` text on `hl` (a selected flow row in the panel) | 4.16:1 | not applicable |
+| Paper data, tools and custom 1 kind colors | OKLCH L 0.35 to 0.38 | L 0.61 to 0.70 |
+
+Acceptance (written before the runs):
+
+- Each text token has 4.5:1 or more on bg, surface, raised, map and card, and where it shows on `hl` or `hl_soft`.
+- `card_line`, `region` and `flow` have 3:1 or more on the map.
+- The kind colors pass the limits of "Flow kind colors without blue or purple" on the new surfaces:
+  the required sets A, S and CH, 4.5:1 on the map and card, 3:1 on bg, surface and raised, and no hue in the band.
+- Each Paper kind color has 3:1 or more on the highlighter under a selected or current line.
+- Ink does not change. The sample page stays smaller than 307,200 bytes.
+
+The new Paper surfaces have an OKLCH chroma of 0.0028 to 0.0063 at hue 75 to 85.
+The map is the toned sheet. The header, the row and the panel are lighter. A card is the lightest surface.
+Paper has no grain, no dark edge and no glow. The card shade is ink at 8 percent.
+A segmented control has the map color as its track, so the white selected segment shows on the white row.
+
+| Token | Before | After |
+|---|---|---|
+| `bg` | `#ECE8DE` | `#F1EFEC` |
+| `surface` | `#F1EEE6` | `#FCFAF7` |
+| `raised` | `#E6E1D5` | `#EDEAE6` |
+| `map` | `#F6F3EC` | `#F4F2EF` |
+| `grid` | `#E6E1D6` | `#E6E3DF` |
+| `card` | `#FFFEFB` | `#FFFEFC` |
+| `card_line`, derived layers | `#8C877D` | `#8F8B85` |
+| `region` | `#8F8A80` | `#8F8B85` |
+| `line` | `#E0DBD0` | `#E4E2DF` |
+| `line_2`, `ghost` line, containers | `#D3CDC0` | `#D4D1CD` |
+| `ink_2`, `steel`, `good` | `#4B4740` | `#524F4A` |
+| `ink_3`, `delta.tests` | `#686359` | `#6D6963` |
+| `flow` (neutral line) | `#8F8C84` | `#8E8C85` |
+| `on_accent` | `#F6F3EC` | `#FCFAF7` |
+| `hl`, `hl_line` | `#FFD33D` | `#FFEBA0` |
+| `hl_soft`, `accent_soft` | `#FFF1BF` | `#FFF5D6` |
+
+The kind colors measurement is a copy of the script of the earlier measurement with the new Paper surfaces.
+
+| Run | Change | Result |
+|---|---|---|
+| 1 | neutral line `#8D8A86` | Fail: sets A and S, control / neutral line, normal 23.8 (25) |
+| 2 | neutral line `#8E8C85`, found by a search for 3:1 on the map and the set limits | Pass: A worst control / context, deutan 12.3; S worst control / neutral line, normal 25.7; CH 32.4 |
+| 3 | highlighter `#FFEBA0` | The same sets. Lowest kind on the highlighter: control 4.26:1 |
+
+With the highlighter `#FFE380` of run 2, `ink_3` had 4.30:1 on it. That failed the text limit, so run 3 uses a lighter yellow.
+The lowest values after the change: text 4.55:1 (`ink_3` on raised), a kind color 4.54:1 (control on the map),
+`flow` 3.01:1, `card_line` and `region` 3.03:1 on the map. The kind colors do not change.
+Set B and the custom 3 and custom 4 hue differences (20.2 and 20.3 degrees) still fail, as before.
+Paper data, tools and custom 1 stay dark. The earlier measurement found no passing set with Paper data at L 0.40 or more.
+The Ink token tables of the page are the same before and after the change.
+
+| Page | Before | After |
+|---|---|---|
+| Sample page (`test_page_is_small_and_self_contained`) | 306,145 | 305,750 |
+| Self-map page, no comparison, scratch build | 644,811 | 644,416 |
+
+These measurements do not show user comprehension.
