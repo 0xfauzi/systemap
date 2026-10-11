@@ -1674,6 +1674,12 @@ The earlier steps have the rest width, 1.6 px, at full opacity. The later steps 
 | Sample page, this branch after the merge of 8e95034 | 306,599 |
 | Self-map page, scratch build, 8e95034 | 652,810 |
 | Self-map page, scratch build, this branch after the merge | 652,563 |
+| Sample page, codex/map-workspace with the header and the Find dialog (6f6eb27) | 301,215 |
+| Sample page, this branch after the merge of 6f6eb27, without the Sequences Full screen button | 301,615 |
+| Self-map page, scratch build, 6f6eb27 | 637,789 |
+| Self-map page, scratch build, this branch after the merge of 6f6eb27 | 637,093 |
 
+After the merge of 6f6eb27, Previous and Next stay on the 375 x 667 screen for each of the 46 steps.
 The sequence button needs about 2,300 bytes of script. The line rule removes the sequence arrowheads, the glow rules and the key
-under the step list. The panel styles merge repeated declarations. The sample page passes with 601 bytes of space.
+under the step list. The panel styles merge repeated declarations. After the merge of 8e95034, the sample page
+passed with 601 bytes of space. After the merge of 6f6eb27, it passes with 5,585 bytes of space.
