@@ -13,11 +13,9 @@ from systemap.config import Config
 from systemap.model import Component, Meaning, Model, all_layers
 from systemap.page_assets import CSS
 from systemap.page_script import JS
-from systemap.page_workspace import PROJECTION_SCRIPT
 from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
 from systemap.schematic import interactive_script, kind_rows, panel_css
 from systemap.schematic import render as render_schematic
-from systemap.schematic_style import project_svg
 
 STATE_WORD = {"built": "source recorded", "actor": "outside"}
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
@@ -105,7 +103,7 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
         observed_by=cfg.observed_by,
         variables=True,
     )
-    return project_svg(svg, flat=True)
+    return svg
 
 
 def _index_entry(c: Component, state: str, plain: str) -> str:
@@ -352,8 +350,7 @@ def _controls(model: Model, meaning: Meaning, t: dict[str, Any]) -> str:
         '<button type="button" data-zoom="fit" aria-pressed="true">Show all</button>'
         '<button type="button" data-zoom="actual" aria-pressed="false">100%</button>'
         '</div><div class="view-switch" role="group" aria-label="Map view">'
-        '<button type="button" id="view-map" aria-pressed="true">Flat</button>'
-        '<button type="button" id="view-isometric" aria-pressed="false">Isometric</button>'
+        '<button type="button" id="view-map" aria-pressed="true">Map</button>'
         '<button type="button" id="view-reading" aria-pressed="false">Text view</button>'
         "</div></div>"
     )
@@ -474,7 +471,7 @@ def _change(ch: dict[str, Any], svg: str) -> str:
         + '<div class="legend"><span>Accent color: changed source</span>'
         "<span>Secondary color: import connection</span>"
         "<span>Low contrast: unchanged source</span></div>"
-        f'<div class="comparison-panes"><div class="stage">{project_svg(svg, flat=True)}</div>'
+        f'<div class="comparison-panes"><div class="stage">{svg}</div>'
         '<aside class="systemap-panel" id="change-panel" aria-label="Comparison details" '
         'aria-live="polite"><p>Select a comparison card to examine its source changes.</p>'
         "</aside></div></section>"
@@ -620,12 +617,12 @@ def build(
         _step_strip(),
         '<div class="atlas" id="atlas" aria-label="Text view of the system" hidden></div>',
         '<div class="spatial-map" id="spatialmap">'
-        '<div class="mapwrap" id="mapwrap"><div class="map-roles" id="map-roles" hidden></div>'
-        '<div class="stage" id="stage">'
-        f"{project_svg(system_svg, flat=True)}"
+        '<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">'
+        f"{system_svg}"
         '</div></div></div><section class="map-context" id="map-context" '
         'aria-label="Map information" aria-live="polite"></section>'
-        '<p class="hint" id="map-detail" aria-live="polite"></p>'
+        '<p class="hint" id="map-detail">'
+        "Select a component or flow to read its source evidence.</p>"
         '<p class="hint sr-only">Scroll to zoom. Drag to move the map. '
         "Show all shows all components. "
         "Tab selects cards and flow paths. Enter opens their data. Arrow keys change layers or "
@@ -667,7 +664,6 @@ def build(
     o += [
         f"<script>{JS}</script>",
         f"<script>{page_atlas.SCRIPT}</script>",
-        f"<script>{PROJECTION_SCRIPT}</script>",
         f"<script>{WORKSPACE_SCRIPT}</script>",
         "</body></html>",
     ]

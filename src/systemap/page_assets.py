@@ -98,12 +98,6 @@ align-items:center;font-size:12px;min-height:36px;white-space:nowrap}
 .lstrip__row button{font-size:12px}.lstrip__row i{font-style:normal;margin:0 .3rem}
 .lstrip-members{display:none}.lstrip .on{border-color:var(--accent)}
 .mapwrap{position:relative;background:var(--bg);border:0;overflow:hidden}
-.map-roles{position:absolute;top:.8rem;left:1rem;right:1rem;z-index:2;
-display:flex;flex-wrap:wrap;gap:.35rem .9rem;font-size:12px;pointer-events:none}
-.map-roles span{background:var(--bg);padding:.3rem .5rem;border:1px solid var(--line);
-border-radius:4px;color:var(--ink-2)}
-.map-roles .acting{border-top:2px solid var(--accent)}
-.map-roles .measurement{border-top:2px solid var(--steel)}
 .map-context{border-top:1px solid var(--line);padding:.7rem 1rem;background:var(--surface)}
 .map-context h3{font-size:13px;font-weight:500;margin:0 0 .25rem}
 .map-context p{font-size:12px;max-width:85ch;margin:.3rem 0}

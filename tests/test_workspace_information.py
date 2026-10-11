@@ -1,7 +1,7 @@
 """Examine information from a second repository model.
 
 Acceptance: exact source counts, flow identity, and sequence roles.
-Maps without regions must include every component in a summary group.
+Maps with and without regions give the same information.
 The DOM harness examines data and controls. It does not measure browser geometry.
 """
 
@@ -25,18 +25,12 @@ function information(page){
     counts:doc.querySelectorAll('#map-context dl>div').map(n=>
       [n.querySelector('dt').textContent,+n.querySelector('dd').textContent]),
     text:doc.getElementById('map-context').textContent});
-  const report={initial:context(),groups:svg.querySelectorAll('.region-summary').map(n=>
-    ({name:n.getAttribute('aria-label'),text:n.textContent}))};
+  const report={initial:context()};
   A.select('Reader');runFrames(win);report.component=context();
   A.inspectFlow(0);runFrames(win);report.flow=context();
   X.trace(0);X.traceStep(2);runFrames(win);report.sequence=context();
   X.inspect('Ledger');runFrames(win);report.inspection=context();
   X.returnToJourney();runFrames(win);report.returned=context();
-  doc.getElementById('view-isometric').click();runFrames(win);report.isometric=context();
-  report.legend={hidden:doc.getElementById('map-roles').hidden,
-    text:doc.getElementById('map-roles').textContent};
-  report.heightRatio=['Parser','Ledger'].map(id=>-parseFloat(svg.querySelector(
-    '.node[data-id="'+id+'"] .node__plate').style.transform.split('(')[1]));
   X.endJourney();runFrames(win);report.restored=context();
   return report;
 }
@@ -90,20 +84,7 @@ def test_map_information_uses_source_records(sample: Sample, tmp_path: Path, reg
     assert (
         "Acting components: Parser. Measurement components: Ledger." in report["sequence"]["text"]
     )
-    assert report["isometric"] == report["sequence"]
     assert report["inspection"]["title"] == "Ledger"
     assert dict(report["inspection"]["counts"])["Flows"] == 2
     assert report["returned"] == report["sequence"]
-    assert report["legend"] == {
-        "hidden": False,
-        "text": "Acting components: ParserMeasurement components: Ledger",
-    }
-    assert report["heightRatio"][0] / report["heightRatio"][1] == pytest.approx(1.8)
     assert report["restored"] == report["flow"]
-    groups = {g["name"]: g["text"] for g in report["groups"]}
-    if regions:
-        assert "4 flows / 2 modules" in groups["WORK, 2 components"]
-        assert "3 flows / 2 modules" in groups["KEEP, 2 components"]
-    else:
-        assert "5 flows / 4 modules" in groups["Other components, 4 components"]
-    assert "1 flows / 0 modules" in groups["External components, 1 components"]

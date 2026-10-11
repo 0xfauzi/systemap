@@ -65,5 +65,5 @@ page.
 
 ## Open Decisions
 
-An isometric presentation and a different control to share views are optional.
-The selected production design does not include these features.
+A different control to share views is optional.
+The selected production design does not include this feature.

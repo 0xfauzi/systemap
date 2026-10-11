@@ -53,8 +53,8 @@ TOUR: list[tuple[str, str]] = [
     ("spoke", "A.select('CLI'); A.peek(A.detail['CLI'].edges[0]);"),
     ("journey-1", "journey(0); "),
     ("journey-2", "journey(0); next();"),
-    ("journey-3-isometric", "journey(0); next(); next(); iso();"),
-    ("card-control-isometric", "layer('control'); A.select('Check'); iso();"),
+    ("journey-3", "journey(0); next(); next();"),
+    ("card-control", "layer('control'); A.select('Check');"),
 ]
 
 # Each tour frame contains the title bar and map controls.
@@ -66,7 +66,6 @@ function journey(k){{
   s.dispatchEvent(new Event('change'));
 }}
 function next(){{ document.getElementById('jnext').click(); }}
-function iso(){{ document.getElementById('view-isometric').click(); }}
 {actions}
 }})();</script>
 """
@@ -182,10 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     # The document width must agree with the screenshot width.
     phone = head.replace("</head>", "<style>html,body{width:390px;max-width:390px}</style></head>")
     (site / "phone.html").write_text(
-        phone
-        + DRIVER.format(actions="journey(0); iso(); window.scrollTo(0,0);")
-        + "</body>"
-        + tail,
+        phone + DRIVER.format(actions="journey(0); window.scrollTo(0,0);") + "</body>" + tail,
         encoding="utf-8",
     )
 

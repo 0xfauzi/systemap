@@ -100,7 +100,7 @@ rounded:
   layer-indicator: "1px"
   control: "6px"
   map-surface: "0px"
-  plate: "10 SVG units"
+  card: "4 SVG units"
   inspector-detail: "6px"
   standalone-panel: "8px"
 spacing:
@@ -131,7 +131,7 @@ components:
     padding: "{spacing.inspector-padding}"
     width: "300px"
   map-card:
-    rounded: "{rounded.plate}"
+    rounded: "{rounded.card}"
   standalone-panel:
     backgroundColor: "{colors.dark-surface}"
     textColor: "{colors.dark-ink-2}"
@@ -147,7 +147,7 @@ A sequence shows authored operation steps. The page does not record execution.
 
 ## Appearance
 
-Thin borders, plain controls, and projected plates use the styles from
+Thin borders and plain controls use the styles from
 [Hairline](https://github.com/lucasmarkes/hairline).
 The application has its own navigation and layout.
 Dark and Light use black, white, and gray surfaces.
@@ -173,7 +173,7 @@ Components contains the search field and component list.
 Sequences contains the operation list and step counts.
 `Reference` contains review records, rules, commands, `Read the map`, and `Reduce motion`.
 
-The map toolbar contains the layer menu, zoom controls, and Flat, Isometric, and Text view.
+The map toolbar contains the layer menu, zoom controls, Map, and Text view.
 A component or flow selection shows a 300px inspector next to the map.
 The inspector shows the selected item, its connections, and source evidence.
 The map uses the available viewport height.
@@ -199,44 +199,17 @@ Its disclosure contains measurement components and evidence.
 Go to sequence restores the current step after component inspection.
 End sequence restores the previous selection, layer, and camera position.
 
-## Projection and text
+## Map and text
 
-Flat is the initial view. Isometric changes the same component and flow geometry.
-The change ends after 480ms at the specified projection matrix.
-A projection control can replace the destination during the change.
-With reduced motion, the change occurs immediately.
-Projection changes keep the selected item and sequence step.
+The map has one flat view. Card positions and flow paths come from the model.
+Card names and descriptions stay inside their card borders.
+Card text changes size with the camera zoom. Zoom in to read descriptions at a small scale.
 
-Saved camera positions contain their projection for restoration in the correct plane.
-
-Component names stay horizontal in the two views.
-Displayed names and descriptions use 12 CSS pixels after the camera transform.
-When description text overlaps a different component, the map shows component names.
-When names overlap, the map shows region names and component counts.
-
-Region labels move apart and stay in the map width.
-Region summaries give component, flow, and source module counts from the current model and recorded source data.
-A region flow count includes each flow with an endpoint in that region.
-Components without a region use a different summary group.
-Select a region to read its components at a larger scale.
-
-At a small scale, a selection shows its components with horizontal text.
-An active sequence shows its components and flow, with component descriptions when the map has sufficient space.
-The other components stay in the model and navigation list.
+An active sequence shows sequence roles with color and a ring.
+Acting components have an accent border.
+Measurement components have a steel border and a steel inner ring.
 
 The inspector and Text view contain full descriptions and source evidence.
-
-Isometric depth shows sequence roles.
-Acting components have plates 18 CSS pixels above their initial position.
-Measurement components have plates 10 CSS pixels above their initial position.
-The text moves with the plate.
-
-An inspection moves its selected plate 6 CSS pixels above its initial position.
-The initial border stays at its initial position. Reduced motion keeps these component positions.
-
-The map footer gives the meaning of the plate height for an active sequence.
-The isometric diagram names the acting and measurement components in its legend.
-Projection changes keep the current step participants in the diagram viewport.
 
 The information below the diagram gives source module counts, entry point counts, and related sequences.
 A component selection gives its function. A flow selection gives its artifact, direction, and evidence state.

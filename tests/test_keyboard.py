@@ -197,9 +197,9 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
     assert f"--accent:{accent};" in html
     assert ":focus-visible{outline:2px solid var(--accent);outline-offset:2px}" in html
     assert (
-        "#schematic .node:focus-visible .node__box{stroke:var(--accent);stroke-width:1.6}" in html
+        "#schematic .node:focus-visible .node__box{stroke:var(--accent);stroke-width:2.6}" in html
     )
-    assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:1.6}" in html
+    assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:2.2}" in html
     assert (
         "@media (prefers-reduced-motion:reduce){*{transition:none!important;"
         "animation:none!important}}" in html

@@ -79,11 +79,9 @@ Components and Sequences show above the phone map and in the desktop navigation 
 Reference contains rules and review records. Theme contains Dark, Light, and Clay.
 The first visit uses the device theme.
 
-Flat and Isometric show the same map. The control shows an animation between projections.
-In Isometric, plate height identifies acting and measurement components in the current sequence step.
-Component text stays horizontal.
-At a small map scale, region names and counts replace overlapping component names.
-Region summaries include flow and source module counts.
+The map has one flat view. Card text changes size with the zoom.
+In a sequence step, acting components have an accent border.
+Measurement components have a steel border and an inner ring.
 The information below the diagram gives source modules, entry points, related sequences, and evidence states.
 These values come from the current model and recorded source data.
 
