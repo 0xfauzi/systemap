@@ -82,7 +82,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="5777a8ba632ccedcae26b9515b9aa0fcab84d73f07851150762487243299f4d5",
+        source_review="20fd4d037d2a1209d2659c35499c89cb7ae3e23607cbd7780fa41530d916a101",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -105,7 +105,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="4f605bcb5961851a961ae36a79067ff7988036fc1b499107de1fb0c65346bc90",
+        source_review="8cd49a11c321eff02217ad9e4778be9ed0c1f8069fcd67487df0e0740152bde7",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -124,7 +124,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="2919ab8e59d84beb730fcfbed935507d6ae141ee1de38e98eeedd9ac7119aa9d",
+        source_review="36d4fb183bfdcb1fa1ccdb1530ddb77d76f4016f70b338c8313598cdd9a14617",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -149,7 +149,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="048cc69174dd91a74ac9a5a71bc6dd9bb6e89d38384747f8cc0d7db321310eca",
+        source_review="323c68d0d398a7ba9c3b18568fa559bf73d909af0974888e853d0732996aa81b",
         does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions, and a pull request comment with the changed components, flows, sequences and invariants and a diagram of the changed flows. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -193,7 +193,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="6faab42b647f71ecf4e1bec0069c21ec84f90be41eec8352e2084eb799fd5035",
+        source_review="4515e8e0ac17ea50535db424f9577c7110c2b84495e6752f523bfd8589af7c7e",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -224,7 +224,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="c4ae1a43f929c3d790734573b1bec03312df8dcd66942fe79c87af3804c3bb61",
+        source_review="80d09116dfe35f70b0c4073e18e9d145e172945a85f6e190324e909bccf773b9",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -243,7 +243,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="38001a3438597fbb9d1d2e5fdb0d1145c92da000af95f279d50eb5e7aec62a9a",
+        source_review="2be57a0bcd7c1d7971c89511e183e14405934bfd69dd4c901dd8e5f94957078b",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -284,7 +284,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="9eb8b2f72975ece3e3622a54d410f7d60188832ad2f6786942c982df25b328f1",
+        source_review="d93078d3a99bedd48cce697acacb42056098f5afa6694c4de22c95b6216ea72c",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=("systemap.check", "systemap.extract_check"),
@@ -295,7 +295,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="98b8f48762744853007eec59177fc59545a7dc394d70fd4a6ecde0230dea6a08",
+        source_review="0ddab72789510652b3a7de9dbbacd2b81aefad6d18e647ff1112c207344696a0",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -372,13 +372,14 @@ _SOURCE_SHA = {
     'systemap.judgement': '03eccc1da7ad765837b3607be9d4fc7df7e10c1dd6a5a944518b51467e2bb7a3',
     'systemap.model': 'c932400b182ad6a8ad1d9d0d4ea1fafd7bef7c4558856a89766bf9752965a158',
     'systemap.nest': '3efcf11b68b398c8f3fe9675b62269f3ce82ba1350ff8c617770c71f1a9b8ae0',
-    'systemap.page': '2eae56da8218de2ca6fa0b1cdb347d7cf957e6cca486b0cd838ba8e6945aa662',
+    'systemap.page': 'd793a588cca637a5275194eb892984a38a863de554ef2eae5d22a2176872d236',
+    'systemap.page_sequences': 'a40c233f429dfce185a3c6a5b4df19b487015bfd0509ed9811d52c6fcb5874a2',
     'systemap.place': '2de8bfec87417c71a4463399881374aa6da0b34bba5856c10fd6fad3f2bbbb14',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
     'systemap.scaffold': '2ea5c1c993762c683fd0a536e4793a4c449ef632ca1897855e70091d5d7d0c78',
     'systemap.schematic': '272472678680912848c9a22f04b8a874cfa364266da7ec22e5c53bbd50dab449',
     'systemap.skill': '71bde7489e07dd6f2555e01b059e52a53c1742fb3e962c581f52a8dec64d901e',
-    'systemap.page_data': '3d4141cc124f0e56644ac2618195cc8f7103686bf1f43bbae5c19ffc83e63b4e',
+    'systemap.page_data': '696552bab4cc5b4c2004221e6e13b7af8a34d1acbf17292b962aac46f39b8d3f',
 }
 
 _FLOW_REVIEWS = {
@@ -408,6 +409,7 @@ _FLOW_REVIEWS = {
     'FactsExtractor -> SecondOpinion': ('systemap.jev_cli systemap.audit', '98d9a6b3e3319ceb78a0204f4f8db1c73b2c3af15e18eb39aaf36e73c25a557f'),
     'ChangeDetector -> SecondOpinion': ('systemap.delta systemap.delta_jev systemap.cli', 'ffba44a72989775705f60bf0e3df1fcab37fbf696b936ed7457c5b2a11eafdba'),
     'Judgement -> SecondOpinion': ('systemap.journey_coverage systemap.journeys', 'e2a0338a72b87fe10ab1685c68b7925ced5dfc606fdef3861997fe0fd8cfb761'),
+    'Judgement -> Page': ('systemap.journey_coverage systemap.page_sequences', '8bbe8bfe2b151b0e265f9fea6e5bb0cd97127b07a97500074da3ec04c1cd02ab'),
     'SecondOpinion -> Describe': ('systemap.journeys systemap.describe', 'ab2404f74734c529acfb5798faba10362306ea40a664d0b96bf1061e4115021d'),
     'FactsExtractor -> Describe': ('systemap.extract systemap.describe', '0a1403e29534709747f509c4fb2c6e5d724976af583375dde60d4014df8569d5'),
     'Scaffold -> Model': ('systemap.scaffold systemap.cli', '41e1d924d76d1edf80bd88349c94acf3988b1990da77af4d54a51bdfff4b98ee'),
@@ -489,6 +491,7 @@ FLOWS = tuple(
         Flow("TypeSafe", "SecondOpinion", "typed answers", "data"),
         Flow("ChangeDetector", "SecondOpinion", "delta lines", "data"),
         Flow("Judgement", "SecondOpinion", "uncovered entry points", "data"),
+        Flow("Judgement", "Page", "uncovered entry points", "data"),
         Flow("SecondOpinion", "Describe", "uncovered entry points", "data"),
         Flow("FactsExtractor", "Describe", "entry points", "data"),
         Flow("Scaffold", "Model", "initial model", "data"),
@@ -732,6 +735,7 @@ _RELATIONS = {
     "Maintainer -> Model": "The maintainer corrects model errors. The maintainer controls the model after examination.",
     "Model -> Judgement": "Judgement finds model decisions for examination.",
     "Judgement -> SecondOpinion": "Judgement has one rule for entry-point sequence coverage. The sequence writer uses this rule to find entry points without sequences.",
+    "Judgement -> Page": "The Sequences view uses the same coverage rule. It gives the number and the names of the entry points without a sequence.",
     "Judgement -> ChangeDetector": "Delta uses judgement answer rules and import groups. Its report uses explanations for finding kinds.",
     "SecondOpinion -> Describe": "Describe reads the entry points without sequences from the sequence writer. It shows the first entry points in this list.",
     "FactsExtractor -> Describe": "Describe uses the entry-point labels from the extractor.",

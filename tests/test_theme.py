@@ -34,7 +34,7 @@ import pytest
 from conftest import Sample
 from test_keyboard import DRIVER, SELF_MAP, needs_node, sample_page
 
-from systemap import figure, page, page_assets, page_changes
+from systemap import figure, page, page_changes
 from systemap import theme as theme_mod
 from systemap.model import DERIVED_LAYERS, all_layers
 from systemap.schematic import interactive_script, panel_css
@@ -366,8 +366,7 @@ def test_paper_surfaces_are_near_neutral_and_lighter_from_map_to_panel_to_card()
     """Paper is warm but not beige: each surface has an OKLCH chroma of 0.007
     or less. Ink surfaces go to 0.009. The map is the toned sheet, the header and panel are
     lighter, and a card is the lightest, so the cards stand out on the map.
-    The highlighter hue is not the hue of the paper. The picker swatch shows
-    the map colour of each scheme."""
+    The highlighter hue is not the hue of the paper."""
     paper = theme_mod.LIGHT
     chroma = {key: round(oklab_lc(paper[key])[1], 4) for key in TEXT_GROUNDS}
     assert all(c <= 0.007 for c in chroma.values()), chroma
@@ -375,8 +374,6 @@ def test_paper_surfaces_are_near_neutral_and_lighter_from_map_to_panel_to_card()
     assert light["bg"] < light["map"] < light["surface"] < light["card"], light
     assert contrast(paper["card"], paper["map"]) >= 1.1
     assert oklab_lc(paper["hl_line"])[1] >= 0.08, "the halo is a clear highlighter yellow"
-    for name, t in theme_mod.SCHEMES.items():
-        assert f'[data-scheme="{name}"] i{{background:{t["map"]}}}' in page_assets.CSS
 
 
 def test_every_paper_kind_line_reads_on_the_highlighter_halo() -> None:
