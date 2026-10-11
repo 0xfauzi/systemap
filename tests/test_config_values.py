@@ -41,6 +41,15 @@ def test_a_model_file_with_a_byte_order_mark_loads(two_cards: Path) -> None:
     assert [c.id for c in model.components] == ["Reader", "Writer"]
 
 
+def test_place_writes_a_model_file_with_a_byte_order_mark(two_cards: Path) -> None:
+    path = two_cards / "map/model.py"
+    path.write_bytes(BOM + path.read_bytes())
+    assert run("--root", str(two_cards), "extract") == 0
+    assert run("--root", str(two_cards), "place", "--all") == 0
+    model, _meaning = config.load_model(path)
+    assert all(c.x is not None and c.y is not None for c in model.components)
+
+
 def test_a_configuration_with_a_byte_order_mark_loads(two_cards: Path) -> None:
     path = two_cards / "systemap.toml"
     path.write_bytes(BOM + path.read_bytes())

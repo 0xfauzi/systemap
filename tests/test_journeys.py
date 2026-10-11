@@ -257,6 +257,17 @@ def test_the_walk_that_comes_back_is_written_in_and_judgement_asks_about_it(
     assert "GET /read" not in lines.split("drafted journey")[0]
 
 
+def test_the_walk_is_written_into_a_model_file_with_a_byte_order_mark(
+    two_cards: Config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = with_agent(two_cards)
+    cfg.model_path.write_bytes(b"\xef\xbb\xbf" + cfg.model_path.read_bytes())
+    run, _asked = answering(json.dumps(ANSWER))
+    assert cmd_journeys(args_for(cfg), run_command=run) == 0
+    assert "wrote read-and-write" in capsys.readouterr().out
+    assert any(j.id == "read-and-write" for j in nest.load(cfg).top.meaning.journeys)
+
+
 def test_a_walk_the_map_cannot_hold_is_reported_and_the_model_is_left_alone(
     two_cards: Config, capsys: pytest.CaptureFixture[str]
 ) -> None:

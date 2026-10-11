@@ -986,7 +986,7 @@ def write(path: Path, placement: Placement) -> str:
     The caller reloads the model and uses unwritten to find positions that the edit did
     not change.
     """
-    source = path.read_text(encoding="utf-8")
+    source = path.read_text(encoding="utf-8-sig")
     path.write_text(written(source, placement), encoding="utf-8", newline="\n")
     return source
 

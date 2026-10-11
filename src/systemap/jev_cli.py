@@ -319,7 +319,7 @@ def _record_journey(
         return
     source = sources.get(current.path)
     if source is None:
-        source = current.path.read_text(encoding="utf-8")
+        source = current.path.read_text(encoding="utf-8-sig")
     grown = journeys.add_to_source(source, draft.journey)
     if grown is None:
         out.append(f"journeys: {current.rel} has no journeys list. Add this source:")
