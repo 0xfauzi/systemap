@@ -40,7 +40,12 @@ function mapview(page){
 
 
 def run_scenario(
-    sample: Sample, tmp_path: Path, name: str, scenario: str, viewport: str = "1600x900"
+    sample: Sample,
+    tmp_path: Path,
+    name: str,
+    scenario: str,
+    viewport: str = "1600x900",
+    hash_: str = "",
 ) -> dict[str, object]:
     node = shutil.which("node")
     if node is None:
@@ -54,7 +59,7 @@ def run_scenario(
     driver = driver.replace(
         "const scenarios = {keyboard, framing, submap, theme, workspace};",
         "const scenarios = {keyboard, framing, submap, theme, workspace, " + name + "};",
-    )
+    ).replace("location: {hash: '',", "location: {hash: " + json.dumps(hash_) + ",")
     harness = tmp_path / f"{name}.js"
     harness.write_text(driver + scenario, encoding="utf-8")
     result = subprocess.run(
@@ -295,3 +300,21 @@ def test_framing_keeps_the_selection_above_the_legend(sample: Sample, tmp_path: 
     # The area for a framing stops 8 pixels above the legend, as a sequence step does.
     assert report["after"] == top - 8
     assert report["hidden"] == report["before"]
+
+
+LINKED = r"""
+function maplinked(page){
+  const {doc,win,A}=page;
+  const report={focus:A.state.focus,panel:doc.body.dataset.panel};
+  A.clear();runFrames(win);
+  report.cleared={focus:A.state.focus,panel:doc.body.dataset.panel,
+    layer:!!doc.querySelector('#inspector-empty .lay')};
+  return report;
+}
+"""
+
+
+def test_panel_stays_open_after_a_linked_selection_clears(sample: Sample, tmp_path: Path) -> None:
+    report = run_scenario(sample, tmp_path, "maplinked", LINKED, hash_="#Reader")
+    assert report["focus"] == "Reader" and report["panel"] == "open"
+    assert report["cleared"] == {"focus": "", "panel": "open", "layer": True}

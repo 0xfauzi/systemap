@@ -234,7 +234,7 @@ SCRIPT = r"""
   P.readers.push(reader);
 
   // ---- the panel opens with the page on a wide window --------------------------
-  if(window.innerWidth > 820 && P.mode() === 'understand' && !P.panelOpen()){ P.openPanel(); }
+  if(window.innerWidth > 820 && P.mode() === 'understand'){ P.openPanel(); }
   eyebrow();
   if(P.renderRead){ P.renderRead(); }
 })();
