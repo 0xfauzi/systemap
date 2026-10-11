@@ -92,7 +92,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="36a0b37ce0051c40c234ce4cecd3bd2bfdb661cdebeba49a64f9cf3d7d288f07",
+        source_review="1d3cfd29332cb2a392a3069e7202a9f89ab607de46b3f8388652da6fc8e862be",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -159,7 +159,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="90796479c5c2b7b51a852c5bcdd50056f29543336e321ec50719cf854ad32f8f",
+        source_review="8b2839d1ccb20b8a4b3b13db341a345c04ac713031cd2db37bd5dc25a1ada7ba",
         does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -301,7 +301,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="50c5ea45940279ba77713ea70ca30c8693d552f9c7a09b1845b7a7bfb17a6a68",
+        source_review="af626c9d9c79b4c4d779d704b280cfdf3cb2b24b90192f6b0bfefc3b2055ac3c",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -364,7 +364,7 @@ _SOURCE_SHA = {
     'systemap.config': 'aaa1aa86bdbb9be37517532629e6955c51a3000b951ef71a54355ab590a72cfd',
     'systemap.delta': '4f9815fa9216d6daa1433f6f259c631405846dd88b9ea6f14976869c8ff1f166',
     'systemap.delta_jev': '7aa94d9c2f085e838124f8ed7bf786d195e268839dbc75feeb90b8e6383eae74',
-    'systemap.delta_report': '1848bd1c7e910488c7b340262d4f8bacb99ada92cef4f6f1503947e2a66c5856',
+    'systemap.delta_report': '7efb7d3f3759d42e3c3bb346acd10453e015db9870429d17708de05c3c61a9ca',
     'systemap.describe': '07b6f0167be141f633cbfa7d3b7c6d0a6363b50178c670f05988b86f3ff5f7c3',
     'systemap.evidence': '41f466b8f1f482bd54edd788ea649f96fc3833ccb3a2fa11b61f09b50a226f9f',
     'systemap.explain': '1c5dd0ae8ad29232dd4e401b233ae632577cfde0680649d7bb352c9879399594',

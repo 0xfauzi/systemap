@@ -108,8 +108,13 @@ def _near_markdown(d: Delta) -> list[str]:
     lines = near_lines(d, teach=False)
     if not lines:
         return []
-    said = lines[1].strip()
-    return ["**Components connected to the change**", "", f"{said[0].upper()}{said[1:]}.", ""]
+    return ["**Components connected to the change**", "", _sentence(lines[1]), ""]
+
+
+def _sentence(text: str) -> str:
+    """This function starts a text with a capital letter and ends it with one full stop."""
+    said = text.strip().rstrip(".")
+    return f"{said[0].upper()}{said[1:]}."
 
 
 def _why_each_kind(lines: list[Line]) -> list[str]:
@@ -187,7 +192,7 @@ def markdown(d: Delta, figure: str = "", committed: str = "") -> str:
         out.append("")
     out += _near_markdown(d)
     if d.past_a_third:
-        out += [f"> {FULL_LOOP[0].upper()}{FULL_LOOP[1:]}.", ""]
+        out += [f"> {_sentence(FULL_LOOP)}", ""]
     head_short = d.head[:7] or d.head_ref
     base_short = d.base[:7] or d.base_ref
     out += _figure_lines(figure, committed, head_short, base_short)
