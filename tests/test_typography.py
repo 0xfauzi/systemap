@@ -58,7 +58,9 @@ def design_typography() -> dict[str, dict[str, str]]:
             entries[name] = {}
             continue
         key, _, value = line.strip().partition(": ")
-        entries[name][key] = value.strip("'\"")
+        if len(value) > 1 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        entries[name][key] = value
     return entries
 
 
