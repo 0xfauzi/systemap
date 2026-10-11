@@ -91,7 +91,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="434f69f3dba0b6b1197c404ddafdd6a02481618085acb23fbf4c55becc65f2f2",
+        source_review="3be53a19e43abf05f4321bda7267d7ccaadf5e3f9b5d841e518153e3f00da7e8",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -114,7 +114,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="8b0270b70f7415f19e643fe16484bf0421176d0432570fc06ae8ef9e301e8d6d",
+        source_review="5d8e6dc8bdbb3a7c0fffb4e8fbb5d37f6788fd52f5e18c1f34b8192764c010d9",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -158,7 +158,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="8b2839d1ccb20b8a4b3b13db341a345c04ac713031cd2db37bd5dc25a1ada7ba",
+        source_review="aca2c73f2410990e31a06f58a1673c27a8d8a03c59d62b07c0f72578dd32953c",
         does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -200,7 +200,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="5cbe58b4a06fd7aae0f4ba461b4dfd8bda26f011d6cadb7c72878187c5446cfc",
+        source_review="282b6e90ee0c4a522bf3ba0156bec76150ade50dd1b8f8273fdd1163a43d8e70",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -231,7 +231,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="56639aab059a150641eccccd2f6945f8610bcba5c291b528d9e760e0a93e598f",
+        source_review="468b96abb71fd6dff2071c6975d9d63d09750a26bd79645dc0b6d275c12ff85a",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -250,7 +250,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="6d54c73f6f179c8efdda2e664c01dacf579875ef286d3c34237291e54512f003",
+        source_review="38001a3438597fbb9d1d2e5fdb0d1145c92da000af95f279d50eb5e7aec62a9a",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Text view shows the same components and flows. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -291,7 +291,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="3fb948d5d7be38a6f6faeeccc4fd74acbbb6e9c2716dda5bed901ff2f0d73f6b",
+        source_review="9fd257ba62c8915238985b175fb19722a12f0a6b3607f2b7af8785894870a5c2",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=("systemap.check", "systemap.extract_check"),
@@ -379,7 +379,7 @@ _SOURCE_SHA = {
     'systemap.judgement': '03eccc1da7ad765837b3607be9d4fc7df7e10c1dd6a5a944518b51467e2bb7a3',
     'systemap.model': 'c932400b182ad6a8ad1d9d0d4ea1fafd7bef7c4558856a89766bf9752965a158',
     'systemap.nest': '3efcf11b68b398c8f3fe9675b62269f3ce82ba1350ff8c617770c71f1a9b8ae0',
-    'systemap.page': '5e4cfc3217636504a9ce0d3b44611e11a4d32a5c1598930641171ec68543cd59',
+    'systemap.page': '2eae56da8218de2ca6fa0b1cdb347d7cf957e6cca486b0cd838ba8e6945aa662',
     'systemap.place': '2de8bfec87417c71a4463399881374aa6da0b34bba5856c10fd6fad3f2bbbb14',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
     'systemap.scaffold': '2ea5c1c993762c683fd0a536e4793a4c449ef632ca1897855e70091d5d7d0c78',
