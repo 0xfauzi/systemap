@@ -92,7 +92,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="603511ed64a09efaa172b6c49fe66652dfb6a17783aaab6e8a4e245e241e8cbc",
+        source_review="9fee7aa8528f8701098ab6a111199b09bb0d66e1e39c02b707c795d9fdeb118a",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -115,7 +115,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="f304d4315e310ffb8ec69405e02156a0969fd12aeb0a862404d1c679c03ca840",
+        source_review="e3ef016ffde0f66f9e8ee61b918c87ebc3b52f3f62d2f18539f47b5ca7b05b4b",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -134,7 +134,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="ea48025036a910151aa6a3634f0c164ae9b2c3b37f06b6a9ce3c4b09583c5b1f",
+        source_review="b53eb47d4f656d65e57654d17352c002bf4c4afda21ab8060fa290d4175b15cf",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
