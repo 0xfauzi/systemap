@@ -10,7 +10,7 @@ Jev gets two types of questions:
   `jev owner` line.
 
 A Jev answer is a suggestion for source examination, not evidence. It does not change
-the delta lines, the decisions, or the exit code. Thus a run with Jev, a run without
+the delta lines or the exit code. Thus a run with Jev, a run without
 a key, and a run where Jev does not answer give the same result.
 If there is no question, no client is made and no message prints.
 """
@@ -203,7 +203,7 @@ def ask(
 
 # ---- the report -------------------------------------------------------------------
 
-HEAD = "Jev suggestions. They do not change the decisions or the exit code"
+HEAD = "Jev suggestions. They do not change the delta lines or the exit code"
 
 
 def text(asked: Asked, teach: bool = True) -> list[str]:

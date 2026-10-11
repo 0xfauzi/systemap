@@ -32,7 +32,7 @@ Use ASD-STE100 for these fields and outputs:
 - Container and region names and descriptions.
 - Layer names, questions, and descriptions.
 - Sequence names, labels, and step sentences.
-- Invariants and the reasons for recorded decisions.
+- Invariants and the reasons for recorded answers.
 - New identifiers that are also names for the reader.
 - Agent answers, command help, errors, explanations, and documentation.
 

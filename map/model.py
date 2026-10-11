@@ -733,7 +733,7 @@ _RELATIONS = {
     "Skill -> Agent": "The skill gives the procedure, schema, example, second examination and output requirements to the agent.",
     "Agent -> Model": "The agent writes module groups, flows, explanations, sequences and invariants in map/model.py.",
     "Maintainer -> Model": "The maintainer corrects model errors. The maintainer controls the model after examination.",
-    "Model -> Judgement": "Judgement finds model decisions for examination.",
+    "Model -> Judgement": "Judgement finds possible model errors for examination.",
     "Judgement -> SecondOpinion": "Judgement has one rule for entry-point sequence coverage. The sequence writer uses this rule to find entry points without sequences.",
     "Judgement -> Page": "The Sequences view uses the same coverage rule. It gives the number and the names of the entry points without a sequence.",
     "Judgement -> ChangeDetector": "Delta uses judgement answer rules and import groups. Its report uses explanations for finding kinds.",

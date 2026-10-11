@@ -2,11 +2,11 @@
 
 It finds added, removed, and moved modules, missing public names, new imports, and
 changes to flow evidence. The model on disk supplies the component claims. The report
-identifies decisions and gives actions without changing the model.
+identifies the necessary map updates and gives actions without changing the model.
 
 Only source facts, the model, and the configured answers set the lines and the exit
 code. A Jev answer does not change them (`systemap.delta_jev`), so a run with Jev and
-a run without Jev give the same decisions.
+a run without Jev give the same lines.
 """
 
 from __future__ import annotations
@@ -501,7 +501,7 @@ def _candidate(
 ) -> Line:
     """This function gives a move candidate line.
 
-    The line is a decision while a component specifies the removed module, or while the
+    The line needs an action while a component specifies the removed module, or while the
     model has no place for an added module. A model change closes it.
     """
     pair = f"move candidate: {old} and {', '.join(alternatives)} have some of the same public names"

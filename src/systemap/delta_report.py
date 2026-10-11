@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
 MARKER = "<!-- systemap delta -->"
 NEXT = "systemap refresh && systemap check && systemap judgement --strict"
+# The heads of the text report: the map needs a change, or the map agrees with the source.
+NEEDS_UPDATE = "The map needs an update"
+CURRENT = "The map is current."
 # A full commit ID: SHA-1 or SHA-256.
 FULL_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 FULL_LOOP_SHARE = 1 / 3
@@ -60,7 +63,7 @@ def report(d: Delta, teach: bool = True) -> list[str]:
     # One report teaches a kind once, whichever group it first appears in.
     taught: set[str] = set()
     if d.open:
-        out.append(f"A decision is necessary ({len(d.open)}):")
+        out.append(f"{NEEDS_UPDATE} ({len(d.open)}):")
         out += _lines_taught(d.open, teach, taught)
     if d.quiet:
         out.append(f"No action is necessary for these changes ({len(d.quiet)}):")
@@ -69,9 +72,9 @@ def report(d: Delta, teach: bool = True) -> list[str]:
     if d.past_a_third:
         out.append(FULL_LOOP)
     if d.open:
-        out.append(f"Do the action for each diagnostic. Then use {NEXT}")
+        out.append(f'Do the action in each line under "{NEEDS_UPDATE}". Then run {NEXT}')
     else:
-        out.append("No decision is necessary. The map includes this change. Use systemap refresh.")
+        out.append(f"{CURRENT} Run systemap refresh to write the facts and the page again.")
     return out
 
 

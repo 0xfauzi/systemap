@@ -101,7 +101,7 @@ ignore = [
 
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, incident flows, sequences, and invariants before you write it.
-Delta keeps a changed component under `needs a decision` until the digest agrees with the current claims and source.
+Delta keeps a changed component under `The map needs an update` until the digest agrees with the current claims and source.
 Refresh does not write this digest. See `references/maintenance.md` for the procedure.
 
 ### Kind and appearance

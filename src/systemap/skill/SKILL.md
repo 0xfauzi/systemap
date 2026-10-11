@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model in ASD-STE100, places components, examines source claims, renders the map, and records decisions. Use systemap delta for source changes after the first map.
+description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model in ASD-STE100, places components, examines source claims, renders the map, and records answers to findings. Use systemap delta for source changes after the first map.
 license: MIT
 compatibility: Python 3.11+ and the systemap package (uv tool install systemap). Delta and history use Git. Jev commands use TYPESAFE_API_KEY and network access.
 ---
@@ -30,9 +30,9 @@ Do not change commands, schema keys, identifiers, or quoted source evidence.
 If the official reference is unavailable, tell the maintainer. Do not complete language acceptance.
 Do not claim compliance from an automated word-list check.
 
-## Jev decisions
+## Jev answers
 
-Jev is the TypeSafe model for decisions that imports and names cannot give.
+Jev is the TypeSafe model for questions that imports and names cannot answer.
 With `TYPESAFE_API_KEY`, use `suggest --jev` and `audit`.
 The `delta` and `triage` commands can also use Jev.
 Without a key, use source examination in `references/second-pass.md`.
@@ -75,7 +75,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    Correct each check failure. Act on or answer each judgement line.
    Before rendering, the check can have only a `stale` finding.
    Removing a flow can reopen crossing-import findings. Do the judgement check again.
-4. **judgement**: Run `systemap judgement`. Record unanswered decisions in `systemap.toml`.
+4. **judgement**: Run `systemap judgement`. Record an answer for each open line in `systemap.toml`.
    Use `[judgement] answered` with a reason and one of these forms:
 
    - `item = "<line>"`: the full line without indentation.
@@ -187,8 +187,8 @@ Its actors represent adjacent components. Commands examine every nested map.
 | `systemap place` | Write positions for unplaced components. `--all` keeps only pinned positions. `--keep-order` keeps region order. `--print` shows positions without file changes. |
 | `systemap render` | Write the page. `--check` exits 1 for stale output. |
 | `systemap check` | Examine map consistency and coverage. Exit 0 means success, 1 means failed checks, and 2 means unusable configuration or model. |
-| `systemap suggest` | Show initial package assignments. `--jev` uses model decisions. Examine all proposals against source. |
-| `systemap judgement` | Show decisions for action or a recorded answer. `--strict` exits 1 for unanswered lines. `--kind KIND` filters the list. `--verbose` lists crossing imports. |
+| `systemap suggest` | Show initial package assignments. `--jev` uses Jev answers. Examine all proposals against source. |
+| `systemap judgement` | Show possible map errors. Correct each one or record an answer. `--strict` exits 1 for unanswered lines. `--kind KIND` filters the list. `--verbose` lists crossing imports. |
 | `systemap audit` | Ask Jev about source meaning. Record its answers under `[judgement]`. |
 | `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means action is necessary. `--format markdown` makes a pull request comment. `--no-jev` prevents model calls. |
 | `systemap triage "<issue>"` | Ask Jev for three components that the issue can affect, with modules and adjacent components. |
@@ -213,10 +213,10 @@ Judgement: <final systemap judgement --strict result>
 Audit: <final systemap audit result, or "Jev not available">
 Procedure: <Jev or source examination, and each Jev failure>
 Examined module assignments: <count>
-Maintainer decisions: <each assignment that must receive a maintainer decision>
-Recorded decisions: <each answer in systemap.toml, with its reason>
+Open questions: <each assignment that the maintainer must examine>
+Recorded answers: <each answer in systemap.toml, with its reason>
 Evidence limits: <each recorded extractor, source, or Jev limit>
-Uncertainty: <each uncertain component assignment, source claim, or language decision>
+Uncertainty: <each uncertain component assignment, source claim, or ASD-STE100 word>
 Proposed rules: <each proposed invariant outside the invariant list>
 ```
 

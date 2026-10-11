@@ -770,7 +770,7 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
         "Add it to a component implemented_by in map/style.py, "
         "the map inside Style has the same module claims as Style\n"
     ) in out
-    assert "A decision is necessary (" in out
+    assert "The map needs an update (" in out
     assert "source review:" in out
     assert "4 of 9 components specified" in out
     assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1

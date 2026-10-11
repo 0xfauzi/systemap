@@ -120,7 +120,7 @@ class Ignore:
 
 @dataclass(frozen=True)
 class Answer:
-    """This record gives a maintainer decision for exact diagnostic lines or a family of
+    """This record gives a maintainer answer for exact diagnostic lines or a family of
     lines.
 
     Exact items contain the full printed line without the two-space indent. Family

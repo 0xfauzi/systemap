@@ -5,9 +5,9 @@ Each diagnostic line is an identifier that the maintainer can use in an exact an
 The command prints an explanation under each diagnostic kind unless the user selects
 `--brief`.
 
-Exit code 0 means success. Exit code 1 means a stale map, a check error, or an open
-decision. Exit code 2 means a configuration, model, option, or revision error. Commands
-that read the model include nested maps. A nested diagnostic has its map ID as a prefix.
+Exit code 0 means success. Exit code 1 means a stale map, a check error, an open finding,
+or a necessary map update. Exit code 2 means a configuration, model, option, or revision
+error. Commands that read the model include nested maps. Nested lines have a map ID prefix.
 """
 
 from __future__ import annotations
@@ -494,7 +494,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_judgement(args: argparse.Namespace) -> int:
-    """Print the decisions that the maintainer must make.
+    """Print the possible map errors that the maintainer must examine.
 
     Exact answers must have the printed line and correct evidence. Family answers must
     have an explicit policy. The command gives stale answers but does not reject them.
@@ -535,8 +535,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
 def cmd_delta(args: argparse.Namespace) -> int:
     """Print map changes from the facts at two Git commits.
 
-    The command reads committed trees and uses the model on disk. A necessary decision
-    gives exit code 1. The `--format markdown` option gives a pull request comment.
+    The command reads committed trees and uses the model on disk. If the map needs an
+    update, the exit code is 1. The `--format markdown` option gives a pull request comment.
     """
     p = _project(args)
     _require_roots(p)
@@ -1015,7 +1015,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "judgement",
-        help="Print the diagnostics for maintainer decisions.",
+        help="Print the possible map errors for the maintainer to examine.",
         description=(
             "This command gives possible errors that mechanical checks cannot resolve. The "
             "diagnostics include module grouping, flow descriptions, entry points, and "
@@ -1055,7 +1055,7 @@ def build_parser() -> argparse.ArgumentParser:
             "This command reads the facts at two Git commits. It gives added, removed, and "
             "moved modules, missing entries and interfaces, new imports, and changes to "
             "flow evidence. Each diagnostic gives the necessary action. The command exits "
-            "0 if no decision is necessary, or 1 if a decision is necessary."
+            "0 if the map is current, or 1 if the map needs an update."
         ),
     )
     add_root(s)
@@ -1073,7 +1073,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Ask Jev for possible module moves and owners of modules without components. "
-            "The answers are suggestions. They do not change the decisions or the exit code. "
+            "The answers are suggestions. They do not change the delta lines or the exit code. "
             "Use --no-jev to send no request. The default is enabled if TYPESAFE_API_KEY "
             "is set and [jev] enabled is not false."
         ),

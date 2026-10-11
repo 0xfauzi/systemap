@@ -180,8 +180,8 @@ instructions, and a CI workflow. The command then prints this instruction:
 
 Give the instruction to your agent. The agent reads the code, selects a component
 for each module, writes flows, and does the checks. A second examination finds missing claims.
-Read the recorded decisions when the agent stops. Correct the decisions with
-which you do not agree. Then commit the page.
+Read the agent's completion report when it stops. It gives the recorded answers
+and the uncertain claims. Correct the items with which you do not agree. Then commit the page.
 
 For Claude Code, use the repository's plugin marketplace:
 
@@ -282,7 +282,7 @@ unclaimed modules, missing entry names, incorrect geometry, and stale outputs.
 Geometry findings include a line through an unrelated component and overlapping
 labels. Each finding gives a correction.
 
-**`systemap judgement` prints questions for a decision.** Examples
+**`systemap judgement` prints possible map errors to examine.** Examples
 include a single-module component, an entry point with no sequence, and an import
 across components with no flow. Change the map or record a reason in
 `systemap.toml`. Exact answers must have evidence for the stored source snapshot. Family answers must have

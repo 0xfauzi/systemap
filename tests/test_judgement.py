@@ -200,8 +200,8 @@ def test_an_ignored_module_is_not_a_question(sample: Sample) -> None:
 
 
 def test_report_wording() -> None:
-    assert judgement.report([]) == ["judgement: No decision is necessary"]
-    assert judgement.report(["a"]) == ["judgement: 1 item for maintainer decisions", "  a"]
+    assert judgement.report([]) == ["judgement: No possible map error to examine"]
+    assert judgement.report(["a"]) == ["judgement: 1 possible map error to examine", "  a"]
 
 
 def test_answers_suppress_count_and_go_stale() -> None:
@@ -215,14 +215,14 @@ def test_answers_suppress_count_and_go_stale() -> None:
     assert result.answered == 2
     assert result.stale == ["gone: y"]
     assert judgement.report(result) == [
-        "judgement: 1 item for maintainer decisions, 2 answered, 1 stale",
+        "judgement: 1 possible map error to examine, 2 answered, 1 stale",
         "  x",
         "  stale answer: 'gone: y' is now missing. Remove it from [judgement] answered.",
     ]
     everything = judgement.apply_answers(lines[:2], answers[:2])
     assert (
         judgement.report(everything)[0]
-        == "judgement: No decision is necessary, 2 answered, 1 stale"
+        == "judgement: No possible map error to examine, 2 answered, 1 stale"
     )
     assert judgement.apply_answers([], ()) == judgement.Answered([], 0, [])
 
@@ -326,7 +326,7 @@ def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixt
     )
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for maintainer decisions, 1 stale")
+    assert out.startswith("judgement: 4 possible map errors to examine, 1 stale")
     assert "single module: Reader" in out
     assert out.count("pending answer:") == 2
     assert "ignored" not in out, "the ignored package root is not a question"
@@ -397,7 +397,7 @@ def test_judgement_command_always_exits_0(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for maintainer decisions")
+    assert out.startswith("judgement: 4 possible map errors to examine")
     assert "single module: Reader contains only pkg.reader" in out
     assert "single module: Writer contains only pkg.writer" in out
     # The starter has one data flow and no control flow: the standard layer is thin.
@@ -604,7 +604,7 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     # kind alone with --kind, the head still counting every open line.
     printed = judgement.report(lines, detail, teach=False)
     assert printed == [
-        "judgement: 2 items for maintainer decisions",
+        "judgement: 2 possible map errors to examine",
         f"  {lines[0]}",
         "    pkg.__main__ imports pkg.ledger",
         "    pkg.cli imports pkg.ledger",
@@ -615,7 +615,7 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     mixed = ["single module: Reader contains only pkg.reader", *lines, "Sub: " + lines[0]]
     assert judgement.of_kind(mixed, "crossing import") == [*lines, "Sub: " + lines[0]]
     assert judgement.report(mixed, kind="single module", teach=False) == [
-        "judgement: 4 items for maintainer decisions. The report shows 1 single module line",
+        "judgement: 4 possible map errors to examine. The report shows 1 single module line",
         "  single module: Reader contains only pkg.reader",
     ]
     # with the teaching on, the kind is explained once under its first line
@@ -886,7 +886,7 @@ answered = [
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 2 items for maintainer decisions, 3 answered, 1 stale")
+    assert out.startswith("judgement: 2 possible map errors to examine, 3 answered, 1 stale")
     assert "  thin layer: control shows 0 components" in out
     assert 'stale answer: \'crossing = ["Reader", "Writer"]\' is now missing' in out
     cfg = config.load(tmp_path)
@@ -914,7 +914,7 @@ def test_strict_exits_1_while_a_line_is_open(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 1
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 4 items for maintainer decisions")
+    assert out.startswith("judgement: 4 possible map errors to examine")
     assert out.rstrip().endswith(
         "Answer each line in [judgement] answered in systemap.toml, or do the specified action."
     )
@@ -926,7 +926,7 @@ def test_strict_exits_1_while_a_line_is_open(
     )
     assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: No decision is necessary, 4 answered, 1 stale")
+    assert out.startswith("judgement: No possible map error to examine, 4 answered, 1 stale")
     assert main(["--root", str(tmp_path), "judgement"]) == 0
 
 

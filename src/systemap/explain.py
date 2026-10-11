@@ -263,7 +263,7 @@ DELTA = {
         do=(
             "Compare the source. If the module task stayed the same, change the claim to the "
             "added module. Otherwise, remove the claim and add the added module to the "
-            "component for its task. The line is then not a decision."
+            "component for its task. Then the line needs no action."
         ),
     ),
     "structural evidence lost": Lesson(
@@ -294,7 +294,7 @@ AUDIT = {
         ),
         why=(
             "A move keeps the module claim of a component. This suggestion does not change "
-            "the delta decisions or the exit code."
+            "the delta lines or the exit code."
         ),
         do=(
             "Read the two source files. If the module task stayed the same, change the claim "

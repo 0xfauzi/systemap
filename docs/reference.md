@@ -101,7 +101,7 @@ Without `--strict`, the report exits 0.
 With `--strict`, it exits 1 while a finding is open.
 `[judgement] answered` in `systemap.toml` contains recorded answers.
 Accepted answers suppress findings and increase the answered count.
-The report can print `judgement: 3 items for maintainer decisions, 21 answered`.
+The report can print `judgement: 3 possible map errors to examine, 21 answered`.
 An answer with no matching finding is stale.
 
 An answer can show exact lines or a family of lines:
@@ -206,7 +206,7 @@ With the key set, `delta` automatically sends questions to Jev.
 If delta has no question for Jev, it sends nothing and prints no Jev line.
 
 Jev answers are suggestions for source examination. They are not evidence.
-They do not change the delta lines, the decisions, or the exit code.
+They do not change the delta lines or the exit code.
 Thus a run with Jev, a run without a key, and a run in CI give the same result.
 The suggestions print under their own heading.
 If Jev does not answer, a `delta --jev:` line gives the reason under a different heading.
@@ -222,7 +222,7 @@ The Jev picks added 17 pairs, and 16 of them were correct.
 An agent wrote reference labels from commits without Jev's answers.
 The records are in `bench/jev`.
 
-A `move candidate` line stays a decision while a component specifies the removed module
+A `move candidate` line needs an action while a component specifies the removed module
 in `implemented_by`, or while an added module has no claim and no ignore.
 Read the two source files. Then change the claims.
 The line then moves to the changes that need no action.
@@ -504,7 +504,7 @@ new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
 An answer for a new crossing import must agree with the `judgement` rule:
 an exact answer needs the current evidence digest, and a family answer needs `policy = true`.
-The exit code is 0 if no decision is necessary, or 1 if not.
+The exit code is 0 if the map is current, or 1 if the map needs an update.
 
 The text report ends with adjacent components.
 These have flows to the component with the most changes.
@@ -545,7 +545,7 @@ the map.
 
 - `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change
-  the decisions or the exit code.
+  the delta lines or the exit code.
 
 - `--no-jev` sends nothing.
 

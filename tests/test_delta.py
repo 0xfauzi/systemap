@@ -242,7 +242,7 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
         "added: pkg.vendor.lib, ignored in [coverage]",
         "removed: pkg.more.gone, with a previous claim in Writer through a pattern",
     ]
-    start = next(i for i, line in enumerate(lines) if line.startswith("A decision is necessary ("))
+    start = next(i for i, line in enumerate(lines) if line.startswith("The map needs an update ("))
     open_lines = lines[
         start + 1 : lines.index(
             f"No action is necessary for these changes ({len(expected_quiet)}):"
@@ -267,7 +267,8 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     first = taught.index("  " + expected_open[0])
     assert taught[first + 1].startswith("      why: "), "the teaching sits under its line"
     assert lines[-1] == (
-        "Do the action for each diagnostic. Then use systemap refresh && systemap check && systemap judgement --strict"
+        'Do the action in each line under "The map needs an update". '
+        "Then run systemap refresh && systemap check && systemap judgement --strict"
     )
 
 

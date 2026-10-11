@@ -19,10 +19,10 @@ The language policy in `references/language.md` applies to every changed name an
    Otherwise, use `built_at_commit` from the last facts snapshot.
    Delta reads committed source at both revisions, not the working tree.
    It compares the changes with the map claims.
-   Exit 0 means no decision is necessary. Exit 1 means action is necessary.
+   Exit 0 means that the map is current. Exit 1 means that the map needs an update.
    With `TYPESAFE_API_KEY`, Jev can identify rewritten moves and suggest owners for unclaimed modules.
    Before you accept a suggested move, read both source files.
-2. Act on the lines under `A decision is necessary` in `map/model.py` and `systemap.toml`.
+2. Act on the lines under `The map needs an update` in `map/model.py` and `systemap.toml`.
    Keep unaffected component assignments and positions.
    For a new component, use `systemap place`.
    If its region has no free position, use `systemap place --all`.
@@ -78,10 +78,10 @@ A subsequent source or claim change reopens the finding.
 | `source evidence lost` | Source records no longer support an observed claim. | Examine references, direction, and artifact before renewal. |
 | `structural evidence lost` | An import or configured mechanism is missing. | Examine the flow against current source. |
 | `source review` | Component source or claims changed. | Examine all claims before renewal of `source_review`. |
-| `move candidate` | Removed and added modules share public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim and assign the added module. The line is then not a decision. |
-| `jev move`, `jev owner` | Jev suggests a move or an owner that delta did not find. | Read the source before you use the suggestion. These lines do not change the delta decisions or the exit code. |
+| `move candidate` | Removed and added modules share public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim and assign the added module. Then the line needs no action. |
+| `jev move`, `jev owner` | Jev suggests a move or an owner that delta did not find. | Read the source before you use the suggestion. These lines do not change the delta lines or the exit code. |
 
-Lines under `No action is necessary for these changes` record changes without a required decision.
+Lines under `No action is necessary for these changes` record changes that need no map update.
 A pattern-matched addition or removal can still have a separate source-review finding.
 
 ## Optional plan before code changes

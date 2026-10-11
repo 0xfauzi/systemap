@@ -2,7 +2,7 @@
 
 Jev answers are suggestions. The delta lines and the exit code come only from the
 source facts, the model, and the configured answers, so a run with Jev, a run without
-a key, and a run where Jev fails give the same decisions. A move candidate closes when
+a key, and a run where Jev fails give the same update lines. A move candidate closes when
 the model no longer specifies the removed module and claims the added module.
 
 Every transport is an injected fake. No test opens a socket.
@@ -155,45 +155,47 @@ def run(root: Path, capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int
     return code, out, err
 
 
-def decisions(out: str) -> list[str]:
+def update_lines(out: str) -> list[str]:
     lines = out.splitlines()
-    if not any(line.startswith("A decision is necessary") for line in lines):
+    if not any(line.startswith("The map needs an update") for line in lines):
         return []
-    start = next(i for i, line in enumerate(lines) if line.startswith("A decision is necessary"))
+    start = next(i for i, line in enumerate(lines) if line.startswith("The map needs an update"))
     return [line for line in lines[start + 1 :] if line.startswith("  ")][
         : int(lines[start].split("(")[1].split(")")[0])
     ]
 
 
-# ---- finding 2 and python F4: the same decisions with and without Jev ------------
+# ---- finding 2 and python F4: the same update lines with and without Jev ------------
 
 
-def test_jev_does_not_change_the_decisions_or_the_exit_code(
+def test_jev_does_not_change_the_update_lines_or_the_exit_code(
     renamed: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     without = run(renamed, capsys)
     assert without[0] == 1
     assert any(
         line.startswith("  move candidate: pkg.ledger and pkg.records_store")
-        for line in decisions(without[1])
+        for line in update_lines(without[1])
     )
     fake = Fake()
     use(monkeypatch, fake)
     with_jev = run(renamed, capsys)
     assert fake.posts, "Jev was asked"
     assert with_jev[0] == without[0]
-    assert decisions(with_jev[1]) == decisions(without[1])
+    assert update_lines(with_jev[1]) == update_lines(without[1])
     assert (
         "  jev move: pkg.ledger -> pkg.records_store (read as the same module by Jev, "
         "confidence 0.90)" in with_jev[1].splitlines()
     )
-    assert "Jev suggestions. They do not change the decisions or the exit code (2):" in with_jev[1]
+    assert (
+        "Jev suggestions. They do not change the delta lines or the exit code (2):" in with_jev[1]
+    )
     # A Jev answer that does not fit the question gives a reason, and the same result.
     (renamed / ".systemap/jev-cache.json").unlink()
     use(monkeypatch, Fake(broken=True))
     broken = run(renamed, capsys)
     assert broken[0] == without[0]
-    assert decisions(broken[1]) == decisions(without[1])
+    assert update_lines(broken[1]) == update_lines(without[1])
     assert "delta --jev: Jev gave an incorrect answer to became" in broken[1]
 
 
@@ -218,7 +220,7 @@ def test_a_model_change_closes_a_move_candidate(
         "  move candidate: pkg.ledger and pkg.records_store have some of the same public names. "
         "No component specifies pkg.ledger in implemented_by. pkg.records_store has a claim in Ledger"
     ) in out.splitlines()
-    assert "No decision is necessary." in out
+    assert "The map is current." in out
 
 
 def test_a_move_candidate_stays_open_while_the_model_specifies_the_removed_module(

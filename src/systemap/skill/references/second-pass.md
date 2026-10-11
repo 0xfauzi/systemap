@@ -116,7 +116,7 @@ All of these conditions must hold:
 - Unread documentation has no rules for source in the repository.
 - The language acceptance procedure is complete for all changed names and sentences.
 
-Give the maintainer the completion report from SKILL.md, with the recorded decisions and evidence limits.
+Give the maintainer the completion report from SKILL.md, with the recorded answers and evidence limits.
 
 ## Jev source questions
 
@@ -134,7 +134,7 @@ Each answer is a question for source examination, not source evidence.
 
 The `jev flow` question is opt-in through `--kind "jev flow"`.
 Its recorded experiment found fewer incorrect flows on maps not used for threshold selection.
-Keep that limit in decisions about its answers.
+Use that limit when you examine its answers.
 Record audit answers under `[judgement] answered` with a reason.
 `audit --dry-run` shows inputs without a model call.
 Repeated identical requests can use the cache.

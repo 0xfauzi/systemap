@@ -1,4 +1,4 @@
-"""The judgement report gives possible map errors for maintainer decisions.
+"""The judgement report gives possible map errors for the maintainer to examine.
 
 The report includes component grouping, flow descriptions, layer contents, entry
 coverage, imports, and source evidence. Each line has a stable kind prefix. The
@@ -666,10 +666,10 @@ def _head(result: Answered, kind: str, showing: int) -> str:
     if result.stale:
         tail += f", {len(result.stale)} stale"
     if not result.open:
-        head = f"judgement: No decision is necessary{tail}"
+        head = f"judgement: No possible map error to examine{tail}"
     else:
-        noun = "item" if len(result.open) == 1 else "items"
-        head = f"judgement: {len(result.open)} {noun} for maintainer decisions{tail}"
+        noun = "error" if len(result.open) == 1 else "errors"
+        head = f"judgement: {len(result.open)} possible map {noun} to examine{tail}"
     if kind:
         head += f". The report shows {showing} {kind} {('line' if showing == 1 else 'lines')}"
     return head
