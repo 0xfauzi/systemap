@@ -1193,3 +1193,21 @@ Acceptance: every CI job passes on the pull request head.
   The claims were examined again, one description was corrected, and the digests were recorded.
 - Run 97 passed all jobs except `test (macos-latest, 3.11)`. That job stopped before the tests:
   the download of `tree-sitter-typescript` 0.23.2 timed out three times. No test ran.
+## Card depth and pan speed (2026-10-11)
+
+Acceptance: the card depth and glow effects may add at most 20 percent to the mean frame time
+of a 120-frame pan and zoom in the All layer with a selected card.
+A Playwright script sets a new camera transform in each animation frame. It measures the frame
+interval in headless Chromium, which draws with software rendering. Each page ran twice, with the
+effects and with a style rule `*{filter:none!important}`. The first 5 frames are not counted.
+
+| Design | Run | With effects (mean / p95 ms) | Without filters (mean / p95 ms) |
+|---|---|---|---|
+| A blur shadow on every card | 1 | 34.64 / 66.7 | 30.58 / 50.0 |
+| A blur shadow on every card | 2 | 43.19 / 83.4 | 32.46 / 50.1 |
+| A shade shape under each card, a blur only on the selection | 1 | 28.26 / 50.0 | 26.81 / 50.0 |
+| A shade shape under each card, a blur only on the selection | 2 | 28.55 / 50.0 | 30.00 / 50.0 |
+
+The blur on every card failed the acceptance value in run 2 (33 percent). The shade shape passed.
+The page uses the shade shape. Software rendering is slower than a GPU, so the absolute times
+are not the times of a browser on a desktop computer.

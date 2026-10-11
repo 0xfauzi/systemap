@@ -226,6 +226,7 @@ Read opens the panel at the right of the map. The panel is 400px wide.
 With no selection, the panel shows the guide steps and the section of the current layer.
 System context gives the artifacts that cross the boundary for each actor.
 A layer with more than 20 flows shows its flows in groups. The panel lists the groups.
+A group line, like a flow line, has only horizontal and vertical parts.
 A component selection shows its description, the flows that it receives and sends, its sequences, and its source modules.
 A flow selection shows its artifact, its direction, its evidence state, and its source records.
 The map moves so that the panel does not cover the selection.
@@ -248,6 +249,10 @@ Phone controls are 44px high or more.
 
 The map has one flat view. Card positions and flow paths come from the model.
 Cards have an 8-unit corner radius. Card text is centered in the card.
+On the page, a shade under each card gives it depth. The shade is a copy of the card shape
+1.6 units lower, with no blur. When the pointer is on a card, the shade moves lower.
+The selected card has a soft glow: amber in Ink, the highlighter yellow in Paper.
+The map surface has a fine static grain under the dot grid and a soft dark edge.
 All cards of a map use one type size. The page uses the largest size at which the text of all cards fits.
 The maximum size is a 13px name and a 12px description at 88 percent zoom.
 The minimum size is the base size that the map check examines. Card text changes size with the zoom.
@@ -313,6 +318,9 @@ The systemap symbol draws one time when the page opens: the route in 600 ms, the
 The camera moves in 300 ms with an ease-in-out curve.
 A new layer draws its lines in 600 ms or less.
 A sequence step shows its note after the camera stops.
+When the page opens, the cards come in one time in reading order, in 360 ms or less.
+A theme change fades the colors in 240 ms.
+A selected line and the current sequence line have a soft glow.
 With Reduce motion or the system setting for reduced motion, the page shows the final state with no motion.
 
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,

@@ -634,6 +634,7 @@ def build(
         + page_groups.CSS
         + page_phone.CSS
         + page_motion.CSS
+        + page_motion.SURFACE_CSS
     )
     o = [
         _head(cfg, t, nesting, extra_css),

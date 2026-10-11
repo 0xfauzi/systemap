@@ -243,7 +243,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="f8d9954eb046d4481789f65c5cff3909e03576e1dfd14cbba3c8e6e4c22a837d",
+        source_review="1a7fdd01bbe9aa3975d915bdbc2962b42b987d4dd184abfa2bcd15a1148beb1c",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Text view shows the same components and flows. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -369,7 +369,7 @@ _SOURCE_SHA = {
     'systemap.judgement': '745a0d1871fd28377afc9d6acc30216ae31ffb40b1cae26d3edf2ac8fd28be53',
     'systemap.model': 'c932400b182ad6a8ad1d9d0d4ea1fafd7bef7c4558856a89766bf9752965a158',
     'systemap.nest': '3208e3d99fff532e59aaadc5d8308391212e2e48e5d59d3d2143035225907e03',
-    'systemap.page': '405ed3320e23d7585397a06c44912b942e0bcab30f834c188638ce5bf43fc64f',
+    'systemap.page': '5e4cfc3217636504a9ce0d3b44611e11a4d32a5c1598930641171ec68543cd59',
     'systemap.place': '93a9261e4c84f20a35a47b4f9fe585707e182bdd1a04f5d4dac62e156809815e',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
     'systemap.scaffold': '94740a7aacedfba884504500ad8d5aeffa7c6ab5f02ec469eba284b6ec8be281',
