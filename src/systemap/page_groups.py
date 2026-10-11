@@ -43,43 +43,35 @@ transition:none}
 .lg__line.fg-lg__group{border-top:4px solid var(--ink-3);opacity:.7}
 .lg__card.fg-lg__out{opacity:.6;background:var(--card)}
 
-/* ---- the Read panel: the groups of the layer -------------------------------- */
-.readpanel .fg-read{display:flex;flex-direction:column;gap:14px}
-.readpanel .read__steps+.fg-read{border-top:1px solid var(--line);padding-top:18px}
-.readpanel .fg-read .read__head,.readpanel .fg-read .read__head h3{margin:0}
-.readpanel .fg-read__q{margin:0;font:17px/24px var(--fs);color:var(--ink)}
-.readpanel .fg-read__text{margin:0;font:13px/20px var(--fs);color:var(--ink-2)}
-.readpanel .fg-open{border:1px solid var(--accent);border-radius:8px;background:var(--card);
-padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+/* ---- the Read panel: the groups of the layer, in the style of the steps ------ */
+.readpanel .fg-open{border:1px solid var(--accent);border-radius:8px;background:var(--hl-soft);
+padding:12px;display:flex;flex-direction:column;gap:10px}
 .readpanel :is(.fg-open__head,.fg-flow,.fg-row){width:100%;min-height:0;height:auto;padding:0;
-border:0;border-radius:3px;background:none;text-align:left}
-.readpanel .fg-open__head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+border:0;border-radius:4px;background:none;text-align:left}
+.readpanel .fg-open__head{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;
+align-items:center}
 .readpanel :is(.fg-open__head,.fg-flow):hover{background:none}
-.readpanel .fg-open__name{font:600 11px/16px var(--fm);letter-spacing:.06em;color:var(--ink)}
-.readpanel .fg-open__n{font:600 12px/16px var(--fm);color:var(--accent)}
-.readpanel .fg-open__flows{list-style:none;margin:0;padding:0;display:grid;
+.readpanel .fg-open__name{font:12px/20px var(--fm);color:var(--accent)}
+:root[data-theme="light"] .readpanel .fg-open__name{justify-self:start;padding:0 3px;
+border-radius:2px;background:var(--hl);color:var(--ink)}
+.readpanel .fg-open__flows{list-style:none;margin:0;padding:0 0 0 30px;display:grid;
 grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
 .readpanel .fg-flow{display:flex;flex-direction:column;align-items:flex-start}
 .readpanel .fg-flow:hover span{text-decoration:underline;text-underline-offset:3px}
 .readpanel .fg-flow span{font:13px/18px var(--fs);color:var(--ink);overflow-wrap:anywhere}
 .readpanel .fg-flow small{font:11px/15px var(--fm);color:var(--ink-3);overflow-wrap:anywhere}
-.readpanel .fg-open__sum{margin:0;font:12px/16px var(--fs);color:var(--ink-3)}
-.readpanel .fg-others{display:flex;flex-direction:column}
-.readpanel .fg-others h4{margin:0;padding-bottom:6px;font:600 11px/16px var(--fm);
-letter-spacing:.08em;color:var(--ink-3)}
-.readpanel .fg-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.readpanel .fg-row{display:grid;grid-template-columns:18px auto minmax(0,1fr);gap:10px;
-align-items:baseline;padding:7px 0;border-top:1px solid var(--line);border-radius:0;
-color:var(--ink-2);font:12px/16px var(--fs)}
-.readpanel .fg-rows li:last-child .fg-row{border-bottom:1px solid var(--line)}
+.readpanel .fg-open__sum{margin:0;padding-left:30px;font:12px/16px var(--fs);color:var(--ink-3)}
+.readpanel .fg-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.readpanel .fg-row{display:grid;grid-template-columns:20px auto minmax(0,1fr);gap:10px;
+align-items:center;height:30px;padding:0 4px;color:var(--ink-3);font:12px/16px var(--fs)}
 .readpanel .fg-row:hover{background:var(--raised)}
-.readpanel .fg-row b{font:600 12px/16px var(--fm);color:var(--ink)}
-.readpanel .fg-row__name{font:11px/16px var(--fm);letter-spacing:.04em;color:var(--ink);
-white-space:nowrap}
-.readpanel .fg-row__arts{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-color:var(--ink-3)}
+.readpanel :is(.fg-row,.fg-open__head) b{width:20px;height:20px;border:1px solid var(--line-2);
+border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+font:600 11px/1 var(--fm);color:var(--ink-2)}
+.readpanel .fg-open__head b{border:0;background:var(--accent);color:var(--on-accent)}
+.readpanel .fg-row__name{font:12px/16px var(--fm);color:var(--ink);white-space:nowrap}
+.readpanel .fg-row__arts{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .readpanel .fg-read__foot{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.readpanel .fg-read__note{margin:0;font:12px/18px var(--fs);color:var(--ink-3)}
 .readpanel .fg-read__all{flex:none;height:28px;min-height:28px;padding:0 10px;font-size:12px}
 """
 
@@ -647,8 +639,8 @@ SCRIPT = r"""
   function openCard(g){
     return '<section class="fg-open" aria-label="Open group">'
       + '<button type="button" class="fg-open__head" data-fg-close aria-pressed="true" '
-      + 'title="Close the group"><span class="fg-open__name">' + esc(g.name)
-      + '</span><span class="fg-open__n">' + g.edges.length + '</span></button>'
+      + 'title="Close the group"><b>' + g.edges.length + '</b><span class="fg-open__name">'
+      + esc(g.name) + '</span></button>'
       + '<ul class="fg-open__flows">' + g.edges.map(function(i){
         var e = A.edges[i];
         return '<li><button type="button" class="fg-flow" data-fg-edge="' + i + '"><span>'
@@ -658,8 +650,10 @@ SCRIPT = r"""
   }
   function rows(list, title){
     if(!list.length){ return ''; }
-    return '<section class="fg-others" aria-label="' + esc(title.toLowerCase()) + '"><h4>'
-      + esc(title) + '</h4><ul class="fg-rows">' + list.map(function(g){
+    return '<section class="lay" aria-label="' + esc(title.toLowerCase())
+      + '"><div class="seq-row"><h3 class="seq-kicker">' + esc(title)
+      + '</h3><span class="seq-count">' + list.length + '</span></div><ul class="fg-rows">'
+      + list.map(function(g){
         return '<li><button type="button" class="fg-row" data-fg-row="' + esc(g.key)
           + '" aria-pressed="false"><b>' + g.edges.length + '</b><span class="fg-row__name">'
           + esc(g.name) + '</span><span class="fg-row__arts">' + esc(artifacts(g))
@@ -670,20 +664,19 @@ SCRIPT = r"""
     var I = info(L);
     if(!I.on || (P.mode && P.mode() !== 'understand')){ return null; }
     var routes = !!S.routes[L], g = !routes && S.layer === L ? groupOf(L, S.open) : null;
-    var label = L === 'all' ? 'ALL LAYERS' : String(LAY[L] ? LAY[L].label : L).toUpperCase();
-    var question = L === 'all' ? 'Which flows connect the components?'
-      : (LAY[L] ? LAY[L].question : '');
-    var kind = L === 'all' ? 'flows' : label.toLowerCase().replace(/( flow)?$/, ' flows');
+    var name = L === 'all' ? 'All layers' : String(LAY[L] ? LAY[L].label : L);
+    var kind = L === 'all' ? 'flows' : name.toLowerCase().replace(/( flow)?$/, ' flows');
     var text = routes ? 'The map shows each of the ' + plural(I.list.length, 'flow')
       + ' as a route. Select a group to show only its routes.'
       : 'One grey line shows all ' + kind + ' between two regions. The number '
       + 'is the quantity of flows. Select a group to show its routes.';
-    var h = '<section class="read__section fg-read" aria-label="' + esc(label.toLowerCase())
-      + ' groups"><div class="read__head"><h3>' + esc(label) + '</h3><span class="read__count">'
-      + plural(I.list.length, 'flow') + '</span></div><p class="fg-read__q">' + esc(question)
-      + '</p><p class="fg-read__text">' + esc(text) + '</p>' + (g ? openCard(g) : '')
+    var h = '<section class="read__section lay fg-read" aria-label="' + esc(name.toLowerCase())
+      + ' groups"><div class="seq-row"><p class="seq-kicker">LAYER</p><span class="seq-count">'
+      + plural(I.list.length, 'flow') + ' · ' + plural(I.groups.length, 'group')
+      + '</span></div><div class="seq-head"><h2 class="seq-title">' + esc(name)
+      + '</h2></div><p class="lay-text">' + esc(text) + '</p>' + (g ? openCard(g) : '')
       + rows(I.groups.filter(function(x){ return x !== g; }), g ? 'OTHER GROUPS' : 'GROUPS')
-      + '<div class="fg-read__foot"><p class="fg-read__note">Each flow is in one group only.</p>'
+      + '<div class="fg-read__foot"><p class="seq-note">Each flow is in one group only.</p>'
       + '<button type="button" class="fg-read__all" data-fg-all aria-pressed="' + routes + '">'
       + (routes ? 'Show groups' : 'Show all routes') + '</button></div></section>';
     return {html:h, bind:bind};

@@ -147,6 +147,27 @@ components:
     backgroundColor: "{colors.dark-accent}"
     textColor: "{colors.dark-on-accent}"
     rounded: "{rounded.tag}"
+  segmented-control:
+    textColor: "{colors.dark-ink-2}"
+    rounded: "{rounded.control}"
+    height: "32px"
+  segmented-control-selected:
+    backgroundColor: "{colors.dark-card}"
+    textColor: "{colors.dark-ink}"
+  view-row:
+    backgroundColor: "{colors.dark-surface}"
+    height: "52px"
+  step-card:
+    textColor: "{colors.dark-ink-2}"
+    rounded: "8px"
+    padding: "10px 12px"
+  step-card-current:
+    backgroundColor: "{colors.dark-card}"
+    textColor: "{colors.dark-ink}"
+    rounded: "8px"
+  control-icon:
+    size: "16px"
+    strokeWidth: "1.5 units on a 16 unit grid"
 ---
 
 # Design System: systemap
@@ -222,21 +243,45 @@ It also contains the three view buttons, Find, Read, and the More menu.
 A dot on Changes shows that the page has a revision comparison.
 The More menu contains Reference, Text view, Map view, the theme, Reduce motion, and Keyboard keys.
 
-The map uses all of the window below the header.
-Above the map, a row of layer tabs selects a layer: System context, Structure, Data flow, Control flow, Map review, and All.
-Below the tabs, the question of the layer shows in 22px type.
-The zoom controls are at the top right of the map. The percentage button sets the actual size. Fit shows the full map.
+The three views have the same parts: a row of controls under the header, a title block above the map,
+the legend and the readout below the map, and the panel at the right. The map uses the remaining area.
+
+The row is 52px high. In the Map view, it has the label Layer and a segmented control:
+System context, Structure, Data flow, Control flow, Map review, and All.
+This control has the design of Whole route and Steps in the Sequences toolbar.
+A selected segment has the card color and ink text. The focus ring of a segment is inside the segment.
+
+The title block has a small label and the question. The label uses the kicker type.
+In the Map view, it gives the layer name and its position, for example SYSTEM CONTEXT · LAYER 1 OF 5.
+The All segment gives ALL LAYERS. The question shows in 22px type.
+
+The zoom controls are at the end of the row in each view: zoom out, the zoom value, zoom in, and Fit.
+Zoom out, the zoom value, and zoom in are one segmented group. Fit is a separate button.
+The buttons have icons on a 16-unit grid with a 1.5-unit line, round ends, and round joins.
+Each icon button has a name and a tooltip. The zoom value button sets the actual size. Fit shows the full map.
 The legend is at the bottom left of the map. The legend shows only the items that the current view uses.
 The readout is at the bottom right. It gives the counts of the view or the selected item.
 
-Read opens the panel at the right of the map. The panel is 400px wide.
-With no selection, the panel shows the guide steps and the section of the current layer.
-System context gives the artifacts that cross the boundary for each actor.
-A layer with more than 20 flows shows its flows in groups. The panel lists the groups.
+The panel is at the right of the map, under the row. The panel is 400px wide.
+On a window wider than 820px, the Map view opens the panel with the page, as the Sequences view does.
+Read closes the panel and opens it again.
+With no selection, the panel shows the current layer in the style of the sequence steps.
+A head row gives the label LAYER and the counts. The layer name is the panel title.
+The guide text of the layer, or else its description, follows.
+A card shows each flow: a line in the color of its kind, the two ends, the artifact, and the first sentence of the flow.
+The line is dashed when the flow has no recorded source review.
+A pointer or keyboard focus on a flow card shows a preview of the flow. A click selects the flow.
+In System context, a card shows each actor and the artifacts that it receives and sends.
+In Structure, a card shows each region with its number and its components. A click frames the region.
+The guide steps follow the layer as a short numbered list. The step of the current layer has the accent number.
+A layer with more than 20 flows shows its flows in groups. The panel lists the groups with their counts in rings.
+The open group is the current card: an accent border and the highlight fill.
 A group line, like a flow line, has only horizontal and vertical parts.
 A component selection shows its description, the flows that it receives and sends, its sequences, and its source modules.
 A flow selection shows its artifact, its direction, its evidence state, and its source records.
+The panel title of a component has the 19px panel title size.
 The map moves so that the panel does not cover the selection.
+The selection also stays above the legend and the readout, as a sequence step does.
 
 On the first visit, a guide card at the bottom right gives five steps. Each step selects a layer or a sequence.
 The map moves left so that the card does not cover it. The map goes back to Fit when the card closes.
@@ -246,7 +291,8 @@ Find searches component names, descriptions, and source modules. The / key gives
 The arrow keys move through the results. Enter selects a component.
 
 At widths of 1100px or less, the panel is 340px wide, Find is smaller, and the header does not show the commit.
-At widths of 820px or less, the panel covers the right side of the map.
+At widths of 820px or less, the panel covers the right side of the map, under the row.
+The zoom controls go below the row, at the right of the title block. The Map view does not open the panel with the page.
 At widths of 640px or less, the phone layout replaces the map frame.
 The phone layout shows the regions as a grid. A region opens the map at a size that you can read.
 A sequence shows one step: the map frame, the step note, the step buttons, and Previous and Next.
@@ -257,7 +303,11 @@ Phone controls are 44px high or more.
 The map has one flat view. Card positions and flow paths come from the model.
 Cards have an 8-unit corner radius. Card text is centered in the card.
 On the page, a shade under each card gives it depth. The shade is a copy of the card shape
-1.6 units lower, with no blur. When the pointer is on a card, the shade moves lower.
+1.6 units lower, with no blur. When the pointer is on a card, the shade moves lower
+and the card border changes to `ink_3` in 160 ms. A selected card and the ends of a selected line keep their accent border.
+After 120 ms on a card, its lines get thicker and the cards at their other ends stay at full contrast.
+The other cards go to 60 percent opacity, and the other lines and labels fade.
+A press on the map ends this state. A drag of the map does not start it.
 The selected card has a soft glow: amber in Ink, the highlighter yellow in Paper.
 The map surface has a fine static grain under the dot grid and a soft dark edge.
 All cards of a map use one type size. The page uses the largest size at which the text of all cards fits.
@@ -308,7 +358,7 @@ the decisions, and the limits of the comparison.
 
 A selected component has an accent ring. Its flows show at full contrast. Other cards and lines have low contrast.
 Structure shows no flow lines after a component selection.
-A pointer or keyboard focus on a line shows a preview of that flow.
+A pointer or keyboard focus on a line shows a preview of that flow. The label of the line gets a thin outline.
 A declared flow keeps its dash pattern during selection.
 No more than one directional cue moves. The cue does not show a recorded run.
 
@@ -324,6 +374,7 @@ Each motion occurs one time and shows a direction or an order.
 The systemap symbol draws one time when the page opens: the route in 600 ms, then its two ends.
 The camera moves in 300 ms with an ease-in-out curve.
 A new layer draws its lines in 600 ms or less.
+In the Map view, a layer change fades in the title block and the panel in 180 ms. The text does not move.
 A sequence step shows its note after the camera stops.
 When the page opens, the cards come in one time in reading order, in 360 ms or less.
 A theme change fades the colors in 240 ms.
@@ -332,6 +383,7 @@ With Reduce motion or the system setting for reduced motion, the page shows the 
 
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
 `page_atlas.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
-`page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `schematic_style.py`,
-`schematic_script.py`, and `schematic_relations.py`.
+`page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `page_mapview.py`,
+`page_map_icons.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+The build removes the comments, line breaks, and indentation from the page styles and scripts.
 The browser measurements and test results are in `bench/jev/README.md`.

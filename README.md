@@ -77,6 +77,11 @@ The page has three views. **Map** shows the layers. **Sequences** shows one
 operation as a route on the map, then one step at a time, with a note at each
 step. **Changes** shows the components and flows that a revision comparison
 changed. On the first visit, a guide card gives five steps through the map.
+The three views have the same parts: a row of controls under the header,
+a small label and a question above the map, and a panel at the right.
+On a wide window, the Map view opens the panel with the page. With no
+selection, the panel shows the current layer: one card for each flow,
+actor, or region.
 
 The More menu contains Reference, Text view, and the theme. Reference contains
 rules and review records. The themes are Ink and Paper.

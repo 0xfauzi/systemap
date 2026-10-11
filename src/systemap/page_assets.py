@@ -115,48 +115,39 @@ background-color:var(--map);background-image:radial-gradient(var(--grid) 1px,tra
 background-size:24px 24px}
 .map>*{flex-shrink:0}
 .spatial-map{position:relative;flex:1;min-height:0}
-.mapwrap{position:absolute;inset:92px 0 0 0;overflow:hidden}
+.mapwrap{position:absolute;inset:144px 0 0 0;overflow:hidden}
 .stage{width:100%;height:100%}
 .stage svg,.stage #schematic,.stage #changemap{display:block;width:100%;height:100%}
-.mapbar{position:absolute;left:24px;top:14px;right:200px;z-index:4;display:flex;
-flex-direction:column;
-gap:10px;pointer-events:none}
+.mapbar{position:absolute;left:24px;top:66px;right:200px;z-index:4;display:flex;
+flex-direction:column;gap:10px;pointer-events:none}
 .mapbar>*{pointer-events:auto}
-.layers{display:flex;gap:20px;flex-wrap:wrap}
-.layers button{height:28px;min-height:28px;padding:0;border:0;border-bottom:2px solid transparent;
-border-radius:0;background:transparent;color:var(--ink-2);font-size:13px}
-.layers button:hover{background:transparent;color:var(--ink)}
-.layers button[aria-pressed="true"]{color:var(--ink);font-weight:500;border-bottom-color:var(--ink)}
 .mapbar__label{margin:0;height:28px;display:flex;align-items:flex-end;padding-bottom:4px;
 font:600 11px/16px var(--fm);letter-spacing:.08em;color:var(--ink-3)}
 .question{margin:0;font:500 22px/28px var(--fs);letter-spacing:-.01em;color:var(--ink);
 max-width:62ch}
-.mobile-layer{display:none}
-body[data-mode="trace"] .mapbar,body[data-mode="change"] .mapbar{top:66px}
-body[data-mode="trace"] .mapwrap{inset:144px 0 0 0}
-body[data-mode="trace"] .zoom,body[data-mode="change"] .zoom{top:68px}
-.zoom{position:absolute;right:24px;top:16px;z-index:7;display:flex;align-items:center;gap:4px}
-.zoom button{height:28px;min-height:28px;min-width:28px;padding:0 8px;border-color:var(--line);
-background:var(--map);font-size:13px;color:var(--ink-2)}
-.zoom button[data-zoom="fit"]{margin-left:4px}
-#zpct{width:52px;border-color:transparent;background:transparent;font:12px var(--fm);
-  color:var(--ink-3)}
-#zpct:hover{color:var(--ink);background:var(--raised)}
+.zoom{position:absolute;right:24px;top:66px;z-index:7;display:flex;align-items:center;gap:6px}
+.zoom__seg{display:flex;border:1px solid var(--line-2);border-radius:6px;overflow:hidden}
+.zoom button{height:30px;min-height:30px;width:30px;padding:0;border:0;border-radius:0;
+display:inline-flex;align-items:center;justify-content:center;background:var(--surface)}
+.zoom button:focus-visible{outline-offset:-3px}
+.zoom [aria-pressed="true"]{background:var(--card);color:var(--ink)}
+#zpct{width:54px;border:solid var(--line-2);border-width:0 1px;font:12px var(--fm)}
+.zoom [data-zoom="fit"]{height:32px;min-height:32px;width:32px;border:1px solid var(--line-2);
+border-radius:6px}
 body[data-view="reading"] .zoom{display:none}
 body[data-mode="change"][data-compare="false"] .zoom,
 body[data-mode="change"][data-compare="false"] .change-controls{display:none}
 body[data-mode="change"][data-compare="false"] .change-view{inset:0}
 .map-legend{position:absolute;left:24px;bottom:14px;z-index:4;display:flex;flex-wrap:wrap;
-gap:6px 16px;
-align-items:center;max-width:calc(100% - 420px);font:12px/16px var(--fs);color:var(--ink-2);
-background:var(--map);padding:4px 6px;border-radius:4px}
+gap:6px 16px;align-items:center;max-width:calc(100% - 380px);font:12px/16px var(--fs);
+color:var(--ink-2);background:var(--map);padding:4px 8px;border-radius:4px}
 .lg{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .lg__line{display:block;width:18px;border-top:2px solid var(--c,var(--ink-2))}
 .lg__line--dash{border-top-style:dashed;border-color:var(--ink-2)}
-.lg__card{display:block;width:16px;height:10px;border:1px solid var(--card-line);border-radius:2px}
+.lg__card{display:block;width:18px;height:12px;border:1px solid var(--card-line);border-radius:3px}
 .lg__card--actor{border-style:dashed}
 .lg__card--quiet{opacity:.32;background:var(--card)}
-.readout{position:absolute;right:24px;bottom:14px;z-index:4;margin:0;max-width:360px;
+.readout{position:absolute;right:24px;bottom:14px;z-index:4;margin:0;max-width:330px;
 font:12px/16px var(--fm);color:var(--ink);background:var(--map);padding:4px 8px;border-radius:4px;
 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .readout{display:flex;gap:10px;align-items:center}
@@ -220,7 +211,8 @@ button.copied{color:var(--ink);border-color:var(--ink-3)}
 .source-files{font-size:12px!important;color:var(--ink-3)!important}
 
 /* ---- view rows: Sequences and Changes ------------------------------------ */
-.trace-controls,.change-controls{position:absolute;left:0;right:0;top:0;z-index:6;height:52px;
+.trace-controls,.change-controls,.layer-controls{position:absolute;left:0;right:0;top:0;z-index:6;
+height:52px;
 display:flex;align-items:center;gap:8px;padding:0 20px;border-bottom:1px solid var(--line);
 background:var(--surface)}
 body:not([data-mode="trace"]) .trace-controls,
@@ -238,17 +230,15 @@ border-radius:6px;background:var(--raised);color:var(--ink);font-size:13px}
 /* Boards 4, 5 and 9: the view row spans the window, with the zoom at its end,
    and the panel starts under it. */
 @media(min-width:821px){
-body[data-mode="trace"] .trace-controls,body[data-mode="change"] .change-controls{position:fixed;
-top:52px;left:0;right:0;z-index:11;padding-right:220px}
-body[data-mode="trace"] .zoom,body[data-mode="change"][data-compare="true"] .zoom{position:fixed;
-top:64px;right:20px;z-index:12}
-body[data-mode="trace"] .readpanel,body[data-mode="change"] .readpanel{margin-top:52px;
-height:calc(100svh - 104px)}}
+body[data-mode="trace"] .trace-controls,body[data-mode="change"] .change-controls,
+.layer-controls{position:fixed;top:52px;left:0;right:0;z-index:11;padding-right:220px}
+.zoom{position:fixed;top:62px;right:20px;z-index:12}
+.readpanel{margin-top:52px;height:calc(100svh - 104px)}}
 
 /* ---- text view, the map inside a card ------------------------------------ */
 body[data-view="reading"] .map{overflow:auto}
 body[data-view="reading"] .spatial-map{display:none}
-.atlas{position:relative;padding:110px 24px 40px;max-width:980px}
+.atlas{position:relative;padding:162px 24px 40px;max-width:980px}
 .submap{position:fixed;inset:1rem;z-index:40;background:var(--bg);border:1px solid var(--line-2);
 display:flex;flex-direction:column;box-shadow:0 8px 60px color-mix(in srgb,#000 50%,transparent)}
 .submap__bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem;
@@ -263,12 +253,9 @@ border-bottom:1px solid var(--line)}
 @media(max-width:820px){.bar{gap:10px;padding:0 12px}.find{width:auto;flex:0 1 140px}
 .views button{padding:0 9px}
 body[data-panel="open"] .main{grid-template-columns:minmax(0,1fr)}
-body[data-panel="open"] .readpanel{position:fixed;right:0;top:52px;bottom:0;width:min(400px,100%);
+body[data-panel="open"] .readpanel{position:fixed;right:0;top:104px;bottom:0;width:min(400px,100%);
 z-index:15;height:auto;box-shadow:-12px 0 40px color-mix(in srgb,#000 40%,transparent)}
-.mapbar{right:24px}.layers{gap:14px}.question{font-size:19px;line-height:25px}
-.readout{max-width:40%}
-body[data-mode="trace"][data-panel="open"] .readpanel,
-body[data-mode="change"][data-panel="open"] .readpanel{top:104px}}
+.question{font-size:19px;line-height:25px}.readout{max-width:40%}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 html[data-reduce-motion="true"] *{transition:none!important;animation:none!important}
 """

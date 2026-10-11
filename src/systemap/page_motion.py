@@ -48,10 +48,13 @@ filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--accent) 60%,transparent))}
 :root[data-theme="light"] #schematic :is(.flow.hot,.seq-line--now,.seq-line--route){
 filter:drop-shadow(0 0 3px var(--hl))}
 
-/* ---- a card under the pointer shows its lines; the other lines fade ------ */
-#schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out}
+/* ---- a card under the pointer shows its lines and the cards at their ends -- */
+#schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out,
+stroke-width .14s ease-out}
 #schematic.card-peek .flow:not(.card-lit){stroke-opacity:.18}
+#schematic.card-peek .flow.card-lit{stroke-width:2.2}
 #schematic.card-peek .flowlbl:not(.card-lit){opacity:.25}
+#schematic.card-peek .node:not(.card-lit):not(.quiet):not(.dim){opacity:.6}
 
 /* ---- the cards come in one time, in reading order ----------------------- */
 @keyframes card-in{from{opacity:0;transform:translateY(5px)}}
@@ -155,8 +158,10 @@ SCRIPT = r"""
   }
 
   // ---- a card under the pointer shows its lines --------------------------
-  // After 120 ms on a card, with no selection and no sequence: its lines and
-  // their labels stay, the other lines fade. Leaving the card ends it.
+  // After 120 ms on a card, with no selection and no sequence: its lines,
+  // their labels and the cards at their other ends stay, the other lines
+  // fade and the other cards go a little dim. Leaving the card ends it.
+  // A drag of the map does not start it.
   if(svg && A){
     var hoverWait = 0, lit = [];
     function unlight(){
@@ -165,22 +170,29 @@ SCRIPT = r"""
       lit.forEach(function(n){ n.classList.remove('card-lit'); });
       lit = [];
     }
+    function mark(n){ n.classList.add('card-lit'); lit.push(n); }
     function light(card){
       unlight();
+      var ends = {};
+      ends[card.dataset.id] = true;
       (A.detail[card.dataset.id].edges || []).forEach(function(i){
         Array.prototype.slice.call(svg.querySelectorAll('[data-edge="' + i + '"]'))
           .forEach(function(n){
             if(n.classList.contains('flow') && n.classList.contains('off')){ return; }
-            n.classList.add('card-lit'); lit.push(n);
+            if(n.classList.contains('flow')){ ends[A.edges[i].from] = ends[A.edges[i].to] = true; }
+            mark(n);
           });
       });
-      if(lit.some(function(n){ return n.classList.contains('flow'); })){
-        svg.classList.add('card-peek'); }
+      if(!lit.some(function(n){ return n.classList.contains('flow'); })){ return; }
+      Array.prototype.slice.call(svg.querySelectorAll('.node')).forEach(function(n){
+        if(ends[n.dataset.id]){ mark(n); } });
+      svg.classList.add('card-peek');
     }
+    svg.addEventListener('pointerdown', unlight);
     svg.addEventListener('pointerover', function(e){
       var card = e.target && e.target.closest ? e.target.closest('.node') : null;
       if(!card || !A.detail[card.dataset.id] || A.state.focus || A.state.journey
-        || A.state.edge >= 0){ return; }
+        || A.state.edge >= 0 || svg.classList.contains('panning')){ return; }
       clearTimeout(hoverWait);
       hoverWait = setTimeout(function(){ light(card); }, 120);
     });

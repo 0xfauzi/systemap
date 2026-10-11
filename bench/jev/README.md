@@ -1490,3 +1490,45 @@ differ by 20.2 and 20.3 degrees between the themes, above the 20 degree limit.
 Compared with the earlier palette: Ink still shows four kinds on one view. Paper still shows data,
 control and one custom kind, and not a second custom kind. The first search value `#855762` passed
 Paper set B. The page does not use it, because it can look mauve.
+
+## Map page size with the new Map view (2026-10-11)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+Before this change, the sample page had 257 bytes of space. The new Map view needs more space.
+The build now removes the comments, line breaks and indentation from the page styles, as it does for the page scripts.
+A line break that does not follow a semicolon, a brace or a comma becomes one space.
+In Chromium, the computed style of each of the 1,463 elements of the self-map page is the same with and without this step.
+The comparison used Ink and Paper at 1440 pixels, and Ink at 800 and 390 pixels.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (6e4c6b1) | 306,943 |
+| Sample page, with compact styles (327dba0) | 302,873 |
+| Sample page, with the new Map view | 306,145 |
+| Self-map page, no comparison, base | 645,992 |
+| Self-map page, no comparison, with the new Map view | 643,606 |
+
+The sample page passes with 1,055 bytes of space. A small addition to the page can exceed the limit again.
+
+## Map view pointer highlight and pan speed (2026-10-11)
+
+Acceptance: the new Map view may add at most 20 percent to the mean frame time of the base page (6e4c6b1), in each state and in each run.
+The new Map view has three changes that can occur during a pan: the pointer highlight gives low contrast to the cards that do not connect to the card under the pointer,
+the card border has a transition, and the panel opens with the page.
+The method is the method of "Card depth and pan speed": a new camera transform in each animation frame for 120 frames,
+in the All layer of the self-map page at 1440 by 900 pixels in Ink. The first 5 frames are not counted.
+There are two states: a selected card, and the pointer on the Page card with no selection.
+The new page ran with the panel open, which is the default, and with the panel closed.
+
+| Page | Run | Selected card (mean / p95 ms) | Pointer on a card (mean / p95 ms) |
+|---|---|---|---|
+| Base | 1 | 21.88 / 33.4 | 25.80 / 50.0 |
+| Base | 2 | 20.29 / 33.4 | 25.22 / 50.0 |
+| New, panel open | 1 | 23.19 / 33.4 | 24.20 / 50.0 |
+| New, panel open | 2 | 23.19 / 33.4 | 24.06 / 33.4 |
+| New, panel closed | 1 | 22.46 / 33.4 | 24.06 / 50.0 |
+| New, panel closed | 2 | 20.58 / 33.4 | 22.75 / 50.0 |
+
+The new page passed. The largest increase is 14.3 percent: the selected card with the panel open in run 2.
+The differences between runs of one page are as large as the differences between the pages.
+A drag of the map does not start the pointer highlight. The new effects use no filter.

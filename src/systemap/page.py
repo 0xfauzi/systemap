@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,6 +15,8 @@ from systemap import (
     page_data,
     page_groups,
     page_guide,
+    page_map_icons,
+    page_mapview,
     page_motion,
     page_phone,
     page_present,
@@ -378,40 +381,9 @@ def tab_layers(model: Model, meaning: Meaning) -> list[Any]:
     return layers
 
 
-def _mapbar(model: Model, meaning: Meaning) -> str:
+def _first_question(model: Model, meaning: Meaning) -> str:
     layers = tab_layers(model, meaning)
-    first = layers[0] if layers else None
-    tabs = "".join(
-        f'<button type="button" role="tab" data-layer-btn="{esc(layer.id)}" '
-        f'aria-selected="false" aria-pressed="false" title="{esc(layer.question)}">'
-        f"{esc(layer.label)}</button>"
-        for layer in layers
-    )
-    return (
-        '<div class="mapbar" id="mapbar">'
-        f'<div class="layers" role="tablist" aria-label="Layer">{tabs}'
-        '<button type="button" role="tab" data-layer-btn="all" aria-selected="false" '
-        'aria-pressed="false" title="All flows of all layers">All</button></div>'
-        '<p class="mapbar__label" id="mapbar-label" hidden></p>'
-        f'<h2 class="question" id="layer-question">{esc(first.question if first else "")}</h2>'
-        '<label class="mobile-layer"><span class="sr-only">Layer</span>'
-        '<select id="layer-select" aria-label="Layer">'
-        + "".join(
-            f'<option value="{esc(layer.id)}">{esc(layer.label)}</option>' for layer in layers
-        )
-        + '<option value="all">All layers</option></select></label></div>'
-    )
-
-
-def _zoom() -> str:
-    return (
-        '<div class="zoom" role="group" aria-label="Zoom">'
-        '<button type="button" data-zoom="out" aria-label="Zoom out">−</button>'
-        '<button type="button" data-zoom="actual" id="zpct" aria-pressed="false" '
-        'aria-label="Zoom to 100 percent"></button>'
-        '<button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
-        '<button type="button" data-zoom="fit" aria-pressed="true">Fit</button></div>'
-    )
+    return layers[0].question if layers else ""
 
 
 def _readpanel(
@@ -514,7 +486,8 @@ def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, 
         '<section class="map" id="map" aria-label="System map">'
         '<span id="activity-label" hidden></span><h2 id="activity-question" class="sr-only">'
         "What are the components and their connections?</h2>"
-        + _mapbar(model, meaning)
+        + page_mapview.toolbar(tab_layers(model, meaning))
+        + page_mapview.title(_first_question(model, meaning))
         + page_sequences.toolbar(meaning)
         + '<div class="change-controls" id="changecontrols">'
         + page_changes.toolbar(ch)
@@ -523,7 +496,7 @@ def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, 
         + '<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">'
         + system_svg
         + "</div></div></div>"
-        + _zoom()
+        + page_mapview.zoom()
         + '<div class="legend map-legend" id="map-legend" aria-label="Legend"></div>'
         '<p class="readout" id="map-context" aria-live="polite"></p>'
         + page_guide.card()
@@ -577,8 +550,14 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         "window.matchMedia('(prefers-color-scheme: light)').matches)?"
         f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(theme_mod.DEFAULT_SCHEME)}}}"
         "document.documentElement.setAttribute('data-theme',s)})();</script>"
-        f"<style>{panel_css(t, variables=True)}{CSS.replace('{ROOT}', theme_mod.root_css(t))}"
-        f"{page_atlas.CSS}{extra_css}</style></head>"
+        "<style>"
+        + _compact_css(
+            panel_css(t, variables=True)
+            + CSS.replace("{ROOT}", theme_mod.root_css(t))
+            + page_atlas.CSS
+            + extra_css
+        )
+        + "</style></head>"
     )
 
 
@@ -632,6 +611,8 @@ def build(
         + page_present.CSS
         + page_changes.CSS
         + page_groups.CSS
+        + page_mapview.CSS
+        + page_map_icons.CSS
         + page_phone.CSS
         + page_motion.CSS
         + page_motion.SURFACE_CSS
@@ -689,6 +670,7 @@ def build(
         WORKSPACE_SCRIPT,
         page_changes.SCRIPT if change_svg else page_changes.EMPTY_SCRIPT,
         page_groups.SCRIPT,
+        page_mapview.SCRIPT,
         page_phone.SCRIPT,
         page_present.SCRIPT,
         page_motion.SCRIPT,
@@ -704,3 +686,12 @@ def _compact(js: str) -> str:
     The page scripts have no template literals, so no string continues on a second line."""
     lines = (line.strip() for line in js.splitlines())
     return "\n".join(line for line in lines if line and not line.startswith("//"))
+
+
+def _compact_css(css: str) -> str:
+    """Remove comments, line breaks and indentation from the page styles.
+
+    A line break after a semicolon, a brace or a comma goes. A different line
+    break becomes one space, because it can separate two values."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    return re.sub(r"([;{},])?[ \t]*\n\s*", lambda m: m.group(1) or " ", css).strip()
