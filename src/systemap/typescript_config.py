@@ -4,16 +4,20 @@ and source inputs.
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import re
-from collections.abc import Iterable
-from dataclasses import asdict, dataclass
-from pathlib import Path
+from collections.abc import Collection, Iterable, Iterator
+from dataclasses import asdict, dataclass, replace
+from pathlib import Path, PurePosixPath
 from typing import Any
 
-SOURCE_SUFFIXES = (".ts", ".tsx")
-SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
+SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
+DECLARATION_SUFFIXES = (".d.ts", ".d.mts", ".d.cts")
+# The folders below a project folder that hold no project source. tsc reads all other
+# folders except outDir, so a source folder called build or dist is source.
+SOURCE_SKIP = frozenset({".git", ".venv", "node_modules"})
 # A shared base config cannot know where the project that extends it lives, so
 # TypeScript lets a path option start with this variable, which stands for the
 # folder of the top-level tsconfig.json: the one the project owns, not the file
@@ -66,6 +70,9 @@ class TypeScriptConfig:
     composite: bool = False
     inputs: InputSpec | None = None
     typescript_major: int | None = None
+    # The configurations that the file names in `references`, and the references of
+    # those configurations, in the order that they are found.
+    projects: tuple[TypeScriptConfig, ...] = ()
 
 
 def compiler_settings(config: TypeScriptConfig, repo: Path) -> dict[str, Any]:
@@ -135,8 +142,8 @@ def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
             for path in candidate.rglob("*")
             if path.is_file()
             and path.suffix in SOURCE_SUFFIXES
-            and not path.name.endswith(".d.ts")
-            and not any(part in SKIP_PARTS for part in path.parts)
+            and not path.name.endswith(DECLARATION_SUFFIXES)
+            and not any(part in SOURCE_SKIP for part in path.relative_to(root).parts)
         )
         if next(sources, None) is not None:
             return [(candidate.relative_to(root).as_posix() or ".", typescript_name(root))]
@@ -185,7 +192,8 @@ def _config_reference(parent: Path, reference: str) -> Path:
     for candidate in candidates:
         choices = [candidate]
         if candidate.suffix != ".json":
-            choices += [candidate.with_suffix(".json"), candidate / "tsconfig.json"]
+            # tsc adds `.json` to the full name: `./tsconfig.base` is `tsconfig.base.json`.
+            choices += [candidate.with_name(candidate.name + ".json"), candidate / "tsconfig.json"]
         found = next((choice for choice in choices if choice.is_file()), None)
         if found is not None:
             return found.resolve()
@@ -245,11 +253,36 @@ def _inherited_options(
 
 
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
-    """This function reads compiler options, aliases, comments, and output directories."""
+    """This function reads compiler options, aliases, comments, and output directories.
+
+    The result also contains the configurations in `references`.
+    """
     path = repo / "tsconfig.json"
     if not path.is_file():
         return TypeScriptConfig()
+    return load_project_config(path, repo, typescript_major(repo))
+
+
+def load_project_config(path: Path, repo: Path, major: int | None) -> TypeScriptConfig:
+    """This function reads one tsconfig file and the configurations that it references.
+
+    The `issues` of the result include the issues of the referenced configurations.
+    """
     issues: list[tuple[Path, str]] = []
+    config = _project_config(path, repo, issues, major)
+    projects = tuple(_project_config(ref, repo, issues, major) for ref in _references(path))
+    return replace(
+        config,
+        issues=tuple(
+            dict.fromkeys((_issue_path(source, repo), reference) for source, reference in issues)
+        ),
+        projects=projects,
+    )
+
+
+def _project_config(
+    path: Path, repo: Path, issues: list[tuple[Path, str]], major: int | None
+) -> TypeScriptConfig:
     inputs: Options = {}
     options = _compiler_options(path, issues, inputs)
     config_dir = path.parent.resolve()
@@ -259,12 +292,46 @@ def load_typescript_config(repo: Path) -> TypeScriptConfig:
         root_dir=_option_path(options, "rootDir", config_dir),
         root_dirs=_option_paths(options, "rootDirs", config_dir),
         out_dir=_option_path(options, "outDir", config_dir),
-        issues=tuple((_issue_path(source, repo), reference) for source, reference in issues),
         config_dir=config_dir,
         composite=options.get("composite", (False, config_dir))[0] is True,
         inputs=_input_spec(inputs, config_dir),
-        typescript_major=typescript_major(repo),
+        typescript_major=major,
     )
+
+
+def _references(path: Path) -> list[Path]:
+    """This function gives the configurations that `references` names, and their own
+    references, without repeats.
+
+    A reference to a directory uses the tsconfig.json file in that directory, as in tsc.
+    A reference to a missing file has no effect.
+    """
+    start = path.resolve()
+    found: dict[Path, None] = {}
+    queue = [start]
+    for current in queue:
+        for reference in _direct_references(current):
+            if reference != start and reference not in found:
+                found[reference] = None
+                queue.append(reference)
+    return list(found)
+
+
+def _direct_references(path: Path) -> list[Path]:
+    references = _read_config(path).get("references")
+    if not isinstance(references, list):
+        return []
+    out: list[Path] = []
+    for reference in references:
+        raw = reference.get("path") if isinstance(reference, dict) else None
+        if not isinstance(raw, str):
+            continue
+        target = path.parent / raw
+        if not raw.endswith(".json"):
+            target = target / "tsconfig.json"
+        if target.is_file():
+            out.append(target.resolve())
+    return out
 
 
 def _issue_path(source: Path, repo: Path) -> str:
@@ -379,7 +446,8 @@ def input_files(config: TypeScriptConfig) -> list[Path]:
     files.
 
     If files and include are missing, all source files under the tsconfig directory are
-    candidates. The selection excludes outDir and systemap temporary directories.
+    candidates. The selection excludes outDir and the .git, .venv, and node_modules
+    directories, as the source path rule does.
     """
     root, spec = config.config_dir, config.inputs
     if root is None or spec is None:
@@ -388,9 +456,10 @@ def input_files(config: TypeScriptConfig) -> list[Path]:
     for entry in spec.files or ():
         if _is_input(root / entry):
             found[(root / entry).resolve()] = None
-    wanted = [_glob_regex(pattern, root) for pattern in _include_patterns(spec)]
+    patterns = _include_patterns(spec)
+    wanted = [_glob_regex(pattern, root) for pattern in patterns]
     unwanted = [_glob_regex(pattern, root) for pattern in _exclude_patterns(spec, config)]
-    for path in _candidate_inputs(root, wanted):
+    for path in _candidate_inputs(root, patterns):
         if _selected(path.relative_to(root).as_posix(), wanted, unwanted):
             found[path.resolve()] = None
     return list(found)
@@ -423,18 +492,71 @@ def _selected(
 
 
 def _is_input(path: Path) -> bool:
-    return path.is_file() and path.suffix in SOURCE_SUFFIXES and not path.name.endswith(".d.ts")
+    return (
+        path.is_file()
+        and path.suffix in SOURCE_SUFFIXES
+        and not path.name.endswith(DECLARATION_SUFFIXES)
+    )
 
 
-def _candidate_inputs(root: Path, wanted: list[re.Pattern[str]]) -> Iterable[Path]:
-    if not wanted:
-        return ()
+def _candidate_inputs(root: Path, patterns: tuple[str, ...]) -> Iterator[Path]:
+    """This function gives the source files below the fixed directories of the include
+    patterns.
+
+    The walk does not enter .git, .venv, or node_modules. Thus the files in node_modules do
+    not make the walk slower. A source directory called build or dist is source, as tsc
+    reads it.
+    """
+    directories = (
+        directory
+        for directory in _include_directories(root, patterns)
+        if not any(part in SOURCE_SKIP for part in directory.relative_to(root).parts)
+    )
     return (
         path
-        for suffix in SOURCE_SUFFIXES
-        for path in root.rglob(f"*{suffix}")
-        if not any(part in SKIP_PARTS for part in path.relative_to(root).parts) and _is_input(path)
+        for directory in directories
+        for path in source_files(directory, SOURCE_SKIP)
+        if _is_input(path)
     )
+
+
+def _include_directories(root: Path, patterns: tuple[str, ...]) -> list[Path]:
+    """This function gives the directory before the first wildcard of each pattern.
+
+    The result does not include a directory inside another directory of the result.
+    A pattern outside the tsconfig directory selects no file.
+    """
+    directories: set[Path] = set()
+    for pattern in patterns:
+        fixed = list(
+            itertools.takewhile(
+                lambda part: not _GLOB_CHARS.search(part), PurePosixPath(pattern).parts
+            )
+        )
+        if ".." in fixed:
+            continue
+        directory = root.joinpath(*fixed)
+        while directory != root and not directory.is_dir():
+            directory = directory.parent
+        directories.add(directory)
+    return sorted(
+        directory
+        for directory in directories
+        if not any(other != directory and directory.is_relative_to(other) for other in directories)
+    )
+
+
+def source_files(directory: Path, skip: Collection[str]) -> Iterator[Path]:
+    """This function gives the TypeScript files below a directory in a stable order.
+
+    The walk does not enter a directory whose name is in skip. The result does not
+    include declaration files.
+    """
+    for current, names, files in os.walk(directory):
+        names[:] = sorted(name for name in names if name not in skip)
+        for name in sorted(files):
+            if name.endswith(SOURCE_SUFFIXES) and not name.endswith(DECLARATION_SUFFIXES):
+                yield Path(current, name)
 
 
 def common_source_dir(paths: Iterable[Path]) -> Path | None:
@@ -469,7 +591,29 @@ def root_candidates(config: TypeScriptConfig, inputs: Iterable[Path]) -> tuple[P
 
 
 def alias_targets(specifier: str, config: TypeScriptConfig, repo: Path) -> list[Path]:
-    """This function resolves configured alias targets relative to the tsconfig roots."""
+    """This function resolves configured alias targets relative to the tsconfig roots.
+
+    Without `baseUrl`, tsc does not look for a bare specifier in a project directory.
+    """
+    del repo
+    out: list[Path] = []
+    matches = _alias_matches(specifier, config)
+    if matches:
+        _priority, targets, matched = max(matches, key=lambda item: item[0])
+        out.extend(_replace_star(target, matched) for target in targets)
+    if config.base_url is not None:
+        out.append(config.base_url / specifier)
+    return out
+
+
+def is_alias(specifier: str, config: TypeScriptConfig) -> bool:
+    """This function tells if a `paths` pattern in the configuration matches a specifier."""
+    return bool(_alias_matches(specifier, config))
+
+
+def _alias_matches(
+    specifier: str, config: TypeScriptConfig
+) -> list[tuple[tuple[int, int, int], tuple[Path, ...], str]]:
     matches: list[tuple[tuple[int, int, int], tuple[Path, ...], str]] = []
     for pattern, targets in config.aliases:
         before, marker, after = pattern.partition("*")
@@ -482,12 +626,7 @@ def alias_targets(specifier: str, config: TypeScriptConfig, repo: Path) -> list[
         else:
             continue
         matches.append((priority, targets, matched))
-    out: list[Path] = []
-    if matches:
-        _priority, targets, matched = max(matches, key=lambda item: item[0])
-        out.extend(_replace_star(target, matched) for target in targets)
-    base = config.base_url or repo
-    return [*out, base / specifier]
+    return matches
 
 
 def _replace_star(target: Path, matched: str) -> Path:

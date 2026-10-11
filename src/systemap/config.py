@@ -15,13 +15,14 @@ import subprocess
 import sys
 import tomllib
 import types
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from systemap.language_config import package_roots, tests_directories
 from systemap.model import Meaning, Model
+from systemap.root_check import checked_roots
 
 CONFIG_FILE = "systemap.toml"
 SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist", "tests", "docs"}
@@ -29,6 +30,9 @@ SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist", "t
 # the skipped directories minus `tests` itself, plus a plain `venv`.
 SKIP_WALK = (SKIP_DIRS - {"tests"}) | {"venv"}
 TEST_DIR_NAMES = ("tests", "test")
+# Output directory names. A directory with one of these names and an __init__.py is a
+# package, such as the pypa/build package, and the walks go into it.
+OUTPUT_DIRS = frozenset({"build", "dist"})
 CANDIDATE_DEPTH = 4
 
 KNOWN_KEYS = {
@@ -83,6 +87,10 @@ AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev gov
 
 class ConfigError(Exception):
     """The configuration has an error. The message gives the necessary correction."""
+
+
+class ArgumentError(ConfigError):
+    """A command option has a value that the command cannot use. The message gives the reason."""
 
 
 @dataclass(frozen=True)
@@ -241,7 +249,7 @@ def find_root(start: Path) -> Path | None:
         if (candidate / CONFIG_FILE).is_file():
             return candidate
         pyproject = candidate / "pyproject.toml"
-        if pyproject.is_file() and "[tool.systemap]" in pyproject.read_text(encoding="utf-8"):
+        if pyproject.is_file() and "[tool.systemap]" in pyproject.read_text(encoding="utf-8-sig"):
             return candidate
         if (candidate / ".git").exists():
             return candidate
@@ -253,7 +261,7 @@ def _pyproject(root: Path) -> dict[str, Any]:
     if not path.is_file():
         return {}
     try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
+        return tomllib.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, tomllib.TOMLDecodeError):
         return {}
 
@@ -284,7 +292,7 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
             if not parent.is_dir():
                 continue
             for child in sorted(parent.iterdir()):
-                if not child.is_dir() or child.name in SKIP_DIRS or child.name.startswith("."):
+                if not child.is_dir() or skipped(child, SKIP_DIRS):
                     continue
                 if (child / "__init__.py").is_file():
                     entry = (child.relative_to(root).as_posix(), child.name)
@@ -293,13 +301,24 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
     return found
 
 
+def skipped(directory: Path, names: Collection[str]) -> bool:
+    """This function finds a directory that a walk does not go into.
+
+    A hidden directory and a directory in `names` are skipped. A package directory with
+    the name of an output directory is not skipped."""
+    name = directory.name
+    if name.startswith("."):
+        return True
+    return name in names and not (name in OUTPUT_DIRS and (directory / "__init__.py").is_file())
+
+
 def _walk(root: Path, depth: int | None = None) -> list[Path]:
     """This function lists directories under the root, except for excluded directories."""
     out: list[Path] = []
     for dirpath, dirnames, _files in os.walk(root):
         here = Path(dirpath)
         level = len(here.relative_to(root).parts)
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_WALK and not d.startswith("."))
+        dirnames[:] = sorted(d for d in dirnames if not skipped(here / d, SKIP_WALK))
         if depth is not None and level >= depth:
             dirnames[:] = []
         if here != root:
@@ -316,7 +335,7 @@ def discover_tests(root: Path) -> list[str]:
         here = Path(dirpath)
         keep: list[str] = []
         for d in sorted(dirnames):
-            if d in SKIP_WALK or d.startswith("."):
+            if skipped(here / d, SKIP_WALK):
                 continue
             if d in TEST_DIR_NAMES:
                 out.append((here / d).relative_to(root).as_posix())
@@ -370,13 +389,13 @@ def read_raw(root: Path) -> tuple[dict[str, Any], str]:
     toml = root / CONFIG_FILE
     if toml.is_file():
         try:
-            return tomllib.loads(toml.read_text(encoding="utf-8")), CONFIG_FILE
+            return tomllib.loads(toml.read_text(encoding="utf-8-sig")), CONFIG_FILE
         except tomllib.TOMLDecodeError as exc:
             raise ConfigError(f"{CONFIG_FILE}: {exc}") from exc
     pyproject = root / "pyproject.toml"
     if pyproject.is_file():
         try:
-            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8-sig"))
         except tomllib.TOMLDecodeError as exc:
             raise ConfigError(f"pyproject.toml: {exc}") from exc
         section = data.get("tool", {}).get("systemap")
@@ -416,6 +435,7 @@ def load(root: Path) -> Config:
 
     try:
         roots = package_roots(root, language, raw.get("package_roots"), where)
+        roots = checked_roots(root, language, raw, roots, KNOWN_KEYS, where)
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
@@ -423,38 +443,6 @@ def load(root: Path) -> Config:
     theme = raw.get("theme", {})
     if not isinstance(theme, dict):
         raise ConfigError(f"{where}: theme must be a table")
-
-    figures: list[Figure] = []
-    for k, item in enumerate(raw.get("figures", []), start=1):
-        if not isinstance(item, dict):
-            raise ConfigError(f"{where}: figures[{k}] must be a table")
-        bad = sorted(set(item) - FIGURE_KEYS)
-        if bad:
-            raise ConfigError(f"{where}: figures[{k}] has an unknown key: {', '.join(bad)}")
-        out = item.get("out")
-        if not isinstance(out, str) or not out:
-            raise ConfigError(f"{where}: figures[{k}] must contain an out file name.")
-        mode = _str(item, "mode", "system", where)
-        if mode not in ("system", "reach"):
-            raise ConfigError(f'{where}: figures[{k}] mode must be "system" or "reach"')
-        components = _str_list(item, "components", where)
-        if mode == "reach" and not components:
-            raise ConfigError(f"{where}: figures[{k}] is a reach figure with no components")
-        interactive = item.get("interactive", True)
-        if not isinstance(interactive, bool):
-            raise ConfigError(f"{where}: figures[{k}] interactive must be true or false")
-        figures.append(
-            Figure(
-                out=out,
-                mode=mode,
-                components=components,
-                caption=_str(item, "caption", "", where),
-                interactive=interactive,
-                svg_id=_str(item, "svg_id", "lessonmap", where),
-                layer=_str(item, "layer", "", where),
-                map=_str(item, "map", "", where),
-            )
-        )
 
     return Config(
         coverage_ignore=_coverage_ignore(raw, where),
@@ -476,8 +464,46 @@ def load(root: Path) -> Config:
         planes=_str_list(raw, "planes", where),
         outside_label=_str(raw, "outside_label", "EXTERNAL COMPONENTS", where),
         theme=theme,
-        figures=tuple(figures),
+        figures=_figures(raw, where),
         source=source,
+    )
+
+
+def _figures(raw: dict[str, Any], where: str) -> tuple[Figure, ...]:
+    """This function reads the `[[figures]]` tables."""
+    items = raw.get("figures", [])
+    if not isinstance(items, list):
+        raise ConfigError(f"{where}: figures must be a list of tables. Use [[figures]].")
+    return tuple(_figure(item, k, where) for k, item in enumerate(items, start=1))
+
+
+def _figure(item: Any, k: int, where: str) -> Figure:
+    if not isinstance(item, dict):
+        raise ConfigError(f"{where}: figures[{k}] must be a table")
+    bad = sorted(set(item) - FIGURE_KEYS)
+    if bad:
+        raise ConfigError(f"{where}: figures[{k}] has an unknown key: {', '.join(bad)}")
+    out = item.get("out")
+    if not isinstance(out, str) or not out:
+        raise ConfigError(f"{where}: figures[{k}] must contain an out file name.")
+    mode = _str(item, "mode", "system", where)
+    if mode not in ("system", "reach"):
+        raise ConfigError(f'{where}: figures[{k}] mode must be "system" or "reach"')
+    components = _str_list(item, "components", where)
+    if mode == "reach" and not components:
+        raise ConfigError(f"{where}: figures[{k}] is a reach figure with no components")
+    interactive = item.get("interactive", True)
+    if not isinstance(interactive, bool):
+        raise ConfigError(f"{where}: figures[{k}] interactive must be true or false")
+    return Figure(
+        out=out,
+        mode=mode,
+        components=components,
+        caption=_str(item, "caption", "", where),
+        interactive=interactive,
+        svg_id=_str(item, "svg_id", "lessonmap", where),
+        layer=_str(item, "layer", "", where),
+        map=_str(item, "map", "", where),
     )
 
 
@@ -622,8 +648,10 @@ def _answer_lines(form: str, value: Any, location: str) -> tuple[str, ...]:
 
 
 def _answer_crossing(value: Any, location: str) -> tuple[str, ...]:
-    ids = [v.strip() for v in value] if isinstance(value, list) else []
-    if len(ids) < 2 or not all(isinstance(v, str) and v for v in ids) or len(set(ids)) != len(ids):
+    ids = (
+        [v.strip() if isinstance(v, str) else "" for v in value] if isinstance(value, list) else []
+    )
+    if len(ids) < 2 or not all(ids) or len(set(ids)) != len(ids):
         raise ConfigError(
             f"{location} crossing must contain two or more different component IDs, such "
             f'as ["A", "B"].'
@@ -713,6 +741,19 @@ def _beside(folder: Path) -> Iterator[None]:
                 del sys.modules[name]
 
 
+def _import_problem(label: str, exc: ImportError | NameError) -> str:
+    """Give the model import error. Only a systemap name gets the systemap import fix."""
+    from systemap import __all__ as exported
+
+    name = getattr(exc, "name", None)
+    if isinstance(exc, NameError) and name in exported:
+        return f"{label} could not import: {exc}. Add the missing name to the import from systemap."
+    if isinstance(exc, ImportError) and name == "systemap":
+        names = ", ".join(n for n in exported if not n.startswith("_"))
+        return f"{label} could not import: {exc}. Use a name that systemap exports: {names}."
+    return f"{label} could not import: {type(exc).__name__}: {exc}"
+
+
 def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     """This function imports the model file and gets MODEL and MEANING.
 
@@ -728,13 +769,11 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     sys.modules[name] = module
     beside = path.parent.resolve()
     try:
-        source = path.read_text(encoding="utf-8")
+        source = path.read_text(encoding="utf-8-sig")
         with _beside(beside):
             exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - it is code
     except (ImportError, NameError) as exc:
-        raise ConfigError(
-            f"{label} could not import: {exc}. Add the missing name to the import from systemap."
-        ) from exc
+        raise ConfigError(_import_problem(label, exc)) from exc
     except Exception as exc:  # noqa: BLE001 - the consumer's module may fail any way
         raise ConfigError(f"{label} could not import: {type(exc).__name__}: {exc}") from exc
     finally:

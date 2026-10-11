@@ -23,14 +23,14 @@ colors:
   dark-change: "#D4675B"
   dark-on-change: "#1E0904"
   dark-steel: "#BEB8AC"
-  dark-data: "#86CDFF"
-  dark-control: "#C287BC"
-  dark-context: "#049886"
-  dark-tools: "#D1F1B2"
-  dark-custom-1: "#6C9455"
-  dark-custom-2: "#C7F1D3"
-  dark-custom-3: "#FDD3EF"
-  dark-custom-4: "#9798F9"
+  dark-data: "#2CB59A"
+  dark-control: "#B97874"
+  dark-context: "#D1EC9F"
+  dark-tools: "#8A8708"
+  dark-custom-1: "#8A8B22"
+  dark-custom-2: "#DCE8B8"
+  dark-custom-3: "#C6ED9F"
+  dark-custom-4: "#7C9128"
   light-bg: "#ECE8DE"
   light-surface: "#F1EEE6"
   light-raised: "#E6E1D5"
@@ -52,14 +52,14 @@ colors:
   light-change: "#AC312A"
   light-on-change: "#FFFFFF"
   light-steel: "#4B4740"
-  light-data: "#116BB5"
-  light-control: "#491A70"
-  light-context: "#05544A"
-  light-tools: "#6F650D"
-  light-custom-1: "#34591B"
-  light-custom-2: "#80586D"
-  light-custom-3: "#4B0634"
-  light-custom-4: "#65508E"
+  light-data: "#014438"
+  light-control: "#A05B5A"
+  light-context: "#497B15"
+  light-tools: "#544002"
+  light-custom-1: "#493901"
+  light-custom-2: "#3D7C23"
+  light-custom-3: "#5C5C01"
+  light-custom-4: "#71640B"
   brand: "#F2B33D"
 typography:
   body:
@@ -199,13 +199,20 @@ The measurement uses these limits for each pair of colors that can show on one v
 Text has a contrast ratio of 4.5:1 or more on the page, panel, map, and card colors.
 A flow kind color has 4.5:1 or more on the map and the card. Other lines have 3:1 or more on the map.
 
+No flow kind color has an OKLCH hue from 180 to 350 degrees, in either theme.
+This hue range contains cyan, blue, violet, purple, and magenta.
+The kind colors are teal green, clay, pale green, olive, and other yellow-green colors.
+Each kind has the same hue family in Ink and Paper.
+
 The measured limit is four flow kind colors on one view. The page does not apply this limit.
 In both themes, the data, control, context, and tools colors are in these limits on one view.
+In both themes, the data, control, and first custom kind colors are in these limits on one view.
 In Ink, the data, control, and two custom kind colors are in these limits on one view.
 In Paper, a second custom kind color next to data, control, and the first custom kind is not in these limits.
-In Paper, five flow kind colors on one view are not in these limits.
-In Ink, five flow kind colors are in these limits only with a very bright context color.
-The theme does not use that color.
+In both themes, five flow kind colors on one view are not in these limits.
+In both themes, the first custom kind color is near the tools color.
+The second custom kind color is near the context color.
+A view that shows one of these pairs does not have distinct colors for them.
 
 ## Navigation and layout
 
@@ -226,6 +233,7 @@ Read opens the panel at the right of the map. The panel is 400px wide.
 With no selection, the panel shows the guide steps and the section of the current layer.
 System context gives the artifacts that cross the boundary for each actor.
 A layer with more than 20 flows shows its flows in groups. The panel lists the groups.
+A group line, like a flow line, has only horizontal and vertical parts.
 A component selection shows its description, the flows that it receives and sends, its sequences, and its source modules.
 A flow selection shows its artifact, its direction, its evidence state, and its source records.
 The map moves so that the panel does not cover the selection.
@@ -248,6 +256,10 @@ Phone controls are 44px high or more.
 
 The map has one flat view. Card positions and flow paths come from the model.
 Cards have an 8-unit corner radius. Card text is centered in the card.
+On the page, a shade under each card gives it depth. The shade is a copy of the card shape
+1.6 units lower, with no blur. When the pointer is on a card, the shade moves lower.
+The selected card has a soft glow: amber in Ink, the highlighter yellow in Paper.
+The map surface has a fine static grain under the dot grid and a soft dark edge.
 All cards of a map use one type size. The page uses the largest size at which the text of all cards fits.
 The maximum size is a 13px name and a 12px description at 88 percent zoom.
 The minimum size is the base size that the map check examines. Card text changes size with the zoom.
@@ -313,6 +325,9 @@ The systemap symbol draws one time when the page opens: the route in 600 ms, the
 The camera moves in 300 ms with an ease-in-out curve.
 A new layer draws its lines in 600 ms or less.
 A sequence step shows its note after the camera stops.
+When the page opens, the cards come in one time in reading order, in 360 ms or less.
+A theme change fades the colors in 240 ms.
+A selected line and the current sequence line have a soft glow.
 With Reduce motion or the system setting for reduced motion, the page shows the final state with no motion.
 
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,

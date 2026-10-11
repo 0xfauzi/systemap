@@ -113,6 +113,23 @@ def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str
     assert "Use a longer time range" in capsys.readouterr().out
 
 
+def test_windows_of_equal_size_print_the_latest_first(tmp_path: Path) -> None:
+    windows = [trend.Window(base=str(i) * 40, head=str(i + 1) * 40, modules=1) for i in range(3)]
+    out = trend.report(windows, tmp_path, "1 year ago", 14, 3)
+    assert "Equal sizes use the last window in chronological order first" in out[1]
+    shown = [line.strip() for line in out if ".." in line and "followed" not in line]
+    assert shown == ["2222222..3333333", "1111111..2222222", "0000000..1111111"]
+
+
+def test_the_commit_count_has_only_commits_in_the_range(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert history.sample(repo, "2099-01-01", 1) == []
+    assert main(["--root", str(repo), "history", "--since", "2099-01-01"]) == 0
+    assert "There are only 0 commits since 2099-01-01." in capsys.readouterr().out
+    assert len(history.sample(repo, "30 years ago", 1)) == 2
+
+
 def test_the_facts_at_a_commit_are_read_once(repo: Path) -> None:
     cfg = config.load(repo)
     sha = history.sample(repo, "30 years ago", 1)[0]

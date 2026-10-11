@@ -31,6 +31,7 @@ color values from the same table."""
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Iterable
 from typing import Any
 
@@ -58,14 +59,16 @@ MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,mo
 INK_2_DARK = "#BEB8AC"
 CARD_LINE_DARK = "#716C63"
 
+# No kind color in Ink or Paper has an OKLCH hue from 180 to 350 degrees.
+# This hue range contains cyan, blue, violet, purple and magenta.
 STANDARD_LAYERS_DARK: dict[str, str] = {
     "structure": CARD_LINE_DARK,
     "system": CARD_LINE_DARK,
-    "data": "#86CDFF",
-    "control": "#C287BC",
+    "data": "#2CB59A",
+    "control": "#B97874",
     "agents": CARD_LINE_DARK,
-    "context": "#049886",
-    "tools": "#D1F1B2",
+    "context": "#D1EC9F",
+    "tools": "#8A8708",
 }
 
 # The first entry is the first custom kind ("judge" on the self-map).
@@ -73,7 +76,7 @@ STANDARD_LAYERS_DARK: dict[str, str] = {
 # same limits: data, control, context and tools pass on one view, and data,
 # control and two custom kinds pass on one view. With these values, five
 # kinds on one view do not pass, so a view shows four kind colors at most.
-LAYER_PALETTE_DARK: list[str] = ["#6C9455", "#C7F1D3", "#FDD3EF", "#9798F9"]
+LAYER_PALETTE_DARK: list[str] = ["#8A8B22", "#DCE8B8", "#C6ED9F", "#7C9128"]
 
 DARK: dict[str, Any] = {
     "name": "systemap",
@@ -141,17 +144,17 @@ CARD_LINE_LIGHT = "#8C877D"
 STANDARD_LAYERS_LIGHT: dict[str, str] = {
     "structure": CARD_LINE_LIGHT,
     "system": CARD_LINE_LIGHT,
-    "data": "#116BB5",
-    "control": "#491A70",
+    "data": "#014438",
+    "control": "#A05B5A",
     "agents": CARD_LINE_LIGHT,
-    "context": "#05544A",
-    "tools": "#6F650D",
+    "context": "#497B15",
+    "tools": "#544002",
 }
 
-# Paper: data, control, context and tools pass on one view. A second custom
-# kind next to data, control and the first custom kind does not pass; the
-# values are the nearest that the measurement found.
-LAYER_PALETTE_LIGHT: list[str] = ["#34591B", "#80586D", "#4B0634", "#65508E"]
+# Paper: data, control, context and tools pass on one view. Data, control and
+# the first custom kind pass on one view. A second custom kind on that view
+# does not pass, and five kinds on one view do not pass.
+LAYER_PALETTE_LIGHT: list[str] = ["#493901", "#3D7C23", "#5C5C01", "#71640B"]
 
 LIGHT: dict[str, Any] = {
     "name": "systemap",
@@ -285,6 +288,40 @@ def _check_tables(tokens: dict[str, Any]) -> None:
             raise unavailable(key)
 
 
+# The tokens that `tints` mixes with other colors. A mixed color must have the form #RRGGBB.
+MIXED_TOKENS = ("bg", "raised", "change", "reach")
+HEX_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
+
+
+def _colour(key: str, value: object) -> None:
+    if not isinstance(value, str) or HEX_COLOUR.fullmatch(value) is None:
+        raise ValueError(
+            f'The theme value {key} must be a color in the form #RRGGBB, such as "#D4675B". '
+            f"The value is {value!r}."
+        )
+
+
+def _check_values(t: dict[str, Any]) -> None:
+    """Reject a token value that the palette calculations cannot use.
+
+    The message gives the key name. Other tokens go to the page without a change."""
+    for key in MIXED_TOKENS:
+        _colour(key, t.get(key))
+    named = t.get("layers")
+    if not isinstance(named, dict):
+        raise ValueError("The theme value layers must be a table of layer IDs and colors.")
+    for lid, colour in named.items():
+        _colour(f"layers.{lid}", colour)
+    palette = t.get("layer_palette")
+    if not isinstance(palette, list) or not palette:
+        raise ValueError("The theme value layer_palette must be a list of one or more colors.")
+    for colour in palette:
+        _colour("layer_palette", colour)
+    marks = t.get("marks")
+    if not isinstance(marks, dict) or not all(isinstance(v, str) for v in marks.values()):
+        raise ValueError("The theme value marks must be a table of component kinds and marks.")
+
+
 def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
     """Assign one color to each layer in layer order.
 
@@ -322,6 +359,7 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
         if scheme == name:
             override = merge(own, override)
         t = merge(base, override)
+        _check_values(t)
         t["scheme"] = scheme
         t["layers"] = _layers(t, layers)
         tables[scheme] = t

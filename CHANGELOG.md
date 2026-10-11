@@ -34,6 +34,37 @@ A layer is a filtered view of the map.
 
   Without either, it tries both roots and maps a compiled target only when one fits and the other does not.
 
+- The TypeScript reader selects the `tsconfig.json` project of each source file.
+  The nearest `tsconfig.json` file above the source file gives the project.
+  If that project does not select the file, a project in its `references` that selects the file applies.
+  Thus the path aliases of a solution `tsconfig.json` and of each monorepo package resolve to source modules.
+  The `bin` and `exports` entries in the `package.json` file of a package directory give entry points.
+
+- `extends` without `.json`, such as `"./tsconfig.base"`, reads `tsconfig.base.json`, as `tsc` does.
+  Without `baseUrl`, a bare import such as `"config"` no longer resolves to a file in the project.
+
+- The TypeScript reader reads `.mts` and `.cts` modules.
+  Files in `__tests__` directories, `.cy.ts` files, and `.test.mts` files are tests, not source modules.
+  `it.each(...)("name")` and a template literal name give test names.
+  Node.js built-in modules, such as `node:fs`, are not in `external`.
+
+- `import { name } from "./module"` followed by `export { name }` gives a re-export, as `export { name } from` does.
+  `export default name` gives the kind of the local name.
+  A named export hides a `*` export of the same name, so `tsc` and the facts agree.
+  A file such as `logger.config.ts` does not hide the name `config` of `logger.ts`.
+  A re-export from an npm package gives no unknown record.
+  A second parse reads `export type * from` and the variance keywords `in` and `out`.
+  `export {}`, `export module`, and overload signatures give no unknown record and no repeated name.
+
+- A `Class.method` interface reads the method names of TypeScript classes.
+
+- `model sdk` findings include npm packages: `@anthropic-ai/sdk`, `@google/genai`, `@google/generative-ai`,
+  `@mistralai/mistralai`, `ai`, `cohere-ai`, and the packages in the `@langchain` and `@ai-sdk` scopes.
+
+- The TypeScript test-file walk and the tsconfig input walk do not enter `node_modules`.
+  With 100,000 files in `node_modules`, three runs of `extract.build` took 2.97 to 3.10 s before
+  this change and 0.04 to 0.05 s after it. `systemap extract --check` took 4.25 s and then 0.35 s.
+
 - Authored text follows the writing rules in `AGENTS.md`.
   Literal phrases replace metaphors, and terms have definitions at first use.
   Filtered views are now called layers in the page, `describe`, `figure`, and skill.

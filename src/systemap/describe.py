@@ -39,10 +39,6 @@ def _plural(n: int, noun: str) -> str:
     return f"{n} {noun}{'' if n == 1 else 's'}"
 
 
-def _centre(box: list[float], horizontal: bool) -> float:
-    return box[1] + box[3] / 2 if horizontal else box[0] + box[2] / 2
-
-
 def _extent(box: list[float], horizontal: bool) -> tuple[float, float]:
     """This function gets the label span along a row gutter or column gutter."""
     return (box[0], box[0] + box[2]) if horizontal else (box[1], box[1] + box[3])
@@ -54,40 +50,53 @@ def _seat_orientation(path: list[list[float]], segment: int) -> bool:
     return abs(path[segment + 1][1] - path[segment][1]) < 1e-6
 
 
+def _home(
+    lab: dict[str, Any], path: list[list[float]], rows: list[Gutter], cols: list[Gutter]
+) -> Gutter | None:
+    """This function gives the gutter of a label, or None for a label on its path.
+
+    A horizontal path segment looks for a row gutter first, then a column gutter. A
+    vertical segment looks in the opposite order."""
+    box = lab["box"]
+    horizontal = _seat_orientation(path, int(lab["segment"]))
+    return locate((box[0], box[1], box[2], box[3]), horizontal, rows, cols)
+
+
 def gutter_lines(
     labels: list[dict[str, Any]],
     paths: dict[str, list[list[float]]],
-    bands: list[Gutter],
-    horizontal: bool,
+    rows: list[Gutter],
+    cols: list[Gutter],
 ) -> list[str]:
     """This function gives the maximum occupied seats and capacity of each gutter.
 
-    A horizontal path assigns its label to a row gutter. A vertical path assigns its
-    label to a column gutter.
+    The row gutters come first, then the column gutters. Each label counts in the gutter
+    that its edge line names.
     """
+    homes = [_home(lab, paths.get(str(i), []), rows, cols) for i, lab in enumerate(labels)]
     out: list[str] = []
-    for g in bands:
-        inside = [
-            lab
-            for i, lab in enumerate(labels)
-            if _seat_orientation(paths.get(str(i), []), int(lab["segment"])) == horizontal
-            and g.holds(_centre(lab["box"], horizontal))
-        ]
-        peak = 0
-        for lab in inside:
-            lo, hi = _extent(lab["box"], horizontal)
-            depth = sum(
-                1
-                for other in inside
-                if (o := _extent(other["box"], horizontal)) and o[0] < hi and lo < o[1]
-            )
-            peak = max(peak, depth)
-        available = seats(g.size, LABEL_H)
-        out.append(
-            f"  {g.name} ({g.size:.0f} units): {peak} of {available} seats used, "
-            f"{_plural(len(inside), 'label')}"
-        )
+    for bands, horizontal in ((rows, True), (cols, False)):
+        for g in bands:
+            inside = [lab for lab, home in zip(labels, homes, strict=True) if home is g]
+            out.append(_gutter_line(g, inside, horizontal))
     return out
+
+
+def _gutter_line(g: Gutter, inside: list[dict[str, Any]], horizontal: bool) -> str:
+    peak = 0
+    for lab in inside:
+        lo, hi = _extent(lab["box"], horizontal)
+        depth = sum(
+            1
+            for other in inside
+            if (o := _extent(other["box"], horizontal)) and o[0] < hi and lo < o[1]
+        )
+        peak = max(peak, depth)
+    available = seats(g.size, LABEL_H)
+    return (
+        f"  {g.name} ({g.size:.0f} units): {peak} of {available} seats used, "
+        f"{_plural(len(inside), 'label')}"
+    )
 
 
 def drawn_score(meta: dict[str, Any], flows: int) -> Score:
@@ -233,13 +242,7 @@ def lines(
         lab = labels[i] if i < len(labels) else None
         where = ""
         if lab is not None:
-            box = lab["box"]
-            g = locate(
-                (box[0], box[1], box[2], box[3]),
-                _seat_orientation(path, int(lab["segment"])),
-                rows,
-                cols,
-            )
+            g = _home(lab, path, rows, cols)
             where = f". label {g.name}" if g is not None else ". label on its path"
         out.append(
             f"  {f.src} -> {f.dst} ('{f.artifact}'): {_plural(bends(path), 'bend')}, "
@@ -247,8 +250,7 @@ def lines(
         )
 
     out.append("gutters: The maximum occupied seat counts and seat capacities follow.")
-    out += gutter_lines(labels, paths, rows, True)
-    out += gutter_lines(labels, paths, cols, False)
+    out += gutter_lines(labels, paths, rows, cols)
 
     counts: dict[str, int] = meta.get("evidence", {})
     out.append(

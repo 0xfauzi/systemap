@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterator
 from typing import Any
 
-import tree_sitter_typescript
-from tree_sitter import Language, Node, Parser
+from tree_sitter import Node
 
-TS = Language(tree_sitter_typescript.language_typescript())
-TSX = Language(tree_sitter_typescript.language_tsx())
+from systemap.typescript_imports import import_names
+from systemap.typescript_syntax import _one_line, _root, _string, _text, _tree, _walk, docstring
+from systemap.typescript_tests import test_names as test_names
+
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 FUNCTION_NODES = {
     "function_declaration",
@@ -30,39 +30,8 @@ TYPE_NODES = {
     "type_alias_declaration",
     "enum_declaration",
 }
-
-
-def _tree(raw: str, path: str = "") -> Node:
-    language = TSX if path.endswith(".tsx") else TS
-    return Parser(language).parse(raw.encode("utf-8")).root_node
-
-
-def _root(raw: str, path: str = "") -> Node | None:
-    root = _tree(raw, path)
-    return None if root.has_error else root
-
-
-def _walk(node: Node) -> Iterator[Node]:
-    yield node
-    for child in node.named_children:
-        yield from _walk(child)
-
-
-def _text(node: Node | None) -> str:
-    return (node.text or b"").decode("utf-8") if node is not None else ""
-
-
-def _one_line(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _string(node: Node | None) -> str:
-    if node is None or node.type != "string":
-        return ""
-    fragment = next(
-        (child for child in node.named_children if child.type == "string_fragment"), None
-    )
-    return _text(fragment)
+# `namespace N {}` and `module N {}` declare the same kind of object.
+NAMESPACE_NODES = {"internal_module", "module"}
 
 
 def _source(node: Node) -> str:
@@ -162,7 +131,7 @@ def _declaration_kinds(declaration: Node) -> dict[str, str]:
     if declaration.type in TYPE_NODES:
         record, is_error = _type_record(declaration)
         return {record["name"]: "error" if is_error else "class"}
-    if declaration.type == "internal_module":
+    if declaration.type in NAMESPACE_NODES:
         return _namespace_kinds(declaration)
     if declaration.type == "lexical_declaration":
         return _variable_kinds(declaration)
@@ -229,8 +198,12 @@ def _named_reexports(clause: Node, source: str) -> list[dict[str, Any]]:
 
 
 def _local_exports(
-    node: Node, kinds: dict[str, str]
+    node: Node, local_names: dict[str, dict[str, str]]
 ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """This function records `export { name }` for a declared or an imported local name.
+
+    An imported name is a re-export of its source module.
+    """
     clause = next((child for child in node.named_children if child.type == "export_clause"), None)
     if clause is None:
         return [], []
@@ -245,13 +218,19 @@ def _local_exports(
         if not identifiers:
             continue
         local, public = _text(identifiers[0]), _text(identifiers[-1])
-        kind = kinds.get(local, "unknown")
-        names.append({"name": public, "kind": kind})
-        if kind == "unknown":
+        names.append(_local_entry(public, local_names.get(local, {"kind": "unknown"})))
+        if local not in local_names:
             unknown.append(
                 _unknown(node, f"the local export {local!r} has an unknown declaration kind.")
             )
     return names, unknown
+
+
+def _local_entry(public: str, known: dict[str, str]) -> dict[str, str]:
+    entry = {"name": public, **known}
+    if entry.get("defined_as") == public:
+        del entry["defined_as"]
+    return entry
 
 
 def _unknown(node: Node, reason: str) -> dict[str, Any]:
@@ -291,7 +270,13 @@ def _add_function(
     if declaration.type == "arrow_function":
         signature = _arrow_signature(name, declaration)
     functions.append({"name": name, "signature": signature})
-    names.append({"name": name, "kind": "function"})
+    _add_name(names, {"name": name, "kind": "function"})
+
+
+def _add_name(names: list[dict[str, str]], entry: dict[str, str]) -> None:
+    """This function adds a public name one time. Overload signatures give one name."""
+    if entry not in names:
+        names.append(entry)
 
 
 def _arrow_signature(name: str, node: Node) -> str:
@@ -317,7 +302,7 @@ def _add_declaration(
         (errors if is_error else classes).append(record)
         names.append({"name": record["name"], "kind": "error" if is_error else "class"})
         return True
-    if declaration.type == "internal_module":
+    if declaration.type in NAMESPACE_NODES:
         if _add_namespace(declaration, names):
             return True
     if declaration.type == "lexical_declaration":
@@ -370,7 +355,9 @@ def _add_variable(
         names.append({"name": name, "kind": "object"})
 
 
-def _record_export(export: Node, surface: dict[str, Any], local_kinds: dict[str, str]) -> None:
+def _record_export(
+    export: Node, surface: dict[str, Any], local_names: dict[str, dict[str, str]]
+) -> None:
     reexports = _reexports(export)
     start = len(surface["names"])
     surface["names"].extend(reexports)
@@ -379,7 +366,7 @@ def _record_export(export: Node, surface: dict[str, Any], local_kinds: dict[str,
     declaration = _declaration(export)
     default = any(child.type == "default" for child in export.children)
     if declaration is None:
-        _record_export_without_declaration(export, surface, local_kinds, default, reexports)
+        _record_export_without_declaration(export, surface, local_names, default, reexports)
         return
     _record_declared_export(export, declaration, surface, default, start)
 
@@ -387,29 +374,52 @@ def _record_export(export: Node, surface: dict[str, Any], local_kinds: dict[str,
 def _record_export_without_declaration(
     export: Node,
     surface: dict[str, Any],
-    local_kinds: dict[str, str],
+    local_names: dict[str, dict[str, str]],
     default: bool,
     reexports: list[dict[str, Any]],
 ) -> None:
     value = export.child_by_field_name("value")
     if default and value is not None:
-        _record_default_value(export, value, surface)
+        _record_default_value(export, value, surface, local_names)
         return
-    local, local_unknown = _local_exports(export, local_kinds) if not reexports else ([], [])
+    local, local_unknown = _local_exports(export, local_names) if not reexports else ([], [])
     surface["names"].extend(local)
     surface["unknown"].extend(local_unknown)
-    if not local and not reexports:
+    if not local and not reexports and not _empty_export(export):
         surface["unknown"].append(_unknown(export, "The export form has no recorded public name."))
 
 
-def _record_default_value(export: Node, value: Node, surface: dict[str, Any]) -> None:
+def _empty_export(export: Node) -> bool:
+    """This function tells if the statement is `export {}`, which only marks a module."""
+    clause = next((child for child in export.named_children if child.type == "export_clause"), None)
+    return clause is not None and not clause.named_children
+
+
+def _record_default_value(
+    export: Node, value: Node, surface: dict[str, Any], local_names: dict[str, dict[str, str]]
+) -> None:
     if value.type in ("arrow_function", "function_expression", "generator_function"):
         _add_function(value, surface["functions"], surface["names"], default=True)
         return
-    surface["names"].append({"name": "default", "kind": "unknown"})
-    surface["unknown"].append(
-        _unknown(export, "The default export expression has an unknown declaration kind.")
-    )
+    entry = _default_name(value, local_names)
+    surface["names"].append(entry)
+    surface["unknown"].extend(_default_problems(export, entry))
+
+
+def _default_problems(export: Node, entry: dict[str, str]) -> list[dict[str, Any]]:
+    if entry["kind"] != "unknown":
+        return []
+    return [_unknown(export, "The default export expression has an unknown declaration kind.")]
+
+
+def _default_name(value: Node, local_names: dict[str, dict[str, str]]) -> dict[str, str]:
+    """This function gives the record of `export default name` for a local or imported
+    name, or a record with kind unknown.
+    """
+    local = _text(value) if value.type == "identifier" else ""
+    if local not in local_names:
+        return {"name": "default", "kind": "unknown"}
+    return {"name": "default", "defined_as": local, **local_names[local]}
 
 
 def _record_declared_export(
@@ -533,7 +543,7 @@ def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
     if node.type in TYPE_NODES:
         record, is_error = _type_record(node)
         return [(record["name"], "refusals" if is_error else "types", _type_definition(node))]
-    if node.type == "internal_module":
+    if node.type in NAMESPACE_NODES:
         return [(name, "constants", _namespace_definition(node)) for name in _namespace_kinds(node)]
     if node.type != "lexical_declaration":
         return []
@@ -565,11 +575,19 @@ def _local_api(root: Node) -> dict[str, list[tuple[str, str]]]:
 
 
 def _exported_api(root: Node) -> list[dict[str, str]]:
-    local = _local_api(root)
+    local = _import_api(root) | _local_api(root)
     out: list[dict[str, str]] = []
     for statement in (node for node in root.named_children if node.type == "export_statement"):
         out.extend(_export_statement_api(statement, local))
     return out
+
+
+def _import_api(root: Node) -> dict[str, list[tuple[str, str]]]:
+    """This function gives the identity of each imported local name, for `export { name }`."""
+    return {
+        name: [("constants", f"reexport:{entry['reexport_of']}:{entry.get('defined_as', '*')}")]
+        for name, entry in import_names(root).items()
+    }
 
 
 def _export_statement_api(
@@ -658,7 +676,8 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     constants: list[dict[str, str]] = []
     names: list[dict[str, Any]] = []
     unknown: list[dict[str, Any]] = []
-    local_kinds = _declared_kinds(root)
+    local_names = import_names(root)
+    local_names.update((name, {"kind": kind}) for name, kind in _declared_kinds(root).items())
     surface = {
         "functions": functions,
         "classes": classes,
@@ -668,12 +687,9 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "unknown": unknown,
     }
     for export in (node for node in root.named_children if node.type == "export_statement"):
-        _record_export(export, surface, local_kinds)
-
-    leading = next((node for node in root.named_children if node.type == "comment"), None)
-    docstring = _text(leading).removeprefix("/**").removesuffix("*/").strip(" *\n")
+        _record_export(export, surface, local_names)
     return {
-        "docstring": _one_line(docstring),
+        "docstring": docstring(root),
         "functions": functions,
         "classes": classes,
         "errors": errors,
@@ -682,24 +698,3 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "unknown": unknown,
         "api": _exported_api(root),
     }
-
-
-def test_names(raw: str, path: str = "") -> list[str]:
-    """This function gives literal names passed to test and it, including nested test
-    suites.
-    """
-    root = _root(raw, path)
-    if root is None:
-        return []
-    out: list[str] = []
-    for call in (node for node in _walk(root) if node.type == "call_expression"):
-        function = call.child_by_field_name("function")
-        if not re.fullmatch(
-            r"(?:test|it)(?:\.(?:only|skip|concurrent|fails|todo))*", _text(function)
-        ):
-            continue
-        arguments = call.child_by_field_name("arguments")
-        first = arguments.named_children[0] if arguments and arguments.named_children else None
-        if name := _string(first):
-            out.append(name)
-    return out

@@ -183,6 +183,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
                 f"ignore is not necessary: {ignore.module} is an empty package marker. The "
                 f"coverage rule omits it automatically. Remove the ignore entry."
             )
+    problems += _claimed_ignores(model, modules, markers, ignore_list)
     ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
     mapped = n_ignored = n_markers = 0
     for m in modules:
@@ -203,6 +204,22 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
         else:
             problems.append(f"unmapped: {m} (no component has this module claim)")
     return Coverage(True, mapped, len(modules), n_ignored, tuple(problems), n_markers)
+
+
+def _claimed_ignores(
+    model: Model, modules: list[str], markers: set[str], ignores: list[Ignore]
+) -> list[str]:
+    """This function finds an ignore entry whose modules all have a component claim."""
+    claims = [p for c in model.components for p in c.implemented_by]
+    out = []
+    for ignore in ignores:
+        matched = [m for m in modules if module_matches(ignore.module, m) and m not in markers]
+        if matched and all(any(module_matches(p, m) for p in claims) for m in matched):
+            out.append(
+                f"ignore is not necessary: {ignore.module} has a component claim. "
+                f"Remove the ignore entry."
+            )
+    return out
 
 
 # The coverage of a map inside a card: nothing, on record.
@@ -266,19 +283,30 @@ def check_nesting(
 ENTRY_OPTIONAL = ("store", "context")
 
 
+def _no_modules(model: Model, components: Mapping[str, Any]) -> list[str]:
+    """This function finds facts without modules for a model with source components."""
+    if components or all(c.kind == "actor" for c in model.components):
+        return []
+    return [
+        "The facts contain no source modules. Make sure that [package_roots] in the "
+        "configuration gives the directories that contain the source files."
+    ]
+
+
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
     """This function validates component modules, symbol claims, and entries against the
     facts.
 
     A symbol claim must have a public symbol and a module owner. An actor has no
     source-code checks. A store or context component can have an empty entry. Other
-    components must have a defined public entry.
+    components must have a defined public entry. Facts without modules do not agree
+    with a model that has source components.
     """
     components = facts.get("components", {})
-    if not components:
+    if not facts:
         return []
     owned = {m for c in model.components for m in claimed(c, components)}
-    out: list[str] = []
+    out = _no_modules(model, components)
     for c in model.components:
         if c.kind == "actor":
             continue
@@ -332,6 +360,13 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 # when the line reads `Class.method`. The token ends at `(`, `.`, `->`,
 # whitespace or anything else that is not part of a name.
 INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?")
+# The method name in a recorded method header. A Python header starts with
+# `def`. A TypeScript header starts with optional modifiers and an optional `*`.
+PYTHON_METHOD = re.compile(r"(?:async )?def (\w+)\(")
+TYPESCRIPT_METHOD = re.compile(
+    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
+    r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
+)
 
 
 def interface_head(text: str) -> tuple[str, str] | None:
@@ -352,7 +387,7 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
             if cls.get("name") != class_name:
                 continue
             for sig in cls.get("methods", []):
-                found = re.match(r"(?:async )?def (\w+)\(", sig)
+                found = PYTHON_METHOD.match(sig) or TYPESCRIPT_METHOD.match(sig)
                 if found:
                     out.add(found.group(1))
     return out
@@ -707,7 +742,8 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         if cov.problems:
             out.append(
                 f"  fix: Give each module a component in {model_file}, or give a reason to "
-                f"ignore it in [coverage] in the configuration."
+                f"ignore it in [coverage] in the configuration. Remove each ignore entry "
+                f"that a line identifies as not necessary or missing from the facts."
             )
     else:
         out.append("coverage: No facts are available for the check. Use systemap extract.")
@@ -756,7 +792,7 @@ def _unknown_surface_report(findings: list[str]) -> list[str]:
         f"unknown surface: {_plural(len(findings), 'finding')}",
         *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
         (
-            "  fix: Add parser support for this TypeScript syntax, or restore the missing "
-            "source mapping."
+            "  fix: Add parser support for this TypeScript syntax, write the file as UTF-8 "
+            "text, or restore the missing source mapping."
         ),
     ]

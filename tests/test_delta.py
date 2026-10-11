@@ -145,7 +145,7 @@ ignore = [
 ]
 
 [judgement]
-answered = [{ crossing = ["Ledger", "Parser"], reason = "a type import" }]
+answered = [{ crossing = ["Ledger", "Parser"], policy = true, reason = "a type import" }]
 
 [[figures]]
 out = "figures/system.svg"
@@ -283,17 +283,28 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     assert "**A decision is necessary (14)**" in lines
     assert "**No action is necessary for these changes (6)**" in lines
     assert "- `added: pkg.fresh, No component has a claim for it. " in out
-    assert f"> {delta.FULL_LOOP[0].upper()}{delta.FULL_LOOP[1:]}." in lines
+    assert f"> {delta.FULL_LOOP}" in lines
     url = f"https://github.com/acme/demo/blob/{head}/docs/map/figures/system.svg?raw=true"
     assert f"![the map at {head[:7]}]({url})" in lines
     assert "systemap figure --mode change --base" in out
     assert out.endswith("`systemap refresh && systemap check && systemap judgement --strict`.\n")
-    # Without a remote there is no URL to give, and the comment says so.
-    git(repo, "remote", "remove", "origin")
+    # Without a GitHub remote there is no URL to give. The figure is committed, and
+    # the comment says so.
+    git(repo, "remote", "set-url", "origin", "https://git.example.com/acme/demo.git")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--format", "markdown"]) == 1
     out = capsys.readouterr().out
     assert "![" not in out
-    assert "No committed figure is available at `" in out
+    assert "No committed figure" not in out
+    assert (
+        f"The map figure `docs/map/figures/system.svg` is committed at `{head[:7]}`. The "
+        "comment shows no image because the origin remote is not on GitHub." in out
+    )
+    # Without a committed figure, the comment says that.
+    git(repo, "remote", "remove", "origin")
+    git(repo, "rm", "-q", "docs/map/figures/system.svg")
+    git(repo, "commit", "-q", "-m", "no figure")
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~2", "--format", "markdown"]) == 1
+    assert "No committed figure is available at `" in capsys.readouterr().out
 
 
 def test_nothing_to_do_and_no_change_exit_zero(
@@ -307,12 +318,12 @@ def test_nothing_to_do_and_no_change_exit_zero(
     git(repo, "commit", "-q", "-am", "body")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
-    assert "1 modules changed, 0 added, 0 removed, 0 moved. 1 of 6 components specified" in out
+    assert "1 module changed, 0 added, 0 removed, 0 moved. 1 of 6 components specified" in out
     assert "source review: Writer has changed code in pkg.writer" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")
-    assert "the map has no source-fact change" in out
+    assert "The map has no source-fact change" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD", "--format", "markdown"]) == 0
     assert "No module changed" in capsys.readouterr().out
 
@@ -535,6 +546,19 @@ def test_a_card_joined_to_a_third_of_the_map_names_none() -> None:
         "Hub has the most changed modules. It has flows to 3 of the 6 components, so the list gives no useful context."
     )
     assert not any("why:" in line for line in lines), "nothing to teach when nothing is named"
+
+
+def test_the_comment_ends_each_sentence_with_one_full_stop() -> None:
+    d = delta.Delta(
+        base="a", head="b", base_ref="HEAD~1", head_ref="HEAD",
+        changed=1, added=0, removed=0, moved=0, cards=6,
+        lines=(delta.Line("source review", "source review: A", cards=("A", "B", "C")),),
+        seed="Hub", near=("A", "B", "C"),
+    )  # fmt: skip
+    text = delta.markdown(d)
+    assert "so the list gives no useful context." in text
+    assert "maintenance procedure." in text
+    assert ".." not in text
 
 
 def test_the_seed_is_the_card_with_the_most_changed_modules() -> None:

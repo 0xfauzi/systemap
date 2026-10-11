@@ -1,6 +1,7 @@
 """Run commands that call Jev or a configured coding agent.
 
 These commands are outside cli.py to keep the CLI module small.
+`systemap.delta_jev` holds the Jev questions of `systemap delta`.
 Jev calls must have `TYPESAFE_API_KEY` and print usage.
 Completed semantic reports exit 0. Request errors exit 1.
 Plan comparison can exit 1 for changes outside the recorded plan.
@@ -9,7 +10,6 @@ Plan comparison can exit 1 for changes outside the recorded plan.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -27,7 +27,6 @@ from systemap import (
     journeys,
     judgement,
     model_write,
-    moves,
     nest,
 )
 from systemap import plan as plan_mod
@@ -35,28 +34,20 @@ from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
 
+# Each figure below was measured with earlier prompts on Python repositories.
+# The current prompts have no measurement (bench/jev/README.md, "Which prompts
+# have no measurement?").
+#
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
 REPORT_CAP = 2000
-# A module that disappeared is paired with Jev's pick at this confidence or
-# more, when delta's own three questions left it unpaired: on the renames in
-# five repositories this found 82 real renames against delta's 66, and 16 of
-# the 17 pairings it added were right (labelled blind from the commits).
-MOVE_AT = 0.8
 # Pairs at or above this are one part, for `suggest --jev`: with the threshold
 # chosen on four development maps and scored on the fifth, pairwise F1 beat one
-# card per package by 0.18 on average, and lost on two maps of five.
+# card per package by 0.18 on average, and lost on two maps of five
+# (bench/jev/results/grouping-report.txt).
 SAME_AT = 0.4
 
 TRIAGE_Q = "`report` is an issue for this system. Which component will the fix probably change?"
-BECAME_Q = (
-    "The commit removed `old_module` and added the option modules. Which "
-    "new module is the removed module after a move, rename, or edit? If no option "
-    "continues the removed module, select the deleted option."
-)
-NOT_MOVED = "not moved: deleted"
-# How many new modules the question offers: the measured cap.
-MOVE_OPTIONS = 250
 SAME_Q = (
     "Do `module_a` and `module_b` have the same system function and belong to one "
     "component? Components that only call each other or share types stay different."
@@ -78,17 +69,21 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
 # ---- when a command asks Jev on its own, and what it says when it cannot ---------
 
 # What the commands that stay offline say Jev would add, when no key is set.
-# Each figure is measured (bench/jev) and quoted as measured.
+# Each figure is quoted as measured, with the measurement limits and the
+# bench/jev/README.md section that records it.
 JUDGEMENT_HINT = (
-    "hint: TYPESAFE_API_KEY enables systemap audit. It found 95% of planted assignments to "
-    "an adjacent component. The possible mis-fold word rule found 32% (bench/jev). "
+    "hint: TYPESAFE_API_KEY enables systemap audit. With earlier prompts on Python "
+    "repositories, it found 95% of planted assignments to an adjacent component "
+    '(bench/jev/README.md, "Which repositories are in the holdout set?"). '
+    "The current prompts have no measurement. "
     "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
-    "hint: TYPESAFE_API_KEY enables Jev rename questions. Across five repositories, "
-    "Jev and delta found 82 renames; delta found 66. Sixteen of 17 added pairs were "
-    "correct (bench/jev). Set [jev] enabled = false in systemap.toml to stop this "
-    "hint."
+    "hint: TYPESAFE_API_KEY enables Jev rename suggestions. With earlier prompts on "
+    "Python repositories, delta found 66 renames, and Jev suggestions added 16 correct "
+    'renames of 17 (bench/jev/README.md, "What did tests 7 and 8 measure?"). '
+    "The current prompts have no measurement. Suggestions do not change the delta "
+    "result. Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 
 
@@ -124,11 +119,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     kinds = tuple(args.kind) if args.kind else audit.DEFAULT_KINDS
     plan = audit.make_plan(tree, facts, cfg, kinds)
     if args.dry_run:
-        pending = None
-        if send is not None or jev.has_key():
-            pending = len(_client(cfg, send).pending(plan.asks))
-        print(*audit.dry_run(plan, pending), sep="\n")
-        return OK
+        return _dry_run(cfg, plan, send)
     try:
         client = _client(cfg, send)
         found = audit.lines(plan, client.ask(plan.asks))
@@ -148,9 +139,23 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
             not args.brief,
             result.pending,
             result.policies,
+            plan.unasked,
         ),
         sep="\n",
     )
+    return OK
+
+
+def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None) -> int:
+    """Count the questions. With a key, get only the model list to count cached answers."""
+    pending: int | str | None = None
+    if send is not None or jev.has_key():
+        try:
+            pending = len(_client(cfg, send).pending(plan.asks))
+        except JevError as exc:
+            print(*audit.dry_run(plan, f"unknown: {exc}"), sep="\n")
+            return STALE
+    print(*audit.dry_run(plan, pending), sep="\n")
     return OK
 
 
@@ -190,8 +195,8 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     by = audit.modules_by_card(top.model, facts)
     cut = " (the text was cut at 2,000 characters)" if len(text) > REPORT_CAP else ""
-    print(f"triage: confidence {answer.get('confidence', 0):.2f}{cut}")
-    for cid, p in audit._top(answer.get("probabilities", {}), 3):
+    print(f"triage: confidence {answer['confidence']:.2f}{cut}")
+    for cid, p in audit._top(audit.spread(answer), 3):
         if cid == audit.NONE:
             print(f"  {p:.2f}  none of the components")
             continue
@@ -201,41 +206,6 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         print(f"        on the map: {_neighbours(top.model, cid)}")
     print(client.usage.line())
     return OK
-
-
-# ---- delta --jev: a card for every module no card claims ---------------------------
-
-UNCLAIMED = (
-    re.compile(r"^(?:\S+: )?added: (\S+), claimed by no card"),
-    re.compile(r"^(?:\S+: )?moved: \S+ -> (\S+) \(.*\); no card claims"),
-)
-
-
-def unclaimed_in(lines: list[str]) -> list[str]:
-    out = []
-    for line in lines:
-        for pattern in UNCLAIMED:
-            found = pattern.match(line)
-            if found:
-                out.append(found[1])
-    return out
-
-
-def owner_suggestions(
-    cfg: config.Config, tree: nest.Tree, head: dict[str, Any], modules: list[str], client: jev.Jev
-) -> list[str]:
-    """Give one owner prediction or three candidates per unclaimed module."""
-    if not modules:
-        return []
-    plan = audit.Plan()
-    audit.plan_owner(plan, tree.top, head, modules, cfg.name, placed_too=False)
-    answered = client.ask(plan.asks)
-    out = []
-    for ask in plan.asks:
-        line = audit.owner_line(plan.reads[ask.key], answered[ask.key])
-        if line is not None:
-            out.append(f"{line.text} ({'; '.join(line.detail)})")
-    return out
 
 
 # ---- journeys: a walk written for a way in nothing walks from yet ------------------
@@ -325,7 +295,14 @@ def _write_journeys(
         return STALE
     print(*out, sep="\n")
     writer_usage(writer)
-    return OK
+    return _written_code(take, written)
+
+
+def _written_code(
+    take: list[tuple[nest.Map, journeys.Group]], written: dict[Path, list[str]]
+) -> int:
+    """The command fails when it had sequences to write and wrote none."""
+    return OK if written or not take else STALE
 
 
 def _record_journey(
@@ -342,7 +319,7 @@ def _record_journey(
         return
     source = sources.get(current.path)
     if source is None:
-        source = current.path.read_text(encoding="utf-8")
+        source = current.path.read_text(encoding="utf-8-sig")
     grown = journeys.add_to_source(source, draft.journey)
     if grown is None:
         out.append(f"journeys: {current.rel} has no journeys list. Add this source:")
@@ -384,69 +361,6 @@ def _atomic_model_write(path: Path, source: str) -> None:
 def writer_usage(writer: agent.Agent) -> None:
     if writer.usage.called or writer.usage.cached:
         print(writer.usage.line(), file=sys.stderr)
-
-
-# ---- delta --jev: which new module a module that disappeared became ---------------
-
-
-def _first_sentence(text: str, cap: int) -> str:
-    text = " ".join((text or "").split())
-    for end in (". ", ".\n"):
-        i = text.find(end)
-        if i != -1:
-            text = text[: i + 1]
-            break
-    return text[:cap]
-
-
-def _brief(record: dict[str, Any]) -> str:
-    names = ", ".join(n["name"] for n in record.get("names", [])[:12])
-    doc = _first_sentence(record.get("docstring") or "", 160)
-    return f"{record.get('file')}: {doc} Names: {names}"
-
-
-def _move_ask(base: dict[str, Any], old: str, criteria: dict[str, str]) -> Ask:
-    record = base[old]
-    state = {
-        "old_module": {
-            "module": old,
-            "file": record.get("file"),
-            "docstring": record.get("docstring"),
-            "names": [n["name"] for n in record.get("names", [])][:40],
-        }
-    }
-    question = {"type": "choice", "instructions": BECAME_Q, "criteria": criteria}
-    return Ask(old, state, {"became": question})
-
-
-def jev_moves(
-    base: dict[str, Any], head: dict[str, Any], client: jev.Jev
-) -> dict[str, tuple[str, str]]:
-    """Pair removed modules with new modules at confidence MOVE_AT or more.
-
-    Delta's rules first remove known pairs. Jev selects from the unpaired candidates.
-    """
-    b, h = base.get("components", {}), head.get("components", {})
-    gone = sorted(set(b) - set(h))
-    new = sorted(set(h) - set(b))
-    found = moves.find(b, h, gone, new)
-    left = [m for m in gone if m not in found and not extract.is_empty_marker(b[m])]
-    options = [m for m in new if not extract.is_empty_marker(h[m])]
-    if not left or not options:
-        return {}
-    criteria = {m: _brief(h[m]) for m in options[:MOVE_OPTIONS]}
-    criteria[NOT_MOVED] = "The removed module was deleted. No new module continues its function."
-    asks = [_move_ask(b, old, criteria) for old in left]
-    answered = client.ask(asks)
-    picks = sorted(
-        ((answered[a.key]["became"], a.key) for a in asks),
-        key=lambda p: (-p[0].get("confidence", 0.0), p[1]),
-    )
-    return {
-        old: (a["choice"], f"read as the same module by Jev, confidence {a['confidence']:.2f}")
-        for a, old in picks
-        if a.get("choice") not in (None, NOT_MOVED) and a.get("confidence", 0.0) >= MOVE_AT
-    }
 
 
 # ---- suggest --jev: groups from Jev's answers about module pairs -------------------
@@ -545,7 +459,7 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     except JevError as exc:
         print(f"plan: {exc}")
         return STALE
-    spread = answer["plan"]["where"].get("probabilities", {})
+    spread = audit.spread(answer["plan"]["where"])
     made = plan_mod.project(top.model, top.meaning, text.strip(), spread)
     # A projection that names nothing is not written down: there would be
     # nothing to check it against later.
@@ -658,7 +572,10 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     )
     add_root(s)
     s.add_argument(
-        "--dry-run", action="store_true", help="count proposed questions without sending data"
+        "--dry-run",
+        action="store_true",
+        help="count proposed questions and send no map data. With a key, the command gets "
+        "only the model list to count the cached answers",
     )
     s.add_argument(
         "--kind",

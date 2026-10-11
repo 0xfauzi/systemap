@@ -8,14 +8,15 @@ libraries.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 from systemap import change as change_mod
 from systemap import nest, schematic_change
-from systemap.config import Config, ConfigError, Figure
+from systemap.config import ArgumentError, Config, ConfigError, Figure
 from systemap.model import DERIVED_LAYERS, Layer, Meaning, Model, all_layers, reading
 from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
@@ -226,7 +227,7 @@ def make(
     """This function gives figure HTML and label or header diagnostics.
 
     An empty mode selects change if a base ref or component IDs are given; otherwise, it
-    selects system. Unknown component IDs give ConfigError. An empty Git range gives
+    selects system. Unknown component IDs give ArgumentError. An empty Git range gives
     FigureError. The bare option gives SVG only. The layer and map_id arguments select a
     layer and nested map.
     """
@@ -249,7 +250,7 @@ def make(
         ids = [s.strip() for s in components if s.strip()]
         unknown = sorted(set(ids) - known)
         if unknown:
-            raise ConfigError(f"unknown component ids: {', '.join(unknown)}")
+            raise ArgumentError(f"unknown component ids: {', '.join(unknown)}")
         changed = set(ids)
         legend_mode = "reach"
         caption = caption or (
@@ -360,7 +361,7 @@ def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:
     for lay in layers:
         if lay.id == layer:
             return lay
-    raise ConfigError(
+    raise ArgumentError(
         f"unknown layer id: {layer}. The page layer IDs are {', '.join(lay.id for lay in layers)}"
     )
 
@@ -375,21 +376,31 @@ def configured(
     """This function makes a figure from a configuration entry for the selected map.
 
     Refresh writes the result and check compares it. An out path with .svg selects SVG
-    only.
+    only. An unknown value in the entry is a configuration error.
     """
-    return make(
-        cfg,
-        m.model,
-        m.meaning,
-        m.theme,
-        facts,
-        mode="change" if fig.mode == "reach" else "system",
-        components=fig.components,
-        caption=fig.caption,
-        svg_id=fig.svg_id,
-        interactive=fig.interactive,
-        bare=fig.out.endswith(".svg"),
-        layer=fig.layer,
-        map_id=m.id,
-        opens=nest.opens(tree, m, links=False),
-    )
+    with _configured_values():
+        return make(
+            cfg,
+            m.model,
+            m.meaning,
+            m.theme,
+            facts,
+            mode="change" if fig.mode == "reach" else "system",
+            components=fig.components,
+            caption=fig.caption,
+            svg_id=fig.svg_id,
+            interactive=fig.interactive,
+            bare=fig.out.endswith(".svg"),
+            layer=fig.layer,
+            map_id=m.id,
+            opens=nest.opens(tree, m, links=False),
+        )
+
+
+@contextlib.contextmanager
+def _configured_values() -> Iterator[None]:
+    """Give a value from a [[figures]] entry as a configuration error, not an option error."""
+    try:
+        yield
+    except ArgumentError as exc:
+        raise ConfigError(str(exc)) from exc

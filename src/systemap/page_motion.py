@@ -1,9 +1,67 @@
-"""Motion and small controls for the map page: the mark, the keyboard sheet and layer changes.
+"""Motion, surface and small controls for the map page.
 
-Each motion runs one time and shows direction or order. With reduced motion,
-the page shows the final state at once."""
+The mark, the keyboard sheet, layer changes, the map surface, card depth and
+the glow of a selection. Each motion runs one time and shows direction or
+order. With reduced motion, the page shows the final state at once."""
+
+# A fine grain on the map surface: light specks on Ink, dark specks on Paper.
+# The noise is static. Its alpha comes from the red channel of the noise.
+_GRAIN = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E"
+    "%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' "
+    "stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 {c} 0 0 0 0 {c} 0 0 0 0 {c} "
+    "{a} 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E"
+    "%3C/svg%3E"
+)
+_GRID = "radial-gradient(var(--grid) 1px,transparent 1px)"
+
+SURFACE_CSS = (
+    "/* ---- the map surface: a fine grain under the dot grid, a soft edge --------- */\n"
+    f'.map{{background-image:url("{_GRAIN.format(c=1, a=".07")}"),{_GRID};'
+    "background-size:160px 160px,24px 24px}\n"
+    f':root[data-theme="light"] .map{{background-image:url("{_GRAIN.format(c=0, a=".06")}"),'
+    f"{_GRID}}}\n"
+    '.mapwrap::after{content:"";position:absolute;inset:0;pointer-events:none;'
+    "background:radial-gradient(130% 110% at 50% 42%,transparent 62%,"
+    "color-mix(in srgb,#000 24%,transparent))}\n"
+    ':root[data-theme="light"] .mapwrap::after{background:radial-gradient(130% 110% at 50% 42%,'
+    "transparent 62%,color-mix(in srgb,#3a2e14 7%,transparent))}\n"
+)
+
 
 CSS = r"""
+/* ---- card depth: a shade under each card, a lift on hover ----------------- */
+/* The shade is a copy of the card shape with no blur: a blur on every card
+   made panning slower (bench/jev/README.md). Only the selection has a blur. */
+.node__shade{fill:#000;fill-opacity:.42;stroke:none;transform:translateY(1.6px);
+transition:transform .16s ease-out,fill-opacity .16s ease-out}
+.node:not(.dim):not(.quiet):hover .node__shade{transform:translateY(3.2px);fill-opacity:.5}
+:root[data-theme="light"] .node__shade{fill:#4a3c20;fill-opacity:.13}
+:root[data-theme="light"] .node:not(.dim):not(.quiet):hover .node__shade{fill-opacity:.18}
+#schematic .node.sel .node__box,#schematic .node.acts .node__box{
+filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 55%,transparent))}
+:root[data-theme="light"] #schematic :is(.node.sel,.node.acts) .node__box{
+filter:drop-shadow(0 0 6px var(--hl))}
+/* ---- a selected line and the current step line glow --------------------- */
+#schematic .flow.hot,#schematic .seq-line--now,#schematic .seq-line--route{
+filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--accent) 60%,transparent))}
+:root[data-theme="light"] #schematic :is(.flow.hot,.seq-line--now,.seq-line--route){
+filter:drop-shadow(0 0 3px var(--hl))}
+
+/* ---- a card under the pointer shows its lines; the other lines fade ------ */
+#schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out}
+#schematic.card-peek .flow:not(.card-lit){stroke-opacity:.18}
+#schematic.card-peek .flowlbl:not(.card-lit){opacity:.25}
+
+/* ---- the cards come in one time, in reading order ----------------------- */
+@keyframes card-in{from{opacity:0;transform:translateY(5px)}}
+@media (prefers-reduced-motion:no-preference){
+html:not([data-reduce-motion="true"]) #schematic.cards-in .node{
+animation:card-in .32s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--in,0ms)}
+html:not([data-reduce-motion="true"]).scheme-fade :is(body,body *){
+transition:background-color .24s,color .24s,border-color .24s,fill .24s,stroke .24s!important}
+}
+
 /* ---- the mark draws one time: the route, then its two ends --------------- */
 @keyframes mark-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes mark-dot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
@@ -68,6 +126,81 @@ SCRIPT = r"""
       if(!list.length){ return; }
       var stagger = list.length > 1 ? Math.min(60, 300 / (list.length - 1)) : 0;
       A.drawLines(list, {each:300, stagger:stagger, labels:true});
+    });
+  }
+
+  // ---- a shade under each card ------------------------------------------
+  ['schematic', 'changemap'].forEach(function(id){
+    var map = document.getElementById(id);
+    if(!map){ return; }
+    Array.prototype.slice.call(map.querySelectorAll('.node__box')).forEach(function(box){
+      var shade = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      ['x', 'y', 'width', 'height', 'rx'].forEach(function(a){
+        shade.setAttribute(a, box.getAttribute(a)); });
+      shade.setAttribute('class', 'node__shade');
+      shade.setAttribute('aria-hidden', 'true');
+      box.parentNode.insertBefore(shade, box);
+    });
+  });
+
+  // ---- the cards come in one time, in reading order ----------------------
+  // At most 360 ms from the first card to the last. The class goes when the
+  // last card is in, so a later layer change does not run it again.
+  if(svg && !reduced()){
+    var cards = Array.prototype.slice.call(svg.querySelectorAll('.node'));
+    var step = cards.length > 1 ? Math.min(18, 360 / (cards.length - 1)) : 0;
+    cards.forEach(function(n, k){ n.style.setProperty('--in', Math.round(k * step) + 'ms'); });
+    svg.classList.add('cards-in');
+    setTimeout(function(){ svg.classList.remove('cards-in'); }, 360 + 340);
+  }
+
+  // ---- a card under the pointer shows its lines --------------------------
+  // After 120 ms on a card, with no selection and no sequence: its lines and
+  // their labels stay, the other lines fade. Leaving the card ends it.
+  if(svg && A){
+    var hoverWait = 0, lit = [];
+    function unlight(){
+      clearTimeout(hoverWait);
+      svg.classList.remove('card-peek');
+      lit.forEach(function(n){ n.classList.remove('card-lit'); });
+      lit = [];
+    }
+    function light(card){
+      unlight();
+      (A.detail[card.dataset.id].edges || []).forEach(function(i){
+        Array.prototype.slice.call(svg.querySelectorAll('[data-edge="' + i + '"]'))
+          .forEach(function(n){
+            if(n.classList.contains('flow') && n.classList.contains('off')){ return; }
+            n.classList.add('card-lit'); lit.push(n);
+          });
+      });
+      if(lit.some(function(n){ return n.classList.contains('flow'); })){
+        svg.classList.add('card-peek'); }
+    }
+    svg.addEventListener('pointerover', function(e){
+      var card = e.target && e.target.closest ? e.target.closest('.node') : null;
+      if(!card || !A.detail[card.dataset.id] || A.state.focus || A.state.journey
+        || A.state.edge >= 0){ return; }
+      clearTimeout(hoverWait);
+      hoverWait = setTimeout(function(){ light(card); }, 120);
+    });
+    svg.addEventListener('pointerout', function(e){
+      var card = e.target && e.target.closest ? e.target.closest('.node') : null;
+      if(card && !(e.relatedTarget && card.contains(e.relatedTarget))){ unlight(); }
+    });
+    ['systemap:select', 'systemap:layer', 'systemap:step', 'systemap:mode'].forEach(
+      function(name){ svg.addEventListener(name, unlight); });
+  }
+
+  // ---- a theme change fades the colors in 240 ms -------------------------
+  if(svg){
+    var fade = 0;
+    svg.addEventListener('systemap:scheme', function(){
+      if(reduced()){ return; }
+      var root = document.documentElement;
+      root.classList.add('scheme-fade');
+      clearTimeout(fade);
+      fade = setTimeout(function(){ root.classList.remove('scheme-fade'); }, 280);
     });
   }
 

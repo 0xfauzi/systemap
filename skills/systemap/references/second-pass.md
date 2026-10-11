@@ -1,11 +1,19 @@
 # Examine source claims after the draft
 
+## Contents
+
+- Source examination procedure
+- Answer records
+- Every nested map
+- Completion conditions
+- Jev source questions
+
 The structural check finds contradictions, not every omission or incorrect meaning.
 Examine each component assignment and flow claim against source.
 Include modules that have no judgement finding.
 A shared package, word, or import does not show a common component function.
 
-Use the language policy in `language.md` throughout this procedure.
+Use the language policy in `references/language.md` throughout this procedure.
 Keep exact finding identifiers when you record answers.
 
 ## Source examination procedure
@@ -35,7 +43,7 @@ Keep exact finding identifiers when you record answers.
    A judgement answer must not change the flow's evidence state.
 5. Examine each uncovered entry point.
    Write a source-supported sequence or record why the sequence is not necessary.
-   Use `journeys-and-invariants.md` for exact entry identities and step coverage.
+   Use `references/journeys-and-invariants.md` for exact entry identities and step coverage.
 6. Examine each `model sdk` finding.
    Use the repository's own agent definition when it exists.
    Set `kind="agent"` for an agent or `calls_model=True` for another model-calling component.
@@ -108,7 +116,7 @@ All of these conditions must hold:
 - Unread documentation has no rules for source in the repository.
 - The language acceptance procedure is complete for all changed names and sentences.
 
-Give the maintainer the recorded decisions and evidence limits from SKILL.md.
+Give the maintainer the completion report from SKILL.md, with the recorded decisions and evidence limits.
 
 ## Jev source questions
 

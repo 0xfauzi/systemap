@@ -39,7 +39,7 @@ The labels rule rejects these conditions:
 
 Exit code `0` shows a map with no stale outputs.
 Exit code `1` shows a rejected check.
-Exit code `2` shows unusable configuration or an unusable model.
+Exit code `2` shows unusable configuration, an unusable model, or an unusable option value.
 To keep a module out of map coverage, add an ignore under `[coverage]`.
 Each ignore must have a reason.
 
@@ -53,6 +53,30 @@ Rendering and checking use the evidence for the stored source snapshot state:
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
+
+For `observed`, a flow records `source_refs` and a `review_digest`.
+A reference has the form `module[:symbol]@<source_sha256>`.
+The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+It does not examine the claims for you. Examine the source before you record the values.
+
+```sh
+uv run python - <<'PY'
+from pathlib import Path
+from systemap import config, evidence, extract, nest
+
+cfg = config.load(Path.cwd())
+facts = extract.build(cfg)
+for module, record in sorted(facts["components"].items()):
+    print(f"source_sha256 {module} {record.get('source_sha256')}")
+for current_map in nest.load(cfg).maps:
+    for flow in current_map.model.flows:
+        digest = evidence.flow_claim_digest(flow, current_map.meaning)
+        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
+PY
+```
+
+A source change gives a new `source_sha256`.
+A change to the flow or its relation sentence gives a new `review_digest`.
 
 ## What does the second pass find?
 
@@ -125,7 +149,8 @@ The development experiments selected thresholds on five mapped repositories in
 `bench/jev`. Three holdout maps used the same thresholds: systemap, scorecard,
 and a first map of httpie.
 The table gives measured results from the recorded prompts.
-This PR changes those prompts for ASD-STE100. The changed prompts have no new benchmark measurements.
+The prompts changed for ASD-STE100 after these measurements. The changed prompts have no new benchmark measurements.
+All measured repositories are Python repositories. No TypeScript result was measured.
 Do not use the recorded scores as results for the changed prompts or your system.
 
 | line | what it asks | development maps | holdout maps |
@@ -141,16 +166,34 @@ No question goes to Jev without `TYPESAFE_API_KEY`.
 `audit --dry-run` counts the questions and shows the data to send:
 module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
+With a key, the dry run gets the model list to count cached answers. It sends no map data.
+
+A `jev flow` question gets the source lines that use a name from the other component.
+For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
+For TypeScript, it compares the last part of the import path with the file name of the target module.
+A flow without such lines gets no question. The report gives the count of these flows.
+
+Each Jev answer must agree with its question: a choice from the offered options,
+and numbers from 0 to 1. An answer that does not agree stops the command with a message.
+The cache does not keep that answer.
 
 The cache is `.systemap/jev-cache.json`.
 Its key includes the model, release date, state, and question.
 A map without changes uses cached answers at no additional cost.
 A new model release causes new questions.
+If the model list is not available and the cache has every answer for the last known
+release, the command uses the cache. The usage line says so.
 
 Audit answers use `[judgement] answered` with `item`, `items`, or a kind such as
 `"jev flow"`. `audit` reads only answers for the kinds in its report.
 A type excluded from the report does not make its answer stale.
 `judgement` ignores all audit answers.
+
+The `jev mis-fold` and `jev owner` lines do not contain Jev's pick.
+The detail row gives the pick, so a new model release that changes only the pick
+does not open an answer again. Earlier versions put the pick at the end of the line,
+for example `jev mis-fold: Writer claims pkg.emit, which reads like Reader`.
+An answer with the earlier line text matches the current line, with the same evidence digest.
 
 `systemap triage "<issue>"` gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
@@ -160,19 +203,29 @@ in 80% of predictions. It was in the first three in 88%.
 With the key set, `delta` automatically sends questions to Jev.
 `--jev` explicitly sends questions and gives a reason if the request cannot complete.
 `--no-jev` sends nothing.
+If delta has no question for Jev, it sends nothing and prints no Jev line.
+
+Jev answers are suggestions for source examination. They are not evidence.
+They do not change the delta lines, the decisions, or the exit code.
+Thus a run with Jev, a run without a key, and a run in CI give the same result.
+The suggestions print under their own heading.
+If Jev does not answer, a `delta --jev:` line gives the reason under a different heading.
+
 Jev examines removed modules that delta did not pair with added modules.
 Delta first compares source, public names, and filenames.
-A Jev pairing with confidence of at least 0.8 becomes a move.
+A Jev pick with confidence of at least 0.8 prints as a `jev move` line, for example
+`jev move: pkg.ledger -> pkg.accounts.book (read as the same module by Jev, confidence 0.94)`.
+Jev also suggests a component for each module that no component claims, as a `jev owner` line.
 
-The report can print `(read as the same module by Jev, confidence 0.94)`.
-
-On renames in five repositories, the two methods together found 82 renames with source evidence.
-Delta alone found 66. Of the 17 added pairings, 16 were correct.
+With earlier prompts on Python repositories, delta found 66 renames.
+The Jev picks added 17 pairs, and 16 of them were correct.
 An agent wrote reference labels from commits without Jev's answers.
 The records are in `bench/jev`.
-A move can change the report and exit code.
 
-Jev also suggests a component for each unclaimed module.
+A `move candidate` line stays a decision while a component specifies the removed module
+in `implemented_by`, or while an added module has no claim and no ignore.
+Read the two source files. Then change the claims.
+The line then moves to the changes that need no action.
 
 `suggest --jev` groups modules from pair answers.
 Pairs have an import connection or the same package.
@@ -183,7 +236,7 @@ Thus, the command stays optional.
 
 Without a key, `judgement` prints an audit hint to stderr.
 `delta` prints a hint when a module was removed and another was added.
-Each hint gives a measured result.
+Each hint gives a result that was measured with earlier prompts on Python repositories.
 `[jev] enabled = false` stops the hints and automatic delta questions.
 
 ## What do you do above forty components?
@@ -285,7 +338,9 @@ The full schema and examples are in
 All commands accept `--root DIR` before or after the command.
 This option shows a project outside the current directory.
 Exit codes are `0` for current, `1` for stale or rejected, and `2` for unusable
-configuration or model.
+configuration, model, or option value.
+The line after an error tells you which input to correct: a command option,
+`systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
 ### `systemap init [--no-ci]`
 
@@ -294,6 +349,11 @@ workflow. The workflow pins this version.
 The command does not replace files.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
+
+If the repository has no Python package and a directory has a `tsconfig.json` file,
+`init` selects TypeScript.
+If the repository root has no `tsconfig.json` file, `init` writes no package roots.
+Then set `[package_roots]` for each application package.
 
 ### `systemap extract [--check]`
 
@@ -304,6 +364,10 @@ Package `__init__` records include re-exports.
 The other commands read this file.
 
 - `--check` exits 1 if stored facts differ from the source tree.
+  It also exits 1 if a model claim names a module that the source tree does not have.
+  The report gives the two problem groups separately.
+  For stale facts, run `systemap extract`.
+  For a model claim, correct the model. A new extraction does not correct it.
 
 ### `systemap facts`
 
@@ -395,6 +459,7 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 "map: The page agrees with the rendered model fields and the facts."
 A rejected check causes exit 1 and prevents rendering.
+`-q` or `--quiet` prints only errors and check results.
 
 ### `systemap suggest [--jev]`
 
@@ -431,10 +496,14 @@ Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
 does. The report shows moved, added, and removed modules with their
 components and model files.
+Delta reads the committed files. The Git attributes `export-subst` and
+`export-ignore` do not change them.
 
 Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
+An answer for a new crossing import must agree with the `judgement` rule:
+an exact answer needs the current evidence digest, and a family answer needs `policy = true`.
 The exit code is 0 if no decision is necessary, or 1 if not.
 
 The report ends with adjacent components.
@@ -445,8 +514,9 @@ the map.
 
 - `--format markdown` prints the pull-request comment.
 
-- `TYPESAFE_API_KEY` or `--jev` enables Jev pairing for modules with changed
-  names and content. Jev also suggests owners for unclaimed modules.
+- `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed
+  names and content, and for unclaimed modules. The suggestions do not change
+  the decisions or the exit code.
 
 - `--no-jev` sends nothing.
 
@@ -460,6 +530,7 @@ layout score, bends and length per edge, label gutters, and gutter seat usage.
 It also gives evidence-state counts and components and edges per layer.
 Position counts distinguish pinned, placed, and temporary display positions.
 Edges with the worst geometry come first.
+A gutter line counts the labels that the edge lines put in that gutter.
 
 The sequence section gives steps, starting entries, steps without import
 evidence, unconfirmed agent drafts, and covered entry counts.
@@ -514,6 +585,8 @@ The agent gives components in the execution path and a sentence for each step.
 A step with no authored flow is rejected with a finding.
 The command does not write that step.
 Accepted sequences enter the model with `drafted=True`.
+The command writes them into the `JOURNEYS = (...)` tuple of the model.
+The tuple can have a type annotation, as in the model from `init`.
 `judgement` prints `drafted journey` until a person examines the sequence and
 removes the mark. The default limit is three sequences per invocation.
 
@@ -550,6 +623,8 @@ An unknown kind causes exit 1.
 
 Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
+If the port is not available, the command exits 2.
+Then use `--port 0` to select an available port, or give a different port.
 
 ### `systemap skill [--dir PATH] [--print]`
 
@@ -569,7 +644,7 @@ Unknown keys are rejected.
 |---|---|---|
 | `language` | `python` | Select `python` or `typescript`. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | `[project] name`, Git repository directory, then directory name | The page title. |
-| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. |
+| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
 | `model` | `map/model.py` | The module that exports `MODEL` and `MEANING`. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (`import journeys`). Imported modules do not stay cached between executions. |
@@ -577,17 +652,19 @@ Unknown keys are rejected.
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. |
 | `spec_path` | none | A document with `##` headings that identify specification sections. |
 | `planes` | none | Second-level package names with different planes in the facts. |
-| `outside_label` | `OUTSIDE THE SYSTEM` | The index heading for actors outside all regions. |
+| `outside_label` | `EXTERNAL COMPONENTS` | The index heading for actors outside all regions. |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. Empty package markers require no ignore. |
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A leading `-` removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds, including `"jev flow"`, use this table too. |
-| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[theme]` | warm | Color-token overrides. `scheme = "warm"`, `"graphite"`, or `"paper"` selects the default. The page offers all three. The 0.11 names `dark` and `light` still select graphite and paper. `[theme.paper]` overrides one scheme. `[theme.layers]` sets a color per layer id, including standard ids. `[theme.marks]` selects a mark per agent kind. |
+| `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, including standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
-TypeScript discovery does not include `.d.ts` declaration files.
+TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
+The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.
+A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in `tsconfig.json` `extends` gives an `unknown surface`
 finding. Extraction continues with the compiler options that it can read.
 

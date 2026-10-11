@@ -103,13 +103,20 @@ For a TypeScript repository, install the parser extra:
 
     uv tool install 'systemap[typescript]'
 
-The TypeScript adapter reads `.ts` and `.tsx` modules. These records include:
+The TypeScript adapter reads `.ts`, `.tsx`, `.mts`, and `.cts` modules. These records include:
 
 - Named exports, default exports, and local re-exports.
 
 - Imports and package `bin` and `exports` entries.
 
 - JSONC `tsconfig.json` files and inherited path aliases.
+
+For each source file, systemap uses the nearest `tsconfig.json` file above that file.
+If that configuration does not select the file, systemap uses a configuration in its
+`references` that selects the file. Thus a solution `tsconfig.json` with `"files": []`
+and the `tsconfig.json` file of each monorepo package give their own path aliases.
+A `package.json` file in a package directory below the root gives more `bin` and
+`exports` entries.
 
 The `outDir` and `rootDir` options connect compiled package entries to source
 files. An inherited path that starts with `${configDir}` uses the directory of
@@ -128,10 +135,11 @@ systemap reads the version from `node_modules/typescript`, then from
 `package.json`. If the two files do not give a version, systemap tries the two roots.
 A compiled target maps to source only if one root gives a match and the other does not.
 
-Extraction and change analysis show common test filenames. For other
+Extraction and change analysis show common test filenames, such as `.test.ts`,
+`.spec.ts`, `.cy.ts`, and the files in `__tests__` directories. For other
 filenames, add repository-specific globs, such as
-`test_patterns = ["**/*.check.ts"]`. If no emit directory is configured,
-systemap can connect a compiled target to a unique source file.
+`test_patterns = ["**/*.check.ts"]`. If a compiled target is not in the configured
+`outDir` directory, systemap can connect the target to a unique source file.
 The target directories are `dist/`, `distribution/`, `build/`, and `lib/`.
 The source directories are `src/` and `source/`.
 
@@ -141,13 +149,15 @@ reject the map for them. Each unknown record must have a correction or
 an accepted answer before `systemap judgement --strict` accepts it. A missing npm package in
 `tsconfig.json` `extends` also gives an unknown record. Extraction can thus
 continue without `node_modules`. The TypeScript grammar used by the reader rejects some
-correct generic call signatures. These modules stay in the facts with an unknown
-public surface.
+correct generic call signatures, such as `obj?.m<T>?.()`. These modules stay in the facts
+with an unknown public surface. A second parse reads `export type * from` and the
+variance keywords `in` and `out`.
 
 TypeScript discovery first uses `src/`, then the repository root. For a
 monorepo or a repository without `src/`, configure `[package_roots]` for the
 application packages. This prevents scripts and fixtures from becoming
-application modules.
+application modules. If only the package directories of a workspace have a
+`tsconfig.json` file, `init` selects TypeScript and writes no package roots.
 
 The `init` command writes the configuration, an empty map, the skill
 instructions, and a CI workflow. The command then prints this instruction:

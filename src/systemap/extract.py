@@ -24,12 +24,12 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import ways_in
+from systemap import source_text, ways_in
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
 from systemap.model import Model, is_symbol, module_matches, public_names
+from systemap.reexports import resolve_reexports
 
-SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
 # A stored file of an older facts format is reported as stale.
 FORMAT = 4
 TESTS_KEPT = 25
@@ -50,7 +50,7 @@ class PythonLanguage:
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
         del repo, tests_dirs, test_patterns
-        return root.rglob("*.py")
+        return source_text.python_paths(root)
 
     def context(
         self,
@@ -198,8 +198,10 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "provenance",
-        "The parser and extraction inputs. A change makes a new source review "
-        "necessary, even without source-file changes",
+        "The parser, the compiler settings, and the extraction inputs. A change to the "
+        "extraction inputs makes a new source review necessary, even without source-file "
+        "changes. A parser or compiler change alone does not, because these values can be "
+        "different on another computer",
     ),
     (
         "facts",
@@ -666,113 +668,6 @@ def _in_package(name: str, prefixes: Iterable[str]) -> bool:
     return any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
 
 
-def resolve_reexports(components: dict[str, Any]) -> None:
-    """Give each re-export the kind recorded by its defining module.
-
-    `from . import mod` has kind `module`, with the module itself in `reexport_of`.
-    A name absent from the source module keeps `reexport_of` and has kind `object`.
-    The source can import that name from elsewhere, including an unextracted module.
-    """
-    _expand_star_exports(components)
-    _resolve_named_reexports(components)
-
-
-def _expand_star_exports(components: dict[str, Any]) -> None:
-    for module, record in components.items():
-        expanded = _expanded_names(module, record, components)
-        record["names"] = expanded
-        ambiguous = _ambiguous_exports(expanded)
-        if ambiguous:
-            record.setdefault("unknown", []).extend(ambiguous)
-
-
-def _expanded_names(
-    module: str, record: dict[str, Any], components: dict[str, Any]
-) -> list[dict[str, Any]]:
-    expanded: list[dict[str, Any]] = []
-    for entry in record.get("names", []):
-        if not entry.get("star"):
-            expanded.append(entry)
-            continue
-        source = entry["reexport_of"]
-        expanded.extend(
-            {
-                "name": item["name"],
-                "kind": "reexport",
-                "reexport_of": source,
-                "defined_as": item["name"],
-            }
-            for item in _star_names(source, components, {module})
-        )
-    return expanded
-
-
-def _ambiguous_exports(expanded: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    sources: dict[str, set[str]] = defaultdict(set)
-    for entry in expanded:
-        if entry.get("reexport_of"):
-            sources[entry["name"]].add(entry["reexport_of"])
-    return [
-        {"line": 0, "reason": f"ambiguous star export {name}", "source": ""}
-        for name, origins in sources.items()
-        if len(origins) > 1
-    ]
-
-
-def _resolve_named_reexports(components: dict[str, Any]) -> None:
-    for record in components.values():
-        for entry in record.get("names", []):
-            if entry.get("kind") == "reexport":
-                _resolve_named_reexport(entry, components)
-
-
-def _resolve_named_reexport(entry: dict[str, Any], components: dict[str, Any]) -> None:
-    source = entry["reexport_of"]
-    original = entry.pop("defined_as", entry["name"])
-    if f"{source}.{original}" in components:
-        entry["reexport_of"] = f"{source}.{original}"
-        entry["kind"] = "module"
-    else:
-        entry["kind"] = _defined_kind(source, original, components, set())
-
-
-def _defined_kind(
-    source: str, name: str, components: dict[str, Any], visited: set[tuple[str, str]]
-) -> str:
-    if (source, name) in visited:
-        return "unknown"
-    if f"{source}.{name}" in components:
-        return "module"
-    record = components.get(source)
-    if record is None:
-        return "unknown"
-    for item in record.get("names", []):
-        if item["name"] != name:
-            continue
-        if item["kind"] == "reexport":
-            return _defined_kind(
-                item["reexport_of"],
-                item.get("defined_as", item["name"]),
-                components,
-                visited | {(source, name)},
-            )
-        return str(item["kind"])
-    return "unknown"
-
-
-def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
-    """The public names reached through local `export *` statements."""
-    if module not in components or module in visited:
-        return []
-    out: list[dict[str, Any]] = []
-    for entry in components[module].get("names", []):
-        if entry.get("star"):
-            out.extend(_star_names(entry["reexport_of"], components, visited | {module}))
-        elif entry.get("name") != "default":
-            out.append(entry)
-    return out
-
-
 def _dump_python_syntax(tree: ast.AST) -> str:
     """Serialize shared Python syntax the same way across supported interpreters."""
     # Python 3.12 added empty type_params; 3.13 stopped dumping empty
@@ -790,7 +685,7 @@ def collect_module(
 ) -> dict[str, Any] | None:
     issue: dict[str, Any] | None = None
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeError) as exc:
         raw = ""
         issue = {
@@ -951,8 +846,8 @@ def external_imports(raw: str, prefixes: set[str]) -> list[str]:
 
 def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]:
     try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError:
+        raw = path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError):
         return set()
     return set(internal_uses(raw, prefixes, known))
 
@@ -994,14 +889,14 @@ def collect_tests(
         if not rel or not test_dir.is_dir():
             continue
         for path in sorted(test_dir.rglob("test_*.py")):
-            if path in seen or any(p in SKIP_PARTS for p in path.parts):
+            if path in seen or source_text.skipped(path, test_dir, source_text.PYTHON_SKIP):
                 continue
             seen.add(path)
             files.append(path)
     for path in files:
         try:
-            raw = path.read_text(encoding="utf-8")
-        except OSError:
+            raw = path.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeError):
             continue
         targets = set(internal_uses(raw, prefixes, known))
         if not targets:
@@ -1029,7 +924,7 @@ def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeError):
         return []
     for match in re.finditer(r"^(#{2,4})\s+(.+)$", text, re.M):
         out.append({"level": str(len(match.group(1))), "title": match.group(2).strip()})
@@ -1222,8 +1117,6 @@ def _source_paths(cfg: Config, language: LanguageAdapter) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     for pkg_dir, pkg_name in cfg.roots:
         for path in language.source_paths(pkg_dir, repo, cfg.test_dirs, cfg.test_patterns):
-            if any(p in SKIP_PARTS for p in path.parts):
-                continue
             module = language.module_of(path, pkg_dir, pkg_name)
             if module in paths and paths[module] != path:
                 first = paths[module].relative_to(repo).as_posix()
@@ -1254,8 +1147,8 @@ def _module_facts(
     record["package"] = module.split(".")[0]
     record["plane"] = plane_of(module, cfg.planes)
     try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError:
+        raw = path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError):
         raw = ""
     uses = language.internal_uses(
         raw,
@@ -1332,8 +1225,6 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
 
 
 def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
-    from systemap.typescript_config import compiler_settings
-
     compiler = getattr(context, "compiler", None)
     settings = {
         "language": cfg.language,
@@ -1342,15 +1233,16 @@ def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
         "test_patterns": cfg.test_patterns,
         "planes": cfg.planes,
         "spec_path": cfg.spec_path,
-        "compiler": compiler_settings(compiler, cfg.root) if compiler is not None else None,
+        # Installed npm packages can change the compiler settings: a separate record.
+        "compiler": None,
     }
     files: dict[str, str] = {}
     for relative in ("pyproject.toml", "package.json", "tsconfig.json"):
         path = cfg.root / relative
         if path.is_file():
-            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-    # CPython patch releases share a grammar. Keep minor changes visible,
-    # because they can change the AST used to derive the public surface.
+            files[relative] = source_text.text_digest(path.read_bytes())
+    # CPython patch releases share a grammar. A minor release can change the
+    # AST. The drift comparison finds a change of the facts that it gives.
     parser = f"{sys.version_info.major}.{sys.version_info.minor}"
     if cfg.language == "typescript":
         parser = ", ".join(
@@ -1361,6 +1253,7 @@ def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
         "parser": parser,
         "settings": hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest(),
         "files": files,
+        **source_text.compiler_record(compiler, cfg.root),
     }
 
 
@@ -1427,7 +1320,9 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
             f"facts format {stored.get('version')} is older than the extractor's "
             f"{fresh.get('version')}; the file records less than the extractor reads"
         )
-    if stored and stored.get("provenance") != fresh.get("provenance"):
+    # The parser and compiler records can be different on another computer.
+    # The comparisons below find a change of the facts that they give.
+    if stored and source_text.inputs_changed(stored.get("provenance"), fresh.get("provenance")):
         out.append("extraction inputs changed since the map was built")
     out.extend(_entry_drift(fresh, stored))
     added = sorted(set(new_c) - set(old_c))

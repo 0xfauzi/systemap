@@ -304,11 +304,31 @@ def _journey_assignment_offset(
     for index, token in enumerate(tokens[:-2]):
         if token.type != tokenize.NAME or token.string != name:
             continue
-        if [tokens[index + offset].string for offset in (1, 2)] != ["=", "("]:
+        at = _after_annotation(tokens, index + 1)
+        if [t.string for t in tokens[at : at + 2]] != ["=", "("]:
             continue
-        opened = tokens[index + 2]
+        opened = tokens[at + 1]
         return sum(len(line) for line in lines[: opened.end[0] - 1]) + opened.end[1]
     return None
+
+
+# The change in bracket depth for each bracket token.
+_BRACKETS = {"(": 1, "[": 1, "{": 1, ")": -1, "]": -1, "}": -1}
+
+
+def _after_annotation(tokens: list[tokenize.TokenInfo], index: int) -> int:
+    """Give the index of the `=` after a `: annotation` part, or `index` without one.
+
+    The annotation ends at the first `=` outside brackets on the same logical line."""
+    if tokens[index].string != ":":
+        return index
+    depth = 0
+    for at in range(index + 1, len(tokens)):
+        token = tokens[at]
+        if token.type == tokenize.NEWLINE or (depth == 0 and token.string == "="):
+            return at
+        depth += _BRACKETS.get(token.string, 0) if token.type == tokenize.OP else 0
+    return index
 
 
 def _insert_journey(source: str, journey: Journey, offset: int) -> str | None:

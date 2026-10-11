@@ -1,9 +1,24 @@
 # Model and facts schema
 
+## Contents
+
+- Model
+- Container
+- Region
+- Component: source and interface, kind and appearance, positions and text, nested map
+- Flow
+- Invariant
+- Journey
+- Step
+- Layer
+- Meaning
+- Structural checks
+- The facts file: the file, each module, each entry point, and the extract summary
+
 The model uses frozen dataclasses exported by `systemap`.
 `map/model.py` exports `MODEL` as a `Model` and `MEANING` as a `Meaning`.
 Default values identify optional fields.
-Use ASD-STE100 names and prose as specified in `language.md`.
+Use ASD-STE100 names and prose as specified in `references/language.md`.
 Keep schema keys and source symbols exact.
 
 ## Model
@@ -87,7 +102,7 @@ ignore = [
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, incident flows, sequences, and invariants before you write it.
 Delta keeps a changed component under `needs a decision` until the digest agrees with the current claims and source.
-Refresh does not write this digest. See `maintenance.md` for the procedure.
+Refresh does not write this digest. See `references/maintenance.md` for the procedure.
 
 ### Kind and appearance
 
@@ -141,7 +156,7 @@ The inspector has a preview and an open button.
 Double-click or a second Enter also opens the nested map.
 `docs/map/Gateway/index.html` has a parent link.
 A further nested map can have identifier `Gateway/Routes`.
-See `layout.md` for thresholds and commands.
+See `references/layout.md` for thresholds and commands.
 
 ## Flow
 
@@ -163,6 +178,27 @@ Represent the other direction as a separate flow with its own sentence.
 An import, common module, or configured mechanism gives `structural` evidence only.
 `observed` must have current `source_refs` and a matching `review_digest` for the flow and relation sentence.
 A reference has the form `module[:symbol]@<source_sha256>`.
+The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+It does not examine the claims for you. Examine the source before you record the values.
+
+```sh
+uv run python - <<'PY'
+from pathlib import Path
+from systemap import config, evidence, extract, nest
+
+cfg = config.load(Path.cwd())
+facts = extract.build(cfg)
+for module, record in sorted(facts["components"].items()):
+    print(f"source_sha256 {module} {record.get('source_sha256')}")
+for current_map in nest.load(cfg).maps:
+    for flow in current_map.model.flows:
+        digest = evidence.flow_claim_digest(flow, current_map.meaning)
+        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
+PY
+```
+
+A source change gives a new `source_sha256`.
+A change to the flow or its relation sentence gives a new `review_digest`.
 Digests identify recorded source and claims. They do not show the claim's meaning automatically.
 `external` has an actor endpoint. `declared` has no examined source or structural support.
 Structural and declared flows use dashed lines. Examine their source evidence.
@@ -220,7 +256,7 @@ Theme overrides use `[theme]` or `[theme.<scheme>]`:
 [theme]
 scheme = "dark"
 [theme.layers]
-record = "#6C9455"
+record = "#8A8B22"
 [theme.light]
 accent = "#1D1B17"
 ```
@@ -261,12 +297,6 @@ The inspector has one selection control for each flow connected to the component
 Each control shows the artifact, direction, layer, and evidence state.
 Passing these checks does not show source meaning or language compliance.
 
-## Facts file
-
-`systemap extract` writes `docs/map/map.json` by default.
-The exported `systemap.extract.FIELDS` table describes its records.
-The tables below give each field's purpose.
-
 ## The facts file
 
 `systemap extract` writes `docs/map/map.json` by default.
@@ -277,7 +307,7 @@ The following fields come from `systemap.extract.FIELDS`.
 - `version`: The facts format is 4, with portable syntax hashes and compiler provenance. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction precedes the commit recording facts.
 - `packages`: The import names of package roots.
-- `provenance`: The parser and extraction inputs. A change makes a new source review necessary, even without source-file changes.
+- `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory named `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record per entry point, with the fields below.

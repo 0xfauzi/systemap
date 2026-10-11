@@ -334,18 +334,7 @@ SCRIPT = r"""
         out.push([{x:x < P0.x0 ? P0.x0 : P0.x1, y:y}, {x:x, y:y},
           {x:x, y:y < P1.y0 ? P1.y0 : P1.y1}]); }
     });
-    // A slanted line between the two edges that face each other.
-    function ends(B, o){
-      var pts = [];
-      if(B.x1 <= o.x0 || B.x0 >= o.x1){ span(B.y0 + INSET, B.y1 - INSET, 10, 16)
-        .forEach(function(y){ pts.push({x:B.x1 <= o.x0 ? B.x1 : B.x0, y:y}); }); }
-      if(B.y1 <= o.y0 || B.y0 >= o.y1){ span(B.x0 + INSET, B.x1 - INSET, 10, 16)
-        .forEach(function(x){ pts.push({x:x, y:B.y1 <= o.y0 ? B.y1 : B.y0}); }); }
-      return pts;
-    }
-    each2(ends(P0, P1), ends(P1, P0), function(p, q){
-      if(Math.abs(p.x - q.x) > 2 && Math.abs(p.y - q.y) > 2){ out.push([p, q]); }
-    });
+    // Every shape is horizontal and vertical lines only, as the flow routes are.
     return out;
   }
   function offCentre(p, B){
@@ -390,16 +379,23 @@ SCRIPT = r"""
     return shape.low + 60 + 60 * cross + 200 * under - 2 * Math.min(clear, 20) - .25 * clear;
   }
   function centres(P0, P1){
-    // The last choice: a straight line between the centres, cut at the edges.
+    // The last choice: from the centre of one box to the centre of the other,
+    // with horizontal and vertical lines only. The boxes overlap on one axis:
+    // a straight line in the overlap. Otherwise: one bend.
     var c0 = {x:(P0.x0 + P0.x1) / 2, y:(P0.y0 + P0.y1) / 2};
     var c1 = {x:(P1.x0 + P1.x1) / 2, y:(P1.y0 + P1.y1) / 2};
-    function cut(B, from, to){
-      var dx = to.x - from.x, dy = to.y - from.y, t = 1;
-      if(dx){ t = Math.min(t, ((dx > 0 ? B.x1 : B.x0) - from.x) / dx); }
-      if(dy){ t = Math.min(t, ((dy > 0 ? B.y1 : B.y0) - from.y) / dy); }
-      return {x:from.x + dx * t, y:from.y + dy * t};
+    var lo = Math.max(P0.x0, P1.x0), hi = Math.min(P0.x1, P1.x1);
+    if(lo < hi){
+      var x = (lo + hi) / 2, down = c0.y < c1.y;
+      return [{x:x, y:down ? P0.y1 : P0.y0}, {x:x, y:down ? P1.y0 : P1.y1}];
     }
-    return [cut(P0, c0, c1), cut(P1, c1, c0)];
+    lo = Math.max(P0.y0, P1.y0); hi = Math.min(P0.y1, P1.y1);
+    if(lo < hi){
+      var y = (lo + hi) / 2, right = c0.x < c1.x;
+      return [{x:right ? P0.x1 : P0.x0, y:y}, {x:right ? P1.x0 : P1.x1, y:y}];
+    }
+    return [{x:c0.x, y:c0.y < c1.y ? P0.y1 : P0.y0}, {x:c0.x, y:c1.y},
+      {x:c0.x < c1.x ? P1.x0 : P1.x1, y:c1.y}];
   }
   function lineFor(g, placed, badges){
     var P0 = g.a.box, P1 = g.b.box;
@@ -410,8 +406,7 @@ SCRIPT = r"""
     var ranked = shapesFor(P0, P1).map(function(pts){
       var total = 0, n = pts.length - 1;
       for(var k = 0; k < n; k++){ total += len(pts[k], pts[k + 1]); }
-      var slant = n === 1 && pts[0].x !== pts[1].x && pts[0].y !== pts[1].y;
-      return {pts:pts, low:total + 50 * (n - 1) + (slant ? 40 : 0) - 60
+      return {pts:pts, low:total + 50 * (n - 1) - 60
         + .06 * (offCentre(pts[0], P0) + offCentre(pts[n], P1))};
     }).sort(function(x, y){ return x.low - y.low; });
     var best = null, bestCost = Infinity;

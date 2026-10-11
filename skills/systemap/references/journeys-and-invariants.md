@@ -4,7 +4,7 @@ Sequences and invariants are optional schema contents.
 A model without sequences has no sequence selector.
 A model without invariants has no invariant list.
 Each sequence and invariant must have source support.
-Use the mandatory language policy in `language.md` for every name and sentence.
+Use the mandatory language policy in `references/language.md` for every name and sentence.
 
 ## Entry points and sequences
 
@@ -70,7 +70,7 @@ Write the rule in ASD-STE100 without a change to its meaning.
 Keep an exact external quotation when its identity is necessary.
 Put the citation in the invariant text.
 List directly affected component identifiers in `governs`.
-A proposed rule is not an existing invariant. Put proposals in the completion note.
+A proposed rule is not an existing invariant. Put proposals in the completion report.
 
 ## Structural checks and their limits
 
