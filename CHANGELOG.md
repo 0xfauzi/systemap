@@ -9,6 +9,14 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+- The pull request comment from `systemap delta --format markdown` starts with the decision.
+  Then it gives the components, flows, sequences, and invariants that the change added, removed, or changed.
+  Delta loads the model at the merge base from the committed files for this comparison.
+  A Mermaid picture shows only the changed flows. Previously, the comment showed the full map image.
+  The lines for which no action is necessary are in a closed section.
+  The comment no longer gives the list of connected components.
+  The delta lines, the decisions, and the exit code do not change.
+
 - All user interface text, command explanations, map prose, and documentation use the ASD-STE100 language policy.
   Agents must use Issue 9 for names, sequences, and all map updates.
   Coding-agent requests and cache keys contain the packaged policy.

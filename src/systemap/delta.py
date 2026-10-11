@@ -18,7 +18,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import card_review, delta_git, delta_report, evidence, extract, graph, nest
+from systemap import (
+    card_review,
+    delta_git,
+    delta_model,
+    delta_report,
+    evidence,
+    extract,
+    graph,
+    nest,
+)
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
@@ -65,10 +74,19 @@ KINDS = (
 )
 
 
-def comment(cfg: Config, d: Delta, head_sha: str) -> str:
-    """This function gives the pull request comment with the committed figure, if any."""
+def comment(
+    cfg: Config, tree: nest.Tree, d: Delta, base: dict[str, Any], head: dict[str, Any]
+) -> str:
+    """This function gives the pull request comment.
+
+    The comment compares the model at the base commit with the model on disk. The
+    comparison does not change the delta lines or the exit code.
+    """
+    head_sha = head.get("built_at_commit", "")
+    at_base = delta_git.model_at(cfg, base.get("built_at_commit", ""))
+    change = delta_model.compare(at_base, tree, base, head, cfg.observed_by)
     path = delta_git.committed_figure(cfg, head_sha)
-    return markdown(d, delta_git.figure_url(cfg, head_sha, path), path)
+    return markdown(d, change, delta_git.figure_url(cfg, head_sha, path), path)
 
 
 # ---- the comparison --------------------------------------------------------------
