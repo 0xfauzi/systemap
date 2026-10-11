@@ -384,6 +384,6 @@ With Reduce motion or the system setting for reduced motion, the page shows the 
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
 `page_atlas.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
 `page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `page_mapview.py`,
-`page_map_icons.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+`page_icons.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
 The build removes the comments, line breaks, and indentation from the page styles and scripts.
 The browser measurements and test results are in `bench/jev/README.md`.

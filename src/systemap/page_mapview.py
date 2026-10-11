@@ -16,7 +16,7 @@ from __future__ import annotations
 import html
 from typing import Any
 
-from systemap.page_map_icons import icon
+from systemap.page_icons import icon
 
 
 def esc(text: object) -> str:

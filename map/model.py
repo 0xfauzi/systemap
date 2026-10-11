@@ -270,7 +270,7 @@ COMPONENTS = (
             "systemap.page_phone",
             "systemap.page_motion",
             "systemap.page_mapview",
-            "systemap.page_map_icons",
+            "systemap.page_icons",
         ),
         entry="build",
         region="draw",

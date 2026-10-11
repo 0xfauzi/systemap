@@ -15,7 +15,7 @@ from systemap import (
     page_data,
     page_groups,
     page_guide,
-    page_map_icons,
+    page_icons,
     page_mapview,
     page_motion,
     page_phone,
@@ -612,7 +612,7 @@ def build(
         + page_changes.CSS
         + page_groups.CSS
         + page_mapview.CSS
-        + page_map_icons.CSS
+        + page_icons.CSS
         + page_phone.CSS
         + page_motion.CSS
         + page_motion.SURFACE_CSS
