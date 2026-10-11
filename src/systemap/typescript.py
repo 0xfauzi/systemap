@@ -12,8 +12,10 @@ from typing import Any
 
 from systemap import typescript_entry
 from systemap.config import ConfigError
+from systemap.source_text import configured_out_dir, out_dir_below, read_problems, ts_skipped
 from systemap.typescript_config import (
     DECLARATION_SUFFIXES,
+    SOURCE_SKIP,
     TypeScriptConfig,
     alias_targets,
     input_files,
@@ -36,9 +38,6 @@ TEST_SUFFIXES = tuple(
 TEST_FILES = ("test.ts", "test.tsx")
 # Jest reads each file in a directory with this name as a test file.
 TEST_DIRECTORY = "__tests__"
-SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
-# The test walk does not enter these directories. They contain no project tests.
-PRUNED_PARTS = frozenset({".git", "node_modules"})
 WHOLE_MODULE = "*"
 CONSTANTS_KEPT = 14
 TESTS_KEPT = 25
@@ -83,11 +82,15 @@ class TypeScriptContext:
 
 
 def _test_path(
-    path: Path, repo: Path, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]
+    path: Path,
+    repo: Path,
+    tests_dirs: tuple[str, ...],
+    patterns: tuple[str, ...],
+    out_dir: Path | None = None,
 ) -> bool:
     if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
         return False
-    if any(part in SKIP_PARTS for part in path.parts):
+    if ts_skipped(path, repo, out_dir):
         return False
     return _test_file(path.relative_to(repo).as_posix(), tests_dirs, patterns)
 
@@ -99,7 +102,7 @@ def _test_file_guards(
     context: TypeScriptContext,
 ) -> dict[str, list[dict[str, Any]]]:
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw, problems = read_problems(path)
     except OSError:
         return {}
     root = syntax_tree(raw, path.as_posix())
@@ -111,6 +114,10 @@ def _test_file_guards(
             }
         )
         return {}
+    context.test_issues.extend(
+        {"file": path.relative_to(repo).as_posix(), "problem": _problem(0, reason, "")}
+        for reason in problems
+    )
     targets = {
         target
         for specifier, _names in _imports(root)
@@ -485,11 +492,12 @@ class TypeScriptLanguage:
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
+        out_dir = configured_out_dir(repo, root)
         return (
             path
             for suffix in SOURCE_SUFFIXES
             for path in root.rglob(f"*{suffix}")
-            if not any(part in SKIP_PARTS for part in path.parts)
+            if not ts_skipped(path, root, out_dir)
             and not path.name.endswith(".d.ts")
             and not _test_file(path.relative_to(repo).as_posix(), tests_dirs, test_patterns)
         )
@@ -546,7 +554,7 @@ class TypeScriptLanguage:
             # A declaration file has no module record, as tsc emits no code for it.
             return None
         try:
-            raw = path.read_text(encoding="utf-8")
+            raw, problems = read_problems(path)
         except OSError:
             return None
         surface = parse_surface(raw, path.as_posix())
@@ -561,6 +569,7 @@ class TypeScriptLanguage:
                 "api": [],
                 "unknown": [parse_problem(raw, path.as_posix())],
             }
+        surface["unknown"].extend(_problem(0, reason, "") for reason in problems)
         _resolve_reexports(surface, path, module, known, paths, context)
         return {
             "file": path.relative_to(repo).as_posix(),
@@ -633,10 +642,11 @@ class TypeScriptLanguage:
         context: TypeScriptContext,
     ) -> dict[str, list[dict[str, Any]]]:
         del prefixes
+        out_dir = out_dir_below(repo, context.compiler.out_dir)
         files = sorted(
             path
-            for path in source_files(repo, PRUNED_PARTS)
-            if _test_path(path, repo, tests_dirs, context.test_patterns)
+            for path in source_files(repo, SOURCE_SKIP)
+            if _test_path(path, repo, tests_dirs, context.test_patterns, out_dir)
         )
         guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for path in files:

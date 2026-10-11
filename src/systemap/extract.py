@@ -24,13 +24,12 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import ways_in
+from systemap import source_text, ways_in
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
 from systemap.model import Model, is_symbol, module_matches, public_names
 from systemap.reexports import resolve_reexports
 
-SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist"}
 # A stored file of an older facts format is reported as stale.
 FORMAT = 4
 TESTS_KEPT = 25
@@ -51,7 +50,7 @@ class PythonLanguage:
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
         del repo, tests_dirs, test_patterns
-        return root.rglob("*.py")
+        return source_text.python_paths(root)
 
     def context(
         self,
@@ -684,7 +683,7 @@ def collect_module(
 ) -> dict[str, Any] | None:
     issue: dict[str, Any] | None = None
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeError) as exc:
         raw = ""
         issue = {
@@ -845,8 +844,8 @@ def external_imports(raw: str, prefixes: set[str]) -> list[str]:
 
 def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]:
     try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError:
+        raw = path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError):
         return set()
     return set(internal_uses(raw, prefixes, known))
 
@@ -888,14 +887,14 @@ def collect_tests(
         if not rel or not test_dir.is_dir():
             continue
         for path in sorted(test_dir.rglob("test_*.py")):
-            if path in seen or any(p in SKIP_PARTS for p in path.parts):
+            if path in seen or source_text.skipped(path, test_dir, source_text.PYTHON_SKIP):
                 continue
             seen.add(path)
             files.append(path)
     for path in files:
         try:
-            raw = path.read_text(encoding="utf-8")
-        except OSError:
+            raw = path.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeError):
             continue
         targets = set(internal_uses(raw, prefixes, known))
         if not targets:
@@ -923,7 +922,7 @@ def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeError):
         return []
     for match in re.finditer(r"^(#{2,4})\s+(.+)$", text, re.M):
         out.append({"level": str(len(match.group(1))), "title": match.group(2).strip()})
@@ -1116,8 +1115,6 @@ def _source_paths(cfg: Config, language: LanguageAdapter) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     for pkg_dir, pkg_name in cfg.roots:
         for path in language.source_paths(pkg_dir, repo, cfg.test_dirs, cfg.test_patterns):
-            if any(p in SKIP_PARTS for p in path.parts):
-                continue
             module = language.module_of(path, pkg_dir, pkg_name)
             if module in paths and paths[module] != path:
                 first = paths[module].relative_to(repo).as_posix()
@@ -1148,8 +1145,8 @@ def _module_facts(
     record["package"] = module.split(".")[0]
     record["plane"] = plane_of(module, cfg.planes)
     try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError:
+        raw = path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError):
         raw = ""
     uses = language.internal_uses(
         raw,
@@ -1226,8 +1223,6 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
 
 
 def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
-    from systemap.typescript_config import compiler_settings
-
     compiler = getattr(context, "compiler", None)
     settings = {
         "language": cfg.language,
@@ -1236,15 +1231,16 @@ def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
         "test_patterns": cfg.test_patterns,
         "planes": cfg.planes,
         "spec_path": cfg.spec_path,
-        "compiler": compiler_settings(compiler, cfg.root) if compiler is not None else None,
+        # Installed npm packages can change the compiler settings: a separate record.
+        "compiler": None,
     }
     files: dict[str, str] = {}
     for relative in ("pyproject.toml", "package.json", "tsconfig.json"):
         path = cfg.root / relative
         if path.is_file():
-            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-    # CPython patch releases share a grammar. Keep minor changes visible,
-    # because they can change the AST used to derive the public surface.
+            files[relative] = source_text.text_digest(path.read_bytes())
+    # CPython patch releases share a grammar. A minor release can change the
+    # AST. The drift comparison finds a change of the facts that it gives.
     parser = f"{sys.version_info.major}.{sys.version_info.minor}"
     if cfg.language == "typescript":
         parser = ", ".join(
@@ -1255,6 +1251,7 @@ def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
         "parser": parser,
         "settings": hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest(),
         "files": files,
+        **source_text.compiler_record(compiler, cfg.root),
     }
 
 
@@ -1321,7 +1318,9 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
             f"facts format {stored.get('version')} is older than the extractor's "
             f"{fresh.get('version')}; the file records less than the extractor reads"
         )
-    if stored and stored.get("provenance") != fresh.get("provenance"):
+    # The parser and compiler records can be different on another computer.
+    # The comparisons below find a change of the facts that they give.
+    if stored and source_text.inputs_changed(stored.get("provenance"), fresh.get("provenance")):
         out.append("extraction inputs changed since the map was built")
     out.extend(_entry_drift(fresh, stored))
     added = sorted(set(new_c) - set(old_c))

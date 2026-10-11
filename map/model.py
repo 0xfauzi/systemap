@@ -142,6 +142,7 @@ COMPONENTS = (
             "systemap.facts",
             "systemap.language",
             "systemap.reexports",
+            "systemap.source_text",
             "systemap.typescript",
             "systemap.typescript_entry",
             "systemap.typescript_imports",

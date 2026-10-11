@@ -266,19 +266,30 @@ def check_nesting(
 ENTRY_OPTIONAL = ("store", "context")
 
 
+def _no_modules(model: Model, components: Mapping[str, Any]) -> list[str]:
+    """This function finds facts without modules for a model with source components."""
+    if components or all(c.kind == "actor" for c in model.components):
+        return []
+    return [
+        "The facts contain no source modules. Make sure that [package_roots] in the "
+        "configuration gives the directories that contain the source files."
+    ]
+
+
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
     """This function validates component modules, symbol claims, and entries against the
     facts.
 
     A symbol claim must have a public symbol and a module owner. An actor has no
     source-code checks. A store or context component can have an empty entry. Other
-    components must have a defined public entry.
+    components must have a defined public entry. Facts without modules do not agree
+    with a model that has source components.
     """
     components = facts.get("components", {})
-    if not components:
+    if not facts:
         return []
     owned = {m for c in model.components for m in claimed(c, components)}
-    out: list[str] = []
+    out = _no_modules(model, components)
     for c in model.components:
         if c.kind == "actor":
             continue
