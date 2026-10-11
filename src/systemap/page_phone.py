@@ -44,13 +44,16 @@ CSS = r"""
 /* ---- the map frame and the panel in phone states --------------------------- */
 body[data-phone] .main{display:block;height:auto;min-height:0;padding:0 16px 16px}
 body[data-phone="grid"] .main{display:none}
-body[data-phone="step"] .main{padding-bottom:0}
 body[data-phone] .map{height:calc(100svh - 184px);min-height:300px;margin-top:12px;
   border:1px solid var(--line);border-radius:10px}
 body[data-phone="change"] .map{height:calc(100svh - 134px)}
 body[data-phone="map"][data-panel="open"] .map,
 body[data-phone="change"][data-panel="open"] .map{height:46svh;min-height:260px}
-body[data-phone="step"] .map,body[data-phone="step"][data-panel] .map{height:340px;min-height:0}
+/* One step fills the screen: the map takes the height that the step and its buttons leave. */
+body[data-phone="step"]{display:flex;flex-direction:column}
+body[data-phone="step"] .main{flex:1;display:flex;flex-direction:column;padding-bottom:0}
+body[data-phone="step"] .map,body[data-phone="step"][data-panel] .map{flex:1;height:auto;
+  min-height:180px}
 body[data-phone="index"] .map,body[data-phone="panel"] .map{display:none}
 body[data-phone="text"] .map{height:auto;min-height:0;overflow:visible;border:0;
   border-radius:0;background:none}
@@ -163,7 +166,7 @@ body[data-phone="step"] .phone-full{display:inline-flex;align-items:center}
 .phone-flow small{grid-column:2;font:12px/16px var(--fm);color:var(--ink-3)}
 
 /* ---- one sequence step --------------------------------------------------- */
-.phone-step{flex-direction:column;gap:0;padding-bottom:16px}
+.phone-step{flex-direction:column;padding-bottom:max(16px,env(safe-area-inset-bottom))}
 .phone-call{margin:12px 16px 0;padding:12px 14px;border:1px solid var(--accent);
   border-radius:10px;background:var(--card);display:flex;flex-direction:column;gap:6px}
 .phone-call__head{display:flex;align-items:center;gap:8px;min-width:0}

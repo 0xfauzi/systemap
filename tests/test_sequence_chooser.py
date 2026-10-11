@@ -1,4 +1,4 @@
-"""The Sequences view: the sequence chooser and the line colors.
+"""The Sequences view: the sequence chooser, the line colors and the phone step layout.
 
 Acceptance:
 - The toolbar has no native select. The chooser is a button with
@@ -12,6 +12,8 @@ Acceptance:
 - On a phone the same chooser is in the phone head.
 - A sequence line keeps the color and the arrowhead of its flow kind. The
   current step is the selected line of the map. No line is drawn in amber.
+- The phone step fills the screen: the map gets the height that the step
+  card and its buttons leave.
 The DOM harness examines data and controls. It does not measure browser geometry:
 bench/jev/README.md records the browser measurements.
 """
@@ -286,3 +288,16 @@ def test_one_line_width_scale(sample: Sample) -> None:
     # The halo: amber in Ink, the yellow highlighter in Paper.
     assert ':root:not([data-theme="light"]) #schematic .flowhl{stroke:var(--accent)' in html
     assert re.search(r"#schematic \.flowhl\{fill:none;stroke:var\(--hl,", html)
+
+
+def test_phone_step_fills_the_screen(sample: Sample) -> None:
+    html = build(sample)
+    assert 'body[data-phone="step"]{display:flex;flex-direction:column}' in html
+    assert (
+        'body[data-phone="step"] .main{flex:1;display:flex;flex-direction:column;padding-bottom:0}'
+        in html
+    )
+    rule = re.search(r'body\[data-phone="step"\] \.map,[^{]*\{([^}]*)\}', html)
+    assert rule and "flex:1" in rule[1] and "height:auto" in rule[1]
+    assert "height:340px" not in html
+    assert ".phone-step{flex-direction:column;padding-bottom:max(16px,env(safe-area-inset-bottom))}" in html
