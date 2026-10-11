@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tomllib
 import types
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,6 +30,9 @@ SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist", "t
 # the skipped directories minus `tests` itself, plus a plain `venv`.
 SKIP_WALK = (SKIP_DIRS - {"tests"}) | {"venv"}
 TEST_DIR_NAMES = ("tests", "test")
+# Output directory names. A directory with one of these names and an __init__.py is a
+# package, such as the pypa/build package, and the walks go into it.
+OUTPUT_DIRS = frozenset({"build", "dist"})
 CANDIDATE_DEPTH = 4
 
 KNOWN_KEYS = {
@@ -289,7 +292,7 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
             if not parent.is_dir():
                 continue
             for child in sorted(parent.iterdir()):
-                if not child.is_dir() or child.name in SKIP_DIRS or child.name.startswith("."):
+                if not child.is_dir() or skipped(child, SKIP_DIRS):
                     continue
                 if (child / "__init__.py").is_file():
                     entry = (child.relative_to(root).as_posix(), child.name)
@@ -298,13 +301,24 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
     return found
 
 
+def skipped(directory: Path, names: Collection[str]) -> bool:
+    """This function finds a directory that a walk does not go into.
+
+    A hidden directory and a directory in `names` are skipped. A package directory with
+    the name of an output directory is not skipped."""
+    name = directory.name
+    if name.startswith("."):
+        return True
+    return name in names and not (name in OUTPUT_DIRS and (directory / "__init__.py").is_file())
+
+
 def _walk(root: Path, depth: int | None = None) -> list[Path]:
     """This function lists directories under the root, except for excluded directories."""
     out: list[Path] = []
     for dirpath, dirnames, _files in os.walk(root):
         here = Path(dirpath)
         level = len(here.relative_to(root).parts)
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_WALK and not d.startswith("."))
+        dirnames[:] = sorted(d for d in dirnames if not skipped(here / d, SKIP_WALK))
         if depth is not None and level >= depth:
             dirnames[:] = []
         if here != root:
@@ -321,7 +335,7 @@ def discover_tests(root: Path) -> list[str]:
         here = Path(dirpath)
         keep: list[str] = []
         for d in sorted(dirnames):
-            if d in SKIP_WALK or d.startswith("."):
+            if skipped(here / d, SKIP_WALK):
                 continue
             if d in TEST_DIR_NAMES:
                 out.append((here / d).relative_to(root).as_posix())

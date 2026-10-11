@@ -143,6 +143,26 @@ def test_init_selects_typescript_for_a_workspace_without_a_root_tsconfig(
     assert "__init__.py" not in err
 
 
+def test_init_finds_a_package_with_the_name_of_an_output_directory(tmp_path: Path) -> None:
+    # The pypa/build layout: the package itself has the name build.
+    write_tree(
+        tmp_path,
+        {
+            "src/build/__init__.py": "",
+            "src/build/main.py": "def run() -> None:\n    pass\n",
+            # Build output has no __init__.py in build/, and tests and docs stay out.
+            "build/lib/other/__init__.py": "",
+            "tests/__init__.py": "",
+            "docs/__init__.py": "",
+        },
+    )
+    assert config.discover_roots(tmp_path) == [("src/build", "build")]
+    candidates = config.candidate_packages(tmp_path)
+    assert "src/build" in candidates and "build/lib/other" not in candidates
+    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
+    assert toml(tmp_path)["package_roots"] == {"src/build": "build"}
+
+
 def test_a_dependency_directory_does_not_select_typescript(tmp_path: Path) -> None:
     write_tree(
         tmp_path,
