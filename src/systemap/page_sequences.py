@@ -14,6 +14,7 @@ from typing import Any
 from systemap.extract import entry_identity, entry_label
 from systemap.journey_coverage import ways_in_without_journey
 from systemap.model import Box, Journey, Meaning, Model
+from systemap.page_map_icons import icon
 
 # The region map in each row of the sequence list: 56 x 40 pixels.
 GLYPH_W, GLYPH_H = 72.0, 52.0
@@ -73,7 +74,21 @@ stroke-width:2}
 CSS = (
     r"""
 /* ---- Sequences toolbar --------------------------------------------------- */
-.trace-controls select{background:var(--card)}
+.seq-choose{position:relative;flex:0 1 320px;min-width:150px}
+.seq-choose__btn{width:100%;height:32px;display:flex;align-items:center;gap:8px;
+padding:0 8px 0 12px;background:var(--card);color:var(--ink);font:500 13px var(--fs);
+text-align:left}
+.seq-choose__name{flex:1}
+.seq-choose__btn .icon{color:var(--ink-2)}
+.seq-choose__list{position:fixed;z-index:30;display:flex;flex-direction:column;gap:2px;padding:6px;
+overflow:auto;border:1px solid var(--line-2);border-radius:10px;
+background:var(--surface);box-shadow:0 14px 40px color-mix(in srgb,#000 40%,transparent)}
+:root[data-theme="light"] .seq-choose__list{box-shadow:0 14px 40px color-mix(in srgb,#5a4a2a 18%,
+transparent)}
+.trace-controls:has([aria-expanded="true"]){z-index:20}
+.seq-choose__list .seq-pick{flex:none;cursor:pointer}
+.seq-choose__list .seq-pick:not(.on):hover{background:var(--raised);color:var(--ink)}
+.seq-choose__list .seq-pick:focus-visible{outline-offset:-2px}
 .seq-seg{display:flex;flex:none;margin-left:6px;border:1px solid var(--line-2);border-radius:6px;
 overflow:hidden}
 .seq-seg button{height:30px;min-height:30px;padding:0 12px;border:0;border-radius:0;
@@ -102,10 +117,10 @@ color:var(--ink-3)}
 .seq-sec{padding-top:14px;border-top:1px solid var(--line)}
 .seq-head{display:flex;flex-direction:column;gap:4px}
 .readpanel .seq-title{margin:0;font:600 19px/25px var(--fs);color:var(--ink)}
-.readpanel .seq-entry{margin:0;font:12px/18px var(--fs);color:var(--ink-3)}
+.readpanel :is(.seq-entry,.seq-draft,.seq-note){margin:0;font:12px/18px var(--fs);
+color:var(--ink-3)}
 .seq-entry code,.seq-cover code{font-family:var(--fm);font-size:12px;color:var(--ink-2)}
-.readpanel .seq-draft{margin:0;font:12px/18px var(--fs);color:var(--ink)}
-.readpanel .seq-note{margin:0;font:12px/18px var(--fs);color:var(--ink-3)}
+.readpanel .seq-draft{color:var(--ink)}
 .readpanel .seq-note--tight{margin-top:-6px}
 .seq-n{width:20px;height:20px;flex:none;box-sizing:border-box;border-radius:50%;display:inline-flex;
 align-items:center;justify-content:center;font:700 11px/1 var(--fm);background:var(--accent);
@@ -115,10 +130,10 @@ color:var(--on-accent)}
 grid-template-columns:20px minmax(0,1fr) auto;gap:10px;align-items:center;border:0;
 border-radius:4px;background:transparent;text-align:left}
 .seq-route button:hover{background:var(--raised)}
-.seq-ft{font:12px/16px var(--fm);color:var(--ink);white-space:nowrap;overflow:hidden;
-text-overflow:ellipsis}
-.seq-art{font:12px/16px var(--fm);color:var(--ink-2);white-space:nowrap;max-width:160px;
+.seq-ft,.seq-art,.seq-pick__label,.seq-pick__meta,.seq-choose__name{white-space:nowrap;
 overflow:hidden;text-overflow:ellipsis}
+.seq-ft,.seq-art{font:12px/16px var(--fm);color:var(--ink)}
+.seq-art{color:var(--ink-2);max-width:160px}
 .seq-all{list-style:none;margin:0 -8px;padding:0 8px;display:flex;flex-direction:column;gap:2px;
 flex:1 1 0;min-height:168px;overflow:auto;
 -webkit-mask-image:linear-gradient(to bottom,#000 85%,transparent);
@@ -127,20 +142,19 @@ mask-image:linear-gradient(to bottom,#000 85%,transparent)}
 .seq-pick{width:100%;min-height:54px;display:grid;grid-template-columns:56px minmax(0,1fr);
 gap:0 12px;align-items:center;padding:6px 8px;border:1px solid transparent;border-radius:8px;
 background:transparent;text-align:left;color:var(--ink-2)}
-.seq-pick[aria-pressed="true"]{border-color:var(--accent);background:var(--card);color:var(--ink)}
+.seq-pick.on{border-color:var(--accent);background:var(--card);color:var(--ink)}
 .seq-pick__text{display:flex;flex-direction:column;gap:2px;min-width:0}
-.seq-pick__label{font:13px/18px var(--fs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.seq-pick[aria-pressed="true"] .seq-pick__label{font-weight:600}
-.seq-pick__meta{font:12px/16px var(--fm);color:var(--ink-3);white-space:nowrap;overflow:hidden;
-text-overflow:ellipsis}
+.seq-pick__label{font:13px/18px var(--fs)}
+.seq-pick.on .seq-pick__label{font-weight:600}
+.seq-pick__meta{font:12px/16px var(--fm);color:var(--ink-3)}
 .seq-glyph{display:block;width:56px;height:40px}
 .seq-glyph rect{fill:none;stroke:var(--line-2);vector-effect:non-scaling-stroke}
 .seq-glyph rect.on{fill:var(--ink-3);fill-opacity:.3;stroke:var(--ink-3)}
 .seq-glyph circle{fill:var(--ink)}
-.seq-pick[aria-pressed="true"] .seq-glyph rect.on{fill:var(--accent);fill-opacity:.28;
+.seq-pick.on .seq-glyph rect.on{fill:var(--accent);fill-opacity:.28;
 stroke:var(--accent)}
-.seq-pick[aria-pressed="true"] .seq-glyph circle{fill:var(--accent)}
-:root[data-theme="light"] .seq-pick[aria-pressed="true"] .seq-glyph rect.on{fill:var(--hl);
+.seq-pick.on .seq-glyph circle{fill:var(--accent)}
+:root[data-theme="light"] .seq-pick.on .seq-glyph rect.on{fill:var(--hl);
 fill-opacity:1}
 .seq-cover{display:flex;flex-direction:column;gap:6px;padding-top:12px;
 border-top:1px solid var(--line)}
@@ -162,7 +176,6 @@ font-weight:600}
 .seq-step[data-at="before"]{color:var(--ink-2)}
 .seq-step[data-at="before"] .seq-n{border-color:var(--ink-2);color:var(--ink)}
 .seq-step__head{font:12px/20px var(--fm);overflow-wrap:anywhere}
-.seq-step[data-at="before"] .seq-step__head{color:var(--ink-2)}
 .seq-step__say{grid-column:2}
 .seq-step[aria-current="step"]{padding:12px;border-color:var(--accent);background:var(--hl-soft);
 color:var(--ink)}
@@ -196,7 +209,7 @@ font-style:normal}
 .lg .seq-tag--meas{line-height:12px}
 
 @media(max-width:820px){.trace-controls{overflow-x:auto;gap:6px;padding:0 12px}
-.trace-controls select{min-width:180px}.trace-controls__label{display:none}}
+.trace-controls__label{display:none}}
 """
     + MARKS_CSS
 )
@@ -206,17 +219,31 @@ def esc(text: object) -> str:
     return html.escape(str(text), quote=True)
 
 
+def chooser(meaning: Meaning, key: str) -> str:
+    """Give the sequence chooser: a button that opens the list of the sequences.
+
+    The button shows the name of the current sequence. The page script fills
+    the list with one option for each sequence: its region map, its name, its
+    entry point and its step count. The element `{key}-label` names the list."""
+    name = esc(meaning.journeys[0].label) if meaning.journeys else "No sequences"
+    off = "" if meaning.journeys else " disabled"
+    return (
+        f'<div class="seq-choose"><button type="button" class="seq-choose__btn" id="{key}" '
+        f'aria-haspopup="listbox" aria-expanded="false" aria-controls="{key}-list" '
+        f'aria-labelledby="{key}-label {key}"{off}><span class="seq-choose__name">{name}</span>'
+        f'{icon("down")}</button><div class="seq-choose__list" id="{key}-list" role="listbox" '
+        f'aria-labelledby="{key}-label" hidden></div></div>'
+    )
+
+
 def toolbar(meaning: Meaning) -> str:
     """Give the Sequences toolbar row: the sequence choice, the view and the step controls."""
-    options = "".join(
-        f'<option value="{k}">{esc(j.label)}</option>' for k, j in enumerate(meaning.journeys)
-    )
     off = "" if meaning.journeys else " disabled"
     return (
         '<div class="trace-controls" id="tracecontrols" role="toolbar" aria-label="Sequence">'
-        '<label for="journey" class="trace-controls__label">Sequence</label>'
-        f'<select id="journey"{off}>{options}</select>'
-        '<div class="seq-seg" role="group" aria-label="Show">'
+        '<span class="trace-controls__label" id="seqpick-label">Sequence</span>'
+        + chooser(meaning, "seqpick")
+        + '<div class="seq-seg" role="group" aria-label="Show">'
         f'<button type="button" id="jwhole" aria-pressed="true"{off}>Whole route</button>'
         f'<button type="button" id="jsteps" aria-pressed="false"{off}>Steps</button></div>'
         '<span class="seq-div" aria-hidden="true"></span>'

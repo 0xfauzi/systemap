@@ -103,8 +103,7 @@ def check_keyboard(report: dict[str, object]) -> None:
     assert [a["layer"] for a in arrows] == [tabs[1], tabs[2], tabs[1], tabs[0], "all"]
     for a in arrows:
         assert a["pressed"] == [a["layer"]], "one layer button reads pressed"
-    assert report["arrowInSelectPrevented"] is False
-    assert report["layerAfterSelectArrow"] == "all", "the select keeps its arrows"
+    # The open sequence list keeps its arrows: tests/test_sequence_chooser.py.
     check_counts(report)
 
     order = report["nodeOrder"]
@@ -141,7 +140,7 @@ def check_keyboard(report: dict[str, object]) -> None:
     j = report["journey"]
     assert isinstance(j, dict) and j["count"] >= 1
     steps = j["steps"]
-    # The select opens the whole route; the right arrow starts the steps.
+    # A new sequence opens the whole route; the right arrow starts the steps.
     assert j["mode"] == "trace" and j["whole"]["whole"] is True
     assert j["started"] == f"Step 1 of {steps}" and j["stripHidden"] is False
     assert j["afterRight"] == (f"Step 2 of {steps}" if steps > 1 else f"Step 1 of {steps}")

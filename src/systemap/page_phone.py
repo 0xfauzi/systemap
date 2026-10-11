@@ -88,11 +88,12 @@ body[data-phone] .phone-head{display:flex;flex-direction:column;gap:10px;padding
 body[data-phone="panel"] .phone-head,body[data-phone="change"] .phone-head{display:none}
 .phone-pick,.phone-seq,.phone-bar{display:none}
 body[data-phone="grid"] .phone-pick,body[data-phone="text"] .phone-pick{display:flex}
-body[data-phone="step"] .phone-seq,body[data-phone="index"] .phone-seq{display:flex}
+body[data-phone="step"] .phone-seq,body[data-phone="index"] .phone-seq{display:block}
 body[data-phone="map"] .phone-bar,body[data-phone="full"] .phone-bar{display:flex}
-.phone-pick,.phone-seq{flex-direction:column;gap:10px}
+.phone-pick{flex-direction:column;gap:10px}
 .phone-select{width:100%;height:44px;padding:0 12px;border:1px solid var(--line-2);
   border-radius:8px;background:var(--card);color:var(--ink);font:15px var(--fs)}
+.phone-seq .seq-choose__btn{height:44px;border-radius:8px;font-size:15px}
 .phone-question{margin:2px 0 0;font:17px/24px var(--fs);color:var(--ink)}
 .phone-bar{align-items:center;gap:10px;height:40px}
 .phone-bar button{height:40px;min-height:40px;padding:0 14px;border:1px solid var(--line-2);
@@ -218,7 +219,8 @@ SCRIPT = r"""
   if(head && main && main.parentNode){ main.parentNode.insertBefore(head, main); }
   if(fullBtn && map){ map.appendChild(fullBtn); }
   var layerPick = byId('phone-layer'), question = byId('phone-question');
-  var seqPick = byId('phone-seq'), backBtn = byId('phone-back'), barTitle = byId('phone-title');
+  var backBtn = byId('phone-back'), barTitle = byId('phone-title');
+  var seqBox = byId('seqpick').parentNode;
   var grid = byId('phone-grid'), hint = byId('phone-hint'), list = byId('phone-list');
   var call = byId('phone-call'), stepNav = byId('phone-steps');
   var prevBtn = byId('phone-prev'), nextBtn = byId('phone-next');
@@ -461,7 +463,6 @@ SCRIPT = r"""
   }
   function renderStep(){
     var at = P.journey.state(), j = A.journeys[at.j];
-    if(seqPick){ seqPick.value = j ? String(at.j) : ''; }
     if(!j || !call){ return; }
     if(!j.steps.length){
       call.innerHTML = '<p class="phone-call__say">This sequence has no steps.</p>';
@@ -513,8 +514,15 @@ SCRIPT = r"""
       : layerName(A.state.layer).toUpperCase());
     return ['All regions', title];
   }
+  function placeChooser(on){
+    // The sequence chooser is in the phone head on a phone, else in the Sequences toolbar.
+    var to = byId(on ? 'phone-seq' : 'tracecontrols');
+    if(seqBox.parentNode !== to){
+      to.insertBefore(seqBox, on ? null : to.querySelector('.seq-seg')); }
+  }
   function update(){
     var s = stateOf(), before = body.dataset.phone || '';
+    placeChooser(!!s);
     if(s){ body.dataset.phone = s; } else { delete body.dataset.phone; }
     if(!s){ return false; }
     if(layerPick){ layerPick.value = A.state.layer; }
@@ -598,13 +606,6 @@ SCRIPT = r"""
   if(fullBtn){ fullBtn.addEventListener('click', function(){
     full = true; update(); window.scrollTo(0, 0); A.view.fit();
   }); }
-  if(seqPick){ seqPick.addEventListener('change', function(){
-    full = false;
-    if(seqPick.value === ''){ P.journey.end(false); update(); return; }
-    body.dataset.phone = 'step';
-    P.journey.start(+seqPick.value);
-    goStep(0);
-  }); }
   if(stepNav){ stepNav.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('[data-phone-step]');
     if(b){ goStep(+b.dataset.phoneStep); }
@@ -667,19 +668,15 @@ def html(model: Model, meaning: Meaning) -> str:
     """Give the phone parts of the page. Wide windows hide them.
 
     The script moves the head part above the map and fills the regions grid,
-    the list and the step from the map data."""
-    del model
-    sequences = "".join(
-        f'<option value="{k}">{_esc(j.label)}</option>' for k, j in enumerate(meaning.journeys)
-    )
+    the list and the step from the map data. It moves the sequence chooser of
+    the Sequences toolbar into the head part."""
+    del model, meaning
     return (
         '<div class="phone-head" id="phone-head">'
         '<div class="phone-pick"><label class="sr-only" for="phone-layer">Layer</label>'
         '<select class="phone-select" id="phone-layer"></select>'
         '<p class="phone-question" id="phone-question"></p></div>'
-        '<div class="phone-seq"><label class="sr-only" for="phone-seq">Sequence</label>'
-        '<select class="phone-select" id="phone-seq"><option value="">Select an operation'
-        f"</option>{sequences}</select></div>"
+        '<div class="phone-seq" id="phone-seq"></div>'
         '<div class="phone-bar"><button type="button" id="phone-back">All regions</button>'
         '<p class="phone-bar__title" id="phone-title"></p></div></div>'
         '<button type="button" class="phone-full" id="phone-full">Full map</button>'

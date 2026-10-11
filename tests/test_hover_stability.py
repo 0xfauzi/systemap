@@ -252,9 +252,9 @@ function sequencefocus(page) {
   const edge=A.edges.findIndex(flow=>flow.layer!==A.edges[first.edge].layer);
   A.inspectFlow(edge,A.edges[edge].to);runFrames(win);
   const before=snapshot();
-  const select=doc.getElementById('journey');
-  select.value='0';select.dispatchEvent(new EventImpl('change',{bubbles:true}));runFrames(win);
-  // The select opens the whole route. Start at step 1.
+  doc.getElementById('seqpick').click();
+  doc.querySelector('#seqpick-list [data-pick="0"]').click();runFrames(win);
+  // The sequence chooser opens the whole route. Start at step 1.
   doc.getElementById('jstart').click();runFrames(win);
   const started=snapshot();
   // End sequence goes back to the whole route. Escape there ends the sequence.

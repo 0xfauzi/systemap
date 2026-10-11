@@ -11,7 +11,7 @@ from systemap.page_sequences import MARKS_JS
 CONTROL_JS = r"""
 var A = svg.systemap, P = svg.page, W = window.systemapWorkspace || {};
 var D = W.sequences || {}, ARROW = ' → ';
-var sel = byId('journey'), wholeBtn = byId('jwhole'), stepsBtn = byId('jsteps');
+var wholeBtn = byId('jwhole'), stepsBtn = byId('jsteps');
 var wholeBar = byId('jwholebar'), stepBar = byId('jstepbar'), startBtn = byId('jstart');
 var fullBtn = byId('jfull'), prev = byId('jprev'), next = byId('jnext'), count = byId('jcount');
 var endBtn = byId('jend'), returnBtn = byId('jreturn'), index = byId('journeyindex');
@@ -47,7 +47,7 @@ function firstWithSteps(){
 // ---- the toolbar and the title -------------------------------------------------
 function syncBar(){
   var j = J(), n = j ? j.steps.length : 0, steps = cur.view === 'steps' && cur.j >= 0;
-  if(sel && cur.j >= 0){ sel.value = String(cur.j); }
+  if(j){ pick.firstChild.textContent = j.label; }
   press(wholeBtn, !steps); press(stepsBtn, steps);
   if(wholeBar){ wholeBar.hidden = steps; }
   if(stepBar){ stepBar.hidden = !steps; }
@@ -87,18 +87,24 @@ function routeHtml(j){
       + esc(e ? e.art : '') + '</span></button></li>';
   }).join('') + '</ol>';
 }
+function pickHtml(k, option){
+  // One sequence in a list: its region map, its name, its entry point and its step count.
+  // An option of the chooser list, or a button of the panel list.
+  var j = A.journeys[k], m = meta(k), on = k === cur.j, tag = option ? 'div' : 'button';
+  return '<' + tag + (option ? ' role="option" tabindex="-1" data-pick="' + k + '" aria-selected="'
+    : ' type="button" data-journey="' + k + '" aria-pressed="') + on + '" class="seq-pick'
+    + (on ? ' on' : '') + '">' + (m.glyph || '<span></span>')
+    + '<span class="seq-pick__text"><span class="seq-pick__label">' + esc(j.label)
+    + '</span><span class="seq-pick__meta">' + (m.entry ? esc(m.entry) + ' · ' : '')
+    + plural(j.steps.length, 'step') + '</span></span></' + tag + '>';
+}
 function allHtml(){
   if(!A.journeys.length){ return ''; }
   return '<div class="seq-row seq-sec"><h3 class="seq-kicker">ALL SEQUENCES</h3>'
     + '<span class="seq-count">' + A.journeys.length + '</span></div>'
     + '<p class="seq-note seq-note--tight">The small map shows the regions that each sequence '
-    + 'uses. The dot is the start.</p><ol class="seq-all">' + A.journeys.map(function(j, k){
-      var m = meta(k), on = k === cur.j;
-      return '<li><button type="button" class="seq-pick" data-journey="' + k
-        + '" aria-pressed="' + on + '">' + (m.glyph || '<span></span>')
-        + '<span class="seq-pick__text"><span class="seq-pick__label">' + esc(j.label)
-        + '</span><span class="seq-pick__meta">' + (m.entry ? esc(m.entry) + ' · ' : '')
-        + plural(j.steps.length, 'step') + '</span></span></button></li>';
+    + 'uses. The dot is the start.</p><ol class="seq-all">' + A.journeys.map(function(_j, k){
+      return '<li>' + pickHtml(k, false) + '</li>';
     }).join('') + '</ol>';
 }
 function names(list){
@@ -181,8 +187,7 @@ function renderPanel(changed){
     : headHtml('THE ROUTE IN ORDER', j, meta(cur.j)) + routeHtml(j) + allHtml() + coverHtml());
   list = body.querySelector('.seq-all');
   if(list){ list.scrollTop = top; }
-  var mark = body.querySelector(cur.view === 'steps' ? '[aria-current="step"]'
-    : '.seq-pick[aria-pressed="true"]');
+  var mark = body.querySelector(cur.view === 'steps' ? '[aria-current="step"]' : '.seq-pick.on');
   if(mark && mark.scrollIntoView && (changed || cur.view === 'steps') && index
     && !index.hidden){ mark.scrollIntoView({block:'nearest'}); }
   if(key){
@@ -342,10 +347,67 @@ function stepBy(d){
   return true;
 }
 
+// ---- the sequence chooser: a button that opens the list of the sequences ----------
+// The listbox pattern: the arrow keys, Home and End move the focus, a letter goes to
+// the next name with that letter, Enter or Space selects, Escape closes. A new
+// sequence keeps Whole route or Steps and starts at step 1. The phone script moves
+// the chooser into the phone head.
+var pick = byId('seqpick'), list = byId('seqpick-list'), pickBox = pick.parentNode;
+function expand(on){ list.hidden = !on; pick.setAttribute('aria-expanded', on); }
+function shut(back){
+  if(list.hidden){ return; }
+  expand(false);
+  if(back){ pick.focus(); }
+}
+function show(o){ if(o){ o.focus(); o.scrollIntoView({block:'nearest'}); } }
+function openList(){
+  // The list is fixed under its button, so that a toolbar that scrolls does not cut it.
+  var r = pick.getBoundingClientRect(), s = list.style;
+  list.innerHTML = A.journeys.map(function(_j, k){ return pickHtml(k, 1); }).join('');
+  s.width = Math.min(Math.max(r.width, 400), window.innerWidth - 32) + 'px';
+  s.top = r.bottom + 6 + 'px'; s.left = r.left + 'px';
+  s.maxHeight = window.innerHeight - r.bottom - 22 + 'px';
+  expand(true);
+  show(all('[data-pick]', list)[Math.max(cur.j, 0)]);
+}
+function choose(k){
+  shut(1);
+  if(k !== cur.j){ go(k, cur.view, 0, cur.view === 'steps' ? 'keep' : 'fit'); }
+}
+function listKey(e){
+  var opts = all('[data-pick]', list), i = opts.indexOf(document.activeElement), k = e.key;
+  var to = {ArrowDown:i + 1, ArrowUp:i - 1, Home:0, End:opts.length - 1}[k];
+  e.stopPropagation();
+  if(k === 'Tab'){ shut(); return; }
+  if(k === 'Escape'){ shut(1); }
+  else if((k === 'Enter' || k === ' ') && i >= 0){ choose(i); }
+  else if(k.length === 1){
+    // A letter: the next sequence whose name starts with it.
+    for(var n = 1; n <= opts.length && to === undefined; n++){
+      var x = (i + n) % opts.length;
+      if(opts[x].textContent[0].toLowerCase() === k.toLowerCase()){ to = x; }
+    }
+  } else if(to === undefined){ return; }
+  e.preventDefault();
+  show(opts[to]);
+}
+pick.addEventListener('click', function(){ if(list.hidden){ openList(); } else { shut(); } });
+pick.addEventListener('keydown', function(e){
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault(); e.stopPropagation(); openList(); }
+});
+list.addEventListener('click', function(e){
+  var o = e.target.closest('[data-pick]');
+  if(o){ choose(+o.dataset.pick); }
+});
+list.addEventListener('keydown', listKey);
+list.addEventListener('focusout', function(e){
+  if(e.relatedTarget && !pickBox.contains(e.relatedTarget)){ shut(); } });
+document.addEventListener('pointerdown', function(e){ if(!pickBox.contains(e.target)){ shut(); } });
+window.addEventListener('resize', function(){ shut(); });
+
 // ---- controls ----------------------------------------------------------------------
 function on(node, fn){ if(node){ node.addEventListener('click', fn); } }
-if(sel){ sel.addEventListener('change', function(){
-  go(+sel.value, cur.view, 0, cur.view === 'steps' ? 'keep' : 'fit'); }); }
 on(wholeBtn, function(){ go(cur.j, 'whole', cur.s, 'fit'); });
 on(stepsBtn, function(){ go(cur.j, 'steps', cur.s, 'keep'); });
 on(startBtn, function(){ go(cur.j, 'steps', 0, 'keep'); });
@@ -448,7 +510,7 @@ P.journey = {
   back:back
 };
 P.sequence = {
-  state:function(){ return {j:cur.j, s:cur.s, view:cur.view}; },
+  state:P.journey.state,
   go:function(view, s, camera){ if(cur.j >= 0){ go(cur.j, view, s, camera); } },
   on:function(fn){ listeners.push(fn); },
   presenting:function(flag){ presenting = !!flag; },

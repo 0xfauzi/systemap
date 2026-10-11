@@ -1,6 +1,15 @@
-"""The Sequences view: the line colors.
+"""The Sequences view: the sequence chooser and the line colors.
 
 Acceptance:
+- The toolbar has no native select. The chooser is a button with
+  `aria-haspopup="listbox"` that opens a listbox with one option for each
+  sequence: its region map, its name, its entry point and its step count.
+  The current sequence is the selected option and has the focus on open.
+- The arrow keys, Home, End and a first letter move the focus in the list.
+  Enter, Space or a click selects. Escape and Tab close. Keys in the list do
+  not change the layer or the step. A new sequence keeps Whole route or
+  Steps and starts at step 1.
+- On a phone the same chooser is in the phone head.
 - A sequence line keeps the color and the arrowhead of its flow kind. The
   current step is the selected line of the map. No line is drawn in amber.
 The DOM harness examines data and controls. It does not measure browser geometry:
@@ -23,6 +32,53 @@ from systemap import page
 from systemap.model import Journey, Meaning, Step
 
 SCENARIO = r"""
+function chooser(page){
+  const {doc,win,svg,A,key}=page,P=svg.page;
+  const btn=doc.getElementById('seqpick'),list=doc.getElementById('seqpick-list');
+  const focus=()=>doc.activeElement.dataset?(doc.activeElement.dataset.pick
+    ||doc.activeElement.id):'';
+  const look=()=>({hidden:list.hidden,expanded:btn.getAttribute('aria-expanded'),
+    name:btn.querySelector('.seq-choose__name').textContent,focus:focus(),
+    state:P.journey.state(),layer:A.state.layer});
+  const report={};
+  doc.querySelector('[data-mode="trace"]').click();runFrames(win);
+  report.trace=look();
+  btn.click();runFrames(win);
+  report.open=look();
+  report.options=list.querySelectorAll('[role="option"]').map(o=>({pick:o.dataset.pick,
+    selected:o.getAttribute('aria-selected'),tabindex:o.getAttribute('tabindex'),
+    label:o.querySelector('.seq-pick__label').textContent,
+    meta:o.querySelector('.seq-pick__meta').textContent,glyph:!!o.querySelector('svg')}));
+  const at=()=>doc.activeElement;
+  key('ArrowDown',at());report.down=focus();
+  key('End',at());report.end=focus();
+  key('ArrowDown',at());report.endDown=focus();
+  key('Home',at());report.home=focus();
+  key('ArrowUp',at());report.homeUp=focus();
+  key('r',at());report.letter=focus();
+  report.rightPrevented=key('ArrowRight',at());
+  report.afterRight=look();
+  key('Escape',at());runFrames(win);
+  report.escape=look();
+  // The arrow key on the button opens the list.
+  key('ArrowDown',btn);report.arrowOpens=look();
+  key('Tab',at());report.tab=look();
+  // Steps view at step 2: a new sequence keeps Steps and starts at step 1.
+  P.journey.step(1);runFrames(win);
+  btn.click();key('ArrowDown',at());key('Enter',at());runFrames(win);
+  report.enter=look();
+  // Whole route: a click on an option keeps Whole route.
+  doc.getElementById('jwhole').click();runFrames(win);
+  btn.click();list.querySelector('[data-pick="2"]').click();runFrames(win);
+  report.click=look();
+  // The current sequence again: no change.
+  btn.click();list.querySelector('[data-pick="2"]').click();runFrames(win);
+  report.same=look();
+  // A pointer press outside the chooser closes the list.
+  btn.click();doc.body.dispatchEvent(new EventImpl('pointerdown',{bubbles:true}));
+  report.outside=look();
+  return report;
+}
 function lines(page){
   const {doc,win,svg,A}=page,P=svg.page;
   doc.querySelector('[data-mode="trace"]').click();runFrames(win);
@@ -40,6 +96,14 @@ function lines(page){
   report.edges=A.journeys[0].steps.map(st=>st.edge);
   A.inspectFlow(0);runFrames(win);
   report.selected=flows();
+  return report;
+}
+function phone(page){
+  const {doc,win,svg}=page,P=svg.page;
+  const where=()=>doc.getElementById('seqpick').parentNode.parentNode.id;
+  const report={start:where()};
+  doc.querySelector('[data-mode="trace"]').click();runFrames(win);
+  report.trace={where:where(),phone:doc.body.dataset.phone,state:P.journey.state()};
   return report;
 }
 """
@@ -85,7 +149,7 @@ def run(sample: Sample, tmp_path: Path, name: str, viewport: str = "1600x900") -
     harness = tmp_path / f"{name}.js"
     harness.write_text(driver + SCENARIO, encoding="utf-8")
     result = subprocess.run(
-        [node, str(harness), str(html), "--scenario", name, "--viewport", viewport],
+        [node, str(harness), str(html), "--scenario", name, "--viewport", viewport, "--phone"],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -94,6 +158,85 @@ def run(sample: Sample, tmp_path: Path, name: str, viewport: str = "1600x900") -
     assert result.returncode == 0, result.stderr
     report: dict[str, object] = json.loads(result.stdout)
     return report
+
+
+def test_chooser_is_a_button_that_opens_a_listbox(sample: Sample) -> None:
+    html = build(sample)
+    assert '<select id="journey"' not in html and 'id="phone-seq"><option' not in html
+    row = re.search(r'<div class="trace-controls" id="tracecontrols"[^>]*>(.*?)<div class="seq-seg"', html)
+    assert row, "the chooser is first in the Sequences toolbar"
+    assert '<span class="trace-controls__label" id="seqpick-label">Sequence</span>' in row[1]
+    button = re.search(r'<button type="button" class="seq-choose__btn" id="seqpick"([^>]*)>', row[1])
+    assert button
+    for attr in (
+        'aria-haspopup="listbox"',
+        'aria-expanded="false"',
+        'aria-controls="seqpick-list"',
+        'aria-labelledby="seqpick-label seqpick"',
+    ):
+        assert attr in button[1], attr
+    name = sample.meaning.journeys[0].label
+    assert f'<span class="seq-choose__name">{name}</span><svg class="icon"' in row[1]
+    assert (
+        '<div class="seq-choose__list" id="seqpick-list" role="listbox" '
+        'aria-labelledby="seqpick-label" hidden></div>' in row[1]
+    )
+    # The phone head has a place for the same chooser, not a second control.
+    assert '<div class="phone-seq" id="phone-seq"></div>' in html
+    assert html.count('class="seq-choose"') == 1
+
+
+def test_chooser_without_sequences_is_off(sample: Sample) -> None:
+    html = build(sample, dataclasses.replace(sample.meaning, journeys=()))
+    button = re.search(r'<button type="button" class="seq-choose__btn" id="seqpick"[^>]*>', html)
+    assert button and button[0].endswith(" disabled>")
+    assert '<span class="seq-choose__name">No sequences</span>' in html
+
+
+def test_chooser_keyboard_and_selection(sample: Sample, tmp_path: Path) -> None:
+    report = run(sample, tmp_path, "chooser")
+    labels = [j.label for j in three_sequences(sample.meaning).journeys]
+    assert report["trace"]["hidden"] is True and report["trace"]["expanded"] == "false"
+    assert report["trace"]["name"] == labels[0]
+    opened = report["open"]
+    assert opened["hidden"] is False and opened["expanded"] == "true"
+    assert opened["focus"] == "0", "the current sequence has the focus"
+    options = report["options"]
+    assert [o["label"] for o in options] == labels
+    assert [o["selected"] for o in options] == ["true", "false", "false"]
+    assert all(o["tabindex"] == "-1" and o["glyph"] for o in options)
+    assert options[1]["meta"].endswith("2 steps") and options[2]["meta"].endswith("1 step")
+    # Arrow keys, End and Home move the focus and stop at the ends. A letter
+    # goes to the next name with that letter.
+    assert (report["down"], report["end"], report["endDown"]) == ("1", "2", "2")
+    assert (report["home"], report["homeUp"], report["letter"]) == ("0", "0", "2")
+    # Keys in the list do not step the sequence or change the layer.
+    assert report["rightPrevented"] is False
+    assert report["afterRight"]["state"] == opened["state"]
+    assert report["afterRight"]["layer"] == opened["layer"]
+    # Escape closes the list and gives the focus back. The sequence stays.
+    escape = report["escape"]
+    assert escape["hidden"] is True and escape["expanded"] == "false"
+    assert escape["focus"] == "seqpick" and escape["state"]["j"] == 0
+    assert report["arrowOpens"]["hidden"] is False
+    assert report["tab"]["hidden"] is True
+    # A new sequence keeps the view and starts at step 1.
+    assert report["enter"]["state"] == {"j": 1, "s": 0, "view": "steps"}
+    assert report["enter"]["name"] == labels[1] and report["enter"]["focus"] == "seqpick"
+    assert report["click"]["state"] == {"j": 2, "s": 0, "view": "whole"}
+    assert report["click"]["hidden"] is True
+    assert report["same"]["state"] == report["click"]["state"]
+    assert report["outside"]["hidden"] is True
+
+
+def test_phone_moves_the_chooser_into_the_phone_head(sample: Sample, tmp_path: Path) -> None:
+    report = run(sample, tmp_path, "phone", viewport="390x844")
+    assert report["start"] == "phone-seq"
+    trace = report["trace"]
+    assert trace["where"] == "phone-seq" and trace["phone"] == "step"
+    assert trace["state"]["j"] == 0
+    wide = run(sample, tmp_path, "phone")
+    assert wide["start"] == "tracecontrols"
 
 
 def test_sequence_lines_keep_the_color_of_their_flow_kind(sample: Sample, tmp_path: Path) -> None:
