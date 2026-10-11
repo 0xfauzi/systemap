@@ -33,7 +33,16 @@ class ChangeError(Exception):
 
 
 def _run(args: list[str], cwd: Path) -> str:
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=90)
+    # Git gives file contents and paths as bytes. Source is UTF-8, whatever the locale.
+    proc = subprocess.run(
+        args,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=90,
+    )
     return proc.stdout if proc.returncode == 0 else ""
 
 
@@ -74,6 +83,8 @@ def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
         cwd=repo,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="surrogateescape",
         timeout=90,
     )
     if proc.returncode:

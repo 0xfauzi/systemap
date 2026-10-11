@@ -195,7 +195,9 @@ def report(windows: list[Window], root: Path, since: str, every: int, top: int) 
             f"last window in chronological order first:"
         ),
     ]
-    for window in sorted(moved, key=lambda w: w.size, reverse=True)[:top]:
+    # The largest first. Of equal sizes, the latest window first, as the text says.
+    ranked = sorted(enumerate(moved), key=lambda pair: (pair[1].size, pair[0]), reverse=True)
+    for _index, window in ranked[:top]:
         out += _window_lines(with_causes(root, window))
     out.append("  Component counts use the module claims from the model for each historical tree.")
     out.append(

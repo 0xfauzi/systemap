@@ -618,10 +618,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         say(f"history: {exc}")
         return STALE
     if len(shas) < 2:
-        say(
-            f"history: There are only {len(shas)} commit since {args.since}. Use a longer "
-            f"time range."
-        )
+        say(history.too_few(len(shas), args.since))
         return OK
     say(
         f"history: The command reads facts at {len(shas)} commits. The cache reduces "

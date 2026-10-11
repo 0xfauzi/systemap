@@ -46,8 +46,14 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
 
 
 def git(root: Path, *args: str) -> str:
+    """This function gives the output of a Git command as UTF-8 text, whatever the locale."""
     done = subprocess.run(  # noqa: S603 - git, with arguments this module builds
-        ["git", "-C", str(root), *args], capture_output=True, text=True, check=False
+        ["git", "-C", str(root), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
     )
     if done.returncode != 0:
         raise delta.DeltaError(f"git {' '.join(args)}: {done.stderr.strip()[:200]}")
@@ -58,7 +64,8 @@ def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[s
     """This function selects one commit for each time window, in chronological order.
 
     The initial commit in each window supplies the sample. Commit activity does not
-    change the number of samples.
+    change the number of samples. The last sample is the ref, if its commit is in the
+    range. A commit outside the range is not a sample.
     """
     lines = git(root, "log", "--first-parent", f"--since={since}", "--format=%H %cI", ref)
     rows = [line.split(" ", 1) for line in lines.splitlines() if " " in line]
@@ -70,9 +77,16 @@ def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[s
             kept.append(sha)
             last = day
     head = git(root, "rev-parse", ref).strip()
-    if head and head not in kept:
+    if head in {sha for sha, _when in rows} - set(kept):
         kept.append(head)
     return kept
+
+
+def too_few(count: int, since: str) -> str:
+    """This function tells the reader that the range has too few commits for a trend."""
+    noun = "commit" if count == 1 else "commits"
+    verb = "is" if count == 1 else "are"
+    return f"history: There {verb} only {count} {noun} since {since}. Use a longer time range."
 
 
 def _days_between(a: str, b: str) -> int:
