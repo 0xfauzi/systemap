@@ -27,8 +27,7 @@ from systemap import (
     Region,
 )
 
-# `systemap place` wrote each position, each box and the canvas. A new card without x and y
-# goes into a free slot of its region. No card is pinned, so `place --all` can move each card.
+# `systemap place` wrote each position, each box and the canvas. A new card without x and y goes into a free slot of its region. No card is pinned, so `place --all` can move each card.
 
 CONTAINERS = (
     Container(
@@ -270,6 +269,8 @@ COMPONENTS = (
             "systemap.page_groups",
             "systemap.page_phone",
             "systemap.page_motion",
+            "systemap.page_mapview",
+            "systemap.page_map_icons",
         ),
         entry="build",
         region="draw",
@@ -666,8 +667,7 @@ PLAIN = {
     "TypeSafe": "The Jev service",
 }
 
-# The page derives Structure, System context, Data flow and Control flow. This model adds one
-# layer: the loop that writes, questions and examines the model.
+# The page derives Structure, System context, Data flow and Control flow. This model adds one layer: the loop that writes, questions and examines the model.
 LAYERS = (
     Layer(
         id="judge",
