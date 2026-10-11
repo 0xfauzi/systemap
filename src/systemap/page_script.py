@@ -174,77 +174,12 @@ JS = r"""
     b.addEventListener('click', function(){ setMode(b.dataset.mode); });
   });
 
-  // ---- search: the Find field and its list of components ---------------------
-  var find = byId('partsearch'), results = byId('components');
-  function openFind(){ if(results){ results.hidden = false;
-    } if(find){ find.setAttribute('aria-expanded', 'true'); } }
-  function closeFind(){ if(results){ results.hidden = true;
-    } if(find){ find.setAttribute('aria-expanded', 'false'); } }
-  function visibleEntries(){ return all('.ix[data-go]',
-    results).filter(function(b){ return !b.hidden; }); }
-  function searchParts(){
-    if(!find){ return; }
-    var q = find.value.trim().toLowerCase();
-    var found = 0, entries = all('.ix[data-go]');
-    entries.forEach(function(b){
-      var d = A.detail[b.dataset.go], s = W.sources && W.sources[b.dataset.go];
-      var fields = [['Component name',d.id],['Function',d.does],['Function',d.plain || '']];
-      if(s){
-        s.claims.forEach(function(m){ fields.push(['Claimed module',m]); });
-        s.modules.forEach(function(m){ fields.push(['Module',m.id],['Source path',m.file]); });
-      }
-      var matches = fields.filter(function(field){
-        return String(field[1] || '').toLowerCase().indexOf(q) >= 0;
-      });
-      b.hidden = !matches.length;
-      var explanation = b.querySelector('.ix__match');
-      if(!explanation){
-        explanation = document.createElement('small');
-        explanation.setAttribute('class', 'ix__match'); b.appendChild(explanation);
-      }
-      explanation.hidden = !q;
-      explanation.textContent = q && matches.length ? matches[0].join(': ') : '';
-      if(!b.hidden){ found++; }
-    });
-    all('.ixgroup').forEach(function(g){
-      g.hidden = all('.ix', g).every(function(b){ return b.hidden; });
-    });
-    var status = byId('searchcount');
-    if(status){ status.textContent = found + ' of ' + entries.length + ' components'; }
-    show(byId('searchempty'), found === 0);
-  }
-  if(find){
-    find.addEventListener('focus', function(){ searchParts(); openFind(); });
-    find.addEventListener('input', function(){ searchParts(); openFind(); });
-    find.addEventListener('keydown', function(e){
-      var list = visibleEntries();
-      if(e.key === 'Escape'){ closeFind(); find.blur(); e.preventDefault(); e.stopPropagation(); }
-      else if(e.key === 'ArrowDown' && list.length){ list[0].focus(); e.preventDefault(); }
-      else if(e.key === 'Enter' && list.length){ list[0].click(); e.preventDefault(); }
-    });
-  }
-  if(results){ results.addEventListener('keydown', function(e){
-    var list = visibleEntries(), i = list.indexOf(document.activeElement);
-    if(e.key === 'Escape'){ closeFind(); if(find){ find.focus(); } e.preventDefault();
-      e.stopPropagation(); }
-    else if(e.key === 'ArrowDown' && i >= 0 && i < list.length - 1){ list[i + 1].focus();
-      e.preventDefault(); }
-    else if(e.key === 'ArrowUp' && i > 0){ list[i - 1].focus(); e.preventDefault(); }
-    else if(e.key === 'ArrowUp' && i === 0 && find){ find.focus(); e.preventDefault(); }
-  }); }
   document.addEventListener('pointerdown', function(e){
-    if(results && !results.hidden && !results.contains(e.target) && e.target !== find){
-      closeFind(); }
     if(snap && !snap.parentNode.contains(e.target)){ showSnap(false); }
   });
-  all('.ix[data-go], .gv[data-go]').forEach(function(b){
-    b.addEventListener('click', function(){
-      if(mode === 'change'){ setMode('understand'); }
-      A.select(b.dataset.go);
-      closeFind();
-    });
+  all('.gv[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){ A.select(b.dataset.go); });
   });
-  searchParts();
 
   // ---- selection --------------------------------------------------------
   var closeBtn = byId('drawerclose');
@@ -263,15 +198,11 @@ JS = r"""
     sections();
     if(!restoringView){ frameBeside(id); }
     if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
-    all('.ix[data-go]').forEach(function(b){
-      b.setAttribute('aria-current', b.dataset.go === id ? 'true' : 'false');
-    });
   });
   svg.addEventListener('systemap:clear', function(){
     if(sourceDetail){ sourceDetail.innerHTML = ''; }
     sections();
     if(location.hash){ history.replaceState(null, '', location.pathname + location.search); }
-    all('.ix[data-go]').forEach(function(b){ b.removeAttribute('aria-current'); });
     // Focus that was in the panel, or nowhere, goes back to the card the
     // panel was about, so the keyboard reader is where they left off.
     var active = document.activeElement, node = opened && nodeOf(opened);
@@ -356,7 +287,7 @@ JS = r"""
     if(A.state.focus){ A.clear(); }
     P.openPanel();
     var rules = byId('invariants'), row = byId('rule-' + n);
-    if(rules){ rules.open = true; }
+    if(rules){ rules.setAttribute('open', ''); }
     if(row){ row.scrollIntoView({block:'center'}); row.focus({preventScroll:true}); }
   };
 
@@ -426,7 +357,8 @@ JS = r"""
     setLayer(ids[(i + d + ids.length) % ids.length]);
   }
   function overlayOpen(){
-    return ['keys', 'present'].some(function(id){ var n = byId(id); return n && !n.hidden; });
+    return ['keys', 'present', 'palette'].some(function(id){
+      var n = byId(id); return n && !n.hidden; });
   }
   function typing(t){
     var tag = t && t.tagName;
@@ -456,11 +388,6 @@ JS = r"""
     if(e.key === 'Escape' && closeSubmap()){ e.preventDefault(); return; }
     if(submap && !submap.hidden){ return; }
     if(overlayOpen() || typing(e.target)){ return; }
-    if((e.key === '/' && !e.altKey && !e.ctrlKey && !e.metaKey) ||
-      (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey)){
-      if(find){ find.focus(); e.preventDefault(); }
-      return;
-    }
     if(e.altKey || e.ctrlKey || e.metaKey){ return; }
     if(e.key === 'Escape'){ escape(e); return; }
     if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){

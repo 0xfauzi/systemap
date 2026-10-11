@@ -212,7 +212,10 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
     assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:2.6}" in html
     # Reduce motion is a page setting. The head script stamps it before the
     # first paint, and the system setting applies only to a figure without it.
-    assert 'html[data-reduce-motion="true"] *{transition:none!important;animation:none!important}' in html
+    assert (
+        'html[data-reduce-motion="true"] *{transition:none!important;animation:none!important}'
+        in html
+    )
     assert ":root[data-reduce-motion=true] #schematic *{transition:none!important;" in html
     assert "setAttribute('data-reduce-motion',m)" in html.split("</head>")[0]
     assert "@media (prefers-reduced-motion:reduce){*" not in html

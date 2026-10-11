@@ -861,15 +861,19 @@ function workspace(page) {
     report.partPurpose = doc.getElementById('panel').textContent.includes(A.detail[A.state.focus].plain);
   }
   doc.querySelector('button[data-mode="understand"]').click();
-  const search = doc.getElementById('partsearch');
+  // The Find button opens the palette. Its results give the components in their own group.
+  doc.getElementById('find-open').click();
+  const search = doc.getElementById('pal-input');
   search.value = 'pkg.reader';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
-  report.matches = doc.querySelectorAll('.ix').filter((b) => !b.hidden).map((b) => b.dataset.go);
-  // Typing in Find opens the list of results under the field.
-  report.searchOpened = !doc.getElementById('components').hidden;
+  report.matches = doc.getElementById('pal-list').querySelectorAll('[data-k]')
+    .filter((o) => o.parentNode.querySelector('.pal__g').textContent === 'Components')
+    .map((o) => o.querySelector('.pal__t').textContent);
+  report.searchOpened = !doc.getElementById('palette').hidden;
   search.value = 'nothing-matches-this-query';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
-  report.emptySearch = !doc.getElementById('searchempty').hidden;
+  report.emptySearch = !!doc.querySelector('#pal-list .pal__none');
+  key('Escape', search);
   // A page without a comparison gives the command that makes one.
   report.comparisonPrompt = doc.getElementById('change').textContent.includes('systemap render --base REF');
   return report;

@@ -270,6 +270,7 @@ COMPONENTS = (
             "systemap.page_motion",
             "systemap.page_mapview",
             "systemap.page_icons",
+            "systemap.page_palette",
         ),
         entry="build",
         region="draw",

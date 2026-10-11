@@ -77,7 +77,7 @@ html:not([data-reduce-motion="true"]) .mark__dot{animation:mark-dot .16s ease-ou
 .keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
 padding:16px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
 .keys[hidden]{display:none}
-.keys__box{box-sizing:border-box;width:min(340px,100%);max-height:calc(100vh - 32px);overflow:auto;
+.keys__box{box-sizing:border-box;width:min(380px,100%);max-height:calc(100vh - 32px);overflow:auto;
 display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line-2);
 border-radius:10px;background:var(--surface);color:var(--ink);
 box-shadow:0 16px 48px rgba(0,0,0,.28);outline:none}
@@ -256,15 +256,15 @@ SCRIPT = r"""
 """
 
 _KEYS: tuple[tuple[str, str], ...] = (
-    ("/", "Find a component"),
+    ("Ctrl K", "Find a component, flow, layer or action"),
     ("1 to 6", "Select a layer"),
-    ("← →", "Previous or next step"),
+    ("← →", "Previous or next layer or step"),
     ("W", "Whole route"),
     ("F", "Full screen"),
     ("B", "Hold to show the base"),
     ("D", "Open or close the Details panel"),
     ("?", "Keyboard keys"),
-    ("Esc", "Previous view"),
+    ("Esc", "Close, or go back one view"),
 )
 
 
@@ -276,6 +276,9 @@ def _key(key: str) -> str:
         )
     if key == "1 to 6":
         return f"<kbd data-keys-layers>{key}</kbd>"
+    if key == "Ctrl K":
+        # The palette script shows the Command key on a Mac. The / key also opens it.
+        return "<kbd data-mod-key>Ctrl K</kbd> <kbd>/</kbd>"
     return f"<kbd>{key}</kbd>"
 
 

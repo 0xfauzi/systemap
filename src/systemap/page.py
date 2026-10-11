@@ -17,6 +17,7 @@ from systemap import (
     page_icons,
     page_mapview,
     page_motion,
+    page_palette,
     page_phone,
     page_present,
     page_sequence_script,
@@ -24,7 +25,7 @@ from systemap import (
 )
 from systemap import theme as theme_mod
 from systemap.config import Config
-from systemap.model import Component, Meaning, Model, all_layers, reading
+from systemap.model import Meaning, Model, all_layers, reading
 from systemap.page_assets import CSS
 from systemap.page_icons import icon
 from systemap.page_script import JS
@@ -32,7 +33,6 @@ from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
 from systemap.schematic import interactive_script, kind_rows, panel_css
 from systemap.schematic import render as render_schematic
 
-STATE_WORD = {"built": "source recorded", "actor": "outside"}
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
 # Where the page keeps the reader's scheme, in this browser.
@@ -129,18 +129,6 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
         variables=True,
     )
     return svg
-
-
-def _index_entry(c: Component, state: str, plain: str) -> str:
-    cid = c.id
-    return (
-        f'<button type="button" class="ix" data-go="{esc(cid)}" '
-        f'data-search="{esc(" ".join((cid, plain, c.does, *c.implemented_by)).lower())}">'
-        f'<span class="ix__plain">{esc(plain or cid)}</span>'
-        f"<code>{esc(cid)}</code>"
-        f'<span class="chip chip--{esc(state)}">{esc(STATE_WORD[state])}</span>'
-        "</button>"
-    )
 
 
 def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
@@ -250,40 +238,11 @@ def _header(
         f"{esc(nesting.path or cfg.name)}</h1>{snap}{_summary(model, meaning)}</div>"
         + _views(meaning, ch)
         + '<div class="bar__space"></div>'
-        + '<div class="find" role="search"><label for="partsearch">Find</label>'
-        '<input id="partsearch" type="search" placeholder="Name or module" autocomplete="off" '
-        'aria-controls="components" aria-describedby="search-help" aria-expanded="false">'
-        '<kbd aria-hidden="true">/</kbd></div>' + _tools() + "</header>"
+        + '<button type="button" class="find" id="find-open" aria-haspopup="dialog" '
+        'aria-controls="palette" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K /" '
+        f'title="Find">{icon("search")}<span class="find__label">Find</span>'
+        '<kbd data-mod-key aria-hidden="true">Ctrl K</kbd></button>' + _tools() + "</header>"
     )
-
-
-def _index(model: Model, meaning: Meaning, states: dict[str, str], cfg: Config) -> str:
-    groups: dict[str, list[Component]] = {}
-    for c in model.components:
-        groups.setdefault(c.region or "outside", []).append(c)
-    regions = [(r.id, r.label) for r in model.regions] + [("outside", cfg.outside_label)]
-    out = [
-        '<section id="components" class="part-index find__results" hidden>'
-        '<h2 class="sr-only">Components</h2>'
-        '<p id="search-help">Find a component by name, function or module. '
-        "Press / or Ctrl/Cmd+K.</p>"
-        '<p class="search-count" id="searchcount" role="status"></p>'
-        '<details id="partlist-disclosure" open><summary class="sr-only">Component index</summary>'
-        '<div class="ixgrid" id="partlist">'
-    ]
-    for rid, label in regions:
-        if rid not in groups:
-            continue
-        out.append(f'<div class="ixgroup"><h3 class="region">{esc(label)}</h3>')
-        for c in groups[rid]:
-            out.append(_index_entry(c, states[c.id], meaning.plain.get(c.id, "")))
-        out.append("</div>")
-    out.append(
-        '</div></details><p id="searchempty" hidden>No component has this text. '
-        "Find by function or module.</p>"
-    )
-    out.append("</section>")
-    return "\n".join(out)
 
 
 def _rules(model: Model) -> str:
@@ -506,8 +465,6 @@ def build(
         opens=nesting.opens,
         variables=True,
     )
-    data = json.loads(detail)
-    states = {cid: rec["state"] for cid, rec in data.items() if cid != "_meta"}
     payload: dict[str, Any] = {
         "sources": page_data.sources(model, facts),
         "comparison": page_data.comparison(ch),
@@ -516,6 +473,8 @@ def build(
             {"label": r.label, "ids": [c.id for c in model.components if c.region == r.id]}
             for r in model.regions
         ],
+        # The Find palette names the region of each component, or this label.
+        "outside": cfg.outside_label,
         "tabs": [layer.id for layer in tab_layers(model, meaning)],
         "guide": page_guide.steps(model, meaning),
         "sequences": page_sequences.data(model, meaning, facts),
@@ -532,6 +491,7 @@ def build(
         + page_phone.CSS
         + page_motion.CSS
         + page_motion.SURFACE_CSS
+        + page_palette.CSS
     )
     o = [
         _head(cfg, t, nesting, extra_css),
@@ -545,7 +505,6 @@ def build(
             ch,
             _unknown_provenance(payload["provenance"]) + _source_files(cfg, facts, nesting),
         ),
-        _index(model, meaning, states, cfg),
         '<main class="main">',
         _map_section(model, meaning, system_svg, ch),
         page_changes.stage(ch, change_svg),
@@ -568,6 +527,7 @@ def build(
         page_present.html(),
         page_phone.html(model, meaning),
         page_motion.keys_sheet(),
+        page_palette.html(),
         "<script>window.systemapWorkspace="
         + json.dumps(payload, ensure_ascii=False, sort_keys=True).replace("<", "\\u003c")
         + ";</script>",
@@ -590,6 +550,7 @@ def build(
         page_phone.SCRIPT,
         page_present.SCRIPT,
         page_motion.SCRIPT,
+        page_palette.SCRIPT,
     )
     o += [f"<script>{_compact(js)}</script>" for js in scripts]
     o.append("</body></html>")

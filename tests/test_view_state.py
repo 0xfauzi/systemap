@@ -3,7 +3,8 @@
 Acceptance: zero lost journey steps or exact flow identifiers across part
 inspection, Fit, return and End. Restored viewport coordinates must equal the
 saved coordinates. Nested maps restore the actual opener and every prior inert
-attribute. Finder matches all three supported fields and ignores typing targets.
+attribute. The Find palette matches the name, the function and the module, and
+ignores typing targets.
 The recorded sample and generated JavaScript run locally without services.
 """
 
@@ -48,17 +49,22 @@ function viewstate(page) {
   key('Escape'); runFrames(win);
   report.ended = snapshot(); report.before = before;
 
-  const search = doc.getElementById('partsearch');
+  // The / key opens the Find palette. In the field, / is text.
+  report.shortcut = key('/');
+  const search = doc.getElementById('pal-input');
+  report.searchFocused = doc.activeElement===search && !doc.getElementById('palette').hidden;
+  report.typing = key('/',search);
   report.matches = {};
   ['Reader','reads', 'pkg.reader'].forEach(q => {
     search.value=q; search.dispatchEvent(new EventImpl('input',{bubbles:true}));
-    report.matches[q] = doc.querySelectorAll('.ix').filter(b=>!b.hidden).map(b=>({
-      id:b.dataset.go, reason:(b.querySelector('.ix__match')||{}).textContent}));
+    report.matches[q] = doc.getElementById('pal-list').querySelectorAll('[data-k]')
+      .filter(o=>o.parentNode.querySelector('.pal__g').textContent==='Components')
+      .map(o=>({id:o.querySelector('.pal__t').textContent,
+        reason:o.querySelector('.pal__s').textContent}));
   });
   search.value='nothing-matches'; search.dispatchEvent(new EventImpl('input',{bubbles:true}));
-  report.empty = !doc.getElementById('searchempty').hidden;
-  report.shortcut = key('/'); report.searchFocused = doc.activeElement===search;
-  report.typing = key('/',search);
+  report.empty = !!doc.querySelector('#pal-list .pal__none');
+  key('Escape',search);
   const motion = doc.getElementById('reduce-motion');
   report.pressedBefore = motion.getAttribute('aria-pressed');
   motion.click();
@@ -142,6 +148,8 @@ def test_finder_explains_matches_and_respects_typing(navigation_report: dict[str
         matches = report["matches"][query]
         assert [m["id"] for m in matches] == ["Reader"]
         assert all(m["reason"] for m in matches)
+    # A match in a module gives the module as the reason.
+    assert report["matches"]["pkg.reader"][0]["reason"] == "Module: pkg.reader"
     assert report["shortcut"] and report["searchFocused"] and not report["typing"]
     assert report["empty"]
 

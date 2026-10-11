@@ -25,8 +25,8 @@ CSS = r"""
 .project-name{overflow:hidden;text-overflow:ellipsis}
 .snap-at{margin-left:auto;position:static}
 .snap__pop{position:fixed;left:16px;right:16px;top:56px;width:auto}
-.bar__space,.bar .find,#panel-toggle,#keys-open,.bar__div{display:none}
-.bar .tool{width:40px;height:40px;min-height:40px}
+.bar__space,#panel-toggle,#keys-open,.bar__div{display:none}
+.bar .tool,.bar .find{width:40px;height:40px;min-height:40px;border:0;background:none}
 .bar .views{order:9;flex:0 0 100%;margin:11px 0 0;display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--line-2);
   border-radius:8px;overflow:hidden}
@@ -35,7 +35,6 @@ CSS = r"""
 .bar .views button+button{border-left:1px solid var(--line-2)}
 .bar .views button[aria-pressed="true"]{background:var(--card);color:var(--ink);font-weight:500;
   border-color:var(--line-2)}
-.find__results{left:8px;right:8px;top:60px;width:auto}
 
 /* ---- the map frame and the panel in phone states --------------------------- */
 body[data-phone] .main{display:block;height:auto;min-height:0;padding:0 16px 16px}
