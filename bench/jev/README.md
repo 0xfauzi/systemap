@@ -1234,3 +1234,24 @@ The 16 correct picks of 17 thus measure the suggestions, not a change to the dec
 The `possible mis-fold` word rule has two recorded values on 195 development cases.
 `results/report.txt` gives 32%. The table in "Why was package ownership evidence rejected?" gives 61/195 (31%).
 The two values come from different recorded runs.
+
+## TypeScript extraction time with a large node_modules directory (2026-10-11)
+
+Acceptance: with 100,000 files in `node_modules`, `extract.build` takes at most 0.5 s more
+than without `node_modules`. The fixture is the correctness shop project with 100,000 files
+in 400 packages in `node_modules`. Half of the files are `.ts` files and none are empty.
+Each line is three runs of `extract.build` in one Python process. Other processes can run on
+the same computer, so the times are approximate. The profile is one more run under `cProfile`.
+
+| Code | node_modules files | `extract.build` (s) | `collect_tests` (s) | `input_files` (s) |
+|---|---|---|---|---|
+| Before the change (017c6fa) | 100,000 | 3.100, 2.974, 2.992 | 3.866 | 2.281 |
+| After the change | 100,000 | 0.053, 0.041, 0.052 | 0.007 | 0.011 (2 calls) |
+| Before the change (017c6fa) | 0 | 0.080, 0.044, 0.052 | | |
+| After the change | 0 | 0.056, 0.044, 0.046 | | |
+
+`systemap extract --check` took 4.25 s before the change and 0.35 s after it (one run each,
+`time`, with the 100,000 files). The change passed the acceptance value. The walks no longer
+enter `node_modules`, and the tsconfig input walk starts at the fixed directory of each
+`include` pattern. The fixture has 11 modules before the change and 10 after it, because a
+file in `__tests__` is now a test file.
