@@ -53,7 +53,7 @@ body[data-phone="change"][data-panel="open"] .map{height:46svh;min-height:260px}
 body[data-phone="step"]{display:flex;flex-direction:column}
 body[data-phone="step"] .main{flex:1;display:flex;flex-direction:column;padding-bottom:0}
 body[data-phone="step"] .map,body[data-phone="step"][data-panel] .map{flex:1;height:auto;
-  min-height:180px}
+  min-height:160px}
 body[data-phone="index"] .map,body[data-phone="panel"] .map{display:none}
 body[data-phone="text"] .map{height:auto;min-height:0;overflow:visible;border:0;
   border-radius:0;background:none}
