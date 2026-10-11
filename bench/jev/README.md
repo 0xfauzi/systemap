@@ -1323,11 +1323,11 @@ The comparison used Ink and Paper at 1440 pixels, and Ink at 800 and 390 pixels.
 |---|---|
 | Sample page, base (6e4c6b1) | 306,943 |
 | Sample page, with compact styles (327dba0) | 302,873 |
-| Sample page, with the new Map view | 305,815 |
+| Sample page, with the new Map view | 306,145 |
 | Self-map page, no comparison, base | 645,992 |
-| Self-map page, no comparison, with the new Map view | 643,276 |
+| Self-map page, no comparison, with the new Map view | 643,606 |
 
-The sample page passes with 1,385 bytes of space. A small addition to the page can exceed the limit again.
+The sample page passes with 1,055 bytes of space. A small addition to the page can exceed the limit again.
 
 ## Map view pointer highlight and pan speed (2026-10-11)
 
