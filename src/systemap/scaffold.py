@@ -39,6 +39,12 @@ out_dir = "docs/map"
 # [judgement]
 # answered = [{{ item = "single module: Reader contains only {package}.reader", reason = "The reader is a separate component.", evidence = "<digest from the pending answer line>" }}]
 
+# The URL of the map page that CI publishes for each pull request.
+# The pull request number replaces {{number}}.
+# With this value, CI posts one comment with a link to the Changes view of that page.
+# [delta]
+# page_url = "https://example.org/pr-{{number}}/"
+
 # The refresh command renders these figures beside the page.
 # mode is "system" for all components or "reach" for a plan selection.
 # layer selects the flow view. A .svg path gives an SVG figure.

@@ -157,6 +157,7 @@ COMPONENTS = (
             "systemap.delta",
             "systemap.delta_diagram",
             "systemap.delta_git",
+            "systemap.delta_link",
             "systemap.delta_model",
             "systemap.delta_report",
             "systemap.moves",
