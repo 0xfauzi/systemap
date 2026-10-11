@@ -3,7 +3,8 @@
 Acceptance: the Map view has the layer row with the segmented control, the
 title block with a label and the question, and the zoom controls with icons.
 On a wide window the panel opens with the page. It shows the layer in the card
-style of the sequence steps, and the guide steps after it.
+style of the sequence steps, and the guide steps after it. The pointer on a
+card keeps its lines and the cards at their other ends at full contrast.
 The DOM harness examines data and controls. It does not measure browser geometry.
 """
 
@@ -221,3 +222,50 @@ def test_panel_stays_closed_on_a_narrow_window(sample: Sample, tmp_path: Path) -
     report = run_scenario(sample, tmp_path, "mappanel", PANEL, viewport="700x900")
     initial = report["initial"]
     assert isinstance(initial, dict) and initial["panel"] == "closed"
+
+
+HOVER = r"""
+function maphover(page){
+  const {doc,win,svg,A}=page;
+  doc.querySelector('[data-layer-btn="all"]').click();runFrames(win);
+  const node=id=>svg.querySelectorAll('.node').find(n=>n.dataset.id===id);
+  const lit=()=>({peek:svg.classList.contains('card-peek'),
+    cards:svg.querySelectorAll('.node.card-lit').map(n=>n.dataset.id).sort(),
+    flows:svg.querySelectorAll('.flow.card-lit').map(p=>+p.dataset.edge).sort()});
+  const over=id=>node(id).querySelector('.node__box').dispatchEvent(
+    new EventImpl('pointerover',{bubbles:true}));
+  const report={};
+  over('Parser');report.hover=lit();
+  svg.dispatchEvent(new EventImpl('pointerdown',{bubbles:true}));report.down=lit();
+  svg.classList.add('panning');over('Parser');report.panning=lit();
+  svg.classList.remove('panning');
+  report.edges=A.edges.map((e,i)=>[e.from,e.to,i]);
+  return report;
+}
+"""
+
+
+def test_hover_keeps_the_lines_and_the_cards_at_their_ends(sample: Sample, tmp_path: Path) -> None:
+    report = run_scenario(sample, tmp_path, "maphover", HOVER)
+    edges = report["edges"]
+    assert isinstance(edges, list)
+    touching = sorted(i for a, b, i in edges if "Parser" in (a, b))
+    ends = sorted({c for a, b, _i in edges if "Parser" in (a, b) for c in (a, b)})
+    assert report["hover"] == {"peek": True, "cards": ends, "flows": touching}
+    # A press on the map ends it, and a drag of the map does not start it.
+    empty = {"peek": False, "cards": [], "flows": []}
+    assert report["down"] == empty
+    assert report["panning"] == empty
+
+
+def test_card_and_label_states_for_pointer_and_focus(sample: Sample) -> None:
+    html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
+    # A card under the pointer gets a stronger border, but not a selected or end card.
+    assert (
+        "#schematic[data-live] .node:not(.sel):not(.acts):not(.endpoint):not(.subject):hover "
+        ".node__box{stroke:var(--ink-3" in html
+    )
+    # The label of a preview line gets an outline.
+    assert "#schematic .flowlbl.peek .flowlbl__chip{stroke:var(--line-2" in html
+    # The other cards go a little dim while the pointer is on a card.
+    assert "#schematic.card-peek .node:not(.card-lit):not(.quiet):not(.dim){opacity:.6}" in html
