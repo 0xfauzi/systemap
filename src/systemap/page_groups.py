@@ -6,7 +6,7 @@ gives the quantity of flows, and an arrowhead shows each direction. A
 container that holds cards directly, such as the outside container, is one
 region here. Flows inside one region stay as routes. When the reader selects
 a group, the map shows the routes of the group in the colour of their kind,
-and the other cards fade. The Read panel lists the groups. A control in the
+and the other cards fade. The Details panel lists the groups. A control in the
 panel shows all routes again.
 """
 
@@ -41,7 +41,7 @@ transition:none}
 .lg__line.fg-lg__group{border-top:4px solid var(--ink-3);opacity:.7}
 .lg__card.fg-lg__out{opacity:.6;background:var(--card)}
 
-/* ---- the Read panel: the groups of the layer, in the style of the steps ------ */
+/* ---- the Details panel: the groups of the layer, in the style of the steps --- */
 .readpanel .fg-open{border:1px solid var(--accent);border-radius:8px;background:var(--hl-soft);
 padding:12px;display:flex;flex-direction:column;gap:10px}
 .readpanel :is(.fg-open__head,.fg-flow,.fg-row){width:100%;min-height:0;height:auto;padding:0;
@@ -600,10 +600,9 @@ SCRIPT = r"""
     close();
   });
   function busy(t){
-    // Typing in a field, an open menu, or an open sheet keeps its own Escape.
-    var more = document.getElementById('theme-menu');
+    // Typing in a field or an open sheet keeps its own Escape.
     return /^(INPUT|SELECT|TEXTAREA)$/.test((t && t.tagName) || '') || !!(t && t.isContentEditable)
-      || !!(more && more.open) || ['keys', 'present', 'submap'].some(function(id){
+      || ['keys', 'present', 'submap', 'palette'].some(function(id){
         var n = document.getElementById(id); return n && !n.hidden; });
   }
   // Escape closes the open group before it closes the panel.
@@ -617,7 +616,7 @@ SCRIPT = r"""
     'systemap:workspace'].forEach(function(name){ svg.addEventListener(name, apply); });
   svg.addEventListener('systemap:layer', function(){ apply(); revealLines(); });
 
-  // ---- the Read panel ---------------------------------------------------------------
+  // ---- the Details panel ------------------------------------------------------------
   function evidenceText(list){
     var words = {observed:'with a recorded source review'};
     var b = bucket(list, function(i){ return A.edges[i].evidence; });

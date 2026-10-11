@@ -60,7 +60,9 @@ function viewstate(page) {
   report.shortcut = key('/'); report.searchFocused = doc.activeElement===search;
   report.typing = key('/',search);
   const motion = doc.getElementById('reduce-motion');
-  motion.checked=true; motion.dispatchEvent(new EventImpl('change',{bubbles:true}));
+  report.pressedBefore = motion.getAttribute('aria-pressed');
+  motion.click();
+  report.pressedAfter = motion.getAttribute('aria-pressed');
   report.reduced = doc.documentElement.dataset.reduceMotion;
   report.motion = A.state.motion;
 
@@ -150,3 +152,4 @@ def test_nested_focus_inert_state_and_motion_control(navigation_report: dict[str
     assert report["inertRestored"] and report["openerRestored"]
     assert report["nestedAfter"] == report["nestedBefore"]
     assert report["reduced"] == "true" and report["motion"] is False
+    assert (report["pressedBefore"], report["pressedAfter"]) == ("false", "true")

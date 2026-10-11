@@ -220,8 +220,6 @@ SCRIPT = r"""
   function open(from){
     if(!sheet.hidden){ return; }
     opener = from || document.activeElement;
-    var menu = opener && opener.closest ? opener.closest('details') : null;
-    if(menu){ menu.open = false; opener = menu.querySelector('summary') || opener; }
     sheet.hidden = false;
     if(closer){ closer.focus(); }
   }
@@ -264,7 +262,8 @@ _KEYS: tuple[tuple[str, str], ...] = (
     ("W", "Whole route"),
     ("F", "Full screen"),
     ("B", "Hold to show the base"),
-    ("R", "Read: open the panel"),
+    ("D", "Open or close the Details panel"),
+    ("?", "Keyboard keys"),
     ("Esc", "Previous view"),
 )
 
@@ -283,8 +282,8 @@ def _key(key: str) -> str:
 def keys_sheet() -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
-    The sheet is a modal dialog. The ? key and the Keyboard keys menu item
-    open it. Escape and its Close button close it and return the focus."""
+    The sheet is a modal dialog. The ? key and the Keyboard keys button in the
+    header open it. Escape and its Close button close it and return the focus."""
     rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
     return (
         '<div class="keys" id="keys" hidden>'

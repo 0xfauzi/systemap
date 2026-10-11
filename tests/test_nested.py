@@ -721,7 +721,10 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
         html = (nested / "docs/map" / rel).read_text(encoding="utf-8")
         # The commit in the header opens the source records of the page.
         header = html.split("</header>")[0]
-        assert f'title="Source of this map">at <code>{sha[:7]}</code></button>' in header, rel
+        assert (
+            f'title="Source of this map"><span class="snap__at">at </span><code>{sha[:7]}</code>'
+            in header
+        ), rel
         assert f"HEAD at extraction was <code>{sha}</code>." in header, rel
         assert "This page cannot find subsequent changes." in html
         assert "Extraction reads the working tree, which can contain uncommitted changes." in html

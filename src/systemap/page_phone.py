@@ -16,7 +16,7 @@ from systemap.model import Meaning, Model
 CSS = r"""
 .phone-head,.phone-body,.phone-full{display:none}
 @media (max-width:640px){
-/* ---- header: mark, name, revision, More; the views below it ------------- */
+/* ---- header: mark, name, revision, settings; the views below it --------- */
 .bar{height:auto;min-height:53px;flex-wrap:wrap;column-gap:10px;row-gap:0;padding:0 16px;
   border-bottom:0;background:linear-gradient(var(--surface) 0 52px,var(--line) 52px 53px,
   var(--bg) 53px)}
@@ -24,14 +24,9 @@ CSS = r"""
 .project{flex:1 1 auto;min-width:0;height:52px;align-items:center;gap:10px}
 .project-name{overflow:hidden;text-overflow:ellipsis}
 .snap-at{margin-left:auto;position:static}
-.snap{font-size:0}
-.snap code{font:12px/1 var(--fm);color:var(--ink-3)}
 .snap__pop{position:fixed;left:16px;right:16px;top:56px;width:auto}
-.bar__space,.bar .find,#read-toggle{display:none}
-.more>summary{width:44px;height:44px;min-height:44px;border:0;border-radius:8px;
-  background:transparent;color:var(--ink-2);font-size:20px}
-.more__menu{top:calc(100% + 4px);width:232px}
-.more__menu>button,.more__menu [data-scheme],.motion-control{min-height:44px}
+.bar__space,.bar .find,#panel-toggle,#keys-open,.bar__div{display:none}
+.bar .tool{width:40px;height:40px;min-height:40px}
 .bar .views{order:9;flex:0 0 100%;margin:11px 0 0;display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--line-2);
   border-radius:8px;overflow:hidden}

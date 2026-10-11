@@ -26,6 +26,7 @@ from systemap import theme as theme_mod
 from systemap.config import Config
 from systemap.model import Component, Meaning, Model, all_layers, reading
 from systemap.page_assets import CSS
+from systemap.page_icons import icon
 from systemap.page_script import JS
 from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
 from systemap.schematic import interactive_script, kind_rows, panel_css
@@ -158,23 +159,43 @@ def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
     )
 
 
-def _more_menu() -> str:
-    LABELS: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
+SCHEME_ICONS = {"dark": "moon", "light": "sun"}
+
+
+def _tool(id_: str, name: str, glyph: str, extra: str = "") -> str:
+    """Give one icon button of the header, with its name and its tooltip."""
+    return (
+        f'<button type="button" class="tool" id="{id_}" aria-label="{esc(name)}" '
+        f'title="{esc(name)}"{extra}>{icon(glyph)}</button>'
+    )
+
+
+def _tools() -> str:
+    """Give the header settings: the theme, Reduce motion and the keyboard keys.
+
+    The theme group has one button for each scheme. The page shows only the
+    button of the scheme that is not in use, so the group is one toggle."""
+    labels: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
     schemes = "".join(
-        f'<button type="button" data-scheme="{esc(name)}" '
-        f'aria-label="{esc(LABELS.get(name, name.title()))} theme" '
-        f'aria-pressed="false"><i></i>{esc(LABELS.get(name, name.title()))}'
-        "</button>"
+        _tool(
+            f"scheme-{name}",
+            f"{labels.get(name, name.title())} theme",
+            SCHEME_ICONS.get(name, "sun"),
+            f' data-scheme="{esc(name)}" aria-pressed="false"',
+        )
         for name in theme_mod.SCHEMES
     )
     return (
-        '<details class="more" id="theme-menu"><summary aria-label="More: theme and motion"><span aria-hidden="true">⋯</span></summary><div class="more__menu">'
-        '<p class="more__label" id="scheme-label">Theme</p>'
-        f'<div id="scheme" role="group" aria-labelledby="scheme-label">{schemes}</div>'
-        '<label class="motion-control"><input type="checkbox" id="reduce-motion">'
-        "Reduce motion</label>"
-        '<button type="button" id="keys-open">Keyboard keys</button>'
-        "</div></details>"
+        f'<div class="bar__tools"><div id="scheme" role="group" aria-label="Theme">{schemes}</div>'
+        + _tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
+        + _tool("keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"')
+        + '</div><span class="bar__div" aria-hidden="true"></span>'
+        + _tool(
+            "panel-toggle",
+            "Details",
+            "panel",
+            ' aria-pressed="false" aria-controls="readpanel" aria-keyshortcuts="D"',
+        )
     )
 
 
@@ -190,7 +211,11 @@ def _summary(model: Model, meaning: Meaning) -> str:
 
 def _snap(commit: str, records: str) -> str:
     """Give the stored commit in the header. It opens the source records of the page."""
-    text = f"at <code>{esc(commit)}</code>" if commit else "commit not recorded"
+    text = (
+        f'<span class="snap__at">at </span><code>{esc(commit)}</code>'
+        if commit
+        else "commit not recorded"
+    )
     return (
         '<div class="snap-at"><button type="button" class="snap" id="snap" '
         'aria-expanded="false" aria-controls="snap-pop" title="Source of this map">'
@@ -227,8 +252,8 @@ def _header(
         '<input id="partsearch" type="search" placeholder="Name or module" autocomplete="off" '
         'aria-controls="components" aria-describedby="search-help" aria-expanded="false">'
         '<kbd aria-hidden="true">/</kbd></div>'
-        '<button type="button" id="read-toggle" aria-pressed="false" aria-controls="readpanel">'
-        "Read</button>" + _more_menu() + "</header>"
+        + _tools()
+        + "</header>"
     )
 
 

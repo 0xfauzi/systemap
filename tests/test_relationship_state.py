@@ -51,10 +51,14 @@ function relationships(page) {
     });
     report.flows.push({expected:e,index:i,activated:activated,states:states});
   });
+  // Reduce motion is a toggle button in the header.
   const motion=doc.getElementById('reduce-motion');
-  motion.checked=true;motion.dispatchEvent(new EventImpl('change',{bubbles:true}));
+  const pressed=()=>motion.getAttribute('aria-pressed')==='true';
+  const set=(on)=>{if(pressed()!==on){motion.click();}};
+  const initial=pressed();
+  set(true);
   report.userReduced=moving();
-  motion.checked=false;motion.dispatchEvent(new EventImpl('change',{bubbles:true}));
+  set(initial);
   report.preferenceRestored=moving();
   report.reduced=page.reduced;
 

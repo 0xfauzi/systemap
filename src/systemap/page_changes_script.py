@@ -421,7 +421,7 @@ SCRIPT = r"""
   window.addEventListener('keydown', function(e){
     if(e.key !== 'Escape' || body.dataset.mode !== 'change' || !M.state.focus){ return; }
     var t = e.target;
-    if(typing(t) || (t && t.closest && t.closest('.more, #submap, #keys, #present'))){ return; }
+    if(typing(t) || (t && t.closest && t.closest('#palette, #submap, #keys, #present'))){ return; }
     M.clear(); M.view.back(); e.preventDefault(); e.stopPropagation();
   }, true);
 

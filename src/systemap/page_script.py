@@ -23,7 +23,7 @@ JS = r"""
   function show(node, on){ if(node){ node.hidden = !on; } }
 
   // The page API. The sequence script replaces `journey`; other scripts add
-  // readers (the Read panel section for a layer), legends and readouts.
+  // readers (the Details panel section for a layer), legends and readouts.
   var P = svg.page = {readers:[], legendFor:[], readoutFor:[], journey:{
     active:function(){ return false; }, state:function(){ return {j:-1, s:0}; },
     start:function(){}, step:function(){}, stepBy:function(){ return false; },
@@ -32,10 +32,10 @@ JS = r"""
 
   // ---- the panel ----------------------------------------------------------
   // The Map view keeps the panel closed until the reader selects something
-  // or presses Read. The other views show their own panel.
+  // or presses Details. The other views show their own panel.
   var mode = 'understand', readOpen = false, collapsed = false;
   var restoringView = false, frameVersion = 0, opened = '';
-  var readBtn = byId('read-toggle');
+  var readBtn = byId('panel-toggle');
   var hasChange = !!byId('changemap');
   function panelOpen(){
     if(mode === 'change'){ return hasChange && !collapsed; }
@@ -142,7 +142,6 @@ JS = r"""
   // ---- views ---------------------------------------------------------------
   var TITLES = {trace:['SEQUENCES', 'Which steps make one operation?'],
     change:['CHANGES', 'What did this change touch?']};
-  var more = byId('theme-menu');
   function setMode(name){
     if(name !== 'trace' && P.journey.active()){ P.journey.end(false); }
     mode = name;
@@ -158,7 +157,6 @@ JS = r"""
     show(change, name === 'change');
     show(byId('spatialmap'), name !== 'change');
     if(name === 'change' && A.state.focus){ A.clear(); }
-    if(more){ more.open = false; }
     var label = byId('activity-label');
     if(label){ label.textContent = {understand:'System components', trace:'Operation sequence',
       change:'Revision comparison'}[name]; }
@@ -237,7 +235,6 @@ JS = r"""
   document.addEventListener('pointerdown', function(e){
     if(results && !results.hidden && !results.contains(e.target) && e.target !== find){
       closeFind(); }
-    if(more && more.open && !more.contains(e.target)){ more.open = false; }
     if(snap && !snap.parentNode.contains(e.target)){ showSnap(false); }
   });
   all('.ix[data-go], .gv[data-go]').forEach(function(b){
@@ -388,8 +385,15 @@ JS = r"""
     showScheme(); stampFrame();
     emit('systemap:scheme', {scheme:name});
   }
+  // The header shows the button of the other scheme only. After a click, the
+  // focus goes to the button that the header now shows.
   all('[data-scheme]').forEach(function(b){
-    b.addEventListener('click', function(){ setScheme(b.dataset.scheme); });
+    b.addEventListener('click', function(){
+      var had = document.activeElement === b;
+      setScheme(b.dataset.scheme);
+      var other = all('[data-scheme]').filter(function(x){ return x !== b; })[0];
+      if(had && other){ other.focus(); }
+    });
   });
   showScheme();
   if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
@@ -400,20 +404,21 @@ JS = r"""
   var motionPick = byId('reduce-motion');
   function setMotion(off){
     document.documentElement.dataset.reduceMotion = String(off);
-    if(motionPick){ motionPick.checked = off; }
+    if(motionPick){ motionPick.setAttribute('aria-pressed', String(off)); }
     A.setMotion(!off); stampFrame();
   }
-  if(motionPick){ motionPick.addEventListener('change', function(){
-    try { localStorage.setItem('systemap-reduce-motion', String(motionPick.checked)); } catch(e){}
-    setMotion(motionPick.checked);
+  if(motionPick){ motionPick.addEventListener('click', function(){
+    var off = !reduced();
+    try { localStorage.setItem('systemap-reduce-motion', String(off)); } catch(e){}
+    setMotion(off);
   }); }
   setMotion(reduced());
 
   // ---- keyboard ---------------------------------------------------------
   // Tab moves across the cards in reading order, Enter on a card opens its
   // panel, Escape closes the newest thing, the left and right arrows switch
-  // layers or step the sequence, 1 to 9 select a layer tab, R opens Read,
-  // / finds a component.
+  // layers or step the sequence, 1 to 9 select a layer tab, D opens and
+  // closes the Details panel.
   function stepLayer(d){
     var ids = tabs.map(function(b){ return b.dataset.layerBtn; });
     if(!ids.length){ return; }
@@ -429,7 +434,6 @@ JS = r"""
       (t && t.isContentEditable) || !!(t && t.closest && t.closest('[role="textbox"]'));
   }
   function escape(e){
-    if(more && more.open){ more.open = false; e.preventDefault(); return; }
     if(showSnap(false)){ snap.focus(); e.preventDefault(); return; }
     if(P.journey.active()){ P.journey.end(); e.preventDefault(); return; }
     if(A.state.focus){ A.clear(); A.view.back(); e.preventDefault(); return; }
@@ -439,7 +443,7 @@ JS = r"""
   }
   function letter(e){
     var k = e.key.toLowerCase();
-    if(k === 'r' && readBtn){ readBtn.click(); return true; }
+    if(k === 'd' && readBtn){ readBtn.click(); return true; }
     if(/^[1-9]$/.test(e.key) && mode !== 'trace'){
       var b = tabs[+e.key - 1];
       if(b){ b.click(); }
