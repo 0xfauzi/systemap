@@ -133,13 +133,21 @@ DARK: dict[str, Any] = {
 }
 
 # ---- Paper (scheme `light`) ------------------------------------------------------
+# The neutrals are warm grays with an OKLCH chroma of 0.007 or less, as on a
+# printed sheet. They are not beige. The map is the toned sheet. The header
+# and the panel are lighter, and a card is the lightest surface.
 # Selection is the ink color with the yellow highlighter `hl` under the
 # selected line, and the pale highlighter `hl_soft` as the selected card fill.
-# `hl_line` is the underlay under the selected or current line.
+# `hl_line` is the underlay under the selected or current line. Each kind
+# color has 3:1 or more on it. The highlighter hue is not the hue of the paper.
 # Ink has no highlighter: its `hl_soft` is the card color and its `hl_line` is clear.
 
-INK_2_LIGHT = "#4B4740"
-CARD_LINE_LIGHT = "#8C877D"
+INK_LIGHT = "#1D1B17"
+INK_2_LIGHT = "#524F4A"
+INK_3_LIGHT = "#6D6963"
+CARD_LIGHT = "#FFFEFC"
+CARD_LINE_LIGHT = "#8F8B85"
+LINE_2_LIGHT = "#D4D1CD"
 
 STANDARD_LAYERS_LIGHT: dict[str, str] = {
     "structure": CARD_LINE_LIGHT,
@@ -160,51 +168,51 @@ LIGHT: dict[str, Any] = {
     "name": "systemap",
     "scheme": "light",
     "color_scheme": "light",
-    "bg": "#ECE8DE",
-    "surface": "#F1EEE6",
-    "raised": "#E6E1D5",
-    "map": "#F6F3EC",
-    "grid": "#E6E1D6",
-    "card": "#FFFEFB",
+    "bg": "#F1EFEC",
+    "surface": "#FCFAF7",
+    "raised": "#EDEAE6",
+    "map": "#F4F2EF",
+    "grid": "#E6E3DF",
+    "card": CARD_LIGHT,
     "card_line": CARD_LINE_LIGHT,
-    "line": "#E0DBD0",
-    "line_2": "#D3CDC0",
-    "ink": "#1D1B17",
+    "line": "#E4E2DF",
+    "line_2": LINE_2_LIGHT,
+    "ink": INK_LIGHT,
     "ink_2": INK_2_LIGHT,
-    "ink_3": "#686359",
-    "accent": "#1D1B17",
+    "ink_3": INK_3_LIGHT,
+    "accent": INK_LIGHT,
     "accent_soft": "#FFF1BF",
-    "on_accent": "#F6F3EC",
-    "hl": "#FFD33D",
+    "on_accent": "#FCFAF7",
+    "hl": "#FFE380",
     "hl_soft": "#FFF1BF",
-    "hl_line": "#FFD33D",
+    "hl_line": "#FFE380",
     "brand": "#F2B33D",
     "steel": INK_2_LIGHT,
     "good": INK_2_LIGHT,
-    "warn": "#1D1B17",
-    "bad": "#1D1B17",
-    "violet": "#1D1B17",
-    "state": {"built": ["#FFFEFB", CARD_LINE_LIGHT, "source recorded"]},
-    "ghost": ["#FFFEFB", "#D3CDC0"],
+    "warn": INK_LIGHT,
+    "bad": INK_LIGHT,
+    "violet": INK_LIGHT,
+    "state": {"built": [CARD_LIGHT, CARD_LINE_LIGHT, "source recorded"]},
+    "ghost": [CARD_LIGHT, LINE_2_LIGHT],
     "container": {
-        "host": ["#D3CDC0", "none"],
-        "client": ["#D3CDC0", "none"],
-        "server": ["#D3CDC0", "none"],
+        "host": [LINE_2_LIGHT, "none"],
+        "client": [LINE_2_LIGHT, "none"],
+        "server": [LINE_2_LIGHT, "none"],
         "isolated": [CARD_LINE_LIGHT, "none"],
     },
-    "region": "#8F8A80",
+    "region": CARD_LINE_LIGHT,
     "change": "#AC312A",
     "on_change": "#FFFFFF",
     "reach": "#AC312A",
-    "flow": "#8F8C84",
+    "flow": "#8E8C85",
     "layer_palette": LAYER_PALETTE_LIGHT,
     "layers": dict(STANDARD_LAYERS_LIGHT),
     "marks": dict(KIND_MARKS),
     "delta": {
         "operations": "#AC312A",
-        "types": "#1D1B17",
+        "types": INK_LIGHT,
         "refusals": INK_2_LIGHT,
-        "tests": "#686359",
+        "tests": INK_3_LIGHT,
     },
     "font_ui": SANS,
     "font_mono": MONO,
