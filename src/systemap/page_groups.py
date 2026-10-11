@@ -6,7 +6,7 @@ gives the quantity of flows, and an arrowhead shows each direction. A
 container that holds cards directly, such as the outside container, is one
 region here. Flows inside one region stay as routes. When the reader selects
 a group, the map shows the routes of the group in the colour of their kind,
-and the other cards fade. The Read panel lists the groups. A control in the
+and the other cards fade. The Details panel lists the groups. A control in the
 panel shows all routes again.
 """
 
@@ -36,14 +36,12 @@ dominant-baseline:central;pointer-events:none}
 #schematic .fg-badge.hover .fg-badge__c{stroke:var(--ink)}
 #schematic .fg-badge__ring{fill:none;stroke:var(--ink);stroke-width:2;display:none}
 #schematic .fg-badge:focus-visible .fg-badge__ring{display:inline}
-@media (prefers-reduced-motion:reduce){#schematic .fg-group,#schematic .fg-line,
-#schematic .fg-arrow,#schematic .fg-badge__c{transition:none}}
 html[data-reduce-motion="true"] #schematic :is(.fg-group,.fg-line,.fg-arrow,.fg-badge__c){
 transition:none}
 .lg__line.fg-lg__group{border-top:4px solid var(--ink-3);opacity:.7}
 .lg__card.fg-lg__out{opacity:.6;background:var(--card)}
 
-/* ---- the Read panel: the groups of the layer, in the style of the steps ------ */
+/* ---- the Details panel: the groups of the layer, in the style of the steps --- */
 .readpanel .fg-open{border:1px solid var(--accent);border-radius:8px;background:var(--hl-soft);
 padding:12px;display:flex;flex-direction:column;gap:10px}
 .readpanel :is(.fg-open__head,.fg-flow,.fg-row){width:100%;min-height:0;height:auto;padding:0;
@@ -95,8 +93,7 @@ SCRIPT = r"""
     return e;
   }
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
   function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
   function flat(lists){ return [].concat.apply([], lists); }
@@ -510,7 +507,7 @@ SCRIPT = r"""
   var S = {layer:null, open:'', routes:{}, hover:'', focus:null};
   function active(){
     var L = A.state.layer, m = P.mode ? P.mode() : 'understand';
-    return info(L).on && !S.routes[L] && (m === 'understand' || m === 'review')
+    return info(L).on && !S.routes[L] && m === 'understand'
       && !A.state.focus && !A.state.journey && A.state.edge < 0;
   }
   function groupOf(L, key){
@@ -603,10 +600,9 @@ SCRIPT = r"""
     close();
   });
   function busy(t){
-    // Typing in a field, an open menu, or an open sheet keeps its own Escape.
-    var more = document.getElementById('theme-menu');
+    // Typing in a field or an open sheet keeps its own Escape.
     return /^(INPUT|SELECT|TEXTAREA)$/.test((t && t.tagName) || '') || !!(t && t.isContentEditable)
-      || !!(more && more.open) || ['keys', 'present', 'submap'].some(function(id){
+      || ['keys', 'present', 'submap', 'palette'].some(function(id){
         var n = document.getElementById(id); return n && !n.hidden; });
   }
   // Escape closes the open group before it closes the panel.
@@ -620,7 +616,7 @@ SCRIPT = r"""
     'systemap:workspace'].forEach(function(name){ svg.addEventListener(name, apply); });
   svg.addEventListener('systemap:layer', function(){ apply(); revealLines(); });
 
-  // ---- the Read panel ---------------------------------------------------------------
+  // ---- the Details panel ------------------------------------------------------------
   function evidenceText(list){
     var words = {observed:'with a recorded source review'};
     var b = bucket(list, function(i){ return A.edges[i].evidence; });

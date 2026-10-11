@@ -224,7 +224,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="468b96abb71fd6dff2071c6975d9d63d09750a26bd79645dc0b6d275c12ff85a",
+        source_review="c4ae1a43f929c3d790734573b1bec03312df8dcd66942fe79c87af3804c3bb61",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -243,15 +243,14 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="b9dba4b31522d56a8041062756f13990cd010d310271bca6a242c6bfaa41847d",
-        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Text view shows the same components and flows. Uses no external files.",
+        source_review="38001a3438597fbb9d1d2e5fdb0d1145c92da000af95f279d50eb5e7aec62a9a",
+        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
             "systemap.page",
             "systemap.page_data",
             "systemap.page_assets",
             "systemap.page_script",
-            "systemap.page_atlas",
             "systemap.page_workspace",
             "systemap.page_guide",
             "systemap.page_sequences",
@@ -263,7 +262,8 @@ COMPONENTS = (
             "systemap.page_phone",
             "systemap.page_motion",
             "systemap.page_mapview",
-            "systemap.page_map_icons",
+            "systemap.page_icons",
+            "systemap.page_palette",
         ),
         entry="build",
         region="draw",
@@ -442,7 +442,6 @@ _FLOW_REVIEWS = {
     'Model -> SecondOpinion': ('systemap.model systemap.audit', 'a584bbc52c30cea9087b67eea05a1578718206f9db6502b14dbe483a6f01ff89'),
     'Judgement -> ChangeDetector': ('systemap.judgement systemap.explain systemap.delta systemap.delta_report', '635dc1267e2c7f60a011c8f74bb9d0d57fc4f0b3699870c0a99973e2a4aed8ae'),
     'FactsExtractor -> Page': ('systemap.extract systemap.page_data', '7457dc4b890eeffa8a45025e43d28cbab8c40190270b48500cc54d650334b54d'),
-    'Judgement -> Page': ('systemap.judgement systemap.page_data', '2aa45cca1e666e51ced40a26ec1909c4d36aad1cec06c796b942b261635e45ce'),
 }
 # fmt: on
 
@@ -533,7 +532,6 @@ FLOWS = tuple(
         Flow("Maintainer", "Model", "corrections", "judge"),
         Flow("Model", "Judgement", "model", "judge"),
         Flow("Judgement", "Check", "finding explanations", "judge"),
-        Flow("Judgement", "Page", "findings and reasons", "judge"),
         Flow("Judgement", "Agent", "second-pass list", "judge"),
         Flow("Judgement", "Maintainer", "judgement answers", "judge"),
         Flow("Model", "SecondOpinion", "cards, sentences", "judge"),
@@ -721,7 +719,6 @@ _RELATIONS = {
     "Router -> Describe": "Describe shows spaces between cards and the number of label positions in each space.",
     "Schematic -> Page": "The page contains the SVG and JSON data for the interaction script.",
     "FactsExtractor -> Page": "The page shows stored source records for a selected component. Imports show connections, not evidence for the flow explanation.",
-    "Judgement -> Page": "The page keeps exact finding identifiers and accepted answer explanations from judgement.",
     "Schematic -> Figures": "A figure contains the same SVG in an HTML figure element or as an SVG image.",
     "Schematic -> Check": "The check makes the diagram and reads its geometry: paths, labels and text sizes.",
     "Schematic -> Describe": "describe makes the diagram and reads geometry for regions, flows, spaces and layers.",

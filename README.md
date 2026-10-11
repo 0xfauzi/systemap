@@ -57,8 +57,8 @@ and the explanation for each connection.
 `Structure` shows no flow lines after a component selection.
 Other layers show only flow lines that connect to the selected component.
 Flow labels show on their lines. A label that does not fit on its line
-shows for a pointer, keyboard focus, or selection, and Read lists it.
-Read opens a panel that keeps all component connections, with direction and evidence.
+shows for a pointer, keyboard focus, or selection, and the Details panel lists it.
+The Details panel keeps all component connections, with direction and evidence.
 
 Flow lines also show evidence. A solid internal line shows a source review
 with references and a claim digest that match the stored source snapshot.
@@ -83,8 +83,14 @@ On a wide window, the Map view opens the panel with the page. With no
 selection, the panel shows the current layer: one card for each flow,
 actor, or region.
 
-The More menu contains Reference, Text view, and the theme. Reference contains
-rules and review records. The themes are Ink and Paper.
+The header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for
+views, layers, components, flows, sequences, rules, and actions. Icon buttons
+select the theme, set Reduce motion, show the keyboard keys, and open the
+Details panel. Motion is on until the reader sets Reduce motion on the page.
+The full-screen button and the F key show the map alone in each view.
+The Map panel gives all rules of the system and an explanation of the lines
+and cards. The commit in the header opens the source records of the page.
+The themes are Ink and Paper.
 Ink has dark surfaces and is the default. Paper has light surfaces.
 The first visit uses the device theme.
 Only the flow kinds, the selection, and the change have colors.

@@ -125,13 +125,25 @@ components:
     backgroundColor: "{colors.dark-raised}"
     textColor: "{colors.dark-ink}"
     rounded: "{rounded.control}"
-  find:
+  find-button:
     backgroundColor: "{colors.dark-map}"
-    textColor: "{colors.dark-ink}"
+    textColor: "{colors.dark-ink-3}"
     rounded: "{rounded.control}"
     width: "200px"
     height: "32px"
-  read-panel:
+  icon-button:
+    textColor: "{colors.dark-ink-2}"
+    rounded: "{rounded.control}"
+    size: "32px"
+  icon-button-pressed:
+    backgroundColor: "{colors.dark-raised}"
+    textColor: "{colors.dark-ink}"
+  find-dialog:
+    backgroundColor: "{colors.dark-surface}"
+    textColor: "{colors.dark-ink}"
+    rounded: "{rounded.menu}"
+    width: "600px"
+  details-panel:
     backgroundColor: "{colors.dark-surface}"
     textColor: "{colors.dark-ink}"
     width: "{spacing.panel}"
@@ -201,7 +213,7 @@ Color shows only the flow kind, the selection, and the change.
 The page has two themes: Ink and Paper. Ink has dark surfaces and is the default.
 Paper has light surfaces. The configuration keys are `dark` for Ink and `light` for Paper.
 A first visit uses the device theme. A saved selection replaces that theme.
-The More menu contains Ink and Paper. Other theme names are not available.
+The theme button in the header changes between Ink and Paper. Other theme names are not available.
 If the configuration names a removed theme, such as `clay`, the program gives an error.
 
 The two themes have the same CSS tokens in `theme.py`.
@@ -274,10 +286,21 @@ A view that shows one of these pairs does not have distinct colors for them.
 ## Navigation and layout
 
 The page has three views: Map, Sequences, and Changes. Each view answers one question.
-The header is 52px high. It contains the systemap symbol, the project name, and the stored commit.
-It also contains the three view buttons, Find, Read, and the More menu.
-A dot on Changes shows that the page has a revision comparison.
-The More menu contains Reference, Text view, Map view, the theme, Reduce motion, and Keyboard keys.
+The header is 52px high. At the left, it contains the systemap symbol, the project name, the stored commit,
+and the three view buttons. A dot on Changes shows that the page has a revision comparison.
+At the right, it contains Find, the theme, Reduce motion, Keyboard keys, and Details. No menu hides a control.
+Find is a button in the shape of a field: a search icon, the word Find, and its key.
+The other controls are icon buttons. Each icon button has a name and a tooltip.
+A pressed button has the raised color and a border.
+The theme button shows the theme that it selects: a sun for Paper and a moon for Ink.
+Reduce motion is in the header because the system setting does not stop motion on the page (see Motion).
+Keyboard keys is the ? icon. It opens the list of keys, as the ? key does.
+Details is at the right end of the header, above the panel that it opens. It opens and closes the panel, as the D key does.
+The panel shows the details of the layer, the selection, the sequence, or the change. The name Details applies to each state.
+
+The stored commit is a button. It opens a small panel with the source records of the page:
+the commit at extraction, the source files, and the limits of the stored snapshot.
+Escape or a click outside the small panel closes it.
 
 The three views have the same parts: a row of controls under the header, a title block above the map,
 the legend and the readout below the map, and the panel at the right. The map uses the remaining area.
@@ -292,16 +315,26 @@ The title block has a small label and the question. The label uses the kicker ty
 In the Map view, it gives the layer name and its position, for example SYSTEM CONTEXT · LAYER 1 OF 5.
 The All segment gives ALL LAYERS. The question shows in 22px type.
 
-The zoom controls are at the end of the row in each view: zoom out, the zoom value, zoom in, and Fit.
-Zoom out, the zoom value, and zoom in are one segmented group. Fit is a separate button.
+The zoom controls and the full-screen button are at the end of the row in each view.
+Zoom out, the zoom value, zoom in, and Fit are one segmented group. The full-screen button follows the group.
 The buttons have icons on a 16-unit grid with a 1.5-unit line, round ends, and round joins.
 Each icon button has a name and a tooltip. The zoom value button sets the actual size. Fit shows the full map.
+The Fit icon has small corners around a rectangle. The full-screen icon has large corners.
+
+The full-screen button and the F key open full screen in each view.
+In Map and Changes, the header, the row, and the panel go. The browser shows the page in full screen if it can.
+The map, the title block, the legend, the readout, and the zoom controls stay.
+The full-screen button then shows Exit full screen and the Esc key.
+Escape, the F key, and the button end full screen. If the panel was open before, it opens again.
+A selection in full screen opens the panel.
+In Sequences, full screen is the step overlay (see Sequences).
+In Changes, the button is not available when the page has no revision comparison.
 The legend is at the bottom left of the map. The legend shows only the items that the current view uses.
 The readout is at the bottom right. It gives the counts of the view or the selected item.
 
 The panel is at the right of the map, under the row. The panel is 400px wide.
 On a window wider than 820px, the Map view opens the panel with the page, as the Sequences view does.
-Read closes the panel and opens it again.
+Details closes the panel and opens it again.
 With no selection, the panel shows the current layer in the style of the sequence steps.
 A head row gives the label LAYER and the counts. The layer name is the panel title.
 The guide text of the layer, or else its description, follows.
@@ -311,6 +344,10 @@ A pointer or keyboard focus on a flow card shows a preview of the flow. A click 
 In System context, a card shows each actor and the artifacts that it receives and sends.
 In Structure, a card shows each region with its number and its components. A click frames the region.
 The guide steps follow the layer as a short numbered list. The step of the current layer has the accent number.
+Two sections follow the guide steps. Each section opens on a click.
+Lines and cards tells the reader how to read the line patterns, the card marks, and the evidence states.
+Rules gives all rules of the system. Each rule has buttons for the components that it governs.
+The panel of a component gives the rules of that component.
 A layer with more than 20 flows shows its flows in groups. The panel lists the groups with their counts in rings.
 The open group is the current card: an accent border and the highlight fill.
 A group line, like a flow line, has only horizontal and vertical parts.
@@ -322,14 +359,27 @@ The selection also stays above the legend and the readout, as a sequence step do
 
 On the first visit, a guide card at the bottom right gives five steps. Each step selects a layer or a sequence.
 The map moves left so that the card does not cover it. The map goes back to Fit when the card closes.
-The page records the first visit in the browser. Read shows the same steps again.
+The page records the first visit in the browser. The Details panel shows the same steps.
 
-Find searches component names, descriptions, and source modules. The / key gives Find the focus.
-The arrow keys move through the results. Enter selects a component.
+Find opens the Find dialog. Ctrl+K, Cmd+K on a Mac, and the / key also open it.
+The Find dialog is above the page. It has a search field and a list of results in groups:
+views, layers, components, flows, sequences, steps, rules, and actions.
+With no text, the list gives the views, the layers, the sequences, and the actions.
+A name that starts with the text comes first. A name with a word that starts with the text comes next.
+Other text, such as a description or a source module, comes after the names.
+A group name is also a match: "rule" gives the rules first.
+A component that matches only in a source module shows that module.
+The up and down arrow keys move the selection. Enter does the action of the result. Escape closes the dialog.
+Each result shows its key, if it has one. The current view and the current layer show Current.
+The actions are the theme, Reduce motion, full screen, Details, and Keyboard keys.
+A rule opens the Rules section of the Map panel at that rule.
+The dialog is 600px wide. It has the surface color, a 10px corner radius, and group names in the kicker type.
+On a phone, the dialog fills the width of the screen from the top. A Close button replaces the Esc key.
 
-At widths of 1100px or less, the panel is 340px wide, Find is smaller, and the header does not show the commit.
+At widths of 1100px or less, the panel is 340px wide, Find is smaller, and the commit shows without the word at.
 At widths of 820px or less, the panel covers the right side of the map, under the row.
 The zoom controls go below the row, at the right of the title block. The Map view does not open the panel with the page.
+Find shows only its icon.
 At widths of 640px or less, the phone layout replaces the map frame.
 The phone layout shows the regions as a grid. A region opens the map at a size that you can read.
 A sequence shows one step: the sequence button, the map frame, the step note, the step buttons, and Previous and Next.
@@ -337,6 +387,8 @@ The step fills the height of the screen. The map frame gets the height that the 
 The space under Previous and Next is 16px, or the bottom safe area of the device when that area is larger.
 On a phone, the sequence button is in the head under the views. Its list has the width of the button.
 Phone controls are 44px high or more.
+On a phone, the header shows Find, the theme, and Reduce motion as 40px icons.
+It does not show Keyboard keys or Details.
 
 ## Map and text
 
@@ -360,7 +412,6 @@ Flow labels show on their line at rest. A label that does not fit on its line sh
 The readout and the panel tell the reader that such labels are in the list.
 A layer change draws the lines of the new layer in model order. Each line draws from its source to its target.
 
-Text view shows the same components and flows as a list. It keeps the selection.
 Document figures use the same card type size and keep the authored coordinate plane.
 
 System sans fonts show controls and descriptions.
@@ -370,7 +421,8 @@ The page loads no font files.
 ## Sequences
 
 Sequences shows one operation at a time. The toolbar starts with the label Sequence and the sequence button.
-Whole route and Steps, the step controls, End sequence, and Full screen follow.
+Whole route and Steps, the step controls, and End sequence follow.
+The full-screen button at the end of the row opens full screen.
 The sequence button shows the name of the current sequence and an arrow icon from the icon set.
 It has the design of a selected segment: the card color, ink text, and the control radius.
 It is not a native drop-down. The button opens the list of sequences under it.
@@ -408,7 +460,8 @@ A component that imports changed source has an IMPORTS tag.
 A flow that needs a new source review has a vermilion dashed line. Other cards and lines have low contrast.
 The marks show in a fixed order: the changed cards, the tagged cards, and then the flows.
 The panel gives a summary, the changed components, the flows to examine, the sequences with a changed step,
-the decisions, and the limits of the comparison.
+and the limits of the comparison. The page does not show the judgement decisions.
+`systemap judgement` and the pull request give them to the maintainer.
 
 ## Selection and evidence
 
@@ -418,7 +471,8 @@ A pointer or keyboard focus on a line shows a preview of that flow. The label of
 A declared flow keeps its dash pattern during selection.
 No more than one directional cue moves. The cue does not show a recorded run.
 
-Escape closes the menu, the sequence, the selection, the panel, and Reference, in that order.
+Escape closes the newest item first: the Find dialog, the keyboard keys, the source panel of the commit,
+full screen, the sequence, the selection, and then the panel.
 A nested map opens in a dialog above an inert background.
 The dialog gives the keyboard focus back to its control when it closes.
 Finding identifiers, authored claims, and evidence states keep their meaning.
@@ -434,11 +488,20 @@ In the Map view, a layer change fades in the title block and the panel in 180 ms
 A sequence step shows its note after the camera stops.
 When the page opens, the cards come in one time in reading order, in 360 ms or less.
 A theme change fades the colors in 240 ms.
-With Reduce motion or the system setting for reduced motion, the page shows the final state with no motion.
+The Find dialog fades in and moves 6px down in 160 ms.
+Reduce motion is a page setting. It is off on the first visit. When it is on, the page shows the final state with no motion.
+The browser keeps the setting. The head script applies the kept setting before the page shows.
+The system setting for reduced motion does not change the page. The maintainer made this decision:
+the motion shows direction and order, and the page shows it to each reader until that reader stops it.
+
+This decision has an accessibility cost. A reader with a vestibular disorder can set the system setting to stop motion.
+On this page, that reader sees the motion until they set Reduce motion.
+For this reason, Reduce motion is an icon in the header. The reader can find it on the first screen and set it with one click.
+A figure outside the page has no page setting. A figure obeys the system setting.
 
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
-`page_atlas.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
+`page_palette.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
 `page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `page_mapview.py`,
-`page_map_icons.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+`page_icons.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
 The build removes the comments, line breaks, and indentation from the page styles and scripts.
 The browser measurements and test results are in `bench/jev/README.md`.

@@ -561,11 +561,13 @@ def test_the_page_carries_every_scheme_and_stamps_the_default(sample: Sample) ->
     assert '\'(prefers-color-scheme: light)\').matches)?"light":"dark"' in head
     assert "document.documentElement.setAttribute('data-theme',s)" in head
     assert head.index("<script>") < head.index("<style>"), "the root is stamped before the styles"
-    # The picker in the header, one option per scheme, with the page names.
+    # The picker in the header, one icon button per scheme, with the page names.
     header = html.split("</header>")[0]
     assert re.findall(r'<button[^>]*data-scheme="(\w+)"', header) == SCHEMES
     for name, label in theme_mod.SCHEME_LABELS.items():
-        assert re.search(rf'data-scheme="{name}"[^>]*>(?:<i></i>)?{label}<', header), label
+        button = re.search(rf'<button[^>]*id="scheme-{name}"[^>]*>', header)
+        assert button and f'aria-label="{label} theme"' in button[0], label
+        assert f'title="{label} theme"' in button[0], label
     assert "Clay" not in header
     # The device theme replaces the configured figure palette on the page.
     t = theme_mod.resolve({"scheme": "light"}, layers)

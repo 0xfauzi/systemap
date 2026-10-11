@@ -2,7 +2,8 @@
 
 The mark, the keyboard sheet, layer changes, the map surface, card depth and
 the glow of a selection. Each motion runs one time and shows direction or
-order. With reduced motion, the page shows the final state at once."""
+order. With Reduce motion on, the page shows the final state at once. The page
+setting alone controls the motion: the system setting does not change it."""
 
 # A fine grain of light specks on the Ink map surface. Paper has no grain.
 # The noise is static. Its alpha comes from the red channel of the noise.
@@ -58,29 +59,25 @@ stroke-width .14s ease-out}
 
 /* ---- the cards come in one time, in reading order ----------------------- */
 @keyframes card-in{from{opacity:0;transform:translateY(5px)}}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) #schematic.cards-in .node{
 animation:card-in .32s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--in,0ms)}
 html:not([data-reduce-motion="true"]).scheme-fade :is(body,body *){
 transition:background-color .24s,color .24s,border-color .24s,fill .24s,stroke .24s!important}
-}
 
 /* ---- the mark draws one time: the route, then its two ends --------------- */
 @keyframes mark-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes mark-dot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
 .mark__path{stroke-dasharray:1 1;stroke-dashoffset:0}
 .mark__dot{transform-box:fill-box;transform-origin:center}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) .mark__path{
 animation:mark-draw .6s cubic-bezier(.45,0,.25,1) both}
 html:not([data-reduce-motion="true"]) .mark__dot{animation:mark-dot .16s ease-out .6s both}
-}
 
 /* ---- the keyboard sheet ---------------------------------------------------- */
 .keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
 padding:16px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
 .keys[hidden]{display:none}
-.keys__box{box-sizing:border-box;width:min(340px,100%);max-height:calc(100vh - 32px);overflow:auto;
+.keys__box{box-sizing:border-box;width:min(380px,100%);max-height:calc(100vh - 32px);overflow:auto;
 display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line-2);
 border-radius:10px;background:var(--surface);color:var(--ink);
 box-shadow:0 16px 48px rgba(0,0,0,.28);outline:none}
@@ -98,10 +95,8 @@ border-radius:6px;background:none;color:var(--ink-2);font:12px var(--fs);cursor:
 .keys .keys__close:hover{color:var(--ink);background:var(--raised)}
 .keys .keys__close:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 @keyframes keys-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) .keys:not([hidden]) .keys__box{
 animation:keys-in .12s ease-out}
-}
 """
 
 SCRIPT = r"""
@@ -109,8 +104,7 @@ SCRIPT = r"""
   var svg = document.getElementById('schematic');
   var A = svg && svg.systemap;
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
 
   // ---- a new layer draws its lines in model order ----------------------
@@ -226,8 +220,6 @@ SCRIPT = r"""
   function open(from){
     if(!sheet.hidden){ return; }
     opener = from || document.activeElement;
-    var menu = opener && opener.closest ? opener.closest('details') : null;
-    if(menu){ menu.open = false; opener = menu.querySelector('summary') || opener; }
     sheet.hidden = false;
     if(closer){ closer.focus(); }
   }
@@ -264,15 +256,15 @@ SCRIPT = r"""
 """
 
 _KEYS: tuple[tuple[str, str], ...] = (
-    ("/", "Find a component"),
+    ("Ctrl K", "Find a component, flow, layer or action"),
     ("1 to 6", "Select a layer"),
-    ("← →", "Previous or next step"),
+    ("← →", "Previous or next layer or step"),
     ("W", "Whole route"),
     ("F", "Full screen"),
     ("B", "Hold to show the base"),
-    ("R", "Read: open the panel"),
-    ("T", "Text view"),
-    ("Esc", "Previous view"),
+    ("D", "Open or close the Details panel"),
+    ("?", "Keyboard keys"),
+    ("Esc", "Close, or go back one view"),
 )
 
 
@@ -284,14 +276,17 @@ def _key(key: str) -> str:
         )
     if key == "1 to 6":
         return f"<kbd data-keys-layers>{key}</kbd>"
+    if key == "Ctrl K":
+        # The Find dialog script shows the Command key on a Mac. The / key also opens it.
+        return "<kbd data-mod-key>Ctrl K</kbd> <kbd>/</kbd>"
     return f"<kbd>{key}</kbd>"
 
 
 def keys_sheet() -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
-    The sheet is a modal dialog. The ? key and the Keyboard keys menu item
-    open it. Escape and its Close button close it and return the focus."""
+    The sheet is a modal dialog. The ? key and the Keyboard keys button in the
+    header open it. Escape and its Close button close it and return the focus."""
     rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
     return (
         '<div class="keys" id="keys" hidden>'

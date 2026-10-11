@@ -2,7 +2,7 @@
 
 It runs after the shell scripts and reads the change map (`svg#changemap`,
 its API `changemap.systemap` and the `_meta.change` marks in its detail) and
-`window.systemapWorkspace` (the comparison and the open decisions). The panel
+`window.systemapWorkspace` (the comparison). The panel
 text uses only these records. A flow is marked when it touches a component
 with changed source and has no source review. A sequence step is marked when
 an end of its flow has changed source."""
@@ -41,8 +41,7 @@ SCRIPT = r"""
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
   function names(list){
     return list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and '
@@ -61,7 +60,7 @@ SCRIPT = r"""
   function recorded(i){ return (EDGES[i].source_refs || []).length > 0; }
   function lostOf(id){ return LOST.filter(function(i){ return touches(i, [id]); }); }
 
-  // ---- the panel: summary, flows, sequences, decisions -------------------
+  // ---- the panel: summary, flows, sequences ------------------------------
   function where(){
     var labels = [];
     SOURCE.forEach(function(id){
@@ -148,19 +147,6 @@ SCRIPT = r"""
       + 'has changed source.' : 'No sequence step has a flow to a component with changed source.')
       + '</p>';
     sec.innerHTML = h; sec.hidden = false;
-  }
-  function decisionsSection(){
-    var sec = byId('chg-decisions'), review = W.review;
-    if(!sec || !review || !review.open){ return; }
-    var open = review.open.length;
-    var named = review.open.filter(function(r){
-      return (r.parts || []).some(function(id){ return SOURCE.indexOf(id) >= 0; }); }).length;
-    sec.innerHTML = '<h3 class="chg-cap">DECISIONS</h3><p class="chg-text">The map has '
-      + open + ' open decision' + (open === 1 ? '' : 's') + '. '
-      + (open ? named + ' of them name a component with changed source.' : '') + '</p>'
-      + (open ? '<button type="button" class="chg-go" data-change-review>Examine the decisions'
-        + '</button>' : '');
-    sec.hidden = false;
   }
   function cards(){
     all('[data-change-card]', panel).forEach(function(card){
@@ -430,16 +416,15 @@ SCRIPT = r"""
       else { M.select(go.dataset.changeGo); }
       return; }
     var edge = e.target.closest && e.target.closest('[data-change-edge]');
-    if(edge){ e.preventDefault(); remember(); M.inspectFlow(+edge.dataset.changeEdge); return; }
-    if(e.target.closest && e.target.closest('[data-change-review]') && P){ P.setMode('review'); }
+    if(edge){ e.preventDefault(); remember(); M.inspectFlow(+edge.dataset.changeEdge); }
   });
   window.addEventListener('keydown', function(e){
     if(e.key !== 'Escape' || body.dataset.mode !== 'change' || !M.state.focus){ return; }
     var t = e.target;
-    if(typing(t) || (t && t.closest && t.closest('.more, #submap, #keys, #present'))){ return; }
+    if(typing(t) || (t && t.closest && t.closest('#palette, #submap, #keys, #present'))){ return; }
     M.clear(); M.view.back(); e.preventDefault(); e.stopPropagation();
   }, true);
 
-  summary(); cards(); flowsSection(); seqSection(); decisionsSection(); sync();
+  summary(); cards(); flowsSection(); seqSection(); sync();
 })();
 """
