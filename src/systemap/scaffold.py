@@ -16,17 +16,17 @@ from systemap import __version__
 CONFIG = """# systemap configuration. All keys are optional.
 # The project name comes from pyproject.toml or the repository directory.
 language = "{language}"
-name = "{name}"
-# Package roots use "path" = "import name".
-# Without explicit roots, the extractor finds top-level Python packages
-# in the repository and its uv workspace members.
-{roots}
+name = {name}
+model = "map/model.py"
+out_dir = "docs/map"
 # Test directories can be one path or a list of paths.
 # Without this key, the extractor finds directories called tests or test.
 # tests_dir = ["tests"]
-model = "map/model.py"
-out_dir = "docs/map"
 # spec_path = "docs/design.md"
+
+# Keep these keys above the table lines. A key after a table header is part of that table.
+{roots_note}
+{roots}
 
 # Each source module must have a component assignment or a recorded ignore.
 # Each ignore must give an explanation.
@@ -35,8 +35,9 @@ out_dir = "docs/map"
 
 # An exact answer identifies a complete judgement finding and its explanation.
 # The command counts answered findings and gives stale-answer findings.
+# An exact answer must have the evidence digest from its pending answer line.
 # [judgement]
-# answered = [{{ item = "single module: Reader is only {package}.reader", reason = "The reader is a separate component." }}]
+# answered = [{{ item = "single module: Reader contains only {package}.reader", reason = "The reader is a separate component.", evidence = "<digest from the pending answer line>" }}]
 
 # The refresh command renders these figures beside the page.
 # mode is "system" for all components or "reach" for a plan selection.
@@ -57,7 +58,7 @@ interactive = false
 """
 
 MODEL = '''# ruff: noqa: E501
-"""The system map of {name}.
+"""The system map of {doc_name}.
 
 All reader text must use ASD-STE100 Issue 9.
 Before you write names or sentences, read the installed systemap skill language policy.
@@ -93,7 +94,7 @@ from systemap import (  # type: ignore[import-not-found, unused-ignore]
 CONTAINERS = (
     Container(
         id="system",
-        label="{upper}",
+        label={label},
         sub="one process",
         box=(16, 16, 876, 536),
         tone="server",
@@ -294,6 +295,51 @@ TOOLING_NOTE = (
     "  run all repository CI commands on the map files",
 )
 
+# The comment above the package roots, for each source language.
+ROOTS_NOTE = {
+    "python": (
+        '# Package roots use "path" = "import name".\n'
+        "# Without explicit roots, the extractor finds top-level Python packages\n"
+        "# in the repository and its uv workspace members."
+    ),
+    "typescript": (
+        '# Package roots use "path" = "module name".\n'
+        "# Without explicit roots, the extractor uses src, then the repository root,\n"
+        "# when the repository root has a tsconfig.json file."
+    ),
+}
+# The commented example for a repository without discovered package roots.
+ROOTS_EXAMPLE = {
+    "python": '# [package_roots]\n# "src/mypackage" = "mypackage"',
+    "typescript": '# [package_roots]\n# "packages/web/src" = "web"',
+}
+# TOML basic strings and Python string literals use the same escapes for these characters.
+_ESCAPES: dict[int, str] = {ord('"'): '\\"', ord("\\"): "\\\\"} | {
+    code: f"\\u{code:04x}" for code in (*range(0x20), 0x7F)
+}
+
+
+def quoted(text: str) -> str:
+    """Give a double-quoted string that TOML and Python both read as `text`."""
+    return '"' + text.translate(_ESCAPES) + '"'
+
+
+def tooling_note(root: Path, language: str) -> tuple[str, ...]:
+    """Give the note about repository tool settings for the map files.
+
+    A TypeScript repository without pyproject.toml has no Python tool settings."""
+    if language == "typescript" and not (root / "pyproject.toml").is_file():
+        return ()
+    return TOOLING_NOTE
+
+
+def _roots_block(roots: list[tuple[str, str]], language: str) -> str:
+    """Give the [package_roots] table, or a commented example without roots."""
+    if not roots:
+        return ROOTS_EXAMPLE.get(language, ROOTS_EXAMPLE["python"])
+    lines = ["[package_roots]"] + [f"{quoted(path)} = {quoted(pkg)}" for path, pkg in roots]
+    return "\n".join(lines)
+
 
 def files(
     name: str,
@@ -306,16 +352,17 @@ def files(
 
     The init command installs the skill separately on each run.
     Existing configuration, model, and workflow files stay unchanged."""
-    if roots:
-        lines = ["[package_roots]"] + [f'"{path}" = "{pkg}"' for path, pkg in roots]
-        roots_block = "\n".join(lines)
-    else:
-        roots_block = '# [package_roots]\n# "src/mypackage" = "mypackage"'
     out = {
         "systemap.toml": CONFIG.format(
-            language=language, name=name, roots=roots_block, package=package
+            language=language,
+            name=quoted(name),
+            roots_note=ROOTS_NOTE.get(language, ROOTS_NOTE["python"]),
+            roots=_roots_block(roots, language),
+            package=package,
         ),
-        "map/model.py": MODEL.format(name=name, upper=name.upper(), package=package),
+        "map/model.py": MODEL.format(
+            doc_name=quoted(name)[1:-1], label=quoted(name.upper()), package=package
+        ),
         "docs/map/.gitkeep": "",
     }
     if ci:

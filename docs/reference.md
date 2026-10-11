@@ -39,7 +39,7 @@ The labels rule rejects these conditions:
 
 Exit code `0` shows a map with no stale outputs.
 Exit code `1` shows a rejected check.
-Exit code `2` shows unusable configuration or an unusable model.
+Exit code `2` shows unusable configuration, an unusable model, or an unusable option value.
 To keep a module out of map coverage, add an ignore under `[coverage]`.
 Each ignore must have a reason.
 
@@ -53,6 +53,30 @@ Rendering and checking use the evidence for the stored source snapshot state:
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
+
+For `observed`, a flow records `source_refs` and a `review_digest`.
+A reference has the form `module[:symbol]@<source_sha256>`.
+The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+It does not examine the claims for you. Examine the source before you record the values.
+
+```sh
+uv run python - <<'PY'
+from pathlib import Path
+from systemap import config, evidence, extract, nest
+
+cfg = config.load(Path.cwd())
+facts = extract.build(cfg)
+for module, record in sorted(facts["components"].items()):
+    print(f"source_sha256 {module} {record.get('source_sha256')}")
+for current_map in nest.load(cfg).maps:
+    for flow in current_map.model.flows:
+        digest = evidence.flow_claim_digest(flow, current_map.meaning)
+        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
+PY
+```
+
+A source change gives a new `source_sha256`.
+A change to the flow or its relation sentence gives a new `review_digest`.
 
 ## What does the second pass find?
 
@@ -314,7 +338,9 @@ The full schema and examples are in
 All commands accept `--root DIR` before or after the command.
 This option shows a project outside the current directory.
 Exit codes are `0` for current, `1` for stale or rejected, and `2` for unusable
-configuration or model.
+configuration, model, or option value.
+The line after an error tells you which input to correct: a command option,
+`systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
 ### `systemap init [--no-ci]`
 
@@ -323,6 +349,11 @@ workflow. The workflow pins this version.
 The command does not replace files.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
+
+If the repository has no Python package and a directory has a `tsconfig.json` file,
+`init` selects TypeScript.
+If the repository root has no `tsconfig.json` file, `init` writes no package roots.
+Then set `[package_roots]` for each application package.
 
 ### `systemap extract [--check]`
 
@@ -333,6 +364,10 @@ Package `__init__` records include re-exports.
 The other commands read this file.
 
 - `--check` exits 1 if stored facts differ from the source tree.
+  It also exits 1 if a model claim names a module that the source tree does not have.
+  The report gives the two problem groups separately.
+  For stale facts, run `systemap extract`.
+  For a model claim, correct the model. A new extraction does not correct it.
 
 ### `systemap facts`
 
@@ -424,6 +459,7 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 "map: The page agrees with the rendered model fields and the facts."
 A rejected check causes exit 1 and prevents rendering.
+`-q` or `--quiet` prints only errors and check results.
 
 ### `systemap suggest [--jev]`
 
@@ -494,6 +530,7 @@ layout score, bends and length per edge, label gutters, and gutter seat usage.
 It also gives evidence-state counts and components and edges per layer.
 Position counts distinguish pinned, placed, and temporary display positions.
 Edges with the worst geometry come first.
+A gutter line counts the labels that the edge lines put in that gutter.
 
 The sequence section gives steps, starting entries, steps without import
 evidence, unconfirmed agent drafts, and covered entry counts.
@@ -548,6 +585,8 @@ The agent gives components in the execution path and a sentence for each step.
 A step with no authored flow is rejected with a finding.
 The command does not write that step.
 Accepted sequences enter the model with `drafted=True`.
+The command writes them into the `JOURNEYS = (...)` tuple of the model.
+The tuple can have a type annotation, as in the model from `init`.
 `judgement` prints `drafted journey` until a person examines the sequence and
 removes the mark. The default limit is three sequences per invocation.
 
@@ -584,6 +623,8 @@ An unknown kind causes exit 1.
 
 Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
+If the port is not available, the command exits 2.
+Then use `--port 0` to select an available port, or give a different port.
 
 ### `systemap skill [--dir PATH] [--print]`
 
@@ -603,7 +644,7 @@ Unknown keys are rejected.
 |---|---|---|
 | `language` | `python` | Select `python` or `typescript`. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | `[project] name`, Git repository directory, then directory name | The page title. |
-| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. |
+| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
 | `model` | `map/model.py` | The module that exports `MODEL` and `MEANING`. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (`import journeys`). Imported modules do not stay cached between executions. |
@@ -611,14 +652,14 @@ Unknown keys are rejected.
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. |
 | `spec_path` | none | A document with `##` headings that identify specification sections. |
 | `planes` | none | Second-level package names with different planes in the facts. |
-| `outside_label` | `OUTSIDE THE SYSTEM` | The index heading for actors outside all regions. |
+| `outside_label` | `EXTERNAL COMPONENTS` | The index heading for actors outside all regions. |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. Empty package markers require no ignore. |
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A leading `-` removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds, including `"jev flow"`, use this table too. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[theme]` | warm | Color-token overrides. `scheme = "warm"`, `"graphite"`, or `"paper"` selects the default. The page offers all three. The 0.11 names `dark` and `light` still select graphite and paper. `[theme.paper]` overrides one scheme. `[theme.layers]` sets a color per layer id, including standard ids. `[theme.marks]` selects a mark per agent kind. |
+| `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, including standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.

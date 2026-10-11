@@ -240,7 +240,7 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
     assert "map/model.py could not import: cannot import name 'Layers' from 'systemap'" in err
-    assert "Add the missing name to the import from systemap" in err
+    assert "Use a name that systemap exports: AGENT_KINDS, KINDS," in err
     write_tree(tmp_path, {"map/model.py": "raise ValueError('boom')\n"})
     assert run("--root", str(tmp_path), "check") == 2
     assert "map/model.py could not import: ValueError: boom" in capsys.readouterr().err

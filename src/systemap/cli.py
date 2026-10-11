@@ -6,8 +6,8 @@ The command prints an explanation under each diagnostic kind unless the user sel
 `--brief`.
 
 Exit code 0 means success. Exit code 1 means a stale map, a check error, or an open
-decision. Exit code 2 means a configuration, model, or revision error. Commands that
-read the model include nested maps. A nested diagnostic has its map ID as a prefix.
+decision. Exit code 2 means a configuration, model, option, or revision error. Commands
+that read the model include nested maps. A nested diagnostic has its map ID as a prefix.
 """
 
 from __future__ import annotations
@@ -15,8 +15,6 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -31,8 +29,11 @@ from systemap import (
     describe,
     explain,
     extract,
+    extract_check,
+    failures,
     figure,
     history,
+    init_language,
     jev,
     jev_cli,
     judgement,
@@ -45,12 +46,12 @@ from systemap import (
 )
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
-from systemap.config import Config, ConfigError
+from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
 from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
-from systemap.typescript_config import discover_typescript_roots
+from systemap.serve import make_server
 
-OK, STALE, BAD_CONFIG = 0, 1, 2
+OK, STALE = 0, 1
 
 
 @dataclass(frozen=True)
@@ -111,7 +112,7 @@ MAINTENANCE_SENTENCE = (
 
 def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
-    language, roots = _init_language_roots(root)
+    language, roots = init_language.language_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root)
     say(*scaffold.write(root, name, package, roots, ci=not args.no_ci, language=language))
@@ -121,21 +122,9 @@ def cmd_init(args: argparse.Namespace) -> int:
         f"The command wrote {skill_path.parent.relative_to(root).as_posix()}/ "
         f"({skill.FILE_NAME} and {references} references)"
     )
-    say(*scaffold.TOOLING_NOTE)
+    say(*scaffold.tooling_note(root, language))
     say("Next, give this instruction to your coding agent:", f"  {AGENT_SENTENCE}")
     return OK
-
-
-def _init_language_roots(root: Path) -> tuple[str, list[tuple[str, str]]]:
-    python_roots = config.discover_roots(root)
-    typescript_roots = discover_typescript_roots(root)
-    if python_roots and typescript_roots:
-        raise ConfigError(
-            "The source contains Python and TypeScript. Set language in systemap.toml."
-        )
-    if typescript_roots:
-        return "typescript", typescript_roots
-    return "python", python_roots
 
 
 # ---- extract ---------------------------------------------------------------
@@ -171,23 +160,9 @@ def cmd_extract(args: argparse.Namespace) -> int:
     fresh = extract.build(p.cfg)
     stored = extract.read_facts(p.cfg.facts_path)
     if args.check:
-        problems = [
-            m.prefix + line
-            for m in p.tree.maps
-            for line in check.stale_facts(fresh, stored, m.model, p.cfg.prefixes)
-        ]
-        # The drift is the facts' own and is reported once, on the top map.
-        problems = list(dict.fromkeys(problems))
-        if problems:
-            noun = "problem" if len(problems) == 1 else "problems"
-            say(f"map: The map is stale ({len(problems)} {noun}):")
-            say(*(f"  {line}" for line in problems[:25]))
-            if len(problems) > 25:
-                say(f"  ... and {len(problems) - 25} more")
-            say("run: systemap extract")
-            return STALE
-        say(f"map: The map agrees with the source tree: {len(fresh['components'])} modules.")
-        return OK
+        lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
+        say(*lines)
+        return code
     extract.write_facts(p.cfg.facts_path, fresh)
     say(*extract.summary(fresh))
     for m in p.tree.maps:
@@ -330,16 +305,31 @@ def _fix_line(p: Project, results: dict[str, check.Result]) -> str:
     top = results[p.tree.top.id]
     if not top.coverage.checked:
         return "run: systemap extract"
-    if top.coverage.problems:
-        return (
-            f"Give each module a component in {p.cfg.model}, or give a reason to ignore it "
-            f"in [coverage]. Then use systemap check."
-        )
+    coverage = _coverage_fix(p, top)
+    if coverage:
+        return coverage
     for m in p.tree.maps:
         result = results[m.id]
         if result.entry or result.interface or result.nesting:
             return f"Correct {m.rel}. Then use systemap check."
     return "run: systemap refresh"
+
+
+def _coverage_fix(p: Project, top: check.Result) -> str:
+    """Give the action for facts without modules or for coverage errors, or no action.
+
+    Facts without modules and a model with source components need new package roots."""
+    if top.coverage.total == 0 and top.entry:
+        return (
+            f"Set [package_roots] in {p.cfg.source or CONFIG_FILE} to the directories that "
+            f"contain the source files. Then use systemap check."
+        )
+    if top.coverage.problems:
+        return (
+            f"Give each module a component in {p.cfg.model}, or give a reason to ignore it "
+            f"in [coverage]. Then use systemap check."
+        )
+    return ""
 
 
 def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
@@ -381,10 +371,10 @@ def _ids(values: list[str] | None) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _map(p: Project, map_id: str) -> nest.Map:
+def _map(p: Project, map_id: str, error: type[ConfigError] = ConfigError) -> nest.Map:
     """Select the map from `--map ID`, or the top map if there is no ID."""
     if not p.tree.has(map_id):
-        raise nest.unknown_map(p.tree, map_id)
+        raise nest.unknown_map(p.tree, map_id, error)
     return p.tree.get(map_id)
 
 
@@ -393,7 +383,7 @@ def cmd_figure(args: argparse.Namespace) -> int:
     facts = _facts_or_stale(p)
     if facts is None:
         return STALE
-    m = _map(p, args.map or "")
+    m = _map(p, args.map or "", ArgumentError)
     if not _model_ok(p, [m]):
         return STALE
     html, collisions = figure.make(
@@ -736,12 +726,6 @@ def cmd_place(args: argparse.Namespace) -> int:
 DEFAULT_PORT = 8765
 
 
-def make_server(directory: Path, port: int) -> ThreadingHTTPServer:
-    """Make an HTTP server for `directory` on 127.0.0.1. Port 0 selects an available port."""
-    handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
-    return ThreadingHTTPServer(("127.0.0.1", port), handler)
-
-
 def cmd_serve(args: argparse.Namespace) -> int:
     """Serve the output directory over HTTP.
 
@@ -1024,7 +1008,9 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     add_root(s)
-    s.add_argument("--quiet", action="store_true")
+    s.add_argument(
+        "-q", "--quiet", action="store_true", help="Print only errors and check results."
+    )
     s.set_defaults(func=cmd_refresh)
 
     s = sub.add_parser(
@@ -1199,10 +1185,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--dir",
         default="",
-        help=(
-            "Set the skill directory. The default is .agents/skills/systemap under the "
-            "project root."
-        ),
+        help=f"Set the skill directory. The default is {skill.DEFAULT_DIR} under the project root.",
     )
     s.add_argument("--print", action="store_true", help="Print SKILL.md to stdout.")
     s.set_defaults(func=cmd_skill)
@@ -1213,33 +1196,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    try:
-        code = args.func(args)
-    except ConfigError as exc:
-        warn(
-            f"systemap: {exc}",
-            "Correct systemap.toml or the model module. Then run the command again.",
-        )
-        return BAD_CONFIG
-    except figure.FigureError as exc:
-        warn(f"systemap: {exc}")
-        return STALE
-    except place.PlaceError as exc:
-        warn(f"systemap: {exc}")
-        return STALE
-    except delta.DeltaError as exc:
-        warn(
-            f"systemap: {exc}",
-            "Give delta a Git ref that Git can resolve. Then run the command again.",
-        )
-        return BAD_CONFIG
-    except change.ChangeError as exc:
-        warn(
-            f"systemap: {exc}",
-            "If the revision is remote, use git fetch. Then use refs that Git can resolve.",
-        )
-        return BAD_CONFIG
-    return int(code)
+    return failures.run(args.func, args)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import agent, extract, journeys, nest
+from systemap import agent, extract, journeys, nest, scaffold
 from systemap.cli import main
 from systemap.config import Config, load
 from systemap.jev_cli import cmd_journeys
@@ -166,6 +166,21 @@ def test_the_walk_is_written_into_the_model_where_its_journeys_are_named() -> No
     assert grown.startswith("JOURNEYS = (\n    Journey(")
     # a model file that names its journeys somewhere this cannot find is said so
     assert journeys.add_to_source("MEANING = Meaning(plain={})\n", draft.journey) is None
+
+
+def test_the_walk_is_written_into_the_annotated_list_of_the_initial_model() -> None:
+    draft = read(ANSWER)
+    assert draft.journey is not None
+    source = scaffold.files("demo", "pkg", [("pkg", "pkg")])["map/model.py"]
+    assert "JOURNEYS: tuple[Journey, ...] = ()\n" in source
+    grown = journeys.add_to_source(source, draft.journey)
+    assert grown is not None
+    assert "JOURNEYS: tuple[Journey, ...] = (\n    Journey(\n" in grown
+    assert grown.count('id="read-and-write"') == 1
+    # An annotation with brackets and a default does not hide the list.
+    plain = "JOURNEYS: tuple[Journey, ...] = (\n)\nOTHER: dict[str, int] = {}\n"
+    grown = journeys.add_to_source(plain, draft.journey)
+    assert grown is not None and grown.startswith("JOURNEYS: tuple[Journey, ...] = (\n    Journey(")
 
 
 # ---- the command -------------------------------------------------------------------

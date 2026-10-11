@@ -88,5 +88,6 @@ An import or common module gives structural evidence only.
 A configured mechanism in `[flows] observed_by` also gives structural evidence only.
 This evidence does not show the direction or artifact.
 For `observed`, examine source and record current `source_refs` and `review_digest`.
+The Flow section of `references/schema.md` gives a command that prints these values.
 A declared flow has no structural or examined source evidence.
 Layer selection must not change an evidence state or hide its uncertainty.
