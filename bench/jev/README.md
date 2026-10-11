@@ -183,7 +183,7 @@ The `results/holdout/report.txt` file contains the output:
 
 | kind, at the shipped threshold | development | holdout | verdict |
 |---|---|---|---|
-| mis-fold, planted next door (P<0.05) | 95% caught, 4% flagged | 93%, 1% (n=106) | asked |
+| mis-fold, planted next door (P<0.05) | 95% caught, 4% flagged | 93%, 1% (n=96) | asked |
 | owner (confidence >= 0.9) | 56% answered, 98% right | 60%, 100% | asked |
 | sentence (P<0.2) | 67% caught, 1% flagged | 61%, 2% (44 wrong) | asked |
 | flow (P<0.2) | 66% caught, 2% flagged | 54%, 4% (48 wrong) | only with `--kind "jev flow"` |
@@ -386,7 +386,7 @@ The table gives coverage and extra components at each threshold:
 | **0.05** | **0.86** | **1.15** | **0.71** | **0.90** |
 | 0.02 | 0.88 | 1.91 | 0.74 | 1.31 |
 
-The development set contained 80 issues from Rich, Poetry, kstrl, Mealie, and Paperless.
+The development set contained 80 issues, 40 from Rich and 40 from Poetry (`results/report.txt`, issues).
 The holdout contained 39 HTTPie issues.
 The threshold that met the rules for the two sets was 0.05, which `systemap plan` uses.
 It named 2.1 components per task on each set.
@@ -1211,3 +1211,26 @@ effects and with a style rule `*{filter:none!important}`. The first 5 frames are
 The blur on every card failed the acceptance value in run 2 (33 percent). The shade shape passed.
 The page uses the shade shape. Software rendering is slower than a GPU, so the absolute times
 are not the times of a browser on a desktop computer.
+
+## Which prompts have no measurement? (2026-10-11)
+
+No new run was made. This section records the limits of the figures above for the shipped commands.
+
+The shipped prompts are not the measured prompts.
+The ASD-STE100 work changed the owner, sentence, flow, governs, triage, and move questions,
+and the pair question of `suggest --jev`.
+It also changed the text of the `none of these` and `not moved: deleted` options.
+The tests keep the measured text to replay the recorded answers:
+`HISTORICAL_QUESTIONS` in `tests/test_audit.py` and `HISTORICAL_BECAME_Q` in `tests/test_jev_moves.py`.
+The `plan` question was not sent in a measurement. `plan_eval.py` uses the recorded triage answers.
+All measured repositories are Python repositories. No result was measured on TypeScript.
+A measurement is necessary before a figure in this README applies to the shipped prompts or to TypeScript.
+The hints of `judgement` and `delta` say this, and they give the section of each figure.
+
+Test 8 measured delta followed by Jev picks at P>=0.8 as moves.
+In the shipped `delta`, a pick is a `jev move` suggestion. It does not change the delta lines or the exit code.
+The 16 correct picks of 17 thus measure the suggestions, not a change to the decisions.
+
+The `possible mis-fold` word rule has two recorded values on 195 development cases.
+`results/report.txt` gives 32%. The table in "Why was package ownership evidence rejected?" gives 61/195 (31%).
+The two values come from different recorded runs.

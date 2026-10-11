@@ -125,7 +125,8 @@ The development experiments selected thresholds on five mapped repositories in
 `bench/jev`. Three holdout maps used the same thresholds: systemap, scorecard,
 and a first map of httpie.
 The table gives measured results from the recorded prompts.
-This PR changes those prompts for ASD-STE100. The changed prompts have no new benchmark measurements.
+The prompts changed for ASD-STE100 after these measurements. The changed prompts have no new benchmark measurements.
+All measured repositories are Python repositories. No TypeScript result was measured.
 Do not use the recorded scores as results for the changed prompts or your system.
 
 | line | what it asks | development maps | holdout maps |
@@ -141,16 +142,34 @@ No question goes to Jev without `TYPESAFE_API_KEY`.
 `audit --dry-run` counts the questions and shows the data to send:
 module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
+With a key, the dry run gets the model list to count cached answers. It sends no map data.
+
+A `jev flow` question gets the source lines that use a name from the other component.
+For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
+For TypeScript, it compares the last part of the import path with the file name of the target module.
+A flow without such lines gets no question. The report gives the count of these flows.
+
+Each Jev answer must agree with its question: a choice from the offered options,
+and numbers from 0 to 1. An answer that does not agree stops the command with a message.
+The cache does not keep that answer.
 
 The cache is `.systemap/jev-cache.json`.
 Its key includes the model, release date, state, and question.
 A map without changes uses cached answers at no additional cost.
 A new model release causes new questions.
+If the model list is not available and the cache has every answer for the last known
+release, the command uses the cache. The usage line says so.
 
 Audit answers use `[judgement] answered` with `item`, `items`, or a kind such as
 `"jev flow"`. `audit` reads only answers for the kinds in its report.
 A type excluded from the report does not make its answer stale.
 `judgement` ignores all audit answers.
+
+The `jev mis-fold` and `jev owner` lines do not contain Jev's pick.
+The detail row gives the pick, so a new model release that changes only the pick
+does not open an answer again. Earlier versions put the pick at the end of the line,
+for example `jev mis-fold: Writer claims pkg.emit, which reads like Reader`.
+An answer with the earlier line text matches the current line, with the same evidence digest.
 
 `systemap triage "<issue>"` gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
@@ -160,19 +179,29 @@ in 80% of predictions. It was in the first three in 88%.
 With the key set, `delta` automatically sends questions to Jev.
 `--jev` explicitly sends questions and gives a reason if the request cannot complete.
 `--no-jev` sends nothing.
+If delta has no question for Jev, it sends nothing and prints no Jev line.
+
+Jev answers are suggestions for source examination. They are not evidence.
+They do not change the delta lines, the decisions, or the exit code.
+Thus a run with Jev, a run without a key, and a run in CI give the same result.
+The suggestions print under their own heading.
+If Jev does not answer, a `delta --jev:` line gives the reason under a different heading.
+
 Jev examines removed modules that delta did not pair with added modules.
 Delta first compares source, public names, and filenames.
-A Jev pairing with confidence of at least 0.8 becomes a move.
+A Jev pick with confidence of at least 0.8 prints as a `jev move` line, for example
+`jev move: pkg.ledger -> pkg.accounts.book (read as the same module by Jev, confidence 0.94)`.
+Jev also suggests a component for each module that no component claims, as a `jev owner` line.
 
-The report can print `(read as the same module by Jev, confidence 0.94)`.
-
-On renames in five repositories, the two methods together found 82 renames with source evidence.
-Delta alone found 66. Of the 17 added pairings, 16 were correct.
+With earlier prompts on Python repositories, delta found 66 renames.
+The Jev picks added 17 pairs, and 16 of them were correct.
 An agent wrote reference labels from commits without Jev's answers.
 The records are in `bench/jev`.
-A move can change the report and exit code.
 
-Jev also suggests a component for each unclaimed module.
+A `move candidate` line stays a decision while a component specifies the removed module
+in `implemented_by`, or while an added module has no claim and no ignore.
+Read the two source files. Then change the claims.
+The line then moves to the changes that need no action.
 
 `suggest --jev` groups modules from pair answers.
 Pairs have an import connection or the same package.
@@ -183,7 +212,7 @@ Thus, the command stays optional.
 
 Without a key, `judgement` prints an audit hint to stderr.
 `delta` prints a hint when a module was removed and another was added.
-Each hint gives a measured result.
+Each hint gives a result that was measured with earlier prompts on Python repositories.
 `[jev] enabled = false` stops the hints and automatic delta questions.
 
 ## What do you do above forty components?
@@ -431,10 +460,14 @@ Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
 does. The report shows moved, added, and removed modules with their
 components and model files.
+Delta reads the committed files. The Git attributes `export-subst` and
+`export-ignore` do not change them.
 
 Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
+An answer for a new crossing import must agree with the `judgement` rule:
+an exact answer needs the current evidence digest, and a family answer needs `policy = true`.
 The exit code is 0 if no decision is necessary, or 1 if not.
 
 The report ends with adjacent components.
@@ -445,8 +478,9 @@ the map.
 
 - `--format markdown` prints the pull-request comment.
 
-- `TYPESAFE_API_KEY` or `--jev` enables Jev pairing for modules with changed
-  names and content. Jev also suggests owners for unclaimed modules.
+- `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed
+  names and content, and for unclaimed modules. The suggestions do not change
+  the decisions or the exit code.
 
 - `--no-jev` sends nothing.
 
@@ -582,7 +616,7 @@ Unknown keys are rejected.
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A leading `-` removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds, including `"jev flow"`, use this table too. |
-| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[theme]` | warm | Color-token overrides. `scheme = "warm"`, `"graphite"`, or `"paper"` selects the default. The page offers all three. The 0.11 names `dark` and `light` still select graphite and paper. `[theme.paper]` overrides one scheme. `[theme.layers]` sets a color per layer id, including standard ids. `[theme.marks]` selects a mark per agent kind. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
