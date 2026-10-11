@@ -179,9 +179,11 @@ def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:
     }
 
 
-def unknown_map(tree: Tree, map_id: str) -> ConfigError:
-    """This function gives an unknown-map diagnostic with the available map IDs."""
+def unknown_map(tree: Tree, map_id: str, error: type[ConfigError] = ConfigError) -> ConfigError:
+    """This function gives an unknown-map diagnostic with the available map IDs.
+
+    A map ID from a command option gives an ArgumentError, the subclass for options."""
     known = ", ".join(m.id for m in tree.maps if m.id) or "none"
-    return ConfigError(
+    return error(
         f"unknown map id: {map_id}. The nested map IDs are {known} (the top map uses no --map)."
     )

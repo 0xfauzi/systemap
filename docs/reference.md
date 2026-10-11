@@ -39,7 +39,7 @@ The labels rule rejects these conditions:
 
 Exit code `0` shows a map with no stale outputs.
 Exit code `1` shows a rejected check.
-Exit code `2` shows unusable configuration or an unusable model.
+Exit code `2` shows unusable configuration, an unusable model, or an unusable option value.
 To keep a module out of map coverage, add an ignore under `[coverage]`.
 Each ignore must have a reason.
 
@@ -285,7 +285,9 @@ The full schema and examples are in
 All commands accept `--root DIR` before or after the command.
 This option shows a project outside the current directory.
 Exit codes are `0` for current, `1` for stale or rejected, and `2` for unusable
-configuration or model.
+configuration, model, or option value.
+The line after an error tells you which input to correct: a command option,
+`systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
 ### `systemap init [--no-ci]`
 
@@ -309,6 +311,10 @@ Package `__init__` records include re-exports.
 The other commands read this file.
 
 - `--check` exits 1 if stored facts differ from the source tree.
+  It also exits 1 if a model claim names a module that the source tree does not have.
+  The report gives the two problem groups separately.
+  For stale facts, run `systemap extract`.
+  For a model claim, correct the model. A new extraction does not correct it.
 
 ### `systemap facts`
 
@@ -400,6 +406,7 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 "map: The page agrees with the rendered model fields and the facts."
 A rejected check causes exit 1 and prevents rendering.
+`-q` or `--quiet` prints only errors and check results.
 
 ### `systemap suggest [--jev]`
 
@@ -555,6 +562,8 @@ An unknown kind causes exit 1.
 
 Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
+If the port is not available, the command exits 2.
+Then use `--port 0` to select an available port, or give a different port.
 
 ### `systemap skill [--dir PATH] [--print]`
 
