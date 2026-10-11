@@ -145,7 +145,7 @@ ignore = [
 ]
 
 [judgement]
-answered = [{ crossing = ["Ledger", "Parser"], reason = "a type import" }]
+answered = [{ crossing = ["Ledger", "Parser"], policy = true, reason = "a type import" }]
 
 [[figures]]
 out = "figures/system.svg"
@@ -288,12 +288,23 @@ def test_markdown_is_the_comment_with_the_committed_figure(
     assert f"![the map at {head[:7]}]({url})" in lines
     assert "systemap figure --mode change --base" in out
     assert out.endswith("`systemap refresh && systemap check && systemap judgement --strict`.\n")
-    # Without a remote there is no URL to give, and the comment says so.
-    git(repo, "remote", "remove", "origin")
+    # Without a GitHub remote there is no URL to give. The figure is committed, and
+    # the comment says so.
+    git(repo, "remote", "set-url", "origin", "https://git.example.com/acme/demo.git")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--format", "markdown"]) == 1
     out = capsys.readouterr().out
     assert "![" not in out
-    assert "No committed figure is available at `" in out
+    assert "No committed figure" not in out
+    assert (
+        f"The map figure `docs/map/figures/system.svg` is committed at `{head[:7]}`. The "
+        "comment shows no image because the origin remote is not on GitHub." in out
+    )
+    # Without a committed figure, the comment says that.
+    git(repo, "remote", "remove", "origin")
+    git(repo, "rm", "-q", "docs/map/figures/system.svg")
+    git(repo, "commit", "-q", "-m", "no figure")
+    assert main(["--root", str(repo), "delta", "--base", "HEAD~2", "--format", "markdown"]) == 1
+    assert "No committed figure is available at `" in capsys.readouterr().out
 
 
 def test_nothing_to_do_and_no_change_exit_zero(

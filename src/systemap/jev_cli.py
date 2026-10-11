@@ -1,6 +1,7 @@
 """Run commands that call Jev or a configured coding agent.
 
 These commands are outside cli.py to keep the CLI module small.
+`systemap.delta_jev` holds the Jev questions of `systemap delta`.
 Jev calls must have `TYPESAFE_API_KEY` and print usage.
 Completed semantic reports exit 0. Request errors exit 1.
 Plan comparison can exit 1 for changes outside the recorded plan.
@@ -9,7 +10,6 @@ Plan comparison can exit 1 for changes outside the recorded plan.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -27,7 +27,6 @@ from systemap import (
     journeys,
     judgement,
     model_write,
-    moves,
     nest,
 )
 from systemap import plan as plan_mod
@@ -42,11 +41,6 @@ OK, STALE = 0, 1
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
 REPORT_CAP = 2000
-# Delta prints Jev's pick for a module that disappeared at this confidence or
-# more, when delta's own three questions left it unpaired: delta and these picks
-# found 82 renames against delta's 66, and 16 of the 17 added pairs were right
-# (bench/jev/README.md, "What did tests 7 and 8 measure?").
-MOVE_AT = 0.8
 # Pairs at or above this are one part, for `suggest --jev`: with the threshold
 # chosen on four development maps and scored on the fifth, pairwise F1 beat one
 # card per package by 0.18 on average, and lost on two maps of five
@@ -54,14 +48,6 @@ MOVE_AT = 0.8
 SAME_AT = 0.4
 
 TRIAGE_Q = "`report` is an issue for this system. Which component will the fix probably change?"
-BECAME_Q = (
-    "The commit removed `old_module` and added the option modules. Which "
-    "new module is the removed module after a move, rename, or edit? If no option "
-    "continues the removed module, select the deleted option."
-)
-NOT_MOVED = "not moved: deleted"
-# How many new modules the question offers: the measured cap.
-MOVE_OPTIONS = 250
 SAME_Q = (
     "Do `module_a` and `module_b` have the same system function and belong to one "
     "component? Components that only call each other or share types stay different."
@@ -222,41 +208,6 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     return OK
 
 
-# ---- delta --jev: a card for every module no card claims ---------------------------
-
-UNCLAIMED = (
-    re.compile(r"^(?:\S+: )?added: (\S+), claimed by no card"),
-    re.compile(r"^(?:\S+: )?moved: \S+ -> (\S+) \(.*\); no card claims"),
-)
-
-
-def unclaimed_in(lines: list[str]) -> list[str]:
-    out = []
-    for line in lines:
-        for pattern in UNCLAIMED:
-            found = pattern.match(line)
-            if found:
-                out.append(found[1])
-    return out
-
-
-def owner_suggestions(
-    cfg: config.Config, tree: nest.Tree, head: dict[str, Any], modules: list[str], client: jev.Jev
-) -> list[str]:
-    """Give one owner prediction or three candidates per unclaimed module."""
-    if not modules:
-        return []
-    plan = audit.Plan()
-    audit.plan_owner(plan, tree.top, head, modules, cfg.name, placed_too=False)
-    answered = client.ask(plan.asks)
-    out = []
-    for ask in plan.asks:
-        line = audit.owner_line(plan.reads[ask.key], answered[ask.key])
-        if line is not None:
-            out.append(f"{line.text} ({'; '.join(line.detail)})")
-    return out
-
-
 # ---- journeys: a walk written for a way in nothing walks from yet ------------------
 
 # How many walks one run writes without being asked for more: a maintainer
@@ -403,69 +354,6 @@ def _atomic_model_write(path: Path, source: str) -> None:
 def writer_usage(writer: agent.Agent) -> None:
     if writer.usage.called or writer.usage.cached:
         print(writer.usage.line(), file=sys.stderr)
-
-
-# ---- delta --jev: which new module a module that disappeared became ---------------
-
-
-def _first_sentence(text: str, cap: int) -> str:
-    text = " ".join((text or "").split())
-    for end in (". ", ".\n"):
-        i = text.find(end)
-        if i != -1:
-            text = text[: i + 1]
-            break
-    return text[:cap]
-
-
-def _brief(record: dict[str, Any]) -> str:
-    names = ", ".join(n["name"] for n in record.get("names", [])[:12])
-    doc = _first_sentence(record.get("docstring") or "", 160)
-    return f"{record.get('file')}: {doc} Names: {names}"
-
-
-def _move_ask(base: dict[str, Any], old: str, criteria: dict[str, str]) -> Ask:
-    record = base[old]
-    state = {
-        "old_module": {
-            "module": old,
-            "file": record.get("file"),
-            "docstring": record.get("docstring"),
-            "names": [n["name"] for n in record.get("names", [])][:40],
-        }
-    }
-    question = {"type": "choice", "instructions": BECAME_Q, "criteria": criteria}
-    return Ask(old, state, {"became": question})
-
-
-def jev_moves(
-    base: dict[str, Any], head: dict[str, Any], client: jev.Jev
-) -> dict[str, tuple[str, str]]:
-    """Pair removed modules with new modules at confidence MOVE_AT or more.
-
-    Delta's rules first remove known pairs. Jev selects from the unpaired candidates.
-    """
-    b, h = base.get("components", {}), head.get("components", {})
-    gone = sorted(set(b) - set(h))
-    new = sorted(set(h) - set(b))
-    found = moves.find(b, h, gone, new)
-    left = [m for m in gone if m not in found and not extract.is_empty_marker(b[m])]
-    options = [m for m in new if not extract.is_empty_marker(h[m])]
-    if not left or not options:
-        return {}
-    criteria = {m: _brief(h[m]) for m in options[:MOVE_OPTIONS]}
-    criteria[NOT_MOVED] = "The removed module was deleted. No new module continues its function."
-    asks = [_move_ask(b, old, criteria) for old in left]
-    answered = client.ask(asks)
-    picks = sorted(
-        ((answered[a.key]["became"], a.key) for a in asks),
-        key=lambda p: (-p[0].get("confidence", 0.0), p[1]),
-    )
-    return {
-        old: (a["choice"], f"read as the same module by Jev, confidence {a['confidence']:.2f}")
-        for a, old in picks
-        if a.get("choice") not in (None, NOT_MOVED) and a.get("confidence", 0.0) >= MOVE_AT
-    }
 
 
 # ---- suggest --jev: groups from Jev's answers about module pairs -------------------

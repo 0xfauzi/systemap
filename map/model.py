@@ -158,6 +158,7 @@ COMPONENTS = (
         implemented_by=(
             "systemap.change",
             "systemap.delta",
+            "systemap.delta_git",
             "systemap.delta_report",
             "systemap.moves",
             "systemap.history",
@@ -316,6 +317,7 @@ COMPONENTS = (
         implemented_by=(
             "systemap.audit",
             "systemap.audit_code",
+            "systemap.delta_jev",
             "systemap.jev_cli",
             "systemap.jev",
             "systemap.agent",

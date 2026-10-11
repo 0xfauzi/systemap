@@ -545,16 +545,6 @@ def test_judgement_ignores_audit_answers(
 # ---- delta --jev and suggest --jev: the pieces that read the report and the pairs ---
 
 
-def test_unclaimed_modules_are_read_off_delta_lines() -> None:
-    lines = [
-        "added: pkg.new, claimed by no card; name it in a card's implemented_by in map/model.py, or ignore it",
-        "Gateway: added: pkg.gate.x, claimed by no card; the map inside Gateway claims exactly",
-        "moved: pkg.a -> pkg.b (same content); no card claims pkg.b: name it in a card's implemented_by",
-        "added: pkg.claimed, claimed by Reader",
-    ]
-    assert jev_cli.unclaimed_in(lines) == ["pkg.new", "pkg.gate.x", "pkg.b"]
-
-
 def test_delta_asks_only_about_the_unclaimed_modules(sample: Sample) -> None:
     plan = audit.Plan()
     audit.plan_owner(plan, tree_of(sample).top, sample.facts, ["pkg"], "sample", placed_too=False)

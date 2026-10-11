@@ -3,26 +3,27 @@
 It finds added, removed, and moved modules, missing public names, new imports, and
 changes to flow evidence. The model on disk supplies the component claims. The report
 identifies decisions and gives actions without changing the model.
+
+Only source facts, the model, and the configured answers set the lines and the exit
+code. A Jev answer does not change them (`systemap.delta_jev`), so a run with Jev and
+a run without Jev give the same decisions.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import io
-import re
-import subprocess
-import tarfile
-import tempfile
-from collections.abc import Mapping
+import hashlib
+import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from systemap import card_review, delta_report, evidence, extract, graph, nest
+from systemap import card_review, delta_git, delta_report, evidence, extract, graph, nest
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
 from systemap.config import Config
-from systemap.judgement import answers, crossing_line, crossing_pairs
+from systemap.judgement import apply_answers, crossing_line, crossing_pairs
+from systemap.judgement_evidence import answer_state
 from systemap.model import (
     Component,
     Meaning,
@@ -42,6 +43,12 @@ NEXT = delta_report.NEXT
 markdown = delta_report.markdown
 near_lines = delta_report.near_lines
 report = delta_report.report
+# Keep the public delta API while Git reading lives in its own module.
+DeltaError = delta_git.DeltaError
+resolve = delta_git.resolve
+merge_base = delta_git.merge_base
+facts_at = delta_git.facts_at
+figure_url = delta_git.figure_url
 
 # Every kind of line this module prints, for the teaching in `systemap.explain`.
 KINDS = (
@@ -58,85 +65,10 @@ KINDS = (
 )
 
 
-class DeltaError(Exception):
-    """The program cannot compare the requested commits. The message gives the reason."""
-
-
-# ---- git: the facts at a commit, without touching the working copy -----------
-
-
-def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True, timeout=300)
-
-
-def resolve(repo: Path, ref: str) -> str:
-    """This function resolves a Git ref to a full commit SHA, or raises DeltaError."""
-    proc = _git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
-    if proc.returncode != 0 or not proc.stdout.strip():
-        raise DeltaError(f"unknown ref {ref}. Give a commit, branch, or tag that Git can resolve.")
-    return proc.stdout.decode("utf-8").strip()
-
-
-def merge_base(repo: Path, base: str, head: str) -> str:
-    """This function finds a common ancestor, or uses the base commit if Git cannot find
-    one.
-    """
-    proc = _git(repo, "merge-base", base, head)
-    out = proc.stdout.decode("utf-8").strip()
-    return out if proc.returncode == 0 and out else base
-
-
-def _extract_all(tar: tarfile.TarFile, into: Path) -> None:
-    # The data filter refuses paths outside the target; it exists from
-    # 3.11.4, and an older 3.11 extracts the archive git wrote as is.
-    if hasattr(tarfile, "data_filter"):
-        tar.extractall(into, filter="data")
-    else:  # pragma: no cover - older interpreters only
-        tar.extractall(into)
-
-
-def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
-    """This function extracts facts at a Git commit without reading the working tree."""
-    proc = _git(cfg.root, "archive", "--format=tar", sha)
-    if proc.returncode != 0:
-        raise DeltaError(
-            f"git archive {sha[:7]} returned an error: "
-            f"{proc.stderr.decode('utf-8', 'replace').strip()}"
-        )
-    with tempfile.TemporaryDirectory(prefix="systemap-delta-") as tmp:
-        into = Path(tmp).resolve()
-        with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
-            _extract_all(tar, into)
-        facts = extract.build(dataclasses.replace(cfg, root=into))
-    facts["built_at_commit"] = sha
-    return facts
-
-
-def remote_repository(repo: Path) -> str:
-    """This function gets owner/name from a GitHub origin remote, or gives an empty string."""
-    proc = _git(repo, "remote", "get-url", "origin")
-    if proc.returncode != 0:
-        return ""
-    url = proc.stdout.decode("utf-8", "replace").strip()
-    found = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", url)
-    return f"{found.group(1)}/{found.group(2)}" if found else ""
-
-
-def figure_url(cfg: Config, sha: str) -> str:
-    """This function gives a URL for the committed full-map figure, or an empty string.
-
-    A comment must have an absolute URL to show a repository image.
-    """
-    owner = remote_repository(cfg.root)
-    if not owner:
-        return ""
-    svgs = [f for f in cfg.figures if f.out.endswith(".svg")]
-    whole = [f for f in svgs if not f.layer]
-    for fig in whole + svgs:
-        path = f"{cfg.out_dir}/{fig.out}"
-        if _git(cfg.root, "cat-file", "-e", f"{sha}:{path}").returncode == 0:
-            return f"https://github.com/{owner}/blob/{sha}/{path}?raw=true"
-    return ""
+def comment(cfg: Config, d: Delta, head_sha: str) -> str:
+    """This function gives the pull request comment with the committed figure, if any."""
+    path = delta_git.committed_figure(cfg, head_sha)
+    return markdown(d, delta_git.figure_url(cfg, head_sha, path), path)
 
 
 # ---- the comparison --------------------------------------------------------------
@@ -144,12 +76,18 @@ def figure_url(cfg: Config, sha: str) -> str:
 
 @dataclass(frozen=True)
 class Line:
-    """This record gives one map change and its necessary action."""
+    """This record gives one map change and its necessary action.
+
+    `module` is the module that no component claims, for an added or moved module.
+    `map_id` identifies the nested map of the line. The top map has an empty id.
+    """
 
     kind: str
     text: str
     cards: tuple[str, ...] = ()
     decide: bool = False
+    module: str = ""
+    map_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -234,7 +172,6 @@ def compute(
     model_file: str = "",
     within: str = "",
     prefix: str = "",
-    told: Mapping[str, tuple[str, str]] = moves_mod.NO_MOVES,
 ) -> Delta:
     """This function compares base and head facts against the model on disk.
 
@@ -245,7 +182,7 @@ def compute(
     h: dict[str, Any] = head.get("components", {})
     gone = sorted(set(b) - set(h))
     new = sorted(set(h) - set(b))
-    moves = moves_mod.with_told(moves_mod.find(b, h, gone, new), told, gone, new)
+    moves = moves_mod.find(b, h, gone, new)
     renamed = {old: new_name for old, (new_name, _how) in moves.items()}
     inverse = {new_name: old for old, new_name in renamed.items()}
     model_file = model_file or cfg.model
@@ -267,18 +204,9 @@ def compute(
     lines: list[Line] = []
 
     for old, alternatives in moves_mod.candidates(b, h, gone, new, moves).items():
-        who = owner_base.get(old, "")
-        lines.append(
-            Line(
-                "move candidate",
-                (
-                    f"move candidate: {old} and {', '.join(alternatives)} have some of the same "
-                    f"public names. Examine the source before you accept a pair as a move."
-                ),
-                (who,) if who else (),
-                decide=True,
-            )
-        )
+        named = any(_names_it(c, old) for c in model.components)
+        homes = [_home(m, owner_written, ignored, within) for m in alternatives]
+        lines.append(_candidate(old, alternatives, owner_base.get(old, ""), named, homes))
 
     # ---- moved, added, removed ------------------------------------------------
     for old, (new_name, how) in moves.items():
@@ -332,6 +260,7 @@ def compute(
                     ),
                     (was,) if was else (),
                     decide=True,
+                    module=new_name,
                 )
             )
         else:
@@ -371,6 +300,7 @@ def compute(
                         f"implemented_by in {model_file}, {way_out}"
                     ),
                     decide=True,
+                    module=module,
                 )
             )
     for module in gone:
@@ -488,8 +418,8 @@ def compute(
             q = owner_head.get(target)
             if not q or q == p or frozenset((p, q)) in joined or (module, target) in before:
                 continue
-            asked = prefix + crossing_line(p, q, pairs.get((p, q), [(module, target)]))
-            if any(answers(a, asked) for a in cfg.judgement_answered):
+            imports = pairs.get((p, q), [(module, target)])
+            if _answered(cfg, prefix + crossing_line(p, q, imports), h, imports):
                 continue
             lines.append(
                 Line(
@@ -537,6 +467,42 @@ def compute(
         seed=seed,
         near=near,
     )
+
+
+def _home(module: str, owner: dict[str, str], ignored: Callable[[str], bool], within: str) -> str:
+    """This function tells where the model puts a module, or gives an empty string."""
+    if owner.get(module):
+        return f"{module} has a claim in {owner[module]}"
+    return f"{module} is ignored in [coverage]" if ignored(module) and not within else ""
+
+
+def _candidate(
+    old: str, alternatives: tuple[str, ...], who: str, named: bool, homes: list[str]
+) -> Line:
+    """This function gives a move candidate line.
+
+    The line is a decision while a component specifies the removed module, or while the
+    model has no place for an added module. A model change closes it.
+    """
+    pair = f"move candidate: {old} and {', '.join(alternatives)} have some of the same public names"
+    if named or not all(homes):
+        text = f"{pair}. Examine the source before you accept a pair as a move."
+        return Line("move candidate", text, (who,) if who else (), decide=True)
+    text = f"{pair}. No component specifies {old} in implemented_by. {'. '.join(homes)}"
+    return Line("move candidate", text, (who,) if who else ())
+
+
+def _answered(
+    cfg: Config, line: str, components: dict[str, Any], imports: list[tuple[str, str]]
+) -> bool:
+    """This function accepts an answer for a crossing line with the judgement rule.
+
+    An exact answer must have the current evidence digest. A family answer must have
+    `policy = true`. The digest uses the working tree source, as judgement does.
+    """
+    state = answer_state(components, cfg.root, "", imports)
+    digest = hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()
+    return not apply_answers([line], cfg.judgement_answered, {line: digest}).open
 
 
 def _flow_review_lines(
@@ -701,19 +667,18 @@ def compute_tree(
     head: dict[str, Any],
     base_ref: str = "",
     head_ref: str = "",
-    told: Mapping[str, tuple[str, str]] = moves_mod.NO_MOVES,
 ) -> Delta:
     """This function compares all maps in one report.
 
     The top map uses all modules. Each nested map uses its parent component modules at
     each commit. The move mapping keeps renamed modules in the nested comparison.
     """
-    top = compute(cfg, tree.top.model, tree.top.meaning, base, head, base_ref, head_ref, told=told)
+    top = compute(cfg, tree.top.model, tree.top.meaning, base, head, base_ref, head_ref)
     b: dict[str, Any] = base.get("components", {})
     h: dict[str, Any] = head.get("components", {})
     gone = sorted(set(b) - set(h))
     new = sorted(set(h) - set(b))
-    moves = moves_mod.with_told(moves_mod.find(b, h, gone, new), told, gone, new)
+    moves = moves_mod.find(b, h, gone, new)
     renamed = {old: new_name for old, (new_name, _how) in moves.items()}
     inverse = {new_name: old for old, new_name in renamed.items()}
     lines = list(top.lines)
@@ -735,7 +700,6 @@ def compute_tree(
             model_file=m.rel,
             within=card.id,
             prefix=m.prefix,
-            told=told,
         )
         cards += sub.cards
         lines += [
@@ -743,6 +707,7 @@ def compute_tree(
                 line,
                 text=m.prefix + line.text,
                 cards=tuple(f"{m.id}/{c}" for c in line.cards),
+                map_id=m.id,
             )
             for line in sub.lines
         ]

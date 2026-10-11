@@ -138,9 +138,31 @@ def _lines_taught(lines: list[Line], teach: bool, taught: set[str]) -> list[str]
     return out
 
 
-def markdown(d: Delta, figure: str = "") -> str:
-    """This function formats a pull request comment. The figure parameter supplies a
-    committed map URL.
+def _figure_lines(figure: str, committed: str, head_short: str, base_short: str) -> list[str]:
+    """This function gives the figure image, or the reason that the comment has none."""
+    command = (
+        f"The change map command is `systemap figure --mode change --base {base_short} "
+        f"--out change.svg`."
+    )
+    if figure:
+        return [
+            f"![the map at {head_short}]({figure})",
+            "",
+            f"The committed map at `{head_short}`. {command}",
+        ]
+    if committed:
+        return [
+            f"The map figure `{committed}` is committed at `{head_short}`. The comment shows "
+            f"no image because the origin remote is not on GitHub. {command}"
+        ]
+    return [f"No committed figure is available at `{head_short}`. {command}"]
+
+
+def markdown(d: Delta, figure: str = "", committed: str = "") -> str:
+    """This function formats a pull request comment.
+
+    The figure parameter supplies a committed map URL. The committed parameter supplies
+    the path of a committed figure that has no URL.
     """
     span = f"`{_label(d.base_ref, d.base)}` to `{_label(d.head_ref, d.head)}`"
     out = [MARKER, "## What this change does to the map", ""]
@@ -167,17 +189,7 @@ def markdown(d: Delta, figure: str = "") -> str:
         out += [f"> {FULL_LOOP[0].upper()}{FULL_LOOP[1:]}.", ""]
     head_short = d.head[:7] or d.head_ref
     base_short = d.base[:7] or d.base_ref
-    if figure:
-        out += [f"![the map at {head_short}]({figure})", ""]
-        out.append(
-            f"The committed map at `{head_short}`. The change map command is `systemap "
-            f"figure --mode change --base {base_short} --out change.svg`."
-        )
-    else:
-        out.append(
-            f"No committed figure is available at `{head_short}`. The change map command "
-            f"is `systemap figure --mode change --base {base_short} --out change.svg`."
-        )
+    out += _figure_lines(figure, committed, head_short, base_short)
     if d.open:
         out.append(f"Do the action for each diagnostic. Then use `{NEXT}`.")
     else:
