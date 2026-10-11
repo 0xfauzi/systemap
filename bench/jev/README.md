@@ -1602,3 +1602,62 @@ The Ink token tables of the page are the same before and after the change.
 | Self-map page, no comparison, scratch build | 644,811 | 644,416 |
 
 These measurements do not show user comprehension.
+
+## Sequences view: sequence button, line colors and phone step (2026-10-11)
+
+Acceptance:
+
+- Phone step: on screens of 390 x 844, 375 x 667, and 430 x 932 pixels, Previous and Next are on the screen
+  without a scroll for each step of the self map. The space under them is 16 px, or the bottom safe area when that area is larger.
+- Line colors: in Ink and Paper, with normal vision and with protanopia and deuteranopia simulations,
+  the current step line is the line that is easiest to see. A line keeps the color of its flow kind.
+- Page size: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+
+### Phone step
+
+Before the change, the map frame of a phone step had a fixed height of 340 px, and the step did not fill the screen.
+The method: Chromium from Playwright, the self-map page from a scratch build, the Sequences view in Ink.
+A script goes to each of the 46 steps of the 11 sequences. It reads the bounds of the map frame and of the row with Previous and Next.
+The space is the distance from the bottom of that row to the bottom of the screen.
+
+| Screen | Space before | Map frame before | Space after | Map frame after |
+|---|---|---|---|---|
+| 390 x 844 | 3 to 105 px | 340 px | 16 px | 327 to 429 px |
+| 430 x 932 | 105 to 193 px | 340 px | 16 px | 429 to 517 px |
+| 375 x 667 | Previous and Next below the screen for 46 of 46 steps, up to 178 px | 340 px | 2 to 16 px | 160 to 252 px |
+
+The first change set a minimum of 180 px for the map frame. With it, 2 of the 46 steps put Previous and Next 18 px below
+the 375 x 667 screen. That failed the acceptance value. A minimum of 160 px gives the values in the table.
+For the longest step on 375 x 667, the space under the buttons is 2 px, and the page scrolls 14 px to show the bottom padding.
+The page has no `viewport-fit=cover` in its viewport tag. Thus the bottom safe area is 0 in a browser now,
+and the space is 16 px. With `viewport-fit=cover`, the safe area applies when it is larger than 16 px.
+
+### Line colors
+
+The method: screenshots of steps 1 and 4 of the sequence "Read the change history" at 1440 x 900 pixels.
+Step 1 is a control flow, and step 4 is a data flow. A script applies the coloraide Brettel filter for protanopia
+and deuteranopia, severity 1, in linear sRGB, to each color of a 500 x 360 pixel part of the map.
+The examination of the images is visual. It is not a contrast measurement.
+
+| Run | Values | Result |
+|---|---|---|
+| 1 | Ink. Under the current line: the `hl` token, 11 px, 0.9 opacity (16 percent amber). Current line 2.6 px. | Fail: the wider line under the current line is almost not visible |
+| 2 | Ink. Under the line: accent at 0.3, 0.35, and 0.4 opacity, 10 to 12 px. Current line 2.6, 2.8, and 3.0 px. | Pass for each variant, in all three images. The values 0.3, 11 px, and 2.6 px are the smallest |
+| 3 | After the merge of the Paper change: 12 px in both themes. Ink: accent at 0.3. Paper: `hl_line` `#FFEBA0` at full opacity | Pass in Ink and Paper, steps 1 and 4, in all three images |
+
+The earlier steps have the rest width, 1.6 px, at full opacity. The later steps have the rest width at 40 percent opacity.
+
+### Page size
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (9defc3d) | 306,145 |
+| Sample page, base with the line rule | 304,154 |
+| Sample page, base with the line rule and the sequence button | 306,815 |
+| Sample page, codex/map-workspace with the Paper change (8e95034) | 305,750 |
+| Sample page, this branch after the merge of 8e95034 | 306,599 |
+| Self-map page, scratch build, 8e95034 | 652,810 |
+| Self-map page, scratch build, this branch after the merge | 652,563 |
+
+The sequence button needs about 2,300 bytes of script. The line rule removes the sequence arrowheads, the glow rules and the key
+under the step list. The panel styles merge repeated declarations. The sample page passes with 601 bytes of space.
