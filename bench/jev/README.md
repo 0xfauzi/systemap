@@ -1179,3 +1179,17 @@ Two changes made the page smaller without a change to its behavior:
 
 The sample page passes with 6,150 bytes of space. A small addition to the page scripts can exceed the limit again.
 All 14 board states rendered in Chromium after the change with no page error.
+
+## CI failures on the map page change (2026-10-11)
+
+Acceptance: every CI job passes on the pull request head.
+
+- Run 96 failed 12 tests on Windows. The tests read and wrote the page with the platform encoding
+  (cp1252). The new page contains characters that cp1252 cannot decode, for example the arrows
+  in the keyboard sheet (byte 0x90 of U+2190). The tests now read and write files, and decode Node
+  output, as UTF-8. The source code already wrote UTF-8.
+- Run 96 also failed the strict judgement, delta and install jobs. Seven answers had old evidence
+  digests, and Schematic, Page and Figures had changed source with no new source review.
+  The claims were examined again, one description was corrected, and the digests were recorded.
+- Run 97 passed all jobs except `test (macos-latest, 3.11)`. That job stopped before the tests:
+  the download of `tree-sitter-typescript` 0.23.2 timed out three times. No test ran.
