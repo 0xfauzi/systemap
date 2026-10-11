@@ -160,11 +160,16 @@ def with_retries(send: Send, attempts: int = ATTEMPTS, pause: float = 0.5) -> Se
 
 @dataclass(frozen=True)
 class Ask:
-    """One request with a caller-selected key, state, and questions."""
+    """One request with a caller-selected key, state, and questions.
+
+    `needs` gives the options whose probabilities each choice answer must give. It is
+    not sent and is not part of the cache key.
+    """
 
     key: str
     state: Any
     questions: dict[str, dict[str, Any]]
+    needs: tuple[str, ...] = ()
 
     def chars(self) -> int:
         return len(json.dumps(self.state)) + len(json.dumps(self.questions))
@@ -214,13 +219,26 @@ def answer_problem(question: dict[str, Any], answer: Any) -> str | None:
     return None
 
 
+def _missing(
+    question: dict[str, Any], answer: dict[str, Any], needs: tuple[str, ...]
+) -> str | None:
+    """Give the first needed option without a probability in a choice answer, or None."""
+    if question.get("type") != "choice":
+        return None
+    given = answer.get("probabilities") or {}
+    absent = [name for name in needs if name not in given]
+    return f"no probability for {absent[0]}" if absent else None
+
+
 def checked(ask: Ask, answers: Any) -> Answers:
     """Give the answers to the questions of one request, or raise JevError."""
     if not isinstance(answers, dict):
         raise JevError(f"Jev gave no answers for {printable(ask.key)}")
     out: Answers = {}
     for name, question in ask.questions.items():
-        problem = answer_problem(question, answers.get(name))
+        problem = answer_problem(question, answers.get(name)) or _missing(
+            question, answers[name], ask.needs
+        )
         if problem is not None:
             raise JevError(
                 f"Jev gave an incorrect answer to {name} for {printable(ask.key)}: {problem}"

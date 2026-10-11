@@ -113,6 +113,24 @@ def test_a_missing_probability_for_the_claimed_component_is_an_error(sample: Sam
         audit.owner_line(read, answer)
 
 
+def test_an_owner_answer_without_the_claimed_probability_is_not_kept(
+    sample: Sample, tmp_path: Path
+) -> None:
+    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ("jev mis-fold",))
+    partial = Fake(
+        lambda name, q: {
+            "type": "choice",
+            "choice": audit.NONE,
+            "confidence": 0.9,
+            "probabilities": {audit.NONE: 0.9},
+        }
+    )
+    cache = tmp_path / "jev.json"
+    with pytest.raises(jev.JevError, match="no probability for"):
+        jev.Jev(partial, cache=jev.Cache(cache)).ask(plan.asks)
+    assert jev.Cache(cache).entries == {}
+
+
 def test_triage_and_plan_use_the_choice_when_jev_gives_no_probabilities(
     two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

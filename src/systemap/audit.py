@@ -109,8 +109,15 @@ class Plan:
     # Flows without a source line that uses a name from the other component.
     unasked: list[str] = field(default_factory=list)
 
-    def add(self, key: str, state: Any, questions: dict[str, Any], read: Any) -> None:
-        self.asks.append(Ask(key, state, questions))
+    def add(
+        self,
+        key: str,
+        state: Any,
+        questions: dict[str, Any],
+        read: Any,
+        needs: tuple[str, ...] = (),
+    ) -> None:
+        self.asks.append(Ask(key, state, questions, needs))
         self.reads[key] = read
 
 
@@ -196,7 +203,9 @@ def plan_owner(
     placed = [(mod, cid) for mod, cid in placed if m.model.component(cid).kind != "actor"]
     for mod, cid in placed + [(mod, "") for mod in extra]:
         state = {"system": system, "module": module_state(facts, mod)}
-        plan.add(f"{m.id}|owner|{mod}", state, question, ("owner", m, mod, cid))
+        # A mis-fold reads P(claimed component): an answer without it is refused.
+        needs = (cid,) if cid else ()
+        plan.add(f"{m.id}|owner|{mod}", state, question, ("owner", m, mod, cid), needs)
 
 
 def plan_sentences(plan: Plan, m: nest.Map, facts: dict[str, Any]) -> None:
