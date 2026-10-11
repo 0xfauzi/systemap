@@ -6,6 +6,8 @@ inputs. The correction line names the input that gives the error.
 
 from __future__ import annotations
 
+import argparse
+import dataclasses
 import socket
 import sys
 from http.server import ThreadingHTTPServer
@@ -14,7 +16,7 @@ from pathlib import Path
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import skill
+from systemap import cli, extract, skill
 from systemap.cli import main
 
 CONFIG_FIX = "Correct systemap.toml or the model module. Then run the command again."
@@ -162,3 +164,21 @@ def test_extract_check_gives_a_model_claim_as_a_model_correction(
     assert out.startswith("map: The map is stale (")
     assert "run: systemap extract\nmap: The model does not agree" in out
     assert out.rstrip().endswith("Correct map/model.py. Then use systemap check.")
+
+
+def test_facts_without_modules_give_the_package_roots_correction(two_cards: Path) -> None:
+    # The check gives this entry line when the facts have no module and the model
+    # has source components. The model is then not the input to correct.
+    project = cli._project(argparse.Namespace(root=str(two_cards)))
+    results = cli._check_tree(project, extract.read_facts(project.cfg.facts_path))
+    assert cli._fix_line(project, results) == "run: systemap refresh"
+    top = results[project.tree.top.id]
+    results[project.tree.top.id] = dataclasses.replace(
+        top,
+        coverage=dataclasses.replace(top.coverage, total=0, mapped=0),
+        entry=["The facts contain no source modules."],
+    )
+    assert cli._fix_line(project, results) == (
+        "Set [package_roots] in systemap.toml to the directories that contain the source "
+        "files. Then use systemap check."
+    )

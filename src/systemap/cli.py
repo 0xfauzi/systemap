@@ -45,7 +45,7 @@ from systemap import (
 )
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
-from systemap.config import ArgumentError, Config, ConfigError
+from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
 from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
 from systemap.serve import make_server
@@ -304,16 +304,31 @@ def _fix_line(p: Project, results: dict[str, check.Result]) -> str:
     top = results[p.tree.top.id]
     if not top.coverage.checked:
         return "run: systemap extract"
-    if top.coverage.problems:
-        return (
-            f"Give each module a component in {p.cfg.model}, or give a reason to ignore it "
-            f"in [coverage]. Then use systemap check."
-        )
+    coverage = _coverage_fix(p, top)
+    if coverage:
+        return coverage
     for m in p.tree.maps:
         result = results[m.id]
         if result.entry or result.interface or result.nesting:
             return f"Correct {m.rel}. Then use systemap check."
     return "run: systemap refresh"
+
+
+def _coverage_fix(p: Project, top: check.Result) -> str:
+    """Give the action for facts without modules or for coverage errors, or no action.
+
+    Facts without modules and a model with source components need new package roots."""
+    if top.coverage.total == 0 and top.entry:
+        return (
+            f"Set [package_roots] in {p.cfg.source or CONFIG_FILE} to the directories that "
+            f"contain the source files. Then use systemap check."
+        )
+    if top.coverage.problems:
+        return (
+            f"Give each module a component in {p.cfg.model}, or give a reason to ignore it "
+            f"in [coverage]. Then use systemap check."
+        )
+    return ""
 
 
 def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
