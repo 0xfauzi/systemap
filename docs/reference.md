@@ -517,23 +517,30 @@ the map.
 
   1. The decision. If a decision is necessary, each open line and its action follows.
   2. One row each for components, flows, sequences, and invariants.
-  3. A Mermaid picture of the changed flows. GitHub draws it in the comment.
+  3. A Mermaid diagram of the changed flows. GitHub shows the diagram in the comment.
   4. A closed section with the lines for which no action is necessary.
-  5. A link to the committed full map figure, if there is one.
+  5. The URL of the committed full map figure, if there is one.
 
-  The rows compare the model at the merge base with the model on disk.
-  Delta loads the base model from the committed files, as `check` loads the model on disk.
+  The rows compare the model at the common Git ancestor of the two commits with the model at the head commit.
+  Delta loads the two models from the committed files, as `check` loads the model on disk.
+  In CI, the model on disk can contain changes from the base branch that are not in the pull request.
+  If the head model does not load, the rows use the model on disk, and the comment gives the reason.
   A component row gives added and removed components.
   It gives components with changed claims, with the names of the changed fields.
   It also gives components with changed source and no changed claim.
   A flow row gives added, removed, and changed flows.
   A changed flow has a changed artifact, kind, relation sentence, cited source, or evidence state.
   A new digest for the same cited module or symbol is not a change.
-  A changed step is a step whose flow changed or has an end at a changed component.
-  An invariant row gives the invariants for a changed component, and their text follows in a closed section.
-  Each group names ten items or fewer. A count gives the other items.
-  The picture shows 30 flows or fewer. With more flows, it shows only the added and removed flows.
+  A sequence row gives added, removed, and changed sequences, and the sequences with a changed step.
+  A changed step has a changed flow, or a flow that connects to a changed component.
+  An invariant row gives added, removed, and changed invariants, and the invariants for a changed component.
+  A closed section gives the text of each invariant that the row identifies.
+  Each group shows a maximum of ten names. For the other items, the group gives only their quantity.
+  The diagram shows a maximum of 30 flows.
+  If more flows changed, the diagram shows only the added and removed flows.
+  If there are no added or removed flows, or more than 30, the comment has no diagram.
   If the base model does not load, the rows give only changed source, and the comment gives the reason.
+  The comment shows a full commit ID as its first seven characters.
   The comparison does not change the delta lines, the decisions, or the exit code.
 
 - `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed

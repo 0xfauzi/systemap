@@ -11,10 +11,12 @@ A layer is a filtered view of the map.
 
 - The pull request comment from `systemap delta --format markdown` starts with the decision.
   Then it gives the components, flows, sequences, and invariants that the change added, removed, or changed.
-  Delta loads the model at the merge base from the committed files for this comparison.
-  A Mermaid picture shows only the changed flows. Previously, the comment showed the full map image.
+  For this comparison, delta loads the models at the common Git ancestor and at the head commit from the committed files.
+  A Mermaid diagram shows only the changed flows.
+  Before this change, the comment showed the image of the full map. Now it gives the URL of that image.
   The lines for which no action is necessary are in a closed section.
-  The comment no longer gives the list of connected components.
+  The comment does not give the list of connected components now.
+  The comment shows a full commit ID as its first seven characters.
   The delta lines, the decisions, and the exit code do not change.
 
 - All user interface text, command explanations, map prose, and documentation use the ASD-STE100 language policy.

@@ -1065,7 +1065,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--format",
         choices=["text", "markdown"],
         default="text",
-        help="Use markdown for a pull request comment with the model changes and a picture.",
+        help="Use markdown for a pull request comment with the map changes and a diagram.",
     )
     s.add_argument(
         "--jev",

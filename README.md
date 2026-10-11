@@ -301,12 +301,12 @@ This example keeps finding identifiers from an earlier version:
 `Gateway` is a component. Its `implemented_by` field contains the claimed modules.
 Its `entry` field shows a public name at which a reader can start.
 
-The workflow from `init` posts one report comment on the pull request.
-New pushes update that comment. The comment first shows if a decision is necessary,
-and gives the action for each open line.
+The workflow from `init` writes one report comment on the pull request.
+New pushes update that comment. The comment first shows if a decision is necessary.
+For each open line, it gives the action.
 Then it gives the components, flows, sequences, and invariants that the change added,
-removed, or changed. The model at the base commit is the comparison point.
-A Mermaid picture shows only the changed flows, and GitHub draws it in the comment.
+removed, or changed. Delta compares the model at the base commit with the model at the head commit.
+A Mermaid diagram shows only the changed flows. GitHub shows the diagram in the comment.
 CI rejects the pull request while the report contains an open decision.
 
 The agent can correct these findings without a full new map.

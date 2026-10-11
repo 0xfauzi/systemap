@@ -1,7 +1,7 @@
 """The pull request comment of `systemap delta --format markdown`.
 
 The comment gives the decision first, then the components, flows, sequences, and
-invariants that the change added, removed, or changed, then a picture of the changed
+invariants that the change added, removed, or changed, then a diagram of the changed
 flows. The model at the base commit comes from the committed tree. The comparison does
 not change the delta lines or the exit code.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import config, delta, delta_model, delta_picture, nest
+from systemap import config, delta, delta_diagram, delta_model, nest
 from systemap.cli import main
 from systemap.delta_model import Drawn, Item, MapChange
 
@@ -162,7 +162,7 @@ def row(text: str, title: str) -> str:
     return next(line for line in text.splitlines() if line.startswith(f"- **{title}**: "))
 
 
-def test_the_comment_gives_the_decision_then_the_map_changes_then_the_picture(
+def test_the_comment_gives_the_decision_then_the_map_changes_then_the_diagram(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     text = comment(repo, capsys)
@@ -218,13 +218,13 @@ def test_the_comment_keeps_each_delta_line_and_the_exit_code(
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--format", "markdown"]) == 1
 
 
-def test_the_picture_draws_only_the_changed_flows(
+def test_the_diagram_draws_only_the_changed_flows(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     text = comment(repo, capsys)
     start = text.index("```mermaid\n")
-    picture = text[start : text.index("```\n", start + 3) + 3].splitlines()
-    assert picture == [
+    diagram = text[start : text.index("```\n", start + 3) + 3].splitlines()
+    assert diagram == [
         "```mermaid",
         "flowchart LR",
         '  n0["Reader (changed claims)"]',
@@ -249,7 +249,7 @@ def test_a_change_to_the_model_only_is_in_the_comment(
     assert "**No decision is necessary.** The map includes this change." in text
     assert row(text, "Components") == "- **Components**: Changed claims: Reader (does)."
     assert row(text, "Flows") == "- **Flows**: No change."
-    assert "```mermaid" not in text, "a change without a changed flow has no picture"
+    assert "```mermaid" not in text, "a change without a changed flow has no diagram"
     commit(repo, {"README.md": "words\n"}, "no map change")
     text = comment(repo, capsys)
     assert "No module changed between `HEAD~1 (" in text
@@ -290,6 +290,82 @@ def test_a_model_path_that_is_not_in_the_base_commit_is_the_reason(
     assert f"because map/model.py is not in the commit {short}." in text
 
 
+def test_without_the_base_model_the_comment_does_not_say_the_map_has_no_change(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The comparison cannot show a model change without the base model."""
+    git(repo, "rm", "-q", "map/model.py")
+    commit(repo, {"README.md": "no model\n"}, "no model")
+    commit(repo, {"README.md": "words\n"}, "words")
+    write_tree(repo, {"map/model.py": HEAD_MODEL})  # on disk, not committed
+    text = comment(repo, capsys)
+    assert "No module changed between `HEAD~1 (" in text
+    assert text.rstrip().endswith("The map has no source-fact change.")
+    assert "The map has no change." not in text
+
+
+def test_ci_commit_ids_show_as_seven_characters(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CI gives full commit IDs. The comment shows the short form, as GitHub does."""
+    base, head = git(repo, "rev-parse", "HEAD~1"), git(repo, "rev-parse", "HEAD")
+    assert (
+        main(["--root", str(repo), "delta", "--base", base, "--head", head, "--format", "markdown"])
+        == 1
+    )
+    text = capsys.readouterr().out
+    assert f"**Map changes from `{base[:7]}` to `{head[:7]}`**: " in text
+    assert base not in text and head not in text
+    # A base ref that is not the common ancestor keeps the ancestor in parentheses.
+    commit(repo, {"README.md": "words\n"}, "no map change")
+    tip = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", "-b", "side", "HEAD~1")
+    commit(repo, {"NOTES.md": "side\n"}, "side")
+    side = git(repo, "rev-parse", "HEAD")
+    main(["--root", str(repo), "delta", "--base", tip, "--head", side, "--format", "markdown"])
+    text = capsys.readouterr().out
+    assert f"No module changed between `{tip[:7]} ({head[:7]})` and `{side[:7]}`." in text
+
+
+def test_the_rows_use_the_head_commit_model_not_the_ci_merge_on_disk(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """In CI, the model on disk includes base branch changes that are not in the pull request."""
+    head = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", "-b", "upstream", "HEAD~1")
+    words = BASE_MODEL.replace("The writer keeps the text.", "The writer keeps all text.")
+    commit(repo, {"map/model.py": words}, "a sequence change on the base branch")
+    tip = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", "--detach", head)
+    git(repo, "merge", "-q", "--no-edit", tip)
+    assert "keeps all text" in (repo / "map/model.py").read_text(encoding="utf-8")
+    args = ["--root", str(repo), "delta", "--base", tip, "--head", head, "--format", "markdown"]
+    assert main(args) == 1
+    text = capsys.readouterr().out
+    assert row(text, "Sequences") == (
+        "- **Sequences**: With a changed step: Write the text (2 of 2 steps)."
+    )
+    assert "The rows use the model on disk" not in text
+
+
+def test_a_head_model_that_does_not_load_gives_the_model_on_disk_and_the_reason(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    changed = {
+        "map/model.py": "MODEL = (\n",
+        "pkg/reader.py": "def read() -> str:\n    return ''\n",
+    }
+    commit(repo, changed, "broken model")
+    write_tree(repo, {"map/model.py": HEAD_MODEL})  # the correction is on disk only
+    text = comment(repo, capsys)
+    short = git(repo, "rev-parse", "--short=7", "HEAD")
+    assert (
+        f"The rows use the model on disk, because the model at {short} does not load: "
+        "map/model.py could not import: SyntaxError:"
+    ) in text
+    assert row(text, "Components") == "- **Components**: Changed source: Reader."
+
+
 def test_a_new_digest_for_the_same_source_record_is_not_a_change() -> None:
     from systemap.model import Flow
 
@@ -318,26 +394,45 @@ def test_long_groups_name_ten_items_and_count_the_rest() -> None:
     )
     assert row(text, "Sequences") == "- **Sequences**: All 3 sequences have a changed step."
     assert row(text, "Invariants") == "- **Invariants**: For a changed component: 1 and 2."
+    assert "- 1: Rule 1." in text.splitlines()
+
+
+def test_the_invariant_text_is_only_for_the_invariants_that_the_row_names() -> None:
+    d = delta.Delta(
+        base="a" * 40, head="b" * 40, base_ref="main", head_ref="HEAD",
+        changed=1, added=0, removed=0, moved=0, cards=20, lines=(),
+    )  # fmt: skip
+    touched = tuple(Item("", str(n), (f"Rule {n}.",)) for n in (1, 2))
+    change = MapChange(
+        invariants=(*touched, Item(delta_model.REMOVED, "3", ("Rule 3.",))), invariant_count=2
+    )
+    lines = delta.markdown(d, change).splitlines()
+    assert row("\n".join(lines), "Invariants") == (
+        "- **Invariants**: Removed: 3. All 2 invariants are for a changed component."
+    )
+    assert "- 3: Rule 3." in lines
+    assert "- 1: Rule 1." not in lines
 
 
 def test_a_large_change_draws_the_added_and_removed_flows_only() -> None:
     many = [Drawn(f"A{n}", f"B{n}", "x", delta_model.CHANGED) for n in range(31)]
     change = MapChange(drawn=(*many, Drawn("A", "B", "new", delta_model.ADDED)))
-    out = delta_picture.mermaid(change)
+    out = delta_diagram.mermaid(change)
     assert out[0] == (
-        "The picture shows only the added and removed flows, because 32 flows changed."
+        "The diagram shows only the added and removed flows, because 32 flows changed."
     )
     assert out[-5:] == ['  n0["A"]', '  n1["B"]', '  n0 ==>|"new (added)"| n1', "```", ""]
     change = MapChange(drawn=tuple(many))
-    assert delta_picture.mermaid(change) == [
-        "The picture is not shown, because 31 flows changed. A picture shows 30 flows or fewer.",
+    assert delta_diagram.mermaid(change) == [
+        "The comment has no diagram, because 31 flows changed. "
+        "A diagram shows a maximum of 30 flows.",
         "",
     ]
-    assert delta_picture.mermaid(MapChange()) == []
+    assert delta_diagram.mermaid(MapChange()) == []
 
 
-def test_a_label_cannot_end_the_picture() -> None:
+def test_a_label_cannot_end_the_diagram() -> None:
     change = MapChange(drawn=(Drawn("A", "B", 'a "b" | `c` <d> #e', delta_model.REMOVED),))
-    out = delta_picture.mermaid(change)
+    out = delta_diagram.mermaid(change)
     assert '  n0 -.->|"a #quot;b#quot; #124; #96;c#96; #lt;d#gt; #35;e (removed)"| n1' in out
     assert sum(line.startswith("```") for line in out) == 2

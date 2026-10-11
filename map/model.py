@@ -155,9 +155,9 @@ COMPONENTS = (
         implemented_by=(
             "systemap.change",
             "systemap.delta",
+            "systemap.delta_diagram",
             "systemap.delta_git",
             "systemap.delta_model",
-            "systemap.delta_picture",
             "systemap.delta_report",
             "systemap.moves",
             "systemap.history",

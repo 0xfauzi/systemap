@@ -1,8 +1,12 @@
-"""Compare the map at the base commit with the map on disk for the pull request comment.
+"""Compare the map at the base commit with the map at the head commit for a pull request.
 
 The comparison gives the components, flows, sequences, and invariants that the change
 added, removed, or changed. It also gives the components with changed source code, and
 the sequences and invariants that refer to a changed component or flow.
+
+Both models come from the committed files, as the source facts do. In CI, the model on
+disk comes from a merge with the last commit of the base branch. That model can include
+changes from the base branch that are not in the pull request.
 
 The comparison gives no decision. The delta lines and the exit code do not use it.
 """
@@ -10,7 +14,7 @@ The comparison gives no decision. The delta lines and the exit code do not use i
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from systemap import evidence, nest
@@ -55,7 +59,7 @@ class Item:
 
 @dataclass(frozen=True)
 class Drawn:
-    """One flow for the picture of the change, with its component names."""
+    """One flow for the diagram of the change, with its component names."""
 
     src: str
     dst: str
@@ -65,10 +69,11 @@ class Drawn:
 
 @dataclass(frozen=True)
 class MapChange:
-    """The map changes between the base commit and the model on disk.
+    """The map changes between the base commit and the head commit.
 
-    `marks` gives the change of each component in the picture. `error` gives the reason
-    that the comparison has no model at the base commit.
+    `marks` gives the change of each component in the diagram. `error` gives the reason
+    that the comparison has no model at the base commit. `disk` gives the reason that
+    the comparison uses the model on disk in place of the model at the head commit.
     """
 
     components: tuple[Item, ...] = ()
@@ -80,6 +85,7 @@ class MapChange:
     drawn: tuple[Drawn, ...] = ()
     marks: Mapping[str, str] = field(default_factory=dict)
     error: str = ""
+    disk: str = ""
 
     @property
     def model_changed(self) -> bool:
@@ -320,7 +326,7 @@ def _sides(
     before = {m.id: (m.model, m.meaning) for m in (base.maps if base else ())}
     after = {m.id: (m.model, m.meaning) for m in head.maps}
     if base is None:
-        # Without the base model, only source changes count: use the model on disk.
+        # Without the base model, only source changes count: use the head model twice.
         before = dict(after)
     ids = [m.id for m in head.maps] + [i for i in before if i not in after]
     empty = (EMPTY, NO_MEANING)
@@ -336,7 +342,7 @@ def compare(
 ) -> MapChange:
     """Compare the maps. A string for `base_tree` is the reason that it is not available.
 
-    Without the base model, the comparison uses the model on disk for both commits. Then
+    Without the base model, the comparison uses the head model for both commits. Then
     it gives only the components with changed source, the flows with a changed evidence
     state, and the sequences and invariants of these components.
     """
@@ -362,3 +368,22 @@ def compare(
         marks=found.marks,
         error="" if base else str(base_tree),
     )
+
+
+def compare_commits(
+    at_base: nest.Tree | str,
+    at_head: nest.Tree | str,
+    disk: nest.Tree,
+    base_facts: dict[str, Any],
+    head_facts: dict[str, Any],
+    observed_by: Iterable[str] = (),
+) -> MapChange:
+    """Compare the committed models. A string is the reason that a model is not available.
+
+    If the head commit has no model that loads, the model on disk is the head model, and
+    the result gives the reason.
+    """
+    if isinstance(at_head, str):
+        change = compare(at_base, disk, base_facts, head_facts, observed_by)
+        return replace(change, disk=at_head)
+    return compare(at_base, at_head, base_facts, head_facts, observed_by)

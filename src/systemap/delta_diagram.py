@@ -1,7 +1,7 @@
-"""Draw the changed flows of a map comparison as a Mermaid flowchart for a pull request.
+"""Draw the changed flows of a map comparison as a Mermaid diagram for a pull request.
 
 GitHub draws a fenced `mermaid` block in a comment, so the comment can show the change
-without an image file. The picture has only the flows that the change added, removed,
+without an image file. The diagram has only the flows that the change added, removed,
 or changed, and the components at their ends. Each label gives the change in words,
 and each line style also shows it.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from systemap.delta_model import ADDED, CHANGED, REMOVED, SOURCE, Drawn, MapChange
 
-# A picture with more flows than this is not easy to read in a comment.
+# A diagram with more flows than this is not easy to read in a comment.
 MOST_FLOWS = 30
 ARROWS = {ADDED: "==>", REMOVED: "-.->", CHANGED: "-->"}
 CARD_WORDS = {
@@ -38,25 +38,25 @@ def _quoted(text: str) -> str:
 
 
 def _selected(change: MapChange) -> tuple[list[Drawn], list[str]]:
-    """Select the flows for the picture, and give a sentence about the flows it omits.
+    """Select the flows for the diagram, and give a sentence about the flows it omits.
 
-    If there are too many flows, the picture shows only the added and removed flows.
+    If there are too many flows, the diagram shows only the added and removed flows.
     """
     drawn = list(change.drawn)
     if len(drawn) <= MOST_FLOWS:
         return drawn, []
     kept = [f for f in drawn if f.how != CHANGED]
     if not kept or len(kept) > MOST_FLOWS:
-        said = f"The picture is not shown, because {len(drawn)} flows changed."
-        return [], [f"{said} A picture shows {MOST_FLOWS} flows or fewer.", ""]
-    said = f"The picture shows only the added and removed flows, because {len(drawn)} flows"
+        said = f"The comment has no diagram, because {len(drawn)} flows changed."
+        return [], [f"{said} A diagram shows a maximum of {MOST_FLOWS} flows.", ""]
+    said = f"The diagram shows only the added and removed flows, because {len(drawn)} flows"
     return kept, [f"{said} changed.", ""]
 
 
 def mermaid(change: MapChange) -> list[str]:
-    """Give the picture of the changed flows. Without a changed flow, there is no picture.
+    """Give the diagram of the changed flows. Without a changed flow, there is no diagram.
 
-    The component row gives the components without a changed flow.
+    The comment rows give the components without a changed flow.
     """
     drawn, said = _selected(change)
     if not drawn:

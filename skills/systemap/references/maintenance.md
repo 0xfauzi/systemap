@@ -102,11 +102,11 @@ See `bench/jev/README.md` in the systemap source repository for methods and limi
 ## Pull request workflow
 
 The generated workflow runs `delta --base <base commit> --format markdown` for each pull request.
-It posts one comment and updates that comment after each push.
+It writes one comment and updates that comment after each push.
 The job fails while a line has an unanswered decision.
 The comment first gives the decision and the action for each open line.
 Then it gives the components, flows, sequences, and invariants that changed since the base commit.
-A Mermaid picture shows only the changed flows.
+A Mermaid diagram shows only the changed flows.
 A closed section contains the lines for which no action is necessary.
 To see the comment before a push, run `systemap delta --base REF --format markdown`.
 

@@ -79,12 +79,14 @@ def comment(
 ) -> str:
     """This function gives the pull request comment.
 
-    The comment compares the model at the base commit with the model on disk. The
-    comparison does not change the delta lines or the exit code.
+    The comment compares the model at the base commit with the model at the head commit.
+    If the head commit has no model that loads, it uses the model on disk. The comparison
+    does not change the delta lines or the exit code.
     """
     head_sha = head.get("built_at_commit", "")
     at_base = delta_git.model_at(cfg, base.get("built_at_commit", ""))
-    change = delta_model.compare(at_base, tree, base, head, cfg.observed_by)
+    at_head = delta_git.model_at(cfg, head_sha)
+    change = delta_model.compare_commits(at_base, at_head, tree, base, head, cfg.observed_by)
     path = delta_git.committed_figure(cfg, head_sha)
     return markdown(d, change, delta_git.figure_url(cfg, head_sha, path), path)
 
