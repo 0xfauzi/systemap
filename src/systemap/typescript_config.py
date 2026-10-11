@@ -15,7 +15,6 @@ from typing import Any
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
 DECLARATION_SUFFIXES = (".d.ts", ".d.mts", ".d.cts")
-SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
 # The folders below a project folder that hold no project source. tsc reads all other
 # folders except outDir, so a source folder called build or dist is source.
 SOURCE_SKIP = frozenset({".git", ".venv", "node_modules"})
@@ -447,7 +446,8 @@ def input_files(config: TypeScriptConfig) -> list[Path]:
     files.
 
     If files and include are missing, all source files under the tsconfig directory are
-    candidates. The selection excludes outDir and systemap temporary directories.
+    candidates. The selection excludes outDir and the .git, .venv, and node_modules
+    directories, as the source path rule does.
     """
     root, spec = config.config_dir, config.inputs
     if root is None or spec is None:
@@ -503,18 +503,19 @@ def _candidate_inputs(root: Path, patterns: tuple[str, ...]) -> Iterator[Path]:
     """This function gives the source files below the fixed directories of the include
     patterns.
 
-    The walk does not enter skipped directories. Thus the files in node_modules do not
-    make the walk slower.
+    The walk does not enter .git, .venv, or node_modules. Thus the files in node_modules do
+    not make the walk slower. A source directory called build or dist is source, as tsc
+    reads it.
     """
     directories = (
         directory
         for directory in _include_directories(root, patterns)
-        if not any(part in SKIP_PARTS for part in directory.relative_to(root).parts)
+        if not any(part in SOURCE_SKIP for part in directory.relative_to(root).parts)
     )
     return (
         path
         for directory in directories
-        for path in source_files(directory, SKIP_PARTS)
+        for path in source_files(directory, SOURCE_SKIP)
         if _is_input(path)
     )
 

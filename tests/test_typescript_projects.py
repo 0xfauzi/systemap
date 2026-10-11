@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from conftest import write_tree
 
-from systemap import config, extract
+from systemap import config, extract, typescript_config
 
 ROOTS = 'language = "typescript"\n[package_roots]\n"src" = "web"\n'
 
@@ -254,3 +254,40 @@ def test_bin_in_out_dir_without_a_tsc_output_is_unresolved(tmp_path: Path) -> No
     facts = build(tmp_path)
     assert [point for point in facts["entry_points"] if point["kind"] == "console_script"] == []
     assert [issue["name"] for issue in facts["entry_point_issues"]] == ["ts6"]
+
+
+def test_tsconfig_inputs_and_source_paths_use_the_same_skip_rule(tmp_path: Path) -> None:
+    """Acceptance: a source directory called build or dist is a tsconfig input, as it is a
+    source path. node_modules, .venv and outDir are not inputs.
+
+    With TypeScript 5 and no `rootDir`, the inputs give the common source directory src/.
+    Thus tsc writes src/main/cli.ts to out/main/cli.js, and the bin target maps to it.
+    """
+    write_tree(
+        tmp_path,
+        {
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"src" = "app"\n',
+            "package.json": (
+                '{"name":"tool","bin":{"tool":"out/main/cli.js"},'
+                '"devDependencies":{"typescript":"^5.9.3"}}'
+            ),
+            "tsconfig.json": '{"compilerOptions":{"outDir":"out"}}',
+            "src/main/cli.ts": "export function main(): void {}\n",
+            "src/build/compile.ts": "export function compile(): void {}\n",
+            "src/dist/pack.ts": "export function pack(): void {}\n",
+            "node_modules/pkg/index.ts": "export const x = 1;\n",
+            ".venv/lib/x.ts": "export const y = 1;\n",
+            "out/main/cli.ts": "export const old = 1;\n",
+        },
+    )
+    compiler = typescript_config.load_typescript_config(tmp_path)
+    inputs = sorted(
+        path.relative_to(tmp_path.resolve()).as_posix()
+        for path in typescript_config.input_files(compiler)
+    )
+    assert inputs == ["src/build/compile.ts", "src/dist/pack.ts", "src/main/cli.ts"]
+    facts = build(tmp_path)
+    assert sorted(facts["components"]) == ["app.build.compile", "app.dist.pack", "app.main.cli"]
+    assert {"kind": "console_script", "name": "tool", "module": "app.main.cli", "target": ""} in (
+        facts["entry_points"]
+    )
