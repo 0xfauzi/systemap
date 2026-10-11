@@ -81,7 +81,10 @@ function relationships(page) {
 """
 
 
-@pytest.fixture(params=[False, True], ids=["motion", "os-reduced-motion"])
+@pytest.fixture(
+    params=["", "--system-reduced", "--reduced"],
+    ids=["motion", "system-reduced-motion", "page-reduced-motion"],
+)
 def relationship_report(
     sample: Sample, tmp_path: Path, request: pytest.FixtureRequest
 ) -> dict[str, Any]:
@@ -120,7 +123,7 @@ def relationship_report(
     harness.write_text(driver + SCENARIO, encoding="utf-8")
     args = [node, str(harness), str(html), "--scenario", "relationships"]
     if request.param:
-        args.append("--reduced")
+        args.append(request.param)
     result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)  # type: ignore[no-any-return]

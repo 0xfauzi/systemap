@@ -379,7 +379,15 @@ A sequence step shows its note after the camera stops.
 When the page opens, the cards come in one time in reading order, in 360 ms or less.
 A theme change fades the colors in 240 ms.
 A selected line and the current sequence line have a soft glow.
-With Reduce motion or the system setting for reduced motion, the page shows the final state with no motion.
+Reduce motion is a page setting. It is off on the first visit. When it is on, the page shows the final state with no motion.
+The browser keeps the setting. The head script applies the kept setting before the page shows.
+The system setting for reduced motion does not change the page. The maintainer made this decision:
+the motion shows direction and order, and the page shows it to each reader until that reader stops it.
+
+This decision has an accessibility cost. A reader with a vestibular disorder can set the system setting to stop motion.
+On this page, that reader sees the motion until they set Reduce motion.
+For this reason, Reduce motion is an icon in the header. The reader can find it on the first screen and set it with one click.
+A figure outside the page has no page setting. A figure obeys the system setting.
 
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
 `page_atlas.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,

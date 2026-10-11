@@ -2,7 +2,8 @@
 
 The mark, the keyboard sheet, layer changes, the map surface, card depth and
 the glow of a selection. Each motion runs one time and shows direction or
-order. With reduced motion, the page shows the final state at once."""
+order. With Reduce motion on, the page shows the final state at once. The page
+setting alone controls the motion: the system setting does not change it."""
 
 # A fine grain on the map surface: light specks on Ink, dark specks on Paper.
 # The noise is static. Its alpha comes from the red channel of the noise.
@@ -58,23 +59,19 @@ stroke-width .14s ease-out}
 
 /* ---- the cards come in one time, in reading order ----------------------- */
 @keyframes card-in{from{opacity:0;transform:translateY(5px)}}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) #schematic.cards-in .node{
 animation:card-in .32s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--in,0ms)}
 html:not([data-reduce-motion="true"]).scheme-fade :is(body,body *){
 transition:background-color .24s,color .24s,border-color .24s,fill .24s,stroke .24s!important}
-}
 
 /* ---- the mark draws one time: the route, then its two ends --------------- */
 @keyframes mark-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes mark-dot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
 .mark__path{stroke-dasharray:1 1;stroke-dashoffset:0}
 .mark__dot{transform-box:fill-box;transform-origin:center}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) .mark__path{
 animation:mark-draw .6s cubic-bezier(.45,0,.25,1) both}
 html:not([data-reduce-motion="true"]) .mark__dot{animation:mark-dot .16s ease-out .6s both}
-}
 
 /* ---- the keyboard sheet ---------------------------------------------------- */
 .keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
@@ -98,10 +95,8 @@ border-radius:6px;background:none;color:var(--ink-2);font:12px var(--fs);cursor:
 .keys .keys__close:hover{color:var(--ink);background:var(--raised)}
 .keys .keys__close:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 @keyframes keys-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) .keys:not([hidden]) .keys__box{
 animation:keys-in .12s ease-out}
-}
 """
 
 SCRIPT = r"""
@@ -109,8 +104,7 @@ SCRIPT = r"""
   var svg = document.getElementById('schematic');
   var A = svg && svg.systemap;
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
 
   // ---- a new layer draws its lines in model order ----------------------

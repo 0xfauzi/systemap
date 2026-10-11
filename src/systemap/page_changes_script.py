@@ -41,8 +41,7 @@ SCRIPT = r"""
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
   function names(list){
     return list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and '

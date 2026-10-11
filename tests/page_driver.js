@@ -10,13 +10,15 @@
 // of the figure with 10 pixels of margin. A path's box is the box of the
 // points in its `d`, as a browser's getBBox would give it.
 //
-//     node tests/page_driver.js PAGE.html [--reduced] [--light] [--viewport WxH]
+//     node tests/page_driver.js PAGE.html [--reduced] [--system-reduced] [--light]
+//                                         [--viewport WxH]
 //                                         [--stored NAME] [--no-storage]
 //                                         [--scenario keyboard|framing|submap|theme]
 //
 // prints one JSON object; tests/test_keyboard.py, tests/test_framing.py,
-// tests/test_nested.py and tests/test_theme.py read it. --reduced makes
-// the page's prefers-reduced-motion query match, --light its
+// tests/test_nested.py and tests/test_theme.py read it. --reduced stores
+// the page setting Reduce motion, --system-reduced makes the
+// prefers-reduced-motion query match, --light its
 // prefers-color-scheme light query; --stored seeds the browser's storage
 // with a scheme, and --no-storage makes every touch of localStorage
 // throw, as a browser that refuses storage does.
@@ -458,7 +460,7 @@ function load(html, reducedMotion, viewport, prefs) {
       win.location.hash = url.startsWith('#') ? url : '';
     }},
     matchMedia: (q) => ({
-      matches: (reducedMotion && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q)),
+      matches: (!!prefs.systemReduced && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q)),
       addEventListener() {},
     }),
     requestAnimationFrame: (cb) => { rafCalls++; const id = rafQueue.length + 1; rafQueue.push({id, cb}); return id; },
@@ -481,6 +483,7 @@ function load(html, reducedMotion, viewport, prefs) {
   // every touch throws, as a browser that refuses storage does.
   const store = new Map();
   if (prefs.stored !== undefined && prefs.stored !== null) store.set('systemap-theme', prefs.stored);
+  if (reducedMotion) store.set('systemap-reduce-motion', 'true');
   if (prefs.noStorage) {
     Object.defineProperty(win, 'localStorage', {get() { throw new Error('SecurityError: storage is refused'); }});
   } else {
@@ -513,7 +516,8 @@ function main() {
   const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
   const viewport = flag('--viewport', '1600x900').split('x').map(Number);
   const scenario = flag('--scenario', 'keyboard');
-  const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage')};
+  const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage'),
+    systemReduced: args.includes('--system-reduced')};
   const html = fs.readFileSync(file, 'utf8');
   const {doc, win} = load(html, reduced, viewport, prefs);
   const context = vm.createContext(win);

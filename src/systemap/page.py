@@ -36,6 +36,9 @@ NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "ei
 
 # Where the page keeps the reader's scheme, in this browser.
 SCHEME_KEY = "systemap-theme"
+# Where the page keeps the Reduce motion setting. Motion is on until the reader
+# sets it. The system setting for reduced motion does not change the page.
+MOTION_KEY = "systemap-reduce-motion"
 
 # The mark, inline, so the tab shows it with nothing fetched. It is not
 # themed: a tab's icon is one picture.
@@ -447,7 +450,9 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         f"if({json.dumps(schemes)}.indexOf(s)<0){{s=(window.matchMedia&&"
         "window.matchMedia('(prefers-color-scheme: light)').matches)?"
         f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(theme_mod.DEFAULT_SCHEME)}}}"
-        "document.documentElement.setAttribute('data-theme',s)})();</script>"
+        "document.documentElement.setAttribute('data-theme',s);var m='false';try{"
+        f"if(localStorage.getItem({json.dumps(MOTION_KEY)})==='true'){{m='true'}}}}catch(e){{}}"
+        "document.documentElement.setAttribute('data-reduce-motion',m)})();</script>"
         "<style>"
         + _compact_css(
             panel_css(t, variables=True)

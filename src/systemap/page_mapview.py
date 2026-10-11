@@ -94,8 +94,7 @@ SCRIPT = r"""
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
   function mapMode(){ return P.mode() === 'understand'; }
 

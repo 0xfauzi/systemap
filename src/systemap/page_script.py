@@ -16,10 +16,7 @@ JS = r"""
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function all(sel, root){
     return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
-  function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
+  function reduced(){ return document.documentElement.dataset.reduceMotion === 'true'; }
   function emit(name, detail){
     svg.dispatchEvent(new CustomEvent(name, {detail:detail || {}, bubbles:true}));
   }
@@ -397,26 +394,20 @@ JS = r"""
   showScheme();
   if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
 
-  // The native preference always wins. The page control can also stop motion.
+  // Reduce motion is a page setting. It is off until the reader sets it, and
+  // the system setting for reduced motion does not change it (DESIGN.md, Motion).
+  // The head script stamps the stored setting on the root before the first paint.
   var motionPick = byId('reduce-motion');
-  var motionMedia = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
-  var motionOff = false;
-  try { motionOff = localStorage.getItem('systemap-reduce-motion') === 'true'; } catch(e){}
-  function motionPreference(){
-    var nativeOff = !!(motionMedia && motionMedia.matches), off = nativeOff || motionOff;
+  function setMotion(off){
     document.documentElement.dataset.reduceMotion = String(off);
-    if(motionPick){ motionPick.checked = off; motionPick.disabled = nativeOff; }
+    if(motionPick){ motionPick.checked = off; }
     A.setMotion(!off); stampFrame();
   }
   if(motionPick){ motionPick.addEventListener('change', function(){
-    motionOff = motionPick.checked;
-    try { localStorage.setItem('systemap-reduce-motion', String(motionOff)); } catch(e){}
-    motionPreference();
+    try { localStorage.setItem('systemap-reduce-motion', String(motionPick.checked)); } catch(e){}
+    setMotion(motionPick.checked);
   }); }
-  if(motionMedia && motionMedia.addEventListener){
-    motionMedia.addEventListener('change', motionPreference);
-  }
-  motionPreference();
+  setMotion(reduced());
 
   // ---- keyboard ---------------------------------------------------------
   // Tab moves across the cards in reading order, Enter on a card opens its

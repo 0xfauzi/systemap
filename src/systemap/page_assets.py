@@ -253,6 +253,5 @@ body[data-panel="open"] .main{grid-template-columns:minmax(0,1fr)}
 body[data-panel="open"] .readpanel{position:fixed;right:0;top:104px;bottom:0;width:min(400px,100%);
 z-index:15;height:auto;box-shadow:-12px 0 40px color-mix(in srgb,#000 40%,transparent)}
 .question{font-size:19px;line-height:25px}.readout{max-width:40%}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 html[data-reduce-motion="true"] *{transition:none!important;animation:none!important}
 """

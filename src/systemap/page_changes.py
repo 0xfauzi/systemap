@@ -297,7 +297,6 @@ CSS = r"""
   transition-delay:var(--chg-d,0ms)}
 #changemap.chg-reveal .chg-tag{transition:opacity 160ms ease-out;transition-delay:var(--chg-d,0ms)}
 :root[data-reduce-motion="true"] #changemap.chg-reveal *{transition:none!important}
-@media (prefers-reduced-motion:reduce){#changemap.chg-reveal *{transition:none!important}}
 
 /* ---- Changes view: panel ------------------------------------------------- */
 .change-panel{display:flex;flex-direction:column;gap:16px;min-width:0}

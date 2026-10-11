@@ -164,7 +164,7 @@ def test_generated_metadata_names_shared_module_and_configured_mechanism(sample:
     assert not edges[4]["import_present"] and not edges[4]["shared_module"]
 
 
-@pytest.fixture(params=[False, True], ids=["motion", "os-reduced-motion"])
+@pytest.fixture(params=[False, True], ids=["motion", "page-reduced-motion"])
 def flow_report(
     evidence_sample: Sample, tmp_path: Path, request: pytest.FixtureRequest
 ) -> dict[str, Any]:

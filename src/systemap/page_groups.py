@@ -36,8 +36,6 @@ dominant-baseline:central;pointer-events:none}
 #schematic .fg-badge.hover .fg-badge__c{stroke:var(--ink)}
 #schematic .fg-badge__ring{fill:none;stroke:var(--ink);stroke-width:2;display:none}
 #schematic .fg-badge:focus-visible .fg-badge__ring{display:inline}
-@media (prefers-reduced-motion:reduce){#schematic .fg-group,#schematic .fg-line,
-#schematic .fg-arrow,#schematic .fg-badge__c{transition:none}}
 html[data-reduce-motion="true"] #schematic :is(.fg-group,.fg-line,.fg-arrow,.fg-badge__c){
 transition:none}
 .lg__line.fg-lg__group{border-top:4px solid var(--ink-3);opacity:.7}
@@ -95,8 +93,7 @@ SCRIPT = r"""
     return e;
   }
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
   function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
   function flat(lists){ return [].concat.apply([], lists); }

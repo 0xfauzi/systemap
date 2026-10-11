@@ -122,7 +122,10 @@ def _svg_style(svg_id: str, t: Palette) -> str:
         f"@media print{{{s} .view{{transform:none!important}}}}"
         f":root[data-reduce-motion=true] {s} *{{transition:none!important;"
         "animation:none!important}"
-        f"@media (prefers-reduced-motion:reduce){{{s} *{{transition:none!important;"
+        # A figure without the page setting follows the system setting. The page
+        # always stamps the setting, so this rule does not apply on the page.
+        f"@media (prefers-reduced-motion:reduce){{:root:not([data-reduce-motion]) {s} *{{"
+        "transition:none!important;"
         "animation:none!important}}"
         "</style>"
     )
