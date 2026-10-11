@@ -224,7 +224,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="80d09116dfe35f70b0c4073e18e9d145e172945a85f6e190324e909bccf773b9",
+        source_review="ab1b25a3951e2de4ecbcffcf83bb5be38d4ae3b3a35069fbe0cc8ea285bbb6cb",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -243,7 +243,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="2be57a0bcd7c1d7971c89511e183e14405934bfd69dd4c901dd8e5f94957078b",
+        source_review="a5af95d942ec833be7119673636218c2f463f86265b902bb357eb63444f1bc3b",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -295,7 +295,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="0ddab72789510652b3a7de9dbbacd2b81aefad6d18e647ff1112c207344696a0",
+        source_review="7ef8cd667f8e3c3c94eb2836efae456d2225ce525ea4a8e2c7c4869ea162af8b",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -373,7 +373,7 @@ _SOURCE_SHA = {
     'systemap.model': 'c932400b182ad6a8ad1d9d0d4ea1fafd7bef7c4558856a89766bf9752965a158',
     'systemap.nest': '3efcf11b68b398c8f3fe9675b62269f3ce82ba1350ff8c617770c71f1a9b8ae0',
     'systemap.page': 'd793a588cca637a5275194eb892984a38a863de554ef2eae5d22a2176872d236',
-    'systemap.page_sequences': 'a40c233f429dfce185a3c6a5b4df19b487015bfd0509ed9811d52c6fcb5874a2',
+    'systemap.page_sequences': '753a7e354e5f830d6338695cb6d28793a698c895cf5cfe7736d52a28a1321bab',
     'systemap.place': '2de8bfec87417c71a4463399881374aa6da0b34bba5856c10fd6fad3f2bbbb14',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
     'systemap.scaffold': '2ea5c1c993762c683fd0a536e4793a4c449ef632ca1897855e70091d5d7d0c78',

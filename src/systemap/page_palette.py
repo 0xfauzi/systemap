@@ -72,8 +72,8 @@ text-overflow:ellipsis}
 .pal__card{display:block;width:16px;height:11px;border:1px solid var(--card-line);border-radius:3px;
 background:var(--card)}
 .pal__card.actor{border-style:dashed;background:none}
-.pal__n{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-border:1px solid var(--line-2);border-radius:50%;font:600 9px/1 var(--fm);color:var(--ink-2)}
+.pal__n{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+border:1px solid var(--line-2);border-radius:50%;font:600 11px/1 var(--fm);color:var(--ink-2)}
 .pal__n.sq{border-radius:3px}
 .pal__none{margin:18px 12px;font-size:13px;color:var(--ink-2)}
 .pal__foot{display:flex;align-items:center;gap:16px;margin:0;padding:8px 14px;

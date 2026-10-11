@@ -78,7 +78,7 @@ def test_no_page_text_is_less_than_eleven_pixels(sample: Sample) -> None:
 
 def test_running_text_is_twelve_pixels_or_more(sample: Sample) -> None:
     css = page_css(sample)
-    for selector in (".ix__match", ".readpanel .fg-flow small", ".read__step small"):
+    for selector in (".pal__s", ".readpanel .fg-flow small", ".read__step small"):
         assert min(font_sizes(selector + "{" + rule(css, selector) + "}")) >= 12, selector
     body = rule(css, "body")
     assert "font-size:13px" in body
