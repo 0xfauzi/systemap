@@ -10,7 +10,7 @@ from systemap import model_write
 def models(root: Path) -> dict[Path, str]:
     sources = {root / "first.py": "FIRST = 1\n", root / "second.py": "SECOND = 1\n"}
     for path in sources:
-        path.write_text("ORIGINAL = 0\r\n", newline="")
+        path.write_text("ORIGINAL = 0\r\n", newline="", encoding="utf-8")
         path.chmod(0o640)
     return sources
 
@@ -87,6 +87,6 @@ def test_success_replaces_all_models_and_preserves_modes(tmp_path: Path) -> None
     sources = models(tmp_path)
     modes = {path: path.stat().st_mode & 0o777 for path in sources}
     model_write.write_models(sources)
-    assert all(path.read_text() == source for path, source in sources.items())
+    assert all(path.read_text(encoding="utf-8") == source for path, source in sources.items())
     assert all(path.stat().st_mode & 0o777 == mode for path, mode in modes.items())
     assert sorted(tmp_path.iterdir()) == sorted(sources)

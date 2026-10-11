@@ -45,6 +45,7 @@ def git(root: Path, *args: str) -> str:
         cwd=root,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     )
     return proc.stdout.strip()
@@ -329,7 +330,7 @@ def test_missing_npm_tsconfig_and_declaration_files_do_not_stop_extract(tmp_path
     assert "tsconfig.json extends '@vendor/tsconfig'" in extract.unknown_fact_lines(facts)[0]
     assert TYPESCRIPT.module_for_path(tmp_path, "src/types.d.ts", cfg.roots) is None
 
-    (tmp_path / "tsconfig.json").write_text('{"extends":"./missing.json"}')
+    (tmp_path / "tsconfig.json").write_text('{"extends":"./missing.json"}', encoding="utf-8")
     with pytest.raises(config.ConfigError, match="could not resolve tsconfig extends"):
         extract.build(config.load(tmp_path))
 
@@ -340,7 +341,9 @@ def test_unknown_surface_is_information_for_check(
     fixture = Path(__file__).parent / "fixtures" / "typescript-app"
     shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
     service = tmp_path / "src/service.ts"
-    service.write_text(service.read_text() + "export default memo(() => 0);\n")
+    service.write_text(
+        service.read_text(encoding="utf-8") + "export default memo(() => 0);\n", encoding="utf-8"
+    )
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
     assert "unknown surface:" in capsys.readouterr().out
@@ -348,8 +351,9 @@ def test_unknown_surface_is_information_for_check(
     assert "unknown surface:" in capsys.readouterr().out
     settings = tmp_path / "systemap.toml"
     settings.write_text(
-        settings.read_text()
-        + '\n[judgement]\nanswered = [{kind = "unknown surface", policy = true, reason = "grammar limit"}]\n'
+        settings.read_text(encoding="utf-8")
+        + '\n[judgement]\nanswered = [{kind = "unknown surface", policy = true, reason = "grammar limit"}]\n',
+        encoding="utf-8",
     )
     assert main(["--root", str(tmp_path), "judgement", "--kind", "unknown surface"]) == 0
     assert "unknown surface:" not in capsys.readouterr().out
@@ -359,17 +363,21 @@ def test_change_figure_handles_unknown_exports_and_unparsed_modules(tmp_path: Pa
     fixture = Path(__file__).parent / "fixtures" / "typescript-app"
     shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
     service = tmp_path / "src/service.ts"
-    service.write_text(service.read_text() + "export default memo(() => 0);\n")
+    service.write_text(
+        service.read_text(encoding="utf-8") + "export default memo(() => 0);\n", encoding="utf-8"
+    )
     git(tmp_path, "init", "-q", "-b", "main")
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "base")
     base = git(tmp_path, "rev-parse", "HEAD")
-    service.write_text(service.read_text() + "export function added(): void {}\n")
+    service.write_text(
+        service.read_text(encoding="utf-8") + "export function added(): void {}\n", encoding="utf-8"
+    )
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "add a function")
     delta_result = change.surface_delta(
         git(tmp_path, "show", f"{base}:src/service.ts"),
-        service.read_text(),
+        service.read_text(encoding="utf-8"),
         TYPESCRIPT,
         "src/service.ts",
     )
@@ -396,7 +404,7 @@ def test_change_figure_handles_unknown_exports_and_unparsed_modules(tmp_path: Pa
     )
     assert figure_path.is_file()
 
-    service.write_text("export function broken( {\n")
+    service.write_text("export function broken( {\n", encoding="utf-8")
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "unparsable head")
     assert (
@@ -693,20 +701,23 @@ def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path)
     # TypeScript 5, `include` narrowed to source/: the root is source/.
     assert bins() == {"web": "web.cli"}
     # Without `include` the test file is an input too, so the common folder is the repository.
-    (tmp_path / "tsconfig.json").write_text('{"compilerOptions":{"outDir":"out"}}')
+    (tmp_path / "tsconfig.json").write_text(
+        '{"compilerOptions":{"outDir":"out"}}', encoding="utf-8"
+    )
     assert bins() == {"deep": "web.cli"}
     # TypeScript 6 and later: the tsconfig folder, whatever `include` says.
-    (tmp_path / "tsconfig.json").write_text(narrowed)
-    (tmp_path / "package.json").write_text(package.replace("^5.9.3", "~6.0.3"))
+    (tmp_path / "tsconfig.json").write_text(narrowed, encoding="utf-8")
+    (tmp_path / "package.json").write_text(package.replace("^5.9.3", "~6.0.3"), encoding="utf-8")
     assert bins() == {"deep": "web.cli"}
     # `composite`: the tsconfig folder on any version.
-    (tmp_path / "package.json").write_text(package)
+    (tmp_path / "package.json").write_text(package, encoding="utf-8")
     (tmp_path / "tsconfig.json").write_text(
-        '{"include":["source"],"compilerOptions":{"outDir":"out","composite":true}}'
+        '{"include":["source"],"compilerOptions":{"outDir":"out","composite":true}}',
+        encoding="utf-8",
     )
     assert bins() == {"deep": "web.cli"}
     # The installed compiler wins over the declared range.
-    (tmp_path / "tsconfig.json").write_text(narrowed)
+    (tmp_path / "tsconfig.json").write_text(narrowed, encoding="utf-8")
     write_tree(
         tmp_path,
         {"node_modules/typescript/package.json": '{"name":"typescript","version":"7.0.2"}'},
@@ -715,7 +726,7 @@ def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path)
     # No version anywhere: both roots are tried, and a target maps when exactly one fits.
     shutil.rmtree(tmp_path / "node_modules")
     (tmp_path / "package.json").write_text(
-        package.replace('"devDependencies":{"typescript":"^5.9.3"},', "")
+        package.replace('"devDependencies":{"typescript":"^5.9.3"},', ""), encoding="utf-8"
     )
     assert bins() == {"web": "web.cli", "deep": "web.cli"}
     ts_cfg = typescript_config.load_typescript_config(tmp_path)

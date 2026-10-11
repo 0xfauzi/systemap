@@ -292,10 +292,11 @@ def test_flows_observed_by_in_the_configuration(tmp_path: Path) -> None:
             "kind must be one of",
         ),
     ):
-        (tmp_path / "systemap.toml").write_text(text)
+        (tmp_path / "systemap.toml").write_text(text, encoding="utf-8")
         with pytest.raises(ConfigError, match=message):
             config.load(tmp_path)
     (tmp_path / "systemap.toml").write_text(
-        '[judgement]\nanswered = [{ kind = "declared flow", reason = "every edge here crosses a queue" }]\n'
+        '[judgement]\nanswered = [{ kind = "declared flow", reason = "every edge here crosses a queue" }]\n',
+        encoding="utf-8",
     )
     assert config.load(tmp_path).judgement_answered[0].kind == "declared flow"

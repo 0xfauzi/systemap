@@ -35,25 +35,27 @@ def drive(html: Path, viewport: str) -> dict[str, Any]:
         "--viewport",
         viewport,
     ]
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert proc.returncode == 0, proc.stderr
     report: dict[str, Any] = json.loads(proc.stdout)
     return report
 
 
+# At this width or less, the read panel lies over the right of the map.
+NARROW = 820
+
+
 def expected_area(report: dict[str, Any], case: dict[str, Any]) -> tuple[float, ...]:
     """The visible area from the stub's numbers alone: the figure's box
-    clipped to the window, less the drawer's column and the gap beside it."""
+    clipped to the window. In a narrow window the panel lies over the map,
+    so the area also stops at the panel and the gap beside it. In a wide
+    window the panel has its own column and the figure's box is beside it."""
     vb = report["viewBox"]
     vw, vh = case["viewport"]["w"], case["viewport"]["h"]
     x0, y0 = max(vb["x"], 0), max(vb["y"], 0)
     x1, y1 = min(vb["x"] + vb["w"], vw), min(vb["y"] + vb["h"], vh)
-    if not case["drawerHidden"]:
-        d = case["drawer"]
-        if case["dock"] == "left":
-            x0 = max(x0, d["right"] + GAP)
-        else:
-            x1 = min(x1, d["left"] - GAP)
+    if not case["drawerHidden"] and vw <= NARROW:
+        x1 = min(x1, case["panel"]["left"] - GAP)
     return x0, y0, x1 - x0, y1 - y0
 
 
@@ -88,7 +90,7 @@ def check_case(report: dict[str, Any], case: dict[str, Any]) -> None:
     # The visible area the script framed in is the one the stub describes.
     x, y, w, h = expected_area(report, case)
     assert (area["x"], area["y"], area["w"], area["h"]) == pytest.approx((x, y, w, h)), where
-    assert case["drawer"]["width"] == report["drawerWidth"], where
+    assert case["panel"]["width"] == min(report["panelWidth"], case["viewport"]["w"]), where
     # The framed rectangle's centre lands on the visible area's centre.
     cx = view["k"] * (rect["x"] + rect["w"] / 2) + view["tx"]
     cy = view["k"] * (rect["y"] + rect["h"] / 2) + view["ty"]
@@ -177,8 +179,8 @@ function sequencelayout(page) {
 
 
 @needs_node
-def test_sequence_frames_after_controls_heading_and_scroll(sample: Sample, tmp_path: Path) -> None:
-    """Acceptance: zero framing calls before the sequence controls, heading and scroll state update."""
+def test_sequence_frames_after_controls_and_heading(sample: Sample, tmp_path: Path) -> None:
+    """Acceptance: zero framing calls before the sequence controls and heading update."""
     html = sample_page(sample, tmp_path)
     driver = DRIVER.read_text(encoding="utf-8").replace(
         "const scenarios = {keyboard, framing, submap, theme, workspace};",
@@ -190,15 +192,17 @@ def test_sequence_frames_after_controls_heading_and_scroll(sample: Sample, tmp_p
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "sequencelayout"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout)
-    assert report["events"] == ["scroll", "frame", "frame"]
+    # The map fills the window below the header, so a step does not scroll the page.
+    assert report["events"] == ["frame", "frame"]
     assert len(report["calls"]) == 2 and report["steps"] > 1
     for index, call in enumerate(report["calls"]):
         assert call["heading"] == report["label"]
         assert not call["stripHidden"] and not call["controlsHidden"]
-        assert call["step"] == f"{index + 1} / {report['steps']}"
+        assert call["step"] == f"step {index + 1}"
         assert call["previousDisabled"] == (index == 0)
         assert call["nextDisabled"] == (index + 1 == report["steps"])

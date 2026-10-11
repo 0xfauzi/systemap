@@ -195,12 +195,12 @@ def args_for(cfg: Config, **kw: Any) -> argparse.Namespace:
 def test_the_route_with_no_walk_is_listed_and_nothing_is_written(
     two_cards: Config, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    before = (two_cards.model_path).read_text()
+    before = (two_cards.model_path).read_text(encoding="utf-8")
     assert cmd_journeys(args_for(two_cards, dry_run=True)) == 0
     out = capsys.readouterr().out
     assert "1 entry point without a sequence for it" in out
     assert "GET /read (route)" in out
-    assert (two_cards.model_path).read_text() == before
+    assert (two_cards.model_path).read_text(encoding="utf-8") == before
 
 
 def test_with_no_agent_set_it_says_so_and_writes_nothing(
@@ -212,7 +212,9 @@ def test_with_no_agent_set_it_says_so_and_writes_nothing(
 
 def with_agent(cfg: Config) -> Config:
     toml = cfg.root / "systemap.toml"
-    toml.write_text(toml.read_text() + '\n[agent]\ncommand = "agent -p"\n')
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + '\n[agent]\ncommand = "agent -p"\n', encoding="utf-8"
+    )
     return load(cfg.root)
 
 
@@ -245,19 +247,19 @@ def test_a_walk_the_map_cannot_hold_is_reported_and_the_model_is_left_alone(
 ) -> None:
     cfg = with_agent(two_cards)
     bad = {**ANSWER, "steps": [{**ANSWER["steps"][0], "edge": ["Writer", "Reader"]}]}
-    before = cfg.model_path.read_text()
+    before = cfg.model_path.read_text(encoding="utf-8")
     run, _asked = answering(json.dumps(bad))
     assert cmd_journeys(args_for(cfg), run_command=run) == 0
     out = capsys.readouterr().out
     assert "no sequence written for GET /read (route)" in out
     assert "which is not a flow" in out
-    assert cfg.model_path.read_text() == before
+    assert cfg.model_path.read_text(encoding="utf-8") == before
 
 
 def test_a_way_in_the_extractor_finds_is_the_one_the_agent_is_asked_about(
     two_cards: Config,
 ) -> None:
-    facts = json.loads(two_cards.facts_path.read_text())
+    facts = json.loads(two_cards.facts_path.read_text(encoding="utf-8"))
     points = [extract.entry_label(p) for p in facts["entry_points"]]
     assert "GET /read (route)" in points
 

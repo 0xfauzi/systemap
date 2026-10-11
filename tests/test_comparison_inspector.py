@@ -92,6 +92,7 @@ def test_comparison_inspector_shows_changes_and_limits(sample: Sample, tmp_path:
         [node, str(harness), str(html), "--scenario", "comparisoninspector"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
@@ -106,7 +107,7 @@ def test_comparison_inspector_shows_changes_and_limits(sample: Sample, tmp_path:
         "Unknown <img src=x> export",
     ):
         assert value in report["Reader"]
-    assert "pkg.writer" in report["Writer"] and "could not be parsed" in report["Writer"]
+    assert "pkg.writer" in report["Writer"] and "could not parse" in report["Writer"]
     assert "This component imports changed source. Examine possible effects." in report["Parser"]
     assert "The comparison has no source changes for this component." in report["Ledger"]
     assert "Selected flow" in report["exactRelationship"]

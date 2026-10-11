@@ -240,7 +240,7 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
     init_two_cards(tmp_path, "--no-ci")
     model = tmp_path / "map/model.py"
     model.write_text(
-        model.read_text()
+        model.read_text(encoding="utf-8")
         .replace(
             "COMPONENTS = (\n",
             'COMPONENTS = (\n    Component(id="Extra", region="core", does="Extra.", '
@@ -249,7 +249,8 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
         .replace(
             '"Reader": "the part that reads",',
             '"Reader": "the part that reads", "Extra": "the extra",',
-        )
+        ),
+        encoding="utf-8",
     )
     assert main(["--root", str(tmp_path), "extract"]) == 0
     cfg = config.load(tmp_path)
@@ -260,7 +261,7 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
     before = judgement.evidence_for_tree(tree, facts, tmp_path, lines)
     answer = Answer((crossing,), "only a type is imported", evidence=before[crossing])
     assert crossing not in judgement.apply_answers(lines, [answer], before).open
-    (tmp_path / "pkg/extra.py").write_text("from pkg.reader import send\n")
+    (tmp_path / "pkg/extra.py").write_text("from pkg.reader import send\n", encoding="utf-8")
     after = judgement.evidence_for_tree(tree, facts, tmp_path, lines)
     result = judgement.apply_answers(lines, [answer], after)
     assert crossing in result.open
@@ -284,7 +285,7 @@ def test_exact_answer_evidence_ignores_ast_dump_spelling(
     for item in record["api"]:
         item["fingerprint"] = "different AST dump"
     assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] == original
-    (tmp_path / "pkg/reader.py").write_text("def read():\n    return 2\n")
+    (tmp_path / "pkg/reader.py").write_text("def read():\n    return 2\n", encoding="utf-8")
     assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] != original
 
 
@@ -319,8 +320,9 @@ def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixt
     capsys.readouterr()
     toml = tmp_path / "systemap.toml"
     toml.write_text(
-        toml.read_text()
-        + '\n[judgement]\nanswered = [\n    { items = ["single module: Reader contains only pkg.reader", "single module: Writer contains only pkg.writer"], reason = "two real parts of a two-file package" },\n    { item = "thin layer: control shows 0 components", reason = "nothing drives anything yet" },\n    { item = "single module: Gone contains only pkg.gone", reason = "answered before the card was removed" },\n]\n'
+        toml.read_text(encoding="utf-8")
+        + '\n[judgement]\nanswered = [\n    { items = ["single module: Reader contains only pkg.reader", "single module: Writer contains only pkg.writer"], reason = "two real parts of a two-file package" },\n    { item = "thin layer: control shows 0 components", reason = "nothing drives anything yet" },\n    { item = "single module: Gone contains only pkg.gone", reason = "answered before the card was removed" },\n]\n',
+        encoding="utf-8",
     )
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
@@ -360,13 +362,15 @@ def test_answers_in_the_configuration(tmp_path: Path, capsys: pytest.CaptureFixt
             "reviewed is permitted only with policy",
         ),
     ):
-        toml.write_text(f"[judgement]\nanswered = [{bad}]\n")
+        toml.write_text(f"[judgement]\nanswered = [{bad}]\n", encoding="utf-8")
         assert main(["--root", str(tmp_path), "judgement"]) == 2
         assert message in capsys.readouterr().err
-    toml.write_text("[judgement]\nreplied = []\n")
+    toml.write_text("[judgement]\nreplied = []\n", encoding="utf-8")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
     assert "judgement has an unknown key: replied" in capsys.readouterr().err
-    toml.write_text('[judgement]\nanswered = [{ item = "  x  ", reason = "r" }]\n')
+    toml.write_text(
+        '[judgement]\nanswered = [{ item = "  x  ", reason = "r" }]\n', encoding="utf-8"
+    )
     cfg = config.load(tmp_path)
     assert cfg.judgement_answered == (Answer(("x",), "r"),)
 
@@ -401,7 +405,7 @@ def test_judgement_command_always_exits_0(
     # The ignored package root is not a question: its reason is under [coverage].
     assert "ignored" not in out
     # A model that contradicts itself is a configuration error, exit 2.
-    (tmp_path / "map/model.py").write_text("MODEL = 1\n")
+    (tmp_path / "map/model.py").write_text("MODEL = 1\n", encoding="utf-8")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
 
 
@@ -674,7 +678,7 @@ def test_model_sdks_configured(tmp_path: Path, capsys: pytest.CaptureFixture[str
         "model sdk: module pkg.reader imports housemodel and its component Reader is not an agent"
         in out
     )
-    (tmp_path / "systemap.toml").write_text("[facts]\nsdks = []\n")
+    (tmp_path / "systemap.toml").write_text("[facts]\nsdks = []\n", encoding="utf-8")
     assert main(["--root", str(tmp_path), "judgement"]) == 2
     assert "facts has an unknown key: sdks" in capsys.readouterr().err
 
@@ -785,7 +789,7 @@ def test_crossing_into_and_from_in_the_configuration(
     # A third card, joined to neither: its module imports both of the others.
     model = tmp_path / "map/model.py"
     model.write_text(
-        model.read_text()
+        model.read_text(encoding="utf-8")
         .replace(
             "COMPONENTS = (\n",
             'COMPONENTS = (\n    Component(id="Extra", region="core", does="Extra.", '
@@ -794,7 +798,8 @@ def test_crossing_into_and_from_in_the_configuration(
         .replace(
             '"Reader": "the part that reads",',
             '"Reader": "the part that reads", "Extra": "the extra",',
-        )
+        ),
+        encoding="utf-8",
     )
     assert main(["--root", str(tmp_path), "extract"]) == 0
     capsys.readouterr()
@@ -823,7 +828,7 @@ def test_crossing_into_and_from_in_the_configuration(
     with pytest.raises(SystemExit):
         main(["--root", str(tmp_path), "judgement", "--kind", "crossing"])
     toml = tmp_path / "systemap.toml"
-    kept = toml.read_text()
+    kept = toml.read_text(encoding="utf-8")
     for form, answered, left in (
         ('crossing_into = "Reader"', 1, [into_writer]),
         ('crossing_from = "Extra"', 2, []),
@@ -837,7 +842,8 @@ def test_crossing_into_and_from_in_the_configuration(
 answered = [
         {{ {form}, policy = true, reason = "the extra reads the others' types; the map draws the data edges" }},
 ]
-"""
+""",
+            encoding="utf-8",
         )
         assert main(["--root", str(tmp_path), "judgement"]) == 0
         out = capsys.readouterr().out
@@ -863,7 +869,7 @@ def test_bulk_answers_in_the_configuration(
     assert main(["--root", str(tmp_path), "extract"]) == 0
     toml = tmp_path / "systemap.toml"
     toml.write_text(
-        toml.read_text()
+        toml.read_text(encoding="utf-8")
         + """
 [facts]
 model_sdks = ["housemodel"]
@@ -874,7 +880,8 @@ answered = [
     { module_sdk = "housemodel", policy = true, reason = "the reader calls the model once and is not an agent, by the README's rule" },
     { crossing = ["Reader", "Writer"], policy = true, reason = "no crossing import is left; this answer is stale" },
 ]
-"""
+""",
+        encoding="utf-8",
     )
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
@@ -913,8 +920,9 @@ def test_strict_exits_1_while_a_line_is_open(
     )
     toml = tmp_path / "systemap.toml"
     toml.write_text(
-        toml.read_text()
-        + '\n[judgement]\nanswered = [\n    { kind = "single module", policy = true, reason = "two real parts" },\n    { kind = "thin layer", policy = true, reason = "nothing drives anything yet" },\n    { kind = "flow review", policy = true, reason = "the starter flow is reviewed" },\n    { item = "single module: Gone contains only pkg.gone", reason = "stale, and reported, not failed" },\n]\n'
+        toml.read_text(encoding="utf-8")
+        + '\n[judgement]\nanswered = [\n    { kind = "single module", policy = true, reason = "two real parts" },\n    { kind = "thin layer", policy = true, reason = "nothing drives anything yet" },\n    { kind = "flow review", policy = true, reason = "the starter flow is reviewed" },\n    { item = "single module: Gone contains only pkg.gone", reason = "stale, and reported, not failed" },\n]\n',
+        encoding="utf-8",
     )
     assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 0
     out = capsys.readouterr().out

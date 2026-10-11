@@ -43,7 +43,9 @@ The name is systemap. The project uses literal language and short sentences.
 Do not use emoji or em dashes.
 The user selected the refined prototype with a spatial map.
 The user rejected the operations-first layout.
-DESIGN.md records the map, inspector, controls, and reading view.
+The user selected the design with three views: Map, Sequences, and Changes.
+The user selected the Ink and Paper themes and removed the isometric view.
+DESIGN.md records the map, the panel, the controls, the motion, and the text view.
 
 ## Evidence on Hand
 
@@ -65,5 +67,5 @@ page.
 
 ## Open Decisions
 
-An isometric presentation and a different control to share views are optional.
-The selected production design does not include these features.
+A different control to share views is optional.
+The selected production design does not include this feature.

@@ -3,7 +3,8 @@
 The script renders the page from stored facts and the model.
 It writes one page per scheme and serves the pages through HTTP.
 Headless Chrome makes scheme screenshots at 1600 by 900 pixels.
-It makes 12 tour frames at 1600 by 1520 pixels.
+It makes 12 tour frames at 1600 by 900 pixels.
+It makes one phone image at 390 by 844 pixels.
 Each frame shows a layer, component, or sequence step.
 ffmpeg puts the frames together in a 30-second GIF, with a 4 MiB size limit.
 Examine the images before use in the README.
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,9 +33,9 @@ from systemap import theme as theme_mod
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 WINDOW = "1600,900"
-# The tour shows the whole map with the controls above and the sentence
-# under it, which at Fit needs the taller window; the GIF is scaled down.
-TOUR_WINDOW = "1600,1520"
+# The tour uses the same viewport as the theme images.
+TOUR_WINDOW = WINDOW
+PHONE_WINDOW = "390,844"
 SECONDS_PER_STATE = 2.5
 GIF_LIMIT = 4 * 1024 * 1024
 TIMEOUT = 15
@@ -41,32 +43,29 @@ TIMEOUT = 15
 # The states the tour walks, in order: what the reader would do with the
 # page in half a minute. Each is the script run after the page's own.
 TOUR: list[tuple[str, str]] = [
-    ("structure", ""),
-    ("system", "layer('system');"),
+    ("system", ""),
+    ("structure", "layer('structure');"),
     ("data", "layer('data');"),
     ("control", "layer('control');"),
     ("judge", "layer('judge');"),
     ("all", "layer('all');"),
     ("card", "A.select('CLI');"),
     ("spoke", "A.select('CLI'); A.peek(A.detail['CLI'].edges[0]);"),
-    ("journey-1", "journey(0); "),
-    ("journey-2", "journey(0); next();"),
-    ("journey-3", "journey(0); next(); next();"),
+    ("journey-route", "journey(0);"),
+    ("journey-1", "journey(0); start();"),
+    ("journey-2", "journey(0); start(); next();"),
     ("card-control", "layer('control'); A.select('Check');"),
 ]
 
-# The tour frames hide the page header and start at the map, rather than
-# scrolling to it: headless Chrome photographs a scrolled page with a blank
-# band where the header was (measured on 140.x), and the map is the tour.
+# Each tour frame contains the header and the map controls.
 DRIVER = """<script>(function(){{
 var A = document.getElementById('schematic').systemap;
-document.querySelector('.bar').style.display = 'none';
-document.querySelector('.main').style.paddingTop = '0';
 function layer(id){{ document.querySelector('[data-layer-btn="' + id + '"]').click(); }}
 function journey(k){{
   var s = document.getElementById('journey'); s.value = String(k);
   s.dispatchEvent(new Event('change'));
 }}
+function start(){{ document.getElementById('jstart').click(); }}
 function next(){{ document.getElementById('jnext').click(); }}
 {actions}
 }})();</script>
@@ -92,12 +91,16 @@ def render(root: Path) -> str:
     )
 
 
-def seeded(html: str, scheme: str) -> str:
+def seeded(html: str, scheme: str, guide: bool = True) -> str:
     """The page with the browser's storage seeded to one scheme, ahead of
-    the page's own head script, which reads it back and stamps the root."""
+    the page's own head script, which reads it back and stamps the root.
+
+    The guide card shows only on a first visit. Without `guide`, the
+    storage records that visit as done and the card does not show."""
+    done = "" if guide else "localStorage.setItem('systemap-guide','done');"
     seed = (
         "<script>try{localStorage.setItem("
-        f"{json.dumps(page.SCHEME_KEY)},{json.dumps(scheme)})}}catch(e){{}}</script>"
+        f"{json.dumps(page.SCHEME_KEY)},{json.dumps(scheme)});{done}}}catch(e){{}}</script>"
     )
     return html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + seed, 1)
 
@@ -175,10 +178,20 @@ def main(argv: list[str] | None = None) -> int:
     html = render(root)
     for scheme in theme_mod.SCHEMES:
         (site / f"{scheme}.html").write_text(seeded(html, scheme), encoding="utf-8")
-    head, tail = seeded(html, theme_mod.DEFAULT_SCHEME).rsplit("</body>", 1)
+    head, tail = seeded(html, theme_mod.DEFAULT_SCHEME, guide=False).rsplit("</body>", 1)
     for k, (_name, actions) in enumerate(TOUR, start=1):
         driven = head + DRIVER.format(actions=actions) + "</body>" + tail
         (site / f"tour-{k:02d}.html").write_text(driven, encoding="utf-8")
+    # Chrome can use a window wider than the requested phone screenshot.
+    # The document width must agree with the screenshot width.
+    phone = head.replace("</head>", "<style>html,body{width:390px;max-width:390px}</style></head>")
+    (site / "phone.html").write_text(
+        phone
+        + DRIVER.format(actions="journey(0); start(); window.scrollTo(0,0);")
+        + "</body>"
+        + tail,
+        encoding="utf-8",
+    )
 
     httpd = cli.make_server(site, 0)
     port = httpd.server_address[1]
@@ -200,6 +213,8 @@ def main(argv: list[str] | None = None) -> int:
                 TOUR_WINDOW,
             )
             print(f"  state {k}: {name}")
+        shutil.copyfile(frames / "tour-10.png", out / "sequence.png")
+        shoot(args.chrome, f"{base}/phone.html", out / "phone.png", profile, PHONE_WINDOW)
         stitch(args.ffmpeg, frames, out / "tour.gif")
     finally:
         httpd.shutdown()

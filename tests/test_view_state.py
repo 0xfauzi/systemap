@@ -43,7 +43,9 @@ function viewstate(page) {
   report.fitted = snapshot();
   doc.getElementById('jreturn').click(); runFrames(win);
   report.returned = snapshot(); report.expected = expected;
+  // End sequence goes back to the whole route. Escape there ends the sequence.
   doc.getElementById('jend').click(); runFrames(win);
+  key('Escape'); runFrames(win);
   report.ended = snapshot(); report.before = before;
 
   const search = doc.getElementById('partsearch');
@@ -112,6 +114,7 @@ def navigation_report(sample: Sample, tmp_path: Path) -> dict[str, Any]:
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "viewstate"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

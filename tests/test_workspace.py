@@ -72,6 +72,7 @@ def test_operations_search_and_review_share_the_same_map(sample: Sample, tmp_pat
         [shutil.which("node") or "node", str(driver), str(out), "--scenario", "workspace"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=120,
     )
     assert result.returncode == 0, result.stderr

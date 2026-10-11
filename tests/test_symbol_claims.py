@@ -94,14 +94,14 @@ def run(*argv: str) -> int:
 def scaffold(root: Path) -> None:
     write_tree(root, AGENT_FILE)
     assert run("--root", str(root), "init", "--no-ci") == 0
-    (root / "map/model.py").write_text(MODEL)
+    (root / "map/model.py").write_text(MODEL, encoding="utf-8")
 
 
 def edit(root: Path, old: str, new: str) -> None:
     model = root / "map/model.py"
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     assert old in text, old
-    model.write_text(text.replace(old, new))
+    model.write_text(text.replace(old, new), encoding="utf-8")
 
 
 def test_a_symbol_claim_passes_and_counts_for_no_module(
@@ -114,12 +114,12 @@ def test_a_symbol_claim_passes_and_counts_for_no_module(
     # Two modules, both claimed by the agent; the tool's symbol adds nothing and takes nothing.
     assert "coverage: 3 of 3 modules mapped, 1 an empty package marker" in out
     assert "map layout: has no errors (2 components" in out
-    detail = json.loads((tmp_path / "docs/map/map.json").read_text())
+    detail = json.loads((tmp_path / "docs/map/map.json").read_text(encoding="utf-8"))
     assert {n["name"] for n in detail["components"]["bot.agent"]["names"]} >= {
         "search",
         "root_agent",
     }
-    page = (tmp_path / "docs/map/index.html").read_text()
+    page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     assert "bot/agent.py:search" in page, "the panel names the file and the symbol"
 
 

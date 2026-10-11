@@ -15,7 +15,8 @@ def interactive_script(
     """Make the script for map selection and viewport controls.
 
     Selection shows the connected cards in the selected layer. Only a selected
-    flow has a thicker line. The inspector shows all connections by layer. The viewport
+    flow or a preview has a thicker line. The inspector lists the flows that a
+    component receives and sends. The viewport
     controls zoom and movement. Selection and sequence steps frame the
     selected components in the visible area. `view.frameFocus(cover)`
     uses the area outside the inspector. A double-click on a region label
@@ -27,7 +28,8 @@ def interactive_script(
 
     The script contains the detail JSON. Escaping `</` prevents artifact
     text from closing the script. With `variables`, colors use CSS tokens
-    instead of literal values."""
+    instead of literal values. The page uses `variables`, so the inspector
+    then gives sequence buttons and leaves room for the drawer Clear button."""
     # The layout audit (label boxes, card boxes) is for checkers, not the
     # page; it is dropped from the inlined copy to keep a figure small.
     parsed = json.loads(detail_json)
@@ -44,8 +46,7 @@ def interactive_script(
         f"var PAL = {palette};\n"
         f"var svg = document.getElementById({json.dumps(svg_id)});\n"
         f"var panel = document.getElementById({json.dumps(panel_id)});\n"
-        + _INTERACTIVE_JS
-        + "})();</script>"
+        f"var PAGE = {json.dumps(variables)};\n" + _INTERACTIVE_JS + "})();</script>"
     )
 
 
@@ -128,13 +129,37 @@ function el(name, attrs, text){
 // script) returns to the view before the framing began.
 var view = svg.querySelector('.view');
 var VB = svg.viewBox.baseVal;
-var ZMIN = 0.4, ZMAX = 2.5, ZCAP = 1.4, FRAME_PAD = 28, ANIM_MS = 480;
+var ZMIN = 0.4, ZMAX = 2.5, ZCAP = 1.4, FRAME_PAD = 28, ANIM_MS = 300;
 var cur = {k:1, tx:0, ty:0};   // what is drawn now, mid-animation included
 var goal = {k:1, tx:0, ty:0};  // where the view is heading
 var saved = null;              // the view before the current framing chain
 var framed = false;            // the view on screen is one a frame() set
 var lastFrame = null;          // {rect, area, k}: what the last framing fitted where
 var anim = 0, booted = false, dragged = false;
+var stillQueue = [];           // work that waits until the camera stops
+function flushStill(){
+  var q = stillQueue;
+  stillQueue = [];
+  q.forEach(function(fn){ fn(true); });
+}
+function bezier(x1, y1, x2, y2){
+  // The CSS cubic-bezier timing curve, as a function of progress 0 to 1.
+  function at(a, b, t){ return ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t; }
+  return function(u){
+    var t = u;
+    for(var k = 0; k < 8; k++){
+      var d = ((3 - 9 * x2 + 9 * x1) * t + (6 * x2 - 12 * x1)) * t + 3 * x1;
+      if(Math.abs(d) < 1e-6){ break; }
+      t = Math.min(1, Math.max(0, t - (at(x1, x2, t) - u) / d));
+    }
+    return at(y1, y2, t);
+  };
+}
+var easeCamera = bezier(.45, 0, .25, 1);
+function whenStill(fn){
+  // A line draws after the camera stops. The argument tells if it waited.
+  if(anim){ stillQueue.push(fn); } else { fn(false); }
+}
 function base(){ var m = svg.getScreenCTM(); return m && m.a ? m.a : 1; }
 function reduced(){
   return document.documentElement.dataset.reduceMotion === 'true' || !state.motion
@@ -181,15 +206,17 @@ function apply(v){
 function setView(v, instant, kmin){
   goal = clampView(v, kmin);
   if(anim){ cancelAnimationFrame(anim); anim = 0; }
-  if(instant || !booted || reduced()){ apply(goal); return; }
+  if(instant || !booted || reduced()){ apply(goal); flushStill(); return; }
   var from = cur, to = goal, t0 = 0;
   function tick(now){
+    // 300 ms, ease-in-out: the camera moves to the step and stops.
     if(!t0){ t0 = now; }
     var u = Math.min(1, (now - t0) / ANIM_MS);
-    var e = u === 1 ? 1 : 1 - Math.pow(2, -10 * u);
+    var e = u === 1 ? 1 : easeCamera(u);
     apply({k:from.k + (to.k - from.k) * e, tx:from.tx + (to.tx - from.tx) * e,
       ty:from.ty + (to.ty - from.ty) * e});
     anim = u < 1 ? requestAnimationFrame(tick) : 0;
+    if(!anim){ flushStill(); }
   }
   anim = requestAnimationFrame(tick);
 }

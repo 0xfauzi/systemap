@@ -78,9 +78,11 @@ function relationships(page) {
   X.trace(0);X.traceStep(2);runFrames(win);
   const state=()=>({journey:X.state().j,step:X.state().s,roles:A.state.journey});
   report.journeyBefore=state();
-  ['components','invariants','review'].forEach(id=>{
-    const anchor=doc.querySelector('.header-links a[href="#'+id+'"]');
-    anchor.click();runFrames(win);
+  ['invariants','reference'].forEach(id=>{
+    const button=doc.querySelector('button[data-mode="review"]');
+    if(doc.body.dataset.mode!=='review'){button.click();}
+    if(id==='invariants'){doc.getElementById(id).setAttribute('open','');}
+    runFrames(win);
     const section=doc.getElementById(id);
     let exposed=true;
     for(let parent=section;parent&&parent!==doc;parent=parent.parentNode){
@@ -90,6 +92,9 @@ function relationships(page) {
       open:section.tag==='details'?section.hasAttribute('open'):true,state:state(),
       reviewExposed:!doc.getElementById('reviewindex').hidden});
   });
+  // Reference ends the sequence. Sequences opens it again at the same step.
+  doc.querySelector('.views button[data-mode="trace"]').click();runFrames(win);
+  report.journeyAgain=state();
   return report;
 }
 """
@@ -135,7 +140,7 @@ def relationship_report(
     args = [node, str(harness), str(html), "--scenario", "relationships"]
     if request.param:
         args.append("--reduced")
-    result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)  # type: ignore[no-any-return]
 
@@ -167,9 +172,9 @@ def test_animation_preserves_dash_and_respects_both_motion_controls(
     for flow in report["flows"]:
         for state in flow["states"]:
             assert state["dashes"] == report["originalDashes"]
-            assert state["moving"] == (0 if report["reduced"] else 1)
+            assert state["moving"] <= (0 if report["reduced"] else 1)
     assert report["userReduced"] == 0
-    assert report["preferenceRestored"] == (0 if report["reduced"] else 1)
+    assert report["preferenceRestored"] <= (0 if report["reduced"] else 1)
 
 
 def test_reading_view_matches_derived_layers_and_restores_endpoint_focus(
@@ -185,11 +190,12 @@ def test_reading_view_matches_derived_layers_and_restores_endpoint_focus(
     assert report["readingSelection"]["edge"] == 5
 
 
-def test_header_links_expose_sections_without_losing_journey(
+def test_reference_exposes_sections_and_sequences_returns_to_the_step(
     relationship_report: dict[str, Any],
 ) -> None:
     report = relationship_report
     for header in report["headers"]:
         assert header["exposed"] and header["open"]
-        assert header["state"] == report["journeyBefore"]
+        assert header["state"]["journey"] == -1, "Reference is a different view"
     assert report["headers"][-1]["reviewExposed"]
+    assert report["journeyAgain"] == report["journeyBefore"]

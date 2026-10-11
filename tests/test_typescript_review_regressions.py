@@ -35,8 +35,10 @@ def test_compiler_provenance_is_independent_of_checkout_path(tmp_path: Path) -> 
     stored = tmp_path / "saved-facts.json"
     extract.write_facts(stored, snapshots[0])
     assert snapshots[0]["provenance"] == snapshots[1]["provenance"]
-    assert extract.drift(snapshots[1], json.loads(stored.read_text())) == []
-    (tmp_path / "second" / "tsconfig.json").write_text('{"compilerOptions":{"rootDirs":["src"]}}')
+    assert extract.drift(snapshots[1], json.loads(stored.read_text(encoding="utf-8"))) == []
+    (tmp_path / "second" / "tsconfig.json").write_text(
+        '{"compilerOptions":{"rootDirs":["src"]}}', encoding="utf-8"
+    )
     changed = extract.build(config.load(tmp_path / "second"))
     assert "extraction inputs changed since the map was built" in extract.drift(
         changed, snapshots[0]

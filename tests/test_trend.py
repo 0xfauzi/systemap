@@ -18,7 +18,11 @@ def commit(root: Path, message: str) -> str:
     subprocess.run([*GIT, "-C", str(root), "add", "-A"], check=True)
     subprocess.run([*GIT, "-C", str(root), "commit", "-qm", message], check=True)
     return subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
     ).stdout.strip()
 
 
@@ -35,7 +39,7 @@ def repo(tmp_path: Path) -> Path:
         {
             "pkg/shipping.py": "from pkg.reader import read\n\n\ndef ship(s: str) -> str:\n    return read(s)\n",
             "map/model.py": (tmp_path / "map/model.py")
-            .read_text()
+            .read_text(encoding="utf-8")
             .replace(
                 'implemented_by=("pkg.writer",)', 'implemented_by=("pkg.writer", "pkg.shipping")'
             ),
@@ -101,6 +105,7 @@ def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str
         ["git", "-C", str(repo), "rev-list", "--max-parents=0", "HEAD"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     ).stdout.strip()
     argv = ["--root", str(repo), "history", "--since", "30 years ago", "--ref", first]

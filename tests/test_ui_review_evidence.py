@@ -20,7 +20,8 @@ def reviewed_tree(sample: Sample) -> nest.Tree:
     path = sample.cfg.root / sample.cfg.model
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        f"from systemap.model import *\nMODEL = {sample.model!r}\nMEANING = {sample.meaning!r}\n"
+        f"from systemap.model import *\nMODEL = {sample.model!r}\nMEANING = {sample.meaning!r}\n",
+        encoding="utf-8",
     )
     return nest.load(sample.cfg)
 
@@ -44,7 +45,7 @@ def test_current_exact_answer_retains_its_reason_then_reopens_after_source_edit(
     assert not data["pending"]
 
     source = sample.cfg.root / "pkg/reader.py"
-    source.write_text(source.read_text() + "\nNEW_VALUE = 1\n")
+    source.write_text(source.read_text(encoding="utf-8") + "\nNEW_VALUE = 1\n", encoding="utf-8")
     changed = page_data.tree_review(cfg, tree, tree.top, sample.facts)
     assert [r["line"] for r in changed["open"]] == lines
     assert not changed["answered"]

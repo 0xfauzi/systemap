@@ -192,6 +192,7 @@ def git(root: Path, *args: str) -> str:
         cwd=root,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     )
     return proc.stdout.strip()
@@ -300,7 +301,8 @@ def test_nothing_to_do_and_no_change_exit_zero(
 ) -> None:
     # A body edit leaves the map's claims pending source review.
     (repo / "pkg/writer.py").write_text(
-        (repo / "pkg/writer.py").read_text().replace('read("")', 'read("x")')
+        (repo / "pkg/writer.py").read_text(encoding="utf-8").replace('read("")', 'read("x")'),
+        encoding="utf-8",
     )
     git(repo, "commit", "-q", "-am", "body")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
@@ -397,12 +399,14 @@ def test_the_base_is_the_merge_base_and_the_working_copy_is_not_read(
     # change is reported, since the comparison starts at the merge base.
     git(repo, "branch", "feature", "HEAD")
     git(repo, "checkout", "-q", "-b", "main-moved", "HEAD~1")
-    (repo / "pkg/util.py").write_text("UPPER = 2\n")
+    (repo / "pkg/util.py").write_text("UPPER = 2\n", encoding="utf-8")
     git(repo, "commit", "-q", "-am", "main moved")
     main_moved = git(repo, "rev-parse", "HEAD")
     git(repo, "checkout", "-q", "feature")
     # An uncommitted edit in the working copy is not what delta reads.
-    (repo / "pkg/uncommitted.py").write_text("def nope() -> None:\n    return None\n")
+    (repo / "pkg/uncommitted.py").write_text(
+        "def nope() -> None:\n    return None\n", encoding="utf-8"
+    )
     assert main(["--root", str(repo), "delta", "--base", main_moved]) == 1
     out = capsys.readouterr().out
     assert f"delta: {main_moved} ({git(repo, 'rev-parse', 'HEAD~1')[:7]}) ->" in out

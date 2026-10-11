@@ -28,7 +28,9 @@ def project(tmp_path: Path) -> Path:
 
 def disable(root: Path) -> None:
     toml = root / "systemap.toml"
-    toml.write_text(toml.read_text() + "\n[jev]\nenabled = false\n")
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + "\n[jev]\nenabled = false\n", encoding="utf-8"
+    )
 
 
 def test_delta_asks_jev_when_a_key_is_set_unless_told_not_to(
@@ -68,6 +70,8 @@ def test_the_hint_is_silent_with_a_key_or_when_jev_is_disabled(
 
 def test_jev_enabled_must_be_a_boolean(project: Path) -> None:
     toml = project / "systemap.toml"
-    toml.write_text(toml.read_text() + '\n[jev]\nenabled = "no"\n')
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + '\n[jev]\nenabled = "no"\n', encoding="utf-8"
+    )
     with pytest.raises(ConfigError, match="jev.enabled must be true or false"):
         load_config(project)

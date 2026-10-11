@@ -2,7 +2,7 @@
 
 Acceptance: Structure shows zero flows after component selection. Component
 selection shows only connected flows in the selected layer, with zero selected paths.
-Only labels for selection or preview appear. A preview makes zero changes to inspector
+Labels show on their own lines at rest. A preview makes zero changes to inspector
 contents or camera state. Every connected flow has a button and evidence state.
 The harness does not measure browser pointer movement or text geometry.
 """
@@ -26,7 +26,7 @@ function hoverstability(page) {
   const snapshot=()=>({paths:visible('.flow').map(el=>+el.dataset.edge),
     labels:visible('.flowlbl').map(el=>+el.dataset.edge),
     hot:svg.querySelectorAll('.flow.hot').map(el=>+el.dataset.edge),
-    peek:A.state.peek,selected:A.state.edge,layer:A.state.layer,
+    peek:A.state.peek,selected:A.state.edge,layer:A.state.layer,beside:A.besideEdges||[],
     pathsAccessible:svg.querySelectorAll('.flow').every(el=>
       el.getAttribute('role')==='button' && el.getAttribute('tabindex')===
       (el.classList.contains('off')?'-1':'0'))});
@@ -117,6 +117,7 @@ def crowding_report(sample: Sample, tmp_path: Path) -> dict[str, Any]:
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "hoverstability"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
@@ -129,7 +130,8 @@ def test_component_selection_uses_only_incident_active_layer_flows(
     crowding_report: dict[str, Any],
 ) -> None:
     report = crowding_report
-    assert report["initial"]["labels"] == []
+    # At rest the labels of the drawn lines show, and no other labels.
+    assert set(report["initial"]["labels"]) <= set(report["initial"]["paths"])
     for case in report["cases"]:
         incident = report["incident"][case["id"]]
         expected = {
@@ -138,7 +140,7 @@ def test_component_selection_uses_only_incident_active_layer_flows(
             if case["layer"] == "all" or edge in report["readings"][case["layer"]]["edges"]
         }
         assert set(case["paths"]) == expected, case
-        assert case["hot"] == [] and case["labels"] == [], case
+        assert case["hot"] == [] and set(case["labels"]) <= expected, case
         assert case["pathsAccessible"], case
     assert any(case["layer"] == "structure" for case in report["cases"])
     assert any(len(case["paths"]) > 1 for case in report["cases"])
@@ -147,7 +149,7 @@ def test_component_selection_uses_only_incident_active_layer_flows(
             report["readings"][switch["layer"]]["edges"]
         )
         assert set(switch["paths"]) == expected
-        assert switch["hot"] == [] and switch["labels"] == []
+        assert switch["hot"] == [] and set(switch["labels"]) <= expected
         assert switch["frame"] is not None
 
 
@@ -170,10 +172,13 @@ def check_flow_group(report: dict[str, Any], group: dict[str, Any], names: dict[
     assert group["edges"]
     for choice in group["edges"]:
         flow = report["edges"][choice["edge"]]
-        assert group["heading"] == names[flow["layer"]]
+        # The panel groups a component's flows by direction. Each row names
+        # the other end only.
+        assert group["heading"] in ("Receives", "Sends")
         assert choice["evidence"] == flow["evidence"]
         assert flow["art"] in choice["text"]
-        assert flow["from"] in choice["text"] and flow["to"] in choice["text"]
+        other = flow["from"] if group["heading"] == "Receives" else flow["to"]
+        assert other in choice["text"]
         evidence = "source review recorded" if flow["evidence"] == "observed" else flow["evidence"]
         assert evidence in choice["text"]
 
@@ -185,7 +190,10 @@ def test_path_and_list_preview_preserve_inspector_and_camera(
     report = crowding_report
     for state in report["interactions"]:
         expected = [report["edge"]] if state["event"] in ("enter", "focus", "relatedLeave") else []
-        assert state["labels"] == expected
+        # The card is selected, so its drawn lines show their labels. A label
+        # without a seat on its own line shows only for a preview.
+        seated = set(state["paths"]) - set(state["beside"])
+        assert set(state["labels"]) == seated | set(expected)
         assert state["peek"] == (report["edge"] if expected else -1)
         assert state["selected"] == -1
         assert state["hot"] == []
@@ -236,7 +244,8 @@ function sequencefocus(page) {
     stripShown:shown(doc.getElementById('strip')),
     sourceShown:shown(doc.getElementById('source-detail')),
     sourceText:doc.getElementById('source-detail').textContent,
-    sentence:doc.getElementById('stripsay').textContent,
+    sentence:(doc.querySelector('.seq-steps [aria-current="step"] .seq-step__say')||{textContent:''})
+      .textContent,
     visiblePaths:svg.querySelectorAll('.flow').filter(path=>!path.classList.contains('off'))
       .map(path=>+path.dataset.edge)});
   const journey=A.journeys[0], first=journey.steps[0];
@@ -245,8 +254,12 @@ function sequencefocus(page) {
   const before=snapshot();
   const select=doc.getElementById('journey');
   select.value='0';select.dispatchEvent(new EventImpl('change',{bubbles:true}));runFrames(win);
+  // The select opens the whole route. Start at step 1.
+  doc.getElementById('jstart').click();runFrames(win);
   const started=snapshot();
+  // End sequence goes back to the whole route. Escape there ends the sequence.
   doc.getElementById('jend').click();runFrames(win);
+  page.key('Escape');runFrames(win);
   return {edge,step:first,stepLayer:A.edges[first.edge].layer,before,started,ended:snapshot()};
 }
 """
@@ -272,6 +285,7 @@ def test_sequence_start_clears_previous_flow_inspector_and_end_restores_it(
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "sequencefocus"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

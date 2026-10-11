@@ -35,7 +35,7 @@ def fill_starter(model: Path, both_ways: bool) -> None:
     """One card in each of the starter's four regions, written without a
     position and placed by `systemap place`, and a flow between every pair:
     the routes must run along the corridors."""
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     cards = "".join(
         f'    Component(id="{cid}", does="{cid}", region="{cid.lower()}", '
         f'implemented_by=("pkg.{cid.lower()}",), entry="run_{cid.lower()}"),\n'
@@ -63,7 +63,7 @@ def fill_starter(model: Path, both_ways: bool) -> None:
     ):
         assert old in text, old
         text = text.replace(old, new)
-    model.write_text(text)
+    model.write_text(text, encoding="utf-8")
     assert run("--root", str(model.parent.parent), "place") == 0
 
 
@@ -73,7 +73,7 @@ def fill_starter(model: Path, both_ways: bool) -> None:
 def test_starter_is_a_2x2_grid_with_corridors(tmp_path: Path) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **FOUR_MODULES})
     assert run("--root", str(tmp_path), "init", "--no-ci") == 0
-    text = (tmp_path / "map/model.py").read_text()
+    text = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     boxes = [
         tuple(int(v) for v in m.groups())
         for m in re.finditer(
@@ -122,7 +122,7 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
     pytest.importorskip("ruff")
     files = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci=False)
     model = tmp_path / "model.py"
-    model.write_text(files["map/model.py"])
+    model.write_text(files["map/model.py"], encoding="utf-8")
     for width in ("88", "100"):
         proc = subprocess.run(
             [
@@ -138,6 +138,7 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         assert proc.returncode == 0, f"line length {width}:\n{proc.stdout}{proc.stderr}"
     proc = subprocess.run(
@@ -153,12 +154,15 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert proc.returncode == 0, proc.stdout
     # Every import is used and the only pragma is E501, for the prose the
     # agent writes: once a sentence is in the file, RUF100 has nothing to
     # say, where the old F401 pragma tripped it as soon as every import was used.
-    model.write_text(files["map/model.py"] + "# " + "a sentence the agent wrote " * 4 + "\n")
+    model.write_text(
+        files["map/model.py"] + "# " + "a sentence the agent wrote " * 4 + "\n", encoding="utf-8"
+    )
     proc = subprocess.run(
         [
             sys.executable,
@@ -172,6 +176,7 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert proc.returncode == 0, proc.stdout
 
@@ -367,11 +372,11 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     )
     # A model that contradicts itself cannot be drawn: the same refusal as check.
     model = tmp_path / "map/model.py"
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     a = re.search(r'id="A".*?(x=\d+, y=\d+)', text, re.S)
     b = re.search(r'id="B".*?(x=\d+, y=\d+)', text, re.S)
     assert a and b
-    model.write_text(text.replace(b.group(1), a.group(1)))
+    model.write_text(text.replace(b.group(1), a.group(1)), encoding="utf-8")
     assert run("--root", str(tmp_path), "describe") == 1
     assert "placement: A overlaps B" in capsys.readouterr().out
 

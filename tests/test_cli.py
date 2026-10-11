@@ -33,7 +33,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         ".claude/skills/systemap/references/schema.md",
     ):
         assert (tmp_path / rel).is_file(), rel
-    assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text()
+    assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text(encoding="utf-8")
     out = capsys.readouterr().out
     assert "wrote .claude/skills/systemap/ (SKILL.md and 9 references)" in out
     assert "SKILL.md\n" not in out.replace("(SKILL.md and 9 references)\n", "")
@@ -48,7 +48,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         '\n    [tool.deptry.per_rule_ignores]\n    DEP001 = ["systemap"]\n    DEP003 = ["systemap"]\n'
         in out
     )
-    model = (tmp_path / "map/model.py").read_text()
+    model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
     assert "ASD-STE100 Issue 9" in model
     assert "installed systemap skill language policy" in model
@@ -62,7 +62,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert capsys.readouterr().out == NO_COMPONENTS + "\n"
 
     # The agent writes two cards; from here the loop runs.
-    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
+    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
     # Nothing built yet: extract --check and render are stale, with the fix named.
     assert run("--root", str(tmp_path), "extract", "--check") == 1
     assert "run: systemap extract" in capsys.readouterr().out
@@ -81,7 +81,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert "docs/map/figures/system.svg has no rendered output." in out
     assert out.rstrip().endswith("run: systemap refresh")
     assert run("--root", str(tmp_path), "render") == 0
-    page = (tmp_path / "docs/map/index.html").read_text()
+    page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     assert "<title>demo system map</title>" in page
     assert run("--root", str(tmp_path), "render", "--check") == 0
 
@@ -103,19 +103,19 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
 def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
-    model = (tmp_path / "map/model.py").read_text()
+    model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert model.startswith('# ruff: noqa: E501\n"""The system map of')
     assert "F401" not in model, "every import is used, so no pragma to trip RUF100"
     assert "COMPONENTS: tuple[Component, ...] = ()" in model
     assert "FLOWS: tuple[Flow, ...] = ()" in model
     assert "mypackage" not in model
-    toml = (tmp_path / "systemap.toml").read_text()
+    toml = (tmp_path / "systemap.toml").read_text(encoding="utf-8")
     assert "\nignore = [" not in toml, "the starter carries no ignore"
     assert '[package_roots]\n"pkg" = "pkg"' in toml
     assert 'out = "figures/structure.svg"' in toml and 'layer = "structure"' in toml
     assert 'out = "figures/system.svg"' in toml
     assert "system.html" not in toml
-    workflow = (tmp_path / ".github/workflows/systemap.yml").read_text()
+    workflow = (tmp_path / ".github/workflows/systemap.yml").read_text(encoding="utf-8")
     # Nothing is on PyPI yet: the pin is the release tag, and moves to PyPI at 1.0.
     pin = f'uvx --from "systemap=={__version__}" systemap'
     for command in ("extract --check", "check", "judgement --strict", "render --check"):
@@ -147,7 +147,7 @@ def test_init_workflow_posts_the_delta_on_a_pull_request(tmp_path: Path) -> None
 
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
-    workflow = (tmp_path / ".github/workflows/systemap.yml").read_text()
+    workflow = (tmp_path / ".github/workflows/systemap.yml").read_text(encoding="utf-8")
     assert workflow.count("\n  delta:\n") == 1
     job = workflow[workflow.index("\n  delta:\n") :]
     assert "if: github.event_name == 'pull_request'" in job
@@ -177,12 +177,13 @@ def test_rendered_files_end_with_a_newline(tmp_path: Path) -> None:
         "docs/map/figures/structure.svg",
         "docs/map/figures/system.svg",
     ):
-        assert (tmp_path / rel).read_text().endswith("\n"), rel
+        assert (tmp_path / rel).read_text(encoding="utf-8").endswith("\n"), rel
     out = tmp_path / "fig.html"
     assert run("--root", str(tmp_path), "figure", "--interactive", "--out", str(out)) == 0
-    assert out.read_text().endswith("</figure>\n")
+    assert out.read_text(encoding="utf-8").endswith("</figure>\n")
     (tmp_path / "docs/map/index.html").write_text(
-        model_free := (tmp_path / "docs/map/index.html").read_text().rstrip("\n")
+        model_free := (tmp_path / "docs/map/index.html").read_text(encoding="utf-8").rstrip("\n"),
+        encoding="utf-8",
     )
     assert model_free and run("--root", str(tmp_path), "render", "--check") == 1
 
@@ -200,7 +201,7 @@ def test_stale_after_code_change(tmp_path: Path, capsys: pytest.CaptureFixture[s
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     init_two_cards(tmp_path)
     assert run("--root", str(tmp_path), "refresh") == 0
-    (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n")
+    (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n", encoding="utf-8")
     assert run("--root", str(tmp_path), "extract", "--check") == 1
     out = capsys.readouterr().out
     assert "code changed since the map was built: pkg.reader" in out
@@ -248,18 +249,21 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     (tmp_path / "systemap.toml").unlink()
     assert run("--root", str(tmp_path), "check") == 2
     assert "theme must be a table" in capsys.readouterr().err
-    # A scheme that is not one of the three is refused with the three named.
+    # A scheme that is not one of the two is refused with the two named.
     write_tree(tmp_path, {"map/model.py": TWO_CARD_MODEL})
     write_tree(
         tmp_path, {"pyproject.toml": '[tool.systemap]\n[tool.systemap.theme]\nscheme = "sepia"\n'}
     )
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "Unknown theme scheme 'sepia'. The schemes are warm, graphite, paper" in err
+    assert (
+        "The theme scheme 'sepia' is not available. The schemes are dark (Ink) and light (Paper)."
+        in err
+    )
     assert "Traceback" not in err
-    write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\npaper = 3\n"})
+    write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\nlight = 3\n"})
     assert run("--root", str(tmp_path), "check") == 2
-    assert "theme.paper must contain a table of CSS tokens" in capsys.readouterr().err
+    assert "theme.light must contain a table of CSS tokens" in capsys.readouterr().err
 
     # The issue link template left with the field it served; an old key is refused.
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\nissue_url = "https://x/{n}"\n'})
@@ -273,7 +277,9 @@ def test_check_fails_on_overlapping_fixture(
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     init_two_cards(tmp_path)
     model = tmp_path / "map/model.py"
-    model.write_text(model.read_text().replace('x=COL["c2"]', 'x=COL["c1"]'))
+    model.write_text(
+        model.read_text(encoding="utf-8").replace('x=COL["c2"]', 'x=COL["c1"]'), encoding="utf-8"
+    )
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "placement: Reader overlaps Writer" in out
@@ -287,7 +293,7 @@ def test_figure_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert run("--root", str(tmp_path), "extract") == 0
     out = tmp_path / "fig.html"
     assert run("--root", str(tmp_path), "figure", "--static", "--out", str(out)) == 0
-    text = out.read_text()
+    text = out.read_text(encoding="utf-8")
     assert text.startswith('<figure data-generated="systemap"')
     assert "<script>" not in text
     assert (
@@ -303,11 +309,11 @@ def test_figure_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         )
         == 0
     )
-    assert "<script>" in out.read_text()
+    assert "<script>" in out.read_text(encoding="utf-8")
     # A relative --out lands in the output directory, like a [[figures]] out.
     capsys.readouterr()
     assert run("--root", str(tmp_path), "figure", "--static", "--out", "figures/one.svg") == 0
-    assert (tmp_path / "docs/map/figures/one.svg").read_text().startswith("<svg ")
+    assert (tmp_path / "docs/map/figures/one.svg").read_text(encoding="utf-8").startswith("<svg ")
     assert capsys.readouterr().out.startswith("The command wrote docs/map/figures/one.svg (")
     assert not (Path.cwd() / "figures/one.svg").exists()
     assert run("--root", str(tmp_path), "figure", "--components", "Nope", "--out", str(out)) == 2
@@ -323,7 +329,7 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     out = capsys.readouterr().out
     assert f"wrote {written}" in out
     assert "references/ (9 files)" in out
-    text = written.read_text()
+    text = written.read_text(encoding="utf-8")
     assert text.startswith("---\nname: systemap\n")
     assert "systemap check" in text
     assert "systemap extract" in text
@@ -343,17 +349,17 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     # The default location is under the root, and rerunning refreshes the text.
     assert run("--root", str(tmp_path), "skill") == 0
     default = tmp_path / ".claude/skills/systemap/SKILL.md"
-    assert default.read_text() == text
+    assert default.read_text(encoding="utf-8") == text
     assert (tmp_path / ".claude/skills/systemap/references/schema.md").is_file()
-    default.write_text("edited")
+    default.write_text("edited", encoding="utf-8")
     assert run("--root", str(tmp_path), "skill") == 0
-    assert default.read_text() == text
+    assert default.read_text(encoding="utf-8") == text
     # --print writes the same text to stdout and touches nothing.
-    default.write_text("edited")
+    default.write_text("edited", encoding="utf-8")
     capsys.readouterr()
     assert run("--root", str(tmp_path), "skill", "--print") == 0
     assert capsys.readouterr().out == text
-    assert default.read_text() == "edited"
+    assert default.read_text(encoding="utf-8") == "edited"
 
 
 def test_extract_on_tiny_package_via_cli(

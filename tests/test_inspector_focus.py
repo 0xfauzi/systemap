@@ -68,6 +68,7 @@ def test_keyboard_inspection_restores_the_exact_control(sample: Sample, tmp_path
         [node, str(harness), str(html), "--scenario", "inspectorfocus"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

@@ -185,6 +185,12 @@ class Element {
       const v = this.viewBox.baseVal;
       return rect(v.x, v.y, v.width, v.height);
     }
+    if (this.id === 'readpanel' && !this.hidden && windowObject) {
+      // A narrow window lays the panel over the right of the map, under the
+      // header. A wide window gives the panel its own column.
+      const w = Math.min(PANEL_W, windowObject.innerWidth);
+      return rect(windowObject.innerWidth - w, HEADER_H, w, windowObject.innerHeight - HEADER_H);
+    }
     if (this.id === 'drawer' && !this.hidden && documentNode) {
       const svg = documentNode.getElementById('schematic');
       const s = svg ? svg.getBoundingClientRect() : zero;
@@ -397,6 +403,9 @@ class DOMPointImpl {
 }
 
 let documentNode = null;
+// The read panel and the header, in CSS pixels, as page_assets.py sets them.
+const PANEL_W = 400;
+const HEADER_H = 52;
 let windowObject = null;
 
 function dispatch(target, ev) {
@@ -538,35 +547,28 @@ function keyboard(page) {
     replaceStates: REPORT.replaceStates,
   };
   const pressed = () => doc.querySelectorAll('[data-layer-btn]').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.layerBtn);
-  const strip = () => {
-    // The strip's count line and the cards it lists, each with its kind.
-    const s = doc.querySelector('.lstrip__s');
-    return {
-      says: s ? s.textContent : '',
-      listed: doc.querySelectorAll('#lstrip [data-go]').map((b) => ({id: b.dataset.go, kind: A.detail[b.dataset.go].kind})),
-    };
-  };
+  const readout = () => (doc.getElementById('map-context') || {textContent: ''}).textContent;
 
-  // Arrows switch readings while no journey is on.
+  // Arrows switch layers in tab order while no sequence is on.
   const arrows = [];
-  report.strips = {[A.state.layer]: strip()};
+  report.readouts = {[A.state.layer]: readout()};
   key('ArrowRight'); arrows.push({after: 'right', layer: A.state.layer, pressed: pressed()});
-  report.strips[A.state.layer] = strip();
+  runFrames(win); report.readouts[A.state.layer] = readout();
   key('ArrowRight'); arrows.push({after: 'right', layer: A.state.layer, pressed: pressed()});
-  report.strips[A.state.layer] = strip();
+  runFrames(win); report.readouts[A.state.layer] = readout();
   key('ArrowLeft'); arrows.push({after: 'left', layer: A.state.layer, pressed: pressed()});
   key('ArrowLeft'); arrows.push({after: 'left', layer: A.state.layer, pressed: pressed()});
   key('ArrowLeft'); arrows.push({after: 'left', layer: A.state.layer, pressed: pressed()});
-  report.strips[A.state.layer] = strip();
+  runFrames(win); report.readouts[A.state.layer] = readout();
   report.arrows = arrows;
-  report.header = (doc.querySelector('.bar .meta') || {textContent: ''}).textContent;
+  report.header = (doc.querySelector('.project .sr-only') || {textContent: ''}).textContent;
   report.kinds = Object.fromEntries(svg.querySelectorAll('.node').map((n) => [n.dataset.id, n.dataset.kind]));
-  // ... and are left alone inside the journey select.
+  // ... and are left alone inside the sequence select.
   const select = doc.getElementById('journey');
   report.arrowInSelectPrevented = key('ArrowRight', select);
   report.layerAfterSelectArrow = A.state.layer;
-  // Back to the first reading for what follows.
-  while (A.state.layer !== report.layers[0]) key('ArrowRight');
+  // Back to the first tab for what follows.
+  while (A.state.layer !== report.buttons[0]) key('ArrowRight');
 
   // Tab order: every card takes focus, in the order it is written.
   const nodes = svg.querySelectorAll('.node');
@@ -588,7 +590,7 @@ function keyboard(page) {
     prevented: enterPrevented,
     focus: A.state.focus,
     drawerHidden: drawer.hidden,
-    dock: drawer.dataset.dock,
+    panelState: doc.body.dataset.panel,
     panelOn: panel.classList.contains('on'),
     choices: panel.querySelectorAll('.systemap-f__flow-choice').length,
     edges: (A.detail[withEdges.dataset.id].edges || []).length,
@@ -598,7 +600,7 @@ function keyboard(page) {
     viewEventsForFraming: page.views() - before.views,
     activeElement: doc.activeElement.dataset ? doc.activeElement.dataset.id : doc.activeElement.tag,
   };
-  // Focus on a flow choice previews its label. Escape returns to the card.
+  // Focus on a flow choice previews its line. Escape returns to the card.
   const choice = panel.querySelector('.systemap-f__flow-choice');
   choice.focus();
   report.peekOnFocus = A.state.peek;
@@ -618,7 +620,8 @@ function keyboard(page) {
   report.spaceOpens = A.state.focus === withEdges.dataset.id;
   key('Escape');
 
-  // A journey: the arrows step it, Escape ends it.
+  // A sequence: the select opens the whole route, the arrows step it,
+  // Escape goes back to the whole route and then ends the sequence.
   const journeys = A.journeys;
   const j = {count: journeys.length};
   if (journeys.length) {
@@ -626,10 +629,13 @@ function keyboard(page) {
     select.dispatchEvent(new EventImpl('change', {bubbles: true}));
     runFrames(win);
     const count = doc.getElementById('jcount');
+    j.mode = doc.body.dataset.mode;
+    j.whole = A.state.journey;
+    key('ArrowRight'); runFrames(win);
     j.started = count.textContent;
     j.stripHidden = doc.getElementById('strip').hidden;
-    // The line under the sentence: where the walk starts, what backs this
-    // step in the code, and whether an agent wrote it and nobody has read it.
+    // Under the step: where the walk starts, what backs this step in the
+    // code, and whether an agent wrote it and nobody has read it.
     j.foot = doc.getElementById('stripfoot').textContent;
     j.stepEvidence = A.edges[journeys[0].steps[0].edge].evidence_says;
     j.starts = journeys[0].starts || '';
@@ -638,13 +644,15 @@ function keyboard(page) {
     j.layerMatchesStep = A.state.layer === A.edges[journeys[0].steps[Math.min(1, journeys[0].steps.length - 1)].edge].layer;
     key('ArrowLeft'); j.afterLeft = count.textContent;
     key('ArrowLeft'); j.afterLeftAtStart = count.textContent;
-    j.stepButtons = doc.querySelectorAll('[data-step]').length;
+    j.stepButtons = doc.querySelectorAll('.seq-steps [data-step]').length;
     j.steps = journeys[0].steps.length;
-    key('Escape');
-    j.ended = count.textContent;
-    j.stripHiddenAfter = doc.getElementById('strip').hidden;
+    key('Escape'); runFrames(win);
+    j.escapeOnce = A.state.journey;
+    j.stripHiddenAfterOne = doc.getElementById('strip').hidden;
+    key('Escape'); runFrames(win);
+    j.ended = A.state.journey;
+    j.modeAfter = doc.body.dataset.mode;
     j.selectReset = select.value;
-    j.journeyState = A.state.journey;
   }
   report.journey = j;
   report.rafCalls = rafCalls;
@@ -683,6 +691,7 @@ function framing(page) {
       reading, id, frame, lit, litEdges,
       view: parseTransform(svg.querySelector('.view').getAttribute('transform')),
       dock: drawer.dataset.dock, drawerHidden: drawer.hidden, drawer: drawer.getBoundingClientRect(),
+      panel: doc.getElementById('readpanel').getBoundingClientRect(),
       viewport: {w: win.innerWidth, h: win.innerHeight},
     };
   };
@@ -716,7 +725,7 @@ function framing(page) {
     edges: A.edges.map((e) => ({from: e.from, to: e.to})),
     detailEdges: Object.fromEntries(cards.map((id) => [id, A.detail[id].edges || []])),
     kinds: Object.fromEntries(nodes.map((n) => [n.dataset.id, n.dataset.kind])),
-    drawerWidth: DRAWER_W,
+    drawerWidth: DRAWER_W, panelWidth: PANEL_W,
     cards, cases, beforeResize, afterResize,
   };
 }
@@ -800,19 +809,23 @@ function theme(page) {
   const pick = doc.getElementById('scheme');
   const stored = () => { try { return win.localStorage.getItem('systemap-theme'); } catch (e) { return 'unavailable'; } };
   const style = doc.querySelector('style').textContent;
+  // The picker is a group of buttons. The pressed button shows the scheme.
+  const picked = () => {
+    const on = pick ? pick.querySelector('[aria-pressed="true"]') : null;
+    return on ? on.dataset.scheme : null;
+  };
   const report = {
     onLoad: root.getAttribute('data-theme'),
-    pickValue: pick ? pick.value : null,
-    options: pick ? pick.querySelectorAll('option').map((o) => o.getAttribute('value')) : [],
+    pickValue: picked(),
+    options: pick ? pick.querySelectorAll('[data-scheme]').map((o) => o.dataset.scheme) : [],
     blocks: (style.match(/:root\[data-theme="([a-z]+)"\]\{/g) || []).map((m) => m.slice(18, -3)),
     storedOnLoad: stored(),
     switches: [],
   };
   if (pick) {
     report.options.forEach((name) => {
-      pick.value = name;
-      pick.dispatchEvent(new EventImpl('change', {bubbles: true}));
-      report.switches.push({picked: name, attr: root.getAttribute('data-theme'), pickValue: pick.value, stored: stored()});
+      pick.querySelector('[data-scheme="'+name+'"]').dispatchEvent(new EventImpl('click', {bubbles:true}));
+      report.switches.push({picked: name, attr: root.getAttribute('data-theme'), pickValue: picked(), stored: stored()});
     });
   }
   return report;
@@ -834,7 +847,8 @@ function workspace(page) {
     report.steps = steps.length;
     report.expectedSteps = A.journeys[0].steps.length;
     report.activeStart = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
-    key('ArrowRight');
+    // The sequence opens as the whole route: the first arrow starts the steps.
+    key('ArrowRight'); key('ArrowRight');
     report.activeNext = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
     report.evidence = doc.getElementById('step-evidence').textContent;
     atlas.querySelector('[data-trace-step="0"]').click();
@@ -849,7 +863,8 @@ function workspace(page) {
   search.value = 'pkg.reader';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
   report.matches = doc.querySelectorAll('.ix').filter((b) => !b.hidden).map((b) => b.dataset.go);
-  report.searchOpened = doc.getElementById('partlist-disclosure').open;
+  // Typing in Find opens the list of results under the field.
+  report.searchOpened = !doc.getElementById('components').hidden;
   search.value = 'nothing-matches-this-query';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
   report.emptySearch = !doc.getElementById('searchempty').hidden;

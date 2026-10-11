@@ -2,7 +2,7 @@
 and the tour is what the script says it is.
 
 `scripts/screenshots.py` is run by hand (it needs Chrome and ffmpeg); this
-test holds what it wrote to its claims: three PNGs of 1600 by 900, one
+test holds what it wrote to its claims: two PNGs of 1600 by 900, one
 per scheme; a GIF under four megabytes; a tour whose every state names a
 reading or a card the model has, so a renamed card cannot leave the tour
 showing nothing.
@@ -45,11 +45,13 @@ def png_size(path: Path) -> tuple[int, int]:
 
 
 def test_every_scheme_is_photographed_at_the_stated_size() -> None:
-    assert list(theme_mod.SCHEMES) == ["warm", "graphite", "paper"]
+    assert list(theme_mod.SCHEMES) == ["dark", "light"]
     for name in theme_mod.SCHEMES:
         assert png_size(SHOTS / f"{name}.png") == (1600, 900), name
-    for old in ("dark", "light"):
-        assert not (SHOTS / f"{old}.png").exists(), "the 0.11 names are gone"
+    assert png_size(SHOTS / "sequence.png") == (1600, 900)
+    assert png_size(SHOTS / "phone.png") == (390, 844)
+    for old in ("warm", "graphite", "paper", "clay"):
+        assert not (SHOTS / f"{old}.png").exists(), "The removed themes have no screenshots."
 
 
 def test_the_tour_is_a_gif_under_the_limit() -> None:
@@ -93,9 +95,8 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for rel in (
         "docs/screenshots/tour.gif",
-        "docs/screenshots/warm.png",
-        "docs/screenshots/graphite.png",
-        "docs/screenshots/paper.png",
+        "docs/screenshots/dark.png",
+        "docs/screenshots/light.png",
     ):
         assert rel in readme, rel
         assert (ROOT / rel).is_file(), rel
@@ -108,7 +109,7 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     # are quoted one by one and the first maps as a range.
     rows = [
         json.loads(line)
-        for line in (ROOT / "bench" / "results.jsonl").read_text().splitlines()
+        for line in (ROOT / "bench" / "results.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     quoted = re.search(
