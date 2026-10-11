@@ -1233,10 +1233,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--dir",
         default="",
-        help=(
-            "Set the skill directory. The default is .agents/skills/systemap under the "
-            "project root."
-        ),
+        help=f"Set the skill directory. The default is {skill.DEFAULT_DIR} under the project root.",
     )
     s.add_argument("--print", action="store_true", help="Print SKILL.md to stdout.")
     s.set_defaults(func=cmd_skill)

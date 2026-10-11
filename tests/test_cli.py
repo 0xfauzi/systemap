@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from conftest import TINY_PACKAGE, TWO_CARD_MODEL, init_two_cards, write_tree
 
-from systemap import __version__, cli, scaffold
+from systemap import __version__, cli, scaffold, skill
 from systemap.cli import NO_COMPONENTS, main
 
 STARTER_MODULES = {
@@ -360,6 +360,18 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     assert run("--root", str(tmp_path), "skill", "--print") == 0
     assert capsys.readouterr().out == text
     assert default.read_text(encoding="utf-8") == "edited"
+
+
+def test_skill_dir_help_gives_the_default(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A large COLUMNS value keeps the skill directory on one line.
+    monkeypatch.setenv("COLUMNS", "200")
+    with pytest.raises(SystemExit) as exit_info:
+        run("skill", "--help")
+    assert exit_info.value.code == 0
+    out = " ".join(capsys.readouterr().out.split())
+    assert f"The default is {skill.DEFAULT_DIR} under the project root." in out
 
 
 def test_extract_on_tiny_package_via_cli(
