@@ -1,8 +1,8 @@
-"""The guide for a first visit and the Read panel for the Map view.
+"""The guide for a first visit and the Details panel for the Map view.
 
 The guide has up to five steps: the system boundary, the parts, the data,
 the control and one operation. Each step selects a layer, or starts the
-first sequence. The Read panel shows a section about the selected layer
+first sequence. The Details panel shows a section about the selected layer
 first and the same steps after it. Other scripts give that section through
 `svg.page.readers`.
 """
@@ -103,8 +103,8 @@ def card() -> str:
         '<p class="guide__text" id="guide-text"></p>'
         '<div class="guide__actions"><button type="button" class="primary" id="guide-next">'
         'Next</button><button type="button" id="guide-close">Close</button></div>'
-        '<p class="guide__note">The guide opens on the first visit only. Read opens it '
-        "again.</p></section>"
+        '<p class="guide__note">The guide opens on the first visit only. The Details panel '
+        "gives the same steps.</p></section>"
     )
 
 
@@ -224,7 +224,7 @@ SCRIPT = r"""
     if(card && e.detail.mode !== 'understand'){ card.hidden = true; }
   });
 
-  // ---- the Read panel --------------------------------------------------------
+  // ---- the Details panel -----------------------------------------------------
   // The section for the layer comes first: page_mapview and page_groups give
   // it through P.readers. The guide steps follow it as a short list.
   function section(L){

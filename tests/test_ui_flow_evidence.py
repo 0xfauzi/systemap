@@ -76,10 +76,8 @@ function flowevidence(page) {
   });
   A.setMotion(false);report.userReduced=moving();
   A.setMotion(true);report.restoredMotion=moving();
-  A.clear();doc.getElementById('view-reading').click();
-  doc.querySelector('[data-layer-btn="all"]').click();
-  report.readingLabels=doc.getElementById('atlas').querySelectorAll('.reading-flow')
-    .map(article=>article.querySelector('.reading-meta').textContent);
+  // The labels that the readout and the panel give for each flow.
+  report.readingLabels=A.edges.map(e=>A.evidenceLabel(e.evidence));
   return report;
 }
 """
@@ -166,7 +164,7 @@ def test_generated_metadata_names_shared_module_and_configured_mechanism(sample:
     assert not edges[4]["import_present"] and not edges[4]["shared_module"]
 
 
-@pytest.fixture(params=[False, True], ids=["motion", "os-reduced-motion"])
+@pytest.fixture(params=[False, True], ids=["motion", "page-reduced-motion"])
 def flow_report(
     evidence_sample: Sample, tmp_path: Path, request: pytest.FixtureRequest
 ) -> dict[str, Any]:

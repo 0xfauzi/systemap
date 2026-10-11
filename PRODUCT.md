@@ -45,7 +45,7 @@ The user selected the refined prototype with a spatial map.
 The user rejected the operations-first layout.
 The user selected the design with three views: Map, Sequences, and Changes.
 The user selected the Ink and Paper themes and removed the isometric view.
-DESIGN.md records the map, the panel, the controls, the motion, and the text view.
+DESIGN.md records the map, the panel, the controls, and the motion.
 
 ## Evidence on Hand
 

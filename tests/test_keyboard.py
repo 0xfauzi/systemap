@@ -30,10 +30,14 @@ needs_node = pytest.mark.skipif(
 )
 
 
-def drive(html: Path, reduced: bool = False) -> dict[str, object]:
+def drive(html: Path, reduced: bool = False, system: bool = False) -> dict[str, object]:
+    """Drive the page. `reduced` sets Reduce motion on the page. `system` sets
+    the system setting for reduced motion."""
     args = [shutil.which("node") or "node", str(DRIVER), str(html)]
     if reduced:
         args.append("--reduced")
+    if system:
+        args.append("--system-reduced")
     proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert proc.returncode == 0, proc.stderr
     report: dict[str, object] = json.loads(proc.stdout)
@@ -179,9 +183,20 @@ def test_reduced_motion_frames_without_animation(sample: Sample, tmp_path: Path)
     # beside the drawer once it is laid out): two views, no tween between.
     enter = report["enter"]
     assert isinstance(enter, dict) and enter["viewEventsForFraming"] == 2, (
-        "prefers-reduced-motion: the view is set, never animated"
+        "Reduce motion: the view is set, never animated"
     )
     assert "smooth" not in report["scrolls"]
+
+
+@needs_node
+def test_the_system_setting_alone_does_not_stop_motion(sample: Sample, tmp_path: Path) -> None:
+    """Motion is on until the reader sets Reduce motion on the page (DESIGN.md, Motion)."""
+    report = drive(sample_page(sample, tmp_path), system=True)
+    check_keyboard(report)
+    enter = report["enter"]
+    assert isinstance(enter, dict) and enter["viewEventsForFraming"] > 2, (
+        "the system setting for reduced motion does not stop the framing animation"
+    )
 
 
 @pytest.mark.parametrize("scheme", list(theme_mod.SCHEMES))
@@ -195,13 +210,18 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
     assert ":focus-visible{outline:2px solid var(--ink);outline-offset:3px}" in html
     assert "#schematic .node:focus-visible .node__halo{display:inline;stroke-width:2}" in html
     assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:2.6}" in html
+    # Reduce motion is a page setting. The head script stamps it before the
+    # first paint, and the system setting applies only to a figure without it.
     assert (
-        "@media (prefers-reduced-motion:reduce){*{transition:none!important;"
-        "animation:none!important}}" in html
+        'html[data-reduce-motion="true"] *{transition:none!important;animation:none!important}'
+        in html
     )
+    assert ":root[data-reduce-motion=true] #schematic *{transition:none!important;" in html
+    assert "setAttribute('data-reduce-motion',m)" in html.split("</head>")[0]
+    assert "@media (prefers-reduced-motion:reduce){*" not in html
     assert (
-        "@media (prefers-reduced-motion:reduce){#schematic *{transition:none!important;"
-        "animation:none!important}}" in html
+        "@media (prefers-reduced-motion:reduce){:root:not([data-reduce-motion]) #schematic *{"
+        in html
     )
     assert "Tab selects cards and flow paths. Enter opens their data." in html
 

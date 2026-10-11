@@ -1602,3 +1602,19 @@ The Ink token tables of the page are the same before and after the change.
 | Self-map page, no comparison, scratch build | 644,811 | 644,416 |
 
 These measurements do not show user comprehension.
+
+## Map page size with the new header and the Find dialog (2026-10-11)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+This change removes Reference, the Text view, the More menu and the component index of the Find field.
+It adds the header icons, the full-screen control and the Find dialog.
+The self-map rows use the model and the facts of the shared checkout for both pages, so the two rows compare only the page code.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (9defc3d) | 306,145 |
+| Sample page, with the new header and the Find dialog | 301,610 |
+| Self-map page, no comparison, base (9defc3d) | 653,205 |
+| Self-map page, no comparison, with the new header and the Find dialog | 640,512 |
+
+The sample page passes with 5,590 bytes of space.

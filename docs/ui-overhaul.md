@@ -5,6 +5,10 @@ The replacement uses the refined prototype: an authored spatial map, compact
 controls, and an inspector adjacent to the map. Text view gives a text alternative on
 small screens. The production page is [docs/map/index.html](map/index.html).
 
+This document records the overhaul at that time. Later changes removed the Text view,
+the Reference records, the finder field, and the More menu, and changed the motion setting.
+[DESIGN.md](../DESIGN.md) gives the current page.
+
 The audit used main at `56716e9`, with the TypeScript merge included.
 The implementation team examined each recommendation as a claim.
 Previous source line numbers were not implementation instructions.

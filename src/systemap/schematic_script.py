@@ -162,8 +162,12 @@ function whenStill(fn){
 }
 function base(){ var m = svg.getScreenCTM(); return m && m.a ? m.a : 1; }
 function reduced(){
-  return document.documentElement.dataset.reduceMotion === 'true' || !state.motion
-    || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // The page setting decides when the page has one. A figure without the
+  // setting follows the system setting.
+  var set = document.documentElement.dataset.reduceMotion;
+  if(!state.motion || set === 'true'){ return true; }
+  return !set && !!(window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 function isFit(v){
   v = v || goal;

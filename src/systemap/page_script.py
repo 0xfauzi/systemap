@@ -9,24 +9,21 @@ JS = r"""
   function byId(id){ return document.getElementById(id); }
   var panel = byId('panel'), drawer = byId('drawer'), readpanel = byId('readpanel');
   var empty = byId('inspector-empty'), sourceDetail = byId('source-detail');
-  var reviewDetail = byId('review-detail'), reference = byId('reference');
+  var readMore = byId('read-more');
   var LAY = {};
   A.layers.forEach(function(l){ LAY[l.id] = l; });
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function all(sel, root){
     return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
-  function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
+  function reduced(){ return document.documentElement.dataset.reduceMotion === 'true'; }
   function emit(name, detail){
     svg.dispatchEvent(new CustomEvent(name, {detail:detail || {}, bubbles:true}));
   }
   function show(node, on){ if(node){ node.hidden = !on; } }
 
   // The page API. The sequence script replaces `journey`; other scripts add
-  // readers (the Read panel section for a layer), legends and readouts.
+  // readers (the Details panel section for a layer), legends and readouts.
   var P = svg.page = {readers:[], legendFor:[], readoutFor:[], journey:{
     active:function(){ return false; }, state:function(){ return {j:-1, s:0}; },
     start:function(){}, step:function(){}, stepBy:function(){ return false; },
@@ -35,15 +32,14 @@ JS = r"""
 
   // ---- the panel ----------------------------------------------------------
   // The Map view keeps the panel closed until the reader selects something
-  // or presses Read. The other views show their own panel.
+  // or presses Details. The other views show their own panel.
   var mode = 'understand', readOpen = false, collapsed = false;
   var restoringView = false, frameVersion = 0, opened = '';
-  var readBtn = byId('read-toggle');
+  var readBtn = byId('panel-toggle');
   var hasChange = !!byId('changemap');
   function panelOpen(){
     if(mode === 'change'){ return hasChange && !collapsed; }
-    if(mode !== 'understand' && mode !== 'review'){ return !collapsed; }
-    if(mode === 'review'){ return !collapsed || !!A.state.focus; }
+    if(mode !== 'understand'){ return !collapsed; }
     return readOpen || !!A.state.focus;
   }
   function sections(){
@@ -52,10 +48,9 @@ JS = r"""
     body.dataset.panel = open ? 'open' : 'closed';
     show(readpanel, open);
     show(empty, mode === 'understand' && !focus);
+    show(readMore, mode === 'understand' && !focus);
     show(drawer, focus && mode !== 'change');
     show(byId('journeyindex'), mode === 'trace' && !focus);
-    show(reference, mode === 'review' && !focus);
-    show(reviewDetail, mode === 'review' && !focus);
     show(byId('change-panel'), mode === 'change');
     if(readBtn){ readBtn.setAttribute('aria-pressed', open ? 'true' : 'false'); }
     if(before !== body.dataset.panel){
@@ -104,7 +99,7 @@ JS = r"""
       b.tabIndex = on ? 0 : -1;
     });
     if(layerSelect){ layerSelect.value = id; }
-    if(mode === 'understand' || mode === 'review'){ setTitle('', layerQuestion(id)); }
+    if(mode === 'understand'){ setTitle('', layerQuestion(id)); }
     if(A.state.focus && !restoringView){ frameBeside(A.state.focus); }
     if(changed){ emit('systemap:layer', {layer:id}); }
     emit('systemap:workspace');
@@ -147,15 +142,13 @@ JS = r"""
   // ---- views ---------------------------------------------------------------
   var TITLES = {trace:['SEQUENCES', 'Which steps make one operation?'],
     change:['CHANGES', 'What did this change touch?']};
-  var more = byId('theme-menu');
   function setMode(name){
     if(name !== 'trace' && P.journey.active()){ P.journey.end(false); }
     mode = name;
     body.dataset.mode = name;
     body.dataset.compare = String(hasChange);
     all('button[data-mode]').forEach(function(b){
-      var on = b.dataset.mode === name || (name === 'review' && b.dataset.mode === 'understand');
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.setAttribute('aria-pressed', b.dataset.mode === name ? 'true' : 'false');
     });
     collapsed = false;
     if(TITLES[name]){ setTitle(TITLES[name][0], TITLES[name][1]); }
@@ -164,16 +157,13 @@ JS = r"""
     show(change, name === 'change');
     show(byId('spatialmap'), name !== 'change');
     if(name === 'change' && A.state.focus){ A.clear(); }
-    if(name === 'review'){ renderReview(); }
-    if(more){ more.open = false; }
     var label = byId('activity-label');
     if(label){ label.textContent = {understand:'System components', trace:'Operation sequence',
-      change:'Revision comparison', review:'Map records'}[name]; }
+      change:'Revision comparison'}[name]; }
     var activity = byId('activity-question');
     if(activity){ activity.textContent = {
       understand:'What are the components and their connections?',
-      trace:'What are the operation steps?', change:'What did this change touch?',
-      review:'Which decisions and rules apply to this map?'}[name]; }
+      trace:'What are the operation steps?', change:'What did this change touch?'}[name]; }
     sections();
     var M = shownMap();
     if(M && M.view){ showZoom(M.view.zoom(), M.view.isFit()); }
@@ -181,85 +171,15 @@ JS = r"""
     emit('systemap:workspace');
   }
   all('button[data-mode]').forEach(function(b){
-    b.addEventListener('click', function(){
-      if(b.dataset.mode === mode && mode === 'review'){ setMode('understand'); return; }
-      setMode(b.dataset.mode);
-      // Reference shows the records, not a selection from an earlier view.
-      if(b.dataset.mode === 'review' && A.state.focus){ A.clear(); }
-    });
+    b.addEventListener('click', function(){ setMode(b.dataset.mode); });
   });
 
-  // ---- search: the Find field and its list of components ---------------------
-  var find = byId('partsearch'), results = byId('components');
-  function openFind(){ if(results){ results.hidden = false;
-    } if(find){ find.setAttribute('aria-expanded', 'true'); } }
-  function closeFind(){ if(results){ results.hidden = true;
-    } if(find){ find.setAttribute('aria-expanded', 'false'); } }
-  function visibleEntries(){ return all('.ix[data-go]',
-    results).filter(function(b){ return !b.hidden; }); }
-  function searchParts(){
-    if(!find){ return; }
-    var q = find.value.trim().toLowerCase();
-    var found = 0, entries = all('.ix[data-go]');
-    entries.forEach(function(b){
-      var d = A.detail[b.dataset.go], s = W.sources && W.sources[b.dataset.go];
-      var fields = [['Component name',d.id],['Function',d.does],['Function',d.plain || '']];
-      if(s){
-        s.claims.forEach(function(m){ fields.push(['Claimed module',m]); });
-        s.modules.forEach(function(m){ fields.push(['Module',m.id],['Source path',m.file]); });
-      }
-      var matches = fields.filter(function(field){
-        return String(field[1] || '').toLowerCase().indexOf(q) >= 0;
-      });
-      b.hidden = !matches.length;
-      var explanation = b.querySelector('.ix__match');
-      if(!explanation){
-        explanation = document.createElement('small');
-        explanation.setAttribute('class', 'ix__match'); b.appendChild(explanation);
-      }
-      explanation.hidden = !q;
-      explanation.textContent = q && matches.length ? matches[0].join(': ') : '';
-      if(!b.hidden){ found++; }
-    });
-    all('.ixgroup').forEach(function(g){
-      g.hidden = all('.ix', g).every(function(b){ return b.hidden; });
-    });
-    var status = byId('searchcount');
-    if(status){ status.textContent = found + ' of ' + entries.length + ' components'; }
-    show(byId('searchempty'), found === 0);
-  }
-  if(find){
-    find.addEventListener('focus', function(){ searchParts(); openFind(); });
-    find.addEventListener('input', function(){ searchParts(); openFind(); });
-    find.addEventListener('keydown', function(e){
-      var list = visibleEntries();
-      if(e.key === 'Escape'){ closeFind(); find.blur(); e.preventDefault(); e.stopPropagation(); }
-      else if(e.key === 'ArrowDown' && list.length){ list[0].focus(); e.preventDefault(); }
-      else if(e.key === 'Enter' && list.length){ list[0].click(); e.preventDefault(); }
-    });
-  }
-  if(results){ results.addEventListener('keydown', function(e){
-    var list = visibleEntries(), i = list.indexOf(document.activeElement);
-    if(e.key === 'Escape'){ closeFind(); if(find){ find.focus(); } e.preventDefault();
-      e.stopPropagation(); }
-    else if(e.key === 'ArrowDown' && i >= 0 && i < list.length - 1){ list[i + 1].focus();
-      e.preventDefault(); }
-    else if(e.key === 'ArrowUp' && i > 0){ list[i - 1].focus(); e.preventDefault(); }
-    else if(e.key === 'ArrowUp' && i === 0 && find){ find.focus(); e.preventDefault(); }
-  }); }
   document.addEventListener('pointerdown', function(e){
-    if(results && !results.hidden && !results.contains(e.target) && e.target !== find){
-      closeFind(); }
-    if(more && more.open && !more.contains(e.target)){ more.open = false; }
+    if(snap && !snap.parentNode.contains(e.target)){ showSnap(false); }
   });
-  all('.ix[data-go], .gv[data-go]').forEach(function(b){
-    b.addEventListener('click', function(){
-      if(mode === 'change'){ setMode('understand'); }
-      A.select(b.dataset.go);
-      closeFind();
-    });
+  all('.gv[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){ A.select(b.dataset.go); });
   });
-  searchParts();
 
   // ---- selection --------------------------------------------------------
   var closeBtn = byId('drawerclose');
@@ -278,15 +198,11 @@ JS = r"""
     sections();
     if(!restoringView){ frameBeside(id); }
     if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
-    all('.ix[data-go]').forEach(function(b){
-      b.setAttribute('aria-current', b.dataset.go === id ? 'true' : 'false');
-    });
   });
   svg.addEventListener('systemap:clear', function(){
     if(sourceDetail){ sourceDetail.innerHTML = ''; }
     sections();
     if(location.hash){ history.replaceState(null, '', location.pathname + location.search); }
-    all('.ix[data-go]').forEach(function(b){ b.removeAttribute('aria-current'); });
     // Focus that was in the panel, or nowhere, goes back to the card the
     // panel was about, so the keyboard reader is where they left off.
     var active = document.activeElement, node = opened && nodeOf(opened);
@@ -298,7 +214,7 @@ JS = r"""
     if(P.journey.active() && !A.state.journey){ P.journey.back(); }
   });
   svg.addEventListener('systemap:flow', function(e){
-    if(mode === 'understand' || mode === 'review'){ setLayer(A.edges[e.detail.edge].layer); }
+    if(mode === 'understand'){ setLayer(A.edges[e.detail.edge].layer); }
   });
   // A sequence button anywhere in the panel starts that sequence.
   if(readpanel){ readpanel.addEventListener('click', function(e){
@@ -355,6 +271,26 @@ JS = r"""
   svg.addEventListener('systemap:open', openSubmap);
   if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
 
+  // ---- the stored commit opens the source records of the page ---------------
+  var snap = byId('snap'), snapPop = byId('snap-pop');
+  function showSnap(on){
+    if(!snap || !snapPop || snapPop.hidden === !on){ return false; }
+    snapPop.hidden = !on;
+    snap.setAttribute('aria-expanded', on ? 'true' : 'false');
+    return true;
+  }
+  if(snap){ snap.addEventListener('click', function(){ showSnap(snapPop.hidden); }); }
+
+  // ---- all rules, in the panel of the Map view ------------------------------
+  P.showRule = function(n){
+    if(mode !== 'understand'){ setMode('understand'); }
+    if(A.state.focus){ A.clear(); }
+    P.openPanel();
+    var rules = byId('invariants'), row = byId('rule-' + n);
+    if(rules){ rules.setAttribute('open', ''); }
+    if(row){ row.scrollIntoView({block:'center'}); row.focus({preventScroll:true}); }
+  };
+
   // ---- the scheme -------------------------------------------------------
   // The head script stamped the root before the first paint; the buttons
   // show that, and a change restamps the root, keeps the pick in this
@@ -380,38 +316,40 @@ JS = r"""
     showScheme(); stampFrame();
     emit('systemap:scheme', {scheme:name});
   }
+  // The header shows the button of the other scheme only. After a click, the
+  // focus goes to the button that the header now shows.
   all('[data-scheme]').forEach(function(b){
-    b.addEventListener('click', function(){ setScheme(b.dataset.scheme); });
+    b.addEventListener('click', function(){
+      var had = document.activeElement === b;
+      setScheme(b.dataset.scheme);
+      var other = all('[data-scheme]').filter(function(x){ return x !== b; })[0];
+      if(had && other){ other.focus(); }
+    });
   });
   showScheme();
   if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
 
-  // The native preference always wins. The page control can also stop motion.
+  // Reduce motion is a page setting. It is off until the reader sets it, and
+  // the system setting for reduced motion does not change it (DESIGN.md, Motion).
+  // The head script stamps the stored setting on the root before the first paint.
   var motionPick = byId('reduce-motion');
-  var motionMedia = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
-  var motionOff = false;
-  try { motionOff = localStorage.getItem('systemap-reduce-motion') === 'true'; } catch(e){}
-  function motionPreference(){
-    var nativeOff = !!(motionMedia && motionMedia.matches), off = nativeOff || motionOff;
+  function setMotion(off){
     document.documentElement.dataset.reduceMotion = String(off);
-    if(motionPick){ motionPick.checked = off; motionPick.disabled = nativeOff; }
+    if(motionPick){ motionPick.setAttribute('aria-pressed', String(off)); }
     A.setMotion(!off); stampFrame();
   }
-  if(motionPick){ motionPick.addEventListener('change', function(){
-    motionOff = motionPick.checked;
-    try { localStorage.setItem('systemap-reduce-motion', String(motionOff)); } catch(e){}
-    motionPreference();
+  if(motionPick){ motionPick.addEventListener('click', function(){
+    var off = !reduced();
+    try { localStorage.setItem('systemap-reduce-motion', String(off)); } catch(e){}
+    setMotion(off);
   }); }
-  if(motionMedia && motionMedia.addEventListener){
-    motionMedia.addEventListener('change', motionPreference);
-  }
-  motionPreference();
+  setMotion(reduced());
 
   // ---- keyboard ---------------------------------------------------------
   // Tab moves across the cards in reading order, Enter on a card opens its
   // panel, Escape closes the newest thing, the left and right arrows switch
-  // layers or step the sequence, 1 to 9 select a layer tab, R opens Read,
-  // T changes the map and the text view, / finds a component.
+  // layers or step the sequence, 1 to 9 select a layer tab, D opens and
+  // closes the Details panel.
   function stepLayer(d){
     var ids = tabs.map(function(b){ return b.dataset.layerBtn; });
     if(!ids.length){ return; }
@@ -419,7 +357,8 @@ JS = r"""
     setLayer(ids[(i + d + ids.length) % ids.length]);
   }
   function overlayOpen(){
-    return ['keys', 'present'].some(function(id){ var n = byId(id); return n && !n.hidden; });
+    return ['keys', 'present', 'palette'].some(function(id){
+      var n = byId(id); return n && !n.hidden; });
   }
   function typing(t){
     var tag = t && t.tagName;
@@ -427,22 +366,17 @@ JS = r"""
       (t && t.isContentEditable) || !!(t && t.closest && t.closest('[role="textbox"]'));
   }
   function escape(e){
-    if(more && more.open){ more.open = false; e.preventDefault(); return; }
+    if(showSnap(false)){ snap.focus(); e.preventDefault(); return; }
+    if(P.exitFull && P.exitFull()){ e.preventDefault(); return; }
     if(P.journey.active()){ P.journey.end(); e.preventDefault(); return; }
     if(A.state.focus){ A.clear(); A.view.back(); e.preventDefault(); return; }
     if(readOpen && mode === 'understand'){ readOpen = false; sections(); e.preventDefault();
       return; }
-    if(mode === 'review'){ setMode('understand'); e.preventDefault(); return; }
     A.view.back();
   }
   function letter(e){
     var k = e.key.toLowerCase();
-    if(k === 'r' && readBtn){ readBtn.click(); return true; }
-    if(k === 't'){
-      var target = byId(body.dataset.view === 'reading' ? 'view-map' : 'view-reading');
-      if(target){ target.click(); }
-      return true;
-    }
+    if(k === 'd' && readBtn){ readBtn.click(); return true; }
     if(/^[1-9]$/.test(e.key) && mode !== 'trace'){
       var b = tabs[+e.key - 1];
       if(b){ b.click(); }
@@ -454,18 +388,13 @@ JS = r"""
     if(e.key === 'Escape' && closeSubmap()){ e.preventDefault(); return; }
     if(submap && !submap.hidden){ return; }
     if(overlayOpen() || typing(e.target)){ return; }
-    if((e.key === '/' && !e.altKey && !e.ctrlKey && !e.metaKey) ||
-      (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey)){
-      if(find){ find.focus(); e.preventDefault(); }
-      return;
-    }
     if(e.altKey || e.ctrlKey || e.metaKey){ return; }
     if(e.key === 'Escape'){ escape(e); return; }
     if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
       if(e.target && e.target.closest && e.target.closest('#readpanel')){ return; }
       var d = e.key === 'ArrowRight' ? 1 : -1;
       if(P.journey.active()){ if(P.journey.stepBy(d)){ e.preventDefault(); } }
-      else if(mode === 'understand' || mode === 'review'){ stepLayer(d); e.preventDefault(); }
+      else if(mode === 'understand'){ stepLayer(d); e.preventDefault(); }
       return;
     }
     if(letter(e)){ e.preventDefault(); }
@@ -526,73 +455,35 @@ JS = r"""
     sourceDetail.innerHTML = h;
   }
 
-  // ---- reference: decisions ----------------------------------------------
-  var reviewFilter = 'open', reviewPick = -1;
-  function reviewCards(line){
-    return Object.keys(W.sources || {}).filter(function(id){
-      // Match identifiers as tokens, including hyphenated or dotted card names.
-      var safe = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp('(^|[^A-Za-z0-9_.-])' + safe + '($|[^A-Za-z0-9_.-])').test(line);
+  // ---- the evidence of a sequence step --------------------------------------
+  // The components of the step and the rules that apply to them, under the
+  // step in the Sequences panel.
+  var stepBox = byId('step-evidence');
+  function stepEvidence(){
+    var at = P.journey.state(), j = A.journeys[at.j], st = j && j.steps[at.s];
+    if(!stepBox || !st){ return; }
+    var e = A.edges[st.edge], rules = {}, seen = {}, h = '';
+    (st.acts || []).concat(st.measures || [], e ? [e.from, e.to] : []).forEach(function(id){
+      if(!A.detail[id] || seen[id]){ return; }
+      seen[id] = true;
+      h += '<button type="button" data-step-part="' + esc(id) + '">Examine ' + esc(id)
+        + '</button>';
+      A.detail[id].rules.forEach(function(n){ rules[n] = true; });
     });
+    h = '<section class="source-section"><h3>Step components</h3><div class="step-parts">' + h
+      + '</div><h3>Rules for this step</h3>';
+    A.detail._meta.rules.forEach(function(r){
+      if(rules[r.n]){ h += '<p class="rule-row"><b>' + r.n + '</b>' + esc(r.text) + '</p>'; }
+    });
+    if(!Object.keys(rules).length){ h += '<p>The model has no rules for these components.</p>'; }
+    stepBox.innerHTML = h + '</section>';
   }
-  function pickReview(k){
-    reviewPick = k;
-    var item = W.review[reviewFilter][k];
-    if(!item){ return; }
-    var label = reviewFilter === 'open' ? 'Decision to make' : 'Recorded decision';
-    var h = '<p class="review-kicker">' + esc(label)
-      + '</p><h2>' + esc(item.kind) + '</h2><div class="review-line">'
-         + esc(item.line) + '</div>'
-      + '<p>' + esc(item.means) + '</p><p>' + esc(item.why) + '</p>';
-    if(item.reasons.length){
-      h += '<h3>Answer explanation</h3>' + item.reasons.map(function(r){
-        return '<p class="review-reason">' + esc(r) + '</p>';
-      }).join('');
-    } else { h += '<h3>What to do</h3><p>' + esc(item.do) + '</p>'; }
-    h += '<div class="review-cards">' + reviewCards(item.line).map(function(id){
-      return '<button type="button" data-inspect="' + esc(id) + '">Examine ' + esc(id)
-         + '</button>';
-    }).join('') + '</div><p>Keep the finding text unchanged when you record an answer in '
-      + '<code>[judgement] answered</code>. Run <code>systemap judgement</code> against the '
-      + 'working tree before you make a decision.</p>';
-    reviewDetail.innerHTML = h;
-    all('[data-inspect]', reviewDetail).forEach(function(b){
-      b.addEventListener('click', function(){ A.select(b.dataset.inspect); });
-    });
-    all('[data-review-item]').forEach(function(b){
-      b.setAttribute('aria-pressed', +b.dataset.reviewItem === k ? 'true' : 'false');
-    });
-  }
-  function renderReview(){
-    if(!W.review){ return; }
-    var items = W.review[reviewFilter];
-    byId('reviewlist').innerHTML = items.map(function(item, k){
-      return '<button type="button" class="review-choice" data-review-item="' + k
-        + '" aria-pressed="false">' + esc(item.kind) + '<small>' + esc(item.line)
-         + '</small></button>';
-    }).join('') || '<p>' + (reviewFilter === 'open' ? 'This map has no findings without answers. '
-      + 'A person must still examine the map claims.'
-      : 'These findings have no applicable stored answers.') + '</p>';
-    all('[data-review-item]').forEach(function(b){
-      b.addEventListener('click', function(){
-        A.clear(); pickReview(+b.dataset.reviewItem); sections();
-      });
-    });
-    reviewDetail.innerHTML = '<h2>Read the decisions.</h2>'
-      + '<p>Select a finding to read its explanation and the necessary action. '
-      + 'Answered findings contain the recorded explanation. Jev audits and checks of the working '
-      + 'tree are separate commands.</p>';
-    if(items.length){ pickReview(Math.max(0, Math.min(reviewPick, items.length - 1))); }
-  }
-  all('[data-review-filter]').forEach(function(b){
-    b.addEventListener('click', function(){
-      reviewFilter = b.dataset.reviewFilter; reviewPick = -1;
-      all('[data-review-filter]').forEach(function(x){
-        x.setAttribute('aria-pressed', x.dataset.reviewFilter === reviewFilter ? 'true' : 'false');
-      });
-      A.clear(); renderReview(); sections();
-    });
-  });
+  if(stepBox){ stepBox.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-step-part]');
+    if(b){ svg.workspace.inspect(b.dataset.stepPart); }
+  }); }
+  ['systemap:step', 'systemap:workspace'].forEach(function(name){
+    svg.addEventListener(name, stepEvidence); });
 
   // ---- copy a command -------------------------------------------------------
   // The button says Copied for a short time; the status line says it too.

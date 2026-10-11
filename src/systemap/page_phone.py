@@ -4,8 +4,7 @@ A window of 640 pixels or less shows these parts. Wider windows hide them and
 keep the map page unchanged. The script sets `body[data-phone]` to the phone
 state: `grid` (the regions grid), `map` (the map at a region or the full map),
 `step` (one sequence step with a small map), `full` (the full map during a
-sequence), `index` (the list of sequences), `panel` (the Reference panel),
-`text` (the text view) or `change` (the Changes view).
+sequence), `index` (the list of sequences) or `change` (the Changes view).
 """
 
 from __future__ import annotations
@@ -17,20 +16,17 @@ from systemap.model import Meaning, Model
 CSS = r"""
 .phone-head,.phone-body,.phone-full{display:none}
 @media (max-width:640px){
-/* ---- header: mark, name, revision, More; the views below it ------------- */
+/* ---- header: mark, name, revision, settings; the views below it --------- */
 .bar{height:auto;min-height:53px;flex-wrap:wrap;column-gap:10px;row-gap:0;padding:0 16px;
   border-bottom:0;background:linear-gradient(var(--surface) 0 52px,var(--line) 52px 53px,
   var(--bg) 53px)}
 .brand{height:52px}.mark{width:20px;height:20px}
 .project{flex:1 1 auto;min-width:0;height:52px;align-items:center;gap:10px}
 .project-name{overflow:hidden;text-overflow:ellipsis}
-.snap{display:inline;margin-left:auto;font-size:0;line-height:1}
-.snap code{font:12px/1 var(--fm);color:var(--ink-3)}
-.bar__space,.bar .find,#read-toggle{display:none}
-.more>summary{width:44px;height:44px;min-height:44px;border:0;border-radius:8px;
-  background:transparent;color:var(--ink-2);font-size:20px}
-.more__menu{top:calc(100% + 4px);width:232px}
-.more__menu>button,.more__menu [data-scheme],.motion-control{min-height:44px}
+.snap-at{margin-left:auto;position:static}
+.snap__pop{position:fixed;left:16px;right:16px;top:56px;width:auto}
+.bar__space,#panel-toggle,#keys-open,.bar__div{display:none}
+.bar .tool,.bar .find{width:40px;height:40px;min-height:40px;border:0;background:none}
 .bar .views{order:9;flex:0 0 100%;margin:11px 0 0;display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--line-2);
   border-radius:8px;overflow:hidden}
@@ -39,7 +35,6 @@ CSS = r"""
 .bar .views button+button{border-left:1px solid var(--line-2)}
 .bar .views button[aria-pressed="true"]{background:var(--card);color:var(--ink);font-weight:500;
   border-color:var(--line-2)}
-.find__results{left:8px;right:8px;top:60px;width:auto}
 
 /* ---- the map frame and the panel in phone states --------------------------- */
 body[data-phone] .main{display:block;height:auto;min-height:0;padding:0 16px 16px}
@@ -51,10 +46,7 @@ body[data-phone="change"] .map{height:calc(100svh - 134px)}
 body[data-phone="map"][data-panel="open"] .map,
 body[data-phone="change"][data-panel="open"] .map{height:46svh;min-height:260px}
 body[data-phone="step"] .map,body[data-phone="step"][data-panel] .map{height:340px;min-height:0}
-body[data-phone="index"] .map,body[data-phone="panel"] .map{display:none}
-body[data-phone="text"] .map{height:auto;min-height:0;overflow:visible;border:0;
-  border-radius:0;background:none}
-body[data-phone="text"] .atlas{padding:4px 0 24px}
+body[data-phone="index"] .map{display:none}
 body[data-phone] .mapbar,body[data-phone] .trace-controls,body[data-phone] .guide,
 body[data-phone] .map>.readout,body[data-phone="step"] .zoom,
 body[data-phone="step"] .map-legend{display:none}
@@ -77,7 +69,7 @@ body[data-phone="step"] .readpanel,body[data-phone="full"] .readpanel{display:no
 body[data-phone] .readpanel,body[data-phone][data-panel="open"] .readpanel{position:static;
   width:auto;height:auto;min-height:0;overflow:visible;padding:16px 0 24px;border:0;
   background:transparent;box-shadow:none}
-body[data-phone="index"] .readpanel,body[data-phone="panel"] .readpanel{padding-top:12px}
+body[data-phone="index"] .readpanel{padding-top:12px}
 body[data-phone] .journey-index,body[data-phone] #seqbody,body[data-phone] .seq-all{flex:none;
   max-height:none;min-height:0;overflow:visible}
 body[data-phone] .seq-all{-webkit-mask-image:none;mask-image:none}
@@ -85,9 +77,9 @@ body[data-phone] .seq-all li:last-child{padding-bottom:0}
 
 /* ---- phone parts ---------------------------------------------------------- */
 body[data-phone] .phone-head{display:flex;flex-direction:column;gap:10px;padding:10px 16px 0}
-body[data-phone="panel"] .phone-head,body[data-phone="change"] .phone-head{display:none}
+body[data-phone="change"] .phone-head{display:none}
 .phone-pick,.phone-seq,.phone-bar{display:none}
-body[data-phone="grid"] .phone-pick,body[data-phone="text"] .phone-pick{display:flex}
+body[data-phone="grid"] .phone-pick{display:flex}
 body[data-phone="step"] .phone-seq,body[data-phone="index"] .phone-seq{display:flex}
 body[data-phone="map"] .phone-bar,body[data-phone="full"] .phone-bar{display:flex}
 .phone-pick,.phone-seq{flex-direction:column;gap:10px}
@@ -491,9 +483,7 @@ SCRIPT = r"""
   function stateOf(){
     if(!phone()){ return ''; }
     var mode = P.mode(), focus = !!A.state.focus;
-    if(body.dataset.view === 'reading'){ return 'text'; }
     if(mode === 'change'){ return 'change'; }
-    if(mode === 'review'){ return focus ? 'map' : 'panel'; }
     if(mode === 'trace'){
       if(focus){ return 'map'; }
       if(!P.journey.active()){ return 'index'; }
@@ -506,7 +496,6 @@ SCRIPT = r"""
     if(mode === 'trace' && j){
       return ['Show the step', 'STEP ' + (at.s + 1) + ' OF ' + j.steps.length];
     }
-    if(mode === 'review'){ return ['Reference', '']; }
     var z = (META.regions || []).filter(function(r){ return r.id === opened; })[0];
     var k = (META.regions || []).indexOf(z);
     var title = z ? (k + 1) + ' ' + z.label : (opened === 'outside' ? 'OUTSIDE'
@@ -582,7 +571,7 @@ SCRIPT = r"""
     window.scrollTo(0, 0);
   }); }
   if(layerPick){ layerPick.addEventListener('change', function(){
-    if(P.mode() !== 'understand' && P.mode() !== 'review'){ P.setMode('understand'); }
+    if(P.mode() !== 'understand'){ P.setMode('understand'); }
     P.setLayer(layerPick.value);
   }); }
   if(backBtn){ backBtn.addEventListener('click', function(){
@@ -592,7 +581,6 @@ SCRIPT = r"""
       if(A.state.focus){ P.journey.back(); } else { update(); reframeStep(); }
       return;
     }
-    if(mode === 'review'){ A.clear(); return; }
     toGrid();
   }); }
   if(fullBtn){ fullBtn.addEventListener('click', function(){
@@ -643,9 +631,6 @@ SCRIPT = r"""
   });
   ['systemap:layer', 'systemap:select', 'systemap:clear', 'systemap:panel',
     'systemap:workspace'].forEach(function(name){ svg.addEventListener(name, update); });
-  var viewBtns = [byId('view-reading'), byId('view-map')];
-  viewBtns.forEach(function(b){ if(b){ b.addEventListener('click', function(){
-    update(); window.setTimeout(update, 0); }); } });
   function onMedia(){
     if(update() && body.dataset.phone === 'step'){ reframeStep(); }
   }

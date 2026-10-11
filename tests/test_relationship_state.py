@@ -3,8 +3,7 @@
 Acceptance: zero substituted flow identifiers, evidence states or authored
 explanations when opposite flows share a pair of parts. A selected flow has at
 most one moving cue; its original dash never changes. Reduced motion has zero
-moving cues. Reading view matches every derived reading's stored edge indices,
-restores the actual endpoint button and keeps the journey while opening sections.
+moving cues. The page keeps the journey while it opens sections.
 This local DOM harness checks interaction semantics, not browser layout.
 """
 
@@ -26,7 +25,7 @@ from systemap.model import Flow, all_layers
 SCENARIO = r"""
 function relationships(page) {
   const {doc, win, svg, A, key} = page, X = svg.workspace;
-  const report = {flows:[],readings:[],headers:[]};
+  const report = {flows:[]};
   const originalDashes = () => svg.querySelectorAll('.flow').map(p =>
     p.getAttribute('stroke-dasharray'));
   const moving = () => svg.querySelectorAll('.moving').length;
@@ -52,47 +51,33 @@ function relationships(page) {
     });
     report.flows.push({expected:e,index:i,activated:activated,states:states});
   });
+  // Reduce motion is a toggle button in the header.
   const motion=doc.getElementById('reduce-motion');
-  motion.checked=true;motion.dispatchEvent(new EventImpl('change',{bubbles:true}));
+  const pressed=()=>motion.getAttribute('aria-pressed')==='true';
+  const set=(on)=>{if(pressed()!==on){motion.click();}};
+  const initial=pressed();
+  set(true);
   report.userReduced=moving();
-  motion.checked=false;motion.dispatchEvent(new EventImpl('change',{bubbles:true}));
+  set(initial);
   report.preferenceRestored=moving();
   report.reduced=page.reduced;
 
-  A.clear();doc.getElementById('view-reading').click();
-  ['structure','agents','all'].forEach(layer=>{
-    doc.querySelector('[data-layer-btn="'+layer+'"]').click();
-    const root=doc.getElementById('atlas');
-    report.readings.push({layer:layer,
-      expected:layer==='all'?A.edges.map((e,i)=>i):A.detail._meta.readings[layer].edges,
-      rendered:root.querySelectorAll('.reading-flow').map(article=>
-        +article.querySelector('[data-flow]').dataset.flow)});
-  });
-  const root=doc.getElementById('atlas');
-  const button=root.querySelector('[data-flow="5"][data-endpoint="Parser"]');
-  button.focus();button.click();runFrames(win);
-  report.readingSelection=relationship();
-  report.readingFocus={flow:doc.activeElement.dataset.flow,
-    endpoint:doc.activeElement.dataset.endpoint,connected:root.contains(doc.activeElement)};
+  A.clear();
 
   X.trace(0);X.traceStep(2);runFrames(win);
   const state=()=>({journey:X.state().j,step:X.state().s,roles:A.state.journey});
   report.journeyBefore=state();
-  ['invariants','reference'].forEach(id=>{
-    const button=doc.querySelector('button[data-mode="review"]');
-    if(doc.body.dataset.mode!=='review'){button.click();}
-    if(id==='invariants'){doc.getElementById(id).setAttribute('open','');}
-    runFrames(win);
-    const section=doc.getElementById(id);
-    let exposed=true;
-    for(let parent=section;parent&&parent!==doc;parent=parent.parentNode){
-      if(parent.hidden){exposed=false;}
-    }
-    report.headers.push({id:id,exposed:exposed,
-      open:section.tag==='details'?section.hasAttribute('open'):true,state:state(),
-      reviewExposed:!doc.getElementById('reviewindex').hidden});
-  });
-  // Reference ends the sequence. Sequences opens it again at the same step.
+  // The Map view gives all rules in its panel. Sequences opens the
+  // sequence again at the same step.
+  doc.querySelector('.views button[data-mode="understand"]').click();runFrames(win);
+  const rules=doc.getElementById('invariants');
+  rules.setAttribute('open','');
+  let exposed=true;
+  for(let parent=rules;parent&&parent!==doc;parent=parent.parentNode){
+    if(parent.hidden){exposed=false;}
+  }
+  report.rules={exposed:exposed,state:state(),
+    items:rules.querySelectorAll('li').length,panel:doc.body.dataset.panel};
   doc.querySelector('.views button[data-mode="trace"]').click();runFrames(win);
   report.journeyAgain=state();
   return report;
@@ -100,7 +85,10 @@ function relationships(page) {
 """
 
 
-@pytest.fixture(params=[False, True], ids=["motion", "os-reduced-motion"])
+@pytest.fixture(
+    params=["", "--system-reduced", "--reduced"],
+    ids=["motion", "system-reduced-motion", "page-reduced-motion"],
+)
 def relationship_report(
     sample: Sample, tmp_path: Path, request: pytest.FixtureRequest
 ) -> dict[str, Any]:
@@ -139,7 +127,7 @@ def relationship_report(
     harness.write_text(driver + SCENARIO, encoding="utf-8")
     args = [node, str(harness), str(html), "--scenario", "relationships"]
     if request.param:
-        args.append("--reduced")
+        args.append(request.param)
     result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)  # type: ignore[no-any-return]
@@ -177,25 +165,11 @@ def test_animation_preserves_dash_and_respects_both_motion_controls(
     assert report["preferenceRestored"] <= (0 if report["reduced"] else 1)
 
 
-def test_reading_view_matches_derived_layers_and_restores_endpoint_focus(
+def test_the_map_panel_gives_all_rules_and_sequences_returns_to_the_step(
     relationship_report: dict[str, Any],
 ) -> None:
     report = relationship_report
-    for reading in report["readings"]:
-        assert reading["rendered"] == reading["expected"]
-    assert report["readings"][0]["rendered"] == []
-    assert report["readings"][1]["rendered"]
-    assert report["readingFocus"] == {"flow": "5", "endpoint": "Parser", "connected": True}
-    assert report["readingSelection"]["focus"] == "Parser"
-    assert report["readingSelection"]["edge"] == 5
-
-
-def test_reference_exposes_sections_and_sequences_returns_to_the_step(
-    relationship_report: dict[str, Any],
-) -> None:
-    report = relationship_report
-    for header in report["headers"]:
-        assert header["exposed"] and header["open"]
-        assert header["state"]["journey"] == -1, "Reference is a different view"
-    assert report["headers"][-1]["reviewExposed"]
+    rules = report["rules"]
+    assert rules["exposed"] and rules["items"] and rules["panel"] == "open"
+    assert rules["state"]["journey"] == -1, "the Map view ends the sequence"
     assert report["journeyAgain"] == report["journeyBefore"]
