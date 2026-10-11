@@ -89,9 +89,10 @@ def render(root: Path) -> str:
 
 
 def seeded(html: str, scheme: str, guide: bool = True) -> str:
-    """The page with the browser's storage seeded to one scheme and to Reduce
-    motion, ahead of the page's own head script, which reads them back and
-    stamps the root. With Reduce motion, each screenshot shows a final state.
+    """The page with the browser's storage seeded to one scheme, ahead of the
+    page's own head script, which reads it back and stamps the root. A style
+    stops CSS transitions and animations, so each screenshot shows a final
+    state, and the Reduce motion button keeps its default state (off).
 
     The guide card shows only on a first visit. Without `guide`, the
     storage records that visit as done and the card does not show."""
@@ -99,7 +100,8 @@ def seeded(html: str, scheme: str, guide: bool = True) -> str:
     seed = (
         "<script>try{localStorage.setItem("
         f"{json.dumps(page.SCHEME_KEY)},{json.dumps(scheme)});"
-        f"localStorage.setItem({json.dumps(page.MOTION_KEY)},'true');{done}}}catch(e){{}}</script>"
+        f"{done}}}catch(e){{}}</script>"
+        "<style>*,*::before,*::after{transition:none!important;animation:none!important}</style>"
     )
     return html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + seed, 1)
 
