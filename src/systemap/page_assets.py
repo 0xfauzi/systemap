@@ -98,7 +98,6 @@ background:var(--surface);box-shadow:0 14px 40px color-mix(in srgb,#000 40%,tran
 .more__menu>button,.more__menu [data-scheme]{width:100%;justify-content:flex-start;text-align:left;
 border-color:transparent;font-size:13px;color:var(--ink);display:flex;align-items:center;gap:10px}
 .more__menu [aria-pressed="true"]{background:var(--raised)}
-body[data-view="reading"] #view-reading,body:not([data-view="reading"]) #view-map{display:none}
 .more__label{margin:6px 10px 2px;font:600 11px/16px var(--fm);letter-spacing:.08em;
 color:var(--ink-3)}
 #scheme{display:flex;flex-direction:column;gap:2px}
@@ -134,7 +133,6 @@ display:inline-flex;align-items:center;justify-content:center;background:var(--s
 #zpct{width:54px;border:solid var(--line-2);border-width:0 1px;font:12px var(--fm)}
 .zoom [data-zoom="fit"]{height:32px;min-height:32px;width:32px;border:1px solid var(--line-2);
 border-radius:6px}
-body[data-view="reading"] .zoom{display:none}
 body[data-mode="change"][data-compare="false"] .zoom,
 body[data-mode="change"][data-compare="false"] .change-controls{display:none}
 body[data-mode="change"][data-compare="false"] .change-view{inset:0}
@@ -194,7 +192,8 @@ text-transform:uppercase;margin:0!important}
 color:var(--ink)}
 .review-line{font-family:var(--fm);font-size:12px;overflow-wrap:anywhere;padding:.7rem 0;
 color:var(--ink)}
-.review-cards{display:flex;gap:.4rem;flex-wrap:wrap;font-size:12px}.review-reason{color:var(--ink)}
+.review-cards,.step-parts{display:flex;gap:.4rem;flex-wrap:wrap;font-size:12px}
+.rule-row b{display:inline-block;min-width:1.8em;font:600 12px var(--fm);color:var(--ink-3)}.review-reason{color:var(--ink)}
 #review-detail{border-top:1px solid var(--line);padding-top:1rem}
 .rules{padding-left:1.5rem}.rules li{margin:.8rem 0;font-size:13px}
 .rules li::marker{color:var(--ink-3);font-family:var(--fm)}
@@ -235,10 +234,7 @@ body[data-mode="trace"] .trace-controls,body[data-mode="change"] .change-control
 .zoom{position:fixed;top:62px;right:20px;z-index:12}
 .readpanel{margin-top:52px;height:calc(100svh - 104px)}}
 
-/* ---- text view, the map inside a card ------------------------------------ */
-body[data-view="reading"] .map{overflow:auto}
-body[data-view="reading"] .spatial-map{display:none}
-.atlas{position:relative;padding:162px 24px 40px;max-width:980px}
+/* ---- the map inside a card ------------------------------------------------ */
 .submap{position:fixed;inset:1rem;z-index:40;background:var(--bg);border:1px solid var(--line-2);
 display:flex;flex-direction:column;box-shadow:0 8px 60px color-mix(in srgb,#000 50%,transparent)}
 .submap__bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem;

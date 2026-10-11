@@ -251,14 +251,13 @@ COMPONENTS = (
     Component(
         id="Page",
         source_review="38001a3438597fbb9d1d2e5fdb0d1145c92da000af95f279d50eb5e7aec62a9a",
-        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Text view shows the same components and flows. Uses no external files.",
+        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
             "systemap.page",
             "systemap.page_data",
             "systemap.page_assets",
             "systemap.page_script",
-            "systemap.page_atlas",
             "systemap.page_workspace",
             "systemap.page_guide",
             "systemap.page_sequences",

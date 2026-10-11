@@ -836,23 +836,21 @@ main();
 
 function workspace(page) {
   const {doc, svg, A, key} = page;
-  const atlas = doc.getElementById('atlas');
+  const X = svg.workspace;
   const report = {initialMode: doc.body.dataset.mode};
-  doc.getElementById('view-reading').click();
   const choices = doc.getElementById('journeyindex').querySelectorAll('[data-journey]');
   report.operations = choices.length;
   if (choices.length) {
     choices[0].click();
-    const steps = atlas.querySelectorAll('[data-trace-step]');
-    report.steps = steps.length;
+    report.steps = doc.querySelectorAll('#journeyindex [data-seq-step]').length;
     report.expectedSteps = A.journeys[0].steps.length;
-    report.activeStart = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    report.activeStart = String(X.state().s + 1);
     // The sequence opens as the whole route: the first arrow starts the steps.
     key('ArrowRight'); key('ArrowRight');
-    report.activeNext = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    report.activeNext = String(X.state().s + 1);
     report.evidence = doc.getElementById('step-evidence').textContent;
-    atlas.querySelector('[data-trace-step="0"]').click();
-    report.activeClicked = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    doc.querySelector('#journeyindex [data-step="0"]').click();
+    report.activeClicked = String(X.state().s + 1);
     doc.getElementById('step-evidence').querySelector('[data-step-part]').click();
     report.partMode = doc.body.dataset.mode;
     report.partFocus = A.state.focus;

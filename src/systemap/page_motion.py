@@ -271,7 +271,6 @@ _KEYS: tuple[tuple[str, str], ...] = (
     ("F", "Full screen"),
     ("B", "Hold to show the base"),
     ("R", "Read: open the panel"),
-    ("T", "Text view"),
     ("Esc", "Previous view"),
 )
 

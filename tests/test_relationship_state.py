@@ -3,8 +3,7 @@
 Acceptance: zero substituted flow identifiers, evidence states or authored
 explanations when opposite flows share a pair of parts. A selected flow has at
 most one moving cue; its original dash never changes. Reduced motion has zero
-moving cues. Reading view matches every derived reading's stored edge indices,
-restores the actual endpoint button and keeps the journey while opening sections.
+moving cues. The page keeps the journey while it opens sections.
 This local DOM harness checks interaction semantics, not browser layout.
 """
 
@@ -26,7 +25,7 @@ from systemap.model import Flow, all_layers
 SCENARIO = r"""
 function relationships(page) {
   const {doc, win, svg, A, key} = page, X = svg.workspace;
-  const report = {flows:[],readings:[],headers:[]};
+  const report = {flows:[],headers:[]};
   const originalDashes = () => svg.querySelectorAll('.flow').map(p =>
     p.getAttribute('stroke-dasharray'));
   const moving = () => svg.querySelectorAll('.moving').length;
@@ -59,21 +58,7 @@ function relationships(page) {
   report.preferenceRestored=moving();
   report.reduced=page.reduced;
 
-  A.clear();doc.getElementById('view-reading').click();
-  ['structure','agents','all'].forEach(layer=>{
-    doc.querySelector('[data-layer-btn="'+layer+'"]').click();
-    const root=doc.getElementById('atlas');
-    report.readings.push({layer:layer,
-      expected:layer==='all'?A.edges.map((e,i)=>i):A.detail._meta.readings[layer].edges,
-      rendered:root.querySelectorAll('.reading-flow').map(article=>
-        +article.querySelector('[data-flow]').dataset.flow)});
-  });
-  const root=doc.getElementById('atlas');
-  const button=root.querySelector('[data-flow="5"][data-endpoint="Parser"]');
-  button.focus();button.click();runFrames(win);
-  report.readingSelection=relationship();
-  report.readingFocus={flow:doc.activeElement.dataset.flow,
-    endpoint:doc.activeElement.dataset.endpoint,connected:root.contains(doc.activeElement)};
+  A.clear();
 
   X.trace(0);X.traceStep(2);runFrames(win);
   const state=()=>({journey:X.state().j,step:X.state().s,roles:A.state.journey});
@@ -175,19 +160,6 @@ def test_animation_preserves_dash_and_respects_both_motion_controls(
             assert state["moving"] <= (0 if report["reduced"] else 1)
     assert report["userReduced"] == 0
     assert report["preferenceRestored"] <= (0 if report["reduced"] else 1)
-
-
-def test_reading_view_matches_derived_layers_and_restores_endpoint_focus(
-    relationship_report: dict[str, Any],
-) -> None:
-    report = relationship_report
-    for reading in report["readings"]:
-        assert reading["rendered"] == reading["expected"]
-    assert report["readings"][0]["rendered"] == []
-    assert report["readings"][1]["rendered"]
-    assert report["readingFocus"] == {"flow": "5", "endpoint": "Parser", "connected": True}
-    assert report["readingSelection"]["focus"] == "Parser"
-    assert report["readingSelection"]["edge"] == 5
 
 
 def test_reference_exposes_sections_and_sequences_returns_to_the_step(

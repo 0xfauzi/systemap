@@ -411,7 +411,7 @@ JS = r"""
   // Tab moves across the cards in reading order, Enter on a card opens its
   // panel, Escape closes the newest thing, the left and right arrows switch
   // layers or step the sequence, 1 to 9 select a layer tab, R opens Read,
-  // T changes the map and the text view, / finds a component.
+  // / finds a component.
   function stepLayer(d){
     var ids = tabs.map(function(b){ return b.dataset.layerBtn; });
     if(!ids.length){ return; }
@@ -438,11 +438,6 @@ JS = r"""
   function letter(e){
     var k = e.key.toLowerCase();
     if(k === 'r' && readBtn){ readBtn.click(); return true; }
-    if(k === 't'){
-      var target = byId(body.dataset.view === 'reading' ? 'view-map' : 'view-reading');
-      if(target){ target.click(); }
-      return true;
-    }
     if(/^[1-9]$/.test(e.key) && mode !== 'trace'){
       var b = tabs[+e.key - 1];
       if(b){ b.click(); }
@@ -525,6 +520,36 @@ JS = r"""
       + '</details></section>';
     sourceDetail.innerHTML = h;
   }
+
+  // ---- the evidence of a sequence step --------------------------------------
+  // The components of the step and the rules that apply to them, under the
+  // step in the Sequences panel.
+  var stepBox = byId('step-evidence');
+  function stepEvidence(){
+    var at = P.journey.state(), j = A.journeys[at.j], st = j && j.steps[at.s];
+    if(!stepBox || !st){ return; }
+    var e = A.edges[st.edge], rules = {}, seen = {}, h = '';
+    (st.acts || []).concat(st.measures || [], e ? [e.from, e.to] : []).forEach(function(id){
+      if(!A.detail[id] || seen[id]){ return; }
+      seen[id] = true;
+      h += '<button type="button" data-step-part="' + esc(id) + '">Examine ' + esc(id)
+        + '</button>';
+      A.detail[id].rules.forEach(function(n){ rules[n] = true; });
+    });
+    h = '<section class="source-section"><h3>Step components</h3><div class="step-parts">' + h
+      + '</div><h3>Rules for this step</h3>';
+    A.detail._meta.rules.forEach(function(r){
+      if(rules[r.n]){ h += '<p class="rule-row"><b>' + r.n + '</b>' + esc(r.text) + '</p>'; }
+    });
+    if(!Object.keys(rules).length){ h += '<p>The model has no rules for these components.</p>'; }
+    stepBox.innerHTML = h + '</section>';
+  }
+  if(stepBox){ stepBox.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-step-part]');
+    if(b){ svg.workspace.inspect(b.dataset.stepPart); }
+  }); }
+  ['systemap:step', 'systemap:workspace'].forEach(function(name){
+    svg.addEventListener(name, stepEvidence); });
 
   // ---- reference: decisions ----------------------------------------------
   var reviewFilter = 'open', reviewPick = -1;

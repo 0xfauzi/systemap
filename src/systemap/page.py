@@ -10,7 +10,6 @@ from typing import Any
 
 from systemap import (
     nest,
-    page_atlas,
     page_changes,
     page_data,
     page_groups,
@@ -168,11 +167,9 @@ def _more_menu() -> str:
         for name in theme_mod.SCHEMES
     )
     return (
-        '<details class="more" id="theme-menu"><summary aria-label="More: reference, theme '
-        'and text view"><span aria-hidden="true">⋯</span></summary><div class="more__menu">'
+        '<details class="more" id="theme-menu"><summary aria-label="More: reference and '
+        'theme"><span aria-hidden="true">⋯</span></summary><div class="more__menu">'
         '<button type="button" class="reference-toggle" data-mode="review">Reference</button>'
-        '<button type="button" id="view-reading" aria-pressed="false">Text view</button>'
-        '<button type="button" id="view-map" aria-pressed="true">Map view</button>'
         '<p class="more__label" id="scheme-label">Theme</p>'
         f'<div id="scheme" role="group" aria-labelledby="scheme-label">{schemes}</div>'
         '<label class="motion-control"><input type="checkbox" id="reduce-motion">'
@@ -500,8 +497,7 @@ def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, 
         + '<div class="legend map-legend" id="map-legend" aria-label="Legend"></div>'
         '<p class="readout" id="map-context" aria-live="polite"></p>'
         + page_guide.card()
-        + '<div class="atlas" id="atlas" aria-label="Text view of the system" hidden></div>'
-        '<p class="hint sr-only" id="map-detail">Select a component or flow to read its source '
+        + '<p class="hint sr-only" id="map-detail">Select a component or flow to read its source '
         "evidence. Scroll to zoom. Drag to move the map. Fit shows all components. "
         "Tab selects cards and flow paths. Enter opens their data. Arrow keys change layers or "
         "sequence steps. Escape shows the previous view.</p>"
@@ -554,7 +550,6 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         + _compact_css(
             panel_css(t, variables=True)
             + CSS.replace("{ROOT}", theme_mod.root_css(t))
-            + page_atlas.CSS
             + extra_css
         )
         + "</style></head>"
@@ -619,7 +614,7 @@ def build(
     )
     o = [
         _head(cfg, t, nesting, extra_css),
-        '<body data-mode="understand" data-view="map" data-panel="closed">',
+        '<body data-mode="understand" data-panel="closed">',
         _header(cfg, model, meaning, facts, nesting, ch),
         _index(model, meaning, states, cfg),
         '<main class="main">',
@@ -666,7 +661,6 @@ def build(
         JS,
         page_guide.SCRIPT,
         page_sequence_script.SCRIPT,
-        page_atlas.SCRIPT,
         WORKSPACE_SCRIPT,
         page_changes.SCRIPT if change_svg else page_changes.EMPTY_SCRIPT,
         page_groups.SCRIPT,

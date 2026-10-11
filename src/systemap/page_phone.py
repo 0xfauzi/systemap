@@ -4,8 +4,8 @@ A window of 640 pixels or less shows these parts. Wider windows hide them and
 keep the map page unchanged. The script sets `body[data-phone]` to the phone
 state: `grid` (the regions grid), `map` (the map at a region or the full map),
 `step` (one sequence step with a small map), `full` (the full map during a
-sequence), `index` (the list of sequences), `panel` (the Reference panel),
-`text` (the text view) or `change` (the Changes view).
+sequence), `index` (the list of sequences), `panel` (the Reference panel)
+or `change` (the Changes view).
 """
 
 from __future__ import annotations
@@ -52,9 +52,6 @@ body[data-phone="map"][data-panel="open"] .map,
 body[data-phone="change"][data-panel="open"] .map{height:46svh;min-height:260px}
 body[data-phone="step"] .map,body[data-phone="step"][data-panel] .map{height:340px;min-height:0}
 body[data-phone="index"] .map,body[data-phone="panel"] .map{display:none}
-body[data-phone="text"] .map{height:auto;min-height:0;overflow:visible;border:0;
-  border-radius:0;background:none}
-body[data-phone="text"] .atlas{padding:4px 0 24px}
 body[data-phone] .mapbar,body[data-phone] .trace-controls,body[data-phone] .guide,
 body[data-phone] .map>.readout,body[data-phone="step"] .zoom,
 body[data-phone="step"] .map-legend{display:none}
@@ -87,7 +84,7 @@ body[data-phone] .seq-all li:last-child{padding-bottom:0}
 body[data-phone] .phone-head{display:flex;flex-direction:column;gap:10px;padding:10px 16px 0}
 body[data-phone="panel"] .phone-head,body[data-phone="change"] .phone-head{display:none}
 .phone-pick,.phone-seq,.phone-bar{display:none}
-body[data-phone="grid"] .phone-pick,body[data-phone="text"] .phone-pick{display:flex}
+body[data-phone="grid"] .phone-pick{display:flex}
 body[data-phone="step"] .phone-seq,body[data-phone="index"] .phone-seq{display:flex}
 body[data-phone="map"] .phone-bar,body[data-phone="full"] .phone-bar{display:flex}
 .phone-pick,.phone-seq{flex-direction:column;gap:10px}
@@ -491,7 +488,6 @@ SCRIPT = r"""
   function stateOf(){
     if(!phone()){ return ''; }
     var mode = P.mode(), focus = !!A.state.focus;
-    if(body.dataset.view === 'reading'){ return 'text'; }
     if(mode === 'change'){ return 'change'; }
     if(mode === 'review'){ return focus ? 'map' : 'panel'; }
     if(mode === 'trace'){
@@ -643,9 +639,6 @@ SCRIPT = r"""
   });
   ['systemap:layer', 'systemap:select', 'systemap:clear', 'systemap:panel',
     'systemap:workspace'].forEach(function(name){ svg.addEventListener(name, update); });
-  var viewBtns = [byId('view-reading'), byId('view-map')];
-  viewBtns.forEach(function(b){ if(b){ b.addEventListener('click', function(){
-    update(); window.setTimeout(update, 0); }); } });
   function onMedia(){
     if(update() && body.dataset.phone === 'step'){ reframeStep(); }
   }

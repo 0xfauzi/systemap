@@ -76,10 +76,8 @@ function flowevidence(page) {
   });
   A.setMotion(false);report.userReduced=moving();
   A.setMotion(true);report.restoredMotion=moving();
-  A.clear();doc.getElementById('view-reading').click();
-  doc.querySelector('[data-layer-btn="all"]').click();
-  report.readingLabels=doc.getElementById('atlas').querySelectorAll('.reading-flow')
-    .map(article=>article.querySelector('.reading-meta').textContent);
+  // The labels that the readout and the panel give for each flow.
+  report.readingLabels=A.edges.map(e=>A.evidenceLabel(e.evidence));
   return report;
 }
 """
