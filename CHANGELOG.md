@@ -77,6 +77,14 @@ A layer is a filtered view of the map.
 - Each heading in `README.md` and `docs/reference.md` is a question answered by its section.
   Both pages give their scope and order before the details.
 
+- The map page header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for views,
+  layers, components, flows, sequences, rules, and actions. Icon buttons set the theme and Reduce motion,
+  show the keyboard keys, and open the Details panel. Read is now Details, and its key is D.
+  The full-screen button and the F key show the map alone in Map, Sequences, and Changes.
+  The Text view and Reference are removed. The Map panel gives all rules and the help for lines and cards.
+  The commit in the header opens the source records. The page no longer shows judgement decisions.
+  Motion is on until the reader sets Reduce motion on the page. The system setting no longer stops it.
+
 ## 1.2.0 - 2026-09-20
 
 This release adds commands that read the map: agent-written sequences, plan comparisons, and system history.

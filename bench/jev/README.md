@@ -1532,3 +1532,19 @@ The new page ran with the panel open, which is the default, and with the panel c
 The new page passed. The largest increase is 14.3 percent: the selected card with the panel open in run 2.
 The differences between runs of one page are as large as the differences between the pages.
 A drag of the map does not start the pointer highlight. The new effects use no filter.
+
+## Map page size with the new header and the Find palette (2026-10-11)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+This change removes Reference, the Text view, the More menu and the component index of the Find field.
+It adds the header icons, the full-screen control and the Find palette.
+The self-map rows use the model and the facts of the shared checkout for both pages, so the two rows compare only the page code.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (9defc3d) | 306,145 |
+| Sample page, with the new header and the Find palette | 301,527 |
+| Self-map page, no comparison, base (9defc3d) | 653,205 |
+| Self-map page, no comparison, with the new header and the Find palette | 640,429 |
+
+The sample page passes with 5,673 bytes of space.

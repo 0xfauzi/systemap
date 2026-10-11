@@ -56,7 +56,7 @@
       },
       "reading-title": {
         "displayName": "Text section title",
-        "purpose": "Headings in Text view and the revision comparison section."
+        "purpose": "Headings of the revision comparison section."
       }
     },
     "shadows": [
@@ -100,7 +100,7 @@
       "src/systemap/schematic_style.py",
       "src/systemap/schematic_script.py",
       "src/systemap/schematic_relations.py",
-      "src/systemap/page_atlas.py"
+      "src/systemap/page_palette.py"
     ],
     "behavior": [
       "When no component, flow, or sequence is selected, All shows all flow lines.",
@@ -168,12 +168,12 @@
   ],
   "narrative": {
     "northStar": "A system map with source evidence for each flow",
-    "overview": "The map shows system components and directed flows. Each card gives a component purpose. Each flow identifies an artifact. The inspector gives source evidence for the selected component or flow. Text view gives the same information as text. The design uses refined prototype revision 5. These specifications do not give measured performance or accessibility results.",
+    "overview": "The map shows system components and directed flows. Each card gives a component purpose. Each flow identifies an artifact. The inspector gives source evidence for the selected component or flow. The design uses refined prototype revision 5. These specifications do not give measured performance or accessibility results.",
     "keyCharacteristics": [
       "Flat surfaces with visible boundaries",
       "Visible component purposes",
       "Amber, graphite, and paper schemes",
-      "Map view and Text view",
+      "Map, Sequences, and Changes views",
       "Directed flows with source evidence"
     ],
     "rules": [
