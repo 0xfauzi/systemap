@@ -63,45 +63,58 @@ colors:
   brand: "#F2B33D"
 typography:
   body:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "13px"
     lineHeight: 1.5
   project-name:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "15px"
     fontWeight: 600
     lineHeight: 1
     letterSpacing: "-0.02em"
   layer-question:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "22px"
     fontWeight: 500
     lineHeight: "28px"
     letterSpacing: "-0.01em"
   panel-title:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "19px"
     fontWeight: 600
     lineHeight: "25px"
+  secondary:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontSize: "12px"
+    lineHeight: "18px"
   kicker:
-    fontFamily: 'ui-monospace,"SF Mono",Menlo,Consolas,monospace'
+    fontFamily: 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
     fontSize: "11px"
     fontWeight: 600
-    lineHeight: 1.45
+    lineHeight: "16px"
     letterSpacing: "0.08em"
+  tag:
+    fontFamily: 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
+    fontSize: "11px"
+    fontWeight: 700
+    lineHeight: "16px"
+    letterSpacing: "0.06em"
   mono:
-    fontFamily: 'ui-monospace,"SF Mono",Menlo,Consolas,monospace'
+    fontFamily: 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
     fontSize: "12px"
     lineHeight: 1.5
   card-name:
-    fontFamily: 'ui-monospace,"SF Mono",Menlo,Consolas,monospace'
+    fontFamily: 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
     fontSize: "14.75 SVG units, down to 11.5 when the text does not fit"
     fontWeight: 600
+    lineHeight: 1.23
   card-plain:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontFamily: 'Arial,"Liberation Sans",Arimo,sans-serif'
     fontSize: "13.6 SVG units, down to 11 when the text does not fit"
+    fontWeight: 400
+    lineHeight: 1.08
   flow-label:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "11 SVG units"
     fontWeight: 500
 rounded:
@@ -321,9 +334,36 @@ A layer change draws the lines of the new layer in model order. Each line draws 
 Text view shows the same components and flows as a list. It keeps the selection.
 Document figures use the same card type size and keep the authored coordinate plane.
 
-System sans fonts show controls and descriptions.
-System monospace fonts show identifiers, paths, commands, counts, and finding lines.
-The page loads no font files.
+## Type
+
+The page uses the fonts of the computer. It loads no font files.
+The sans font is `system-ui`: SF Pro on macOS, Segoe UI on Windows, and the desktop font on Linux.
+The sans font shows controls, questions, titles, panel text, and flow labels.
+The monospace font shows identifiers, paths, commands, counts, finding lines, small labels, and tags.
+A layer name is text, not an identifier. It uses the sans font, also in the guide steps of the panel.
+
+Card descriptions use Arial. Liberation Sans and Arimo have the same character widths.
+The page uses one of them when Arial is not available.
+The renderer measures each description with these widths, so a description stays in its card.
+The SVG figures use the same fonts. On GitHub, the fonts of the computer of the reader show the figures.
+The renderer gives each character of a card name 0.6021 em.
+DejaVu Sans Mono has 0.60205 em, and JetBrains Mono and Liberation Mono have 0.600 em.
+The widths of SF Mono, Menlo, and Consolas are not measured. A measurement is necessary.
+
+The type scale has these sizes in CSS pixels:
+
+- 11px: small labels in capital letters, tags, keyboard keys, and the numbers in rings.
+- 12px: secondary text, counts, legends, and identifiers in lists.
+- 13px: body text and controls.
+- 15px and 17px: the project name, the description of a component, and small titles.
+- 19px: the panel title.
+- 22px: the question of the view.
+
+Running text is 12px or more. No text on the page is less than 11px.
+The phone layout uses 14px and 15px for body text and controls.
+Map text uses SVG units and changes size with the zoom. The smallest map text is 11 SVG units.
+In a browser that can do it, the lines of a heading have almost the same length.
+The last line of a paragraph does not contain only one short word.
 
 ## Sequences
 
