@@ -178,6 +178,27 @@ Represent the other direction as a separate flow with its own sentence.
 An import, common module, or configured mechanism gives `structural` evidence only.
 `observed` must have current `source_refs` and a matching `review_digest` for the flow and relation sentence.
 A reference has the form `module[:symbol]@<source_sha256>`.
+The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+It does not examine the claims for you. Examine the source before you record the values.
+
+```sh
+uv run python - <<'PY'
+from pathlib import Path
+from systemap import config, evidence, extract, nest
+
+cfg = config.load(Path.cwd())
+facts = extract.build(cfg)
+for module, record in sorted(facts["components"].items()):
+    print(f"source_sha256 {module} {record.get('source_sha256')}")
+for current_map in nest.load(cfg).maps:
+    for flow in current_map.model.flows:
+        digest = evidence.flow_claim_digest(flow, current_map.meaning)
+        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
+PY
+```
+
+A source change gives a new `source_sha256`.
+A change to the flow or its relation sentence gives a new `review_digest`.
 Digests identify recorded source and claims. They do not show the claim's meaning automatically.
 `external` has an actor endpoint. `declared` has no examined source or structural support.
 Structural and declared flows use dashed lines. Examine their source evidence.

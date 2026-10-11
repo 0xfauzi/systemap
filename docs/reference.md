@@ -54,6 +54,30 @@ Rendering and checking use the evidence for the stored source snapshot state:
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
 
+For `observed`, a flow records `source_refs` and a `review_digest`.
+A reference has the form `module[:symbol]@<source_sha256>`.
+The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+It does not examine the claims for you. Examine the source before you record the values.
+
+```sh
+uv run python - <<'PY'
+from pathlib import Path
+from systemap import config, evidence, extract, nest
+
+cfg = config.load(Path.cwd())
+facts = extract.build(cfg)
+for module, record in sorted(facts["components"].items()):
+    print(f"source_sha256 {module} {record.get('source_sha256')}")
+for current_map in nest.load(cfg).maps:
+    for flow in current_map.model.flows:
+        digest = evidence.flow_claim_digest(flow, current_map.meaning)
+        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
+PY
+```
+
+A source change gives a new `source_sha256`.
+A change to the flow or its relation sentence gives a new `review_digest`.
+
 ## What does the second pass find?
 
 The check rejects contradictions.
