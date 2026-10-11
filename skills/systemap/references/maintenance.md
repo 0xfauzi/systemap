@@ -22,7 +22,7 @@ The language policy in `references/language.md` applies to every changed name an
    Exit 0 means no decision is necessary. Exit 1 means action is necessary.
    With `TYPESAFE_API_KEY`, Jev can identify rewritten moves and suggest owners for unclaimed modules.
    Before you accept a suggested move, read both source files.
-2. Act on the lines under `needs a decision` in `map/model.py` and `systemap.toml`.
+2. Act on the lines under `A decision is necessary` in `map/model.py` and `systemap.toml`.
    Keep unaffected component assignments and positions.
    For a new component, use `systemap place`.
    If its region has no free position, use `systemap place --all`.
@@ -81,7 +81,7 @@ A subsequent source or claim change reopens the finding.
 | `move candidate` | Removed and added modules share public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim and assign the added module. The line is then not a decision. |
 | `jev move`, `jev owner` | Jev suggests a move or an owner that delta did not find. | Read the source before you use the suggestion. These lines do not change the delta decisions or the exit code. |
 
-Lines under `changed, nothing to do` record changes without a required decision.
+Lines under `No action is necessary for these changes` record changes without a required decision.
 A pattern-matched addition or removal can still have a separate source-review finding.
 
 ## Optional plan before code changes
@@ -104,7 +104,11 @@ See `bench/jev/README.md` in the systemap source repository for methods and limi
 The generated workflow runs `delta --base <base commit> --format markdown` for each pull request.
 It posts one comment and updates that comment after each push.
 The job fails while a line has an unanswered decision.
-The comment gives the required actions and the map at the head commit.
+The comment first gives the decision and the action for each open line.
+Then it gives the components, flows, sequences, and invariants that changed since the base commit.
+A Mermaid picture shows only the changed flows.
+A closed section contains the lines for which no action is necessary.
+To see the comment before a push, run `systemap delta --base REF --format markdown`.
 
 ## Completion
 

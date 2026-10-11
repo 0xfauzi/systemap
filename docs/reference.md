@@ -506,13 +506,35 @@ An answer for a new crossing import must agree with the `judgement` rule:
 an exact answer needs the current evidence digest, and a family answer needs `policy = true`.
 The exit code is 0 if no decision is necessary, or 1 if not.
 
-The report ends with adjacent components.
+The text report ends with adjacent components.
 These have flows to the component with the most changes.
 This list gives context, not a finding.
 The list does not print if the seed component connects to more than one-third of
 the map.
 
 - `--format markdown` prints the pull-request comment.
+  The comment parts follow this order:
+
+  1. The decision. If a decision is necessary, each open line and its action follows.
+  2. One row each for components, flows, sequences, and invariants.
+  3. A Mermaid picture of the changed flows. GitHub draws it in the comment.
+  4. A closed section with the lines for which no action is necessary.
+  5. A link to the committed full map figure, if there is one.
+
+  The rows compare the model at the merge base with the model on disk.
+  Delta loads the base model from the committed files, as `check` loads the model on disk.
+  A component row gives added and removed components.
+  It gives components with changed claims, with the names of the changed fields.
+  It also gives components with changed source and no changed claim.
+  A flow row gives added, removed, and changed flows.
+  A changed flow has a changed artifact, kind, relation sentence, cited source, or evidence state.
+  A new digest for the same cited module or symbol is not a change.
+  A changed step is a step whose flow changed or has an end at a changed component.
+  An invariant row gives the invariants for a changed component, and their text follows in a closed section.
+  Each group names ten items or fewer. A count gives the other items.
+  The picture shows 30 flows or fewer. With more flows, it shows only the added and removed flows.
+  If the base model does not load, the rows give only changed source, and the comment gives the reason.
+  The comparison does not change the delta lines, the decisions, or the exit code.
 
 - `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change

@@ -16,16 +16,7 @@ from dataclasses import replace
 
 import journeys  # sequence data from map/journeys.py
 
-from systemap import (
-    Component,
-    Container,
-    Flow,
-    Invariant,
-    Layer,
-    Meaning,
-    Model,
-    Region,
-)
+from systemap import Component, Container, Flow, Invariant, Layer, Meaning, Model, Region
 
 # `systemap place` wrote each position, each box and the canvas. A new card without x and y
 # goes into a free slot of its region. No card is pinned, so `place --all` can move each card.
@@ -166,6 +157,8 @@ COMPONENTS = (
             "systemap.change",
             "systemap.delta",
             "systemap.delta_git",
+            "systemap.delta_model",
+            "systemap.delta_picture",
             "systemap.delta_report",
             "systemap.moves",
             "systemap.history",

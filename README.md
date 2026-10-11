@@ -297,9 +297,12 @@ This example keeps finding identifiers from an earlier version:
 Its `entry` field shows a public name at which a reader can start.
 
 The workflow from `init` posts one report comment on the pull request.
-New pushes update that comment. The report starts the inspection with changes
-to parts and connections. CI rejects the pull request while the report contains
-an open decision.
+New pushes update that comment. The comment first shows if a decision is necessary,
+and gives the action for each open line.
+Then it gives the components, flows, sequences, and invariants that the change added,
+removed, or changed. The model at the base commit is the comparison point.
+A Mermaid picture shows only the changed flows, and GitHub draws it in the comment.
+CI rejects the pull request while the report contains an open decision.
 
 The agent can correct these findings without a full new map.
 Three merged pull requests from one 111-module repository cost 2.31, 4.39, and
