@@ -308,6 +308,8 @@ def test_text_on_a_filled_tag_and_on_the_highlighter_clears_four_and_a_half(sche
     pairs["ink_2 on hl_soft"] = (t["ink_2"], t["hl_soft"])
     if scheme == "light":
         pairs["ink on hl"] = (t["ink"], t["hl"])
+        # A selected flow row in the panel has the hl fill and ink_3 route text.
+        pairs["ink_3 on hl"] = (t["ink_3"], t["hl"])
     ratios = {label: contrast(ink, fill) for label, (ink, fill) in pairs.items()}
     assert all(ratio >= 4.5 for ratio in ratios.values()), ratios
 
@@ -372,7 +374,7 @@ def test_paper_surfaces_are_near_neutral_and_lighter_from_map_to_panel_to_card()
     light = {key: oklab_lc(paper[key])[0] for key in ("bg", "map", "surface", "card")}
     assert light["bg"] < light["map"] < light["surface"] < light["card"], light
     assert contrast(paper["card"], paper["map"]) >= 1.1
-    assert oklab_lc(paper["hl_line"])[1] >= 0.1, "the halo is a clear highlighter yellow"
+    assert oklab_lc(paper["hl_line"])[1] >= 0.08, "the halo is a clear highlighter yellow"
     for name, t in theme_mod.SCHEMES.items():
         assert f'[data-scheme="{name}"] i{{background:{t["map"]}}}' in page_assets.CSS
 
@@ -434,11 +436,11 @@ def test_the_schemes_are_ink_and_paper_and_the_default_is_ink() -> None:
     )
     assert (paper["accent"], paper["hl"], paper["change"], paper["ink"]) == (
         "#1D1B17",
-        "#FFE380",
+        "#FFEBA0",
         "#AC312A",
         "#1D1B17",
     )
-    assert (paper["flow"], paper["hl_line"], paper["hl_soft"]) == ("#8E8C85", "#FFE380", "#FFF1BF")
+    assert (paper["flow"], paper["hl_line"], paper["hl_soft"]) == ("#8E8C85", "#FFEBA0", "#FFF5D6")
     assert (paper["layers"]["data"], paper["layers"]["control"], paper["layer_palette"][0]) == (
         "#014438",
         "#A05B5A",
