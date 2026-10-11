@@ -1543,8 +1543,8 @@ The self-map rows use the model and the facts of the shared checkout for both pa
 | Page | Bytes |
 |---|---|
 | Sample page, base (9defc3d) | 306,145 |
-| Sample page, with the new header and the Find dialog | 301,527 |
+| Sample page, with the new header and the Find dialog | 301,610 |
 | Self-map page, no comparison, base (9defc3d) | 653,205 |
-| Self-map page, no comparison, with the new header and the Find dialog | 640,429 |
+| Self-map page, no comparison, with the new header and the Find dialog | 640,512 |
 
-The sample page passes with 5,673 bytes of space.
+The sample page passes with 5,590 bytes of space.
