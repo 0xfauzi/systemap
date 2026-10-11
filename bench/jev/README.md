@@ -1759,3 +1759,71 @@ With this table, five placement tests failed, because the Config description of 
 
 The new tests in `tests/test_typography.py` gave 6 failures and 1 pass on the base and 7 passes after the change.
 The full test suite gave 767 passes and 1 skipped test.
+
+## Map text at Fit (2026-10-11)
+
+"Map page type" found that at Fit the map text was smaller than the page type rule:
+running text 12px or more, and labels 11px or more. The maintainer agreed to a change.
+The acceptance values were written before the change:
+
+- At Fit on a 1440 x 900 screen with the panel open, the self map shows card names at 12 px or more,
+  card descriptions at 11 px or more, and flow labels, region labels and container labels at 11 px or more.
+- At the same size, the tags, the step numbers and the step note of a Sequences step show at 11 px or more.
+- On a 390 x 844 phone, the map frame of each sequence step shows card names at 12 px or more
+  and card descriptions at 11 px or more. The acting component of the step is on the screen.
+- In each state of the tables, these counts do not increase: labels on labels, labels on cards,
+  labels on lines other than their own line, card text outside its card, and map text under the
+  title, the legend, the readout or the zoom controls.
+- The self map and the sample map keep their `systemap check` result and their layout geometry:
+  the card boxes, the label boxes, the flow paths and the collisions that the render reports.
+- The sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+- Fit, the zoom value (100 percent), zoom in and zoom out keep their functions. Each motion obeys Reduce motion.
+
+Method: Chromium 141.0.7390.37 (Playwright), device scale 1, Ink, Reduce motion on, the first-visit guide closed.
+The pages are scratch builds of the self map and of the sample map of the tests.
+For each visible SVG text element, the size on the screen is its CSS font size multiplied by the scale of its screen transform.
+A table cell gives the smallest size of the role in CSS pixels. A dash shows that the state has no text of that role.
+The overlap counts use the screen bounding boxes of the text elements, the card boxes and the line segments, with a 1 px tolerance.
+A tag on its own card is not an overlap.
+
+Before the change (f70c3e8):
+
+| Map | State | Zoom (percent) | Card name | Card description | Flow label | Region label | Container label | Tag | Step number and words | Step note |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Self map | 1440 x 900, panel open | 75 | 11.0 | 10.1 | 8.2 | 8.2 | 8.2 | - | - | - |
+| Self map | 1440 x 900, panel closed | 75 | 11.0 | 10.1 | 8.2 | 8.2 | 8.2 | - | - | - |
+| Self map | 1440 x 900, Sequences step 1 | 75 | 11.0 | 10.1 | - | 8.2 | 8.2 | 8.5 | 9.3 | 9.3 |
+| Self map | 1024 x 768, panel open | 60 | 8.8 | 8.1 | 6.6 | 6.6 | 6.6 | - | - | - |
+| Self map | 1024 x 768, panel closed | 61 | 8.9 | 8.2 | 6.7 | 6.7 | 6.7 | - | - | - |
+| Self map | 800 x 600 | 43 | 6.3 | 5.8 | 4.7 | 4.7 | 4.7 | - | - | - |
+| Self map | 390 x 844, phone full map | 31 | 4.6 | 4.2 | 3.4 | 3.4 | 3.4 | - | - | - |
+| Self map | 390 x 844, phone step (smallest / median of 46 steps) | 35 / 60 | 5.1 / 8.8 | 4.7 / 8.2 | - | 3.8 / 6.6 | 3.8 / 5.9 | 4.0 / 6.8 | 4.3 / 7.5 | - |
+| Sample map | 1440 x 900, panel open | 109 | 16.1 | 14.9 | 12.0 | 12.0 | 12.0 | - | - | - |
+| Sample map | 1440 x 900, panel closed | 151 | 22.3 | 20.6 | 16.6 | 16.6 | 16.6 | - | - | - |
+| Sample map | 1440 x 900, Sequences step 1 | 109 | 16.1 | 14.9 | - | 12.0 | 12.0 | 12.4 | 13.7 | 13.7 |
+| Sample map | 1024 x 768, panel open | 72 | 10.6 | 9.8 | 7.9 | 7.9 | 7.9 | - | - | - |
+| Sample map | 1024 x 768, panel closed | 108 | 15.9 | 14.6 | 11.8 | 11.8 | 11.8 | - | - | - |
+| Sample map | 800 x 600 | 84 | 12.4 | 11.4 | 9.2 | 9.2 | 9.2 | - | - | - |
+| Sample map | 390 x 844, phone full map | 37 | 5.5 | 5.1 | 4.1 | 4.1 | 4.1 | - | - | - |
+| Sample map | 390 x 844, phone step (smallest / median of 4 steps) | 72 / 93 | 10.6 / 13.8 | 9.7 / 12.7 | - | 9.7 / 10.3 | 9.7 / 10.3 | 8.2 / 10.6 | 8.9 / 10.7 | - |
+
+Overlap counts before the change, for each layer of the self map. Each cell gives
+labels on other lines / map text or cards under the page controls. The other counts were 0.
+
+| Self map layer | 1440 x 900, panel open | 1024 x 768, panel open | 800 x 600 |
+|---|---|---|---|
+| System context | 15 / 0 | 15 / 3 | 15 / 4 |
+| Structure | 0 / 0 | 0 / 0 | 0 / 0 |
+| Data flow | 0 / 0 | 0 / 3 | 0 / 2 |
+| Control flow | 10 / 0 | 10 / 3 | 10 / 2 |
+| Map review | 3 / 0 | 3 / 3 | 3 / 2 |
+| All | 0 / 0 | 0 / 4 | 0 / 4 |
+
+At 1024 x 768 and 800 x 600, the legend covers a part of the Describe card at the bottom of the map. The sample map has no overlaps.
+On the phone, the 46 steps of the self map have 23 overlaps between tags and step numbers.
+These overlaps are in the Sequences marks and do not change with the zoom.
+
+`systemap check` on the self map before the change: "map layout: has no errors (20 components,
+76 orthogonal labeled edges, no text size less than 11px)". The layout digest of the render
+(card boxes, label boxes, paths, collisions, notes and headers) was `c234e180810b1631` for the self map
+and `37a8ed23f412ee50` for the sample map.
