@@ -61,10 +61,7 @@ TOUR: list[tuple[str, str]] = [
 DRIVER = """<script>(function(){{
 var A = document.getElementById('schematic').systemap;
 function layer(id){{ document.querySelector('[data-layer-btn="' + id + '"]').click(); }}
-function journey(k){{
-  var s = document.getElementById('journey'); s.value = String(k);
-  s.dispatchEvent(new Event('change'));
-}}
+function journey(k){{ document.getElementById('schematic').page.journey.route(k); }}
 function start(){{ document.getElementById('jstart').click(); }}
 function next(){{ document.getElementById('jnext').click(); }}
 {actions}

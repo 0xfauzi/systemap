@@ -75,7 +75,7 @@ None of these states records execution.
 
 The page has three views. **Map** shows the layers. **Sequences** shows one
 operation as a route on the map, then one step at a time, with a note at each
-step. **Changes** shows the components and flows that a revision comparison
+step. A button in its row opens the list of sequences. **Changes** shows the components and flows that a revision comparison
 changed. On the first visit, a guide card gives five steps through the map.
 The three views have the same parts: a row of controls under the header,
 a small label and a question above the map, and a panel at the right.
@@ -94,12 +94,15 @@ The themes are Ink and Paper.
 Ink has dark surfaces and is the default. Paper has light surfaces.
 The first visit uses the device theme.
 Only the flow kinds, the selection, and the change have colors.
-Cards, regions, text, and other lines are neutral.
+A line has the color of its flow kind in all views. The selection color
+identifies only the current item, such as the selected card, the current step,
+and a wider line under the selected line. Cards, regions, text, and other lines are neutral.
 
 The map has one flat view. Card text changes size with the zoom.
 In a sequence step, the acting component has an ACTS tag and a measurement
 component has a MEASURES tag. On a phone, the map shows its regions as a grid,
-and a sequence shows one step below a small map.
+and a sequence shows one step below the map. The map gets the height that the
+step and its buttons do not use.
 The panel gives source modules, entry points, related sequences, and evidence states.
 These values come from the current model and recorded source data.
 

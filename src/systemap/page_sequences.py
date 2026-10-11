@@ -14,21 +14,22 @@ from typing import Any
 from systemap.extract import entry_identity, entry_label
 from systemap.journey_coverage import ways_in_without_journey
 from systemap.model import Box, Journey, Meaning, Model
+from systemap.page_icons import icon
 
 # The region map in each row of the sequence list: 56 x 40 pixels.
 GLYPH_W, GLYPH_H = 72.0, 52.0
 MISSING_SHOWN = 5
 
-# The route on the map. Sizes are in map units: about 0.9 units for one board pixel.
+# The route on the map. A line keeps the color of its flow kind and the width of a
+# map line: 1.6 px. The current step is the selected line of the map: 2.6 px over
+# the halo. Later steps are at 40 percent opacity. The other sizes are in map
+# units: about 0.9 units for one board pixel.
 MARKS_CSS = r"""
 /* ---- the route on the map ------------------------------------------------ */
 #schematic .seq-lines,#schematic .seq-marks{pointer-events:none}
-#schematic .seq-line{fill:none;stroke-linecap:round;stroke-linejoin:round}
-#schematic .seq-line--route{stroke:var(--accent);stroke-width:2.2}
-#schematic .seq-line--was{stroke:var(--ink-2);stroke-width:1.6}
-#schematic .seq-line--later{stroke:var(--ink-3);stroke-width:1.3;opacity:.5}
-#schematic .seq-head--was{fill:var(--ink-2)}
-#schematic .seq-head--later{fill:var(--ink-3)}
+#schematic .seq-line{fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+vector-effect:non-scaling-stroke}
+#schematic .seq-line--later{opacity:.4}
 #schematic .seq-pill__bg{fill:var(--map)}
 #schematic .seq-pill circle{fill:var(--map);stroke:var(--ink-2);stroke-width:1}
 #schematic .seq-pill text{font-family:var(--fs);font-size:13.6px;fill:var(--ink-2)}
@@ -39,7 +40,7 @@ MARKS_CSS = r"""
 stroke:var(--map);stroke-width:2}
 #schematic .seq-pill--route .seq-pill__n,#schematic .seq-pill--now .seq-pill__n{
 fill:var(--on-accent);font-weight:700}
-#schematic .seq-pill--route text{fill:var(--accent);font-weight:600}
+#schematic .seq-pill--route text{fill:var(--ink);font-weight:600}
 #schematic .seq-tagm rect{fill:var(--accent)}
 #schematic .seq-tagm text{font:700 11.4px var(--fm);letter-spacing:.06em;fill:var(--on-accent);
 text-anchor:middle}
@@ -64,7 +65,6 @@ justify-content:center;font:700 12.5px/1 var(--fm)}
 #schematic .seq-co .seq-co__ft{font:12.5px/17px var(--fm);color:var(--ink-3)}
 #schematic .node.dim.seq-route{opacity:1}
 body[data-mode="trace"] #schematic .flowlbl{display:none}
-body[data-mode="trace"] #schematic .flow.hot{stroke-width:3}
 body[data-mode="trace"] #schematic .node.endpoint:not(.acts):not(.meas) .node__box{
 stroke:var(--card-line);stroke-width:1.1}
 body[data-mode="trace"] #schematic .node.endpoint.meas:not(.acts) .node__box{stroke:var(--steel);
@@ -74,7 +74,21 @@ stroke-width:2}
 CSS = (
     r"""
 /* ---- Sequences toolbar --------------------------------------------------- */
-.trace-controls select{background:var(--card)}
+.seq-choose{position:relative;flex:0 1 320px;min-width:150px}
+.seq-choose__btn{width:100%;height:32px;display:flex;align-items:center;gap:8px;
+padding:0 8px 0 12px;background:var(--card);color:var(--ink);font:500 13px var(--fs);
+text-align:left}
+.seq-choose__name{flex:1}
+.seq-choose__btn .icon{color:var(--ink-2)}
+.seq-choose__list{position:fixed;z-index:30;display:flex;flex-direction:column;gap:2px;padding:6px;
+overflow:auto;border:1px solid var(--line-2);border-radius:10px;
+background:var(--surface);box-shadow:0 14px 40px color-mix(in srgb,#000 40%,transparent)}
+:root[data-theme="light"] .seq-choose__list{box-shadow:0 14px 40px color-mix(in srgb,#5a4a2a 18%,
+transparent)}
+.trace-controls:has([aria-expanded="true"]){z-index:20}
+.seq-choose__list .seq-pick{flex:none;cursor:pointer}
+.seq-choose__list .seq-pick:not(.on):hover{background:var(--raised);color:var(--ink)}
+.seq-choose__list .seq-pick:focus-visible{outline-offset:-2px}
 .seq-seg{display:flex;flex:none;margin-left:6px;border:1px solid var(--line-2);border-radius:6px;
 overflow:hidden}
 .seq-seg button{height:30px;min-height:30px;padding:0 12px;border:0;border-radius:0;
@@ -103,10 +117,10 @@ color:var(--ink-3)}
 .seq-sec{padding-top:14px;border-top:1px solid var(--line)}
 .seq-head{display:flex;flex-direction:column;gap:4px}
 .readpanel .seq-title{margin:0;font:600 19px/25px var(--fs);color:var(--ink)}
-.readpanel .seq-entry{margin:0;font:12px/18px var(--fs);color:var(--ink-3)}
+.readpanel :is(.seq-entry,.seq-draft,.seq-note){margin:0;font:12px/18px var(--fs);
+color:var(--ink-3)}
 .seq-entry code,.seq-cover code{font-family:var(--fm);font-size:12px;color:var(--ink-2)}
-.readpanel .seq-draft{margin:0;font:12px/18px var(--fs);color:var(--ink)}
-.readpanel .seq-note{margin:0;font:12px/18px var(--fs);color:var(--ink-3)}
+.readpanel .seq-draft{color:var(--ink)}
 .readpanel .seq-note--tight{margin-top:-6px}
 .seq-n{width:20px;height:20px;flex:none;box-sizing:border-box;border-radius:50%;display:inline-flex;
 align-items:center;justify-content:center;font:700 11px/1 var(--fm);background:var(--accent);
@@ -116,10 +130,10 @@ color:var(--on-accent)}
 grid-template-columns:20px minmax(0,1fr) auto;gap:10px;align-items:center;border:0;
 border-radius:4px;background:transparent;text-align:left}
 .seq-route button:hover{background:var(--raised)}
-.seq-ft{font:12px/16px var(--fm);color:var(--ink);white-space:nowrap;overflow:hidden;
-text-overflow:ellipsis}
-.seq-art{font:12px/16px var(--fm);color:var(--ink-2);white-space:nowrap;max-width:160px;
+.seq-ft,.seq-art,.seq-pick__label,.seq-pick__meta,.seq-choose__name{white-space:nowrap;
 overflow:hidden;text-overflow:ellipsis}
+.seq-ft,.seq-art{font:12px/16px var(--fm);color:var(--ink)}
+.seq-art{color:var(--ink-2);max-width:160px}
 .seq-all{list-style:none;margin:0 -8px;padding:0 8px;display:flex;flex-direction:column;gap:2px;
 flex:1 1 0;min-height:168px;overflow:auto;
 -webkit-mask-image:linear-gradient(to bottom,#000 85%,transparent);
@@ -128,20 +142,19 @@ mask-image:linear-gradient(to bottom,#000 85%,transparent)}
 .seq-pick{width:100%;min-height:54px;display:grid;grid-template-columns:56px minmax(0,1fr);
 gap:0 12px;align-items:center;padding:6px 8px;border:1px solid transparent;border-radius:8px;
 background:transparent;text-align:left;color:var(--ink-2)}
-.seq-pick[aria-pressed="true"]{border-color:var(--accent);background:var(--card);color:var(--ink)}
+.seq-pick.on{border-color:var(--accent);background:var(--card);color:var(--ink)}
 .seq-pick__text{display:flex;flex-direction:column;gap:2px;min-width:0}
-.seq-pick__label{font:13px/18px var(--fs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.seq-pick[aria-pressed="true"] .seq-pick__label{font-weight:600}
-.seq-pick__meta{font:12px/16px var(--fm);color:var(--ink-3);white-space:nowrap;overflow:hidden;
-text-overflow:ellipsis}
+.seq-pick__label{font:13px/18px var(--fs)}
+.seq-pick.on .seq-pick__label{font-weight:600}
+.seq-pick__meta{font:12px/16px var(--fm);color:var(--ink-3)}
 .seq-glyph{display:block;width:56px;height:40px}
 .seq-glyph rect{fill:none;stroke:var(--line-2);vector-effect:non-scaling-stroke}
 .seq-glyph rect.on{fill:var(--ink-3);fill-opacity:.3;stroke:var(--ink-3)}
 .seq-glyph circle{fill:var(--ink)}
-.seq-pick[aria-pressed="true"] .seq-glyph rect.on{fill:var(--accent);fill-opacity:.28;
+.seq-pick.on .seq-glyph rect.on{fill:var(--accent);fill-opacity:.28;
 stroke:var(--accent)}
-.seq-pick[aria-pressed="true"] .seq-glyph circle{fill:var(--accent)}
-:root[data-theme="light"] .seq-pick[aria-pressed="true"] .seq-glyph rect.on{fill:var(--hl);
+.seq-pick.on .seq-glyph circle{fill:var(--accent)}
+:root[data-theme="light"] .seq-pick.on .seq-glyph rect.on{fill:var(--hl);
 fill-opacity:1}
 .seq-cover{display:flex;flex-direction:column;gap:6px;padding-top:12px;
 border-top:1px solid var(--line)}
@@ -163,7 +176,6 @@ font-weight:600}
 .seq-step[data-at="before"]{color:var(--ink-2)}
 .seq-step[data-at="before"] .seq-n{border-color:var(--ink-2);color:var(--ink)}
 .seq-step__head{font:12px/20px var(--fm);overflow-wrap:anywhere}
-.seq-step[data-at="before"] .seq-step__head{color:var(--ink-2)}
 .seq-step__say{grid-column:2}
 .seq-step[aria-current="step"]{padding:12px;border-color:var(--accent);background:var(--hl-soft);
 color:var(--ink)}
@@ -180,21 +192,15 @@ padding:0 3px;margin-left:-3px;border-radius:2px}
 letter-spacing:.06em;padding:0 6px;border-radius:3px;white-space:nowrap}
 .seq-tag--acts,.seq-tag--start{background:var(--accent);color:var(--on-accent);line-height:18px}
 .seq-tag--meas{border:1px solid var(--steel);color:var(--steel)}
-.seq-key{display:grid;grid-template-columns:28px 1fr;gap:8px 10px;align-items:center;
-padding-top:12px;border-top:1px solid var(--line);font:12px/16px var(--fs);color:var(--ink-2)}
-.seq-key i{display:block;border-top:1px solid var(--ink-3)}
-.seq-key i.now{border-top:3px solid var(--accent)}
-.seq-key i.was{border-top:2px solid var(--ink-2)}
-.seq-key i.later{opacity:.6}
 .seq-more{border-top:1px solid var(--line);padding-top:4px}
 .seq-more>summary{font-size:12px;color:var(--ink-3)}
 .readpanel .seq-more p{font-size:12px;line-height:18px}
 
 /* ---- legend marks -------------------------------------------------------- */
-.seq-lg-line{display:block;width:22px;border-top:2px solid var(--accent)}
-.seq-lg-line--now{width:18px;border-top-width:3px}
-.seq-lg-line--was{width:18px;border-top-color:var(--ink-2)}
-.seq-lg-line--later{width:18px;border-top:1px solid var(--ink-3);opacity:.6}
+.seq-lg-now{border-top-width:3px;
+box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+:root[data-theme="light"] .seq-lg-now{box-shadow:0 0 0 3px var(--hl-line)}
+.seq-lg-later{opacity:.4}
 .seq-lg-n{width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--on-accent);
 display:inline-flex;align-items:center;justify-content:center;font:700 10px/1 var(--fm);
 font-style:normal}
@@ -203,7 +209,7 @@ font-style:normal}
 .lg .seq-tag--meas{line-height:12px}
 
 @media(max-width:820px){.trace-controls{overflow-x:auto;gap:6px;padding:0 12px}
-.trace-controls select{min-width:180px}.trace-controls__label{display:none}}
+.trace-controls__label{display:none}}
 """
     + MARKS_CSS
 )
@@ -213,25 +219,37 @@ def esc(text: object) -> str:
     return html.escape(str(text), quote=True)
 
 
+def chooser(meaning: Meaning, key: str) -> str:
+    """Give the sequence chooser: a button that opens the list of the sequences.
+
+    The button shows the name of the current sequence. The page script fills
+    the list with one option for each sequence: its region map, its name, its
+    entry point and its step count. The element `{key}-label` names the list."""
+    name = esc(meaning.journeys[0].label) if meaning.journeys else "No sequences"
+    off = "" if meaning.journeys else " disabled"
+    return (
+        f'<div class="seq-choose"><button type="button" class="seq-choose__btn" id="{key}" '
+        f'aria-haspopup="listbox" aria-expanded="false" aria-controls="{key}-list" '
+        f'aria-labelledby="{key}-label {key}"{off}><span class="seq-choose__name">{name}</span>'
+        f'{icon("down")}</button><div class="seq-choose__list" id="{key}-list" role="listbox" '
+        f'aria-labelledby="{key}-label" hidden></div></div>'
+    )
+
+
 def toolbar(meaning: Meaning) -> str:
     """Give the Sequences toolbar row: the sequence choice, the view and the step controls."""
-    options = "".join(
-        f'<option value="{k}">{esc(j.label)}</option>' for k, j in enumerate(meaning.journeys)
-    )
     off = "" if meaning.journeys else " disabled"
     return (
         '<div class="trace-controls" id="tracecontrols" role="toolbar" aria-label="Sequence">'
-        '<label for="journey" class="trace-controls__label">Sequence</label>'
-        f'<select id="journey"{off}>{options}</select>'
-        '<div class="seq-seg" role="group" aria-label="Show">'
+        '<span class="trace-controls__label" id="seqpick-label">Sequence</span>'
+        + chooser(meaning, "seqpick")
+        + '<div class="seq-seg" role="group" aria-label="Show">'
         f'<button type="button" id="jwhole" aria-pressed="true"{off}>Whole route</button>'
         f'<button type="button" id="jsteps" aria-pressed="false"{off}>Steps</button></div>'
         '<span class="seq-div" aria-hidden="true"></span>'
         '<span class="seq-tb" id="jwholebar">'
         f'<button type="button" class="seq-btn seq-btn--primary" id="jstart"{off}>'
-        "Start at step 1</button>"
-        '<button type="button" class="seq-btn seq-btn--frame" id="jfull" '
-        f'aria-keyshortcuts="F"{off}>Full screen<kbd>F</kbd></button></span>'
+        "Start at step 1</button></span>"
         '<span class="seq-tb" id="jstepbar" hidden>'
         '<button type="button" class="seq-btn" id="jprev" disabled>Previous</button>'
         '<span id="jcount" aria-live="polite"></span>'
@@ -398,8 +416,7 @@ function all(sel, root){
   return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
 function byId(id){ return document.getElementById(id); }
 function reduced(){
-  return document.documentElement.dataset.reduceMotion === 'true' ||
-    !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return document.documentElement.dataset.reduceMotion === 'true';
 }
 function mk(name, attrs, text){
   var e = document.createElementNS(NS, name);
@@ -408,7 +425,6 @@ function mk(name, attrs, text){
   return e;
 }
 function empty(node){ while(node && node.firstChild){ node.removeChild(node.firstChild); } }
-var defs = svg.querySelector('defs');
 var flowLayer = svg.querySelector('.view > g[data-layer="flow"]')
   || svg.querySelector('g[data-layer="flow"]');
 var tagLayer = svg.querySelector('g[data-layer="tags"]') || svg.querySelector('.view');
@@ -418,15 +434,6 @@ var gauge = mk('g', {visibility:'hidden', 'aria-hidden':'true'}), gaugeText = mk
 gauge.appendChild(gaugeText);
 if(flowLayer){ flowLayer.appendChild(lines); }
 if(tagLayer){ tagLayer.appendChild(marks); tagLayer.appendChild(gauge); }
-function arrowhead(id, cls){
-  if(!defs){ return; }
-  var m = mk('marker', {id:svg.id + '-m-' + id, viewBox:'0 0 8 8', refX:7, refY:4,
-    markerUnits:'userSpaceOnUse', markerWidth:9, markerHeight:9, orient:'auto-start-reverse'});
-  m.appendChild(mk('path', {d:'M0,0 L8,4 L0,8 z', 'class':cls}));
-  defs.appendChild(m);
-}
-arrowhead('seq-was', 'seq-head--was');
-arrowhead('seq-later', 'seq-head--later');
 
 // ---- geometry -------------------------------------------------------------
 function polyline(d){
@@ -454,6 +461,7 @@ all('.node', svg).forEach(function(n){
 });
 all('path.flow', svg).forEach(function(p){
   PATH[p.dataset.edge] = {d:p.getAttribute('d'), dash:p.getAttribute('stroke-dasharray'),
+    stroke:p.getAttribute('stroke'), head:p.getAttribute('marker-end'),
     pts:polyline(p.getAttribute('d'))};
 });
 function walk(pts, step, trim){
@@ -511,11 +519,11 @@ function clearMarks(){ empty(lines); empty(marks); placed = []; }
 function showMarks(on){
   lines.style.display = on ? '' : 'none'; marks.style.display = on ? '' : 'none'; }
 function drawLine(edge, kind){
+  // A copy of the flow line, with its color, its dash and its arrowhead.
   var src = PATH[edge];
   if(!src){ return null; }
-  var head = kind === 'route' ? '-m-selected' : '-m-seq-' + kind;
-  var a = {'class':'seq-line seq-line--' + kind, d:src.d,
-    'marker-end':'url(#' + svg.id + head + ')'};
+  var a = {'class':'seq-line seq-line--' + kind, d:src.d, stroke:src.stroke,
+    'marker-end':src.head};
   if(src.dash){ a['stroke-dasharray'] = src.dash; }
   var p = mk('path', a);
   lines.appendChild(p);

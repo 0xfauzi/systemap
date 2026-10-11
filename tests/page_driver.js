@@ -11,7 +11,7 @@
 // points in its `d`, as a browser's getBBox would give it.
 //
 //     node tests/page_driver.js PAGE.html [--reduced] [--system-reduced] [--light]
-//                                         [--viewport WxH]
+//                                         [--viewport WxH] [--phone]
 //                                         [--stored NAME] [--no-storage]
 //                                         [--scenario keyboard|framing|submap|theme]
 //
@@ -21,7 +21,8 @@
 // prefers-reduced-motion query match, --light its
 // prefers-color-scheme light query; --stored seeds the browser's storage
 // with a scheme, and --no-storage makes every touch of localStorage
-// throw, as a browser that refuses storage does.
+// throw, as a browser that refuses storage does. --phone makes a
+// max-width query match when the viewport width is at or below its limit.
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -459,8 +460,10 @@ function load(html, reducedMotion, viewport, prefs) {
       REPORT.replaceStates.push(url);
       win.location.hash = url.startsWith('#') ? url : '';
     }},
+    // With --phone, a max-width query matches when the --viewport width is at or below its limit.
     matchMedia: (q) => ({
-      matches: (!!prefs.systemReduced && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q)),
+      matches: (!!prefs.systemReduced && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q))
+        || (!!prefs.phone && /max-width:\s*(\d+)px/.test(q) && viewport[0] <= +/max-width:\s*(\d+)px/.exec(q)[1]),
       addEventListener() {},
     }),
     requestAnimationFrame: (cb) => { rafCalls++; const id = rafQueue.length + 1; rafQueue.push({id, cb}); return id; },
@@ -517,7 +520,8 @@ function main() {
   const viewport = flag('--viewport', '1600x900').split('x').map(Number);
   const scenario = flag('--scenario', 'keyboard');
   const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage'),
-    systemReduced: args.includes('--system-reduced')};
+    systemReduced: args.includes('--system-reduced'),
+    phone: args.includes('--phone')};
   const html = fs.readFileSync(file, 'utf8');
   const {doc, win} = load(html, reduced, viewport, prefs);
   const context = vm.createContext(win);
@@ -567,10 +571,6 @@ function keyboard(page) {
   report.arrows = arrows;
   report.header = (doc.querySelector('.project .sr-only') || {textContent: ''}).textContent;
   report.kinds = Object.fromEntries(svg.querySelectorAll('.node').map((n) => [n.dataset.id, n.dataset.kind]));
-  // ... and are left alone inside the sequence select.
-  const select = doc.getElementById('journey');
-  report.arrowInSelectPrevented = key('ArrowRight', select);
-  report.layerAfterSelectArrow = A.state.layer;
   // Back to the first tab for what follows.
   while (A.state.layer !== report.buttons[0]) key('ArrowRight');
 
@@ -624,13 +624,14 @@ function keyboard(page) {
   report.spaceOpens = A.state.focus === withEdges.dataset.id;
   key('Escape');
 
-  // A sequence: the select opens the whole route, the arrows step it,
-  // Escape goes back to the whole route and then ends the sequence.
+  // A sequence: the page function that the sequence chooser and the guide call
+  // opens the whole route, the arrows step it, Escape goes back to the whole
+  // route and then ends the sequence. tests/test_sequence_chooser.py drives the
+  // chooser itself.
   const journeys = A.journeys;
   const j = {count: journeys.length};
   if (journeys.length) {
-    select.value = '0';
-    select.dispatchEvent(new EventImpl('change', {bubbles: true}));
+    svg.page.journey.route(0);
     runFrames(win);
     const count = doc.getElementById('jcount');
     j.mode = doc.body.dataset.mode;
@@ -656,7 +657,6 @@ function keyboard(page) {
     key('Escape'); runFrames(win);
     j.ended = A.state.journey;
     j.modeAfter = doc.body.dataset.mode;
-    j.selectReset = select.value;
   }
   report.journey = j;
   report.rafCalls = rafCalls;

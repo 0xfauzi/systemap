@@ -9,6 +9,7 @@ path with the same stroke.
 from __future__ import annotations
 
 PATHS: dict[str, str] = {
+    "down": "M4.5 6.25 8 9.75l3.5-3.5",
     "zoom-out": "M3.5 8h9",
     "zoom-in": "M3.5 8h9M8 3.5v9",
     # Fit: small corners around the content. Full screen: large corners.

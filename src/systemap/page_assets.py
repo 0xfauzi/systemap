@@ -179,10 +179,7 @@ display:flex;align-items:center;gap:8px;padding:0 20px;border-bottom:1px solid v
 background:var(--surface)}
 body:not([data-mode="trace"]) .trace-controls,
   body:not([data-mode="change"]) .change-controls{display:none}
-.trace-controls select{height:32px;min-width:320px;padding:0 10px;border:1px solid var(--line-2);
-border-radius:6px;background:var(--raised);color:var(--ink);font-size:13px}
 .trace-controls__label{font-size:12px;color:var(--ink-3)}
-#jcount{font:12px var(--fm);color:var(--ink-2);padding:0 6px}
 .change-view{position:absolute;inset:52px 0 0 0;display:flex;flex-direction:column}
 .change-view .stage{position:absolute;inset:92px 0 0 0;width:auto;height:auto}
 .change-empty{margin:140px auto 0;max-width:520px;padding:0 24px}

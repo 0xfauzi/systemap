@@ -180,6 +180,23 @@ components:
   control-icon:
     size: "16px"
     strokeWidth: "1.5 units on a 16 unit grid"
+  sequence-button:
+    backgroundColor: "{colors.dark-card}"
+    textColor: "{colors.dark-ink}"
+    rounded: "{rounded.control}"
+    width: "320px"
+    height: "32px"
+  sequence-list:
+    backgroundColor: "{colors.dark-surface}"
+    rounded: "{rounded.menu}"
+    width: "{spacing.panel}"
+  flow-line:
+    strokeWidth: "1.6px"
+  flow-line-emphasis:
+    strokeWidth: "2.6px"
+  flow-line-under:
+    color: "{colors.dark-accent} at 30 percent opacity; the highlighter fill in Paper"
+    strokeWidth: "12px"
 ---
 
 # Design System: systemap
@@ -216,14 +233,27 @@ Only the flow kinds, the selection, and the change have colors.
 Cards, regions, text, and other lines are neutral.
 Each flow kind has one color in each theme. The two themes use the same color family for each kind.
 A layer such as System context selects lines. It does not change the color of a line.
-Ink shows the selection with an amber line and ring.
-Paper shows the selection with an ink line and ring on the yellow highlighter fill.
+A line has the color of its flow kind in all views and in all states.
+A selected flow, the current sequence step, and the lines of a sequence route keep that color.
+The selection color identifies only the current item. It is amber in Ink and ink in Paper.
+It shows on the ring of the selected card, the step numbers, the ACTS and START tags,
+the current step card, and the step note.
+A wider line is under the selected line and under the current step line. It is 12 px wide.
+In Ink, it is amber at 30 percent opacity. In Paper, it is the yellow highlighter fill.
 Vermilion shows a change. Only the Changes view shows vermilion.
 Stroke patterns identify evidence states. External components have dashed borders.
 Measurement components use `steel`, which is a neutral color.
 The tokens `good`, `warn`, `bad`, and `violet` have neutral values.
 
 Color is not the only indication of meaning.
+
+### Line widths
+
+All flow lines use one width scale. A line at rest is 1.6 px wide at all zoom values.
+A line with emphasis is 2.6 px wide: the selected line, the current step line,
+a preview, and the lines of a card under the pointer. Group lines keep the widths from their flow counts.
+A sequence shows its progress with the width and the opacity of its lines, not with their color.
+A dash shows only an evidence state.
 
 ### Measured colors
 
@@ -352,7 +382,10 @@ The zoom controls go below the row, at the right of the title block. The Map vie
 Find shows only its icon.
 At widths of 640px or less, the phone layout replaces the map frame.
 The phone layout shows the regions as a grid. A region opens the map at a size that you can read.
-A sequence shows one step: the map frame, the step note, the step buttons, and Previous and Next.
+A sequence shows one step: the sequence button, the map frame, the step note, the step buttons, and Previous and Next.
+The step fills the height of the screen. The map frame gets the height that the other parts do not use.
+The space under Previous and Next is 16px, or the bottom safe area of the device when that area is larger.
+On a phone, the sequence button is in the head under the views. Its list has the width of the button.
 Phone controls are 44px high or more.
 On a phone, the header shows Find, the theme, and Reduce motion as 40px icons.
 It does not show Keyboard keys or Details.
@@ -387,14 +420,29 @@ The page loads no font files.
 
 ## Sequences
 
-Sequences shows one operation at a time. The toolbar contains the sequence selector,
-Whole route and Steps, the step controls, and End sequence. The full-screen button at the end of the row opens full screen.
-Whole route shows all the steps of the sequence on the map. Each step has a number on its line.
+Sequences shows one operation at a time. The toolbar starts with the label Sequence and the sequence button.
+Whole route and Steps, the step controls, and End sequence follow.
+The full-screen button at the end of the row opens full screen.
+The sequence button shows the name of the current sequence and an arrow icon from the icon set.
+It has the design of a selected segment: the card color, ink text, and the control radius.
+It is not a native drop-down. The button opens the list of sequences under it.
+The list has the surface color, the menu radius, and the panel width.
+Each row of the list has the design of a row in the panel list: the small map of the regions,
+the name, the entry point, and the step count. The current sequence has the accent border.
+The list uses the listbox pattern. The arrow keys, Home, and End move the focus.
+A letter moves the focus to the next name that starts with that letter.
+Enter, Space, or a click selects a sequence. Escape and Tab close the list.
+A new sequence keeps Whole route or Steps and starts at step 1.
+
+Whole route shows all the steps of the sequence on the map. Each line has the color of its flow kind
+and the rest width. Each step has a number on its line.
 The entry point component has a START tag. Cards that the sequence does not use have low contrast.
 The route draws in step order.
 
-Steps shows one step. The current line has the accent color. The lines of earlier steps are solid.
-The lines of later steps have low contrast. The acting component has an ACTS tag.
+Steps shows one step. The current step line has the emphasis width and the wider line under it.
+The lines of earlier steps have the rest width and full opacity.
+The lines of later steps have the rest width and 40 percent opacity.
+The legend gives the flow kinds of the route, This step, and After. The acting component has an ACTS tag.
 A measurement component has a MEASURES tag. A note next to the line gives the step number, the artifact,
 the two ends, and the step sentence.
 The camera keeps the zoom. It moves only when the step is not in view. Then it moves only as far as necessary.
@@ -441,7 +489,8 @@ A sequence step shows its note after the camera stops.
 When the page opens, the cards come in one time in reading order, in 360 ms or less.
 A theme change fades the colors in 240 ms.
 The Find dialog fades in and moves 6px down in 160 ms.
-In Ink, a selected line and the current sequence line have a soft glow. In Paper, the highlighter is under them.
+No line has a glow. A wider line under the selected line and the current sequence line marks them:
+the accent at 30 percent in Ink, the highlighter in Paper.
 Reduce motion is a page setting. It is off on the first visit. When it is on, the page shows the final state with no motion.
 The browser keeps the setting. The head script applies the kept setting before the page shows.
 The system setting for reduced motion does not change the page. The maintainer made this decision:

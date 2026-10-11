@@ -14,7 +14,7 @@ Escape closes the overlay.
 
 CSS = r"""
 /* ---- the map in full screen: Map and Changes ------------------------------ */
-#jfull{display:none}
+
 body[data-full] .bar,body[data-full] .layer-controls,
 body[data-full] .change-controls{display:none!important}
 body[data-full] .main{height:100svh}
@@ -177,10 +177,9 @@ SCRIPT = r"""
 (function(){
   var svg = document.getElementById('schematic');
   function byId(id){ return document.getElementById(id); }
-  var fullBtn = byId('jfull'), box = byId('present'), mapBox = byId('presentmap');
+  var fullBtn = byId('full-toggle'), box = byId('present'), mapBox = byId('presentmap');
   var stage = byId('stage'), home = stage && stage.parentNode;
   if(!svg || !svg.systemap || !svg.page || !svg.page.sequence || !box || !mapBox || !home){
-    if(fullBtn){ fullBtn.hidden = true; }
     return;
   }
   var A = svg.systemap, P = svg.page, S = P.sequence, W = window.systemapWorkspace || {};
@@ -298,7 +297,6 @@ SCRIPT = r"""
   S.closePresent = closePresent;
   P.present = openPresent;
   S.on(caption);
-  if(fullBtn){ fullBtn.addEventListener('click', openPresent); }
   if(closeB){ closeB.addEventListener('click', function(){ closePresent(); }); }
   if(prevB){ prevB.addEventListener('click', function(){ step(-1); }); }
   if(nextB){ nextB.addEventListener('click', function(){ step(1); }); }
