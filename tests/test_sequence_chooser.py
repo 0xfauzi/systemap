@@ -100,6 +100,15 @@ function lines(page){
   report.selected=flows();
   return report;
 }
+function motion(page){
+  const {doc,win,svg}=page,P=svg.page;
+  doc.querySelector('[data-mode="trace"]').click();runFrames(win);
+  P.journey.step(1);
+  // Before the camera stops: the note waits when motion is on.
+  const note=svg.querySelector('.seq-callout');
+  return {stamp:doc.documentElement.dataset.reduceMotion||'',
+    note:note?note.getAttribute('class'):''};
+}
 function phone(page){
   const {doc,win,svg}=page,P=svg.page;
   const where=()=>doc.getElementById('seqpick').parentNode.parentNode.id;
@@ -137,7 +146,9 @@ def build(sample: Sample, meaning: Meaning | None = None) -> str:
     )
 
 
-def run(sample: Sample, tmp_path: Path, name: str, viewport: str = "1600x900") -> dict[str, object]:
+def run(
+    sample: Sample, tmp_path: Path, name: str, viewport: str = "1600x900", *flags: str
+) -> dict[str, object]:
     node = shutil.which("node")
     if node is None:
         pytest.skip("The JavaScript test requires Node.")
@@ -151,7 +162,17 @@ def run(sample: Sample, tmp_path: Path, name: str, viewport: str = "1600x900") -
     harness = tmp_path / f"{name}.js"
     harness.write_text(driver + SCENARIO, encoding="utf-8")
     result = subprocess.run(
-        [node, str(harness), str(html), "--scenario", name, "--viewport", viewport, "--phone"],
+        [
+            node,
+            str(harness),
+            str(html),
+            "--scenario",
+            name,
+            "--viewport",
+            viewport,
+            "--phone",
+            *flags,
+        ],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -310,3 +331,12 @@ def test_phone_step_fills_the_screen(sample: Sample) -> None:
         ".phone-step{flex-direction:column;padding-bottom:max(16px,env(safe-area-inset-bottom))}"
         in html
     )
+
+
+def test_sequence_motion_obeys_only_the_page_setting(sample: Sample, tmp_path: Path) -> None:
+    # The system setting alone does not stop the motion: the note waits for the camera.
+    system = run(sample, tmp_path, "motion", "1600x900", "--system-reduced")
+    assert system["stamp"] != "true" and system["note"] == "seq-callout wait"
+    # The page setting Reduce motion shows the note at once.
+    page_setting = run(sample, tmp_path, "motion", "1600x900", "--reduced")
+    assert page_setting["stamp"] == "true" and page_setting["note"] == "seq-callout"

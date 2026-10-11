@@ -415,8 +415,9 @@ function all(sel, root){
   return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
 function byId(id){ return document.getElementById(id); }
 function reduced(){
-  return document.documentElement.dataset.reduceMotion === 'true' ||
-    !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // Only the page setting Reduce motion stops motion. The head script stamps it
+  // before the first paint.
+  return document.documentElement.dataset.reduceMotion === 'true';
 }
 function mk(name, attrs, text){
   var e = document.createElementNS(NS, name);
