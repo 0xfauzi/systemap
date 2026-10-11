@@ -315,6 +315,7 @@ COMPONENTS = (
         interface="run(tree, facts, cfg, jev) -> lines; commands return 1 when an optional request fails",
         implemented_by=(
             "systemap.audit",
+            "systemap.audit_code",
             "systemap.jev_cli",
             "systemap.jev",
             "systemap.agent",

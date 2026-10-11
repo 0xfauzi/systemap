@@ -275,8 +275,8 @@ AUDIT = {
     "jev mis-fold": Lesson(
         means="Jev gives a different component for the task of this module.",
         why=(
-            "The `possible mis-fold` rule uses names only. Jev reads the code to find "
-            "modules in incorrect components."
+            "The `possible mis-fold` rule uses names only. Jev reads the module name, "
+            "docstring, public names, and imports to find modules in incorrect components."
         ),
         do=(
             "Compare the module with both components. Move it, or record the reason "

@@ -35,17 +35,22 @@ from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
 
+# Each figure below was measured with earlier prompts on Python repositories.
+# The current prompts have no measurement (bench/jev/README.md, "Which prompts
+# have no measurement?").
+#
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
 REPORT_CAP = 2000
-# A module that disappeared is paired with Jev's pick at this confidence or
-# more, when delta's own three questions left it unpaired: on the renames in
-# five repositories this found 82 real renames against delta's 66, and 16 of
-# the 17 pairings it added were right (labelled blind from the commits).
+# Delta prints Jev's pick for a module that disappeared at this confidence or
+# more, when delta's own three questions left it unpaired: delta and these picks
+# found 82 renames against delta's 66, and 16 of the 17 added pairs were right
+# (bench/jev/README.md, "What did tests 7 and 8 measure?").
 MOVE_AT = 0.8
 # Pairs at or above this are one part, for `suggest --jev`: with the threshold
 # chosen on four development maps and scored on the fifth, pairwise F1 beat one
-# card per package by 0.18 on average, and lost on two maps of five.
+# card per package by 0.18 on average, and lost on two maps of five
+# (bench/jev/results/grouping-report.txt).
 SAME_AT = 0.4
 
 TRIAGE_Q = "`report` is an issue for this system. Which component will the fix probably change?"
@@ -78,17 +83,21 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
 # ---- when a command asks Jev on its own, and what it says when it cannot ---------
 
 # What the commands that stay offline say Jev would add, when no key is set.
-# Each figure is measured (bench/jev) and quoted as measured.
+# Each figure is quoted as measured, with the measurement limits and the
+# bench/jev/README.md section that records it.
 JUDGEMENT_HINT = (
-    "hint: TYPESAFE_API_KEY enables systemap audit. It found 95% of planted assignments to "
-    "an adjacent component. The possible mis-fold word rule found 32% (bench/jev). "
+    "hint: TYPESAFE_API_KEY enables systemap audit. With earlier prompts on Python "
+    "repositories, it found 95% of planted assignments to an adjacent component "
+    '(bench/jev/README.md, "Which repositories are in the holdout set?"). '
+    "The current prompts have no measurement. "
     "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
-    "hint: TYPESAFE_API_KEY enables Jev rename questions. Across five repositories, "
-    "Jev and delta found 82 renames; delta found 66. Sixteen of 17 added pairs were "
-    "correct (bench/jev). Set [jev] enabled = false in systemap.toml to stop this "
-    "hint."
+    "hint: TYPESAFE_API_KEY enables Jev rename suggestions. With earlier prompts on "
+    "Python repositories, delta found 66 renames, and Jev suggestions added 16 correct "
+    'renames of 17 (bench/jev/README.md, "What did tests 7 and 8 measure?"). '
+    "The current prompts have no measurement. Suggestions do not change the delta "
+    "result. Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 
 
@@ -124,11 +133,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     kinds = tuple(args.kind) if args.kind else audit.DEFAULT_KINDS
     plan = audit.make_plan(tree, facts, cfg, kinds)
     if args.dry_run:
-        pending = None
-        if send is not None or jev.has_key():
-            pending = len(_client(cfg, send).pending(plan.asks))
-        print(*audit.dry_run(plan, pending), sep="\n")
-        return OK
+        return _dry_run(cfg, plan, send)
     try:
         client = _client(cfg, send)
         found = audit.lines(plan, client.ask(plan.asks))
@@ -148,9 +153,23 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
             not args.brief,
             result.pending,
             result.policies,
+            plan.unasked,
         ),
         sep="\n",
     )
+    return OK
+
+
+def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None) -> int:
+    """Count the questions. With a key, get only the model list to count cached answers."""
+    pending: int | str | None = None
+    if send is not None or jev.has_key():
+        try:
+            pending = len(_client(cfg, send).pending(plan.asks))
+        except JevError as exc:
+            print(*audit.dry_run(plan, f"unknown: {exc}"), sep="\n")
+            return STALE
+    print(*audit.dry_run(plan, pending), sep="\n")
     return OK
 
 
@@ -190,8 +209,8 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     by = audit.modules_by_card(top.model, facts)
     cut = " (the text was cut at 2,000 characters)" if len(text) > REPORT_CAP else ""
-    print(f"triage: confidence {answer.get('confidence', 0):.2f}{cut}")
-    for cid, p in audit._top(answer.get("probabilities", {}), 3):
+    print(f"triage: confidence {answer['confidence']:.2f}{cut}")
+    for cid, p in audit._top(audit.spread(answer), 3):
         if cid == audit.NONE:
             print(f"  {p:.2f}  none of the components")
             continue
@@ -545,7 +564,7 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     except JevError as exc:
         print(f"plan: {exc}")
         return STALE
-    spread = answer["plan"]["where"].get("probabilities", {})
+    spread = audit.spread(answer["plan"]["where"])
     made = plan_mod.project(top.model, top.meaning, text.strip(), spread)
     # A projection that names nothing is not written down: there would be
     # nothing to check it against later.
@@ -658,7 +677,10 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     )
     add_root(s)
     s.add_argument(
-        "--dry-run", action="store_true", help="count proposed questions without sending data"
+        "--dry-run",
+        action="store_true",
+        help="count proposed questions and send no map data. With a key, the command gets "
+        "only the model list to count the cached answers",
     )
     s.add_argument(
         "--kind",
