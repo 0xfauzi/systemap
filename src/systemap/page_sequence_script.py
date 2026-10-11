@@ -13,7 +13,7 @@ var A = svg.systemap, P = svg.page, W = window.systemapWorkspace || {};
 var D = W.sequences || {}, ARROW = ' → ';
 var wholeBtn = byId('jwhole'), stepsBtn = byId('jsteps');
 var wholeBar = byId('jwholebar'), stepBar = byId('jstepbar'), startBtn = byId('jstart');
-var fullBtn = byId('jfull'), prev = byId('jprev'), next = byId('jnext'), count = byId('jcount');
+var prev = byId('jprev'), next = byId('jnext'), count = byId('jcount');
 var endBtn = byId('jend'), returnBtn = byId('jreturn'), index = byId('journeyindex');
 var body = byId('seqbody'), strip = byId('strip'), stripN = byId('stripn');
 var stripFoot = byId('stripfoot'), stripMeas = byId('stripmeas');
@@ -51,7 +51,7 @@ function syncBar(){
   press(wholeBtn, !steps); press(stepsBtn, steps);
   if(wholeBar){ wholeBar.hidden = steps; }
   if(stepBar){ stepBar.hidden = !steps; }
-  [startBtn, stepsBtn, fullBtn].forEach(function(b){ if(b){ b.disabled = !n; } });
+  [startBtn, stepsBtn].forEach(function(b){ if(b){ b.disabled = !n; } });
   if(count){ count.textContent = steps ? 'Step ' + (cur.s + 1) + ' of ' + n : ''; }
   if(prev){ prev.disabled = !steps || cur.s <= 0; }
   if(next){ next.disabled = !steps || cur.s >= n - 1; }

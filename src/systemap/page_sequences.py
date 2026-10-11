@@ -100,10 +100,9 @@ background:transparent;color:var(--ink-2);font:13px var(--fs)}
 .seq-btn{height:32px;min-height:32px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;
 border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink-2);
 font:13px var(--fs);white-space:nowrap}
-.seq-btn--frame{border-color:var(--line-2);color:var(--ink)}
 .seq-btn--primary{border-color:var(--ink);background:var(--ink);color:var(--bg);font-weight:600}
 .seq-btn--primary:hover{background:var(--ink);color:var(--bg);opacity:.9}
-.seq-btn kbd,.present kbd{font:11px/14px var(--fm);color:var(--ink-3);
+.present kbd{font:11px/14px var(--fm);color:var(--ink-3);
 border:1px solid var(--line-2);border-radius:4px;padding:1px 5px}
 #jcount{font:12px var(--fm);color:var(--ink-2);padding:0 6px;white-space:nowrap}
 
@@ -249,9 +248,7 @@ def toolbar(meaning: Meaning) -> str:
         '<span class="seq-div" aria-hidden="true"></span>'
         '<span class="seq-tb" id="jwholebar">'
         f'<button type="button" class="seq-btn seq-btn--primary" id="jstart"{off}>'
-        "Start at step 1</button>"
-        '<button type="button" class="seq-btn seq-btn--frame" id="jfull" '
-        f'aria-keyshortcuts="F"{off}>Full screen<kbd>F</kbd></button></span>'
+        "Start at step 1</button></span>"
         '<span class="seq-tb" id="jstepbar" hidden>'
         '<button type="button" class="seq-btn" id="jprev" disabled>Previous</button>'
         '<span id="jcount" aria-live="polite"></span>'
