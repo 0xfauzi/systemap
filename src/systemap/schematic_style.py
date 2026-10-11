@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from systemap.schematic_cards import PLAIN_FONT
 from systemap.theme import Palette
 
 # The stroke pattern of each evidence state, the same on the map and in the
@@ -37,7 +38,7 @@ def _node_style(s: str, t: Palette) -> str:
     line = tok(t, "card_line", "line_2")
     return (
         f"{s} .node{{cursor:pointer;outline:none;transition:opacity .16s ease-out}}"
-        f'{s} .node [data-layer="job"] text{{font-family:Arial,"Liberation Sans",sans-serif;'
+        f'{s} .node [data-layer="job"] text{{font-family:{PLAIN_FONT};'
         "font-kerning:none;font-variant-ligatures:none}"
         # Only the page script sets --subject. A figure without the script
         # keeps the stroke that the renderer gives each card.
