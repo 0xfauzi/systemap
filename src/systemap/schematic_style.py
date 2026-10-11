@@ -67,9 +67,10 @@ def _flow_style(s: str, t: Palette, base: bool) -> str:
     """Give the line states: at rest, selected, preview, the cue and the labels.
 
     A line keeps the color of its flow kind in every state. At rest a line is
-    1.6 px at every zoom. The selected line is 2.6 px over a halo: amber in
-    Ink, the yellow highlighter in Paper. A preview line is 2.6 px and the
-    other lines go dim. The change map sets its own line widths."""
+    1.6 px at every zoom. The selected line is 2.6 px over a 12 px underlay in
+    `hl_line`: the highlighter in Paper. The page sets the Ink underlay to the
+    accent at 30 percent. A preview line is 2.6 px and the other lines go dim.
+    The change map sets its own line widths."""
     ink, accent = t["ink"], t["accent"]
     hl = tok(t, "hl", "accent_soft")
     ground = tok(t, "map", "bg")
@@ -87,8 +88,8 @@ def _flow_style(s: str, t: Palette, base: bool) -> str:
         f"{s} .flow.peek{{stroke-opacity:1;stroke-width:2.6}}"
         f"{s} .flow.hot{{stroke-opacity:1;stroke-width:2.6}}"
         f"{s}.peeking .flow:not(.peek),{s}.peeking .flowlbl:not(.peek){{opacity:.35}}"
-        f"{s} .flowhl{{fill:none;stroke:{hl};"
-        "stroke-width:11;stroke-opacity:.9;stroke-linecap:round;stroke-linejoin:round;"
+        f"{s} .flowhl{{fill:none;stroke:{tok(t, 'hl_line', 'hl', 'accent_soft')};"
+        "stroke-width:12;stroke-linecap:round;stroke-linejoin:round;"
         "pointer-events:none}"
         f"{s} .flowdot{{fill:{accent};stroke:{hl};stroke-width:10;paint-order:stroke;"
         "pointer-events:none}"

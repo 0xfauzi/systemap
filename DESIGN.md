@@ -184,7 +184,7 @@ components:
     strokeWidth: "2.6px"
   flow-line-under:
     color: "{colors.dark-accent} at 30 percent opacity; the highlighter fill in Paper"
-    strokeWidth: "11px"
+    strokeWidth: "12px"
 ---
 
 # Design System: systemap
@@ -226,7 +226,7 @@ A selected flow, the current sequence step, and the lines of a sequence route ke
 The selection color identifies only the current item. It is amber in Ink and ink in Paper.
 It shows on the ring of the selected card, the step numbers, the ACTS and START tags,
 the current step card, and the step note.
-A wider line is under the selected line and under the current step line. It is 11 px wide.
+A wider line is under the selected line and under the current step line. It is 12 px wide.
 In Ink, it is amber at 30 percent opacity. In Paper, it is the yellow highlighter fill.
 Vermilion shows a change. Only the Changes view shows vermilion.
 Stroke patterns identify evidence states. External components have dashed borders.

@@ -287,7 +287,7 @@ def test_one_line_width_scale(sample: Sample) -> None:
     assert "-m-selected" not in html
     # The halo: amber in Ink, the yellow highlighter in Paper.
     assert ':root:not([data-theme="light"]) #schematic .flowhl{stroke:var(--accent)' in html
-    assert re.search(r"#schematic \.flowhl\{fill:none;stroke:var\(--hl,", html)
+    assert re.search(r"#schematic \.flowhl\{fill:none;stroke:var\(--hl-line,[^}]*stroke-width:12;", html)
 
 
 def test_phone_step_fills_the_screen(sample: Sample) -> None:

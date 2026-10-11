@@ -199,7 +199,7 @@ letter-spacing:.06em;padding:0 6px;border-radius:3px;white-space:nowrap}
 /* ---- legend marks -------------------------------------------------------- */
 .seq-lg-now{border-top-width:3px;
 box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
-:root[data-theme="light"] .seq-lg-now{box-shadow:0 0 0 3px var(--hl)}
+:root[data-theme="light"] .seq-lg-now{box-shadow:0 0 0 3px var(--hl-line)}
 .seq-lg-later{opacity:.4}
 .seq-lg-n{width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--on-accent);
 display:inline-flex;align-items:center;justify-content:center;font:700 10px/1 var(--fm);
