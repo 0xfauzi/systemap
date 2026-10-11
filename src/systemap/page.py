@@ -188,7 +188,9 @@ def _tools() -> str:
     return (
         f'<div class="bar__tools"><div id="scheme" role="group" aria-label="Theme">{schemes}</div>'
         + _tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
-        + _tool("keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"')
+        + _tool(
+            "keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"'
+        )
         + '</div><span class="bar__div" aria-hidden="true"></span>'
         + _tool(
             "panel-toggle",
@@ -251,9 +253,7 @@ def _header(
         + '<div class="find" role="search"><label for="partsearch">Find</label>'
         '<input id="partsearch" type="search" placeholder="Name or module" autocomplete="off" '
         'aria-controls="components" aria-describedby="search-help" aria-expanded="false">'
-        '<kbd aria-hidden="true">/</kbd></div>'
-        + _tools()
-        + "</header>"
+        '<kbd aria-hidden="true">/</kbd></div>' + _tools() + "</header>"
     )
 
 
@@ -360,7 +360,6 @@ def _map_key(t: dict[str, Any], model: Model) -> str:
     out = [
         '<details class="read__more" id="mapkey"><summary><span class="seq-kicker">'
         "LINES AND CARDS</span></summary>"
-
         '<div class="legend"><span class="lg"><i class="lg--solidline"></i>'
         "source review recorded</span>"
         '<span class="lg"><i class="lg--dashline"></i>flow without source review</span></div>'
@@ -480,9 +479,7 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         "document.documentElement.setAttribute('data-reduce-motion',m)})();</script>"
         "<style>"
         + _compact_css(
-            panel_css(t, variables=True)
-            + CSS.replace("{ROOT}", theme_mod.root_css(t))
-            + extra_css
+            panel_css(t, variables=True) + CSS.replace("{ROOT}", theme_mod.root_css(t)) + extra_css
         )
         + "</style></head>"
     )

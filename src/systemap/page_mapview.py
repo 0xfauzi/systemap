@@ -49,9 +49,12 @@ def title(question: str) -> str:
 
 
 def zoom() -> str:
-    """Give the zoom controls: zoom out, the zoom value, zoom in, and fit.
+    """Give the zoom controls and the full-screen control, at the end of the view row.
 
-    The zoom value is a button. It sets the actual size, 100 percent."""
+    One segmented group has zoom out, the zoom value, zoom in and fit. The zoom
+    value is a button. It sets the actual size, 100 percent. The full-screen
+    button follows the group in each view. In full screen it shows Exit full
+    screen and the Esc key."""
     return (
         '<div class="zoom" role="group" aria-label="Zoom"><div class="zoom__seg">'
         f'<button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out">'
@@ -59,9 +62,13 @@ def zoom() -> str:
         '<button type="button" data-zoom="actual" id="zpct" aria-pressed="false" '
         'aria-label="Zoom to 100 percent" title="Actual size"></button>'
         f'<button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in">'
-        f"{icon('zoom-in')}</button></div>"
+        f"{icon('zoom-in')}</button>"
         '<button type="button" data-zoom="fit" aria-pressed="true" aria-label="Fit" '
         f'title="Fit: show the full map">{icon("fit")}</button></div>'
+        '<button type="button" class="zoom__full" id="full-toggle" aria-pressed="false" '
+        'aria-label="Full screen" title="Full screen (F)" aria-keyshortcuts="F">'
+        f'{icon("full")}{icon("full-exit")}<span class="zoom__exit">Exit full screen</span>'
+        "<kbd>Esc</kbd></button></div>"
     )
 
 
