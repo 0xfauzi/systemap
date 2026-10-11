@@ -2,11 +2,14 @@
 
 Acceptance: the Map view has the layer row with the segmented control, the
 title block with a label and the question, and the zoom controls with icons.
+On a wide window the panel opens with the page. It shows the layer in the card
+style of the sequence steps, and the guide steps after it.
 The DOM harness examines data and controls. It does not measure browser geometry.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import shutil
@@ -17,6 +20,7 @@ import pytest
 from conftest import Sample
 
 from systemap import page
+from systemap.model import Flow
 
 SCENARIO = r"""
 function mapview(page){
@@ -109,3 +113,111 @@ def test_title_block_names_the_layer_and_its_position(sample: Sample, tmp_path: 
     trace = report["trace"]
     assert isinstance(trace, dict) and "LAYER" not in trace["label"]
     assert report["back"] == layers["all"]
+
+
+PANEL = r"""
+function mappanel(page){
+  const {doc,win,A}=page,read=doc.getElementById('inspector-empty');
+  const text=(n)=>(n?n.textContent:'');
+  const state=()=>({panel:doc.body.dataset.panel,
+    kicker:text(read.querySelector('.lay .seq-kicker')),
+    title:text(read.querySelector('.lay .seq-title')),
+    count:text(read.querySelector('.lay .seq-count')),
+    cards:read.querySelectorAll('.lay-card').map(b=>text(b.querySelector('.seq-step__head'))),
+    order:(read.querySelector('.read')||{children:[]}).children.map(n=>n.getAttribute('class'))});
+  const tabs=doc.querySelectorAll('[data-layer-btn]').map(b=>b.dataset.layerBtn);
+  const report={initial:state(),layers:{},expected:{}};
+  tabs.forEach(id=>{
+    doc.querySelector('[data-layer-btn="'+id+'"]').click();runFrames(win);
+    report.layers[id]=state();
+    const r=A.detail._meta.readings[id];
+    report.expected[id]=A.edges.map((e,i)=>[e,i])
+      .filter(([e,i])=>id==='all'||(r&&r.edges.includes(i)))
+      .map(([e])=>e.from+' → '+e.to+' · '+e.art);
+  });
+  report.regions=(A.detail._meta.regions||[]).map(r=>r.label+' · '+r.ids.length+' component'
+    +(r.ids.length===1?'':'s'));
+  report.actors=Object.keys(A.detail).filter(id=>id!=='_meta'&&A.detail[id].kind==='actor');
+  // A flow card: a pointer on it previews the flow, a click selects the flow.
+  const flowLayer=tabs.find(id=>{
+    doc.querySelector('[data-layer-btn="'+id+'"]').click();runFrames(win);
+    return !!read.querySelector('[data-read-edge]');});
+  const card=read.querySelector('[data-read-edge]');
+  const i=+card.dataset.readEdge;
+  card.dispatchEvent(new EventImpl('mouseenter',{bubbles:false}));
+  report.peek={layer:flowLayer,edge:i,peek:A.state.peek};
+  card.click();runFrames(win);
+  report.selected={edge:A.state.edge,drawer:!doc.getElementById('drawer').hidden};
+  return report;
+}
+"""
+
+
+def test_panel_opens_with_the_layer_as_step_cards(sample: Sample, tmp_path: Path) -> None:
+    report = run_scenario(sample, tmp_path, "mappanel", PANEL)
+    initial, layers, expected = report["initial"], report["layers"], report["expected"]
+    assert isinstance(initial, dict) and isinstance(layers, dict) and isinstance(expected, dict)
+    # A wide window opens the panel with the page, as the Sequences view does.
+    assert initial["panel"] == "open"
+    shown = page.tab_layers(sample.model, sample.meaning)
+    assert initial == layers[shown[0].id]
+    for layer in shown:
+        got = layers[layer.id]
+        assert got["kicker"] == "LAYER"
+        assert got["title"] == layer.label
+        # The layer section comes first, and the guide steps follow it.
+        assert got["order"][0].startswith("read__section lay")
+        assert got["order"][-1] == "read__guide"
+        if layer.id == "structure":
+            assert got["cards"] == report["regions"]
+        elif layer.id == "system":
+            assert sorted(got["cards"]) == sorted(report["actors"])
+        else:
+            assert got["cards"] == expected[layer.id]
+    assert layers["all"]["title"] == "All layers"
+    assert layers["all"]["cards"] == expected["all"]
+    peek, selected = report["peek"], report["selected"]
+    assert isinstance(peek, dict) and peek["peek"] == peek["edge"]
+    assert selected == {"edge": peek["edge"], "drawer": True}
+
+
+GROUPS = r"""
+function mapgroups(page){
+  const {doc,win}=page,read=doc.getElementById('inspector-empty');
+  const text=(n)=>(n?n.textContent:'');
+  doc.querySelector('[data-layer-btn="data"]').click();runFrames(win);
+  const sec=read.querySelector('.fg-read');
+  const report={kicker:text(sec.querySelector('.seq-kicker')),
+    title:text(sec.querySelector('.seq-title')),count:text(sec.querySelector('.seq-count')),
+    rows:read.querySelectorAll('[data-fg-row]').length};
+  read.querySelector('[data-fg-row]').click();runFrames(win);
+  const open=read.querySelector('.fg-open');
+  report.open={count:text(open.querySelector('.fg-open__head b')),
+    name:text(open.querySelector('.fg-open__name')),
+    flows:open.querySelectorAll('[data-fg-edge]').length};
+  return report;
+}
+"""
+
+
+def test_grouped_layer_panel_uses_the_step_style(sample: Sample, tmp_path: Path) -> None:
+    extra = tuple(Flow("Reader", "Writer", f"part {k}", "data") for k in range(21))
+    many = Sample(
+        sample.cfg,
+        dataclasses.replace(sample.model, flows=sample.model.flows + extra),
+        sample.meaning,
+        sample.theme,
+        sample.facts,
+    )
+    report = run_scenario(many, tmp_path, "mapgroups", GROUPS)
+    assert report["kicker"] == "LAYER"
+    assert report["title"] == "Data flow"
+    assert report["count"] == "23 flows · 2 groups"
+    assert report["rows"] == 2
+    assert report["open"] == {"count": "22", "name": "1 WORK → 2 KEEP", "flows": 22}
+
+
+def test_panel_stays_closed_on_a_narrow_window(sample: Sample, tmp_path: Path) -> None:
+    report = run_scenario(sample, tmp_path, "mappanel", PANEL, viewport="700x900")
+    initial = report["initial"]
+    assert isinstance(initial, dict) and initial["panel"] == "closed"

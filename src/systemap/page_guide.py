@@ -2,8 +2,9 @@
 
 The guide has up to five steps: the system boundary, the parts, the data,
 the control and one operation. Each step selects a layer, or starts the
-first sequence. The Read panel lists the same steps and a section about the
-selected layer. Other scripts can give that section through `svg.page.readers`.
+first sequence. The Read panel shows a section about the selected layer
+first and the same steps after it. Other scripts give that section through
+`svg.page.readers`.
 """
 
 from __future__ import annotations
@@ -130,36 +131,20 @@ font-weight:600}
 .guide__actions .primary:hover{background:var(--ink);color:var(--bg);opacity:.9}
 .guide__note{margin:0;font:12px/17px var(--fs);color:var(--ink-3)}
 @keyframes systemapguide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.read{display:flex;flex-direction:column;gap:18px}
-.read__head{display:flex;justify-content:space-between;align-items:baseline}
-.read__kicker,.read__count{font:600 11px/16px var(--fm);letter-spacing:.08em;color:var(--ink-3)}
-.read__count{font-weight:400;letter-spacing:0;font-size:12px}
-.read__steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.read__step{width:100%;display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:2px 10px;
-align-items:baseline;padding:11px 14px;border:1px solid var(--line);border-radius:8px;
-background:transparent;text-align:left;color:var(--ink-2);font-size:13px}
-.read__step b{font:600 11px var(--fm);color:var(--ink-3)}
-.read__step span{font:500 14px/20px var(--fs);color:var(--ink)}
-.read__step small{font:12px var(--fs);color:var(--ink-3)}
-.read__step[aria-current="true"]{border-color:var(--accent);background:var(--raised)}
-.read__step[aria-current="true"] b{color:var(--accent)}
-.read__step p{grid-column:2/-1;margin:6px 0 0;font:13px/20px var(--fs);color:var(--ink-2)}
-.read__section h3{margin:0 0 6px;font:600 11px/16px var(--fm);letter-spacing:.08em;
+.read{display:flex;flex-direction:column;gap:24px}
+.read__guide{display:flex;flex-direction:column;gap:8px;padding-top:14px;
+border-top:1px solid var(--line)}
+.read__steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.read__step{width:100%;height:30px;min-height:30px;padding:0 4px;display:grid;
+grid-template-columns:20px minmax(0,1fr) auto;gap:10px;align-items:center;border:0;
+border-radius:4px;background:transparent;text-align:left}
+.read__step b{width:20px;height:20px;border:1px solid var(--line-2);border-radius:50%;
+display:inline-flex;align-items:center;justify-content:center;font:600 11px/1 var(--fm);
 color:var(--ink-3)}
-.read__q{margin:0 0 10px;font:500 17px/24px var(--fs);color:var(--ink)}
-.read__rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 16px;margin:0}
-.read__rows dt{font:600 13px/20px var(--fm);color:var(--ink)}
-.read__rows dd{margin:0;font:13px/20px var(--fs);color:var(--ink-2)}
-.read__flows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.read__flow{width:100%;display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;
-align-items:center;padding:7px 4px;border:0;border-bottom:1px solid var(--line);border-radius:0;
-background:transparent;text-align:left;min-height:36px}
-.read__flow:hover{background:var(--raised)}
-.read__flow i{display:block;border-top:2px solid var(--c,var(--ink-3))}
-.read__flow i.dash{border-top-style:dashed}
-.read__flow span{font:13px/18px var(--fs);color:var(--ink)}
-.read__flow small{font:12px var(--fm);color:var(--ink-3);white-space:nowrap}
-.read__note{margin:0;font:12px/18px var(--fs);color:var(--ink-3)}
+.read__step[aria-current="true"] b{border:0;background:var(--accent);color:var(--on-accent)}
+.read__step span{font:13px/18px var(--fs);color:var(--ink)}
+.read__step small{font:12px var(--fm);color:var(--ink-3)}
+.read__q{margin:0;font:500 17px/24px var(--fs);color:var(--ink)}
 """
 
 SCRIPT = r"""
@@ -240,103 +225,35 @@ SCRIPT = r"""
   });
 
   // ---- the Read panel --------------------------------------------------------
-  function edgesOf(L){
-    var out = [];
-    A.edges.forEach(function(e, i){
-      var reading = A.detail._meta.readings[L];
-      if(L === 'all' || (reading && reading.edges.indexOf(i) >= 0)){ out.push(i); }
-    });
-    return out;
-  }
-  function besideNote(L){
-    var on = {}, any = false;
-    (A.besideEdges || []).forEach(function(i){ on[i] = true; });
-    edgesOf(L).forEach(function(i){ if(on[i]){ any = true; } });
-    return any ? '<p class="read__note">Labels that do not fit on a line are in this list. '
-      + 'Point to a line to read its label.</p>' : '';
-  }
-  function series(list){
-    return list.length < 2 ? list.join('')
-      : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1];
-  }
-  function boundary(L){
-    if(L !== 'system'){ return null; }
-    var actors = {}, order = [];
-    edgesOf(L).forEach(function(i){
-      var e = A.edges[i];
-      [[e.from, 'sends'], [e.to, 'gets']].forEach(function(end){
-        var d = A.detail[end[0]];
-        if(!d || d.kind !== 'actor'){ return; }
-        if(!actors[end[0]]){ actors[end[0]] = {sends:[], gets:[]}; order.push(end[0]); }
-        var list = actors[end[0]][end[1]];
-        if(list.indexOf(e.art) < 0){ list.push(e.art); }
-      });
-    });
-    if(!order.length){ return null; }
-    var h = '<section class="read__section"><h3>WHAT CROSSES THE BOUNDARY</h3>'
-      + '<dl class="read__rows">';
-    order.forEach(function(id){
-      var a = actors[id], text = [];
-      if(a.gets.length){ text.push('Receives ' + series(a.gets) + '.'); }
-      if(a.sends.length){ text.push('Sends ' + series(a.sends) + '.'); }
-      h += '<dt>' + esc(id) + '</dt><dd>' + esc(text.join(' ')) + '</dd>';
-    });
-    return {html:h + '</dl>' + besideNote(L) + '</section>'};
-  }
-  function flowList(L){
-    if(L === 'structure'){ return null; }
-    var list = edgesOf(L);
-    if(!list.length){ return null; }
-    var label = L === 'all' ? 'ALL LAYERS' : String(LAY[L] ? LAY[L].label : L).toUpperCase();
-    var h = '<section class="read__section"><div class="read__head"><h3>' + esc(label)
-      + '</h3><span class="read__count">' + list.length + ' flow' + (list.length === 1 ? '' : 's')
-      + '</span></div><ul class="read__flows">';
-    list.forEach(function(i){
-      var e = A.edges[i], l = LAY[e.layer];
-      var dash = e.evidence === 'structural' || e.evidence === 'declared' ? ' class="dash"' : '';
-      h += '<li><button type="button" class="read__flow" data-read-edge="' + i + '"><i' + dash
-        + ' style="--c:' + esc(l ? l.colour : 'var(--ink-3)') + '"></i><span>' + esc(e.art)
-        + '</span><small>' + esc(e.from) + ' → ' + esc(e.to) + '</small></button></li>';
-    });
-    return {html:h + '</ul>' + besideNote(L) + '</section>', bind:function(root){
-      Array.prototype.slice.call(root.querySelectorAll('[data-read-edge]')).forEach(function(b){
-        var i = +b.dataset.readEdge;
-        b.addEventListener('mouseenter', function(){ A.peek(i); });
-        b.addEventListener('focus', function(){ A.peek(i); });
-        b.addEventListener('mouseleave', function(){ A.peek(-1); });
-        b.addEventListener('click', function(){ A.inspectFlow(i); });
-      });
-    }};
-  }
+  // The section for the layer comes first: page_mapview and page_groups give
+  // it through P.readers. The guide steps follow it as a short list.
   function section(L){
-    var own = P.readers || [], readers = own.concat([boundary, flowList]);
+    var readers = P.readers || [];
     for(var k = 0; k < readers.length; k++){
       var out = readers[k](L);
-      // A layer with its own section (board 2) shows it without the guide.
-      if(out){ out.own = k < own.length; return out; }
+      if(out){ return out; }
     }
     return {html:'<section class="read__section"><p class="read__q">'
       + esc(LAY[L] ? LAY[L].question : '') + '</p></section>'};
   }
+  function guideHtml(L){
+    var at = -1;
+    STEPS.forEach(function(s, k){ if(s.layer === L && at < 0){ at = k; } });
+    return '<section class="read__guide" aria-label="Guide"><div class="seq-row">'
+      + '<h3 class="seq-kicker">READ THE MAP</h3><span class="seq-count">'
+      + (at >= 0 ? (at + 1) + ' of ' : '') + STEPS.length + '</span></div>'
+      + '<ol class="read__steps">' + STEPS.map(function(s, k){
+        return '<li><button type="button" class="read__step" data-guide="' + k
+          + '" aria-current="' + (k === at) + '"><b>' + (k + 1) + '</b><span>' + esc(s.title)
+          + '</span><small>' + esc(s.layer ? (LAY[s.layer] ? LAY[s.layer].label : s.layer)
+          : 'Sequence') + '</small></button></li>';
+      }).join('') + '</ol></section>';
+  }
   function render(){
     if(!read || read.hidden){ return; }
-    var L = A.state.layer, h = '<div class="read">', sec = section(L);
-    if(STEPS.length && !sec.own){
-      var at = -1;
-      STEPS.forEach(function(s, k){ if(s.layer === L && at < 0){ at = k; } });
-      h += '<div class="read__head"><span class="read__kicker">READ THE MAP</span>'
-        + '<span class="read__count">' + (at >= 0 ? (at + 1) + ' / ' : '') + STEPS.length
-        + '</span></div><ol class="read__steps">';
-      STEPS.forEach(function(s, k){
-        var on = k === at;
-        h += '<li><button type="button" class="read__step" data-guide="' + k + '" aria-current="'
-          + on + '"><b>' + (k + 1 < 10 ? '0' : '') + (k + 1) + '</b><span>' + esc(s.title)
-          + '</span><small>' + esc(s.layer ? (LAY[s.layer] ? LAY[s.layer].label : s.layer)
-          : 'Sequence') + '</small>' + (on ? '<p>' + esc(s.text) + '</p>' : '') + '</button></li>';
-      });
-      h += '</ol>';
-    }
-    read.innerHTML = h + sec.html + '</div>';
+    var L = A.state.layer, sec = section(L);
+    read.innerHTML = '<div class="read">' + sec.html + (STEPS.length ? guideHtml(L) : '')
+      + '</div>';
     Array.prototype.slice.call(read.querySelectorAll('[data-guide]')).forEach(function(b){
       b.addEventListener('click', function(){ g = +b.dataset.guide; renderCard();
         apply(STEPS[g]); });
