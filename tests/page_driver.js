@@ -861,7 +861,7 @@ function workspace(page) {
     report.partPurpose = doc.getElementById('panel').textContent.includes(A.detail[A.state.focus].plain);
   }
   doc.querySelector('button[data-mode="understand"]').click();
-  // The Find button opens the palette. Its results give the components in their own group.
+  // The Find button opens the dialog. Its results give the components in their own group.
   doc.getElementById('find-open').click();
   const search = doc.getElementById('pal-input');
   search.value = 'pkg.reader';

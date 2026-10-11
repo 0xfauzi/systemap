@@ -473,7 +473,7 @@ def build(
             {"label": r.label, "ids": [c.id for c in model.components if c.region == r.id]}
             for r in model.regions
         ],
-        # The Find palette names the region of each component, or this label.
+        # The Find dialog names the region of each component, or this label.
         "outside": cfg.outside_label,
         "tabs": [layer.id for layer in tab_layers(model, meaning)],
         "guide": page_guide.steps(model, meaning),

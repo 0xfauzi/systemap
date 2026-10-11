@@ -138,7 +138,7 @@ components:
   icon-button-pressed:
     backgroundColor: "{colors.dark-raised}"
     textColor: "{colors.dark-ink}"
-  find-palette:
+  find-dialog:
     backgroundColor: "{colors.dark-surface}"
     textColor: "{colors.dark-ink}"
     rounded: "{rounded.menu}"
@@ -255,7 +255,7 @@ and the three view buttons. A dot on Changes shows that the page has a revision 
 At the right, it contains Find, the theme, Reduce motion, Keyboard keys, and Details. No menu hides a control.
 Find is a button in the shape of a field: a search icon, the word Find, and its key.
 The other controls are icon buttons. Each icon button has a name and a tooltip.
-A pressed toggle has the raised color and a border.
+A pressed button has the raised color and a border.
 The theme button shows the theme that it selects: a sun for Paper and a moon for Ink.
 Reduce motion is in the header because the system setting does not stop motion on the page (see Motion).
 Keyboard keys is the ? icon. It opens the list of keys, as the ? key does.
@@ -324,20 +324,20 @@ On the first visit, a guide card at the bottom right gives five steps. Each step
 The map moves left so that the card does not cover it. The map goes back to Fit when the card closes.
 The page records the first visit in the browser. The Details panel shows the same steps.
 
-Find opens the Find palette. Ctrl+K, Cmd+K on a Mac, and the / key also open it.
-The palette is a dialog above the page. It has a search field and a list of results in groups:
+Find opens the Find dialog. Ctrl+K, Cmd+K on a Mac, and the / key also open it.
+The Find dialog is above the page. It has a search field and a list of results in groups:
 views, layers, components, flows, sequences, steps, rules, and actions.
 With no text, the list gives the views, the layers, the sequences, and the actions.
 A name that starts with the text comes first. A name with a word that starts with the text comes next.
 Other text, such as a description or a source module, comes after the names.
 A group name is also a match: "rule" gives the rules first.
 A component that matches only in a source module shows that module.
-The up and down arrow keys move the selection. Enter does the action of the result. Escape closes the palette.
+The up and down arrow keys move the selection. Enter does the action of the result. Escape closes the dialog.
 Each result shows its key, if it has one. The current view and the current layer show Current.
 The actions are the theme, Reduce motion, full screen, Details, and Keyboard keys.
 A rule opens the Rules section of the Map panel at that rule.
-The palette is 600px wide. It has the surface color, a 10px corner radius, and group names in the kicker type.
-On a phone, the palette fills the width of the screen from the top. A Close button replaces the Esc key.
+The dialog is 600px wide. It has the surface color, a 10px corner radius, and group names in the kicker type.
+On a phone, the dialog fills the width of the screen from the top. A Close button replaces the Esc key.
 
 At widths of 1100px or less, the panel is 340px wide, Find is smaller, and the commit shows without the word at.
 At widths of 820px or less, the panel covers the right side of the map, under the row.
@@ -414,7 +414,7 @@ A pointer or keyboard focus on a line shows a preview of that flow. The label of
 A declared flow keeps its dash pattern during selection.
 No more than one directional cue moves. The cue does not show a recorded run.
 
-Escape closes the newest item first: the Find palette, the keyboard keys, the source panel of the commit,
+Escape closes the newest item first: the Find dialog, the keyboard keys, the source panel of the commit,
 full screen, the sequence, the selection, and then the panel.
 A nested map opens in a dialog above an inert background.
 The dialog gives the keyboard focus back to its control when it closes.
@@ -431,7 +431,7 @@ In the Map view, a layer change fades in the title block and the panel in 180 ms
 A sequence step shows its note after the camera stops.
 When the page opens, the cards come in one time in reading order, in 360 ms or less.
 A theme change fades the colors in 240 ms.
-The Find palette fades in and moves 6px down in 160 ms.
+The Find dialog fades in and moves 6px down in 160 ms.
 A selected line and the current sequence line have a soft glow.
 Reduce motion is a page setting. It is off on the first visit. When it is on, the page shows the final state with no motion.
 The browser keeps the setting. The head script applies the kept setting before the page shows.

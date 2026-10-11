@@ -3,7 +3,7 @@
 Acceptance: zero lost journey steps or exact flow identifiers across part
 inspection, Fit, return and End. Restored viewport coordinates must equal the
 saved coordinates. Nested maps restore the actual opener and every prior inert
-attribute. The Find palette matches the name, the function and the module, and
+attribute. The Find dialog matches the name, the function and the module, and
 ignores typing targets.
 The recorded sample and generated JavaScript run locally without services.
 """
@@ -49,7 +49,7 @@ function viewstate(page) {
   key('Escape'); runFrames(win);
   report.ended = snapshot(); report.before = before;
 
-  // The / key opens the Find palette. In the field, / is text.
+  // The / key opens the Find dialog. In the field, / is text.
   report.shortcut = key('/');
   const search = doc.getElementById('pal-input');
   report.searchFocused = doc.activeElement===search && !doc.getElementById('palette').hidden;

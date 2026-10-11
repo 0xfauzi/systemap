@@ -1,10 +1,10 @@
-"""The Find palette: one search field for views, layers, sequences, components, flows and actions.
+"""The Find dialog: one search field for views, layers, sequences, components, flows and actions.
 
-Ctrl+K, Cmd+K, the / key and the Find button in the header open the palette.
+Ctrl+K, Cmd+K, the / key and the Find button in the header open the dialog.
 It shows grouped results. A name that starts with the text, or a word in the
 name that starts with the text, comes first. The arrow keys move the
-selection, Enter does the action of the result and Escape closes the palette.
-Each result shows its key when it has one. The palette calls the page
+selection, Enter does the action of the result and Escape closes the dialog.
+Each result shows its key when it has one. The dialog calls the page
 functions of the views, the layers, the sequences and the map selection.
 """
 
@@ -16,7 +16,7 @@ from systemap.page_icons import icon
 
 
 def html() -> str:
-    """Give the palette. It stays hidden until the reader opens it."""
+    """Give the dialog. It stays hidden until the reader opens it."""
     return (
         '<div class="pal" id="palette" hidden>'
         '<div class="pal__box" role="dialog" aria-modal="true" aria-label="Find">'
@@ -35,7 +35,7 @@ def html() -> str:
 
 
 CSS = r"""
-/* ---- the Find palette ------------------------------------------------------ */
+/* ---- the Find dialog ------------------------------------------------------ */
 .pal{position:fixed;inset:0;z-index:50;display:flex;justify-content:center;align-items:flex-start;
 padding:14vh 16px 16px;background:color-mix(in srgb,var(--bg) 60%,transparent)}
 .pal__box{width:min(600px,100%);max-height:100%;display:flex;flex-direction:column;
@@ -378,7 +378,7 @@ _SCRIPT = r"""
     return ['keys', 'present', 'submap'].some(function(id){
       var n = byId(id); return n && !n.hidden; });
   }
-  // Ctrl+K or Cmd+K opens and closes the palette. The / key opens it.
+  // Ctrl+K or Cmd+K opens and closes the dialog. The / key opens it.
   window.addEventListener('keydown', function(e){
     var k = (e.key || '').toLowerCase();
     if(covered()){ return; }

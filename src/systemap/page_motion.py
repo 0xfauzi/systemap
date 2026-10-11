@@ -277,7 +277,7 @@ def _key(key: str) -> str:
     if key == "1 to 6":
         return f"<kbd data-keys-layers>{key}</kbd>"
     if key == "Ctrl K":
-        # The palette script shows the Command key on a Mac. The / key also opens it.
+        # The Find dialog script shows the Command key on a Mac. The / key also opens it.
         return "<kbd data-mod-key>Ctrl K</kbd> <kbd>/</kbd>"
     return f"<kbd>{key}</kbd>"
 

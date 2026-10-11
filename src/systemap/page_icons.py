@@ -1,4 +1,4 @@
-"""The icons of the page controls: the header, the zoom group and the Find palette.
+"""The icons of the page controls: the header, the zoom group and the Find dialog.
 
 Each icon is an inline SVG on a 16 unit grid. The page draws each path with a
 1.5 unit stroke in the text color, with round ends and round joins, and with no

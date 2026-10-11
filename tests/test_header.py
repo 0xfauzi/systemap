@@ -146,7 +146,7 @@ function palette(page){
     dispatch(target||doc.body,ev);runFrames(win);return ev.defaultPrevented;};
   const ask=q=>{button.click();type(q);key('Enter',input);runFrames(win);};
   const report={};
-  // Ctrl+K opens the palette and closes it again.
+  // Ctrl+K opens the dialog and closes it again.
   report.ctrlOpen=ctrl()&&!box.hidden&&doc.activeElement===input;
   report.empty={groups:groups(),rows:rows()};
   key('ArrowDown',input);report.down=at();
