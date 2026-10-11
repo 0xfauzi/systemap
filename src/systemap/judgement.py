@@ -39,6 +39,7 @@ from systemap.journey_coverage import (
     crowd_label as crowd_label,
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
+from systemap.source_text import text_digest
 
 __all__ = ["mentioned"]
 
@@ -451,7 +452,7 @@ def _map_answer_evidence(
     root: Path,
     lines: list[str],
 ) -> dict[str, str]:
-    model_hash = hashlib.sha256(m.path.read_bytes()).hexdigest()
+    model_hash = text_digest(m.path.read_bytes())
     crossings = {
         m.prefix + crossing_line(p, q, imports): imports
         for (p, q), imports in crossing_imports(m.model, facts).items()

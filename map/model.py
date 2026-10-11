@@ -141,6 +141,7 @@ COMPONENTS = (
             "systemap.extract",
             "systemap.facts",
             "systemap.language",
+            "systemap.source_text",
             "systemap.typescript",
             "systemap.typescript_surface",
             "systemap.ways_in",

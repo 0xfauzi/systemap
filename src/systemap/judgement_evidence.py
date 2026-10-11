@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from typing import Any
+
+from systemap.source_text import text_digest
 
 
 def _source_hash(root: Path, record: dict[str, Any]) -> str:
     """This function hashes source bytes because saved facts can predate an uncommitted
-    edit.
+    edit. CRLF and LF checkouts of the same text give the same digest.
     """
     name = record.get("file")
     if not isinstance(name, str):
         return "unknown source"
     try:
-        return hashlib.sha256((root / name).read_bytes()).hexdigest()
+        return text_digest((root / name).read_bytes())
     except OSError:
         return "missing source"
 

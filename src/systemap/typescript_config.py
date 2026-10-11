@@ -14,6 +14,9 @@ from typing import Any
 
 SOURCE_SUFFIXES = (".ts", ".tsx")
 SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
+# The folders below a project folder that hold no project source. tsc reads all other
+# folders except outDir, so a source folder called build or dist is source.
+SOURCE_SKIP = frozenset({".git", ".venv", "node_modules"})
 # A shared base config cannot know where the project that extends it lives, so
 # TypeScript lets a path option start with this variable, which stands for the
 # folder of the top-level tsconfig.json: the one the project owns, not the file
@@ -136,7 +139,7 @@ def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
             if path.is_file()
             and path.suffix in SOURCE_SUFFIXES
             and not path.name.endswith(".d.ts")
-            and not any(part in SKIP_PARTS for part in path.parts)
+            and not any(part in SOURCE_SKIP for part in path.relative_to(root).parts)
         )
         if next(sources, None) is not None:
             return [(candidate.relative_to(root).as_posix() or ".", typescript_name(root))]
