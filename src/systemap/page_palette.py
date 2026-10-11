@@ -48,6 +48,7 @@ border-bottom:1px solid var(--line);color:var(--ink-3)}
 .pal__field input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--ink);
 font:15px var(--fs);outline:none;padding:0}
 .pal__field input::placeholder{color:var(--ink-3)}
+.pal__field:focus-within{color:var(--ink-2);box-shadow:inset 0 -1px 0 var(--ink-3)}
 .pal kbd{display:inline-block;min-width:20px;font:11px/16px var(--fm);color:var(--ink-2);
 text-align:center;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;
 padding:0 5px}
