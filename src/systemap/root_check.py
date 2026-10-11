@@ -1,0 +1,59 @@
+"""The package root check finds configured package roots that the extractor cannot use.
+
+An earlier `systemap init` wrote the model and out_dir settings after the [package_roots]
+line, and TOML reads them as package roots. Such an entry with the value that the setting
+has without it gives no new information, so the check removes it. Other entries must be
+directories. A Python import name cannot be a path.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Collection
+from pathlib import Path
+from typing import Any
+
+# The settings that an earlier init wrote after the [package_roots] line, with defaults.
+SETTINGS_IN_ROOTS = {"model": "map/model.py", "out_dir": "docs/map"}
+
+Roots = tuple[tuple[str, str], ...]
+
+
+def checked_roots(
+    root: Path,
+    language: str,
+    raw: dict[str, Any],
+    roots: Roots,
+    settings: Collection[str],
+    where: str,
+) -> Roots:
+    """Give the package roots without an entry that repeats a setting value.
+
+    A configured root that the extractor cannot use gives ValueError. Its message names a
+    setting in `settings` that is in the table."""
+    if raw.get("package_roots") is None:
+        return roots
+    kept = tuple((rel, name) for rel, name in roots if not _repeats_setting(raw, rel, name))
+    for rel, name in kept:
+        path_name = language == "python" and "/" in name
+        if path_name or not (root / rel).is_dir():
+            raise ValueError(f"{where}: {_problem(rel, name, path_name, settings)}")
+    return kept
+
+
+def _repeats_setting(raw: dict[str, Any], rel: str, name: str) -> bool:
+    default = SETTINGS_IN_ROOTS.get(rel)
+    return default is not None and raw.get(rel, default) == name
+
+
+def _problem(rel: str, name: str, path_name: bool, settings: Collection[str]) -> str:
+    if rel in settings:
+        return (
+            f"[package_roots] contains the setting {rel}. Move the {rel} line above the "
+            f"[package_roots] line."
+        )
+    if path_name:
+        return (
+            f"The package root {rel} has the import name {name}. A Python import name cannot "
+            f"contain a slash."
+        )
+    return f"The package root {rel} is not a directory. Correct the path in [package_roots]."

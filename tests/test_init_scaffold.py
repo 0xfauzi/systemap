@@ -58,19 +58,26 @@ def test_init_writes_model_and_out_dir_as_top_level_settings(tmp_path: Path) -> 
     assert cfg.package_roots == (("pkg", "pkg"),)
 
 
-def test_a_setting_inside_package_roots_is_a_configuration_error(
+# The table that an earlier init wrote: the two settings are in [package_roots].
+EARLIER_TABLE = '[package_roots]\n"pkg" = "pkg"\nmodel = "map/model.py"\nout_dir = "docs/map"\n'
+
+
+def test_a_default_setting_inside_package_roots_is_not_a_package_root(tmp_path: Path) -> None:
+    write_tree(tmp_path, {**STARTER, "systemap.toml": EARLIER_TABLE})
+    assert config.load(tmp_path).package_roots == (("pkg", "pkg"),)
+    # A top-level directory named model does not become a package root.
+    (tmp_path / "model").mkdir()
+    (tmp_path / "model/train.py").write_text("STEPS = 1\n", encoding="utf-8")
+    cfg = config.load(tmp_path)
+    assert cfg.package_roots == (("pkg", "pkg"),)
+    assert (cfg.model, cfg.out_dir) == ("map/model.py", "docs/map")
+
+
+def test_a_changed_setting_inside_package_roots_is_a_configuration_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # The table that an earlier init wrote: the two settings are in [package_roots].
-    write_tree(
-        tmp_path,
-        {
-            **STARTER,
-            "systemap.toml": (
-                '[package_roots]\n"pkg" = "pkg"\nmodel = "map/model.py"\nout_dir = "docs/map"\n'
-            ),
-        },
-    )
+    table = EARLIER_TABLE.replace('"map/model.py"', '"maps/model.py"')
+    write_tree(tmp_path, {**STARTER, "systemap.toml": table})
     assert run("--root", str(tmp_path), "extract") == 2
     err = capsys.readouterr().err
     assert "[package_roots] contains the setting model" in err

@@ -123,6 +123,7 @@ COMPONENTS = (
         implemented_by=(
             "systemap.config",
             "systemap.language_config",
+            "systemap.root_check",
             "systemap.typescript_config",
         ),
         entry="load",
