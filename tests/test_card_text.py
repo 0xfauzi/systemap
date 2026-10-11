@@ -4,7 +4,9 @@ A card's name is mono at 11.5px and its plain word sans at 11px, in 140
 units of inner width. A session's map passed the check with plain words
 the drawing had cut short with an ellipsis; the check now refuses a card
 whose text does not fit, stating the budget, after trying a two-line
-wrap where the card kind has room.
+wrap where the card kind has room. The budget is for these base sizes. A
+map draws all cards at a larger size, up to the board size, when all of
+their text fits at it.
 """
 
 from __future__ import annotations
@@ -19,8 +21,18 @@ from conftest import Sample, init_two_cards, write_tree
 from systemap import schematic
 from systemap.check import check_labels
 from systemap.cli import main
+from systemap.model import CARD_H
 from systemap.schematic import card_text, wrap_id
 from systemap.schematic import render as render_schematic
+from systemap.schematic_cards import (
+    NAME_CHARS,
+    NAME_PX,
+    NAME_PX_MAX,
+    TEXT_PX,
+    TEXT_PX_MAX,
+    card_lines,
+    card_sizes,
+)
 
 STARTER_MODULES = {
     "pkg/reader.py": "def read(source: str) -> str:\n    return source\n",
@@ -182,3 +194,36 @@ def test_check_refuses_a_card_whose_text_does_not_fit(
         f"two lines; this one has {len(three_lines)})"
     ) in out
     assert run("--root", str(tmp_path), "refresh") == 1
+
+
+# ---- one type size for all cards of a map -----------------------------------------
+
+
+def test_short_card_text_takes_the_board_size() -> None:
+    """Acceptance: names of 14 characters or less and short descriptions get the board size."""
+    cards = [("component", "ChangeDetector", "The source comparison"), ("actor", "CI", "The CI")]
+    assert card_sizes(cards) == (NAME_PX_MAX, TEXT_PX_MAX)
+
+
+def test_a_long_name_makes_every_card_smaller() -> None:
+    """Acceptance: one card that does not fit at a size makes the map use a smaller size."""
+    short = ("component", "CLI", "The commands")
+    long = ("component", "A" * NAME_CHARS, "The commands")
+    name_px, text_px = card_sizes([short, long])
+    assert NAME_PX <= name_px < NAME_PX_MAX and TEXT_PX <= text_px < TEXT_PX_MAX
+    assert card_sizes([short]) == (NAME_PX_MAX, TEXT_PX_MAX)
+
+
+@pytest.mark.parametrize("kind", sorted(CARD_H))
+def test_text_in_the_budget_is_centred_inside_the_card(kind: str) -> None:
+    """Acceptance: at the base size, text that the check accepts has every baseline in the card."""
+    names, plain, problems = card_text(kind, "Reader", "the part that reads")
+    assert problems == []
+    lines = card_lines(kind, "Reader", "the part that reads", (NAME_PX, TEXT_PX))
+    assert lines is not None
+    name_rows, plain_rows = lines
+    assert [line for _y, line in name_rows] == names
+    assert [line for _y, _x, line in plain_rows] == plain
+    baselines = [y for y, _line in name_rows] + [y for y, _x, _line in plain_rows]
+    assert baselines == sorted(baselines)
+    assert all(NAME_PX < y < CARD_H[kind] for y in baselines)

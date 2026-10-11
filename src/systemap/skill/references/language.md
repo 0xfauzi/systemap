@@ -197,6 +197,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | recorded answer reason | The configuration explanation for a recorded finding answer. |
 | region | A component group and its map layout bounds. |
 | regression test | A test of behavior that a later source change must keep. |
+| route | The drawn path of one flow, or of the flows of one sequence, on the map. |
 | router | The procedure that calculates flow paths around map bounds. |
 | routing score | The numerical comparison of candidate flow paths (category 7). |
 | scheme | A specified set of user interface theme values. |
@@ -209,9 +210,15 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | test suite | The repository tests executed as one set. |
 | text encoding | The specified mapping between text characters and stored bytes. |
 | theme | The style values that control the page appearance. |
-| Clay | The named theme with a terracotta accent and dark surfaces (category 17). |
-| terracotta | The brown-orange color from 0xfauzi.com used in the Clay theme (category 17). |
-| device theme | The Light or Dark theme that the browser reads from the computer. |
+| Ink | The named theme with dark surfaces and an amber selection color (category 17). |
+| Paper | The named theme with light surfaces, an ink selection color, and a yellow highlighter fill (category 17). |
+| amber | The yellow-orange color of the selection in the Ink theme (category 17). |
+| vermilion | The red-orange color that shows a source change in the Changes view (category 17). |
+| highlighter fill | The yellow fill under the selected card and flow path in the Paper theme (category 17). |
+| device theme | The Paper or Ink theme that the page selects from the light or dark setting of the computer. |
+| CIEDE2000 | The formula that calculates the difference between two colors (category 7). |
+| protanopia, deuteranopia, tritanopia | The three types of color vision deficiency that the color measurement simulates (category 13). |
+| Brettel simulation | The procedure that calculates how a color shows with a color vision deficiency (category 7). |
 | sequence role | The acting or measurement classification of a component in a sequence step (category 19). |
 | acting component | A component in the `acts` field of a sequence step (category 19). |
 | measurement component | A component in the `measures` field of a sequence step (category 19). |

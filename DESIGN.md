@@ -2,246 +2,321 @@
 name: systemap
 description: Authored system maps with evidence for directed relationships.
 colors:
-  primary: "#fafafa"
-  dark-accent: "#fafafa"
-  dark-bg: "#08090a"
-  dark-surface: "#101014"
-  dark-raised: "#19191d"
-  dark-line: "#252529"
-  dark-line-2: "#424249"
-  dark-ink: "#fafafa"
-  dark-ink-2: "#bcbcc4"
-  dark-ink-3: "#9898a3"
-  dark-steel: "#8fb0c4"
-  dark-warn: "#d6b14a"
-  dark-bad: "#d97b6c"
-  light-accent: "#0a0a0a"
-  light-bg: "#ffffff"
-  light-surface: "#ffffff"
-  light-raised: "#f4f4f4"
-  light-line: "#e5e5e5"
-  light-line-2: "#b8b8bd"
-  light-ink: "#0a0a0a"
-  light-ink-2: "#525252"
-  light-ink-3: "#646464"
-  light-steel: "#466c84"
-  light-warn: "#7f641d"
-  light-bad: "#b5412f"
-  clay-accent: "#cf8b6b"
-  clay-bg: "#111214"
-  clay-surface: "#17181b"
-  clay-raised: "#1e1f21"
-  clay-line: "#292a2c"
-  clay-line-2: "#4d4e52"
-  clay-ink: "#fbfcfc"
-  clay-ink-2: "#cdcecf"
-  clay-ink-3: "#9a9b9d"
-  clay-steel: "#82a7ba"
-  clay-warn: "#c4a077"
-  clay-bad: "#dda5a1"
+  primary: "#FCB442"
+  dark-bg: "#0F0E0C"
+  dark-surface: "#161411"
+  dark-raised: "#211E1A"
+  dark-map: "#12110F"
+  dark-grid: "#1E1C18"
+  dark-card: "#1C1A17"
+  dark-card-line: "#716C63"
+  dark-line: "#27241F"
+  dark-line-2: "#37332D"
+  dark-ink: "#F1EDE4"
+  dark-ink-2: "#BEB8AC"
+  dark-ink-3: "#989184"
+  dark-region: "#6B665D"
+  dark-flow: "#66625A"
+  dark-accent: "#FCB442"
+  dark-on-accent: "#1C1405"
+  dark-hl: "#FCB4422E"
+  dark-change: "#D4675B"
+  dark-on-change: "#1E0904"
+  dark-steel: "#BEB8AC"
+  dark-data: "#86CDFF"
+  dark-control: "#C287BC"
+  dark-context: "#049886"
+  dark-tools: "#D1F1B2"
+  dark-custom-1: "#6C9455"
+  dark-custom-2: "#C7F1D3"
+  dark-custom-3: "#FDD3EF"
+  dark-custom-4: "#9798F9"
+  light-bg: "#ECE8DE"
+  light-surface: "#F1EEE6"
+  light-raised: "#E6E1D5"
+  light-map: "#F6F3EC"
+  light-grid: "#E6E1D6"
+  light-card: "#FFFEFB"
+  light-card-line: "#8C877D"
+  light-line: "#E0DBD0"
+  light-line-2: "#D3CDC0"
+  light-ink: "#1D1B17"
+  light-ink-2: "#4B4740"
+  light-ink-3: "#686359"
+  light-region: "#8F8A80"
+  light-flow: "#8F8C84"
+  light-accent: "#1D1B17"
+  light-on-accent: "#F6F3EC"
+  light-hl: "#FFD33D"
+  light-hl-soft: "#FFF1BF"
+  light-change: "#AC312A"
+  light-on-change: "#FFFFFF"
+  light-steel: "#4B4740"
+  light-data: "#116BB5"
+  light-control: "#491A70"
+  light-context: "#05544A"
+  light-tools: "#6F650D"
+  light-custom-1: "#34591B"
+  light-custom-2: "#80586D"
+  light-custom-3: "#4B0634"
+  light-custom-4: "#65508E"
+  brand: "#F2B33D"
 typography:
   body:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "14px"
-    lineHeight: 1.5
-  inspector-body:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
     fontSize: "13px"
-    lineHeight: 1.6
-  inspector-title:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "18px"
-    fontWeight: 500
-    lineHeight: 1.3
-  code-title:
-    fontFamily: 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
-    fontSize: "19px"
-    fontWeight: 500
-    lineHeight: 1.25
+    lineHeight: 1.5
+  project-name:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontSize: "15px"
+    fontWeight: 600
+    lineHeight: 1
     letterSpacing: "-0.02em"
-  label:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "12px"
-    lineHeight: 1.5
-  snapshot:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "12px"
-    lineHeight: 1.5
-  metadata:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+  layer-question:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontSize: "22px"
+    fontWeight: 500
+    lineHeight: "28px"
+    letterSpacing: "-0.01em"
+  panel-title:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontSize: "19px"
+    fontWeight: 600
+    lineHeight: "25px"
+  kicker:
+    fontFamily: 'ui-monospace,"SF Mono",Menlo,Consolas,monospace'
     fontSize: "11px"
+    fontWeight: 600
+    lineHeight: 1.45
+    letterSpacing: "0.08em"
+  mono:
+    fontFamily: 'ui-monospace,"SF Mono",Menlo,Consolas,monospace'
+    fontSize: "12px"
     lineHeight: 1.5
-  project-title:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "16px"
+  card-name:
+    fontFamily: 'ui-monospace,"SF Mono",Menlo,Consolas,monospace'
+    fontSize: "14.75 SVG units, down to 11.5 when the text does not fit"
+    fontWeight: 600
+  card-plain:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontSize: "13.6 SVG units, down to 11 when the text does not fit"
+  flow-label:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif'
+    fontSize: "11 SVG units"
     fontWeight: 500
-    lineHeight: 1.3
-  phone-brand:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "15px"
-    fontWeight: 500
-    lineHeight: 1.5
-    letterSpacing: "-0.03em"
-  reference-title:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "17px"
-    lineHeight: 1.3
-  brand:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "15px"
-    fontWeight: 500
-    lineHeight: 1.5
-    letterSpacing: "-0.03em"
-  reading-title:
-    fontFamily: 'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "18px"
-    lineHeight: 1.3
 rounded:
-  layer-indicator: "1px"
   control: "6px"
-  map-surface: "0px"
-  card: "4 SVG units"
-  inspector-detail: "6px"
-  standalone-panel: "8px"
+  menu: "10px"
+  guide: "10px"
+  card: "8 SVG units"
+  tag: "3px"
 spacing:
-  desktop-margin: "0px"
-  phone-margin: "0.8rem"
-  pane-gap: "0px"
-  inspector-padding: "1rem"
-  section: "1rem"
-  control-gap: "0.5rem"
+  header: "52px"
+  panel: "400px"
+  map-gutter: "24px"
+  control-gap: "8px"
+  phone-margin: "16px"
 components:
-  button:
-    textColor: "{colors.dark-ink}"
+  view-button:
+    textColor: "{colors.dark-ink-2}"
     rounded: "{rounded.control}"
-    padding: "0.4rem 0.7rem"
-  button-selected:
+    height: "32px"
+  view-button-selected:
     backgroundColor: "{colors.dark-raised}"
     textColor: "{colors.dark-ink}"
     rounded: "{rounded.control}"
-  search:
-    backgroundColor: "{colors.dark-surface}"
+  find:
+    backgroundColor: "{colors.dark-map}"
     textColor: "{colors.dark-ink}"
     rounded: "{rounded.control}"
-    padding: "0.5rem 0.7rem"
-  inspector:
-    backgroundColor: "{colors.dark-bg}"
-    textColor: "{colors.dark-ink}"
-    rounded: "{rounded.map-surface}"
-    padding: "{spacing.inspector-padding}"
-    width: "300px"
-  map-card:
-    rounded: "{rounded.card}"
-  standalone-panel:
+    width: "200px"
+    height: "32px"
+  read-panel:
     backgroundColor: "{colors.dark-surface}"
-    textColor: "{colors.dark-ink-2}"
-    rounded: "{rounded.standalone-panel}"
-    padding: "{spacing.section}"
+    textColor: "{colors.dark-ink}"
+    width: "{spacing.panel}"
+  guide-card:
+    backgroundColor: "{colors.dark-surface}"
+    textColor: "{colors.dark-ink}"
+    rounded: "{rounded.guide}"
+    width: "340px"
+  map-card:
+    backgroundColor: "{colors.dark-card}"
+    rounded: "{rounded.card}"
+  role-tag:
+    backgroundColor: "{colors.dark-accent}"
+    textColor: "{colors.dark-on-accent}"
+    rounded: "{rounded.tag}"
 ---
 
 # Design System: systemap
 
-The page shows a software map with Components and Sequences navigation.
+The page shows a software map in three views: Map, Sequences, and Changes.
 A component is a system part. A flow transmits an artifact between components.
 A sequence shows authored operation steps. The page does not record execution.
 
 ## Appearance
 
-Thin borders and plain controls use the styles from
-[Hairline](https://github.com/lucasmarkes/hairline).
-The application has its own navigation and layout.
-Dark and Light use black, white, and gray surfaces.
-Clay uses the terracotta accent from [0xfauzi.com](https://0xfauzi.com).
-A first visit uses the device theme. A saved selection replaces that theme.
-The Theme menu contains Dark, Light, and Clay. Warm, Graphite, and Paper are not available.
+The page shows one question for each view. It uses thin borders and neutral cards.
+Color shows only the flow kind, the selection, and the change.
 
-The three themes have the same CSS tokens in `theme.py`.
-Accent shows selection and acting components. Steel shows measurement components.
-Layer colors identify flow types. Stroke patterns identify evidence states.
-External components have dashed borders.
+The page has two themes: Ink and Paper. Ink has dark surfaces and is the default.
+Paper has light surfaces. The configuration keys are `dark` for Ink and `light` for Paper.
+A first visit uses the device theme. A saved selection replaces that theme.
+The More menu contains Ink and Paper. Other theme names are not available.
+If the configuration names a removed theme, such as `clay`, the program gives an error.
+
+The two themes have the same CSS tokens in `theme.py`.
+The page behind the map uses `bg`. The header and the panel use `surface`.
+The map uses `map` and has a grid of dots in `grid`. A card uses `card` and `card_line`.
+A container has a 1px solid border in `line_2` and no fill.
+A region has a 1px dashed border in `region` and a number in a ring.
+
+### Color roles
+
+Only the flow kinds, the selection, and the change have colors.
+Cards, regions, text, and other lines are neutral.
+Each flow kind has one color in each theme. The two themes use the same color family for each kind.
+A layer such as System context selects lines. It does not change the color of a line.
+Ink shows the selection with an amber line and ring.
+Paper shows the selection with an ink line and ring on the yellow highlighter fill.
+Vermilion shows a change. Only the Changes view shows vermilion.
+Stroke patterns identify evidence states. External components have dashed borders.
+Measurement components use `steel`, which is a neutral color.
+The tokens `good`, `warn`, `bad`, and `violet` have neutral values.
 
 Color is not the only indication of meaning.
 
+### Measured colors
+
+The color values come from a measurement.
+The measurement uses these limits for each pair of colors that can show on one view:
+
+- A CIEDE2000 difference of 25 or more with normal color vision.
+- A CIEDE2000 difference of 12 or more with protanopia, deuteranopia, and tritanopia.
+  The Brettel simulation calculates the colors for these three conditions.
+
+Text has a contrast ratio of 4.5:1 or more on the page, panel, map, and card colors.
+A flow kind color has 4.5:1 or more on the map and the card. Other lines have 3:1 or more on the map.
+
+The measured limit is four flow kind colors on one view. The page does not apply this limit.
+In both themes, the data, control, context, and tools colors are in these limits on one view.
+In Ink, the data, control, and two custom kind colors are in these limits on one view.
+In Paper, a second custom kind color next to data, control, and the first custom kind is not in these limits.
+In Paper, five flow kind colors on one view are not in these limits.
+In Ink, five flow kind colors are in these limits only with a very bright context color.
+The theme does not use that color.
+
 ## Navigation and layout
 
-The title bar contains the project name, map counts, Reference, and Theme.
-The application symbol is a link to the map.
-The page has no introduction above the application controls.
+The page has three views: Map, Sequences, and Changes. Each view answers one question.
+The header is 52px high. It contains the systemap symbol, the project name, and the stored commit.
+It also contains the three view buttons, Find, Read, and the More menu.
+A dot on Changes shows that the page has a revision comparison.
+The More menu contains Reference, Text view, Map view, the theme, Reduce motion, and Keyboard keys.
 
-On desktops, a 260px navigation panel contains Components and Sequences.
-Components contains the search field and component list.
-Sequences contains the operation list and step counts.
-`Reference` contains review records, rules, commands, `Read the map`, and `Reduce motion`.
+The map uses all of the window below the header.
+Above the map, a row of layer tabs selects a layer: System context, Structure, Data flow, Control flow, Map review, and All.
+Below the tabs, the question of the layer shows in 22px type.
+The zoom controls are at the top right of the map. The percentage button sets the actual size. Fit shows the full map.
+The legend is at the bottom left of the map. The legend shows only the items that the current view uses.
+The readout is at the bottom right. It gives the counts of the view or the selected item.
 
-The map toolbar contains the layer menu, zoom controls, Map, and Text view.
-A component or flow selection shows a 300px inspector next to the map.
-The inspector shows the selected item, its connections, and source evidence.
-The map uses the available viewport height.
+Read opens the panel at the right of the map. The panel is 400px wide.
+With no selection, the panel shows the guide steps and the section of the current layer.
+System context gives the artifacts that cross the boundary for each actor.
+A layer with more than 20 flows shows its flows in groups. The panel lists the groups.
+A component selection shows its description, the flows that it receives and sends, its sequences, and its source modules.
+A flow selection shows its artifact, its direction, its evidence state, and its source records.
+The map moves so that the panel does not cover the selection.
 
-At widths of 1050px or less, navigation uses 230px.
-The inspector follows the map in the document.
+On the first visit, a guide card at the bottom right gives five steps. Each step selects a layer or a sequence.
+The map moves left so that the card does not cover it. The map goes back to Fit when the card closes.
+The page records the first visit in the browser. Read shows the same steps again.
 
-At widths of 640px or less, Components and Sequences stay above the map.
-Their lists open on selection and close after a component or sequence selection.
-Close list gives keyboard focus to the selected navigation control.
+Find searches component names, descriptions, and source modules. The / key gives Find the focus.
+The arrow keys move through the results. Enter selects a component.
 
-The layer control becomes a native selector. Zoom controls use a second row.
-Phone controls have a minimum height of 44px.
-
-On phones, Previous and Next control the current sequence step.
-The sequence list supplies the operation selection. The diagram is before the step sentence and source information.
-Desktop users can see the step list.
-
-An active sequence shows Previous, Next, and End sequence above the map.
-A horizontal step list shows each flow and the current step.
-The current step sentence shows above the map.
-Its disclosure contains measurement components and evidence.
-Go to sequence restores the current step after component inspection.
-End sequence restores the previous selection, layer, and camera position.
+At widths of 1100px or less, the panel is 340px wide, Find is smaller, and the header does not show the commit.
+At widths of 820px or less, the panel covers the right side of the map.
+At widths of 640px or less, the phone layout replaces the map frame.
+The phone layout shows the regions as a grid. A region opens the map at a size that you can read.
+A sequence shows one step: the map frame, the step note, the step buttons, and Previous and Next.
+Phone controls are 44px high or more.
 
 ## Map and text
 
 The map has one flat view. Card positions and flow paths come from the model.
-Card names and descriptions stay inside their card borders.
-Card text changes size with the camera zoom. Zoom in to read descriptions at a small scale.
+Cards have an 8-unit corner radius. Card text is centered in the card.
+All cards of a map use one type size. The page uses the largest size at which the text of all cards fits.
+The maximum size is a 13px name and a 12px description at 88 percent zoom.
+The minimum size is the base size that the map check examines. Card text changes size with the zoom.
 
-An active sequence shows sequence roles with color and a ring.
-Acting components have an accent border.
-Measurement components have a steel border and a steel inner ring.
+Flow labels show on their line at rest. A label that does not fit on its line shows only for a pointer, focus, or selection.
+The readout and the panel tell the reader that such labels are in the list.
+A layer change draws the lines of the new layer in model order. Each line draws from its source to its target.
 
-The inspector and Text view contain full descriptions and source evidence.
-
-The information below the diagram gives source module counts, entry point counts, and related sequences.
-A component selection gives its function. A flow selection gives its artifact, direction, and evidence state.
-The information uses model claims and recorded source data without a table for one repository.
+Text view shows the same components and flows as a list. It keeps the selection.
+Document figures use the same card type size and keep the authored coordinate plane.
 
 System sans fonts show controls and descriptions.
-System monospace fonts show identifiers, paths, commands, and finding lines.
-The page loads no font files. The title bar uses a 16px project title.
-Source paths can use multiple lines. Recorded identifiers keep their full text.
+System monospace fonts show identifiers, paths, commands, counts, and finding lines.
+The page loads no font files.
 
-Document figures keep the authored coordinate plane and full card text.
+## Sequences
+
+Sequences shows one operation at a time. The toolbar contains the sequence selector,
+Whole route and Steps, the step controls, End sequence, and Full screen.
+Whole route shows all the steps of the sequence on the map. Each step has a number on its line.
+The entry point component has a START tag. Cards that the sequence does not use have low contrast.
+The route draws in step order.
+
+Steps shows one step. The current line has the accent color. The lines of earlier steps are solid.
+The lines of later steps have low contrast. The acting component has an ACTS tag.
+A measurement component has a MEASURES tag. A note next to the line gives the step number, the artifact,
+the two ends, and the step sentence.
+The camera keeps the zoom. It moves only when the step is not in view. Then it moves only as far as necessary.
+
+The panel gives the route in order, all sequences with a small map of their regions, and the entry point coverage.
+Full screen shows the map and a step bar with the step number, the sentence, and Previous and Next.
+The steps are an authored order. They do not record a run of the program.
+
+## Changes
+
+Changes compares two revisions on the map.
+The toolbar gives the base and the head revisions. Hold the B key or the Hold B button to show the map without change marks.
+A component with changed source has a CHANGED tag. A component with only test changes has a TESTS tag.
+A component that imports changed source has an IMPORTS tag.
+A flow that needs a new source review has a vermilion dashed line. Other cards and lines have low contrast.
+The marks show in a fixed order: the changed cards, the tagged cards, and then the flows.
+The panel gives a summary, the changed components, the flows to examine, the sequences with a changed step,
+the decisions, and the limits of the comparison.
 
 ## Selection and evidence
 
-Structure shows no flow lines after component selection.
-Other layers show connected flow lines for the selected component.
-A selected flow or sequence step shows its flow line.
-A pointer or keyboard focus can show a flow preview.
-The inspector keeps all connections across layers.
-
-The map shows flow labels only for a selected flow or preview.
+A selected component has an accent ring. Its flows show at full contrast. Other cards and lines have low contrast.
+Structure shows no flow lines after a component selection.
+A pointer or keyboard focus on a line shows a preview of that flow.
 A declared flow keeps its dash pattern during selection.
-No more than one directional cue moves. Each cycle ends after 1.8 seconds.
-The cue does not show recorded execution.
-`Reduce motion` stops this cue and all camera animation.
+No more than one directional cue moves. The cue does not show a recorded run.
 
-Text view keeps the selected component, flow, and sequence step.
+Escape closes the menu, the sequence, the selection, the panel, and Reference, in that order.
 A nested map opens in a dialog above an inert background.
-The dialog restores keyboard focus to its opening control when it closes.
+The dialog gives the keyboard focus back to its control when it closes.
 Finding identifiers, authored claims, and evidence states keep their meaning.
 Source records show missing evidence without a different claim.
 
-The source modules are `page.py`, `page_assets.py`, `page_workspace.py`,
-`page_atlas.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+## Motion
+
+Each motion occurs one time and shows a direction or an order.
+The systemap symbol draws one time when the page opens: the route in 600 ms, then its two ends.
+The camera moves in 300 ms with an ease-in-out curve.
+A new layer draws its lines in 600 ms or less.
+A sequence step shows its note after the camera stops.
+With Reduce motion or the system setting for reduced motion, the page shows the final state with no motion.
+
+The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
+`page_atlas.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
+`page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `schematic_style.py`,
+`schematic_script.py`, and `schematic_relations.py`.
 The browser measurements and test results are in `bench/jev/README.md`.

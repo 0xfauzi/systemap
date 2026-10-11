@@ -2,8 +2,6 @@
 
 CSS = r"""
 .atlas{padding:1rem 0;min-width:0}
-.fit-overview{width:36px;height:24px;vertical-align:middle;margin-right:.35rem}
-@media(max-width:640px){.fit-overview{display:none}}
 .atlas h2{font-size:18px;margin:.4rem 0 .8rem}.atlas h3{font-size:14px;margin:1.3rem 0 .5rem}
 .atlas-intro{max-width:72ch;font-size:13px}
 .reading-parts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
@@ -16,7 +14,7 @@ font-size:13px;color:var(--ink-2);margin:.3rem 0;overflow-wrap:anywhere}
 .reading-flow h3{font-family:var(--fm);font-size:13px;margin:0 0 .4rem}
 .reading-flow p{font-size:13px;max-width:72ch}.reading-meta{font-size:12px;color:var(--ink-2)}
 .reading-flow[data-evidence="declared"] .reading-meta,
-.reading-flow[data-evidence="structural"] .reading-meta{color:var(--warn)}
+.reading-flow[data-evidence="structural"] .reading-meta{color:var(--ink)}
 .reading-flow[aria-current="true"]{background:var(--raised)}
 .reading-actions{display:flex;flex-wrap:wrap;gap:.4rem;font-size:12px}
 .atlas-sequence{list-style:none;padding:0;margin:1rem 0}
@@ -155,34 +153,6 @@ SCRIPT = r"""
   });
   ['systemap:select','systemap:clear','systemap:workspace','systemap:flow'].forEach(function(name){
     svg.addEventListener(name,render);});
-  var vb=svg.getAttribute('viewBox').split(/\s+/).map(Number);
-  document.getElementById('stage').style.setProperty('aspect-ratio',vb[2]+'/'+vb[3]);
-  var fitButton=document.querySelector('[data-zoom="fit"]');
-  var ns='http://www.w3.org/2000/svg',mini=document.createElementNS(ns,'svg');
-  mini.setAttribute('class','fit-overview');mini.setAttribute('viewBox',vb.join(' '));
-  mini.setAttribute('aria-hidden','true');
-  Array.prototype.forEach.call(svg.querySelectorAll('.node__box'),function(box){
-    var mark=document.createElementNS(ns,'rect');
-    ['x','y','width','height'].forEach(function(a){mark.setAttribute(a,box.getAttribute(a));});
-    mark.setAttribute('fill','var(--ink-3)');mini.appendChild(mark);
-  });
-  var windowMark=document.createElementNS(ns,'rect');
-  windowMark.setAttribute('fill','none');windowMark.setAttribute('stroke','var(--accent)');
-  windowMark.setAttribute('stroke-width','20');mini.appendChild(windowMark);
-  fitButton.insertBefore(mini,fitButton.firstChild);
-  fitButton.setAttribute('title','Component positions and visible area. Show all components.');
-  function overviewWindow(){
-    if(drawing.hidden){return;}
-    var area=A.view.visibleArea(null),view=A.view.snapshot();
-    windowMark.setAttribute('x',(area.x-view.tx)/view.k);
-    windowMark.setAttribute('y',(area.y-view.ty)/view.k);
-    windowMark.setAttribute('width',area.w/view.k);
-    windowMark.setAttribute('height',area.h/view.k);
-  }
-  svg.addEventListener('systemap:view',overviewWindow);
-  window.addEventListener('resize',overviewWindow);
-  window.addEventListener('scroll',overviewWindow,{passive:true});
   setView(false);
-  overviewWindow();
 })();
 """

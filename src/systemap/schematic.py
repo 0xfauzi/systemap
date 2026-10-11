@@ -2,7 +2,7 @@
 
 A card shows one component, its identifier and its plain text name.
 Dashed card borders identify actors outside the source code. Flow lines
-show artifacts and use layer colors. Selection shows connections
+show artifacts and use the color of their flow kind. Selection shows connections
 and shows their explanation in the inspector. Nodes carry `data-id`
 and kind values. Flow lines carry artifact labels and `data-layer`.
 
@@ -60,12 +60,11 @@ from systemap.schematic_cards import (
 from systemap.schematic_cards import (
     LABEL_PX,
     MAP_OFFSET,
-    NAME_LINE_H,
-    NAME_PX,
     RADIUS,
+    card_lines,
+    card_sizes,
     container_header,
     esc,
-    plain_inset,
 )
 from systemap.schematic_cards import (
     SUB_CHAR as SUB_CHAR,
@@ -99,6 +98,14 @@ from systemap.schematic_cards import (
 from systemap.schematic_cards import (
     wrap_id as wrap_id,
 )
+from systemap.schematic_change import (
+    change_card,
+    change_defs,
+    change_flow,
+    change_marks,
+    change_meta,
+    change_tag,
+)
 from systemap.schematic_script import interactive_script as interactive_script
 from systemap.schematic_style import _defs, _svg_style
 from systemap.schematic_style import panel_css as panel_css
@@ -122,17 +129,23 @@ def render(
     observed_by: Iterable[str] = (),
     opens: Mapping[str, Mapping[str, Any]] | None = None,
     variables: bool = False,
+    tests_only: set[str] | None = None,
 ) -> tuple[str, str]:
     """Give the SVG figure and detail JSON.
 
     `changed` identifies changed components or components in a plan.
     `changed_modules` identifies changed source modules. `hot_artifacts`
     identifies flow labels whose source module changed its public surface.
-    The change detector supplies these values.
+    `tests_only` identifies changed components with changed tests and no
+    changed source. The change detector supplies these values. A change map
+    with changed modules or a `tests_only` set shows a revision comparison.
+    Without them, it shows the components of a plan. `gained` gives the
+    counts of new public names and tests that the detail JSON records.
 
     `layer` selects the flows that `model.reading` supplies. All cards
-    stay. A derived layer uses its specified color. Cards for the layer
-    use this color for their borders. Other unconnected cards have lower
+    stay. Flow lines keep the color of their kind in each layer. The subject
+    cards of a layer use the layer color for their borders. A derived layer
+    has a neutral color. Other unconnected cards have lower
     contrast. Card positions, paths and label positions stay the same.
     An unknown layer identifier raises ValueError.
 
@@ -153,7 +166,6 @@ def render(
     gained = gained or {}
     hot_artifacts = hot_artifacts or set()
     opens = opens or {}
-    change_mode = mode == "change"
 
     T = t
     P = Palette(t, variables)
@@ -161,8 +173,9 @@ def render(
     FLOWS = [(f.src, f.dst, f.artifact, f.kind) for f in model.flows]
     CANVAS = model.canvas
     INK, INK_3 = P["ink"], P["ink_3"]
-    HALO = P["bg"]
-    GHOST_FILL, GHOST_STROKE = P.ghost()
+    # Text halos and the region number ring have the map color, so a label
+    # hides the lines under it and shows the map ground.
+    HALO = P["map"]
     LAYER_COLOUR: dict[str, str] = {lid: P.layer(lid) for lid in T["layers"]}
     MARKS: dict[str, str] = T.get("marks") or {}
     LAYERS = all_layers(model, meaning)
@@ -172,7 +185,6 @@ def render(
     if layer and layer not in readings:
         raise ValueError(f"unknown layer id: {layer}")
     shown: set[int] | None = set(readings[layer][0]) if layer else None
-    reading_hue = layer if layer in DERIVED_LAYERS else ""
     # The cards a reading is about and the cards its edges reach; the rest
     # are dimmed in a figure of that reading. Structure is about every card
     # and dims none.
@@ -222,6 +234,7 @@ def render(
 
     states = {c.id: build_state(c, facts) for c in COMPONENTS}
     backed = evidence.of_model(model, meaning, facts, observed_by)
+    marks = change_marks(model, backed, mode, changed, adjacent, tests_only, changed_modules)
 
     # The geometry the router and the label pass read: the card boxes, the
     # headers and the empty containers as walls, every obstacle named for
@@ -243,16 +256,19 @@ def render(
     blocks = geo.blocks
     headers = geo.headers
     collisions = list(geo.collisions)
+    # The ground is neutral and has the same colors in every view: a container
+    # is a 1 px solid frame (`line_2`) with no fill, and a region is a 1 px
+    # dashed `region` border with a number ring. The strokes keep their screen
+    # width at each zoom, as the borders of the design boards do.
+    fixed = ' vector-effect="non-scaling-stroke"'
     for box in model.containers:
         x, y, w, h = box.box
         stroke, fill = P.container(box.tone)
-        if change_mode:
-            stroke, fill = P["line"], P["bg"]
         _header, sub_lines, _unfit = container_header(box)
         floor.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
-            f'fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>'
-            + L(x + 13, y + 19, box.label, TEXT_PX, INK_3, "600", True, "start", ".13em")
+            f'fill="{fill}" stroke="{stroke}" stroke-width="1"{fixed}/>'
+            + L(x + 13, y + 19, box.label, TEXT_PX, INK_3, "600", True, "start", ".08em")
             + "".join(
                 L(x + 13, y + 33 + 12 * k, line, TEXT_PX, INK_3, "400", False, "start")
                 for k, line in enumerate(sub_lines)
@@ -263,14 +279,13 @@ def render(
     for i, region in enumerate(model.regions, start=1):
         x, y, w, h = region.box
         zones.append(
-            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" fill="none" '
-            f'stroke="{P["region"]}" stroke-opacity=".28" stroke-width="1" '
-            f'stroke-dasharray="3 4"/>'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="none" '
+            f'stroke="{P["region"]}" stroke-width="1" stroke-dasharray="3 3"{fixed}/>'
             f'<g class="zone__h" data-zone="{esc(region.id)}">'
-            f'<circle cx="{x + 17:.0f}" cy="{y + 16:.0f}" r="8.5" fill="{HALO}" '
-            f'stroke="{P["region"]}" stroke-opacity=".5"/>'
-            + L(x + 17, y + 20, str(i), TEXT_PX, P["region"], "600", True)
-            + L(x + 31, y + 20, region.label, TEXT_PX, P["region"], "600", True, "start", ".13em")
+            f'<circle cx="{x + 17:.0f}" cy="{y + 16:.0f}" r="9" fill="{HALO}" '
+            f'stroke="{P["region"]}" stroke-width="1"{fixed}/>'
+            + L(x + 17, y + 20, str(i), TEXT_PX, P["ink_2"], "600", True)
+            + L(x + 31, y + 20, region.label, TEXT_PX, P["ink_2"], "600", True, "start", ".08em")
             + "</g>"
         )
 
@@ -327,12 +342,10 @@ def render(
             continue
         if route.fallback:
             notes.append(f"{src} -> {dst}: {route.fallback}")
-        art_hot = artifact in hot_artifacts
+        # A line keeps the color of its kind in every layer. A derived layer
+        # (structure, system, agents) selects lines and does not color them.
         colour, marker = LAYER_COLOUR[own], own
-        if reading_hue:
-            colour, marker = LAYER_COLOUR[reading_hue], reading_hue
-        if art_hot:
-            colour, marker = P["change"], "change"
+        look = change_flow(P, marks, i, colour, marker, artifact in hot_artifacts)
         fid = f"{svg_id}-f{i}"
         ev = backed[(src, dst)]
         evidence_label = {evidence.OBSERVED: "source review recorded"}.get(ev.state, ev.state)
@@ -349,9 +362,9 @@ def render(
             f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
             f'{esc(own)}, {esc(evidence_label)}" '
             f'd="{path_d(route.points)}" '
-            f'fill="none" stroke="{colour}" stroke-opacity="{0.95 if art_hot else 0.82}" '
-            f'stroke-width="{1.8 if art_hot else 1.2}" stroke-linecap="round"{dashed} '
-            f'marker-end="url(#{svg_id}-m-{marker})"/>'
+            f'fill="none" stroke="{look.stroke}"{look.attrs} '
+            f'stroke-width="{look.width}" stroke-linecap="round"{dashed} '
+            f'marker-end="url(#{svg_id}-m-{look.marker})"/>'
         )
         if seat.cost > 0:
             # The line names what the seat touches and, from the router's
@@ -365,13 +378,14 @@ def render(
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
             f'<g class="flowlbl {kind}" data-edge="{i}" '
-            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}" '
+            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}"'
+            f"{look.shown} "
             f'role="button" tabindex="-1" aria-pressed="false" '
             f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
             f'{esc(own)}, {esc(evidence_label)}">'
             f'<rect class="flowlbl__hit" x="{lbox[0]}" y="{lbox[1] - 6}" '
             f'width="{lbox[2]}" height="{LABEL_H + 12}" rx="3" fill="transparent"/>'
-            + L(lx, ly, artifact, LABEL_PX, colour, "500", False, "middle", "", True)
+            + L(lx, ly, artifact, LABEL_PX, look.label, "500", False, "middle", "", True)
             + "</g>"
         )
 
@@ -381,6 +395,7 @@ def render(
     # lists them the same way; no two overlap, so paint order is free.
     detail: dict[str, Any] = {}
     cards: list[str] = []
+    sizes = card_sizes([(c.kind, c.id, meaning.plain.get(c.id, "")) for c in COMPONENTS])
     for c in sorted(COMPONENTS, key=lambda c: (boxes[c.id][1], boxes[c.id][0])):
         cid = c.id
         kind = c.kind
@@ -389,14 +404,7 @@ def render(
         if kind == "actor":
             fill, stroke = P.actor()
             state_label = "outside"
-        moved, near = cid in changed, cid in adjacent
-        tier = "moved" if moved else ("near" if near else "far")
-        if change_mode and tier == "far":
-            fill, stroke = GHOST_FILL, GHOST_STROKE
-        if change_mode and moved:
-            stroke = P["change"]
-        elif change_mode and near:
-            stroke = P["reach"]
+        moved = cid in changed
         subject = marks_reading and cid in subjects
         quiet = marks_reading and not subject and cid not in reached
         if subject and layer:
@@ -405,15 +413,6 @@ def render(
         state_class = state if kind != "actor" else "actor"
         plain = meaning.plain.get(cid, "")
 
-        g: list[str] = [
-            f'<g class="node {state_class}'
-            f"{f' node--{tier}' if change_mode else ''}"
-            f'{" subject" if subject else ""}{" quiet" if quiet else ""}" '
-            f'data-id="{esc(cid)}" data-kind="{kind}" data-state="{state}" '
-            f'data-region="{esc(c.home)}" '
-            f'role="button" '
-            f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(state_label)}">'
-        ]
         # The kind's mark, from the theme: an actor is dashed (outside the
         # code); an agent, a tool and a context card carry the mark the
         # theme's `marks` table gives their kind. Never a colour.
@@ -421,6 +420,16 @@ def render(
         dashes = ' stroke-dasharray="4 3"' if kind == "actor" else ""
         if mark == "dotted":
             dashes = ' stroke-dasharray="1.5 2.5"'
+        change = marks.cards.get(cid, "")
+        marked = change_card(P, change, stroke, dashes, state_label)
+        g: list[str] = [
+            f'<g class="node {state_class}'
+            f'{" subject" if subject else ""}{" quiet" if quiet else ""}" '
+            f'data-id="{esc(cid)}" data-kind="{kind}" data-state="{state}" '
+            f'data-region="{esc(c.home)}"{marked.attrs} '
+            f'role="button" '
+            f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(marked.label)}">'
+        ]
         # A card that opens a map stands on a second card, offset down and
         # right: the mark that says there is a map inside, on the page and
         # in every figure. The panel names the map and links to it.
@@ -432,9 +441,9 @@ def render(
             )
         g.append(
             f'<rect class="node__box" x="{x}" y="{y}" width="{w}" height="{h}" '
-            f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" '
-            f'stroke-width="{1.6 if change_mode and (moved or near) else 1.1}"'
-            f"{dashes}/>"
+            f'rx="{RADIUS}" fill="{fill}" stroke="{marked.stroke}" '
+            f'stroke-width="{marked.width}"'
+            f"{marked.dashes}/>"
             f'<rect class="node__ring" x="{x + 3}" y="{y + 3}" width="{w - 6}" '
             f'height="{h - 6}" rx="{RADIUS - 1}"/>'
             f'<rect class="node__selection" x="{x + 5}" y="{y + 7}" '
@@ -453,10 +462,10 @@ def render(
             )
         # The name and the plain word, within the card's budget; what does
         # not fit is reported for the check, never cut short.
-        name_lines, plain_lines, unfit = card_text(kind, cid, plain)
-        collisions += unfit
-        for k, line in enumerate(name_lines):
-            g.append(L(x + 10, y + 17 + NAME_LINE_H * k, line, NAME_PX, INK, "600", True, "start"))
+        collisions += card_text(kind, cid, plain)[2]
+        name_rows, plain_rows = card_lines(kind, cid, plain, sizes) or ([], [])
+        for dy, line in name_rows:
+            g.append(L(x + 10, y + dy, line, sizes[0], INK, "600", True, "start"))
         # A card with a note carries a dot in its top corner, on the map and
         # in every figure; the panel shows the note itself, and the dot's
         # title does when hovered.
@@ -466,68 +475,27 @@ def render(
                 f"<title>Note: {esc(c.note)}</title>"
                 f'<circle cx="{x + w - 6}" cy="{y + 6}" r="2.5" fill="{INK_3}"/></g>'
             )
-        # A store is the same card with a rule under its head: flat convention
+        # A store is the same card with a double base line: flat convention
         # for a thing that holds rows rather than does work. A context card is
         # a store too: its rows enter an agent's window.
         ruled = kind in ("store", "context")
         if ruled:
             g.append(
-                f'<line x1="{x + 1}" y1="{y + 23}" x2="{x + w - 1}" y2="{y + 23}" '
-                f'stroke="{stroke}" stroke-opacity=".45" stroke-width="1"/>'
+                f'<line class="node__base" x1="{x + 1}" y1="{y + h - 3}" x2="{x + w - 1}" '
+                f'y2="{y + h - 3}" stroke="{stroke}" stroke-width="1"/>'
             )
-        # The plain word under the code name, on the lines the card has
-        # left under it.
-        first = y + (36 if ruled else 32) + NAME_LINE_H * (len(name_lines) - 1)
+        # The plain word under the code name. The name and the plain word
+        # are centred in the card.
         g.append(
             '<g data-layer="job">'
             + "".join(
-                L(
-                    x + 10 + plain_inset(line),
-                    first + k * 12,
-                    line,
-                    TEXT_PX,
-                    INK_3,
-                    "400",
-                    False,
-                    "start",
-                )
-                for k, line in enumerate(plain_lines)
+                L(x + 10 + inset, y + dy, line, sizes[1], P["ink_2"], "400", False, "start")
+                for dy, inset, line in plain_rows
             )
             + "</g>"
         )
 
-        delta = gained.get(cid, {}) if change_mode and moved else {}
-        if delta:
-            total = sum(delta.values()) or 1
-            pos = 0.0
-            for key in ("operations", "types", "refusals", "tests"):
-                n = delta.get(key, 0)
-                if not n:
-                    continue
-                seg = (w - 2) * n / total
-                g.append(
-                    f'<rect x="{x + 1 + pos:.1f}" y="{y + 1}" '
-                    f'width="{seg:.1f}" height="2.5" fill="{P.delta(key)}"/>'
-                )
-                pos += seg
-            g.append(
-                f'<circle cx="{x + 12}" cy="{y - 1}" r="10" fill="{P["change"]}"/>'
-                + L(x + 12, y + 3, f"+{sum(delta.values())}", TEXT_PX, HALO, "600", True)
-            )
-        elif change_mode and moved:
-            g.append(
-                L(
-                    x + w / 2,
-                    y - 5,
-                    "IN REACH" if not changed_modules else "CHANGED INSIDE",
-                    TEXT_PX,
-                    P["change"],
-                    "600",
-                    True,
-                    "middle",
-                    ".1em",
-                )
-            )
+        g.append(change_tag(P, L, change, (x, y, w, h)))
         g.append("</g>")
         cards.append("".join(g))
 
@@ -555,6 +523,7 @@ def render(
                 else None
             ),
             "moved": moved,
+            "gained": gained.get(cid, {}),
             "rules": model.rules_of(cid),
             "edges": [
                 i
@@ -652,6 +621,7 @@ def render(
                 state: sum(1 for ev in backed.values() if ev.state == state)
                 for state in evidence.STATES
             },
+            **change_meta(marks),
             "collisions": collisions,
             "notes": notes,
             "labels": label_boxes,
@@ -676,7 +646,7 @@ def render(
         title = "System map"
         what = (
             "System map. Fill shows source state. Flow labels give artifacts. Line color shows "
-            "the layer."
+            "the flow kind."
         )
     p: list[str] = [
         f'<svg id="{svg_id}" class="scene" xmlns="http://www.w3.org/2000/svg" '
@@ -684,7 +654,7 @@ def render(
         f'preserveAspectRatio="xMidYMid meet" tabindex="0" role="application" '
         f'aria-label="{esc(what)}">'
         f"<title>{esc(title)}</title>",
-        _defs(svg_id, P),
+        _defs(svg_id, P) + change_defs(svg_id, P, marks),
         _svg_style(svg_id, P),
     ]
     # Everything drawn sits in one group the script pans and zooms with a

@@ -2,7 +2,7 @@
 and the tour is what the script says it is.
 
 `scripts/screenshots.py` is run by hand (it needs Chrome and ffmpeg); this
-test holds what it wrote to its claims: three PNGs of 1600 by 900, one
+test holds what it wrote to its claims: two PNGs of 1600 by 900, one
 per scheme; a GIF under four megabytes; a tour whose every state names a
 reading or a card the model has, so a renamed card cannot leave the tour
 showing nothing.
@@ -45,12 +45,12 @@ def png_size(path: Path) -> tuple[int, int]:
 
 
 def test_every_scheme_is_photographed_at_the_stated_size() -> None:
-    assert list(theme_mod.SCHEMES) == ["dark", "light", "clay"]
+    assert list(theme_mod.SCHEMES) == ["dark", "light"]
     for name in theme_mod.SCHEMES:
         assert png_size(SHOTS / f"{name}.png") == (1600, 900), name
     assert png_size(SHOTS / "sequence.png") == (1600, 900)
     assert png_size(SHOTS / "phone.png") == (390, 844)
-    for old in ("warm", "graphite", "paper"):
+    for old in ("warm", "graphite", "paper", "clay"):
         assert not (SHOTS / f"{old}.png").exists(), "The removed themes have no screenshots."
 
 
@@ -95,7 +95,6 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for rel in (
         "docs/screenshots/tour.gif",
-        "docs/screenshots/clay.png",
         "docs/screenshots/dark.png",
         "docs/screenshots/light.png",
     ):

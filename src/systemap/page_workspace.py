@@ -1,99 +1,116 @@
-"""Navigation and display controls for the map page."""
+"""The legend and the readout on the map. Both count only what the map draws."""
 
 SCRIPT = r"""
 (function(){
-  var svg=document.getElementById('schematic');
-  if(!svg || !svg.workspace){return;}
-  var A=svg.systemap, X=svg.workspace, pick=document.getElementById('scheme');
-  var W=window.systemapWorkspace, context=document.getElementById('map-context'), previous='';
-  var themeMenu=document.getElementById('theme-menu');
-  function all(selector){return Array.prototype.slice.call(document.querySelectorAll(selector));}
-  function esc(s){return String(s).replace(/[&<>"]/g,function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-  function metric(label,value){return '<div><dt>'+label+'</dt><dd>'+value+'</dd></div>';}
-  function information(state,layer){
-    var ids=A.layerIds(A.state.layer), edges=A.edges.filter(function(e,i){
-      var reading=A.detail._meta.readings[A.state.layer];
-      return A.state.layer==='all' || reading && reading.edges.indexOf(i)>=0;
-    });
-    var title=layer ? layer.label : 'All layers', text='', roles='';
-    var step=state.j>=0 ? A.journeys[state.j].steps[state.s] : null;
-    var edge=A.state.edge>=0 ? A.edges[A.state.edge]
-      : !A.state.focus && step ? A.edges[step.edge] : null;
+  var svg = document.getElementById('schematic');
+  if(!svg || !svg.systemap || !svg.page){ return; }
+  var A = svg.systemap, P = svg.page;
+  var readout = document.getElementById('map-context'),
+    legend = document.getElementById('map-legend');
+  var LAY = {};
+  A.layers.forEach(function(l){ LAY[l.id] = l; });
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
+  function shown(){
+    // The flows the map draws now: the reading, or the lit flows of a selection.
+    var L = A.state.layer, reading = A.detail._meta.readings[L];
+    if(A.state.edge >= 0){ return [A.state.edge]; }
     if(A.state.focus){
-      var d=A.detail[A.state.focus];ids=[d.id];edges=d.edges.map(function(i){return A.edges[i];});
-      title=d.id;text=d.does;
-    }else if(step){
-      ids=(step.acts || []).concat(step.measures || [],edge ? [edge.from,edge.to] : []);
-      title=A.journeys[state.j].label;
-      roles='Acting components: '+((step.acts || []).join(', ') || 'none named')
-        +'. Measurement components: '+((step.measures || []).join(', ') || 'none named')+'.';
+      return (A.detail[A.state.focus].edges || []).filter(function(i){
+        return L === 'all' || (reading && reading.edges.indexOf(i) >= 0); });
     }
-    if(edge){title=edge.from+' to '+edge.to+': '+edge.art;edges=[edge];text=edge.say;
-      if(!step){ids=[edge.from,edge.to];}}
-    var modules={},points={},evidence={},sequences=0;
-    ids.forEach(function(id){var source=W.sources[id];if(!source){return;}
-      source.modules.forEach(function(m){modules[m.id]=true;});
-      source.points.forEach(function(p){points[p]=true;});});
-    A.journeys.forEach(function(j){if(j.steps.some(function(s){var e=A.edges[s.edge];
-      return (s.acts || []).concat(s.measures || [],e ? [e.from,e.to] : [])
-        .some(function(id){return ids.indexOf(id)>=0;});})){sequences++;}});
-    edges.forEach(function(e){evidence[e.evidence]=(evidence[e.evidence] || 0)+1;});
-    var html='<h3>'+esc(title)+'</h3><dl>'+metric('Source modules',Object.keys(modules).length)
-      +metric('Entry points',Object.keys(points).length)+metric('Flows',edges.length)
-      +metric('Sequences',sequences)+'</dl>'+(text ? '<p>'+esc(text)+'</p>' : '')
-      +(roles ? '<p>'+esc(roles)+'</p>' : '');
-    if(edges.length){html+='<p class="context-evidence">Evidence states: '
-      +Object.keys(evidence).map(function(k){return evidence[k]+' '+A.evidenceLabel(k);})
-        .map(esc).join(' / ')+'.</p>';}
-    if(html!==previous){
-      context.innerHTML=html;previous=html;
-      svg.dispatchEvent(new CustomEvent('systemap:view-resize',
-        {detail:{zoom:A.view.zoom(),fit:A.view.isFit()}}));
+    var out = [];
+    A.edges.forEach(function(_e, i){
+      if(L === 'all' || (reading && reading.edges.indexOf(i) >= 0)){ out.push(i); } });
+    return L === 'structure' ? [] : out;
+  }
+  function firstSentence(text){
+    var m = String(text || '').match(/^[^.]*\./);
+    return m ? m[0] : String(text || '');
+  }
+  function defaultReadout(){
+    if(A.state.edge >= 0){
+      var e = A.edges[A.state.edge];
+      return e.art + ' · ' + e.from + ' → ' + e.to + ' · ' + A.evidenceLabel(e.evidence);
     }
+    if(A.state.focus){
+      var d = A.detail[A.state.focus];
+      return d.id + ' · ' + firstSentence(d.does);
+    }
+    var L = A.state.layer, ids = A.layerIds(L), regions = (A.detail._meta.regions || []).length;
+    if(L === 'structure'){
+      var parts = Object.keys(A.detail).filter(function(id){
+        return id !== '_meta' && A.detail[id].kind !== 'actor'; }).length;
+      return plural(parts, 'component') + (regions ? ' · ' + plural(regions, 'region') : '');
+    }
+    var actors = ids.filter(function(id){ return A.detail[id].kind === 'actor'; }).length;
+    return plural(shown().length, 'flow') + (actors ? ' · ' + plural(actors, 'actor') : '');
   }
-  function theme(){
-    var name=document.documentElement.dataset.theme;
-    all('[data-scheme]').forEach(function(b){
-      b.setAttribute('aria-pressed',String(b.dataset.scheme===name));
-    });
+  function first(hooks){
+    for(var k = 0; k < hooks.length; k++){ var out = hooks[k](); if(out){ return out; } }
+    return null;
   }
-  all('[data-scheme]').forEach(function(b){
-    b.addEventListener('click',function(){
-      pick.value=b.dataset.scheme;
-      pick.dispatchEvent(new Event('change',{bubbles:true}));
-      themeMenu.open=false;
+  function swatch(cls, style, label){
+    return '<span class="lg"><i class="' + cls + '"' + (style ? ' style="' + style + '"' : '')
+      + '></i>' + esc(label) + '</span>';
+  }
+  function defaultLegend(){
+    var kinds = [], dashed = false, h = '';
+    shown().forEach(function(i){
+      var e = A.edges[i];
+      if(kinds.indexOf(e.layer) < 0){ kinds.push(e.layer); }
+      if(e.evidence === 'structural' || e.evidence === 'declared'){ dashed = true; }
     });
-  });
-  pick.addEventListener('change',theme);
-  theme();
+    A.layers.forEach(function(l){
+      if(kinds.indexOf(l.id) >= 0){ h += swatch('lg__line', '--c:' + l.colour, l.label); } });
+    if(dashed){ h += swatch('lg__line lg__line--dash', '', 'No source review'); }
+    var ids = A.state.focus ? [] : A.layerIds(A.state.layer);
+    if(ids.some(function(id){ return A.detail[id].kind === 'actor'; })){
+      h += swatch('lg__card lg__card--actor', '', 'Actor'); }
+    var quiet = svg.querySelector('.node.quiet, .node.dim');
+    if(quiet){ h += swatch('lg__card lg__card--quiet', '', A.state.focus
+      ? 'Not connected to the selection' : 'No flow in this view'); }
+    return h;
+  }
+  function besideCount(){
+    // Labels that have no seat on their own line: board rule 2 puts them in the
+    // panel list. The map script marks them.
+    if(!A.besideEdges || A.state.focus || A.state.journey){ return 0; }
+    var on = {};
+    A.besideEdges.forEach(function(i){ on[i] = true; });
+    return shown().filter(function(i){ return on[i]; }).length;
+  }
+  if(readout){ readout.addEventListener('click', function(e){
+    if(!e.target.closest('[data-open-read]')){ return; }
+    P.openPanel();
+    var list = document.querySelector('#inspector-empty .read__section');
+    if(list){ list.scrollIntoView({block:'nearest'}); }
+  }); }
+  var lastReadout = '', lastLegend = '';
   function sync(){
-    var state=X.state();
-    document.body.dataset.sequence=String(state.j>=0);
-    var layer=A.layers.filter(function(l){return l.id===A.state.layer;})[0];
-    document.getElementById('layer-current').textContent=layer ? layer.label : 'All layers';
-    document.getElementById('review').hidden=state.mode!=='review';
-    information(state,layer);
-    document.getElementById('zpct').textContent=Math.round(A.view.zoom()*100)+'%';
+    var other = P.mode && P.mode() === 'change';
+    var hooked = first(P.readoutFor), custom = !!hooked;
+    var text = hooked || (other ? '' : defaultReadout());
+    var beside = custom ? 0 : besideCount();
+    var key = text + '|' + beside;
+    if(readout && key !== lastReadout){
+      readout.innerHTML = '<span>' + esc(text) + '</span>' + (beside
+        ? '<button type="button" class="readout__more" data-open-read>' + plural(beside, 'label')
+          + (beside === 1 ? ' is' : ' are') + ' in the list</button>' : '');
+      lastReadout = key;
+    }
+    var html = first(P.legendFor);
+    if(html === null){ html = other ? '' : defaultLegend(); }
+    if(legend && html !== lastLegend){ legend.innerHTML = html; lastLegend = html; }
+    if(legend){ legend.hidden = !html; }
+    if(readout){ readout.hidden = !text; }
   }
-  all('button[data-mode]').forEach(function(b){
-    b.addEventListener('click',function(){document.body.dataset.browse='true';});
+  ['systemap:workspace', 'systemap:select', 'systemap:clear', 'systemap:layer',
+    'systemap:mode', 'systemap:step', 'systemap:flow'].forEach(function(name){
+    svg.addEventListener(name, function(){ window.requestAnimationFrame(sync); });
   });
-  document.getElementById('browser-close').addEventListener('click',function(){
-    document.body.dataset.browse='false';
-    var active=document.querySelector('.browser-tabs [aria-pressed="true"]');
-    if(active){active.focus({preventScroll:true});}
-  });
-  all('.journey-choice,.ix').forEach(function(b){
-    b.addEventListener('click',function(){document.body.dataset.browse='false';});
-  });
-  all('[data-layer-btn]').forEach(function(b){
-    b.addEventListener('click',function(){document.querySelector('.layer-menu').open=false;});
-  });
-  ['systemap:workspace','systemap:select','systemap:clear','systemap:view','systemap:view-resize']
-    .forEach(function(name){
-    svg.addEventListener(name,sync);
-  });
+  P.syncFrame = sync;
   sync();
 })();
 """

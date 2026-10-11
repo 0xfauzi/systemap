@@ -12,7 +12,7 @@ from systemap.model import AGENT_KINDS, CARD_H, Container, Meaning, Model, Regio
 from systemap.theme import Palette
 
 CARD_W = 150.0
-RADIUS = 4.0
+RADIUS = 8.0
 # How far the second card behind a card that opens a map is offset.
 MAP_OFFSET = 3.0
 # The smallest type on the figure. Edge labels, plain words and every note
@@ -278,6 +278,84 @@ def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], li
     return name_lines, plain_lines, problems
 
 
+# ---- card type size: one size for all cards of a map ----------------------------
+# The boards set a card name at 13px and its plain word at 12px with the map
+# at 88 percent: 14.75 and 13.6 units. A map uses these sizes when all of its
+# card text fits at them. If not, it uses the largest smaller step. At the base
+# sizes, the budget above applies and the text always gets a layout.
+NAME_PX_MAX = 14.75
+TEXT_PX_MAX = 13.6
+SIZE_STEPS = 8
+# A mono glyph is 0.602 em wide. The line heights are the board values.
+NAME_ADVANCE = 0.602
+NAME_LEADING = 16 / 13
+TEXT_LEADING = 13 / 12
+CARD_PAD = 4.0
+# The double base line of a store or a context card.
+BASE_RULE = 3.4
+
+CardLines = tuple[list[tuple[float, str]], list[tuple[float, float, str]]]
+
+
+def _sizes_at(step: int) -> tuple[float, float]:
+    t = step / SIZE_STEPS
+    return (
+        round(NAME_PX + t * (NAME_PX_MAX - NAME_PX), 2),
+        round(TEXT_PX + t * (TEXT_PX_MAX - TEXT_PX), 2),
+    )
+
+
+def _scaled_text(
+    kind: str, cid: str, plain: str, sizes: tuple[float, float]
+) -> tuple[list[str], list[str]] | None:
+    """Give the name lines and plain lines at larger sizes, or None if they do not fit."""
+    names, plain_lines, problems = card_text(kind, cid, plain)
+    if sizes == (NAME_PX, TEXT_PX):
+        return names, plain_lines
+    if problems or any(len(n) * NAME_ADVANCE * sizes[0] > CARD_W - 20 for n in names):
+        return None
+    return names, wrap_plain(plain, PLAIN_WIDTH * TEXT_PX / sizes[1])
+
+
+def card_lines(kind: str, cid: str, plain: str, sizes: tuple[float, float]) -> CardLines | None:
+    """Give the baselines from the card top for the name and plain lines, centred in the card.
+
+    A plain line also has its left inset. Give None when the text does not fit at larger sizes."""
+    text = _scaled_text(kind, cid, plain, sizes)
+    if text is None:
+        return None
+    names, plain_lines = text
+    name_px, text_px = sizes
+    name_h, text_h = name_px * NAME_LEADING, text_px * TEXT_LEADING
+    room = CARD_H[kind] - 2 * CARD_PAD - (BASE_RULE if kind in ("store", "context") else 0)
+    height = len(names) * name_h + len(plain_lines) * text_h
+    if height > room and sizes != (NAME_PX, TEXT_PX):
+        return None
+    top = CARD_PAD + max(0.0, (room - height) / 2)
+    name_rows = [
+        (round(top + (k + 0.5) * name_h + 0.35 * name_px, 1), line) for k, line in enumerate(names)
+    ]
+    below = top + len(names) * name_h
+    plain_rows = [
+        (
+            round(below + (k + 0.5) * text_h + 0.35 * text_px, 1),
+            round(plain_inset(line) * text_px / TEXT_PX, 1),
+            line,
+        )
+        for k, line in enumerate(plain_lines)
+    ]
+    return name_rows, plain_rows
+
+
+def card_sizes(cards: list[tuple[str, str, str]]) -> tuple[float, float]:
+    """Give the largest name size and plain word size at which the text of all cards fits."""
+    for step in range(SIZE_STEPS, 0, -1):
+        sizes = _sizes_at(step)
+        if all(card_lines(kind, cid, plain, sizes) is not None for kind, cid, plain in cards):
+            return sizes
+    return NAME_PX, TEXT_PX
+
+
 def _file_of(claim: str) -> str:
     """Give the file for a module claim. Add the symbol name after a colon for a symbol claim."""
     module, _, name = claim.partition(":")
@@ -314,20 +392,13 @@ def legend_rows(
     With `variables`, colors use CSS tokens. Figures use literal colors."""
     P = Palette(t, variables)
     if mode == "change":
-        ghost_fill, ghost_stroke = P.ghost()
-        rows = [
-            (P.changed_fill(), P["change"], "changed source"),
-            (P.reach_fill(), P["reach"], "import connection"),
-            (ghost_fill, ghost_stroke, "unchanged source"),
+        # The change map marks cards with tags; a swatch gives the border color.
+        return [
+            (P["card"], P["change"], "source changed (CHANGED tag)"),
+            (P["card"], P["change"], "only tests changed (TESTS tag)"),
+            (P["map"], P["reach"], "imports changed source (IMPORTS tag)"),
+            (P["card"], P["card_line"], "no change found"),
         ]
-        for key, label in (
-            ("operations", "new operations"),
-            ("types", "new types"),
-            ("refusals", "new exceptions"),
-            ("tests", "new tests"),
-        ):
-            rows.append((P.delta(key), P.delta(key), label))
-        return rows
     return [P.state(name) for name in t["state"]]
 
 

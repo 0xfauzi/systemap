@@ -496,7 +496,11 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert 'id="submap"' not in gateway and ">Open map</button>" in gateway
     assert "Double-click a card that opens a map" not in gateway
     # A sub-page: the component that contains the map., the link up, no mark, the model file it came from.
-    assert '<h1 class="project-name"><a href="../index.html">demo</a> / Gateway</h1>' in gateway
+    assert (
+        '<a class="crumb" href="../index.html">demo</a>'
+        '<span class="crumb__sep" aria-hidden="true">/</span><h1 class="project-name">Gateway</h1>'
+        in gateway
+    )
     assert 'class="node__map"' not in gateway and "Maps inside" not in gateway
     assert "<code>map/gateway.py</code>" in gateway
     assert 'data-id="App"' in gateway and 'data-id="Writer"' not in gateway
@@ -711,11 +715,11 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     for rel in ("index.html", "Gateway/index.html"):
         html = (nested / "docs/map" / rel).read_text()
         assert (
-            f'<p>HEAD at extraction: <code title="HEAD at extraction of the working tree">{sha[:10]}</code>.</p>'
+            f'<span class="snap" title="HEAD at extraction of the working tree">at <code>{sha[:7]}</code></span>'
             in html
         ), rel
-        assert "Stored source data" in html
-        assert "This page cannot detect subsequent changes." in html
+        assert f"HEAD at extraction was <code>{sha}</code>." in html, rel
+        assert "This page cannot find subsequent changes." in html
         assert "Extraction reads the working tree, which can contain uncommitted changes." in html
         assert "Built at" not in html, rel
     # The field table the facts view and the skill's schema read says the same.

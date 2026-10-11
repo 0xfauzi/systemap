@@ -7,10 +7,22 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import nest, page_atlas, page_data
+from systemap import (
+    nest,
+    page_atlas,
+    page_changes,
+    page_data,
+    page_groups,
+    page_guide,
+    page_motion,
+    page_phone,
+    page_present,
+    page_sequence_script,
+    page_sequences,
+)
 from systemap import theme as theme_mod
 from systemap.config import Config
-from systemap.model import Component, Meaning, Model, all_layers
+from systemap.model import Component, Meaning, Model, all_layers, reading
 from systemap.page_assets import CSS
 from systemap.page_script import JS
 from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
@@ -26,6 +38,15 @@ SCHEME_KEY = "systemap-theme"
 # The mark, inline, so the tab shows it with nothing fetched. It is not
 # themed: a tab's icon is one picture.
 FAVICON = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='112'%20fill='%23121417'/%3E%3Cpath%20d='M380,132%20H172%20V256%20H340%20V380%20H132'%20fill='none'%20stroke='%23e6e4df'%20stroke-width='40'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3Ccircle%20cx='380'%20cy='132'%20r='40'%20fill='%23e0a458'/%3E%3Ccircle%20cx='132'%20cy='380'%20r='40'%20fill='%23e0a458'/%3E%3C/svg%3E"
+
+# The mark in the header: one route between two ends. The path draws one
+# time when the page loads (page_motion).
+MARK = (
+    '<svg class="mark" viewBox="0 0 512 512" aria-hidden="true">'
+    '<path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/>'
+    '<circle class="mark__dot" cx="380" cy="132" r="44"/>'
+    '<circle class="mark__dot" cx="132" cy="380" r="44"/></svg>'
+)
 
 
 def esc(text: object) -> str:
@@ -118,40 +139,90 @@ def _index_entry(c: Component, state: str, plain: str) -> str:
     )
 
 
-def _header(
-    cfg: Config, model: Model, meaning: Meaning, facts: dict[str, Any], nesting: Nesting, cards: str
-) -> str:
-    commit = (facts.get("built_at_commit") or "")[:10]
-    parent = (
-        f'<a href="{esc(nesting.parent_href)}">{esc(nesting.parent_label)}</a> / '
-        if nesting.parent_href
+def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
+    dot = (
+        '<i class="views__dot" aria-label="The page has a revision comparison"></i>'
+        if ch.get("has_change")
         else ""
     )
     return (
-        '<a class="skip" href="#map">Skip to the map</a><header class="bar">'
-        '<a class="brand" href="#map" aria-label="systemap: system map">'
-        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M25 6H10v10h12v10H7" '
-        'fill="none" stroke="currentColor" stroke-width="2"/>'
-        '<circle cx="25" cy="6" r="3" fill="currentColor"/>'
-        '<circle cx="7" cy="26" r="3" fill="currentColor"/></svg>systemap</a>'
-        '<div class="project"><h1 class="project-name">'
-        f"{parent}{esc(nesting.path or cfg.name)}</h1>"
-        f'<p class="meta">System map: {cards}, {len(model.flows)} flows, '
-        f"{number_word(len(all_layers(model, meaning)))} layers.</p></div>"
+        '<nav class="views" aria-label="Views">'
+        '<button type="button" data-mode="understand" aria-pressed="true">Map</button>'
+        '<button type="button" data-mode="trace" aria-pressed="false">Sequences'
+        f'<span class="sr-only"> ({len(meaning.journeys)})</span></button>'
+        f'<button type="button" data-mode="change" aria-pressed="false">Changes{dot}</button>'
+        "</nav>"
+    )
+
+
+def _more_menu() -> str:
+    LABELS: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
+    schemes = "".join(
+        f'<button type="button" data-scheme="{esc(name)}" '
+        f'aria-label="{esc(LABELS.get(name, name.title()))} theme" '
+        f'aria-pressed="false"><i></i>{esc(LABELS.get(name, name.title()))}'
+        "</button>"
+        for name in theme_mod.SCHEMES
+    )
+    return (
+        '<details class="more" id="theme-menu"><summary aria-label="More: reference, theme '
+        'and text view"><span aria-hidden="true">⋯</span></summary><div class="more__menu">'
         '<button type="button" class="reference-toggle" data-mode="review">Reference</button>'
-        '<div class="snapshot"><span>Stored source data</span>'
-        '<p>HEAD at extraction: <code title="HEAD at extraction of the working tree">'
-        f"{esc(commit) if commit else 'commit not recorded'}</code>.</p></div>"
-        '<details class="theme-menu" id="theme-menu"><summary>Theme</summary>'
-        '<div id="scheme" role="group" aria-label="Theme">'
-        + "".join(
-            f'<button type="button" data-scheme="{esc(name)}" aria-label="{esc(name.title())}" '
-            'aria-pressed="false">'
-            "<i></i>"
-            f"{esc(name.title())}</button>"
-            for name in theme_mod.SCHEMES
-        )
-        + "</div></details></header>"
+        '<button type="button" id="view-reading" aria-pressed="false">Text view</button>'
+        '<button type="button" id="view-map" aria-pressed="true">Map view</button>'
+        '<p class="more__label" id="scheme-label">Theme</p>'
+        f'<div id="scheme" role="group" aria-labelledby="scheme-label">{schemes}</div>'
+        '<label class="motion-control"><input type="checkbox" id="reduce-motion">'
+        "Reduce motion</label>"
+        '<button type="button" id="keys-open">Keyboard keys</button>'
+        "</div></details>"
+    )
+
+
+def _summary(model: Model, meaning: Meaning) -> str:
+    """Give the map counts for a screen reader. The header does not show them."""
+    n_actors = sum(c.kind == "actor" for c in model.components)
+    cards = counted(len(model.components) - n_actors, n_actors)
+    return (
+        f'<p class="sr-only">System map: {cards}, {len(model.flows)} flows, '
+        f"{number_word(len(all_layers(model, meaning)))} layers.</p>"
+    )
+
+
+def _header(
+    cfg: Config,
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    nesting: Nesting,
+    ch: dict[str, Any],
+) -> str:
+    commit = (facts.get("built_at_commit") or "")[:7]
+    parent = (
+        f'<a class="crumb" href="{esc(nesting.parent_href)}">{esc(nesting.parent_label)}</a>'
+        '<span class="crumb__sep" aria-hidden="true">/</span>'
+        if nesting.parent_href
+        else ""
+    )
+    snap = (
+        f'<span class="snap" title="HEAD at extraction of the working tree">at <code>'
+        f"{esc(commit)}</code></span>"
+        if commit
+        else '<span class="snap">commit not recorded</span>'
+    )
+    return (
+        '<a class="skip" href="#map">Skip to the map</a><header class="bar">'
+        f'<a class="brand" href="#map" aria-label="systemap: system map">{MARK}</a>'
+        f'<div class="project">{parent}<h1 class="project-name">'
+        f"{esc(nesting.path or cfg.name)}</h1>{snap}{_summary(model, meaning)}</div>"
+        + _views(meaning, ch)
+        + '<div class="bar__space"></div>'
+        + '<div class="find" role="search"><label for="partsearch">Find</label>'
+        '<input id="partsearch" type="search" placeholder="Name or module" autocomplete="off" '
+        'aria-controls="components" aria-describedby="search-help" aria-expanded="false">'
+        '<kbd aria-hidden="true">/</kbd></div>'
+        '<button type="button" id="read-toggle" aria-pressed="false" aria-controls="readpanel">'
+        "Read</button>" + _more_menu() + "</header>"
     )
 
 
@@ -161,11 +232,10 @@ def _index(model: Model, meaning: Meaning, states: dict[str, str], cfg: Config) 
         groups.setdefault(c.region or "outside", []).append(c)
     regions = [(r.id, r.label) for r in model.regions] + [("outside", cfg.outside_label)]
     out = [
-        '<section id="components" class="part-index"><h2 class="sr-only">Components</h2>'
-        '<label class="search"><span class="sr-only">Search by function, name or module</span>'
-        '<input id="partsearch" type="search" placeholder="Function, name or module" '
-        'autocomplete="off" aria-controls="partlist" aria-describedby="search-help"></label>'
-        '<p id="search-help">Search names, functions and modules. Press / or Ctrl/Cmd+K.</p>'
+        '<section id="components" class="part-index find__results" hidden>'
+        '<h2 class="sr-only">Components</h2>'
+        '<p id="search-help">Find a component by name, function or module. '
+        "Press / or Ctrl/Cmd+K.</p>"
         '<p class="search-count" id="searchcount" role="status"></p>'
         '<details id="partlist-disclosure" open><summary class="sr-only">Component index</summary>'
         '<div class="ixgrid" id="partlist">'
@@ -179,37 +249,15 @@ def _index(model: Model, meaning: Meaning, states: dict[str, str], cfg: Config) 
         out.append("</div>")
     out.append(
         '</div></details><p id="searchempty" hidden>No component has this text. '
-        "Search by function or module.</p>"
+        "Find by function or module.</p>"
     )
-    out.append("</section>")
-    return "\n".join(out)
-
-
-def _journeys(meaning: Meaning) -> str:
-    out = [
-        '<section class="journey-index" id="journeyindex" hidden><h2 class="sr-only">Sequences</h2>'
-        "<p>A sequence shows the steps of one operation through the system.</p>"
-    ]
-    for k, j in enumerate(meaning.journeys):
-        out.append(
-            f'<button class="journey-choice" type="button" data-journey="{k}" '
-            f'aria-pressed="false"><span>{esc(j.label)}</span><small>'
-            f"{esc(j.starts) if j.starts else 'Entry label not supplied'} / steps: {len(j.steps)}"
-            f"{' / draft' if j.drafted else ''}</small></button>"
-        )
-    if not meaning.journeys:
-        out.append(
-            "<p>The model has no sequences. An entry point is where a program can "
-            "start. Read them with <code>systemap facts --entry-points</code>. Write "
-            "a sequence in the model.</p>"
-        )
     out.append("</section>")
     return "\n".join(out)
 
 
 def _review_index(review: dict[str, Any]) -> str:
     out = [
-        '<section class="review-index" id="reviewindex" hidden><h2>Decisions to make</h2>'
+        '<section class="review-index" id="reviewindex"><h2>Decisions to make</h2>'
         "<p>Judgement gives questions for examination of the code. The findings use the "
         'stored facts for this map.</p><div class="review-count">'
         f"<strong>{len(review['open'])}</strong> open "
@@ -246,7 +294,7 @@ def _commands(ch: dict[str, Any]) -> str:
         ),
         (
             "Compare a change",
-            "Replace REF with a revision. Open Review after the render command completes.",
+            "Replace REF with a revision. Open Changes after the render command completes.",
             "systemap render --base REF",
         ),
         (
@@ -267,7 +315,7 @@ def _commands(ch: dict[str, Any]) -> str:
         ),
         (
             "Read a source comparison",
-            "Replace REF with a revision. Imports show possible effects, "
+            "Replace REF with a revision. Imports show possible effects. "
             "They do not prove program behavior.",
             "systemap delta --base REF",
         ),
@@ -321,83 +369,77 @@ def _rules(model: Model) -> str:
     return "\n".join(out)
 
 
-def _controls(model: Model, meaning: Meaning, t: dict[str, Any]) -> str:
-    palette = theme_mod.Palette(t, variables=True)
-    out = [
-        '<div class="controls"><details class="layer-menu"><summary>'
-        '<span id="layer-current">Structure</span></summary>'
-        '<div class="seg" role="group" aria-label="Layer">'
-    ]
-    for layer in all_layers(model, meaning):
-        out.append(
-            f'<button type="button" class="seg__b" data-layer-btn="{esc(layer.id)}" '
-            f'aria-pressed="false" style="--c:{palette.layer(layer.id)}" '
-            f'title="{esc(layer.question)}"><i></i>{esc(layer.label)}</button>'
-        )
-    out.append(
-        '<button type="button" class="seg__b" data-layer-btn="all" '
-        'aria-pressed="false">All</button></div></details>'
-        '<label class="mobile-layer">Layer <select id="layer-select" aria-label="Layer">'
+def tab_layers(model: Model, meaning: Meaning) -> list[Any]:
+    """Give the layers in tab order: System context first when actors have flows."""
+    layers = list(all_layers(model, meaning))
+    system = [layer for layer in layers if layer.id == "system"]
+    if system and reading(model, meaning, "system")[0]:
+        layers = system + [layer for layer in layers if layer.id != "system"]
+    return layers
+
+
+def _mapbar(model: Model, meaning: Meaning) -> str:
+    layers = tab_layers(model, meaning)
+    first = layers[0] if layers else None
+    tabs = "".join(
+        f'<button type="button" role="tab" data-layer-btn="{esc(layer.id)}" '
+        f'aria-selected="false" aria-pressed="false" title="{esc(layer.question)}">'
+        f"{esc(layer.label)}</button>"
+        for layer in layers
+    )
+    return (
+        '<div class="mapbar" id="mapbar">'
+        f'<div class="layers" role="tablist" aria-label="Layer">{tabs}'
+        '<button type="button" role="tab" data-layer-btn="all" aria-selected="false" '
+        'aria-pressed="false" title="All flows of all layers">All</button></div>'
+        '<p class="mapbar__label" id="mapbar-label" hidden></p>'
+        f'<h2 class="question" id="layer-question">{esc(first.question if first else "")}</h2>'
+        '<label class="mobile-layer"><span class="sr-only">Layer</span>'
+        '<select id="layer-select" aria-label="Layer">'
         + "".join(
-            f'<option value="{esc(layer.id)}">{esc(layer.label)}</option>'
-            for layer in all_layers(model, meaning)
+            f'<option value="{esc(layer.id)}">{esc(layer.label)}</option>' for layer in layers
         )
-        + '<option value="all">All layers</option></select></label>'
-        '<div class="zoom" role="group" '
-        'aria-label="Zoom"><button type="button" data-zoom="out" aria-label="Zoom out">'
-        '-</button><span id="zpct" aria-live="off"></span>'
+        + '<option value="all">All layers</option></select></label></div>'
+    )
+
+
+def _zoom() -> str:
+    return (
+        '<div class="zoom" role="group" aria-label="Zoom">'
+        '<button type="button" data-zoom="out" aria-label="Zoom out">−</button>'
+        '<button type="button" data-zoom="actual" id="zpct" aria-pressed="false" '
+        'aria-label="Zoom to 100 percent"></button>'
         '<button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
-        '<button type="button" data-zoom="fit" aria-pressed="true">Show all</button>'
-        '<button type="button" data-zoom="actual" aria-pressed="false">100%</button>'
-        '</div><div class="view-switch" role="group" aria-label="Map view">'
-        '<button type="button" id="view-map" aria-pressed="true">Map</button>'
-        '<button type="button" id="view-reading" aria-pressed="false">Text view</button>'
-        "</div></div>"
-    )
-    return "\n".join(out)
-
-
-def _trace_controls(meaning: Meaning) -> str:
-    return (
-        '<div class="trace-controls" id="tracecontrols">'
-        '<label for="journey" class="sr-only">Sequence</label><select id="journey" '
-        'aria-label="Sequence"><option value="">Select an operation</option>'
-        + "".join(
-            f'<option value="{k}">{esc(j.label)}</option>' for k, j in enumerate(meaning.journeys)
-        )
-        + '</select><button type="button" class="jb" id="jprev" '
-        'aria-label="Previous step" disabled>Previous</button>'
-        '<span id="jcount" aria-live="polite"></span>'
-        '<button type="button" class="jb" id="jnext" aria-label="Next step" disabled>'
-        'Next</button><button type="button" id="jreturn" hidden>Go to sequence</button>'
-        '<button type="button" id="jend" hidden>End sequence</button>'
-        "</div>"
+        '<button type="button" data-zoom="fit" aria-pressed="true">Fit</button></div>'
     )
 
 
-def _inspector() -> str:
+def _readpanel(
+    meaning: Meaning,
+    review: dict[str, Any],
+    model: Model,
+    t: dict[str, Any],
+    ch: dict[str, Any],
+    records: str,
+) -> str:
     return (
-        '<aside class="inspector" aria-label="Component data and evidence">'
-        '<div class="inspector-empty" id="inspector-empty">'
-        "<h2>Examine the system</h2><p>Select a component card to read its function and source. "
-        "Select a flow path to examine the flow and its evidence.</p>"
-        "<p>The map keeps its model positions when you change layers. "
-        "Text view shows the same components and flows as text.</p>"
-        '</div><div class="drawer" id="drawer" data-dock="right" hidden>'
-        '<div class="drawer__in"><button type="button" class="drawer__x" id="drawerclose" '
-        'aria-label="Close the panel">Clear selection</button>'
+        '<aside class="readpanel" id="readpanel" aria-label="Read the map">'
+        '<div class="inspector-empty" id="inspector-empty"></div>'
+        '<div class="drawer" id="drawer" hidden><div class="drawer__in">'
+        '<button type="button" class="drawer__x" id="drawerclose" '
+        'aria-label="Clear the selection">Clear</button>'
         '<div class="systemap-panel" id="panel" aria-live="polite"></div>'
         '<div id="source-detail"></div></div></div>'
-        '<div id="review-detail" hidden></div></aside>'
-    )
-
-
-def _step_strip() -> str:
-    return (
-        '<details class="strip" id="strip" hidden><summary>Selected sequence step '
-        '<span class="strip__n" id="stripn"></span><p class="strip__say" id="stripsay"></p>'
-        '</summary><p class="strip__meas" id="stripmeas"></p>'
-        '<p class="strip__foot" id="stripfoot"></p><div id="step-evidence"></div></details>'
+        + page_sequences.panel(meaning)
+        + '<section class="reference" id="reference" aria-label="Map records" hidden>'
+        "<h2>Reference</h2>"
+        + _review_index(review)
+        + _rules(model)
+        + _commands(ch)
+        + _map_key(t, model)
+        + records
+        + "</section>"
+        '<div id="review-detail" hidden></div>' + page_changes.panel(ch) + "</aside>"
     )
 
 
@@ -413,68 +455,6 @@ def _submap(cfg: Config, nesting: Nesting) -> str:
         'aria-label="Go to parent map">Go to parent</button></div>'
         '<iframe class="submap__frame" id="submapframe" title="The map inside the card" '
         'src="about:blank"></iframe></div>'
-    )
-
-
-def _comparison_limits(ch: dict[str, Any]) -> str:
-    out = []
-    if ch.get("comparison_base"):
-        out.append(
-            f"<p>Source differences start at merge base <code>{esc(ch['comparison_base'])}</code>. "
-            "The diagram uses the model and stored facts for this page. "
-            "It does not show the map from a previous revision.</p>"
-        )
-    if not ch.get("reach_known", False):
-        out.append(
-            "<p>No import data shows connections for this change. "
-            "Effects on other modules are unknown.</p>"
-        )
-    if ch.get("unparsed"):
-        out.append(
-            "<p>Source differences could not be parsed for <code>"
-            + esc(", ".join(ch["unparsed"]))
-            + "</code>. Correct the source or extractor error. Then run "
-            "<code>systemap render --base REF</code> in the terminal.</p>"
-        )
-    for cid, data in ch.get("per_component", {}).items():
-        for module, records in data.get("unknown", {}).items():
-            for revision, issues in records.items():
-                for issue in issues:
-                    out.append(
-                        f"<p>Unknown {esc(revision)} surface for <code>"
-                        f"{esc(cid)} / {esc(module)}</code>: "
-                        f"{esc(issue.get('reason', 'The source could not be read.'))} "
-                        f"(line {esc(issue.get('line', 0))}, "
-                        f"column {esc(issue.get('column', 0))}).</p>"
-                    )
-    return "".join(out)
-
-
-def _change(ch: dict[str, Any], svg: str) -> str:
-    if not svg:
-        return ""
-    title = (ch.get("pr") or {}).get("title") or f"{ch['base']}..{ch['head']}"
-    return (
-        '<section id="change" class="change-view" hidden>'
-        f"<h2>Revision comparison: {esc(title)}</h2>"
-        f"<p>Base <code>{esc(ch.get('base_revision', ch['base']))}</code>. "
-        f"head <code>{esc(ch.get('head_revision', ch['head']))}</code>.</p>"
-        f"<p>{len(ch['direct'])} components changed. "
-        f"{len(ch['adjacent'])} components with import connections. "
-        f"{ch['files']} files. An import connection does not show an effect on the program.</p>"
-        + _comparison_limits(ch)
-        + (
-            "<p>No source differences were found for the resolved revisions.</p>"
-            if not ch.get("has_change")
-            else ""
-        )
-        + '<div class="legend"><span>Accent color: changed source</span>'
-        "<span>Secondary color: import connection</span>"
-        "<span>Low contrast: unchanged source</span></div>"
-        f'<div class="comparison-panes"><div class="stage">{svg}</div>'
-        '<aside class="systemap-panel" id="change-panel" aria-label="Comparison details" '
-        'aria-live="polite"><p>Select a comparison card to examine its source changes.</p>'
-        "</aside></div></section>"
     )
 
 
@@ -513,6 +493,92 @@ def _unknown_provenance(provenance: dict[str, Any]) -> str:
         "configuration. Then run <code>systemap refresh</code> in the terminal.</p>"
         + "".join(f"<p><code>{esc(line)}</code></p>" for line in provenance["unknown"])
         + "</details>"
+    )
+
+
+def _source_files(cfg: Config, facts: dict[str, Any], nesting: Nesting) -> str:
+    return (
+        '<p class="source-files">Source files: '
+        f"<code>{esc(cfg.out_dir)}/{esc(cfg.facts_file)}</code> and "
+        f"<code>{esc(nesting.model_file)}</code>. "
+        "HEAD at extraction was "
+        f"<code>{esc(facts.get('built_at_commit') or 'not recorded')}</code>. "
+        "Extraction reads the working tree, which can contain uncommitted changes. "
+        "This page cannot find subsequent changes. Run <code>systemap refresh</code> "
+        "in the project terminal to update it.</p>"
+    )
+
+
+def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, Any]) -> str:
+    return (
+        '<section class="map" id="map" aria-label="System map">'
+        '<span id="activity-label" hidden></span><h2 id="activity-question" class="sr-only">'
+        "What are the components and their connections?</h2>"
+        + _mapbar(model, meaning)
+        + page_sequences.toolbar(meaning)
+        + '<div class="change-controls" id="changecontrols">'
+        + page_changes.toolbar(ch)
+        + "</div>"
+        + '<div class="spatial-map" id="spatialmap">'
+        + '<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">'
+        + system_svg
+        + "</div></div></div>"
+        + _zoom()
+        + '<div class="legend map-legend" id="map-legend" aria-label="Legend"></div>'
+        '<p class="readout" id="map-context" aria-live="polite"></p>'
+        + page_guide.card()
+        + '<div class="atlas" id="atlas" aria-label="Text view of the system" hidden></div>'
+        '<p class="hint sr-only" id="map-detail">Select a component or flow to read its source '
+        "evidence. Scroll to zoom. Drag to move the map. Fit shows all components. "
+        "Tab selects cards and flow paths. Enter opens their data. Arrow keys change layers or "
+        "sequence steps. Escape shows the previous view.</p>"
+        '<p id="linkstatus" role="status" aria-live="polite"></p>'
+    )
+
+
+def _change_svg(
+    cfg: Config,
+    model: Model,
+    meaning: Meaning,
+    t: dict[str, Any],
+    facts: dict[str, Any],
+    ch: dict[str, Any],
+) -> tuple[str, str]:
+    if not (ch.get("has_change") or ch.get("comparison_requested")):
+        return "", ""
+    return render_schematic(
+        model,
+        meaning,
+        t,
+        facts,
+        changed=ch["direct"],
+        changed_modules=ch["modules"],
+        adjacent=ch["adjacent"],
+        mode="change",
+        svg_id="changemap",
+        gained={k: v["gained"] for k, v in ch["per_component"].items()},
+        hot_artifacts=ch["flow_artifacts"],
+        observed_by=cfg.observed_by,
+        variables=True,
+        tests_only=page_changes.tests_only(ch),
+    )
+
+
+def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> str:
+    schemes = list(t.get("schemes") or {t["scheme"]: t})
+    title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>{esc(title)}</title><link rel="icon" href="{FAVICON}">'
+        "<script>(function(){var s=null;try{s=localStorage.getItem("
+        f"{json.dumps(SCHEME_KEY)})}}catch(e){{}}"
+        f"if({json.dumps(schemes)}.indexOf(s)<0){{s=(window.matchMedia&&"
+        "window.matchMedia('(prefers-color-scheme: light)').matches)?"
+        f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(theme_mod.DEFAULT_SCHEME)}}}"
+        "document.documentElement.setAttribute('data-theme',s)})();</script>"
+        f"<style>{panel_css(t, variables=True)}{CSS.replace('{ROOT}', theme_mod.root_css(t))}"
+        f"{page_atlas.CSS}{extra_css}</style></head>"
     )
 
 
@@ -555,88 +621,42 @@ def build(
             {"label": r.label, "ids": [c.id for c in model.components if c.region == r.id]}
             for r in model.regions
         ],
+        "tabs": [layer.id for layer in tab_layers(model, meaning)],
+        "guide": page_guide.steps(model, meaning),
+        "sequences": page_sequences.data(model, meaning, facts),
     }
-    change_svg, change_detail = "", ""
-    if ch.get("has_change") or ch.get("comparison_requested"):
-        change_svg, change_detail = render_schematic(
-            model,
-            meaning,
-            t,
-            facts,
-            changed=ch["direct"],
-            changed_modules=ch["modules"],
-            adjacent=ch["adjacent"],
-            mode="change",
-            svg_id="changemap",
-            gained={k: v["gained"] for k, v in ch["per_component"].items()},
-            hot_artifacts=ch["flow_artifacts"],
-            observed_by=cfg.observed_by,
-            variables=True,
-        )
-    n_actors = sum(c.kind == "actor" for c in model.components)
-    cards = counted(len(model.components) - n_actors, n_actors)
-    schemes = list(t.get("schemes") or {t["scheme"]: t})
-    title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
+    change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch)
+    extra_css = (
+        page_guide.CSS
+        + page_sequences.CSS
+        + page_present.CSS
+        + page_changes.CSS
+        + page_groups.CSS
+        + page_phone.CSS
+        + page_motion.CSS
+    )
     o = [
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width,initial-scale=1">',
-        f'<title>{esc(title)}</title><link rel="icon" href="{FAVICON}">',
-        "<script>(function(){var s=null;try{s=localStorage.getItem("
-        f"{json.dumps(SCHEME_KEY)})}}catch(e){{}}"
-        f"if({json.dumps(schemes)}.indexOf(s)<0){{s=(window.matchMedia&&"
-        "window.matchMedia('(prefers-color-scheme: light)').matches)?"
-        f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(theme_mod.DEFAULT_SCHEME)}}}"
-        "document.documentElement.setAttribute('data-theme',s)})();</script>",
-        f"<style>{panel_css(t, variables=True)}{CSS.replace('{ROOT}', theme_mod.root_css(t))}"
-        f"{page_atlas.CSS}"
-        '</style></head><body data-mode="understand">',
-        _header(cfg, model, meaning, facts, nesting, cards),
-        '<main class="main"><aside class="sidebar" aria-label="Map navigation">'
-        '<nav class="browser-tabs" aria-label="Map contents">'
-        '<button type="button" data-mode="understand" aria-pressed="true">Components</button>'
-        '<button type="button" data-mode="trace" aria-pressed="false">Sequences '
-        f"<span>{len(meaning.journeys)}</span></button></nav>"
-        '<div class="browser-content"><button type="button" class="browser-close" '
-        'id="browser-close">Close list</button>',
+        _head(cfg, t, nesting, extra_css),
+        '<body data-mode="understand" data-view="map" data-panel="closed">',
+        _header(cfg, model, meaning, facts, nesting, ch),
         _index(model, meaning, states, cfg),
-        _journeys(meaning),
-        '<section class="reference" id="reference" aria-label="Map records"><h2>Reference</h2>',
-        _review_index(review),
-        _rules(model),
-        _commands(ch),
-        _map_key(t, model),
-        '<label class="motion-control"><input type="checkbox" id="reduce-motion">'
-        "Reduce motion</label>",
-        _unknown_provenance(payload["provenance"]),
-        '</section></div></aside><section class="map" id="map" aria-label="System map">'
-        '<span id="activity-label" hidden></span><h2 id="activity-question" class="sr-only">'
-        "What are the components and their connections?</h2>",
-        _controls(model, meaning, t),
-        _trace_controls(meaning),
-        '<div class="lstrip" id="lstrip" aria-live="polite"></div>',
-        _step_strip(),
-        '<div class="atlas" id="atlas" aria-label="Text view of the system" hidden></div>',
-        '<div class="spatial-map" id="spatialmap">'
-        '<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">'
-        f"{system_svg}"
-        '</div></div></div><section class="map-context" id="map-context" '
-        'aria-label="Map information" aria-live="polite"></section>'
-        '<p class="hint" id="map-detail">'
-        "Select a component or flow to read its source evidence.</p>"
-        '<p class="hint sr-only">Scroll to zoom. Drag to move the map. '
-        "Show all shows all components. "
-        "Tab selects cards and flow paths. Enter opens their data. Arrow keys change layers or "
-        "sequence steps. Escape shows the previous view.</p>"
-        '<p id="linkstatus" role="status" aria-live="polite"></p>',
-        '<p class="hint">Double-click a card that opens a map, or press Enter on it '
+        '<main class="main">',
+        _map_section(model, meaning, system_svg, ch),
+        page_changes.stage(ch, change_svg),
+        '<p class="hint sr-only">Double-click a card that opens a map, or press Enter on it '
         "a second time in the diagram, to read the map inside.</p>"
         if nesting.opens
         else "",
         "</section>",
-        _inspector(),
-        '<section id="review" class="review-records" hidden>',
-        _change(ch, change_svg),
-        "</section></main>",
+        _readpanel(
+            meaning,
+            review,
+            model,
+            t,
+            ch,
+            _unknown_provenance(payload["provenance"]) + _source_files(cfg, facts, nesting),
+        ),
+        "</main>",
         '<details class="map-links"><summary>Child maps</summary>'
         + ", ".join(
             f'<a href="{esc(child["href"])}">{esc(child["name"])}</a>'
@@ -646,25 +666,40 @@ def build(
         if nesting.opens
         else "",
         _submap(cfg, nesting),
-        '<footer class="foot">Source files: '
-        f"<code>{esc(cfg.out_dir)}/{esc(cfg.facts_file)}</code> and "
-        f"<code>{esc(nesting.model_file)}</code>. "
-        "HEAD at extraction was "
-        f"<code>{esc(facts.get('built_at_commit') or 'not recorded')}</code>. "
-        "Extraction reads the working tree, which can contain uncommitted changes. "
-        "This page cannot detect subsequent changes. Run <code>systemap refresh</code> "
-        "in the project terminal to update it.</footer>",
+        page_present.html(),
+        page_phone.html(model, meaning),
+        page_motion.keys_sheet(),
         "<script>window.systemapWorkspace="
         + json.dumps(payload, ensure_ascii=False, sort_keys=True).replace("<", "\\u003c")
         + ";</script>",
-        interactive_script(t, "schematic", "panel", detail, variables=True),
+        _compact(interactive_script(t, "schematic", "panel", detail, variables=True)),
     ]
     if change_svg:
-        o.append(interactive_script(t, "changemap", "change-panel", change_detail, variables=True))
-    o += [
-        f"<script>{JS}</script>",
-        f"<script>{page_atlas.SCRIPT}</script>",
-        f"<script>{WORKSPACE_SCRIPT}</script>",
-        "</body></html>",
-    ]
+        o.append(
+            _compact(
+                interactive_script(t, "changemap", "change-none", change_detail, variables=True)
+            )
+        )
+    scripts = (
+        JS,
+        page_guide.SCRIPT,
+        page_sequence_script.SCRIPT,
+        page_atlas.SCRIPT,
+        WORKSPACE_SCRIPT,
+        page_changes.SCRIPT if change_svg else page_changes.EMPTY_SCRIPT,
+        page_groups.SCRIPT,
+        page_phone.SCRIPT,
+        page_present.SCRIPT,
+        page_motion.SCRIPT,
+    )
+    o += [f"<script>{_compact(js)}</script>" for js in scripts]
+    o.append("</body></html>")
     return "\n".join(o) + "\n"
+
+
+def _compact(js: str) -> str:
+    """Remove comment lines, indentation and empty lines from a page script.
+
+    The page scripts have no template literals, so no string continues on a second line."""
+    lines = (line.strip() for line in js.splitlines())
+    return "\n".join(line for line in lines if line and not line.startswith("//"))

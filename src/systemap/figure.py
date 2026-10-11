@@ -14,9 +14,9 @@ from collections.abc import Mapping
 from typing import Any
 
 from systemap import change as change_mod
-from systemap import nest
+from systemap import nest, schematic_change
 from systemap.config import Config, ConfigError, Figure
-from systemap.model import Layer, Meaning, Model, all_layers
+from systemap.model import DERIVED_LAYERS, Layer, Meaning, Model, all_layers, reading
 from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
 from systemap.schematic import render as render_schematic
 
@@ -30,14 +30,15 @@ class FigureError(Exception):
 def bare_svg(svg: str, t: dict[str, Any]) -> str:
     """This function gives the SVG drawing with a background rectangle for use as an image.
 
-    It keeps the drawing geometry, style, and text size.
+    It keeps the drawing geometry, style, and text size. The rectangle has the map
+    color, which is also the color of the label halos.
     """
     match = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
     if match is None:
         return svg
     x, y, w, h = match.groups()
     end = svg.index(">") + 1
-    ground = f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{t["bg"]}"/>'
+    ground = f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{t["map"]}"/>'
     return svg[:end] + ground + svg[end:] + "\n"
 
 
@@ -48,6 +49,19 @@ MARK_STYLE = {
     # A card that opens a map stands on a second card.
     "map": "box-shadow:2px 2px 0 0 {ink}",
 }
+
+
+def drawn_kinds(model: Model, meaning: Meaning, layer: str) -> set[str]:
+    """This function gives the flow kind layers whose lines the figure draws.
+
+    A line has the color of its kind in each layer, so the legend shows kind
+    layers only. A derived layer has no line color of its own.
+    """
+    if not layer:
+        return {lay.id for lay in all_layers(model, meaning)} - set(DERIVED_LAYERS)
+    edges, _subjects = reading(model, meaning, layer)
+    flows = model.flows
+    return {meaning.layer_for(flows[i].edge, flows[i].kind) for i in edges}
 
 
 def figure(
@@ -64,6 +78,7 @@ def figure(
     """This function makes the figure element. Detail JSON permits interaction; a layer ID
     selects the legend contents.
     """
+    drawn = drawn_kinds(model, meaning, layer)
     swatches = "".join(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
@@ -99,7 +114,7 @@ def figure(
         f'<span style="width:1em;height:3px;border-radius:2px;background:{colour};'
         f'display:inline-block"></span>{label}</span>'
         for lid, colour, label in layer_rows(t, model, meaning)
-        if not layer or lid == layer
+        if lid in drawn
     )
     if layer != "structure":
         swatches += (
@@ -171,11 +186,13 @@ def figure(
     # skip the figure rather than judge text nobody wrote by hand. The figure
     # opens at Fit, the whole map across the column; text is drawn at 11px
     # and zoom brings it back to size.
+    # The font stack has double quotes; the style attribute uses them too.
+    font = t["font_ui"].replace('"', "'")
     return (
         f'<figure data-generated="systemap" '
         f'style="margin:2.4em 0;padding:1.1em 1.1em .9em;'
-        f"background:{t['bg']};border:1px solid {t['line']};border-radius:8px;"
-        f'overflow-x:auto;color:{t["ink_2"]};font-family:{t["font_ui"]}">'
+        f"background:{t['map']};border:1px solid {t['line']};border-radius:8px;"
+        f'overflow-x:auto;color:{t["ink_2"]};font-family:{font}">'
         f"{svg}{hint}"
         f'<div style="margin-top:.9em;font-size:.78rem;line-height:1.9;'
         f'color:{t["ink_3"]}">{swatches}{controls}</div>'
@@ -225,6 +242,7 @@ def make(
     adjacent: set[str] = set()
     gained: dict[str, dict[str, int]] = {}
     hot: set[str] = set()
+    tests_only: set[str] | None = None
     legend_mode = "system"
 
     if mode == "change" and components:
@@ -256,6 +274,7 @@ def make(
         changed = ch["direct"]
         changed_modules = ch["modules"]
         adjacent = ch["adjacent"]
+        tests_only = schematic_change.tests_only(ch)
         gained = {k: v["gained"] for k, v in ch["per_component"].items()}
         hot = ch["flow_artifacts"]
         legend_mode = "change"
@@ -310,6 +329,7 @@ def make(
         layer=layer,
         observed_by=cfg.observed_by,
         opens=opens,
+        tests_only=tests_only,
     )
     meta = json.loads(detail).get("_meta", {})
     collisions: list[str] = list(meta.get("collisions", []))

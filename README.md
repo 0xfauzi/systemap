@@ -56,10 +56,9 @@ and the explanation for each connection.
 
 `Structure` shows no flow lines after a component selection.
 Other layers show only flow lines that connect to the selected component.
-Without a preview, a selected flow or the selected sequence step shows only its flow line.
-The map shows a flow label only for the selected flow or a preview.
-Use the pointer or keyboard focus for a flow preview.
-The inspector keeps all component connections, with direction and evidence.
+Flow labels show on their lines. A label that does not fit on its line
+shows for a pointer, keyboard focus, or selection, and Read lists it.
+Read opens a panel that keeps all component connections, with direction and evidence.
 
 Flow lines also show evidence. A solid internal line shows a source review
 with references and a claim digest that match the stored source snapshot.
@@ -70,19 +69,27 @@ artifact that a flow carries. External flows have an actor at one end.
 None of these states records execution.
 
 <p align="center">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/dark.png" alt="the Dark theme" width="32%">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/light.png" alt="the Light theme" width="32%">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/clay.png" alt="the Clay theme" width="32%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/dark.png" alt="the Ink theme" width="48%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/light.png" alt="the Paper theme" width="48%">
 </p>
 
-Components and Sequences show above the phone map and in the desktop navigation panel.
-Reference contains rules and review records. Theme contains Dark, Light, and Clay.
+The page has three views. **Map** shows the layers. **Sequences** shows one
+operation as a route on the map, then one step at a time, with a note at each
+step. **Changes** shows the components and flows that a revision comparison
+changed. On the first visit, a guide card gives five steps through the map.
+
+The More menu contains Reference, Text view, and the theme. Reference contains
+rules and review records. The themes are Ink and Paper.
+Ink has dark surfaces and is the default. Paper has light surfaces.
 The first visit uses the device theme.
+Only the flow kinds, the selection, and the change have colors.
+Cards, regions, text, and other lines are neutral.
 
 The map has one flat view. Card text changes size with the zoom.
-In a sequence step, acting components have an accent border.
-Measurement components have a steel border and an inner ring.
-The information below the diagram gives source modules, entry points, related sequences, and evidence states.
+In a sequence step, the acting component has an ACTS tag and a measurement
+component has a MEASURES tag. On a phone, the map shows its regions as a grid,
+and a sequence shows one step below a small map.
+The panel gives source modules, entry points, related sequences, and evidence states.
 These values come from the current model and recorded source data.
 
 ## How do you install systemap?

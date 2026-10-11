@@ -1114,3 +1114,68 @@ The judgement command reported 22 maintainer decisions and seven pending recorde
 The three skill directories had identical contents.
 The browser showed the Isometric selection after a change from Text view.
 The design text now states that reduced motion stops camera animation, not camera changes.
+
+## Theme colour measurements (2026-10-11)
+
+Acceptance: each pair of colors that can show on one view has CIEDE2000 25 or more with normal
+vision and 12 or more with protanopia, deuteranopia and tritanopia (Brettel simulation). Text has
+4.5:1 or more on each surface. Kind colors have 4.5:1 or more on the map. The limits were written
+in each script before the run.
+
+| Theme | data, control, context, tools | data, control, two custom kinds | five kinds |
+|---|---|---|---|
+| Ink | Pass, worst 12.9 deutan | Pass, worst 12.1 tritan | Fail, worst 17.9 normal |
+| Paper | Pass, worst 25.1 normal | Fail, worst 23.6 normal | Fail, worst 7.2 protan |
+
+In Ink, five kinds passed only with a context color of OKLCH chroma 0.16. The theme does not use it.
+The first joint search failed the required sets. A second search ranked a failing color first.
+The third search gave the values above.
+Paper data has 4.24:1 on the raised surface. It shows there only as a line.
+
+## Flow label size on the map page (2026-10-11)
+
+Acceptance: a larger flow label size is acceptable only if the render of the self-map gives no
+new label collisions and the count of labels away from their line does not increase.
+The design boards show flow labels at 12px with the map at 88 percent: 13.6 SVG units.
+The script renders the page with the label size, the label width for each character, and the
+label height multiplied by one scale. A browser counts the collisions and the labels away from their line.
+
+| Scale | Label size (units) | Label collisions | Labels away from their line (of 76) |
+|---|---|---|---|
+| 1.00 | 11.0 | 0 | 11 |
+| 1.05 | 11.55 | 0 | 12 |
+| 1.10 | 12.1 | 5 | 11 |
+| 1.15 | 12.65 | 5 | 9 |
+| 1.24 | 13.64 | 5 | 9 |
+
+All larger sizes failed. The flow label size stays at 11 units.
+At 1.10 and more, the collisions include 'settings' on CLI, 'uncovered entry points' on Judgement
+and SecondOpinion, 'public surfaces' on ChangeDetector, and 'svg, detail' on Page.
+
+## Card type size on the map page (2026-10-11)
+
+Acceptance: a map uses a larger card type size only if the name and the description of all
+cards fit in their cards at that size. The check budget at the base size does not change.
+The boards show a 13px name and a 12px description with the map at 88 percent:
+14.75 and 13.6 SVG units. `card_sizes` tries eight steps from that size down to the base size.
+For the self-map, all 20 cards fit at the board size, and the page uses 14.75 and 13.6 units.
+
+## Map page size (2026-10-11)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` is smaller than 300 KiB (307,200 bytes).
+The new page has three views, the guide, the phone layout and the motion scripts.
+The first build gave 352,977 bytes for the sample page. The test failed.
+Two changes made the page smaller without a change to its behavior:
+
+- The build removes comment lines, indentation and empty lines from each page script.
+  The page scripts have no template literals, so no string continues on a second line.
+- A page without a revision comparison gets a short Changes script that only sets the title.
+
+| Page | Before | After |
+|---|---|---|
+| Sample page, no comparison | 352,977 | 301,050 |
+| Self-map page, no comparison (`docs/map/index.html`) | 667,938 | 622,810 |
+| Self-map page with a comparison, before the final model changes | 908,575 | 867,510 |
+
+The sample page passes with 6,150 bytes of space. A small addition to the page scripts can exceed the limit again.
+All 14 board states rendered in Chromium after the change with no page error.

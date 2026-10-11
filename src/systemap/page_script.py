@@ -1,14 +1,15 @@
-"""Map selection, sequence controls and source records."""
+"""The page shell: views, layer tabs, the reading panel, search, keys and source records."""
 
 JS = r"""
 (function(){
   var svg = document.getElementById('schematic');
   if(!svg || !svg.systemap){ return; }
-  var A = svg.systemap;
-  var panel = document.getElementById('panel');
-  var drawer = document.getElementById('drawer');
-  var stage = document.getElementById('stage');
-  var lstrip = document.getElementById('lstrip');
+  var A = svg.systemap, W = window.systemapWorkspace || {};
+  var body = document.body;
+  function byId(id){ return document.getElementById(id); }
+  var panel = byId('panel'), drawer = byId('drawer'), readpanel = byId('readpanel');
+  var empty = byId('inspector-empty'), sourceDetail = byId('source-detail');
+  var reviewDetail = byId('review-detail'), reference = byId('reference');
   var LAY = {};
   A.layers.forEach(function(l){ LAY[l.id] = l; });
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
@@ -19,124 +20,114 @@ JS = r"""
     return document.documentElement.dataset.reduceMotion === 'true' ||
       !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
+  function emit(name, detail){
+    svg.dispatchEvent(new CustomEvent(name, {detail:detail || {}, bubbles:true}));
+  }
+  function show(node, on){ if(node){ node.hidden = !on; } }
 
-  // ---- the strip above the map: the active layer and what it touches ----
-  function layerStrip(){
-    if(!lstrip || cur.j >= 0){ return; }
-    var L = A.state.layer, h = '';
-    if(L === 'all'){
-      h += '<span class="lstrip__l">All layers</span>';
-      h += '<span class="lstrip__q">All flows. Each flow has the color of its layer.</span>';
-      h += '<span class="lstrip__row">';
-      A.layers.forEach(function(l){
-        h += '<button type="button" data-pick="' + esc(l.id) + '" title="' + esc(l.question)
-           + '" style="border-bottom:2px solid ' + l.colour + '">' + esc(l.label) + '</button>';
-      });
-      h += '</span>';
-    } else {
-      var l = LAY[L], list = A.layerIds(L);
-      // The count says what the header says: the cards that are code, then
-      // the actors the reading touches, named apart.
-      var actors = list.filter(function(id){ return A.detail[id].kind === 'actor'; }).length;
-      var comps = list.length - actors;
-      var counted = comps + ' component' + (comps === 1 ? '' : 's')
-        + (actors ? ' and ' + actors + ' actor' + (actors === 1 ? '' : 's') : '');
-      h += '<span class="lstrip__l" style="--c:' + l.colour + '"><i></i>' + esc(l.label)
-         + ' layer</span>';
-      h += '<span class="lstrip__q">' + esc(l.question) + '</span>';
-      h += '<span class="lstrip__s">' + esc(l.sub) + '. ' + counted + '. Select one.</span>';
-      h += '<details class="lstrip-members"><summary>Components in this layer</summary>'
-         + '<span class="lstrip__row">';
-      list.forEach(function(id){
-        h += '<button type="button" data-go="' + esc(id) + '">' + esc(id) + '</button>'; });
-      h += '</span></details>';
+  // The page API. The sequence script replaces `journey`; other scripts add
+  // readers (the Read panel section for a layer), legends and readouts.
+  var P = svg.page = {readers:[], legendFor:[], readoutFor:[], journey:{
+    active:function(){ return false; }, state:function(){ return {j:-1, s:0}; },
+    start:function(){}, step:function(){}, stepBy:function(){ return false; },
+    end:function(){}, back:function(){}
+  }};
+
+  // ---- the panel ----------------------------------------------------------
+  // The Map view keeps the panel closed until the reader selects something
+  // or presses Read. The other views show their own panel.
+  var mode = 'understand', readOpen = false, collapsed = false;
+  var restoringView = false, frameVersion = 0, opened = '';
+  var readBtn = byId('read-toggle');
+  var hasChange = !!byId('changemap');
+  function panelOpen(){
+    if(mode === 'change'){ return hasChange && !collapsed; }
+    if(mode !== 'understand' && mode !== 'review'){ return !collapsed; }
+    if(mode === 'review'){ return !collapsed || !!A.state.focus; }
+    return readOpen || !!A.state.focus;
+  }
+  function sections(){
+    var open = panelOpen(), focus = !!A.state.focus;
+    var before = body.dataset.panel;
+    body.dataset.panel = open ? 'open' : 'closed';
+    show(readpanel, open);
+    show(empty, mode === 'understand' && !focus);
+    show(drawer, focus && mode !== 'change');
+    show(byId('journeyindex'), mode === 'trace' && !focus);
+    show(reference, mode === 'review' && !focus);
+    show(reviewDetail, mode === 'review' && !focus);
+    show(byId('change-panel'), mode === 'change');
+    if(readBtn){ readBtn.setAttribute('aria-pressed', open ? 'true' : 'false'); }
+    if(before !== body.dataset.panel){
+      emit('systemap:panel', {open:open});
+      if(A.state.focus && !restoringView){ frameBeside(A.state.focus, true); }
     }
-    lstrip.innerHTML = h;
-    all('[data-go]', lstrip).forEach(function(b){
-      b.addEventListener('click', function(){ A.select(b.dataset.go); });
-    });
-    all('[data-pick]', lstrip).forEach(function(b){
-      b.addEventListener('click', function(){ setLayer(b.dataset.pick); });
-    });
   }
-
-  // ---- layer switch -----------------------------------------------------
-  var layerBtns = all('[data-layer-btn]');
-  var layerSelect = document.getElementById('layer-select');
-  function setLayer(id){
-    A.setLayer(id);
-    layerBtns.forEach(function(b){
-      b.setAttribute('aria-pressed', b.dataset.layerBtn === id ? 'true' : 'false'); });
-    if(layerSelect){ layerSelect.value = id; }
-    layerStrip();
-    if(A.state.focus){ frameBeside(A.state.focus); }
-    svg.dispatchEvent(new CustomEvent('systemap:workspace'));
-  }
-  layerBtns.forEach(function(b){
-    b.addEventListener('click', function(){ setLayer(b.dataset.layerBtn); }); });
-  if(layerSelect){ layerSelect.addEventListener('change', function(){
-    setLayer(layerSelect.value);
-  }); }
-
-  // ---- the drawer: opens on selection, docks away from the node ---------
-  function cover(){
-    // What the drawer lays over the map: its box and its side, or nothing
-    // when it is hidden or sits below the map (the narrow layout).
-    if(!drawer || drawer.hidden){ return null; }
-    var d = drawer.getBoundingClientRect(), s = svg.getBoundingClientRect();
-    if(d.right <= s.left || d.left >= s.right || d.bottom <= s.top || d.top >= s.bottom){
-      return null;
-    }
-    return {rect:d, side:drawer.dataset.dock};
-  }
-  var frameVersion = 0, restoringView = false;
   function frameBeside(id, instant){
-    // Frame the selected components after the inspector layout.
-    var version = frameVersion;
+    // Frame the selection after the panel has its final width.
+    var version = ++frameVersion;
     window.requestAnimationFrame(function(){
-      if(A.state.focus === id && version === frameVersion){ A.view.frameFocus(cover(), instant); }
+      if(A.state.focus !== id || version !== frameVersion){ return; }
+      // A narrow window lays the panel over the map: frame beside it.
+      var over = window.innerWidth <= 820 && readpanel && !readpanel.hidden;
+      A.view.frameFocus(over ? {rect:readpanel.getBoundingClientRect(), side:'right'} : null,
+        instant);
     });
   }
-  function openDrawer(id, instant){
-    // The figure has already framed the lit set in the visible map; the
-    // card's position in that view picks the side. The drawer then covers
-    // that side, so the lit set is framed again into the part it leaves.
-    if(!drawer){ return; }
-    frameVersion++;
-    drawer.dataset.dock = A.view.fracOf(id) > 0.6 ? 'left' : 'right';
-    drawer.hidden = false;
-    if(empty){ empty.hidden = true; }
-    reveal();
-    if(!restoringView){ frameBeside(id, instant); }
-  }
-  function closeDrawer(){ frameVersion++; if(drawer){ drawer.hidden = true; } visibility(); }
-  function reveal(){
-    if(document.body.dataset.view === 'reading' && window.innerWidth <= 1050 && drawer){
-      drawer.scrollIntoView({block:'start'});
-      var heading = panel.querySelector('h3');
-      if(heading){heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true});}
-      return;
-    }
-    // The page scrolls so the map is on screen; the map itself has moved.
-    if(!stage){ return; }
-    var s = stage.getBoundingClientRect();
-    if(s.top < 0 || s.top > window.innerHeight - 200){
-      document.getElementById('map').scrollIntoView({block:'start'});
-    }
-  }
-  var closeBtn = document.getElementById('drawerclose');
-  if(closeBtn){ closeBtn.addEventListener('click', function(){
-    if(cur.j >= 0){ backToJourney(); } else { A.clear(); }
+  if(readBtn){ readBtn.addEventListener('click', function(){
+    if(mode === 'understand'){
+      if(panelOpen()){ readOpen = false; if(A.state.focus){ A.clear(); } }
+      else { readOpen = true; }
+    } else { collapsed = panelOpen(); if(!collapsed && A.state.focus){ A.clear(); } }
+    sections();
   }); }
+
+  // ---- the title on the map: layer tabs or the view name, and the question --
+  var tabs = all('[data-layer-btn]');
+  var layerSelect = byId('layer-select'), question = byId('layer-question');
+  var mapLabel = byId('mapbar-label'), tablist = document.querySelector('.mapbar .layers');
+  var ALL_QUESTION = 'Which flows connect the components?';
+  function layerQuestion(id){
+    return id === 'all' ? ALL_QUESTION : (LAY[id] ? LAY[id].question : ''); }
+  function setTitle(label, text){
+    if(mapLabel){ mapLabel.textContent = label || ''; mapLabel.hidden = !label; }
+    if(tablist){ tablist.hidden = !!label; }
+    if(question && text !== undefined){ question.textContent = text; }
+  }
+  function setLayer(id){
+    var changed = A.state.layer !== id;
+    A.setLayer(id);
+    tabs.forEach(function(b){
+      var on = b.dataset.layerBtn === id;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+    if(layerSelect){ layerSelect.value = id; }
+    if(mode === 'understand' || mode === 'review'){ setTitle('', layerQuestion(id)); }
+    if(A.state.focus && !restoringView){ frameBeside(A.state.focus); }
+    if(changed){ emit('systemap:layer', {layer:id}); }
+    emit('systemap:workspace');
+  }
+  tabs.forEach(function(b){ b.addEventListener('click', function(){
+    if(mode === 'trace' || mode === 'change'){ setMode('understand'); }
+    setLayer(b.dataset.layerBtn);
+  }); });
+  if(layerSelect){ layerSelect.addEventListener('change',
+    function(){ setLayer(layerSelect.value); }); }
 
   // ---- zoom: Fit and 100% are the named states; + and - step by 1.25 ----
-  var zoomBtns = all('[data-zoom]'), zpct = document.getElementById('zpct');
+  // The buttons act on the map that the view shows: the change map in Changes.
+  var zoomBtns = all('[data-zoom]'), zpct = byId('zpct'), changeMap = byId('changemap');
+  function shownMap(){
+    return mode === 'change' && changeMap && changeMap.systemap ? changeMap.systemap : A;
+  }
   zoomBtns.forEach(function(b){
     b.addEventListener('click', function(){
-      var z = b.dataset.zoom;
-      if(z === 'fit'){ A.view.fit(); }
-      else if(z === 'actual'){ A.view.actual(); }
-      else { A.view.zoomBy(z === 'in' ? 1.25 : 1 / 1.25); }
+      var z = b.dataset.zoom, M = shownMap();
+      if(z === 'fit'){ M.view.fit(); }
+      else if(z === 'actual'){ M.view.actual(); }
+      else { M.view.zoomBy(z === 'in' ? 1.25 : 1 / 1.25); }
     });
   });
   function showZoom(zoom, fit){
@@ -147,396 +138,71 @@ JS = r"""
     });
     if(zpct){ zpct.textContent = Math.round(zoom * 100) + '%'; }
   }
-  svg.addEventListener('systemap:view', function(e){ showZoom(e.detail.zoom, e.detail.fit); });
-
-  // ---- journeys ---------------------------------------------------------
-  var sel = document.getElementById('journey');
-  var prev = document.getElementById('jprev'), next = document.getElementById('jnext');
-  var count = document.getElementById('jcount');
-  var strip = document.getElementById('strip');
-  var stripN = document.getElementById('stripn'), stripSay = document.getElementById('stripsay');
-  var stripMeas = document.getElementById('stripmeas');
-  var stripFoot = document.getElementById('stripfoot');
-  var cur = {j:-1, s:0};
-  var beforeJourney = null, journeyView = null;
-  var returnBtn = document.getElementById('jreturn'), endBtn = document.getElementById('jend');
-  function mapState(){
-    return {focus:A.state.focus, edge:A.state.edge, layer:A.state.layer,
-      view:A.view.snapshot(), mode:mode};
-  }
-  function restoreMap(saved){
-    restoringView = true;
-    A.setJourney(null);
-    if(saved){
-      setLayer(saved.layer);
-      if(saved.focus){ A.select(saved.focus, saved.edge); } else { A.clear(); }
-      A.view.restore(saved.view, true);
-    } else { A.clear(); }
-    restoringView = false;
-  }
-  function journeyStrip(j){
-    // The strip during a journey: every step as the edge it traces, the
-    // current one lit, each one a jump. The sentence lives under the map.
-    if(!lstrip){ return; }
-    var h = '<span class="lstrip__l" style="--c:var(--accent)"><i></i>sequence</span>'
-          + '<span class="lstrip__q">' + esc(j.label) + '</span><span class="lstrip__row">';
-    j.steps.forEach(function(s, k){
-      var e = A.edges[s.edge] || {from:'', to:'', art:''};
-      h += '<button type="button" class="' + (k === cur.s ? 'on' : '') + '" data-step="' + k
-         + '" title="' + esc(e.art) + '"><b>' + (k + 1) + '</b>' + esc(e.from) + '<i>to</i>'
-         + esc(e.to) + '</button>';
-    });
-    lstrip.innerHTML = h + '</span>';
-    all('[data-step]', lstrip).forEach(function(b){
-      b.addEventListener('click', function(){ cur.s = +b.dataset.step; showStep(); });
-    });
-  }
-  function footOf(j, step){
-    // Where the walk begins, what backs the step the reader is on, and a
-    // word when an agent wrote the walk and nobody has confirmed it.
-    var parts = [];
-    if(j.starts){ parts.push('starts at <b>' + esc(j.starts) + '</b>'); }
-    var e = A.edges[step.edge];
-    if(e && e.evidence_says){ parts.push(esc(e.evidence_says)); }
-    if(j.drafted){
-      parts.push('<span class="draft">Agent draft. Source review necessary.</span>');
-    }
-    return parts.join(' &middot; ');
-  }
-  function showStep(){
-    var j = A.journeys[cur.j];
-    if(!j){ return; }
-    var step = j.steps[cur.s];
-    A.setJourney(null); closeDrawer();
-    var edge = A.edges[step.edge];
-    if(edge){ setLayer(edge.layer); }
-    journeyStrip(j);
-    if(strip){
-      strip.hidden = false;
-      stripN.textContent = (cur.s + 1) + ' / ' + j.steps.length;
-      stripSay.textContent = step.say;
-      var m = step.measures || [];
-      stripMeas.textContent = m.length ? 'Measurement components: ' + m.join(', ')
-        : 'No measurement component for this step';
-      stripMeas.classList.toggle('none', !m.length);
-      stripFoot.innerHTML = footOf(j, step);
-    }
-    visibility();
-    svg.dispatchEvent(new CustomEvent('systemap:workspace'));
-    all('[data-journey]').forEach(function(b){
-      b.setAttribute('aria-pressed', +b.dataset.journey === cur.j ? 'true' : 'false');
-    });
-    if(count){ count.textContent = (cur.s + 1) + '/' + j.steps.length; }
-    if(prev){ prev.disabled = cur.s === 0; }
-    if(next){ next.disabled = cur.s >= j.steps.length - 1; }
-    // Frame after the controls and inspector have their final layout.
-    A.setJourney(step);
-    journeyView = {layer:A.state.layer, view:A.view.snapshot()};
-  }
-  function backToJourney(){
-    if(cur.j < 0){ return; }
-    var saved = journeyView;
-    showStep();
-    if(saved){ setLayer(saved.layer); A.view.restore(saved.view, true); journeyView = saved; }
-  }
-  function endJourney(restoreMode){
-    var saved = beforeJourney;
-    cur.j = -1; cur.s = 0;
-    beforeJourney = null; journeyView = null;
-    if(strip){ strip.hidden = true; }
-    if(count){ count.textContent = ''; }
-    if(prev){ prev.disabled = true; }
-    if(next){ next.disabled = true; }
-    if(sel){ sel.value = ''; }
-    all('[data-journey]').forEach(function(b){ b.setAttribute('aria-pressed', 'false'); });
-    restoreMap(saved);
-    if(saved && restoreMode !== false){ setMode(saved.mode); }
-    layerStrip(); visibility();
-    svg.dispatchEvent(new CustomEvent('systemap:workspace'));
-  }
-  function startJourney(k){
-    if(!A.journeys[k] || !A.journeys[k].steps.length){ return; }
-    if(cur.j < 0){ beforeJourney = mapState(); }
-    setMode('trace');
-    cur.j = k; cur.s = 0;
-    if(sel){ sel.value = String(k); }
-    var question = document.getElementById('activity-question');
-    var map = document.getElementById('map');
-    if(question){ question.textContent = A.journeys[k].label; }
-    if(map){ map.scrollIntoView({block:'start'}); }
-    showStep();
-  }
-  if(sel){ sel.addEventListener('change', function(){
-    if(sel.value === ''){ endJourney(); }
-    else { startJourney(+sel.value); }
-  }); }
-  function stepBy(d){
-    var j = A.journeys[cur.j];
-    if(!j){ return false; }
-    var s = cur.s + d;
-    if(s < 0 || s >= j.steps.length){ return true; }
-    cur.s = s; showStep();
-    return true;
-  }
-  if(prev){ prev.addEventListener('click', function(){ stepBy(-1); }); }
-  if(next){ next.addEventListener('click', function(){ stepBy(1); }); }
-
-  // ---- the map inside a card, in place -----------------------------------
-  // The figure says which card to open (its button in the panel, a
-  // double-click on the card, Enter on it a second time); the page lays the
-  // sub-map's page over itself in a frame, under a breadcrumb, and hands
-  // the focus back to the card when the overlay closes.
-  var submap = document.getElementById('submap');
-  var submapFrame = document.getElementById('submapframe');
-  var submapCrumb = document.getElementById('submapcrumb');
-  var submapClose = document.getElementById('submapclose');
-  var submapOpener = null;
-  var inertBefore = [];
-  function holdBackground(){
-    var child = submap, parent = child.parentNode;
-    while(parent && child !== document.body){
-      Array.prototype.slice.call(parent.children).forEach(function(n){
-        if(n === child || n.tagName === 'SCRIPT' || n.tagName === 'STYLE'){ return; }
-        inertBefore.push({node:n, inert:n.hasAttribute('inert')});
-        n.setAttribute('inert', '');
-      });
-      child = parent; parent = parent.parentNode;
-    }
-  }
-  function openSubmap(e){
-    var d = e.detail || {};
-    if(!submap || !d.href || !submap.hidden){ return; }
-    submapOpener = d.opener || document.activeElement || nodeOf(d.id);
-    submapCrumb.textContent = (submap.dataset.here || '') + ' > ' + d.id
-      + (d.name !== d.id ? ' > ' + d.name : '');
-    submapFrame.title = d.name + ' inside ' + d.id;
-    if(submapFrame.getAttribute('src') !== d.href){ submapFrame.setAttribute('src', d.href); }
-    submap.hidden = false;
-    holdBackground();
-    document.body.classList.add('submap-open');
-    submapClose.focus();
-  }
-  function closeSubmap(){
-    if(!submap || submap.hidden){ return false; }
-    submap.hidden = true;
-    submapFrame.setAttribute('src', 'about:blank');
-    document.body.classList.remove('submap-open');
-    inertBefore.forEach(function(saved){
-      if(!saved.inert){ saved.node.removeAttribute('inert'); }
-    });
-    inertBefore = [];
-    if(submapOpener && submapOpener.isConnected !== false){
-      submapOpener.focus({preventScroll:true});
-    }
-    submapOpener = null;
-    return true;
-  }
-  svg.addEventListener('systemap:open', openSubmap);
-  if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
-
-  // ---- the scheme -------------------------------------------------------
-  // The head script stamped the root before the first paint; the picker
-  // shows that, and a change restamps the root, keeps the pick in this
-  // browser when it can, and follows into the map inside a card.
-  var pick = document.getElementById('scheme');
-  function scheme(){ return document.documentElement.getAttribute('data-theme') || ''; }
-  function stampFrame(){
-    try {
-      var d = submapFrame && submapFrame.contentDocument;
-      if(d && d.documentElement){
-        d.documentElement.setAttribute('data-theme', scheme());
-        d.documentElement.dataset.reduceMotion = String(reduced());
-      }
-    } catch(e){}
-  }
-  function setScheme(name){
-    document.documentElement.setAttribute('data-theme', name);
-    if(pick){ pick.value = name; }
-    try { localStorage.setItem('systemap-theme', name); } catch(e){}
-    stampFrame();
-  }
-  if(pick){
-    pick.value = scheme() || pick.value;
-    pick.addEventListener('change', function(){ setScheme(pick.value); });
-  }
-  if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
-
-  // The native preference always wins. The page control can also stop motion.
-  var motionPick = document.getElementById('reduce-motion');
-  var motionMedia = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
-  var motionOff = false;
-  try { motionOff = localStorage.getItem('systemap-reduce-motion') === 'true'; } catch(e){}
-  function motionPreference(){
-    var nativeOff = !!(motionMedia && motionMedia.matches), off = nativeOff || motionOff;
-    document.documentElement.dataset.reduceMotion = String(off);
-    if(motionPick){ motionPick.checked = off; motionPick.disabled = nativeOff; }
-    A.setMotion(!off); stampFrame();
-  }
-  if(motionPick){ motionPick.addEventListener('change', function(){
-    motionOff = motionPick.checked;
-    try { localStorage.setItem('systemap-reduce-motion', String(motionOff)); } catch(e){}
-    motionPreference();
-  }); }
-  if(motionMedia && motionMedia.addEventListener){
-    motionMedia.addEventListener('change', motionPreference);
-  }
-  motionPreference();
-
-  // ---- keyboard ---------------------------------------------------------
-  // The page from the keyboard: Tab moves across the cards in reading
-  // order (they are written in that order and each takes focus), Enter on
-  // a card opens its panel, Escape closes it and clears the selection, the
-  // left and right arrows switch layers, or step the journey while one
-  // is on. A control that takes arrows itself (the journey select) keeps
-  // them.
-  function stepLayer(d){
-    var ids = layerBtns.map(function(b){ return b.dataset.layerBtn; });
-    if(!ids.length){ return; }
-    var i = ids.indexOf(A.state.layer);
-    setLayer(ids[(i + d + ids.length) % ids.length]);
-  }
-  document.addEventListener('keydown', function(e){
-    var t = e.target, tag = t && t.tagName;
-    if(e.key === 'Escape'){
-      // The map inside a card closes first, and the selection under it stays.
-      if(closeSubmap()){ e.preventDefault(); return; }
-    }
-    if(submap && !submap.hidden){ return; }
-    if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' ||
-      (t && t.isContentEditable) || (t && t.closest && t.closest('[role="textbox"]'))){ return; }
-    if((e.key === '/' && !e.altKey && !e.ctrlKey && !e.metaKey) ||
-      (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey)){
-      var search = document.getElementById('partsearch');
-      if(search){
-        setMode('understand');document.body.dataset.browse='true';
-        var section = document.getElementById('components');
-        if(section){ section.hidden = false; }
-        var details = search.closest('details');
-        if(details){ details.open = true; }
-        search.focus(); e.preventDefault();
-      }
-      return;
-    }
-    if(e.altKey || e.ctrlKey || e.metaKey){ return; }
-    if(e.key === 'Escape'){
-      if(cur.j >= 0){ endJourney(); e.preventDefault(); return; }
-      A.clear();
-      A.view.back();
-      e.preventDefault();
-    } else if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
-      var d = e.key === 'ArrowRight' ? 1 : -1;
-      if(cur.j >= 0){ if(stepBy(d)){ e.preventDefault(); } }
-      else { stepLayer(d); e.preventDefault(); }
-    }
+  [svg, changeMap].forEach(function(m){
+    if(m){ m.addEventListener('systemap:view', function(e){
+      if((m === svg) === (shownMap() === A)){ showZoom(e.detail.zoom, e.detail.fit); }
+    }); }
   });
 
-  svg.addEventListener('systemap:flow', function(e){ setLayer(A.edges[e.detail.edge].layer); });
-  var opened = '';
-  svg.addEventListener('systemap:select', function(e){
-    var id = e.detail.id;
-    opened = id;
-    openDrawer(id);
-    if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
-  });
-  svg.addEventListener('systemap:clear', function(){
-    closeDrawer();
-    if(location.hash){ history.replaceState(null, '', location.pathname + location.search); }
-    // Focus that was in the drawer, or nowhere, goes back to the card the
-    // drawer was about, so the keyboard reader is where they left off.
-    var active = document.activeElement, node = opened && nodeOf(opened);
-    opened = '';
-    if(node && (!active || active === document.body || active.isConnected === false
-        || (drawer && drawer.contains(active)))){
-      node.focus({preventScroll:true});
-    }
-    if(cur.j >= 0 && !A.state.journey){ backToJourney(); }
-  });
-  function nodeOf(id){
-    return all('.node', svg).filter(function(n){ return n.dataset.id === id; })[0] || null;
-  }
-  all('.ix[data-go], .gv[data-go]').forEach(function(b){
-    b.addEventListener('click', function(){
-      A.select(b.dataset.go);
-      document.getElementById('map').scrollIntoView({
-        behavior:reduced() ? 'auto' : 'smooth', block:'start'});
-    });
-  });
-  window.addEventListener('resize', function(){
-    showZoom(A.view.zoom(), A.view.isFit());
-    // A held focus is framed again for the new window, in place.
-    if(A.state.focus && drawer && !drawer.hidden){ frameBeside(A.state.focus, true); }
-  });
-
-  // Reference sections and the inspector share the same map state.
-  var W = window.systemapWorkspace;
-  var mode = 'understand', reviewFilter = 'open', reviewPick = -1;
-  var empty = document.getElementById('inspector-empty');
-  var sourceDetail = document.getElementById('source-detail');
-  var reviewDetail = document.getElementById('review-detail');
-  function visibility(){
-    if(empty){ empty.hidden = !!A.state.focus || cur.j >= 0 || mode === 'review'; }
-    if(reviewDetail){ reviewDetail.hidden = mode !== 'review'; }
-    if(strip){ strip.hidden = cur.j < 0; }
-    if(returnBtn){ returnBtn.hidden = cur.j < 0 || !A.state.focus; }
-    if(endBtn){ endBtn.hidden = cur.j < 0; }
-  }
+  // ---- views ---------------------------------------------------------------
+  var TITLES = {trace:['SEQUENCES', 'Which steps make one operation?'],
+    change:['CHANGES', 'What did this change touch?']};
+  var more = byId('theme-menu');
   function setMode(name){
+    if(name !== 'trace' && P.journey.active()){ P.journey.end(false); }
     mode = name;
-    document.body.dataset.mode = name;
+    body.dataset.mode = name;
+    body.dataset.compare = String(hasChange);
     all('button[data-mode]').forEach(function(b){
-      b.setAttribute('aria-pressed', b.dataset.mode === name ? 'true' : 'false');
+      var on = b.dataset.mode === name || (name === 'review' && b.dataset.mode === 'understand');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
-    [['components','understand'],['journeyindex','trace'],['reviewindex','review']]
-      .forEach(function(pair){
-        var section = document.getElementById(pair[0]);
-        if(section){ section.hidden = name !== pair[1]; }
-      });
-    var label = document.getElementById('activity-label');
-    if(label){ label.textContent = {
-      understand:'System components', trace:'Operation sequence', review:'Examine a change'
-    }[name]; }
-    var question = document.getElementById('activity-question');
-    if(question){ question.textContent = {
-      understand:'What are the components and their connections?',
-      trace:'What are the operation steps?', review:'What changed at this revision?'
-    }[name]; }
+    collapsed = false;
+    if(TITLES[name]){ setTitle(TITLES[name][0], TITLES[name][1]); }
+    else { setTitle('', layerQuestion(A.state.layer)); }
+    var change = byId('change');
+    show(change, name === 'change');
+    show(byId('spatialmap'), name !== 'change');
+    if(name === 'change' && A.state.focus){ A.clear(); }
     if(name === 'review'){ renderReview(); }
-    document.getElementById('change') &&
-      (document.getElementById('change').hidden = name !== 'review');
-    visibility();
-    svg.dispatchEvent(new CustomEvent('systemap:workspace'));
+    if(more){ more.open = false; }
+    var label = byId('activity-label');
+    if(label){ label.textContent = {understand:'System components', trace:'Operation sequence',
+      change:'Revision comparison', review:'Map records'}[name]; }
+    var activity = byId('activity-question');
+    if(activity){ activity.textContent = {
+      understand:'What are the components and their connections?',
+      trace:'What are the operation steps?', change:'What did this change touch?',
+      review:'Which decisions and rules apply to this map?'}[name]; }
+    sections();
+    var M = shownMap();
+    if(M && M.view){ showZoom(M.view.zoom(), M.view.isFit()); }
+    emit('systemap:mode', {mode:name});
+    emit('systemap:workspace');
   }
   all('button[data-mode]').forEach(function(b){
-    b.addEventListener('click', function(){ setMode(b.dataset.mode); });
-  });
-  all('.header-links a').forEach(function(a){
-    a.addEventListener('click', function(){
-      if(a.getAttribute('href') === '#components'){ setMode('understand'); }
-      if(a.getAttribute('href') === '#invariants'){
-        document.getElementById('invariants').setAttribute('open','');
-      }
-      if(a.getAttribute('href') === '#review'){ setMode('review'); }
+    b.addEventListener('click', function(){
+      if(b.dataset.mode === mode && mode === 'review'){ setMode('understand'); return; }
+      setMode(b.dataset.mode);
+      // Reference shows the records, not a selection from an earlier view.
+      if(b.dataset.mode === 'review' && A.state.focus){ A.clear(); }
     });
   });
-  function bindJourneys(root){
-    all('[data-journey]', root).forEach(function(b){
-      b.addEventListener('click', function(){
-        startJourney(+b.dataset.journey);
-      });
-    });
-  }
-  bindJourneys(document.getElementById('journeyindex'));
-  if(endBtn){ endBtn.addEventListener('click', function(){ endJourney(); }); }
-  if(returnBtn){ returnBtn.addEventListener('click', backToJourney); }
-  var reset = document.getElementById('resetmap');
-  if(reset){ reset.addEventListener('click', function(){ A.view.fit(); }); }
+
+  // ---- search: the Find field and its list of components ---------------------
+  var find = byId('partsearch'), results = byId('components');
+  function openFind(){ if(results){ results.hidden = false;
+    } if(find){ find.setAttribute('aria-expanded', 'true'); } }
+  function closeFind(){ if(results){ results.hidden = true;
+    } if(find){ find.setAttribute('aria-expanded', 'false'); } }
+  function visibleEntries(){ return all('.ix[data-go]',
+    results).filter(function(b){ return !b.hidden; }); }
   function searchParts(){
-    var search = document.getElementById('partsearch');
-    if(!search){ return; }
-    var q = search.value.trim().toLowerCase();
+    if(!find){ return; }
+    var q = find.value.trim().toLowerCase();
     var found = 0, entries = all('.ix[data-go]');
     entries.forEach(function(b){
-      var d = A.detail[b.dataset.go], s = W && W.sources[b.dataset.go];
+      var d = A.detail[b.dataset.go], s = W.sources && W.sources[b.dataset.go];
       var fields = [['Component name',d.id],['Function',d.does],['Function',d.plain || '']];
       if(s){
         s.claims.forEach(function(m){ fields.push(['Claimed module',m]); });
@@ -558,16 +224,258 @@ JS = r"""
     all('.ixgroup').forEach(function(g){
       g.hidden = all('.ix', g).every(function(b){ return b.hidden; });
     });
-    var disclosure = document.getElementById('partlist-disclosure');
-    if(disclosure && q){ disclosure.open = true; }
-    var status = document.getElementById('searchcount');
+    var status = byId('searchcount');
     if(status){ status.textContent = found + ' of ' + entries.length + ' components'; }
-    var emptySearch = document.getElementById('searchempty');
-    if(emptySearch){ emptySearch.hidden = found !== 0; }
+    show(byId('searchempty'), found === 0);
   }
-  var partSearch = document.getElementById('partsearch');
-  if(partSearch){ partSearch.addEventListener('input', searchParts); }
+  if(find){
+    find.addEventListener('focus', function(){ searchParts(); openFind(); });
+    find.addEventListener('input', function(){ searchParts(); openFind(); });
+    find.addEventListener('keydown', function(e){
+      var list = visibleEntries();
+      if(e.key === 'Escape'){ closeFind(); find.blur(); e.preventDefault(); e.stopPropagation(); }
+      else if(e.key === 'ArrowDown' && list.length){ list[0].focus(); e.preventDefault(); }
+      else if(e.key === 'Enter' && list.length){ list[0].click(); e.preventDefault(); }
+    });
+  }
+  if(results){ results.addEventListener('keydown', function(e){
+    var list = visibleEntries(), i = list.indexOf(document.activeElement);
+    if(e.key === 'Escape'){ closeFind(); if(find){ find.focus(); } e.preventDefault();
+      e.stopPropagation(); }
+    else if(e.key === 'ArrowDown' && i >= 0 && i < list.length - 1){ list[i + 1].focus();
+      e.preventDefault(); }
+    else if(e.key === 'ArrowUp' && i > 0){ list[i - 1].focus(); e.preventDefault(); }
+    else if(e.key === 'ArrowUp' && i === 0 && find){ find.focus(); e.preventDefault(); }
+  }); }
+  document.addEventListener('pointerdown', function(e){
+    if(results && !results.hidden && !results.contains(e.target) && e.target !== find){
+      closeFind(); }
+    if(more && more.open && !more.contains(e.target)){ more.open = false; }
+  });
+  all('.ix[data-go], .gv[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(mode === 'change'){ setMode('understand'); }
+      A.select(b.dataset.go);
+      closeFind();
+    });
+  });
   searchParts();
+
+  // ---- selection --------------------------------------------------------
+  var closeBtn = byId('drawerclose');
+  if(closeBtn){ closeBtn.addEventListener('click', function(){
+    if(P.journey.active()){ P.journey.back(); } else { A.clear(); }
+  }); }
+  function nodeOf(id){
+    return all('.node', svg).filter(function(n){ return n.dataset.id === id; })[0] || null;
+  }
+  svg.addEventListener('systemap:select', function(e){
+    var id = e.detail.id;
+    opened = id;
+    var status = byId('linkstatus');
+    if(status){ status.textContent = ''; }
+    sourceRows(id);
+    sections();
+    if(!restoringView){ frameBeside(id); }
+    if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
+    all('.ix[data-go]').forEach(function(b){
+      b.setAttribute('aria-current', b.dataset.go === id ? 'true' : 'false');
+    });
+  });
+  svg.addEventListener('systemap:clear', function(){
+    if(sourceDetail){ sourceDetail.innerHTML = ''; }
+    sections();
+    if(location.hash){ history.replaceState(null, '', location.pathname + location.search); }
+    all('.ix[data-go]').forEach(function(b){ b.removeAttribute('aria-current'); });
+    // Focus that was in the panel, or nowhere, goes back to the card the
+    // panel was about, so the keyboard reader is where they left off.
+    var active = document.activeElement, node = opened && nodeOf(opened);
+    opened = '';
+    if(node && (!active || active === body || active.isConnected === false
+        || (readpanel && readpanel.contains(active)))){
+      node.focus({preventScroll:true});
+    }
+    if(P.journey.active() && !A.state.journey){ P.journey.back(); }
+  });
+  svg.addEventListener('systemap:flow', function(e){
+    if(mode === 'understand' || mode === 'review'){ setLayer(A.edges[e.detail.edge].layer); }
+  });
+  // A sequence button anywhere in the panel starts that sequence.
+  if(readpanel){ readpanel.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-journey]');
+    if(!b || !readpanel.contains(b)){ return; }
+    var k = +b.dataset.journey;
+    if(P.journey.state().j !== k){ setMode('trace'); P.journey.start(k); }
+    if(b.dataset.journeyStep !== undefined){ P.journey.step(+b.dataset.journeyStep); }
+  }); }
+
+  // ---- the map inside a card, in place -----------------------------------
+  var submap = byId('submap'), submapFrame = byId('submapframe');
+  var submapCrumb = byId('submapcrumb'), submapClose = byId('submapclose');
+  var submapOpener = null, inertBefore = [];
+  function holdBackground(){
+    var child = submap, parent = child.parentNode;
+    while(parent && child !== body){
+      Array.prototype.slice.call(parent.children).forEach(function(n){
+        if(n === child || n.tagName === 'SCRIPT' || n.tagName === 'STYLE'){ return; }
+        inertBefore.push({node:n, inert:n.hasAttribute('inert')});
+        n.setAttribute('inert', '');
+      });
+      child = parent; parent = parent.parentNode;
+    }
+  }
+  function openSubmap(e){
+    var d = e.detail || {};
+    if(!submap || !d.href || !submap.hidden){ return; }
+    submapOpener = d.opener || document.activeElement || nodeOf(d.id);
+    submapCrumb.textContent = (submap.dataset.here || '') + ' > ' + d.id
+      + (d.name !== d.id ? ' > ' + d.name : '');
+    submapFrame.title = d.name + ' inside ' + d.id;
+    if(submapFrame.getAttribute('src') !== d.href){ submapFrame.setAttribute('src', d.href); }
+    submap.hidden = false;
+    holdBackground();
+    body.classList.add('submap-open');
+    submapClose.focus();
+  }
+  function closeSubmap(){
+    if(!submap || submap.hidden){ return false; }
+    submap.hidden = true;
+    submapFrame.setAttribute('src', 'about:blank');
+    body.classList.remove('submap-open');
+    inertBefore.forEach(function(saved){
+      if(!saved.inert){ saved.node.removeAttribute('inert'); }
+    });
+    inertBefore = [];
+    if(submapOpener && submapOpener.isConnected !== false){
+      submapOpener.focus({preventScroll:true});
+    }
+    submapOpener = null;
+    return true;
+  }
+  svg.addEventListener('systemap:open', openSubmap);
+  if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
+
+  // ---- the scheme -------------------------------------------------------
+  // The head script stamped the root before the first paint; the buttons
+  // show that, and a change restamps the root, keeps the pick in this
+  // browser when it can, and follows into the map inside a card.
+  function scheme(){ return document.documentElement.getAttribute('data-theme') || ''; }
+  function stampFrame(){
+    try {
+      var d = submapFrame && submapFrame.contentDocument;
+      if(d && d.documentElement){
+        d.documentElement.setAttribute('data-theme', scheme());
+        d.documentElement.dataset.reduceMotion = String(reduced());
+      }
+    } catch(e){}
+  }
+  function showScheme(){
+    all('[data-scheme]').forEach(function(b){
+      b.setAttribute('aria-pressed', b.dataset.scheme === scheme() ? 'true' : 'false');
+    });
+  }
+  function setScheme(name){
+    document.documentElement.setAttribute('data-theme', name);
+    try { localStorage.setItem('systemap-theme', name); } catch(e){}
+    showScheme(); stampFrame();
+    emit('systemap:scheme', {scheme:name});
+  }
+  all('[data-scheme]').forEach(function(b){
+    b.addEventListener('click', function(){ setScheme(b.dataset.scheme); });
+  });
+  showScheme();
+  if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
+
+  // The native preference always wins. The page control can also stop motion.
+  var motionPick = byId('reduce-motion');
+  var motionMedia = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+  var motionOff = false;
+  try { motionOff = localStorage.getItem('systemap-reduce-motion') === 'true'; } catch(e){}
+  function motionPreference(){
+    var nativeOff = !!(motionMedia && motionMedia.matches), off = nativeOff || motionOff;
+    document.documentElement.dataset.reduceMotion = String(off);
+    if(motionPick){ motionPick.checked = off; motionPick.disabled = nativeOff; }
+    A.setMotion(!off); stampFrame();
+  }
+  if(motionPick){ motionPick.addEventListener('change', function(){
+    motionOff = motionPick.checked;
+    try { localStorage.setItem('systemap-reduce-motion', String(motionOff)); } catch(e){}
+    motionPreference();
+  }); }
+  if(motionMedia && motionMedia.addEventListener){
+    motionMedia.addEventListener('change', motionPreference);
+  }
+  motionPreference();
+
+  // ---- keyboard ---------------------------------------------------------
+  // Tab moves across the cards in reading order, Enter on a card opens its
+  // panel, Escape closes the newest thing, the left and right arrows switch
+  // layers or step the sequence, 1 to 9 select a layer tab, R opens Read,
+  // T changes the map and the text view, / finds a component.
+  function stepLayer(d){
+    var ids = tabs.map(function(b){ return b.dataset.layerBtn; });
+    if(!ids.length){ return; }
+    var i = ids.indexOf(A.state.layer);
+    setLayer(ids[(i + d + ids.length) % ids.length]);
+  }
+  function overlayOpen(){
+    return ['keys', 'present'].some(function(id){ var n = byId(id); return n && !n.hidden; });
+  }
+  function typing(t){
+    var tag = t && t.tagName;
+    return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' ||
+      (t && t.isContentEditable) || !!(t && t.closest && t.closest('[role="textbox"]'));
+  }
+  function escape(e){
+    if(more && more.open){ more.open = false; e.preventDefault(); return; }
+    if(P.journey.active()){ P.journey.end(); e.preventDefault(); return; }
+    if(A.state.focus){ A.clear(); A.view.back(); e.preventDefault(); return; }
+    if(readOpen && mode === 'understand'){ readOpen = false; sections(); e.preventDefault();
+      return; }
+    if(mode === 'review'){ setMode('understand'); e.preventDefault(); return; }
+    A.view.back();
+  }
+  function letter(e){
+    var k = e.key.toLowerCase();
+    if(k === 'r' && readBtn){ readBtn.click(); return true; }
+    if(k === 't'){
+      var target = byId(body.dataset.view === 'reading' ? 'view-map' : 'view-reading');
+      if(target){ target.click(); }
+      return true;
+    }
+    if(/^[1-9]$/.test(e.key) && mode !== 'trace'){
+      var b = tabs[+e.key - 1];
+      if(b){ b.click(); }
+      return !!b;
+    }
+    return false;
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && closeSubmap()){ e.preventDefault(); return; }
+    if(submap && !submap.hidden){ return; }
+    if(overlayOpen() || typing(e.target)){ return; }
+    if((e.key === '/' && !e.altKey && !e.ctrlKey && !e.metaKey) ||
+      (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey)){
+      if(find){ find.focus(); e.preventDefault(); }
+      return;
+    }
+    if(e.altKey || e.ctrlKey || e.metaKey){ return; }
+    if(e.key === 'Escape'){ escape(e); return; }
+    if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+      if(e.target && e.target.closest && e.target.closest('#readpanel')){ return; }
+      var d = e.key === 'ArrowRight' ? 1 : -1;
+      if(P.journey.active()){ if(P.journey.stepBy(d)){ e.preventDefault(); } }
+      else if(mode === 'understand' || mode === 'review'){ stepLayer(d); e.preventDefault(); }
+      return;
+    }
+    if(letter(e)){ e.preventDefault(); }
+  });
+  window.addEventListener('resize', function(){
+    showZoom(A.view.zoom(), A.view.isFit());
+    if(A.state.focus && panelOpen()){ frameBeside(A.state.focus, true); }
+  });
+
+  // ---- records for a selected component ----------------------------------
   function moduleRecords(s){
     return s.modules.map(function(m){
       var surface = (m.public_names || []).map(function(n){
@@ -595,57 +503,33 @@ JS = r"""
     }).join('') || '<p>The source data has no modules for this component card.</p>';
   }
   function sourceRows(id){
-    if(!sourceDetail || !W){ return; }
+    if(!sourceDetail || !W.sources){ return; }
     var d = A.detail[id], s = W.sources[id], h = '';
-    h += '<section class="source-section"><h3>Rules for this component</h3>';
-    (d.rules || []).forEach(function(n){
-      var r = A.detail._meta.rules.filter(function(r){ return r.n === n; })[0];
-      h += '<div class="rule-row"><b>' + n + '</b>'
-         + esc(r ? r.text : 'Rule not recorded') + '</div>';
-    });
-    h += d.rules.length ? '' : '<p>The model has no rules for this component.</p>';
-    h += '</section><section class="source-section"><h3>Sequences with this component</h3>';
-    var count = 0;
-    A.journeys.forEach(function(j, k){
-      var touches = j.steps.some(function(step){
-        var e = A.edges[step.edge];
-        return (e && (e.from === id || e.to === id)) ||
-          step.acts.indexOf(id) >= 0 || step.measures.indexOf(id) >= 0;
-      });
-      if(touches){ count++; h += '<button type="button" class="journey-choice" data-journey="'
-        + k + '">' + esc(j.label) + '<small>' + esc(j.starts || 'Entry label not supplied')
-         + '</small></button>'; }
-    });
-    h += count ? '' : '<p>The model has no sequence with this component.</p>';
-    if(d.kind !== 'actor'){
-      h += '</section><section class="source-section"><h3>Source evidence</h3>'
-        + (s.unresolved_claims || []).map(function(claim){
-          return '<p class="source-unknown">The source data has no source for this module claim: '
-            + '<code>' + esc(claim) + '</code>.</p>';
-        }).join('')
-        + '<details class="source-records"><summary>Source records</summary>'
-        + '<p>Module claims in the model: <code>'
-        + esc(s.claims.join(', ') || 'none') + '</code>.</p>'
-        + (s.symbol_claims || []).map(function(claim){
-          return '<p>Public name in the model: <code>' + esc(claim.module + ':' + claim.name)
-            + '</code>.</p>';
-        }).join('')
-        + moduleRecords(s);
-      h += '<h3>Entry points</h3><p>An entry point is where a program can start.</p>';
-      h += s.points.map(function(p){ return '<p><code>' + esc(p) + '</code></p>'; }).join('')
-        || '<p>No entry points were extracted for these modules.</p>';
-      h += '</details>';
-    }
-    sourceDetail.innerHTML = h + '</section>';
-    all('[data-neighbour]', sourceDetail).forEach(function(b){
-      b.addEventListener('mouseenter', function(){ A.peek(+b.dataset.flow); });
-      b.addEventListener('focus', function(){ A.peek(+b.dataset.flow); });
-      b.addEventListener('click', function(){ A.select(b.dataset.neighbour); });
-    });
-    bindJourneys(sourceDetail);
+    if(!d || d.kind === 'actor' || !s){ sourceDetail.innerHTML = ''; return; }
+    h += '<section class="source-section"><h3>Source evidence</h3>'
+      + (s.unresolved_claims || []).map(function(claim){
+        return '<p class="source-unknown">The source data has no source for this module claim: '
+          + '<code>' + esc(claim) + '</code>.</p>';
+      }).join('')
+      + '<details class="source-records"><summary>Source records</summary>'
+      + '<p>Module claims in the model: <code>'
+      + esc(s.claims.join(', ') || 'none') + '</code>.</p>'
+      + (s.symbol_claims || []).map(function(claim){
+        return '<p>Public name in the model: <code>' + esc(claim.module + ':' + claim.name)
+          + '</code>.</p>';
+      }).join('')
+      + moduleRecords(s)
+      + '<h3>Entry points</h3><p>An entry point is where a program can start.</p>'
+      + (s.points.map(function(p){ return '<p><code>' + esc(p) + '</code></p>'; }).join('')
+        || '<p>No entry points were extracted for these modules.</p>')
+      + '</details></section>';
+    sourceDetail.innerHTML = h;
   }
+
+  // ---- reference: decisions ----------------------------------------------
+  var reviewFilter = 'open', reviewPick = -1;
   function reviewCards(line){
-    return Object.keys(W.sources).filter(function(id){
+    return Object.keys(W.sources || {}).filter(function(id){
       // Match identifiers as tokens, including hyphenated or dotted card names.
       var safe = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       return new RegExp('(^|[^A-Za-z0-9_.-])' + safe + '($|[^A-Za-z0-9_.-])').test(line);
@@ -656,7 +540,7 @@ JS = r"""
     var item = W.review[reviewFilter][k];
     if(!item){ return; }
     var label = reviewFilter === 'open' ? 'Decision to make' : 'Recorded decision';
-    var h = '<p>' + esc(label)
+    var h = '<p class="review-kicker">' + esc(label)
       + '</p><h2>' + esc(item.kind) + '</h2><div class="review-line">'
          + esc(item.line) + '</div>'
       + '<p>' + esc(item.means) + '</p><p>' + esc(item.why) + '</p>';
@@ -680,9 +564,9 @@ JS = r"""
     });
   }
   function renderReview(){
-    if(!W){ return; }
+    if(!W.review){ return; }
     var items = W.review[reviewFilter];
-    document.getElementById('reviewlist').innerHTML = items.map(function(item, k){
+    byId('reviewlist').innerHTML = items.map(function(item, k){
       return '<button type="button" class="review-choice" data-review-item="' + k
         + '" aria-pressed="false">' + esc(item.kind) + '<small>' + esc(item.line)
          + '</small></button>';
@@ -691,7 +575,7 @@ JS = r"""
       : 'These findings have no applicable stored answers.') + '</p>';
     all('[data-review-item]').forEach(function(b){
       b.addEventListener('click', function(){
-        A.clear(); pickReview(+b.dataset.reviewItem); visibility();
+        A.clear(); pickReview(+b.dataset.reviewItem); sections();
       });
     });
     reviewDetail.innerHTML = '<h2>Read the decisions.</h2>'
@@ -706,95 +590,53 @@ JS = r"""
       all('[data-review-filter]').forEach(function(x){
         x.setAttribute('aria-pressed', x.dataset.reviewFilter === reviewFilter ? 'true' : 'false');
       });
-      A.clear(); renderReview(); visibility();
+      A.clear(); renderReview(); sections();
     });
-  });
-  all('[data-copy]').forEach(function(b){
-    b.addEventListener('click', function(){
-      var status = document.getElementById('copystatus');
-      if(!navigator.clipboard || !navigator.clipboard.writeText){
-        status.textContent = 'No clipboard access. Select and copy the command text.'; return;
-      }
-      navigator.clipboard.writeText(b.dataset.copy).then(function(){
-        status.textContent = 'Copied: ' + b.dataset.copy;
-      }, function(){ status.textContent = 'Copy failed. Select and copy the command text.'; });
-    });
-  });
-  svg.addEventListener('systemap:select', function(e){
-    document.getElementById('linkstatus').textContent = '';
-    sourceRows(e.detail.id); visibility();
-    all('.ix[data-go]').forEach(function(b){
-      b.setAttribute('aria-current', b.dataset.go === e.detail.id ? 'true' : 'false');
-    });
-  });
-  svg.addEventListener('systemap:clear', function(){
-    if(sourceDetail){ sourceDetail.innerHTML = ''; }
-    visibility();
-    all('.ix[data-go]').forEach(function(b){ b.removeAttribute('aria-current'); });
   });
 
-  function comparisonRows(id){
-    var comparison = W.comparison, record = comparison.parts[id], h = '<h4>Source changes</h4>';
-    if(!record){ return h + '<p>' + (comparison.adjacent.indexOf(id) >= 0
-      ? 'This component imports changed source. Examine possible effects.'
-      : 'The comparison has no source changes for this component.') + '</p>'; }
-    var surface = record.surface || {}, count = 0;
-    h += '<p>Changed source modules: <code>' + esc(record.modules.join(', ')) + '</code>.</p>';
-    ['added','removed','changed'].forEach(function(action){
-      Object.keys(surface[action] || {}).forEach(function(kind){
-        var names = surface[action][kind]; if(!names.length){ return; } count += names.length;
-        h += '<p><b>' + esc(action.charAt(0).toUpperCase() + action.slice(1) + ' ' + kind)
-          + '</b>: <code>' + esc(names.join(', ')) + '</code>.</p>';
-      });
-    });
-    ['added','removed'].forEach(function(action){
-      var names = surface['tests_' + action] || []; if(!names.length){ return; }
-      count += names.length; h += '<p><b>Test references ' + action + '</b>: <code>'
-        + esc(names.join(', ')) + '</code>. Test references do not show test coverage.</p>';
-    });
-    if(!count){ h += '<p>No differences in recorded public names or test references were found. '
-      + 'The source files can contain other changes.</p>'; }
-    record.modules.filter(function(m){ return comparison.unparsed.indexOf(m) >= 0; })
-      .forEach(function(m){ h += '<p class="source-unknown">Source differences could not be parsed '
-        + 'for <code>' + esc(m) + '</code>. Do the comparison again after you correct the source '
-        + 'or extractor error.</p>'; });
-    Object.keys(record.unknown || {}).forEach(function(m){
-      Object.keys(record.unknown[m]).forEach(function(revision){
-        record.unknown[m][revision].forEach(function(issue){
-          h += '<p class="source-unknown">Unknown ' + esc(revision) + ' surface for <code>'
-            + esc(m) + '</code>: ' + esc(issue.reason || 'The source could not be read.')
-            + (issue.line === undefined ? '' : ' (line ' + esc(issue.line)
-              + (issue.column == null ? '' : ', column ' + esc(issue.column)) + ')') + '.</p>';
-        }); }); });
-    return h;
-  }
-  var comparisonMap = document.getElementById('changemap');
-  var comparisonPanel = document.getElementById('change-panel');
-  if(W && comparisonMap && comparisonPanel){
-    comparisonMap.addEventListener('systemap:select', function(e){
-      var section = document.createElement('section');
-      section.setAttribute('class', 'source-section comparison-source');
-      section.innerHTML = comparisonRows(e.detail.id); comparisonPanel.appendChild(section);
-    });
-  }
+  // ---- copy a command -------------------------------------------------------
+  // The button says Copied for a short time; the status line says it too.
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-copy]');
+    if(!b){ return; }
+    var status = byId('copystatus');
+    function say(text){ if(status){ status.textContent = text; } }
+    if(!navigator.clipboard || !navigator.clipboard.writeText){
+      say('No clipboard access. Select and copy the command text.'); return;
+    }
+    navigator.clipboard.writeText(b.dataset.copy).then(function(){
+      say('Copied: ' + b.dataset.copy);
+      if(!b.dataset.label){ b.dataset.label = b.textContent; }
+      b.textContent = 'Copied'; b.classList.add('copied');
+      setTimeout(function(){ b.textContent = b.dataset.label; b.classList.remove('copied');
+        }, 1500);
+    }, function(){ say('Copy failed. Select and copy the command text.'); });
+  });
+
+  // ---- the page API --------------------------------------------------------
+  P.setMode = setMode;
+  P.mode = function(){ return mode; };
+  P.setLayer = setLayer;
+  P.setTitle = setTitle;
+  P.openPanel = function(){ readOpen = true; collapsed = false; sections(); };
+  P.closePanel = function(){ readOpen = false; collapsed = mode !== 'understand'; sections(); };
+  P.panelOpen = panelOpen;
+  P.sync = sections;
+  P.frame = frameBeside;
+  P.restoring = function(on){ restoringView = !!on; };
   svg.workspace = {
-    state:function(){return {mode:mode,j:cur.j,s:cur.s};},
-    trace:startJourney,
-    traceStep:function(k){
-      var journey = A.journeys[cur.j];
-      if(journey && Number.isInteger(k) && k >= 0 && k < journey.steps.length){
-        cur.s=k;showStep();
-      }
-    },
-    inspect:function(id){if(cur.j < 0){setMode('understand');}A.select(id);},
-    inspectFlow:function(edge,id){A.inspectFlow(edge,id);},
-    returnToJourney:backToJourney,
-    endJourney:endJourney
+    state:function(){ var s = P.journey.state(); return {mode:mode, j:s.j, s:s.s}; },
+    trace:function(k){ P.journey.start(k); },
+    traceStep:function(k){ P.journey.step(k); },
+    inspect:function(id){ if(!P.journey.active()){ setMode('understand'); } A.select(id); },
+    inspectFlow:function(edge, id){ A.inspectFlow(edge, id); },
+    returnToJourney:function(){ P.journey.back(); },
+    endJourney:function(){ P.journey.end(); }
   };
-  setLayer(A.layers.length ? A.layers[0].id : 'all');
+  var first = (W.tabs && W.tabs[0]) || (A.layers.length ? A.layers[0].id : 'all');
+  setLayer(first);
   showZoom(A.view.zoom(), A.view.isFit());
-  if(A.state.focus){ openDrawer(A.state.focus, true); sourceRows(A.state.focus); }
+  if(A.state.focus){ opened = A.state.focus; sourceRows(A.state.focus); }
   setMode('understand');
-  visibility();
 })();
 """

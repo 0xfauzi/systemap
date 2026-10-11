@@ -43,7 +43,9 @@ function viewstate(page) {
   report.fitted = snapshot();
   doc.getElementById('jreturn').click(); runFrames(win);
   report.returned = snapshot(); report.expected = expected;
+  // End sequence goes back to the whole route. Escape there ends the sequence.
   doc.getElementById('jend').click(); runFrames(win);
+  key('Escape'); runFrames(win);
   report.ended = snapshot(); report.before = before;
 
   const search = doc.getElementById('partsearch');

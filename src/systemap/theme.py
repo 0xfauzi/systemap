@@ -1,14 +1,27 @@
 """Color palettes for the map, inspector and page.
 
-The Dark, Light and Clay palettes contain the same CSS tokens.
-The reader selects a palette on the page. Default text colors have
-a contrast ratio of 4.5:1 or more on their background.
+The Ink palette (scheme `dark`, the default) and the Paper palette
+(scheme `light`) contain the same CSS tokens. The page shows the names
+in `SCHEME_LABELS`. The reader selects a palette on the page.
+
+Only the flow kind, the selection and the change have a color. All other
+items are neutral. Each flow kind layer has one color. Derived layers have
+the card border color and do not change the color of flow lines. Selection uses
+`accent`: Ink shows an amber line and ring, and Paper shows an ink line
+and ring on a yellow highlighter fill (`hl`). `change` shows only in the
+Changes view. Measurement components use `steel`, which is neutral. The
+tokens `good`, `warn`, `bad` and `violet` stay for configuration
+compatibility, and they have neutral text values. `brand` is the color
+of the two dots in the logo. It is not a map color.
+
+Text tokens have a contrast ratio of 4.5:1 or more on the bg, surface,
+raised, map and card colors. Line colors have 3:1 or more on the map.
 tests/test_theme.py measures these contrast ratios.
 
 `[theme]` changes the default palette. A named table such as
-`[theme.light]` changes that palette. Each layer has one color. Card kind marks
-use an inner ring, notch or dotted border. Selection and active
-sequence components use `accent`. Measurement components use `steel`.
+`[theme.light]` changes that palette. A removed scheme name, such as
+`clay`, gives a configuration error. Card kind marks use an inner ring,
+notch or dotted border.
 
 Page colors use `var(--token)` through Palette with `variables=True`.
 The page contains each palette table as CSS declarations. A palette
@@ -34,180 +47,179 @@ SANS = (
 )
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
+# ---- Ink (scheme `dark`, the default) -----------------------------------------
+# The values come from the measured color work (CIEDE2000 between the colors
+# that show on one view, with normal vision and three color deficiencies).
+# A derived layer (structure, system, agents) selects lines and does not
+# color them: its flow lines keep the color of their kind. Its only color is
+# the border of its subject cards, which is the card border color, as on the
+# design boards.
+
+INK_2_DARK = "#BEB8AC"
+CARD_LINE_DARK = "#716C63"
+
 STANDARD_LAYERS_DARK: dict[str, str] = {
-    "structure": "#d8d3c6",
-    "system": "#8fb0c4",
-    "data": "#8fbfa6",
-    "control": "#c9ae7c",
-    "agents": "#c893ad",
-    "context": "#c186c1",
-    "tools": "#86c189",
+    "structure": CARD_LINE_DARK,
+    "system": CARD_LINE_DARK,
+    "data": "#86CDFF",
+    "control": "#C287BC",
+    "agents": CARD_LINE_DARK,
+    "context": "#049886",
+    "tools": "#D1F1B2",
 }
 
-LAYER_PALETTE_DARK: list[str] = ["#d39a8c", "#a99bd0", "#a9b87a", "#7fa6d1"]
+# The first entry is the first custom kind ("judge" on the self-map).
+# context, tools and the custom kinds after the first were measured with the
+# same limits: data, control, context and tools pass on one view, and data,
+# control and two custom kinds pass on one view. With these values, five
+# kinds on one view do not pass, so a view shows four kind colors at most.
+LAYER_PALETTE_DARK: list[str] = ["#6C9455", "#C7F1D3", "#FDD3EF", "#9798F9"]
 
 DARK: dict[str, Any] = {
     "name": "systemap",
     "scheme": "dark",
     "color_scheme": "dark",
-    "bg": "#08090a",
-    "surface": "#101014",
-    "raised": "#19191d",
-    "line": "#252529",
-    "line_2": "#424249",
-    "ink": "#fafafa",
-    "ink_2": "#bcbcc4",
-    "ink_3": "#9898a3",
-    "accent": "#fafafa",
-    "accent_soft": "#fafafa14",
-    "steel": "#8fb0c4",
-    "good": "#8cbf8a",
-    "warn": "#d6b14a",
-    "bad": "#d97b6c",
-    "violet": "#a99bd0",
-    "state": {"built": ["#101014", "#71717a", "source recorded"]},
-    "ghost": ["#101014", "#252529"],
+    "bg": "#0F0E0C",
+    "surface": "#161411",
+    "raised": "#211E1A",
+    "map": "#12110F",
+    "grid": "#1E1C18",
+    "card": "#1C1A17",
+    "card_line": CARD_LINE_DARK,
+    "line": "#27241F",
+    "line_2": "#37332D",
+    "ink": "#F1EDE4",
+    "ink_2": INK_2_DARK,
+    "ink_3": "#989184",
+    "accent": "#FCB442",
+    "accent_soft": "#FCB4421F",
+    "on_accent": "#1C1405",
+    "hl": "#FCB4422E",
+    "hl_soft": "#1C1A17",
+    "hl_line": "#FCB44200",
+    "brand": "#F2B33D",
+    "steel": INK_2_DARK,
+    "good": INK_2_DARK,
+    "warn": "#F1EDE4",
+    "bad": "#F1EDE4",
+    "violet": "#F1EDE4",
+    "state": {"built": ["#1C1A17", CARD_LINE_DARK, "source recorded"]},
+    "ghost": ["#1C1A17", "#37332D"],
     "container": {
-        "host": ["#424249", "#0d0e11"],
-        "client": ["#424249", "#0d0e11"],
-        "server": ["#424249", "#0d0e11"],
-        "isolated": ["#66666f", "#121216"],
+        "host": ["#37332D", "none"],
+        "client": ["#37332D", "none"],
+        "server": ["#37332D", "none"],
+        "isolated": [CARD_LINE_DARK, "none"],
     },
-    "region": "#9898a3",
-    "change": "#d97b6c",
-    "reach": "#fafafa",
-    "flow": "#52525b",
+    "region": "#6B665D",
+    "change": "#D4675B",
+    "on_change": "#1E0904",
+    "reach": "#D4675B",
+    "flow": "#66625A",
     "layer_palette": LAYER_PALETTE_DARK,
     "layers": dict(STANDARD_LAYERS_DARK),
     "marks": dict(KIND_MARKS),
     "delta": {
-        "operations": "#8fb0c4",
-        "types": "#8cbf8a",
-        "refusals": "#d97b6c",
-        "tests": "#fafafa",
+        "operations": "#D4675B",
+        "types": "#F1EDE4",
+        "refusals": INK_2_DARK,
+        "tests": "#989184",
     },
     "font_ui": SANS,
     "font_mono": MONO,
 }
 
+# ---- Paper (scheme `light`) ------------------------------------------------------
+# Selection is the ink color with the yellow highlighter `hl` under the
+# selected line, and the pale highlighter `hl_soft` as the selected card fill.
+# `hl_line` is the underlay under the selected or current line.
+# Ink has no highlighter: its `hl_soft` is the card color and its `hl_line` is clear.
+
+INK_2_LIGHT = "#4B4740"
+CARD_LINE_LIGHT = "#8C877D"
+
 STANDARD_LAYERS_LIGHT: dict[str, str] = {
-    "structure": "#71674d",
-    "system": "#466c84",
-    "data": "#417158",
-    "control": "#7e6434",
-    "agents": "#9a4f74",
-    "context": "#954c95",
-    "tools": "#3c743f",
+    "structure": CARD_LINE_LIGHT,
+    "system": CARD_LINE_LIGHT,
+    "data": "#116BB5",
+    "control": "#491A70",
+    "agents": CARD_LINE_LIGHT,
+    "context": "#05544A",
+    "tools": "#6F650D",
 }
 
-LAYER_PALETTE_LIGHT: list[str] = ["#a1513d", "#7059b1", "#616d3b", "#396aa0"]
+# Paper: data, control, context and tools pass on one view. A second custom
+# kind next to data, control and the first custom kind does not pass; the
+# values are the nearest that the measurement found.
+LAYER_PALETTE_LIGHT: list[str] = ["#34591B", "#80586D", "#4B0634", "#65508E"]
 
 LIGHT: dict[str, Any] = {
     "name": "systemap",
     "scheme": "light",
     "color_scheme": "light",
-    "bg": "#ffffff",
-    "surface": "#ffffff",
-    "raised": "#f4f4f4",
-    "line": "#e5e5e5",
-    "line_2": "#b8b8bd",
-    "ink": "#0a0a0a",
-    "ink_2": "#525252",
-    "ink_3": "#646464",
-    "accent": "#0a0a0a",
-    "accent_soft": "#0a0a0a0d",
-    "steel": "#466c84",
-    "good": "#41733f",
-    "warn": "#7f641d",
-    "bad": "#b5412f",
-    "violet": "#7059b1",
-    "state": {"built": ["#ffffff", "#a1a1aa", "source recorded"]},
-    "ghost": ["#f4f4f4", "#e5e5e5"],
+    "bg": "#ECE8DE",
+    "surface": "#F1EEE6",
+    "raised": "#E6E1D5",
+    "map": "#F6F3EC",
+    "grid": "#E6E1D6",
+    "card": "#FFFEFB",
+    "card_line": CARD_LINE_LIGHT,
+    "line": "#E0DBD0",
+    "line_2": "#D3CDC0",
+    "ink": "#1D1B17",
+    "ink_2": INK_2_LIGHT,
+    "ink_3": "#686359",
+    "accent": "#1D1B17",
+    "accent_soft": "#FFF1BF",
+    "on_accent": "#F6F3EC",
+    "hl": "#FFD33D",
+    "hl_soft": "#FFF1BF",
+    "hl_line": "#FFD33D",
+    "brand": "#F2B33D",
+    "steel": INK_2_LIGHT,
+    "good": INK_2_LIGHT,
+    "warn": "#1D1B17",
+    "bad": "#1D1B17",
+    "violet": "#1D1B17",
+    "state": {"built": ["#FFFEFB", CARD_LINE_LIGHT, "source recorded"]},
+    "ghost": ["#FFFEFB", "#D3CDC0"],
     "container": {
-        "host": ["#b8b8bd", "#fafafa"],
-        "client": ["#b8b8bd", "#fafafa"],
-        "server": ["#b8b8bd", "#fafafa"],
-        "isolated": ["#a1a1aa", "#f4f4f4"],
+        "host": ["#D3CDC0", "none"],
+        "client": ["#D3CDC0", "none"],
+        "server": ["#D3CDC0", "none"],
+        "isolated": [CARD_LINE_LIGHT, "none"],
     },
-    "region": "#646464",
-    "change": "#b5412f",
-    "reach": "#0a0a0a",
-    "flow": "#a1a1aa",
+    "region": "#8F8A80",
+    "change": "#AC312A",
+    "on_change": "#FFFFFF",
+    "reach": "#AC312A",
+    "flow": "#8F8C84",
     "layer_palette": LAYER_PALETTE_LIGHT,
     "layers": dict(STANDARD_LAYERS_LIGHT),
     "marks": dict(KIND_MARKS),
     "delta": {
-        "operations": "#466c84",
-        "types": "#41733f",
-        "refusals": "#b5412f",
-        "tests": "#0a0a0a",
+        "operations": "#AC312A",
+        "types": "#1D1B17",
+        "refusals": INK_2_LIGHT,
+        "tests": "#686359",
     },
     "font_ui": SANS,
     "font_mono": MONO,
 }
 
-STANDARD_LAYERS_CLAY: dict[str, str] = {
-    "structure": "#d9cdb2",
-    "system": "#82a7ba",
-    "data": "#e39a86",
-    "control": "#dd9bbd",
-    "agents": "#b48ec9",
-    "context": "#86c9a9",
-    "tools": "#b7c27c",
-}
-
-LAYER_PALETTE_CLAY: list[str] = ["#e3b778", "#bbc1f1", "#7ed1d6", "#e7b8bb"]
-
-CLAY: dict[str, Any] = {
-    "name": "systemap",
-    "scheme": "clay",
-    "color_scheme": "dark",
-    "bg": "#111214",
-    "surface": "#17181b",
-    "raised": "#1e1f21",
-    "line": "#292a2c",
-    "line_2": "#4d4e52",
-    "ink": "#fbfcfc",
-    "ink_2": "#cdcecf",
-    "ink_3": "#9a9b9d",
-    "accent": "#cf8b6b",
-    "accent_soft": "#cf8b6b1a",
-    "steel": "#82a7ba",
-    "good": "#8fc470",
-    "warn": "#c4a077",
-    "bad": "#dda5a1",
-    "violet": "#b48ec9",
-    "state": {"built": ["#17181b", "#85868a", "source recorded"]},
-    "ghost": ["#17181b", "#292a2c"],
-    "container": {
-        "host": ["#4d4e52", "#141518"],
-        "client": ["#4d4e52", "#141518"],
-        "server": ["#4d4e52", "#141518"],
-        "isolated": ["#8c6251", "#1b1716"],
-    },
-    "region": "#9a9b9d",
-    "change": "#dda5a1",
-    "reach": "#cf8b6b",
-    "flow": "#65605e",
-    "layer_palette": LAYER_PALETTE_CLAY,
-    "layers": dict(STANDARD_LAYERS_CLAY),
-    "marks": dict(KIND_MARKS),
-    "delta": {
-        "operations": "#82a7ba",
-        "types": "#8fc470",
-        "refusals": "#dda5a1",
-        "tests": "#cf8b6b",
-    },
-    "font_ui": SANS,
-    "font_mono": MONO,
-}
-
-SCHEMES: dict[str, dict[str, Any]] = {"dark": DARK, "light": LIGHT, "clay": CLAY}
+SCHEMES: dict[str, dict[str, Any]] = {"dark": DARK, "light": LIGHT}
+# The scheme names that the page shows. The configuration uses the keys.
+SCHEME_LABELS: dict[str, str] = {"dark": "Ink", "light": "Paper"}
 DEFAULT_SCHEME = "dark"
 LIGHT_SCHEME = "light"
+# Scheme names that earlier versions supplied. A configuration that names
+# one gets the list of the available schemes.
+REMOVED_SCHEMES = frozenset({"clay", "warm", "graphite"})
 
-# The tokens that are read as text somewhere on the page, held to 4.5:1
-# on the ground; a layer hue is text too (an edge's label, a verb tag).
+# The tokens that are read as text somewhere on the page, held to 4.5:1 on
+# the bg, surface, raised, map and card colors. A flow kind color is a line
+# and a legend swatch: it has 4.5:1 on the map and the card, and 3:1 on the
+# others. A derived layer color is a card border: 3:1 on the map.
 TEXT_TOKENS = (
     "ink",
     "ink_2",
@@ -218,8 +230,10 @@ TEXT_TOKENS = (
     "warn",
     "bad",
     "violet",
-    "region",
+    "change",
 )
+# Text on a filled tag: the token, then the fill under it.
+ON_FILL = {"on_accent": "accent", "on_change": "change"}
 
 
 def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -233,17 +247,42 @@ def merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def scheme_list() -> str:
+    """Give the scheme keys and their page names for a configuration error."""
+    names = [f"{key} ({SCHEME_LABELS.get(key, key)})" for key in SCHEMES]
+    if len(names) < 2:
+        return "".join(names)
+    return f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def unavailable(name: object) -> ValueError:
+    """Give the error for a scheme name that the configuration cannot use."""
+    return ValueError(
+        f"The theme scheme {name!r} is not available. The schemes are {scheme_list()}."
+    )
+
+
 def scheme_name(tokens: dict[str, Any]) -> str:
     """Give the palette name from `[theme]`, from the configuration.
 
-    Reject unknown names and list the available palettes."""
+    Reject other names and list the available palettes."""
     scheme = tokens.get("scheme", DEFAULT_SCHEME)
-    if not isinstance(scheme, str):
-        raise ValueError(f"Select a theme scheme from {', '.join(SCHEMES)}")
-    name = scheme
-    if name not in SCHEMES:
-        raise ValueError(f"Unknown theme scheme {scheme!r}. The schemes are {', '.join(SCHEMES)}")
-    return name
+    if not isinstance(scheme, str) or scheme not in SCHEMES:
+        raise unavailable(scheme)
+    return scheme
+
+
+def _check_tables(tokens: dict[str, Any]) -> None:
+    """Reject a `[theme.<name>]` table for a scheme that is not available.
+
+    A table is a scheme table or a token table, such as `layers`. A removed
+    scheme, such as `clay`, gives an error and not an unused token."""
+    for key, value in tokens.items():
+        if key in SCHEMES or key == "scheme":
+            continue
+        token_table = isinstance(DARK.get(key), dict)
+        if key in REMOVED_SCHEMES or (isinstance(value, dict) and not token_table):
+            raise unavailable(key)
 
 
 def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
@@ -273,6 +312,7 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
     the default table."""
     layers = list(layers)
     name = scheme_name(tokens)
+    _check_tables(tokens)
     own = {k: v for k, v in tokens.items() if k != "scheme" and k not in SCHEMES}
     tables: dict[str, dict[str, Any]] = {}
     for scheme, base in SCHEMES.items():
@@ -328,24 +368,33 @@ CSS_NAMES: dict[str, str] = {
     "flow": "--flow",
     "font_ui": "--fs",
     "font_mono": "--fm",
+    "map": "--map",
+    "grid": "--grid",
+    "card": "--card",
+    "card_line": "--card-line",
+    "on_accent": "--on-accent",
+    "hl": "--hl",
+    "hl_soft": "--hl-soft",
+    "hl_line": "--hl-line",
+    "brand": "--brand",
+    "on_change": "--on-change",
 }
 
-# How far each derived tint leans from its ground towards its colour: an
-# actor's fill from the ground towards the second line, the change map's
-# two tints from the ground towards change and reach, and a verb tag's
-# fill from the raised surface towards the layer.
-ACTOR_MIX = 0.35
+# How far each derived tint leans from its ground towards its colour: the
+# change map's two tints from the ground towards change and reach, and a
+# verb tag's fill from the raised surface towards the layer.
 CHANGED_MIX = 0.14
 REACH_MIX = 0.12
 TAG_MIX = 0.16
 
 
 def tints(t: dict[str, Any]) -> dict[str, Any]:
-    """Calculate color mixtures for CSS declarations and separate figures."""
+    """Calculate color mixtures for CSS declarations and separate figures.
+
+    An actor card has the map color as its fill, so the card shows as a
+    dashed border on the map ground."""
     return {
-        "actor": mix(
-            t["bg"], t["surface"] if t["color_scheme"] == "light" else t["line_2"], ACTOR_MIX
-        ),
+        "actor": t["map"],
         "changed_fill": mix(t["bg"], t["change"], CHANGED_MIX),
         "reach_fill": mix(t["bg"], t["reach"], REACH_MIX),
         "tags": {lid: mix(t["raised"], colour, TAG_MIX) for lid, colour in t["layers"].items()},
@@ -382,8 +431,8 @@ class Palette:
         return self._v(f"--card-{name}", fill), self._v(f"--card-{name}-line", stroke), label
 
     def actor(self) -> tuple[str, str]:
-        """Give the actor fill and stroke colors."""
-        return self._v("--actor", self._tints["actor"]), self["ink_3"]
+        """Give the actor fill and stroke colors. The stroke is the card border color."""
+        return self._v("--actor", self._tints["actor"]), self["card_line"]
 
     def ghost(self) -> tuple[str, str]:
         """Give fill and stroke colors for components outside the selection."""
@@ -409,8 +458,8 @@ def root_css(t: dict[str, Any]) -> str:
     """Give default, named and system light-palette CSS declarations.
 
     The page script sets `data-theme` before the first render. The page uses a stored
-    selection first. Without a stored selection, it uses Light for a system
-    light preference or Dark. CSS media declarations supply the device theme
+    selection first. Without a stored selection, it uses Paper for a system
+    light preference or Ink. CSS media declarations supply the device theme
     without the script."""
     schemes: dict[str, dict[str, Any]] = t.get("schemes") or {t["scheme"]: t}
     out = [f":root{{{css_vars(schemes.get(DEFAULT_SCHEME, t))}}}"]

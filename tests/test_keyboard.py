@@ -8,6 +8,7 @@ the card. Sequence arrows select the current step.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -57,8 +58,8 @@ def counted(n_components: int, n_actors: int) -> str:
 
 
 def check_counts(report: dict[str, object]) -> None:
-    """The header and the strip count the same way: the cards that are code
-    as components, the actors named apart when there are any."""
+    """The header summary and the readout count the same way: the cards that
+    are code as components, the actors named apart when there are any."""
     kinds = report["kinds"]
     assert isinstance(kinds, dict) and kinds
     n_actors = sum(1 for k in kinds.values() if k == "actor")
@@ -66,30 +67,19 @@ def check_counts(report: dict[str, object]) -> None:
     assert isinstance(header, str)
     assert f": {counted(len(kinds) - n_actors, n_actors)}, " in header, header
     assert n_actors > 0, "the sample and the self-map both have actors"
-    strips = report["strips"]
-    assert isinstance(strips, dict) and len(strips) >= 3
-    for layer, strip in strips.items():
-        if layer == "all":
-            continue  # All lists the layers, not the cards, and counts nothing
-        assert isinstance(strip, dict)
-        listed = strip["listed"]
-        assert isinstance(listed, list) and listed, layer
-        actors = sum(1 for c in listed if c["kind"] == "actor")
-        says = strip["says"]
-        assert isinstance(says, str)
-        assert says.endswith(f". {counted(len(listed) - actors, actors)}. Select one."), (
-            layer,
-            says,
-        )
-    assert any(
-        any(c["kind"] == "actor" for c in s["listed"])  # type: ignore[index]
-        for layer, s in strips.items()
-        if layer != "all"
-    ), "some reading lists an actor, so the actor phrase is exercised"
+    readouts = report["readouts"]
+    assert isinstance(readouts, dict) and len(readouts) >= 3
+    n_components = len(kinds) - n_actors
+    plural = "" if n_components == 1 else "s"
+    assert str(readouts["structure"]).startswith(f"{n_components} component{plural}")
+    for layer, says in readouts.items():
+        if layer != "structure":
+            assert re.match(r"\d+ flows? (· \d+ groups? )?(· \d+ actors?)?", str(says)), says
+    assert any("actor" in str(says) for says in readouts.values())
 
 
 def check_journey_foot(j: dict[str, object]) -> None:
-    """Under the sentence: where the walk starts, what backs this step, and
+    """Under the step: where the walk starts, what backs this step, and
     whether an agent wrote it and nobody has read it against the code."""
     foot = j["foot"]
     assert isinstance(foot, str)
@@ -102,12 +92,15 @@ def check_journey_foot(j: dict[str, object]) -> None:
 def check_keyboard(report: dict[str, object]) -> None:
     layers = report["layers"]
     assert isinstance(layers, list) and len(layers) >= 3
-    assert report["readings"] == layers, "the arrows walk the readings table"
-    assert report["buttons"] == [*layers, "all"]
-    assert report["initialLayer"] == layers[0]
+    assert report["readings"] == layers, "the readings table follows the layers"
+    # The tabs start with System context; the arrows walk the tabs.
+    tabs = report["buttons"]
+    assert tabs == ["system", *[layer for layer in layers if layer != "system"], "all"]
+    assert isinstance(tabs, list)
+    assert report["initialLayer"] == tabs[0]
     arrows = report["arrows"]
     assert isinstance(arrows, list)
-    assert [a["layer"] for a in arrows] == [layers[1], layers[2], layers[1], layers[0], "all"]
+    assert [a["layer"] for a in arrows] == [tabs[1], tabs[2], tabs[1], tabs[0], "all"]
     for a in arrows:
         assert a["pressed"] == [a["layer"]], "one layer button reads pressed"
     assert report["arrowInSelectPrevented"] is False
@@ -128,7 +121,7 @@ def check_keyboard(report: dict[str, object]) -> None:
     assert enter["prevented"] is True
     assert enter["focus"] == enter["id"]
     assert enter["drawerHidden"] is False and enter["panelOn"] is True
-    assert enter["dock"] in ("left", "right")
+    assert enter["panelState"] == "open"
     assert enter["choices"] == enter["edges"] and enter["edges"] > 1
     assert enter["choicesFocusable"] is True
     assert enter["hash"] == f"#{enter['id']}"
@@ -148,14 +141,18 @@ def check_keyboard(report: dict[str, object]) -> None:
     j = report["journey"]
     assert isinstance(j, dict) and j["count"] >= 1
     steps = j["steps"]
-    assert j["started"] == f"1/{steps}" and j["stripHidden"] is False
-    assert j["afterRight"] == (f"2/{steps}" if steps > 1 else f"1/{steps}")
+    # The select opens the whole route; the right arrow starts the steps.
+    assert j["mode"] == "trace" and j["whole"]["whole"] is True
+    assert j["started"] == f"Step 1 of {steps}" and j["stripHidden"] is False
+    assert j["afterRight"] == (f"Step 2 of {steps}" if steps > 1 else f"Step 1 of {steps}")
     assert j["layerMatchesStep"] is True, "the active layer follows the exact journey edge"
-    assert j["afterLeft"] == f"1/{steps}" and j["afterLeftAtStart"] == f"1/{steps}"
+    assert j["afterLeft"] == f"Step 1 of {steps}"
+    assert j["afterLeftAtStart"] == f"Step 1 of {steps}"
     assert j["stepButtons"] == steps
     check_journey_foot(j)
-    assert j["ended"] == "" and j["stripHiddenAfter"] is True
-    assert j["selectReset"] == "" and j["journeyState"] is None
+    # Escape goes back to the whole route, then ends the sequence.
+    assert j["escapeOnce"]["whole"] is True and j["stripHiddenAfterOne"] is True
+    assert j["ended"] is None and j["modeAfter"] == "understand"
 
 
 @needs_node
@@ -195,16 +192,17 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
     accent = theme_mod.SCHEMES[scheme]["accent"]
     assert f"color-scheme:{theme_mod.SCHEMES[scheme]['color_scheme']};" in html
     assert f"--accent:{accent};" in html
-    assert ":focus-visible{outline:2px solid var(--accent);outline-offset:2px}" in html
-    assert (
-        "#schematic .node:focus-visible .node__box{stroke:var(--accent);stroke-width:2.6}" in html
-    )
-    assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:2.2}" in html
+    assert ":focus-visible{outline:2px solid var(--ink);outline-offset:3px}" in html
+    assert "#schematic .node:focus-visible .node__halo{display:inline;stroke-width:2}" in html
+    assert "#schematic .flow.peek{stroke-opacity:1;stroke-width:2.6}" in html
     assert (
         "@media (prefers-reduced-motion:reduce){*{transition:none!important;"
         "animation:none!important}}" in html
     )
-    assert "@media (prefers-reduced-motion:reduce){#schematic .flow.hot{animation:none" in html
+    assert (
+        "@media (prefers-reduced-motion:reduce){#schematic *{transition:none!important;"
+        "animation:none!important}}" in html
+    )
     assert "Tab selects cards and flow paths. Enter opens their data." in html
 
 

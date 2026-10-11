@@ -73,9 +73,9 @@ def test_structure_has_no_edges_and_system_crosses_the_boundary(sample: Sample) 
         sample.model, sample.meaning, sample.theme, sample.facts, layer="system"
     )
     assert drawn_edges(svg) == [("User", "Reader", "data")], "the one edge with an actor end"
-    hue = sample.theme["layers"]["system"]
-    assert f'stroke="{hue}"' in svg, "a derived reading paints its edges in its own hue"
-    assert 'marker-end="url(#schematic-m-system)"' in svg
+    hue = sample.theme["layers"]["data"]
+    assert f'stroke="{hue}"' in svg, "a derived reading keeps the color of the flow kind"
+    assert 'marker-end="url(#schematic-m-data)"' in svg
     # An override moves one edge to the model's own layer, and the figure follows.
     svg, _ = render_schematic(
         sample.model, sample.meaning, sample.theme, sample.facts, layer="memory"

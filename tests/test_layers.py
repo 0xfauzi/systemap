@@ -159,15 +159,11 @@ def test_layer_order_and_first_layer(sample: Sample) -> None:
     html = page.build(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {"has_change": False}
     )
-    buttons = [
-        line.split('data-layer-btn="')[1].split('"')[0]
-        for line in html.splitlines()
-        if "data-layer-btn=" in line
-    ]
-    assert buttons == ["structure", "system", "data", "control", "record", "memory", "all"]
+    buttons = re.findall(r'data-layer-btn="([^"]+)"', html)
+    # System context is the first tab: the page opens on the system boundary.
+    assert buttons == ["system", "structure", "data", "control", "record", "memory", "all"]
     assert ">Structure</button>" in html and ">System context</button>" in html
     assert ">Data flow</button>" in html and ">Control flow</button>" in html
-    assert "six layers" in html
     # Every layer but Structure draws a line, so the legend has a swatch for it.
     rows = layer_rows(sample.theme, sample.model, sample.meaning)
     assert [r[0] for r in rows] == ["system", "data", "control", "record", "memory"]
@@ -366,9 +362,12 @@ def test_a_layer_figure_colours_its_subjects_and_dims_the_untouched(agentic: Sam
     cards = draw("agents")
     assert cards["Planner"][1] == hue["agents"] and "subject" in cards["Planner"][0]
     assert "quiet" in cards["Log"][0], "no edge of the reading touches it"
+    # A derived reading has the neutral card line as its color, so only the
+    # subject class marks its subjects.
+    assert hue["agents"] == a.theme["card_line"]
     for cid in ("User", "Prompt", "Memory", "Shell"):
         assert "quiet" not in cards[cid][0], cid
-        assert cards[cid][1] != hue["agents"], cid
+        assert "subject" not in cards[cid][0], cid
     cards = draw("context")
     for cid in ("Prompt", "Memory"):
         assert cards[cid][1] == hue["context"] and "subject" in cards[cid][0], cid
@@ -397,7 +396,7 @@ def test_a_layer_figure_colours_its_subjects_and_dims_the_untouched(agentic: Sam
 
 def test_the_page_colours_subjects_the_same_way(agentic: Sample) -> None:
     svg, detail = render_schematic(agentic.model, agentic.meaning, agentic.theme, agentic.facts)
-    assert ".node.subject .node__box{stroke:var(--subject)}" in svg
+    assert ".node.subject .node__box{stroke:var(--subject," in svg
     script = interactive_script(agentic.theme, "schematic", "panel", detail)
     assert "n.style.setProperty('--subject', subject ? LCOL[L] : '')" in script
     assert "subject:subject" in script

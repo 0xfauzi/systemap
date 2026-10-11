@@ -1,6 +1,6 @@
 """Examine information from a second repository model.
 
-Acceptance: exact source counts, flow identity, and sequence roles.
+Acceptance: exact source modules, flow counts, flow identity, and sequence roles.
 Maps with and without regions give the same information.
 The DOM harness examines data and controls. It does not measure browser geometry.
 """
@@ -20,18 +20,23 @@ from systemap import page
 
 SCENARIO = r"""
 function information(page){
-  const {doc,win,svg,A}=page,X=svg.workspace;
-  const context=()=>({title:doc.querySelector('#map-context h3').textContent,
-    counts:doc.querySelectorAll('#map-context dl>div').map(n=>
-      [n.querySelector('dt').textContent,+n.querySelector('dd').textContent]),
-    text:doc.getElementById('map-context').textContent});
+  const {doc,win,svg,A}=page,X=svg.workspace,panel=doc.getElementById('panel');
+  const context=()=>({readout:doc.getElementById('map-context').textContent,
+    modules:panel.querySelectorAll('.systemap-f__chip').map(n=>n.textContent),
+    flows:panel.querySelectorAll('[data-inspect-edge]').length,
+    text:panel.textContent,
+    sequence:(doc.getElementById('seqbody')||{textContent:''}).textContent});
   const report={initial:context()};
+  doc.querySelector('[data-layer-btn="structure"]').click();runFrames(win);
+  report.structure=context();
+  doc.querySelector('[data-layer-btn="system"]').click();runFrames(win);
   A.select('Reader');runFrames(win);report.component=context();
   A.inspectFlow(0);runFrames(win);report.flow=context();
   X.trace(0);X.traceStep(2);runFrames(win);report.sequence=context();
   X.inspect('Ledger');runFrames(win);report.inspection=context();
   X.returnToJourney();runFrames(win);report.returned=context();
-  X.endJourney();runFrames(win);report.restored=context();
+  // From a step, the first end goes to the whole route and the second ends.
+  X.endJourney();runFrames(win);X.endJourney();runFrames(win);report.restored=context();
   return report;
 }
 """
@@ -70,21 +75,24 @@ def test_map_information_uses_source_records(sample: Sample, tmp_path: Path, reg
     )
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout)
-    assert dict(report["initial"]["counts"]) == {
-        "Source modules": 4,
-        "Entry points": 0,
-        "Flows": 0,
-        "Sequences": 1,
-    }
-    assert dict(report["component"]["counts"])["Source modules"] == 1
-    assert dict(report["component"]["counts"])["Flows"] == 2
+    # The readout counts what the map draws: the System context layer shows
+    # the one flow from the actor, and Structure counts the components.
+    assert report["initial"]["readout"] == "1 flow · 1 actor"
+    structure = "4 components" + (" · 2 regions" if regions else "")
+    assert report["structure"]["readout"] == structure
+    assert "The source facts contain no entry points." in report["initial"]["sequence"]
+    # A component: its source modules and its flows, from the source records.
+    assert report["component"]["modules"] == ["pkg.reader"]
+    assert report["component"]["flows"] == 2
     assert sample.model.components[1].does in report["component"]["text"]
-    assert report["flow"]["title"] == "User to Reader: input"
-    assert "1 external" in report["flow"]["text"]
-    assert (
-        "Acting components: Parser. Measurement components: Ledger." in report["sequence"]["text"]
-    )
-    assert report["inspection"]["title"] == "Ledger"
-    assert dict(report["inspection"]["counts"])["Flows"] == 2
+    assert report["component"]["readout"].startswith("Reader · ")
+    # A flow: its artifact, its ends and its evidence state.
+    assert report["flow"]["readout"] == "input · User → Reader · external"
+    assert "Selected flow" in report["flow"]["text"]
+    # A sequence step: the acting and the measuring components.
+    assert report["sequence"]["readout"] == "3 · Parser → Writer · parts"
+    assert "ACTSParserMEASURESLedger" in report["sequence"]["sequence"]
+    assert report["inspection"]["readout"].startswith("Ledger · ")
+    assert report["inspection"]["flows"] == 2
     assert report["returned"] == report["sequence"]
     assert report["restored"] == report["flow"]

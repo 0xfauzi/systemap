@@ -248,14 +248,17 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     (tmp_path / "systemap.toml").unlink()
     assert run("--root", str(tmp_path), "check") == 2
     assert "theme must be a table" in capsys.readouterr().err
-    # A scheme that is not one of the three is refused with the three named.
+    # A scheme that is not one of the two is refused with the two named.
     write_tree(tmp_path, {"map/model.py": TWO_CARD_MODEL})
     write_tree(
         tmp_path, {"pyproject.toml": '[tool.systemap]\n[tool.systemap.theme]\nscheme = "sepia"\n'}
     )
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "Unknown theme scheme 'sepia'. The schemes are dark, light, clay" in err
+    assert (
+        "The theme scheme 'sepia' is not available. The schemes are dark (Ink) and light (Paper)."
+        in err
+    )
     assert "Traceback" not in err
     write_tree(tmp_path, {"pyproject.toml": "[tool.systemap]\n[tool.systemap.theme]\nlight = 3\n"})
     assert run("--root", str(tmp_path), "check") == 2

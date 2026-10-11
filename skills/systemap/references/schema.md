@@ -210,7 +210,7 @@ A nonempty sequence covers only those identities.
 Declare only custom layers. Standard layer identifiers cannot be reused:
 `structure`, `system`, `data`, `control`, `agents`, `context`, `tools`, and `all`.
 The theme supplies layer colors. Custom layers use its palette in order.
-The page has Dark, Light, and Clay themes.
+The page has the Ink and Paper themes. Their scheme keys are `dark` and `light`.
 The `scheme` field selects the palette for figures.
 The initial theme uses the device theme.
 The page uses a stored selection when one exists.
@@ -220,9 +220,9 @@ Theme overrides use `[theme]` or `[theme.<scheme>]`:
 [theme]
 scheme = "dark"
 [theme.layers]
-record = "#e3b778"
-[theme.clay]
-accent = "#cf8b6b"
+record = "#6C9455"
+[theme.light]
+accent = "#1D1B17"
 ```
 
 ## Meaning
