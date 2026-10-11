@@ -156,7 +156,8 @@ def test_a_card_that_changed_outside_the_plan_is_the_finding(
     capsys.readouterr()
     # the work touched the writer, which the plan did not name
     (repo.root / "pkg/writer.py").write_text(
-        "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request) * 2\n"
+        "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request) * 2\n",
+        encoding="utf-8",
     )
     assert cmd_plan(args_for(repo, check=plan_id)) == 1
     out = capsys.readouterr().out
@@ -172,10 +173,11 @@ def test_work_that_landed_where_it_was_projected_says_so(
     plan_id = plan_mod.saved(repo)[0]
     capsys.readouterr()
     (repo.root / "pkg/reader.py").write_text(
-        "def read(source: str) -> str:\n    return source[:1]\n"
+        "def read(source: str) -> str:\n    return source[:1]\n", encoding="utf-8"
     )
     (repo.root / "pkg/writer.py").write_text(
-        "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request) * 2\n"
+        "from pkg.reader import read\n\n\ndef write(request: str) -> str:\n    return read(request) * 2\n",
+        encoding="utf-8",
     )
     assert cmd_plan(args_for(repo, check=plan_id)) == 0
     assert "the changed components agree with the plan" in capsys.readouterr().out

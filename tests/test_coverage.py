@@ -36,7 +36,9 @@ def scaffold(root: Path) -> None:
 def ignore(root: Path, *entries: str) -> None:
     toml = root / "systemap.toml"
     body = "".join(f"    {entry},\n" for entry in entries)
-    toml.write_text(toml.read_text() + f"\n[coverage]\nignore = [\n{body}]\n")
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + f"\n[coverage]\nignore = [\n{body}]\n", encoding="utf-8"
+    )
 
 
 def test_all_mapped(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -79,18 +81,18 @@ def test_ignore_without_reason_is_a_config_error(
 ) -> None:
     scaffold(tmp_path)
     toml = tmp_path / "systemap.toml"
-    kept = toml.read_text()
+    kept = toml.read_text(encoding="utf-8")
     ignore(tmp_path, '{ module = "pkg.extra" }')
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
     assert "coverage.ignore[1] (pkg.extra) must contain a reason" in err
 
-    toml.write_text(kept)
+    toml.write_text(kept, encoding="utf-8")
     ignore(tmp_path, '{ module = "pkg.extra", reason = "  " }')
     assert run("--root", str(tmp_path), "check") == 2
     assert "must contain a reason" in capsys.readouterr().err
 
-    toml.write_text(kept)
+    toml.write_text(kept, encoding="utf-8")
     ignore(tmp_path, '{ module = "pkg.extra", reason = "x", why = "y" }')
     assert run("--root", str(tmp_path), "check") == 2
     assert "coverage.ignore[1] has an unknown key: why" in capsys.readouterr().err
@@ -100,9 +102,10 @@ def test_double_claim_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     scaffold(tmp_path)
     model = tmp_path / "map/model.py"
     model.write_text(
-        model.read_text().replace(
+        model.read_text(encoding="utf-8").replace(
             'implemented_by=("pkg.writer",)', 'implemented_by=("pkg.writer", "pkg.reader")'
-        )
+        ),
+        encoding="utf-8",
     )
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
@@ -121,11 +124,11 @@ def test_subtree_claim_covers_the_package(
         {"pkg/sub/__init__.py": "", "pkg/sub/deep.py": "def deep() -> None:\n    pass\n"},
     )
     model = tmp_path / "map/model.py"
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     text = text.replace(
         'implemented_by=("pkg.reader",)', 'implemented_by=("pkg.reader", "pkg.sub.*")'
     )
-    model.write_text(text)
+    model.write_text(text, encoding="utf-8")
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert "coverage: 5 of 5 modules mapped, 1 an empty package marker" in (capsys.readouterr().out)
@@ -165,9 +168,10 @@ def test_empty_package_markers_are_left_out_and_listed_once(
     )
     model = tmp_path / "map/model.py"
     model.write_text(
-        model.read_text().replace(
+        model.read_text(encoding="utf-8").replace(
             'implemented_by=("pkg.reader",)', 'implemented_by=("pkg.reader", "pkg.sub.deep")'
-        )
+        ),
+        encoding="utf-8",
     )
     capsys.readouterr()
     assert run("--root", str(tmp_path), "extract") == 0

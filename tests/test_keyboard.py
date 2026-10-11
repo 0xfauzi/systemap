@@ -34,7 +34,7 @@ def drive(html: Path, reduced: bool = False) -> dict[str, object]:
     args = [shutil.which("node") or "node", str(DRIVER), str(html)]
     if reduced:
         args.append("--reduced")
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert proc.returncode == 0, proc.stderr
     report: dict[str, object] = json.loads(proc.stdout)
     return report

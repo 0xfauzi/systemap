@@ -29,11 +29,11 @@ def test_parse_failure_remains_in_inventory(tmp_path: Path) -> None:
 
 def test_syntax_digest_ignores_formatting_but_tracks_behavior(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
-    path.write_text("def run():\n    return 1\n")
+    path.write_text("def run():\n    return 1\n", encoding="utf-8")
     before = extract.collect_module(path, tmp_path)
-    path.write_text("# explanation\ndef run(): return 1\n")
+    path.write_text("# explanation\ndef run(): return 1\n", encoding="utf-8")
     formatted = extract.collect_module(path, tmp_path)
-    path.write_text("def run(): return 2\n")
+    path.write_text("def run(): return 2\n", encoding="utf-8")
     changed = extract.collect_module(path, tmp_path)
     assert before is not None and formatted is not None and changed is not None
     assert before["sha"] != formatted["sha"]
@@ -408,7 +408,7 @@ def test_alias_change_invalidates_stored_facts(tmp_path: Path) -> None:
     cfg = config.load(tmp_path)
     before = extract.build(cfg)
     (tmp_path / "tsconfig.json").write_text(
-        '{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/two/*"]}}}'
+        '{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/two/*"]}}}', encoding="utf-8"
     )
     after = extract.build(cfg)
     assert before["components"]["web.entry"]["uses"] != after["components"]["web.entry"]["uses"]
@@ -458,7 +458,7 @@ def test_historical_change_uses_head_graph_and_symbol_claims(tmp_path: Path) -> 
         "base",
     )
     base = git(tmp_path, "rev-parse", "HEAD")
-    (tmp_path / "pkg/a.py").write_text("def run(): return 2\n")
+    (tmp_path / "pkg/a.py").write_text("def run(): return 2\n", encoding="utf-8")
     git(tmp_path, "add", ".")
     git(
         tmp_path,
@@ -473,7 +473,7 @@ def test_historical_change_uses_head_graph_and_symbol_claims(tmp_path: Path) -> 
     head = git(tmp_path, "rev-parse", "HEAD")
     cfg = config.load(tmp_path)
     target_facts = extract.build(cfg)
-    (tmp_path / "pkg/b.py").write_text("def independent(): return 3\n")
+    (tmp_path / "pkg/b.py").write_text("def independent(): return 3\n", encoding="utf-8")
     working_facts = extract.build(cfg)
     model = Model(
         (1000, 1000),
@@ -518,5 +518,5 @@ def test_historical_facts_cache_uses_extraction_configuration(tmp_path: Path) ->
 
 def git(root: Path, *args: str) -> str:
     return subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+        ["git", *args], cwd=root, check=True, capture_output=True, text=True, encoding="utf-8"
     ).stdout.strip()

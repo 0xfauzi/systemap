@@ -63,7 +63,9 @@ def test_a_json_answer_is_unwrapped(tmp_path: Path) -> None:
 
 
 def test_without_a_command_nothing_runs_and_the_reason_is_said(tmp_path: Path) -> None:
-    (tmp_path / "systemap.toml").write_text('name = "x"\nmodel = "map/model.py"\n')
+    (tmp_path / "systemap.toml").write_text(
+        'name = "x"\nmodel = "map/model.py"\n', encoding="utf-8"
+    )
     cfg = load_config(tmp_path)
     assert cfg.agent_command == "" and not agent.has_agent(cfg)
     with pytest.raises(agent.AgentError, match="No agent is configured"):
@@ -111,15 +113,16 @@ def test_the_agent_table_is_read_and_checked(tmp_path: Path) -> None:
     toml = tmp_path / "systemap.toml"
     toml.write_text(
         'name = "x"\nmodel = "map/model.py"\n'
-        '[agent]\ncommand = "claude -p"\ntimeout = 90\ncache = ".systemap/a.json"\n'
+        '[agent]\ncommand = "claude -p"\ntimeout = 90\ncache = ".systemap/a.json"\n',
+        encoding="utf-8",
     )
     cfg = load_config(tmp_path)
     assert cfg.agent_command == "claude -p" and cfg.agent_timeout == 90.0
     assert cfg.agent_cache_path == tmp_path / ".systemap/a.json"
-    toml.write_text('name = "x"\n[agent]\ntimeout = 0\n')
+    toml.write_text('name = "x"\n[agent]\ntimeout = 0\n', encoding="utf-8")
     with pytest.raises(config.ConfigError, match="agent.timeout"):
         load_config(tmp_path)
-    toml.write_text('name = "x"\n[agent]\nmodel = "x"\n')
+    toml.write_text('name = "x"\n[agent]\nmodel = "x"\n', encoding="utf-8")
     with pytest.raises(config.ConfigError, match="agent has an unknown key: model"):
         load_config(tmp_path)
 

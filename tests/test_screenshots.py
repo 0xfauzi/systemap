@@ -109,7 +109,7 @@ def test_the_readme_embeds_what_the_script_writes() -> None:
     # are quoted one by one and the first maps as a range.
     rows = [
         json.loads(line)
-        for line in (ROOT / "bench" / "results.jsonl").read_text().splitlines()
+        for line in (ROOT / "bench" / "results.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     quoted = re.search(

@@ -114,6 +114,7 @@ def navigation_report(sample: Sample, tmp_path: Path) -> dict[str, Any]:
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "viewstate"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

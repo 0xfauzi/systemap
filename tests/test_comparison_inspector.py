@@ -92,6 +92,7 @@ def test_comparison_inspector_shows_changes_and_limits(sample: Sample, tmp_path:
         [node, str(harness), str(html), "--scenario", "comparisoninspector"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

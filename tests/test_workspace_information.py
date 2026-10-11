@@ -59,18 +59,22 @@ def test_map_information_uses_source_records(sample: Sample, tmp_path: Path, reg
         )
     assert model.layout_problems() == []
     html = tmp_path / "map.html"
-    html.write_text(page.build(sample.cfg, model, sample.meaning, sample.theme, sample.facts, {}))
-    driver = Path(__file__).with_name("page_driver.js").read_text()
+    html.write_text(
+        page.build(sample.cfg, model, sample.meaning, sample.theme, sample.facts, {}),
+        encoding="utf-8",
+    )
+    driver = Path(__file__).with_name("page_driver.js").read_text(encoding="utf-8")
     driver = driver.replace(
         "const scenarios = {keyboard, framing, submap, theme, workspace};",
         "const scenarios = {keyboard, framing, submap, theme, workspace, information};",
     )
     harness = tmp_path / "information.js"
-    harness.write_text(driver + SCENARIO)
+    harness.write_text(driver + SCENARIO, encoding="utf-8")
     result = subprocess.run(
         [node, str(harness), str(html), "--scenario", "information", "--viewport", "390x844"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

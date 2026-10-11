@@ -172,19 +172,21 @@ def test_check_refuses_a_card_whose_text_does_not_fit(
     model = tmp_path / "map/model.py"
     # Two lines on a component card: fine.
     model.write_text(
-        model.read_text().replace(
+        model.read_text(encoding="utf-8").replace(
             '"Reader": "the part that reads"',
             '"Reader": "the part that reads the input line by line"',
-        )
+        ),
+        encoding="utf-8",
     )
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     capsys.readouterr()
     three_lines = "the part that reads the input line by line and hands each one on"
     model.write_text(
-        model.read_text().replace(
+        model.read_text(encoding="utf-8").replace(
             '"Reader": "the part that reads the input line by line"', f'"Reader": "{three_lines}"'
-        )
+        ),
+        encoding="utf-8",
     )
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out

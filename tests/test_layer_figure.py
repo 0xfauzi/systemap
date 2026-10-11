@@ -140,7 +140,7 @@ def test_unknown_layer_exits_2_with_the_fix_named(
         run("--root", str(tmp_path), "figure", "--static", "--layer", "data", "--out", str(out))
         == 0
     )
-    svg = out.read_text()
+    svg = out.read_text(encoding="utf-8")
     assert svg.startswith("<svg ")
     assert "<title>Data flow: Which artifacts move between components?</title>" in svg
     assert drawn_edges(svg) == [("Reader", "Writer", "data")], "the starter model's one flow"
@@ -154,17 +154,19 @@ def test_configured_layer_figures_are_refreshed_and_checked(
     toml = tmp_path / "systemap.toml"
     # init configures figures/structure.svg already; a data reading joins it.
     toml.write_text(
-        toml.read_text() + '\n[[figures]]\nout = "figures/data.svg"\nmode = "system"\n'
-        'interactive = false\nlayer = "data"\n'
+        toml.read_text(encoding="utf-8")
+        + '\n[[figures]]\nout = "figures/data.svg"\nmode = "system"\n'
+        'interactive = false\nlayer = "data"\n',
+        encoding="utf-8",
     )
     assert run("--root", str(tmp_path), "refresh") == 0
-    structure = (tmp_path / "docs/map/figures/structure.svg").read_text()
-    data = (tmp_path / "docs/map/figures/data.svg").read_text()
+    structure = (tmp_path / "docs/map/figures/structure.svg").read_text(encoding="utf-8")
+    data = (tmp_path / "docs/map/figures/data.svg").read_text(encoding="utf-8")
     assert drawn_edges(structure) == []
     assert drawn_edges(data) == [("Reader", "Writer", "data")]
     assert run("--root", str(tmp_path), "check") == 0
     capsys.readouterr()
-    (tmp_path / "docs/map/figures/data.svg").write_text(data + "<!-- by hand -->")
+    (tmp_path / "docs/map/figures/data.svg").write_text(data + "<!-- by hand -->", encoding="utf-8")
     assert run("--root", str(tmp_path), "check") == 1
     assert "docs/map/figures/data.svg differs from the rendered output." in (
         capsys.readouterr().out
@@ -172,7 +174,10 @@ def test_configured_layer_figures_are_refreshed_and_checked(
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     # A layer the page does not have is a configuration error, in check and refresh alike.
-    toml.write_text(toml.read_text().replace('layer = "data"', 'layer = "nope"'))
+    toml.write_text(
+        toml.read_text(encoding="utf-8").replace('layer = "data"', 'layer = "nope"'),
+        encoding="utf-8",
+    )
     assert run("--root", str(tmp_path), "check") == 2
     assert "unknown layer id: nope" in capsys.readouterr().err
     assert run("--root", str(tmp_path), "refresh") == 2

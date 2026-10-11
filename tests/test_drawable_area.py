@@ -102,6 +102,7 @@ def drawable_report(
         [node, str(harness), str(html), "--scenario", "drawable", "--viewport", "1440x900"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

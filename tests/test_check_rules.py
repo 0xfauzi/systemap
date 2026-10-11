@@ -38,9 +38,9 @@ def current(root: Path) -> None:
 
 def edit_model(root: Path, old: str, new: str) -> None:
     model = root / "map/model.py"
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     assert old in text, old
-    model.write_text(text.replace(old, new))
+    model.write_text(text.replace(old, new), encoding="utf-8")
 
 
 # ---- entry: every card is code that exists today --------------------------------
@@ -126,7 +126,7 @@ def test_stale_facts_after_a_code_change(
 ) -> None:
     current(tmp_path)
     capsys.readouterr()
-    (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n")
+    (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n", encoding="utf-8")
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "stale: 1 problem" in out
@@ -163,7 +163,7 @@ def test_stale_figure_when_missing_or_edited(
     assert run("--root", str(tmp_path), "check") == 1
     assert "docs/map/figures/system.svg has no rendered output." in capsys.readouterr().out
     assert run("--root", str(tmp_path), "refresh") == 0
-    fig.write_text(fig.read_text() + "<!-- by hand -->")
+    fig.write_text(fig.read_text(encoding="utf-8") + "<!-- by hand -->", encoding="utf-8")
     assert run("--root", str(tmp_path), "check") == 1
     assert "docs/map/figures/system.svg differs from the rendered output." in (
         capsys.readouterr().out
@@ -190,7 +190,7 @@ def test_svg_figure_is_the_bare_drawing_on_its_ground(
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     init_two_cards(tmp_path, "--no-ci")
     assert run("--root", str(tmp_path), "refresh") == 0
-    svg = (tmp_path / "docs/map/figures/system.svg").read_text()
+    svg = (tmp_path / "docs/map/figures/system.svg").read_text(encoding="utf-8")
     assert svg.startswith('<svg id="lessonmap"')
     assert 'xmlns="http://www.w3.org/2000/svg"' in svg
     assert svg.rstrip().endswith("</svg>")
@@ -201,7 +201,7 @@ def test_svg_figure_is_the_bare_drawing_on_its_ground(
     capsys.readouterr()
     out = tmp_path / "one.svg"
     assert run("--root", str(tmp_path), "figure", "--static", "--out", str(out)) == 0
-    assert out.read_text().startswith("<svg ")
+    assert out.read_text(encoding="utf-8").startswith("<svg ")
 
 
 # ---- labels: both labels named; headers join the rule ----------------------------
@@ -316,7 +316,7 @@ def test_refresh_exits_1_when_the_check_fails_after_writing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     current(tmp_path)
-    (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n")
+    (tmp_path / "pkg/reader.py").write_text("def read(source):\n    return 1\n", encoding="utf-8")
     real = check.stale
     calls = {"n": 0}
 
@@ -343,7 +343,7 @@ def test_root_is_accepted_after_the_subcommand(
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("init", "--root", str(tmp_path), "--no-ci") == 0
     assert (tmp_path / "systemap.toml").is_file()
-    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
+    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
     assert run("extract", "--root", str(tmp_path)) == 0
     assert run("refresh", "--root", str(tmp_path)) == 0
     assert run("check", "--root", str(tmp_path)) == 0

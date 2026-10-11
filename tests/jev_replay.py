@@ -41,7 +41,7 @@ class Recording:
     def __init__(self, name: str) -> None:
         self.path = FIXTURES / f"{name}.json"
         self.responses: dict[str, Any] = (
-            json.loads(self.path.read_text()) if self.path.exists() else {}
+            json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {}
         )
         self.recording = os.environ.get("SYSTEMAP_RECORD_JEV") == "1"
         self.sent: list[tuple[str, str]] = []
@@ -57,7 +57,9 @@ class Recording:
                 )
             real = jev.http_send(REAL_KEY)
             self.responses[key] = real(method, path, body)
-            self.path.write_text(json.dumps(self.responses, indent=1, sort_keys=True) + "\n")
+            self.path.write_text(
+                json.dumps(self.responses, indent=1, sort_keys=True) + "\n", encoding="utf-8"
+            )
         answer: dict[str, Any] = self.responses[key]
         return answer
 

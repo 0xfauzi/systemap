@@ -224,8 +224,8 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="d6b85718d9e9b2e3bdf467e56480a938f2b377b80a07553a550907742fd7841b",
-        does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for layers. Shows connected components and selected sequence steps. Gives controls for layers, map position and zoom.",
+        source_review="8fdf38f8d0298561e1568694b87ae0e4c589222fb6528002ba44d107e0e1407e",
+        does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
             "systemap.schematic",
@@ -243,7 +243,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="fd3fa5453367bf8e6d5bd2a7ef44f3b893a66823b3bb4cb8ae9509dc37ba964a",
+        source_review="f8d9954eb046d4481789f65c5cff3909e03576e1dfd14cbba3c8e6e4c22a837d",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Text view shows the same components and flows. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -270,7 +270,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
-        source_review="14c16decae1b5320552be0966da074a75f6ff057688e5e069a05c055a09f9c09",
+        source_review="8a843145f17e138737aa2e8def4136fe3e30e2b9beaa3cd40794f3ed7b23c1f7",
         does="Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),

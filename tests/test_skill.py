@@ -184,7 +184,7 @@ def test_worked_example_passes_check(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert "coverage: 5 of 5 modules mapped, 1 an empty package marker" in out
     assert "map layout: has no errors" in out
     assert "stale" not in out
-    page = (tmp_path / "docs/map/index.html").read_text()
+    page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     for cid in ("User", "Reader", "Parser", "Ledger", "Writer"):
         assert f'"{cid}"' in page, cid
 
@@ -192,7 +192,7 @@ def test_worked_example_passes_check(tmp_path: Path, capsys: pytest.CaptureFixtu
 def test_write_installs_the_directory_and_removes_a_stale_reference(tmp_path: Path) -> None:
     target = tmp_path / "skills" / "systemap"
     (target / "references").mkdir(parents=True)
-    (target / "references" / "old.md").write_text("gone in this version")
+    (target / "references" / "old.md").write_text("gone in this version", encoding="utf-8")
     path = skill.write(target)
     assert path == target / "SKILL.md"
     written = sorted(p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file())
@@ -219,4 +219,4 @@ def test_language_policy_is_mandatory_and_installed(tmp_path: Path) -> None:
     assert "source symbols" in policy and "recorded experiment output" in policy
     target = tmp_path / "skills" / "systemap"
     skill.write(target)
-    assert (target / "references/language.md").read_text() == policy
+    assert (target / "references/language.md").read_text(encoding="utf-8") == policy

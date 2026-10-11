@@ -35,7 +35,7 @@ table = load("table")
 
 
 def test_summary_reads_model_turns_minutes_dollars_and_the_first_tool() -> None:
-    got = summary.summarize(FIXTURE.read_text().splitlines())
+    got = summary.summarize(FIXTURE.read_text(encoding="utf-8").splitlines())
     assert got == {
         "model": "claude-opus-5[1m]",
         "turns": 42,
@@ -51,7 +51,7 @@ def test_summary_reads_model_turns_minutes_dollars_and_the_first_tool() -> None:
 
 
 def test_summary_records_a_session_that_was_cut_off_or_never_ended() -> None:
-    lines = FIXTURE.read_text().splitlines()
+    lines = FIXTURE.read_text(encoding="utf-8").splitlines()
     without_result = [line for line in lines if '"type":"result"' not in line]
     got = summary.summarize(without_result)
     assert got["run"] == "cut off (no result event)"
@@ -100,10 +100,11 @@ def test_summary_script_writes_one_line_and_appends_it(tmp_path: Path) -> None:
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     )
     line = json.loads(proc.stdout)
-    assert out.read_text() == proc.stdout
+    assert out.read_text(encoding="utf-8") == proc.stdout
     assert line["repository"] == "https://github.com/acme/demo"
     assert line["mode"] == "first-map" and line["modules"] == 144
     assert line["dollars"] == 3.14 and line["turns"] == 42 and line["minutes"] == 32.8
@@ -197,15 +198,16 @@ def test_table_renders_one_row_per_repository_per_mode_with_the_latest_run() -> 
 
 def test_the_committed_table_is_what_the_script_renders() -> None:
     results = ROOT / "bench" / "results.jsonl"
-    lines = results.read_text().splitlines() if results.is_file() else []
+    lines = results.read_text(encoding="utf-8").splitlines() if results.is_file() else []
     expected = table.render(table.rows(lines))
-    assert (ROOT / "docs" / "benchmarks.md").read_text() == expected, (
+    assert (ROOT / "docs" / "benchmarks.md").read_text(encoding="utf-8") == expected, (
         "docs/benchmarks.md is stale; run: python3 bench/table.py"
     )
     proc = subprocess.run(
         [sys.executable, str(ROOT / "bench" / "table.py"), "--check"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert proc.returncode == 0, proc.stderr
 
@@ -219,22 +221,25 @@ def test_the_committed_table_is_what_the_script_renders() -> None:
 def test_run_script_parses_and_prints_its_usage() -> None:
     script = ROOT / "bench" / "run.sh"
     assert subprocess.run(["bash", "-n", str(script)], capture_output=True).returncode == 0
-    proc = subprocess.run(["bash", str(script), "--help"], capture_output=True, text=True)
+    proc = subprocess.run(
+        ["bash", str(script), "--help"], capture_output=True, text=True, encoding="utf-8"
+    )
     assert proc.returncode == 0
     assert proc.stdout.startswith(
         "Usage: bench/run.sh <repo-url-or-path> <first-map|maintenance|first-map-jev>"
     )
     for flag in ("--ref REF", "--base REF", "--from SPEC", "--model NAME", "--max-turns N"):
         assert flag in proc.stdout, flag
-    proc = subprocess.run(["bash", str(script)], capture_output=True, text=True)
+    proc = subprocess.run(["bash", str(script)], capture_output=True, text=True, encoding="utf-8")
     assert proc.returncode == 2 and "Usage:" in proc.stderr
     proc = subprocess.run(
         ["bash", str(script), "https://example.invalid/x.git", "maintenance"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert proc.returncode == 2 and "maintenance needs --base REF" in proc.stderr
-    text = script.read_text()
+    text = script.read_text(encoding="utf-8")
     # The recipe as documented: the sentence, the permission mode, the tool list.
     assert "Map this repository with systemap. Follow the systemap skill." in text
     assert "--permission-mode acceptEdits" in text

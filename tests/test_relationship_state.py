@@ -140,7 +140,7 @@ def relationship_report(
     args = [node, str(harness), str(html), "--scenario", "relationships"]
     if request.param:
         args.append("--reduced")
-    result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)  # type: ignore[no-any-return]
 

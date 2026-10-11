@@ -35,7 +35,7 @@ def drive(html: Path, viewport: str) -> dict[str, Any]:
         "--viewport",
         viewport,
     ]
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert proc.returncode == 0, proc.stderr
     report: dict[str, Any] = json.loads(proc.stdout)
     return report
@@ -192,6 +192,7 @@ def test_sequence_frames_after_controls_and_heading(sample: Sample, tmp_path: Pa
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "sequencelayout"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

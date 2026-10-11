@@ -177,7 +177,9 @@ def test_drift_sees_an_entry_point_change(tmp_path: Path) -> None:
     assert extract.drift(before, before) == []
     # A new console script is a change to the tree no module hash covers.
     pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text(pyproject.read_text() + 'pkg-worker = "pkg.worker:main"\n')
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8") + 'pkg-worker = "pkg.worker:main"\n', encoding="utf-8"
+    )
     after = extract.build(cfg)
     assert "entry point not in the map: pkg-worker (console script)" in extract.drift(after, before)
     assert (
@@ -276,17 +278,21 @@ def test_entry_may_be_any_public_name(tmp_path: Path, capsys: pytest.CaptureFixt
     init_two_cards(tmp_path, "--no-ci")
     model = tmp_path / "map/model.py"
     model.write_text(
-        model.read_text()
+        model.read_text(encoding="utf-8")
         .replace('implemented_by=("pkg.reader",)', 'implemented_by=("pkg.app",)')
         .replace('entry="read",', 'entry="app",')
         .replace('interface="read(source) -> Request",', 'interface="app (the server object)",')
         .replace('implemented_by=("pkg.writer",)', 'implemented_by=("pkg.core",)')
         .replace('entry="write",', 'entry="run",')
-        .replace('interface="write(request) -> Result",', 'interface="run() -> None",')
+        .replace('interface="write(request) -> Result",', 'interface="run() -> None",'),
+        encoding="utf-8",
     )
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
-    model.write_text(model.read_text().replace('entry="app",', 'entry="_private",'))
+    model.write_text(
+        model.read_text(encoding="utf-8").replace('entry="app",', 'entry="_private",'),
+        encoding="utf-8",
+    )
     assert main(["--root", str(tmp_path), "check"]) == 1
     out = capsys.readouterr().out
     assert "Reader has entry _private, but its modules do not define this entry (pkg.app)." in out
@@ -465,7 +471,7 @@ def test_facts_file_is_compact_and_one_record_per_line(tmp_path: Path) -> None:
     cfg = config.load(tmp_path)
     facts = extract.build(cfg)
     extract.write_facts(cfg.facts_path, facts)
-    text = cfg.facts_path.read_text()
+    text = cfg.facts_path.read_text(encoding="utf-8")
     assert extract.read_facts(cfg.facts_path) == facts, "round-trips"
     lines = text.splitlines()
     assert lines[0] == "{" and lines[-1] == "}" and text.endswith("\n")

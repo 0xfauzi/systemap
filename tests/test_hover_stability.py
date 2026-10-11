@@ -117,6 +117,7 @@ def crowding_report(sample: Sample, tmp_path: Path) -> dict[str, Any]:
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "hoverstability"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
@@ -284,6 +285,7 @@ def test_sequence_start_clears_previous_flow_inspector_and_end_restores_it(
         [shutil.which("node") or "node", str(harness), str(html), "--scenario", "sequencefocus"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stderr

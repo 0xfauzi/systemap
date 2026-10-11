@@ -196,13 +196,14 @@ def test_apply_suppresses_answered_lines_and_reports_stale_answers() -> None:
 def test_config_accepts_audit_kinds_and_a_jev_table(tmp_path: Path) -> None:
     (tmp_path / "systemap.toml").write_text(
         '[jev]\nmodel = "jev-preview"\ncache = "cache/jev.json"\n'
-        '[judgement]\nanswered = [{ kind = "jev flow", reason = "the joins are events" }]\n'
+        '[judgement]\nanswered = [{ kind = "jev flow", reason = "the joins are events" }]\n',
+        encoding="utf-8",
     )
     cfg = load_config(tmp_path)
     assert cfg.jev_model == "jev-preview"
     assert cfg.jev_cache_path == tmp_path / "cache/jev.json"
     assert cfg.judgement_answered[0].kind == "jev flow"
-    (tmp_path / "systemap.toml").write_text('[jev]\nmodels = "x"\n')
+    (tmp_path / "systemap.toml").write_text('[jev]\nmodels = "x"\n', encoding="utf-8")
     with pytest.raises(ConfigError, match="jev has an unknown key: models"):
         load_config(tmp_path)
 
@@ -425,7 +426,10 @@ def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     init_two_cards(tmp_path, "--no-ci")
     # The name is in every question; pinned, so the recorded answers match on any machine.
     toml = tmp_path / "systemap.toml"
-    toml.write_text(re.sub(r'(?m)^name = ".*"$', 'name = "two-cards"', toml.read_text()))
+    toml.write_text(
+        re.sub(r'(?m)^name = ".*"$', 'name = "two-cards"', toml.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
     assert main(["--root", str(tmp_path), "extract"]) == 0
     monkeypatch.setenv(jev.KEY_ENV, "recorded")
     return tmp_path
@@ -528,8 +532,9 @@ def test_judgement_ignores_audit_answers(
 ) -> None:
     toml = two_cards / "systemap.toml"
     toml.write_text(
-        toml.read_text()
-        + '\n[judgement]\nanswered = [{ item = "jev sentence: Reader\'s sentence may not describe its modules", reason = "r" }]\n'
+        toml.read_text(encoding="utf-8")
+        + '\n[judgement]\nanswered = [{ item = "jev sentence: Reader\'s sentence may not describe its modules", reason = "r" }]\n',
+        encoding="utf-8",
     )
     main(["--root", str(two_cards), "judgement"])
     assert "stale" not in capsys.readouterr().out
@@ -580,6 +585,8 @@ def test_pair_candidates_chain_each_package_and_add_imports() -> None:
 
 def test_recordings_hold_real_responses() -> None:
     for name in ("jev_sample", "jev_two_cards"):
-        data = json.loads((Path(__file__).parent / "fixtures" / f"{name}.json").read_text())
+        data = json.loads(
+            (Path(__file__).parent / "fixtures" / f"{name}.json").read_text(encoding="utf-8")
+        )
         posts = [v for v in data.values() if "answers" in v]
         assert posts and all(v["model"].startswith("jev-") for v in posts)

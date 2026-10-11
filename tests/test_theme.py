@@ -474,7 +474,7 @@ def test_a_token_table_is_not_a_scheme(sample: Sample) -> None:
 
 def drive_theme(html: Path, *flags: str) -> dict[str, Any]:
     args = [shutil.which("node") or "node", str(DRIVER), str(html), "--scenario", "theme", *flags]
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert proc.returncode == 0, proc.stderr
     report: dict[str, Any] = json.loads(proc.stdout)
     return report

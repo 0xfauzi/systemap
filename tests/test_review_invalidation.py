@@ -39,7 +39,7 @@ def _pending(
 
 def test_python_syntax_hash_retains_python_311_representation(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
-    source.write_text("def f(x):\n return x\n")
+    source.write_text("def f(x):\n return x\n", encoding="utf-8")
     baseline = (
         "Module(body=[FunctionDef(name='f', args=arguments(posonlyargs=[], "
         "args=[arg(arg='x')], kwonlyargs=[], kw_defaults=[], defaults=[]), "
@@ -48,11 +48,11 @@ def test_python_syntax_hash_retains_python_311_representation(tmp_path: Path) ->
     record = extract.collect_module(source, tmp_path)
     assert record is not None
     assert record["syntax_sha"] == hashlib.sha256(baseline.encode()).hexdigest()[:16]
-    source.write_text("# a comment\ndef f( x ):\n    return x\n")
+    source.write_text("# a comment\ndef f( x ):\n    return x\n", encoding="utf-8")
     formatted = extract.collect_module(source, tmp_path)
     assert formatted is not None
     assert formatted["syntax_sha"] == record["syntax_sha"]
-    source.write_text("def f(x):\n return x + 1\n")
+    source.write_text("def f(x):\n return x + 1\n", encoding="utf-8")
     changed = extract.collect_module(source, tmp_path)
     assert changed is not None
     assert changed["syntax_sha"] != record["syntax_sha"]
@@ -63,7 +63,7 @@ def test_historical_cache_discards_pre_portability_hashes(
 ) -> None:
     source = tmp_path / "pkg"
     source.mkdir()
-    (source / "reader.py").write_text("def read():\n    return 1\n")
+    (source / "reader.py").write_text("def read():\n    return 1\n", encoding="utf-8")
     for arguments in (
         ("init", "-q"),
         ("add", "."),
@@ -85,7 +85,7 @@ def test_historical_cache_discards_pre_portability_hashes(
     old = history.facts_at(cfg, sha)
     old["components"]["pkg.reader"]["syntax_sha"] = "obsolete-python-313-hash"
     cache = next(history.cache_dir(cfg).glob("*.json"))
-    cache.write_text(json.dumps(old))
+    cache.write_text(json.dumps(old), encoding="utf-8")
     monkeypatch.setattr(extract, "FORMAT", current_format)
     fresh = history.facts_at(cfg, sha)
     assert fresh["version"] == 4
@@ -95,9 +95,9 @@ def test_historical_cache_discards_pre_portability_hashes(
 @pytest.mark.skipif(not hasattr(__import__("ast"), "TypeVar"), reason="Python 3.12 syntax")
 def test_python_syntax_hash_retains_nonempty_type_parameters(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
-    source.write_text("def f[T](x: T) -> T:\n return x\n")
+    source.write_text("def f[T](x: T) -> T:\n return x\n", encoding="utf-8")
     original = extract.collect_module(source, tmp_path)
-    source.write_text("def f[U](x: U) -> U:\n return x\n")
+    source.write_text("def f[U](x: U) -> U:\n return x\n", encoding="utf-8")
     changed = extract.collect_module(source, tmp_path)
     assert original is not None and changed is not None
     assert "parse_error" not in original and "parse_error" not in changed

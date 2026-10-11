@@ -21,7 +21,9 @@ from systemap.model import Component
 
 
 def git(root: Path, *args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        ["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8", check=True
+    )
     return result.stdout.strip()
 
 

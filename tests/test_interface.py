@@ -44,9 +44,9 @@ def current(root: Path) -> None:
 
 def edit_model(root: Path, old: str, new: str) -> None:
     model = root / "map/model.py"
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     assert old in text, old
-    model.write_text(text.replace(old, new))
+    model.write_text(text.replace(old, new), encoding="utf-8")
 
 
 def with_interface(sample: Sample, cid: str, interface: str) -> Sample:
@@ -324,7 +324,7 @@ def test_an_interface_edit_renders_and_refresh_says_what_current_means(
     assert "docs/map/index.html differs from the rendered output." in out
     assert run("--root", str(tmp_path), "refresh") == 0
     assert "map: The command updated" in capsys.readouterr().out
-    assert "write(request) -> str" in (tmp_path / "docs/map/index.html").read_text()
+    assert "write(request) -> str" in (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     assert run("--root", str(tmp_path), "refresh") == 0
     assert capsys.readouterr().out == ALREADY_CURRENT + "\n"
     assert ALREADY_CURRENT == ("map: The page agrees with the rendered model fields and the facts.")

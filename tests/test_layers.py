@@ -196,15 +196,15 @@ def test_standard_kinds_need_no_declaration(tmp_path: Path) -> None:
         },
     )
     assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
-    text = (tmp_path / "map/model.py").read_text()
+    text = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "COMPONENTS: tuple[Component, ...] = ()" in text
     assert "FLOW_KINDS: tuple[str, ...] = ()" in text
     assert "LAYERS: tuple[Layer, ...] = ()" in text
     assert 'Flow("Reader", "Writer", "request", "data")' in TWO_CARD_MODEL
-    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL)
+    (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
-    html = (tmp_path / "docs/map/index.html").read_text()
+    html = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     assert 'data-layer-btn="structure"' in html
 
 

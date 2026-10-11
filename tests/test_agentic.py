@@ -129,14 +129,15 @@ def test_calls_model_in_the_model_module(
     assert "model sdk: module pkg.reader imports openai" in capsys.readouterr().out
     model = tmp_path / "map/model.py"
     model.write_text(
-        model.read_text()
+        model.read_text(encoding="utf-8")
         .replace('entry="read",', 'entry="read",\n        calls_model=True,')
         .replace(
             'Flow("Reader", "Writer", "request", "data")',
             'Flow("Writer", "Reader", "request", "context")',
         )
         .replace('("Reader", "Writer"):', '("Writer", "Reader"):')
-        .replace('edge=("Reader", "Writer")', 'edge=("Writer", "Reader")')
+        .replace('edge=("Reader", "Writer")', 'edge=("Writer", "Reader")'),
+        encoding="utf-8",
     )
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
@@ -144,7 +145,7 @@ def test_calls_model_in_the_model_module(
     assert run("--root", str(tmp_path), "judgement") == 0
     out = capsys.readouterr().out
     assert "model sdk" not in out
-    page = (tmp_path / "docs/map/index.html").read_text()
+    page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     assert '"calls_model":true' in page
     assert 'data-layer-btn="context"' in page, "the Context reading appears for the call site"
 
@@ -159,21 +160,23 @@ def test_entry_is_optional_for_store_and_context_kinds(
     init_two_cards(tmp_path, "--no-ci")
     assert run("--root", str(tmp_path), "extract") == 0
     model = tmp_path / "map/model.py"
-    text = model.read_text()
+    text = model.read_text(encoding="utf-8")
     # A component with no entry is refused, as before.
-    model.write_text(text.replace('entry="write",', ""))
+    model.write_text(text.replace('entry="write",', ""), encoding="utf-8")
     assert run("--root", str(tmp_path), "check") == 1
     assert "Writer has no entry. Its modules are pkg.writer" in capsys.readouterr().out
     # A store with no entry is a namespace: its modules alone say it exists.
-    model.write_text(text.replace('entry="write",', 'kind="store",'))
+    model.write_text(text.replace('entry="write",', 'kind="store",'), encoding="utf-8")
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     capsys.readouterr()
-    page = (tmp_path / "docs/map/index.html").read_text()
+    page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
     assert '"entry":"","entry_module":""' in page
     assert "The component has no entry name." in page
     # An entry a store does give is checked like any other.
-    model.write_text(text.replace('entry="write",', 'kind="store",\n        entry="publish",'))
+    model.write_text(
+        text.replace('entry="write",', 'kind="store",\n        entry="publish",'), encoding="utf-8"
+    )
     assert run("--root", str(tmp_path), "check") == 1
     assert "Writer has entry publish, but its modules do not define this entry (pkg.writer)." in (
         capsys.readouterr().out

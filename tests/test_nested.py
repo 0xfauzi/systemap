@@ -202,9 +202,9 @@ def nested(tmp_path: Path) -> Path:
 
 def edit(root: Path, rel: str, old: str, new: str) -> None:
     path = root / rel
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert old in text, old
-    path.write_text(text.replace(old, new))
+    path.write_text(text.replace(old, new), encoding="utf-8")
 
 
 def add_child_route(root: Path) -> None:
@@ -228,7 +228,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
     point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
     identity = extract.entry_identity(point)
     top_path = nested / "map/model.py"
-    source = top_path.read_text()
+    source = top_path.read_text(encoding="utf-8")
     source = source.replace(
         "from systemap import Component, Container, Flow, Meaning, Model, Region",
         "from systemap import Component, Container, Flow, Journey, Meaning, Model, Region, Step",
@@ -238,7 +238,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
         '(Step(("Reader",), (), ("Reader", "Gateway"), "Read."),), '
         f'starts="GET /read", covers=({identity!r},)),),\n',
     )
-    top_path.write_text(source)
+    top_path.write_text(source, encoding="utf-8")
     lines = judgement.run_tree(nest.load(load(nested)), facts)
     assert not any("GET /read" in line and "has no journey" in line for line in lines)
 
@@ -251,14 +251,14 @@ def test_journeys_command_writes_child_route_in_child_model(
 
     add_child_route(nested)
     child_path = nested / "map/gateway.py"
-    source = child_path.read_text()
+    source = child_path.read_text(encoding="utf-8")
     source = source.replace(
         "from systemap import Component, Container, Flow, Meaning, Model, Region",
         "from systemap import Component, Container, Flow, Journey, Meaning, Model, Region, Step",
     ).replace(
         "MEANING = Meaning(\n", "JOURNEYS = (\n)\nMEANING = Meaning(\n    journeys=JOURNEYS,\n"
     )
-    child_path.write_text(source)
+    child_path.write_text(source, encoding="utf-8")
     cfg = load(nested)
     args = __import__("argparse").Namespace(root_path=cfg.root, limit=3, dry_run=True)
     assert cmd_journeys(args) == 0
@@ -266,7 +266,9 @@ def test_journeys_command_writes_child_route_in_child_model(
     assert "Gateway: GET /read (route) (map/gateway.py)" in preview
 
     toml = nested / "systemap.toml"
-    toml.write_text(toml.read_text() + '\n[agent]\ncommand = "agent -p"\n')
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + '\n[agent]\ncommand = "agent -p"\n', encoding="utf-8"
+    )
     answer = json.dumps(
         {
             "id": "read-route",
@@ -289,8 +291,8 @@ def test_journeys_command_writes_child_route_in_child_model(
     assert cmd_journeys(args, run_command=answer_command) == 0
     output = capsys.readouterr().out
     assert "written into map/gateway.py" in output
-    assert "read-route" in child_path.read_text()
-    assert "read-route" not in (nested / "map/model.py").read_text()
+    assert "read-route" in child_path.read_text(encoding="utf-8")
+    assert "read-route" not in (nested / "map/model.py").read_text(encoding="utf-8")
 
 
 def test_the_check_runs_on_every_map_and_counts_coverage_once(
@@ -398,7 +400,7 @@ def test_a_sub_maps_actors_are_cards_of_the_parent(
 ) -> None:
     # The Style map is written again without positions, so place lays its
     # boxes out whole for the extra actor.
-    (nested / "map/style.py").write_text(STYLE.lstrip("\n"))
+    (nested / "map/style.py").write_text(STYLE.lstrip("\n"), encoding="utf-8")
     edit(
         nested,
         "map/style.py",
@@ -454,9 +456,9 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     nested: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert run("--root", str(nested), "refresh") == 0
-    top = (nested / "docs/map/index.html").read_text()
-    gateway = (nested / "docs/map/Gateway/index.html").read_text()
-    style = (nested / "docs/map/Style/index.html").read_text()
+    top = (nested / "docs/map/index.html").read_text(encoding="utf-8")
+    gateway = (nested / "docs/map/Gateway/index.html").read_text(encoding="utf-8")
+    style = (nested / "docs/map/Style/index.html").read_text(encoding="utf-8")
     assert "<title>demo system map</title>" in top
     assert "<title>demo system map: Gateway</title>" in gateway
     # The header counts the cards that are code, then the actors apart.
@@ -539,7 +541,7 @@ def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
         "--scenario",
         "submap",
     ]
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert proc.returncode == 0, proc.stderr
     report: dict[str, Any] = json.loads(proc.stdout)
     # The first opening card in reading order, whichever place put on top.
@@ -583,7 +585,7 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     assert (
         run("--root", str(nested), "figure", "--map", "Gateway", "--static", "--out", str(out)) == 0
     )
-    text = out.read_text()
+    text = out.read_text(encoding="utf-8")
     assert 'data-id="App"' in text and 'data-id="Routes"' in text and 'data-id="Writer"' not in text
     assert "Inside Gateway: This figure shows the system map." in text
     assert 'class="node__map"' not in text
@@ -601,12 +603,12 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
         )
         == 0
     )
-    text = out.read_text()
+    text = out.read_text(encoding="utf-8")
     assert "Inside Style: Control flow: Which components cause other components to act?" in text
     assert "The page at <code>docs/map/Style/index.html</code>" in text
     # The top map by default: the mark, the legend row, the panel names the map without a link.
     assert run("--root", str(nested), "figure", "--interactive", "--out", str(out)) == 0
-    text = out.read_text()
+    text = out.read_text(encoding="utf-8")
     assert text.count('class="node__map"') == 2 and "opens a map" in text
     assert '"map":{"name":"Gateway","href":"","cards":3,"preview":""}' in text
     capsys.readouterr()
@@ -615,14 +617,15 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     # A configured figure of a sub-map is refreshed and checked like any other.
     (nested / "systemap.toml").write_text(
         CONFIG
-        + '\n[[figures]]\nout = "figures/gateway.svg"\nmode = "system"\ninteractive = false\nmap = "Gateway"\n'
+        + '\n[[figures]]\nout = "figures/gateway.svg"\nmode = "system"\ninteractive = false\nmap = "Gateway"\n',
+        encoding="utf-8",
     )
     assert run("--root", str(nested), "refresh") == 0
-    svg = (nested / "docs/map/figures/gateway.svg").read_text()
+    svg = (nested / "docs/map/figures/gateway.svg").read_text(encoding="utf-8")
     assert svg.startswith("<svg ") and 'data-id="App"' in svg
     assert run("--root", str(nested), "check") == 0
     (nested / "systemap.toml").write_text(
-        CONFIG + '\n[[figures]]\nout = "figures/x.svg"\nmap = "Nope"\n'
+        CONFIG + '\n[[figures]]\nout = "figures/x.svg"\nmap = "Nope"\n', encoding="utf-8"
     )
     assert run("--root", str(nested), "check") == 2
 
@@ -631,10 +634,10 @@ def test_place_writes_into_a_sub_maps_file(
     nested: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert run("--root", str(nested), "refresh") == 0
-    placed = (nested / "map/style.py").read_text()
+    placed = (nested / "map/style.py").read_text(encoding="utf-8")
     assert "x=" in placed and "y=" in placed
     # Strip the Style map's positions: place writes them again, the same.
-    (nested / "map/style.py").write_text(STYLE.lstrip("\n"))
+    (nested / "map/style.py").write_text(STYLE.lstrip("\n"), encoding="utf-8")
     capsys.readouterr()
     assert run("--root", str(nested), "place", "--print") == 0
     out = capsys.readouterr().out
@@ -654,7 +657,7 @@ def test_place_writes_into_a_sub_maps_file(
     )
     assert "Gateway: place: wrote" not in out
     assert out.rstrip().endswith("run: systemap check")
-    assert (nested / "map/style.py").read_text() == placed
+    assert (nested / "map/style.py").read_text(encoding="utf-8") == placed
     assert run("--root", str(nested), "check") == 0
 
 
@@ -676,7 +679,8 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
         '  { kind = "single module", policy = true, reason = "small parts" },\n'
         '  { item = "Gateway: thin layer: data shows 2 components", reason = "one record" },\n'
         '  { item = "thin layer: control shows 0 components", reason = "stale on purpose" },\n'
-        "]\n"
+        "]\n",
+        encoding="utf-8",
     )
     assert run("--root", str(nested), "judgement") == 0
     out = capsys.readouterr().out
@@ -699,6 +703,7 @@ def git(root: Path, *args: str) -> str:
         cwd=root,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=True,
     )
     return proc.stdout.strip()
@@ -713,7 +718,7 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     sha = git(nested, "rev-parse", "HEAD")
     assert run("--root", str(nested), "refresh") == 0
     for rel in ("index.html", "Gateway/index.html"):
-        html = (nested / "docs/map" / rel).read_text()
+        html = (nested / "docs/map" / rel).read_text(encoding="utf-8")
         assert (
             f'<span class="snap" title="HEAD at extraction of the working tree">at <code>{sha[:7]}</code></span>'
             in html
