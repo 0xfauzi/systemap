@@ -587,7 +587,9 @@ Unknown keys are rejected.
 | `[theme]` | warm | Color-token overrides. `scheme = "warm"`, `"graphite"`, or `"paper"` selects the default. The page offers all three. The 0.11 names `dark` and `light` still select graphite and paper. `[theme.paper]` overrides one scheme. `[theme.layers]` sets a color per layer id, including standard ids. `[theme.marks]` selects a mark per agent kind. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
-TypeScript discovery does not include `.d.ts` declaration files.
+TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
+The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.
+A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in `tsconfig.json` `extends` gives an `unknown surface`
 finding. Extraction continues with the compiler options that it can read.
 

@@ -10,28 +10,56 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from systemap import typescript_entry
 from systemap.config import ConfigError
 from systemap.typescript_config import (
+    DECLARATION_SUFFIXES,
     TypeScriptConfig,
     alias_targets,
     input_files,
+    is_alias,
     load_typescript_config,
-    package_json,
     root_candidates,
-    source_targets,
+    source_files,
 )
-from systemap.typescript_surface import _tree as parse_tree
-from systemap.typescript_surface import parse_problem, parse_surface, test_names
+from systemap.typescript_projects import TypeScriptProjects, path_choices, without_script_suffix
+from systemap.typescript_surface import parse_problem, parse_surface
+from systemap.typescript_syntax import _tree as parse_tree
+from systemap.typescript_syntax import syntax_tree
+from systemap.typescript_tests import test_names
 
-SOURCE_SUFFIXES = (".ts", ".tsx")
-TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
+SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
+# The default test file names of Jest, Vitest, Playwright and Cypress.
+TEST_SUFFIXES = tuple(
+    f".{role}{suffix}" for role in ("test", "spec", "cy") for suffix in SOURCE_SUFFIXES
+)
 TEST_FILES = ("test.ts", "test.tsx")
+# Jest reads each file in a directory with this name as a test file.
+TEST_DIRECTORY = "__tests__"
 SKIP_PARTS = {".git", ".venv", "node_modules", "build", "dist"}
+# The test walk does not enter these directories. They contain no project tests.
+PRUNED_PARTS = frozenset({".git", "node_modules"})
 WHOLE_MODULE = "*"
-BUILD_DIRS = {"build", "dist", "distribution", "lib"}
-BUILD_FORMATS = {"cjs", "esm", "types"}
 CONSTANTS_KEPT = 14
 TESTS_KEPT = 25
+# The built-in modules of Node.js 22 (`require("module").builtinModules`). They are the
+# standard library, which `external` does not include.
+NODE_MODULES = frozenset(
+    {
+        *("_http_agent", "_http_client", "_http_common", "_http_incoming", "_http_outgoing"),
+        *("_http_server", "_stream_duplex", "_stream_passthrough", "_stream_readable"),
+        *("_stream_transform", "_stream_wrap", "_stream_writable", "_tls_common", "_tls_wrap"),
+        *("assert", "assert/strict", "async_hooks", "buffer", "child_process", "cluster"),
+        *("console", "constants", "crypto", "dgram", "diagnostics_channel", "dns"),
+        *("dns/promises", "domain", "events", "fs", "fs/promises", "http", "http2", "https"),
+        *("inspector", "inspector/promises", "module", "net", "os", "path", "path/posix"),
+        *("path/win32", "perf_hooks", "process", "punycode", "querystring", "readline"),
+        *("readline/promises", "repl", "stream", "stream/consumers", "stream/promises"),
+        *("stream/web", "string_decoder", "sys", "timers", "timers/promises", "tls"),
+        *("trace_events", "tty", "url", "util", "util/types", "v8", "vm", "wasi"),
+        *("worker_threads", "zlib"),
+    }
+)
 
 
 @dataclass
@@ -46,6 +74,12 @@ class TypeScriptContext:
     # The folders tsc takes as rootDir, in the order to try; see root_candidates.
     source_roots: tuple[Path, ...] = ()
     test_issues: list[dict[str, Any]] = field(default_factory=list)
+    # The tsconfig project of each file. Without it, the top-level compiler applies.
+    projects: TypeScriptProjects | None = None
+
+    def compiler_for(self, path: Path) -> TypeScriptConfig:
+        """This function gives the compiler settings of the project that contains a file."""
+        return self.compiler if self.projects is None else self.projects.config_for(path)
 
 
 def _test_path(
@@ -68,7 +102,7 @@ def _test_file_guards(
         raw = path.read_text(encoding="utf-8")
     except OSError:
         return {}
-    root = parse_tree(raw, path.as_posix())
+    root = syntax_tree(raw, path.as_posix())
     if root.has_error:
         context.test_issues.append(
             {
@@ -96,21 +130,13 @@ def _module_name(name: str) -> str:
     return name.removeprefix("@").replace("/", ".").replace("-", "_")
 
 
-def _without_script_suffix(specifier: str) -> str:
-    for suffix in (".d.ts", ".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs"):
-        if specifier.endswith(suffix):
-            return specifier[: -len(suffix)]
-    return specifier
-
-
 def _test_file(path: str, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]) -> bool:
     relative = PurePosixPath(path).as_posix()
-    if PurePosixPath(path).suffix not in SOURCE_SUFFIXES or relative.endswith(".d.ts"):
+    if PurePosixPath(path).suffix not in SOURCE_SUFFIXES or relative.endswith(DECLARATION_SUFFIXES):
         return False
     if any(relative.startswith(f"{folder.rstrip('/')}/") for folder in tests_dirs if folder):
         return True
-    name = PurePosixPath(path).name
-    if name.startswith("test_") or name in TEST_FILES or name.endswith(TEST_SUFFIXES):
+    if _test_name(PurePosixPath(path)):
         return True
     return any(
         fnmatch.fnmatchcase(relative, pattern)
@@ -119,14 +145,14 @@ def _test_file(path: str, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]
     )
 
 
-def _path_choices(target: Path) -> list[Path]:
-    if target.suffix in SOURCE_SUFFIXES:
-        return [target]
-    if target.suffix in (".js", ".jsx", ".mjs", ".cjs"):
-        target = Path(_without_script_suffix(str(target)))
-    return [Path(str(target) + suffix) for suffix in SOURCE_SUFFIXES] + [
-        target / f"index{suffix}" for suffix in SOURCE_SUFFIXES
-    ]
+def _test_name(path: PurePosixPath) -> bool:
+    name = path.name
+    return (
+        name.startswith("test_")
+        or name in TEST_FILES
+        or name.endswith(TEST_SUFFIXES)
+        or TEST_DIRECTORY in path.parts[:-1]
+    )
 
 
 def _target_from_path(
@@ -135,19 +161,20 @@ def _target_from_path(
     paths: dict[str, Path],
     context: TypeScriptContext,
 ) -> str | None:
+    compiler = context.compiler_for(importer)
     if specifier.startswith("."):
-        targets = _relative_targets(specifier, importer, context.compiler.root_dirs)
+        targets = _relative_targets(specifier, importer, compiler.root_dirs)
     else:
-        targets = alias_targets(specifier, context.compiler, context.repo)
+        targets = alias_targets(specifier, compiler, context.repo)
     found = _first_target(targets, context.modules_by_path)
     if found is not None or specifier.startswith("."):
         return found
-    normalized = _module_name(_without_script_suffix(specifier))
+    normalized = _module_name(without_script_suffix(specifier))
     return next((name for name in (normalized, f"{normalized}.index") if name in paths), None)
 
 
 def _relative_targets(specifier: str, importer: Path, root_dirs: tuple[Path, ...]) -> list[Path]:
-    relative = (importer.parent / _without_script_suffix(specifier)).resolve()
+    relative = (importer.parent / without_script_suffix(specifier)).resolve()
     targets = [relative]
     containing = [root for root in root_dirs if relative.is_relative_to(root)]
     if containing:
@@ -162,7 +189,7 @@ def _first_target(targets: list[Path], modules_by_path: dict[Path, str]) -> str 
         (
             modules_by_path[choice.resolve()]
             for target in targets
-            for choice in _path_choices(target)
+            for choice in path_choices(target)
             if choice.resolve() in modules_by_path
         ),
         None,
@@ -170,7 +197,7 @@ def _first_target(targets: list[Path], modules_by_path: dict[Path, str]) -> str 
 
 
 def _module_candidate(specifier: str, module: str) -> str:
-    specifier = _without_script_suffix(specifier)
+    specifier = without_script_suffix(specifier)
     if not specifier.startswith("."):
         return _module_name(specifier)
     parts = module.split(".")[:-1]
@@ -351,7 +378,7 @@ def _first_existing_target(targets: list[Path]) -> Path | None:
         (
             choice.resolve()
             for target in targets
-            for choice in _path_choices(target)
+            for choice in path_choices(target)
             if choice.is_file()
         ),
         None,
@@ -360,7 +387,7 @@ def _first_existing_target(targets: list[Path]) -> Path | None:
 
 def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) -> Iterator[Path]:
     try:
-        root = parse_tree(path.read_text(encoding="utf-8"), path.as_posix())
+        root = syntax_tree(path.read_text(encoding="utf-8"), path.as_posix())
     except (OSError, UnicodeError):
         return
     for specifier, _ in _imports(root):
@@ -370,12 +397,80 @@ def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) ->
             else alias_targets(specifier, compiler, repo)
         )
         found = _first_existing_target(targets)
-        if found is not None and not found.name.endswith(".d.ts"):
+        if found is not None and not found.name.endswith(DECLARATION_SUFFIXES):
             yield found
+
+
+def _projects(repo: Path, compiler: TypeScriptConfig, paths: dict[str, Path]) -> TypeScriptProjects:
+    """This function loads the tsconfig project of each source module.
+
+    A tsconfig error then stops the extraction before the modules are read.
+    """
+    projects = TypeScriptProjects(repo, compiler)
+    for path in paths.values():
+        projects.config_for(path)
+    return projects
+
+
+def _node_module(specifier: str) -> bool:
+    """This function tells if a specifier names a built-in module of Node.js."""
+    return specifier.startswith("node:") or specifier in NODE_MODULES
 
 
 def _problem(line: int, reason: str, source: str) -> dict[str, Any]:
     return {"line": line, "reason": reason, "source": source[:120]}
+
+
+def _resolve_reexports(
+    surface: dict[str, Any],
+    path: Path,
+    module: str,
+    known: set[str],
+    paths: dict[str, Path],
+    context: TypeScriptContext,
+) -> None:
+    """This function replaces each re-export specifier with its module.
+
+    A re-export from an npm package keeps the package name and has no unknown record.
+    A `*` re-export from an npm package gives no public name.
+    """
+    surface["names"] = [
+        entry
+        for entry in surface["names"]
+        if not entry.get("reexport_of")
+        or _resolve_reexport(entry, surface, path, module, known, paths, context)
+    ]
+
+
+def _resolve_reexport(
+    entry: dict[str, Any],
+    surface: dict[str, Any],
+    path: Path,
+    module: str,
+    known: set[str],
+    paths: dict[str, Path],
+    context: TypeScriptContext,
+) -> bool:
+    source = entry["reexport_of"]
+    target = _resolve(source, module, known, paths, context)
+    if target:
+        entry["reexport_of"] = target
+        return True
+    star = entry.pop("star", None)
+    entry["kind"] = "unknown"
+    if _is_package(source, path, context):
+        return not star
+    surface["unknown"].append(
+        _problem(1, f"the re-export target {source!r} is outside the extracted module set.", source)
+    )
+    return True
+
+
+def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> bool:
+    """This function tells if an import that does not resolve names an npm package."""
+    return not specifier.startswith((".", "/")) and not is_alias(
+        specifier, context.compiler_for(importer)
+    )
 
 
 class TypeScriptLanguage:
@@ -410,15 +505,17 @@ class TypeScriptLanguage:
             compiler = load_typescript_config(repo)
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
+        projects = _projects(repo, compiler, paths)
         return TypeScriptContext(
             repo=repo,
             modules_by_path={path.resolve(): module for module, path in paths.items()},
-            compiler=compiler,
+            compiler=projects.combined(),
             tests_dirs=tests_dirs,
             test_patterns=test_patterns,
             source_roots=root_candidates(
                 compiler, _program_inputs(input_files(compiler), compiler, repo)
             ),
+            projects=projects,
         )
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
@@ -427,7 +524,7 @@ class TypeScriptLanguage:
 
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         absolute = repo / path
-        if absolute.suffix not in SOURCE_SUFFIXES or absolute.name.endswith(".d.ts"):
+        if absolute.suffix not in SOURCE_SUFFIXES or absolute.name.endswith(DECLARATION_SUFFIXES):
             return None
         for root, name in roots:
             if absolute.is_relative_to(root):
@@ -445,6 +542,9 @@ class TypeScriptLanguage:
         context: TypeScriptContext,
     ) -> dict[str, Any] | None:
         del prefixes
+        if path.name.endswith(DECLARATION_SUFFIXES):
+            # A declaration file has no module record, as tsc emits no code for it.
+            return None
         try:
             raw = path.read_text(encoding="utf-8")
         except OSError:
@@ -461,23 +561,7 @@ class TypeScriptLanguage:
                 "api": [],
                 "unknown": [parse_problem(raw, path.as_posix())],
             }
-        for entry in surface["names"]:
-            source = entry.get("reexport_of")
-            if not source:
-                continue
-            target = _resolve(source, module, known, paths, context)
-            if target:
-                entry["reexport_of"] = target
-            else:
-                entry["kind"] = "unknown"
-                entry.pop("star", None)
-                surface["unknown"].append(
-                    _problem(
-                        1,
-                        f"the re-export target {source!r} is outside the extracted module set.",
-                        source,
-                    )
-                )
+        _resolve_reexports(surface, path, module, known, paths, context)
         return {
             "file": path.relative_to(repo).as_posix(),
             "loc": len(raw.splitlines()),
@@ -503,7 +587,7 @@ class TypeScriptLanguage:
     ) -> dict[str, set[str]]:
         del prefixes, is_package, repo
         source_path = (paths or {}).get(module)
-        root = parse_tree(raw, source_path.as_posix() if source_path else "")
+        root = syntax_tree(raw, source_path.as_posix() if source_path else "")
         if context is None:
             return {}
         uses: dict[str, set[str]] = defaultdict(set)
@@ -523,13 +607,14 @@ class TypeScriptLanguage:
         context: TypeScriptContext | None = None,
     ) -> list[str]:
         source_path = (paths or {}).get(module)
-        root = parse_tree(raw, source_path.as_posix() if source_path else "")
+        root = syntax_tree(raw, source_path.as_posix() if source_path else "")
         if context is None:
             return []
         out = {
             specifier
             for specifier, _names in _imports(root)
             if not specifier.startswith(".")
+            and not _node_module(specifier)
             and _resolve(specifier, module, set(paths or {}), paths or {}, context) is None
             and not any(
                 _module_name(specifier) == prefix
@@ -550,7 +635,7 @@ class TypeScriptLanguage:
         del prefixes
         files = sorted(
             path
-            for path in repo.rglob("*")
+            for path in source_files(repo, PRUNED_PARTS)
             if _test_path(path, repo, tests_dirs, context.test_patterns)
         )
         guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -568,93 +653,7 @@ class TypeScriptLanguage:
         context: TypeScriptContext,
     ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
         del sources
-        package = package_json(repo)
-        points: list[dict[str, str]] = []
-        issues: list[dict[str, str]] = []
-        for name, target in _bin_targets(package, repo):
-            self._add_entry_target(points, issues, name, target, repo, context)
-        root_modules = {f"{prefix}.index" for prefix in prefixes}
-        export_modules, export_issues = self._package_exports(package, repo, context)
-        root_modules.update(export_modules)
-        issues.extend(export_issues)
-        points.extend(_public_functions(root_modules, components))
-        return _unique_points(points), issues
-
-    def _add_entry_target(
-        self,
-        points: list[dict[str, str]],
-        issues: list[dict[str, str]],
-        name: str,
-        target: str,
-        repo: Path,
-        context: TypeScriptContext,
-    ) -> None:
-        module = self._entry_module(target, repo, context)
-        if module:
-            points.append({"kind": "console_script", "name": name, "module": module, "target": ""})
-        else:
-            issues.append(
-                {
-                    "kind": "package_bin",
-                    "name": name,
-                    "target": target,
-                    "reason": (
-                        "The parser could not resolve the package.json bin target to a TypeScript "
-                        "module."
-                    ),
-                }
-            )
-
-    def _package_exports(
-        self, package: dict[str, Any], repo: Path, context: TypeScriptContext
-    ) -> tuple[set[str], list[dict[str, str]]]:
-        name = str(package.get("name", repo.name))
-        modules: set[str] = set()
-        issues: list[dict[str, str]] = []
-        unmapped: list[str] = []
-        for target in _export_targets(package.get("exports")):
-            if "*" in target:
-                unmapped.append(target)
-                continue
-            if target.endswith(".d.ts") or not target.endswith(
-                (".js", ".mjs", ".cjs", ".ts", ".tsx")
-            ):
-                continue
-            module = self._entry_module(target, repo, context)
-            if module:
-                modules.add(module)
-            else:
-                unmapped.append(target)
-        if unmapped:
-            sample = unmapped[0]
-            if len(unmapped) > 1:
-                sample += f" (+{len(unmapped) - 1} more)"
-            issues.append(
-                _entry_issue(
-                    "package_export",
-                    name,
-                    sample,
-                    (
-                        f"{len(unmapped)} package.json export targets have no resolved TypeScript "
-                        f"modules."
-                    ),
-                )
-            )
-        return modules, issues
-
-    def _entry_module(self, target: str, repo: Path, context: TypeScriptContext) -> str | None:
-        if not target.endswith((".js", ".mjs", ".cjs", ".ts", ".tsx")):
-            return None
-        sources = source_targets(target, repo, context.compiler, context.source_roots)
-        direct = _matching_entry_modules(sources, context)
-        if len(direct) == 1:
-            return next(iter(direct))
-        if direct:
-            # Two roots each name a module: which one tsc used is not knowable
-            # from here, and a wrong answer costs more than none.
-            return None
-        fallback = _matching_entry_modules(_built_source_candidates(target, repo), context)
-        return next(iter(fallback)) if len(fallback) == 1 else None
+        return typescript_entry.entry_points(repo, prefixes, components, context)
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw, path)
@@ -666,71 +665,6 @@ class TypeScriptLanguage:
         self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()
     ) -> bool:
         return _test_file(path, tests_dirs, test_patterns)
-
-
-def _matching_entry_modules(candidates: Iterable[Path], context: TypeScriptContext) -> set[str]:
-    return {
-        context.modules_by_path[choice.resolve()]
-        for source in candidates
-        for choice in _path_choices(source)
-        if choice.resolve() in context.modules_by_path
-    }
-
-
-def _built_source_candidates(target: str, repo: Path) -> Iterator[Path]:
-    parts = PurePosixPath(target.removeprefix("./")).parts
-    if len(parts) < 2 or parts[0] not in BUILD_DIRS:
-        return
-    tails = [parts[1:]]
-    if len(parts) > 2 and parts[1] in BUILD_FORMATS:
-        tails.append(parts[2:])
-    for root in ("src", "source"):
-        for tail in tails:
-            yield repo / root / Path(*tail)
-
-
-def _export_targets(value: Any) -> Iterator[str]:
-    if isinstance(value, str):
-        yield value.removeprefix("./")
-    elif isinstance(value, dict):
-        for nested in value.values():
-            yield from _export_targets(nested)
-    elif isinstance(value, list):
-        for nested in value:
-            yield from _export_targets(nested)
-
-
-def _bin_targets(package: dict[str, Any], repo: Path) -> list[tuple[str, str]]:
-    bins = package.get("bin", {})
-    if isinstance(bins, str):
-        return [(str(package.get("name", repo.name)), bins)]
-    if not isinstance(bins, dict):
-        return []
-    return [(str(name), target) for name, target in sorted(bins.items()) if isinstance(target, str)]
-
-
-def _entry_issue(kind: str, name: str, target: str, reason: str) -> dict[str, str]:
-    return {"kind": kind, "name": name, "target": target, "reason": reason}
-
-
-def _public_functions(modules: set[str], components: dict[str, Any]) -> list[dict[str, str]]:
-    return [
-        {"kind": "public_function", "name": function["name"], "module": module, "target": ""}
-        for module in sorted(modules)
-        for function in components.get(module, {}).get("names", [])
-        if function.get("kind") == "function"
-    ]
-
-
-def _unique_points(points: list[dict[str, str]]) -> list[dict[str, str]]:
-    seen: set[tuple[str, str, str]] = set()
-    out: list[dict[str, str]] = []
-    for point in points:
-        key = point["kind"], point["name"], point["module"]
-        if key not in seen:
-            seen.add(key)
-            out.append(point)
-    return out
 
 
 TYPESCRIPT = TypeScriptLanguage()

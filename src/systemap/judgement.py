@@ -61,6 +61,16 @@ MODEL_SDKS: tuple[str, ...] = (
     "cohere",
     "typesafe_sdk",
     "vertexai",
+    # npm package names for TypeScript. A scope such as `@ai-sdk` matches each
+    # package in that scope.
+    "@anthropic-ai/sdk",
+    "@google/genai",
+    "@google/generative-ai",
+    "@mistralai/mistralai",
+    "@langchain",
+    "@ai-sdk",
+    "ai",
+    "cohere-ai",
 )
 
 
@@ -293,9 +303,13 @@ def declared_flows(
 
 
 def sdk_of(name: str, sdks: Iterable[str]) -> str:
-    """This function finds the configured SDK for an import name, or gives an empty string."""
+    """This function finds the configured SDK for an import name, or gives an empty string.
+
+    A Python import name continues after a dot. An npm import name continues after a
+    slash, for a subpath or for a package in a scope.
+    """
     for sdk in sdks:
-        if name == sdk or name.startswith(sdk + "."):
+        if name == sdk or name.startswith((sdk + ".", sdk + "/")):
             return sdk
     return ""
 

@@ -332,6 +332,13 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 # when the line reads `Class.method`. The token ends at `(`, `.`, `->`,
 # whitespace or anything else that is not part of a name.
 INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?")
+# The method name in a recorded method header. A Python header starts with
+# `def`. A TypeScript header starts with optional modifiers and an optional `*`.
+PYTHON_METHOD = re.compile(r"(?:async )?def (\w+)\(")
+TYPESCRIPT_METHOD = re.compile(
+    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
+    r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
+)
 
 
 def interface_head(text: str) -> tuple[str, str] | None:
@@ -352,7 +359,7 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
             if cls.get("name") != class_name:
                 continue
             for sig in cls.get("methods", []):
-                found = re.match(r"(?:async )?def (\w+)\(", sig)
+                found = PYTHON_METHOD.match(sig) or TYPESCRIPT_METHOD.match(sig)
                 if found:
                     out.add(found.group(1))
     return out
