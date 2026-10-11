@@ -32,6 +32,8 @@ PATHS: dict[str, str] = {
     "route": "M11 3.25H5.5V8h5v4.75H5M14.25 3.25a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0z"
     "M4.25 12.75a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0z",
     "change": "M5.25 2.75v5M2.75 5.25h5M8.25 11.25h5",
+    # The arrow of the sequence chooser button.
+    "down": "M4.5 6.25 8 9.75l3.5-3.5",
 }
 
 CSS = (

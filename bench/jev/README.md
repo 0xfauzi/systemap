@@ -1610,6 +1610,15 @@ This change removes Reference, the Text view, the More menu and the component in
 It adds the header icons, the full-screen control and the Find dialog.
 The self-map rows use the model and the facts of the shared checkout for both pages, so the two rows compare only the page code.
 
+| Page | Bytes |
+|---|---|
+| Sample page, base (9defc3d) | 306,145 |
+| Sample page, with the new header and the Find dialog | 301,610 |
+| Self-map page, no comparison, base (9defc3d) | 653,205 |
+| Self-map page, no comparison, with the new header and the Find dialog | 640,512 |
+
+The sample page passes with 5,590 bytes of space.
+
 ## Sequences view: sequence button, line colors and phone step (2026-10-11)
 
 Acceptance:
@@ -1659,18 +1668,18 @@ The earlier steps have the rest width, 1.6 px, at full opacity. The later steps 
 | Page | Bytes |
 |---|---|
 | Sample page, base (9defc3d) | 306,145 |
-| Sample page, with the new header and the Find dialog | 301,610 |
-| Self-map page, no comparison, base (9defc3d) | 653,205 |
-| Self-map page, no comparison, with the new header and the Find dialog | 640,512 |
-
-The sample page passes with 5,590 bytes of space.
-
 | Sample page, base with the line rule | 304,154 |
 | Sample page, base with the line rule and the sequence button | 306,815 |
 | Sample page, codex/map-workspace with the Paper change (8e95034) | 305,750 |
 | Sample page, this branch after the merge of 8e95034 | 306,599 |
 | Self-map page, scratch build, 8e95034 | 652,810 |
 | Self-map page, scratch build, this branch after the merge | 652,563 |
+| Sample page, codex/map-workspace with the header and the Find dialog (6f6eb27) | 301,215 |
+| Sample page, this branch after the merge of 6f6eb27, without the Sequences Full screen button | 301,615 |
+| Self-map page, scratch build, 6f6eb27 | 637,789 |
+| Self-map page, scratch build, this branch after the merge of 6f6eb27 | 637,093 |
 
+After the merge of 6f6eb27, Previous and Next stay on the 375 x 667 screen for each of the 46 steps.
 The sequence button needs about 2,300 bytes of script. The line rule removes the sequence arrowheads, the glow rules and the key
-under the step list. The panel styles merge repeated declarations. The sample page passes with 601 bytes of space.
+under the step list. The panel styles merge repeated declarations. After the merge of 8e95034, the sample page
+passed with 601 bytes of space. After the merge of 6f6eb27, it passes with 5,585 bytes of space.

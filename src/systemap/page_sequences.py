@@ -100,10 +100,9 @@ background:transparent;color:var(--ink-2);font:13px var(--fs)}
 .seq-btn{height:32px;min-height:32px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;
 border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink-2);
 font:13px var(--fs);white-space:nowrap}
-.seq-btn--frame{border-color:var(--line-2);color:var(--ink)}
 .seq-btn--primary{border-color:var(--ink);background:var(--ink);color:var(--bg);font-weight:600}
 .seq-btn--primary:hover{background:var(--ink);color:var(--bg);opacity:.9}
-.seq-btn kbd,.present kbd{font:11px/14px var(--fm);color:var(--ink-3);
+.present kbd{font:11px/14px var(--fm);color:var(--ink-3);
 border:1px solid var(--line-2);border-radius:4px;padding:1px 5px}
 #jcount{font:12px var(--fm);color:var(--ink-2);padding:0 6px;white-space:nowrap}
 
@@ -416,6 +415,8 @@ function all(sel, root){
   return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
 function byId(id){ return document.getElementById(id); }
 function reduced(){
+  // Only the page setting Reduce motion stops motion. The head script stamps it
+  // before the first paint.
   return document.documentElement.dataset.reduceMotion === 'true';
 }
 function mk(name, attrs, text){

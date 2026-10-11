@@ -11,8 +11,8 @@
 // points in its `d`, as a browser's getBBox would give it.
 //
 //     node tests/page_driver.js PAGE.html [--reduced] [--system-reduced] [--light]
-//                                         [--viewport WxH] [--phone]
-//                                         [--stored NAME] [--no-storage]
+//                                         [--viewport WxH]
+//                                         [--stored NAME] [--no-storage] [--phone]
 //                                         [--scenario keyboard|framing|submap|theme]
 //
 // prints one JSON object; tests/test_keyboard.py, tests/test_framing.py,
@@ -520,8 +520,7 @@ function main() {
   const viewport = flag('--viewport', '1600x900').split('x').map(Number);
   const scenario = flag('--scenario', 'keyboard');
   const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage'),
-    systemReduced: args.includes('--system-reduced'),
-    phone: args.includes('--phone')};
+    systemReduced: args.includes('--system-reduced'), phone: args.includes('--phone')};
   const html = fs.readFileSync(file, 'utf8');
   const {doc, win} = load(html, reduced, viewport, prefs);
   const context = vm.createContext(win);

@@ -49,7 +49,7 @@ body[data-phone="step"]{display:flex;flex-direction:column}
 body[data-phone="step"] .main{flex:1;display:flex;flex-direction:column;padding-bottom:0}
 body[data-phone="step"] .map,body[data-phone="step"][data-panel] .map{flex:1;height:auto;
   min-height:160px}
-body[data-phone="index"] .map,body[data-phone="panel"] .map{display:none}
+body[data-phone="index"] .map{display:none}
 body[data-phone] .mapbar,body[data-phone] .trace-controls,body[data-phone] .guide,
 body[data-phone] .map>.readout,body[data-phone="step"] .zoom,
 body[data-phone="step"] .map-legend{display:none}

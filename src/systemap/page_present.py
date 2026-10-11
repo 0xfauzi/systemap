@@ -14,7 +14,6 @@ Escape closes the overlay.
 
 CSS = r"""
 /* ---- the map in full screen: Map and Changes ------------------------------ */
-
 body[data-full] .bar,body[data-full] .layer-controls,
 body[data-full] .change-controls{display:none!important}
 body[data-full] .main{height:100svh}
@@ -177,7 +176,7 @@ SCRIPT = r"""
 (function(){
   var svg = document.getElementById('schematic');
   function byId(id){ return document.getElementById(id); }
-  var fullBtn = byId('full-toggle'), box = byId('present'), mapBox = byId('presentmap');
+  var box = byId('present'), mapBox = byId('presentmap');
   var stage = byId('stage'), home = stage && stage.parentNode;
   if(!svg || !svg.systemap || !svg.page || !svg.page.sequence || !box || !mapBox || !home){
     return;
@@ -290,7 +289,7 @@ SCRIPT = r"""
       A.view.restore(before, true);
       S.go(x.view, x.s, x.view === 'steps' ? 'keep' : 'fit');
     }
-    var back = opener && opener.isConnected !== false ? opener : fullBtn;
+    var back = opener && opener.isConnected !== false ? opener : byId('full-toggle');
     if(back && back.focus){ back.focus({preventScroll:true}); }
     opener = null;
   }
