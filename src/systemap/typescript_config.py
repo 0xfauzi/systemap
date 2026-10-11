@@ -142,7 +142,7 @@ def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
             for path in candidate.rglob("*")
             if path.is_file()
             and path.suffix in SOURCE_SUFFIXES
-            and not path.name.endswith(".d.ts")
+            and not path.name.endswith(DECLARATION_SUFFIXES)
             and not any(part in SOURCE_SKIP for part in path.relative_to(root).parts)
         )
         if next(sources, None) is not None:

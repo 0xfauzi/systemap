@@ -286,7 +286,7 @@ The following fields come from `systemap.extract.FIELDS`.
 - `version`: The facts format is 4, with portable syntax hashes and compiler provenance. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction precedes the commit recording facts.
 - `packages`: The import names of package roots.
-- `provenance`: The parser and extraction inputs. A change makes a new source review necessary, even without source-file changes.
+- `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory named `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record per entry point, with the fields below.

@@ -198,8 +198,10 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "provenance",
-        "The parser and extraction inputs. A change makes a new source review "
-        "necessary, even without source-file changes",
+        "The parser, the compiler settings, and the extraction inputs. A change to the "
+        "extraction inputs makes a new source review necessary, even without source-file "
+        "changes. A parser or compiler change alone does not, because these values can be "
+        "different on another computer",
     ),
     (
         "facts",

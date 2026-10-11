@@ -774,7 +774,7 @@ def _unknown_surface_report(findings: list[str]) -> list[str]:
         f"unknown surface: {_plural(len(findings), 'finding')}",
         *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
         (
-            "  fix: Add parser support for this TypeScript syntax, or restore the missing "
-            "source mapping."
+            "  fix: Add parser support for this TypeScript syntax, write the file as UTF-8 "
+            "text, or restore the missing source mapping."
         ),
     ]

@@ -498,7 +498,7 @@ class TypeScriptLanguage:
             for suffix in SOURCE_SUFFIXES
             for path in root.rglob(f"*{suffix}")
             if not ts_skipped(path, root, out_dir)
-            and not path.name.endswith(".d.ts")
+            and not path.name.endswith(DECLARATION_SUFFIXES)
             and not _test_file(path.relative_to(repo).as_posix(), tests_dirs, test_patterns)
         )
 

@@ -78,7 +78,8 @@ A subsequent source or claim change reopens the finding.
 | `source evidence lost` | Source records no longer support an observed claim. | Examine references, direction, and artifact before renewal. |
 | `structural evidence lost` | An import or configured mechanism is missing. | Examine the flow against current source. |
 | `source review` | Component source or claims changed. | Examine all claims before renewal of `source_review`. |
-| `move candidate` | Removed and added modules share public names without sufficient identity evidence. | Compare source before you classify the change as a move. |
+| `move candidate` | Removed and added modules share public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim and assign the added module. The line is then not a decision. |
+| `jev move`, `jev owner` | Jev suggests a move or an owner that delta did not find. | Read the source before you use the suggestion. These lines do not change the delta decisions or the exit code. |
 
 Lines under `changed, nothing to do` record changes without a required decision.
 A pattern-matched addition or removal can still have a separate source-review finding.
