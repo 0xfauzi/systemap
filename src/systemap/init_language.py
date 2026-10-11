@@ -33,7 +33,8 @@ def language_roots(root: Path) -> tuple[str, list[tuple[str, str]]]:
 def has_tsconfig(root: Path, depth: int = config.CANDIDATE_DEPTH) -> bool:
     """Find a tsconfig.json file within `depth` directory levels of the root.
 
-    The search does not go into dependency, output, or hidden directories."""
+    The search skips node_modules, the other directories in `config.SKIP_WALK`, and
+    directories with a name that starts with a period."""
     for dirpath, dirnames, filenames in os.walk(root):
         level = len(Path(dirpath).relative_to(root).parts)
         dirnames[:] = [

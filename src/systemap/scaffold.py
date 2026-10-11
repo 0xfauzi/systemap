@@ -24,7 +24,7 @@ out_dir = "docs/map"
 # tests_dir = ["tests"]
 # spec_path = "docs/design.md"
 
-# Keep the settings above this line. A setting after a table header is part of that table.
+# Keep these keys above the table lines. A key after a table header is part of that table.
 {roots_note}
 {roots}
 

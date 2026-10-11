@@ -1,9 +1,9 @@
 """The package root check finds configured package roots that the extractor cannot use.
 
-An earlier `systemap init` wrote the model and out_dir settings after the [package_roots]
-line, and TOML reads them as package roots. Such an entry with the value that the setting
-has without it gives no new information, so the check removes it. Other entries must be
-directories. A Python import name cannot be a path.
+An earlier `systemap init` wrote the model and out_dir keys after the [package_roots] line.
+TOML reads these keys as package roots. If such an entry has the default value of its key,
+the entry has no effect, and the check removes it. Each other entry must be a directory.
+A Python import name cannot be a path.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
-# The settings that an earlier init wrote after the [package_roots] line, with defaults.
+# The keys that an earlier init wrote after the [package_roots] line, with defaults.
 SETTINGS_IN_ROOTS = {"model": "map/model.py", "out_dir": "docs/map"}
 
 Roots = tuple[tuple[str, str], ...]
@@ -26,10 +26,10 @@ def checked_roots(
     settings: Collection[str],
     where: str,
 ) -> Roots:
-    """Give the package roots without an entry that repeats a setting value.
+    """Give the package roots without an entry that repeats the default value of its key.
 
-    A configured root that the extractor cannot use gives ValueError. Its message names a
-    setting in `settings` that is in the table."""
+    A configured root that the extractor cannot use gives ValueError. The message names a
+    key from `settings` that is in the table."""
     if raw.get("package_roots") is None:
         return roots
     kept = tuple((rel, name) for rel, name in roots if not _repeats_setting(raw, rel, name))
@@ -48,7 +48,7 @@ def _repeats_setting(raw: dict[str, Any], rel: str, name: str) -> bool:
 def _problem(rel: str, name: str, path_name: bool, settings: Collection[str]) -> str:
     if rel in settings:
         return (
-            f"[package_roots] contains the setting {rel}. Move the {rel} line above the "
+            f"[package_roots] contains the key {rel}. Move the {rel} line above the "
             f"[package_roots] line."
         )
     if path_name:

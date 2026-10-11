@@ -728,7 +728,7 @@ def _beside(folder: Path) -> Iterator[None]:
 
 
 def _import_problem(label: str, exc: ImportError | NameError) -> str:
-    """Give the model import error. Give systemap import advice only for a systemap name."""
+    """Give the model import error. Only a systemap name gets the systemap import fix."""
     from systemap import __all__ as exported
 
     name = getattr(exc, "name", None)

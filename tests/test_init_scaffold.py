@@ -80,12 +80,12 @@ def test_a_changed_setting_inside_package_roots_is_a_configuration_error(
     write_tree(tmp_path, {**STARTER, "systemap.toml": table})
     assert run("--root", str(tmp_path), "extract") == 2
     err = capsys.readouterr().err
-    assert "[package_roots] contains the setting model" in err
+    assert "[package_roots] contains the key model" in err
     assert "Move the model line above the [package_roots] line." in err
     # A directory named model does not hide the problem: the import name is a path.
     (tmp_path / "model").mkdir()
     assert run("--root", str(tmp_path), "extract") == 2
-    assert "[package_roots] contains the setting model" in capsys.readouterr().err
+    assert "[package_roots] contains the key model" in capsys.readouterr().err
 
 
 def test_a_configured_package_root_that_is_missing_is_a_configuration_error(
