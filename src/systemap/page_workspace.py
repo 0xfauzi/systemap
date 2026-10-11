@@ -68,6 +68,11 @@ SCRIPT = r"""
     var ids = A.state.focus ? [] : A.layerIds(A.state.layer);
     if(ids.some(function(id){ return A.detail[id].kind === 'actor'; })){
       h += swatch('lg__card lg__card--actor', '', 'Actor'); }
+    var shownCards = '.node:not(.quiet):not(.dim) ';
+    if(svg.querySelector(shownCards + '.node__map')){
+      h += swatch('lg__card lg__card--map', '', 'Opens a map: double-click the card'); }
+    if(svg.querySelector(shownCards + '.node__note')){
+      h += swatch('lg__dot', '', 'Has a note in Details'); }
     var quiet = svg.querySelector('.node.quiet, .node.dim');
     if(quiet){ h += swatch('lg__card lg__card--quiet', '', A.state.focus
       ? 'Not connected to the selection' : 'No flow in this view'); }

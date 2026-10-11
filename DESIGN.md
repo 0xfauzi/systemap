@@ -343,6 +343,9 @@ A selection in full screen opens the panel.
 In Sequences, full screen is the step overlay (see Sequences).
 In Changes, the button is not available when the page has no revision comparison.
 The legend is at the bottom left of the map. The legend shows only the items that the current view uses.
+The map has no browser tooltips. The text that a tooltip gave is on the screen:
+the legend names the note dot and the mark of a card that opens a map, and the Details panel gives the note and the inner map.
+Only an icon button has a tooltip, which gives its name.
 The readout is at the bottom right. It gives the counts of the view or the selected item.
 
 The panel is at the right of the map, under the row. The panel is 400px wide.

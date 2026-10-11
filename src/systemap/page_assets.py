@@ -119,6 +119,9 @@ color:var(--ink-2);background:var(--map);padding:4px 8px;border-radius:4px}
 .lg__card{display:block;width:18px;height:12px;border:1px solid var(--card-line);border-radius:3px}
 .lg__card--actor{border-style:dashed}
 .lg__card--quiet{opacity:.32;background:var(--card)}
+.lg__card--map{background:var(--card);
+  box-shadow:3px 3px 0 -1px var(--card),3px 3px 0 0 var(--card-line)}
+.lg__dot{display:block;width:5px;height:5px;border-radius:50%;background:var(--ink-3);margin:0 4px}
 .readout{position:absolute;right:24px;bottom:14px;z-index:4;margin:0;max-width:330px;
 font:12px/16px var(--fm);color:var(--ink);background:var(--map);padding:4px 8px;border-radius:4px;
 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

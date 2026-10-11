@@ -435,7 +435,7 @@ def render(
         # in every figure. The panel names the map and links to it.
         if c.opens:
             g.append(
-                f'<g class="node__map"><title>opens a map</title>'
+                f'<g class="node__map" aria-label="Opens a map"><title>opens a map</title>'
                 f'<rect x="{x + MAP_OFFSET}" y="{y + MAP_OFFSET}" width="{w}" height="{h}" '
                 f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" stroke-width="1.1"{dashes}/></g>'
             )
@@ -467,8 +467,8 @@ def render(
         for dy, line in name_rows:
             g.append(L(x + 10, y + dy, line, sizes[0], INK, "600", True, "start"))
         # A card with a note carries a dot in its top corner, on the map and
-        # in every figure; the panel shows the note itself, and the dot's
-        # title does when hovered.
+        # in every figure; the panel shows the note itself, and a figure file
+        # shows it as the dot's title. The page legend names the dot.
         if c.note:
             g.append(
                 f'<g class="node__note" aria-label="Note: {esc(c.note)}">'
