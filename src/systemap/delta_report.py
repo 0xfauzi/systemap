@@ -154,7 +154,7 @@ COMPONENT_GROUPS = (
     (SOURCE, "Changed source"),
 )
 FLOW_GROUPS = ((ADDED, "Added"), (REMOVED, "Removed"), (CHANGED, "Changed"))
-SEQUENCE_GROUPS = (*FLOW_GROUPS, ("", "With a changed step"))
+SEQUENCE_GROUPS = (*FLOW_GROUPS, ("", "Through a changed flow or component"))
 INVARIANT_GROUPS = (*FLOW_GROUPS, ("", "For a changed component"))
 # A group names this many items. The rest of the group is a count.
 MOST_NAMED = 10
@@ -263,7 +263,11 @@ def _map_rows(d: Delta, change: MapChange) -> list[str]:
             "Sequences",
             change.sequences,
             SEQUENCE_GROUPS,
-            every=_every(change.sequences, change.sequence_count, "sequences have a changed step"),
+            every=_every(
+                change.sequences,
+                change.sequence_count,
+                "sequences go through a changed flow or component",
+            ),
         ),
         _row("Invariants", change.invariants, INVARIANT_GROUPS, detail=False, every=every),
         "",

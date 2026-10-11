@@ -191,7 +191,7 @@ def test_the_comment_gives_the_decision_then_the_map_changes_then_the_diagram(
     )
     assert (
         row(text, "Sequences")
-        == "- **Sequences**: With a changed step: Write the text (2 of 2 steps)."
+        == "- **Sequences**: Through a changed flow or component: Write the text (2 of 2 steps)."
     )
     assert row(text, "Invariants") == "- **Invariants**: Removed: 2. For a changed component: 1."
     assert "- 2: The spare gives nothing." in lines
@@ -343,7 +343,7 @@ def test_the_rows_use_the_head_commit_model_not_the_ci_merge_on_disk(
     assert main(args) == 1
     text = capsys.readouterr().out
     assert row(text, "Sequences") == (
-        "- **Sequences**: With a changed step: Write the text (2 of 2 steps)."
+        "- **Sequences**: Through a changed flow or component: Write the text (2 of 2 steps)."
     )
     assert "The rows use the model on disk" not in text
 
@@ -392,7 +392,10 @@ def test_long_groups_name_ten_items_and_count_the_rest() -> None:
     assert row(text, "Components") == (
         "- **Components**: Changed source: C0, C1, C2, C3, C4, C5, C6, C7, C8, C9 and 2 more."
     )
-    assert row(text, "Sequences") == "- **Sequences**: All 3 sequences have a changed step."
+    assert (
+        row(text, "Sequences")
+        == "- **Sequences**: All 3 sequences go through a changed flow or component."
+    )
     assert row(text, "Invariants") == "- **Invariants**: For a changed component: 1 and 2."
     assert "- 1: Rule 1." in text.splitlines()
 

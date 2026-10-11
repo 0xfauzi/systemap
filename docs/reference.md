@@ -531,8 +531,8 @@ the map.
   A flow row gives added, removed, and changed flows.
   A changed flow has a changed artifact, kind, relation sentence, cited source, or evidence state.
   A new digest for the same cited module or symbol is not a change.
-  A sequence row gives added, removed, and changed sequences, and the sequences with a changed step.
-  A changed step has a changed flow, or a flow that connects to a changed component.
+  A sequence row gives added, removed, and changed sequences, and the sequences that go through a changed flow or component.
+  The count in brackets gives the steps that have a changed flow, or a flow that connects to a changed component.
   An invariant row gives added, removed, and changed invariants, and the invariants for a changed component.
   A closed section gives the text of each invariant that the row identifies.
   Each group shows a maximum of ten names. For the other items, the group gives only their quantity.

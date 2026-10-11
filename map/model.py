@@ -82,7 +82,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="2c355e1caa0b762573f57461de6089013cce2841dbea43dc9ad3c730f52c9567",
+        source_review="705b3f377a6239ae89cb531db6b5d875cce74f061774a84fd04ca7b9ff5fc1a5",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -149,7 +149,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="cfd69e5b90ac63549707735789014854590548a0d6e6281ee65a18c95bec769b",
+        source_review="26d10a0b1d4c6d43b36d2f440c43523c15cbc87330a0383f2fe77f7e0ad5e827",
         does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions, and a pull request comment with the changed components, flows, sequences and invariants and a diagram of the changed flows. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -295,7 +295,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="144d841dd2c9755caa5f3b73ec60a64d3f9a24d33d39c6119a7360e7cc50799e",
+        source_review="87a707b70fbdf9151dea5e0c533e73dfe125958001309fc8cd0774d330dc13b0",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -358,7 +358,7 @@ _SOURCE_SHA = {
     'systemap.config': 'aaa1aa86bdbb9be37517532629e6955c51a3000b951ef71a54355ab590a72cfd',
     'systemap.delta': '3f6ac061fa383b3680e36da5bbf3b5c0eb393eb16777aa6940f7dd3a5c06d804',
     'systemap.delta_jev': '7aa94d9c2f085e838124f8ed7bf786d195e268839dbc75feeb90b8e6383eae74',
-    'systemap.delta_report': 'a92762d2bdff62a0ce5b56451c8da53f8d4f1f08375815775c0695091bb33175',
+    'systemap.delta_report': 'd2c1976d72d123c7755e29e6d11defd0f7535a40d785eff82a2376234ce3f678',
     'systemap.describe': '07b6f0167be141f633cbfa7d3b7c6d0a6363b50178c670f05988b86f3ff5f7c3',
     'systemap.evidence': '41f466b8f1f482bd54edd788ea649f96fc3833ccb3a2fa11b61f09b50a226f9f',
     'systemap.explain': '1c5dd0ae8ad29232dd4e401b233ae632577cfde0680649d7bb352c9879399594',
