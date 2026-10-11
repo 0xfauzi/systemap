@@ -1,0 +1,100 @@
+holdout: scorecard is not available (/home/user/scorecard). The set does not include it.
+== owner: the old and the shipped questions on the same rows
+   rows: old 80, shipped 80, answered in both 80
+   answers that the shipped answer check refuses: old 0, shipped 0
+   models that gave the answers: old {'jev-1.13.0': 80}; shipped {'jev-1.13.0': 80}
+== owner (ideas 1+2): which card claims this module?
+   old     | n=80 tokens in median 1482 (max 2289), out median 160; latency p50 0.18s p90 0.50s
+   shipped | n=80 tokens in median 1470 (max 2277), out median 160; latency p50 0.17s p90 0.21s
+   old     | Jev top-1       80% (64/80) {'httpie': '31/40', 'systemap': '33/40'}
+   shipped | Jev top-1       85% (68/80) {'httpie': '35/40', 'systemap': '33/40'}
+   Jev top-3       96% (77/80)
+   baseline pkg    49% (39/80) (leave-one-out package majority)
+   baseline words  38% (30/80)
+   old     | confidence when right 0.98, when wrong 0.52
+   shipped | confidence when right 0.93, when wrong 0.43
+   old     | suggest at confidence >= 0.8: answers 57%, right 100%
+   shipped | suggest at confidence >= 0.8: answers 65%, right 100%
+   old     | suggest at confidence >= 0.9: answers 52%, right 100%
+   shipped | suggest at confidence >= 0.9: answers 50%, right 100%
+   old     | suggest at confidence >= 0.95: answers 46%, right 100%
+   shipped | suggest at confidence >= 0.95: answers 41%, right 100%
+   mis-fold, module planted in a random wrong card (n=80):
+   old     | Jev AUC (1 - P(current owner)) = 0.990
+   shipped | Jev AUC (1 - P(current owner)) = 0.989
+   old     | Jev flag P<0.05: catches 94% of planted, flags 1% of correct
+   shipped | Jev flag P<0.05: catches 94% of planted, flags 4% of correct
+     Jev flag P<0.1: catches 95% of planted, flags 4% of correct
+   old     | Jev flag P<0.2: catches 99% of planted, flags 9% of correct
+   shipped | Jev flag P<0.2: catches 99% of planted, flags 6% of correct
+   mis-fold, module planted in a neighbouring card (n=79):
+   old     | Jev AUC (1 - P(current owner)) = 0.980
+   shipped | Jev AUC (1 - P(current owner)) = 0.977
+   old     | Jev flag P<0.05: catches 82% of planted, flags 1% of correct
+   shipped | Jev flag P<0.05: catches 82% of planted, flags 4% of correct
+   old     | Jev flag P<0.1: catches 92% of planted, flags 4% of correct
+   shipped | Jev flag P<0.1: catches 91% of planted, flags 4% of correct
+   old     | Jev flag P<0.2: catches 95% of planted, flags 9% of correct
+   shipped | Jev flag P<0.2: catches 92% of planted, flags 6% of correct
+     current word rule: catches 38% planted at random, 32% planted next door; flags 0% of correct
+
+== sentence: the old and the shipped questions on the same rows
+   rows: old 64, shipped 64, answered in both 64
+   answers that the shipped answer check refuses: old 0, shipped 0
+   models that gave the answers: old {'jev-1.13.0': 64}; shipped {'jev-1.13.0': 64}
+== sentence (N4): does the card's sentence describe its modules?
+   old     | n=64 tokens in median 993 (max 1752), out median 22; latency p50 0.17s p90 0.20s
+   shipped | n=64 tokens in median 991 (max 1750), out median 22; latency p50 0.17s p90 0.22s
+   old     | Jev AUC 0.987   (n pos 32, neg 32)
+   shipped | Jev AUC 0.979   (n pos 32, neg 32)
+   old     | median P(yes): true 0.69, false 0.14
+   shipped | median P(yes): true 0.72, false 0.16
+   old     | at 0.5: accepts 91% of true, 6% of false
+   shipped | at 0.5: accepts 94% of true, 9% of false
+   old     | shipped, flag P<0.2: catches 78% of false, flags 0% of true
+   shipped | shipped, flag P<0.2: catches 72% of false, flags 0% of true
+
+== flowverify: the old and the shipped questions on the same rows
+   rows: old 64, shipped 64, answered in both 64
+   answers that the shipped answer check refuses: old 0, shipped 0
+   models that gave the answers: old {'jev-1.13.0': 64}; shipped {'jev-1.13.0': 64}
+== flowverify (idea 4): does the code carry the flow the sentence claims?
+   old     | n=64 tokens in median 634 (max 1380), out median 20; latency p50 0.18s p90 0.26s
+   shipped | n=64 tokens in median 637 (max 1313), out median 20; latency p50 0.19s p90 0.29s
+   old     | Jev AUC 0.826   (n pos 32, neg 32)
+   shipped | Jev AUC 0.828   (n pos 32, neg 32)
+   old     | median P(yes): true 0.49, false 0.12
+   shipped | median P(yes): true 0.48, false 0.13
+   old     | at 0.5: accepts 50% of true, 12% of false
+   shipped | at 0.5: accepts 47% of true, 12% of false
+   old     | shipped, flag P<0.2: catches 62% of false, flags 12% of true
+   shipped | shipped, flag P<0.2: catches 59% of false, flags 9% of true
+
+== governs: the old and the shipped questions on the same rows
+   rows: old 129, shipped 129, answered in both 129
+   answers that the shipped answer check refuses: old 0, shipped 0
+   models that gave the answers: old {'jev-1.13.0': 129}; shipped {'jev-1.13.0': 129}
+== governs (N3): does this invariant govern this card?
+   old     | n=129 tokens in median 427 (max 458), out median 22; latency p50 0.18s p90 0.22s
+   shipped | n=129 tokens in median 423 (max 454), out median 22; latency p50 0.18s p90 0.20s
+   old     | Jev AUC 0.814   (n pos 43, neg 86)
+   shipped | Jev AUC 0.725   (n pos 43, neg 86)
+   old     | median P(yes): true 0.59, false 0.38
+   shipped | median P(yes): true 0.42, false 0.34
+   old     | at 0.5: accepts 74% of true, 26% of false
+   shipped | at 0.5: accepts 42% of true, 17% of false
+   old     | shipped, suggest P>=0.8: finds 16% of true, suggests 0% of false
+   shipped | shipped, suggest P>=0.8: finds 7% of true, suggests 0% of false
+
+== acceptance: the shipped questions against the old questions on the same rows
+   figure                                                old  shipped  points  rule
+   mis-fold, planted next door (P<0.05): caught          82%      82%    +0.0  within 10: pass
+   mis-fold, planted next door (P<0.05): flagged          1%       4%    +2.5  within 10, at most 2 higher: fail
+   owner (confidence >= 0.9): answered                   52%      50%    -2.5  within 10: pass
+   owner (confidence >= 0.9): right                     100%     100%    +0.0  within 10: pass
+   sentence (P<0.2): caught                              78%      72%    -6.2  within 10: pass
+   sentence (P<0.2): flagged                              0%       0%    +0.0  within 10: pass
+   flowverify (P<0.2): caught                            62%      59%    -3.1  within 10: pass
+   flowverify (P<0.2): flagged                           12%       9%    -3.1  within 10: pass
+   governs (P>=0.8): found                               16%       7%    -9.3  within 10: pass
+   governs (P>=0.8): suggested                            0%       0%    +0.0  within 10: pass

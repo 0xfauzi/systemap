@@ -1225,7 +1225,7 @@ The tests keep the measured text to replay the recorded answers:
 The `plan` question was not sent in a measurement. `plan_eval.py` uses the recorded triage answers.
 All measured repositories are Python repositories. No result was measured on TypeScript.
 A measurement is necessary before a figure in this README applies to the shipped prompts or to TypeScript.
-The hints of `judgement` and `delta` say this, and they give the section of each figure.
+The hints of `judgement` and `delta` give no figures. They say what each Jev feature does and how to stop the hint.
 
 Test 8 measured delta followed by Jev picks at P>=0.8 as moves.
 In the shipped `delta`, a pick is a `jev move` suggestion. It does not change the delta lines or the exit code.
@@ -1234,6 +1234,187 @@ The 16 correct picks of 17 thus measure the suggestions, not a change to the dec
 The `possible mis-fold` word rule has two recorded values on 195 development cases.
 `results/report.txt` gives 32%. The table in "Why was package ownership evidence rejected?" gives 61/195 (31%).
 The two values come from different recorded runs.
+
+The next section gives the method and the acceptance rule for a measurement of the shipped prompts.
+
+## Do the shipped Jev prompts keep the measured results? (2026-10-11)
+
+The method, the data, and the acceptance rule were written before the run.
+The run was on 2026-10-11. All 674 answers came from the model `jev-1.13.0`, with 0 errors.
+
+### Method
+
+The test sends two question sets on the same rows and the same current maps.
+Thus a difference between the two sets comes from the questions, not from the maps.
+
+- The old set uses the measured questions in `build.py`, `build_flows.py`, and `build_meaning.py`.
+  Its rows are the rows of these scripts, with no change.
+- The shipped set has the same row ids, items, and labels.
+  Its state and questions come from the shipped code: `audit.make_plan`, `audit.plan_governs`, and the triage values in `jev_cli`.
+  `build_shipped.py` imports these builders. It does not copy question text.
+
+`build_shipped.py` writes `data/holdout/<kind>_old.jsonl` and `data/holdout/<kind>_shipped.jsonl`.
+The new names stop `run.py` from using the recorded answers in `results/holdout/<kind>.jsonl.gz`.
+Those answers came from earlier maps. They stay unchanged.
+
+Before it writes a kind, `build_shipped.py` does a check on each shipped question.
+Each name in backticks must be in the state.
+Each option in `needs` must be an option.
+The shipped answer check, `jev.checked`, must accept a correct answer.
+All shipped questions in the table below passed these checks.
+
+A one-time check, not kept in the repository, ran `cmd_audit` and `cmd_triage` with an injected `send`.
+The `send` function kept each request body and then refused the request. No request left the computer.
+Each shipped row with the state of the shipped code was one of the requests of `cmd_audit`.
+For a test report, `triage_ask` in `build_shipped.py` gave the same request as `cmd_triage`.
+
+`score.py --arms` scores the two sets with the same functions.
+It uses only the rows with an answer in the two sets, in the same order.
+Thus the neighbour card of each mis-fold row is the same in the two sets.
+It prints the two results line by line, and the acceptance result of each figure.
+It also prints the number of answers that the shipped answer check refuses, and the model of each answer.
+`run.py` now keeps the model name of each answer.
+
+### Repositories
+
+- systemap: this checkout at commit `6e4c6b1`. Its source tree is the same as at `5e5aac5`.
+- httpie: a new first map of commit `2105caa49bae87c5809c274e407619a0de2639d1` (tag 3.2.4), in `bench/scratch/cli-first-map-20261011T201433Z`.
+- scorecard: `../scorecard` is not on this computer. The set does not include it.
+  `common.py` now writes a line for a holdout repository that is not available, and leaves it out.
+  Before this change, `common.load` stopped with an error for that repository.
+
+The httpie map had two runs of `bench/run.sh`:
+
+1. `--ref 2105caa49bae87c5809c274e407619a0de2639d1` stopped before the session started. It did not write a line in `bench/results.jsonl`.
+   The output was `fatal: Remote branch 2105caa49bae87c5809c274e407619a0de2639d1 not found in upstream origin`.
+   A shallow clone with `--branch` accepts a branch or a tag, not a commit.
+2. `--ref 3.2.4`, `--max-turns 120`, `--from /home/user/systemap` finished.
+   The tag 3.2.4 is the same commit. The line in `bench/results.jsonl` gives this commit.
+
+| Run | Turns | Minutes | Dollars | Model | systemap | Check | Judgement | Modules |
+|---|---|---|---|---|---|---|---|---|
+| 2026-09-19 (recorded) | 46 | 4.8 | 3.43 | claude-opus-5[1m] | 1.1.0 from the tag | clean | clean | 78 |
+| 2026-10-11 (run 2) | 50 | 4.7 | 1.14 | claude-sonnet-5-5 | 1.2.0 from this checkout | clean | clean | 78 |
+
+The default `--from` installs the tag v1.2.0. This branch is 66 commits after that tag, and the skill changed.
+To make a current map, run 2 installed systemap from this checkout.
+`bench/run.sh` does not set a model. The default model of the agent on this computer is different from the recorded run.
+Thus the new httpie map is not the map of the recorded holdout results.
+`systemap init` wrote `name = "repo"`, the name of the checkout directory, in the httpie configuration.
+Before the Jev run, the coordinator changed it to `name = "httpie"` and made the shipped rows again.
+The old rows did not change (a byte comparison). Thus the two sets send the same system name.
+
+### Question counts
+
+Each row is one request with one question. The input size is the number of JSON characters of the state and the questions (`jev.Ask.chars`).
+The token counts come from the run.
+
+| Kind | Old set | Shipped set | systemap | httpie | Median input characters (old, shipped) |
+|---|---|---|---|---|---|
+| owner (mis-fold and owner) | 80 | 80 | 40 | 40 | 4,620, 4,583 |
+| sentence | 64 | 64 | 32 | 32 | 2,189, 2,180 |
+| flowverify | 64 | 64 | 32 | 32 | 1,360, 1,372 |
+| governs | 129 | 129 | 129 | 0 | 718, 700 |
+| issues | not made | not made | | | |
+
+The labels give these numbers of items:
+owner 80 modules, and 79 of them have a neighbour card for the mis-fold figure.
+Sentence 32 own and 32 sibling sentences. Flowverify 32 own and 32 different claims.
+Governs 43 listed pairs and 86 other pairs.
+With 32 items, one item is 3.1 points. With 79 items, one item is 1.3 points.
+
+The issues rows were not made on this computer.
+`gh pr list -R httpie/cli` stopped with `HTTP 403: GitHub GraphQL is not available from Claude Code sessions`.
+The GitHub REST API also refused access to httpie/cli.
+The issues rows need a computer where `gh` can read httpie/cli, and the httpie map in `bench/scratch`.
+
+### Differences between the two sets
+
+The shipped code sends some state in a different form. The shipped set uses the shipped form.
+
+- owner and issues: the shipped state `system` is the configured name. After the change above, it is `systemap` and `httpie`, as in the old rows.
+- flowverify: the shipped `code` lines come from `systemap.audit_code`, which also reads whole-module imports.
+  18 of 64 rows (9 flows) have different lines. On these rows, the result includes the effect of the lines and of the question.
+- governs: the shipped audit does not ask about a pair that `governs` lists.
+  The 43 listed pairs have the same question form. `plan_governs` made them from a copy of the map without the `governs` lists.
+  The httpie map has no invariants. Thus governs has rows from systemap only.
+- sentence and flowverify: the shipped audit asks only about the sentence of the component and the claim of the flow.
+  The sibling and different-claim rows use the shipped state with the sentence or the claim of the old row.
+- mis-fold: the shipped audit refuses an answer without P(claimed component).
+  `score.py` uses 0 for a missing probability, as in the earlier scores. The output gives the number of refused answers.
+- owner: the shipped `jev owner` question goes only to modules without a component.
+  The test uses modules with a component, because their labels are known. The earlier measurement did the same.
+- issues: `systemap triage` cuts the report at 2,000 characters.
+  The old reports have a title and at most 1,500 characters of text, so a cut occurs only with a long title.
+- The holdout set has no rows for the move question of `delta`, the pair question of `suggest --jev`, or the plan question.
+  This test does not include them.
+
+### Acceptance rule
+
+The rule applies to each kind at the threshold of the shipped code.
+Each figure of the shipped set must be within 10 points of the same figure of the old set, on the same rows.
+This is the rule of the holdout section.
+For mis-fold, the false alarm rate of the shipped set must also be at most 2 points higher than the old set.
+
+| Kind | Threshold | Figures |
+|---|---|---|
+| mis-fold, planted in a neighbour card | P<0.05 | caught, flagged (false alarm) |
+| owner | confidence >= 0.9 | answered, right |
+| sentence | P<0.2 | caught, flagged |
+| flowverify | P<0.2 | caught, flagged |
+| governs | P>=0.8 | found, suggested |
+| issues | the first option | top-1 |
+
+If a figure fails, the recorded figure does not apply to the shipped prompt of that kind.
+
+### Commands
+
+Run these commands in this checkout, because the httpie map is in `bench/scratch`.
+Only `run.py` calls Jev. It must have `TYPESAFE_API_KEY`.
+After the first Jev call, do not make the data again. The answers must agree with the rows.
+
+    # Only on a computer where gh can read httpie/cli. No Jev call.
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/build_shipped.py issues
+    # The Jev calls: 674 requests, and two for each issues row.
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py owner_old owner_shipped sentence_old sentence_shipped flowverify_old flowverify_shipped governs_old governs_shipped
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py issues_old issues_shipped
+    # The scores of the two sets. No Jev call.
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/score.py --arms owner sentence flowverify governs issues > bench/jev/results/holdout/prompts-report.txt
+
+The data for owner, sentence, flowverify, and governs is in `data/holdout/`. This command made it:
+
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/build_shipped.py owner sentence flowverify governs
+
+### Results
+
+`results/holdout/prompts-report.txt` has the full output. Issues were not measured.
+
+| Figure | Old set | Shipped set | Points | Result |
+|---|---|---|---|---|
+| mis-fold, planted next door (P<0.05): caught | 82% | 82% | 0.0 | pass |
+| mis-fold, planted next door (P<0.05): flagged | 1% | 4% | +2.5 | fail (limit +2) |
+| owner (confidence >= 0.9): answered | 52% | 50% | -2.5 | pass |
+| owner (confidence >= 0.9): right | 100% | 100% | 0.0 | pass |
+| sentence (P<0.2): caught | 78% | 72% | -6.2 | pass |
+| sentence (P<0.2): flagged | 0% | 0% | 0.0 | pass |
+| flowverify (P<0.2): caught | 62% | 59% | -3.1 | pass |
+| flowverify (P<0.2): flagged | 12% | 9% | -3.1 | pass |
+| governs (P>=0.8): found | 16% | 7% | -9.3 | pass |
+| governs (P>=0.8): suggested | 0% | 0% | 0.0 | pass |
+
+Nine figures pass and one figure fails.
+The mis-fold false alarm rate failed: 1 of 80 correct modules in the old set and 3 of 80 in the shipped set.
+The difference is two modules. This set cannot show if the cause is the question or chance.
+A larger set is necessary before the recorded mis-fold false alarm rate applies to the shipped prompt.
+The mis-fold catch rate and the AUC did not change (AUC 0.980 and 0.977 next door, 0.990 and 0.989 at random).
+
+Governs passed the rule, but the shipped question is weaker.
+Its AUC went from 0.814 to 0.725, and the share of true pairs found at P>=0.8 went from 16% to 7%.
+The governs rows come from systemap only (43 true pairs), and governs was already the weakest question.
+
+The old-set figures are lower than the recorded holdout figures (for example, mis-fold caught next door 82% here and 93% recorded).
+The maps are different: the httpie map is new and from a different model, scorecard is not included, and systemap has more modules.
+Thus this run compares the two question sets. It does not repeat the recorded holdout measurement.
 
 ## TypeScript extraction time with a large node_modules directory (2026-10-11)
 

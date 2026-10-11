@@ -303,8 +303,9 @@ an open decision.
 
 The agent can correct these findings without a full new map.
 Three merged pull requests from one 111-module repository cost 2.31, 4.39, and
-2.50 dollars through this procedure. First-map runs cost between 3 and 26
-dollars. Three pull requests from one repository form a small sample.
+2.50 dollars through this procedure. First-map runs cost between 1 and 26
+dollars. The cost depends on the model and the repository size. Three pull
+requests from one repository form a small sample.
 [docs/benchmarks.md](docs/benchmarks.md) gives each run.
 
 ## What other commands can you use?

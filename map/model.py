@@ -92,7 +92,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="1d3cfd29332cb2a392a3069e7202a9f89ab607de46b3f8388652da6fc8e862be",
+        source_review="434f69f3dba0b6b1197c404ddafdd6a02481618085acb23fbf4c55becc65f2f2",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -115,7 +115,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="afef0a9dc6f01c6c82dd08975f82c1369977f3a5e57cc33770d099cf766702bc",
+        source_review="8b0270b70f7415f19e643fe16484bf0421176d0432570fc06ae8ef9e301e8d6d",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -134,7 +134,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="1e14014587f4fbc1538dc4d681aeecbc9d0fe2f3662b85ffae102052d48ac040",
+        source_review="6c07710ec0eeebc19371116bde112c3ad0fecaee28057b5ae5e005c6769ccb03",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -318,7 +318,7 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="24deec6d961dde6c1b2dd6c8a830143c3b54f1af572e4e59f8828882f5735eaa",
+        source_review="bd0ad964e5f46eb6fb4d89397fc3988ffaefc32f437ac251242741e27680680d",
         does="Sends different questions about the map to Jev. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command. Does not control map checks.",
         interface="run(tree, facts, cfg, jev) -> lines; commands return 1 when an optional request fails",
         implemented_by=(
@@ -371,7 +371,7 @@ _SOURCE_SHA = {
     'systemap.extract': 'd8310080d85cefa21354815adcacedbe0f6a8b47a7957513019ce2915dddf46c',
     'systemap.facts': 'd3b7cab7a8c468f13443efc58d1df42e6958a0f65c7116fc10da6991a690ca1d',
     'systemap.figure': '2614ac8b7d651418d46a12e30936aeee2d6fc4f9d7afc0c33faccce2cb1351b5',
-    'systemap.jev_cli': 'ffbd8e6efa9fda3757330a1d137ee96a72cd261bbb8840940af205423ebe855d',
+    'systemap.jev_cli': '56218006a1f4d7b3395ce5e937ef07f40c2899efb820946f772d972fa3845f8d',
     'systemap.journey_coverage': '44d615ed243a6c3a636e16e1d4deeb6562121c93300395d049c1f1f0993bd19d',
     'systemap.journeys': '595aae396c884cf0e980e76fc1832f831b70da4a6ac6a169d489c403cc4687cd',
     'systemap.judgement_evidence': 'd3a3536c629bc30dbbe380629d6f72833f4a4572fad259b6a2f22d780f44e5ef',

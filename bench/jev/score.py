@@ -1,12 +1,21 @@
 """Score every experiment against its labels and against the heuristic systemap uses today.
 
 uv run python score.py [exp ...]
+uv run python score.py --arms [owner sentence flowverify governs issues]
+
+With --arms, the script scores the old and the shipped questions of build_shipped.py
+with the same functions. It uses only the rows that have an answer in the two sets,
+prints the two results side by side, and gives the acceptance result of each figure.
 """
 
 from __future__ import annotations
 
+import contextlib
 import gzip
+import io
+import itertools
 import json
+import math
 import random
 import statistics
 import sys
@@ -15,7 +24,7 @@ from pathlib import Path
 
 from common import DATA, RESULTS, load
 
-from systemap import audit
+from systemap import audit, jev
 from systemap.judgement import package_of, share_a_package, share_a_word, words
 
 HERE = Path(__file__).parent
@@ -137,11 +146,15 @@ def owner_accuracy(data: dict, res: dict) -> None:
         f"when wrong {statistics.median(conf[False] or [0]):.2f}"
     )
     for t in (0.8, 0.9, 0.95):
-        sel = [i for i in res if res[i]["answers"]["owner"]["confidence"] >= t]
-        right = sum(res[i]["answers"]["owner"]["choice"] == data[i]["label"]["owner"] for i in sel)
-        print(
-            f"   suggest at confidence >= {t}: answers {len(sel) / len(res):.0%}, right {right / len(sel):.0%}"
-        )
+        answered, right = suggested(data, res, t)
+        print(f"   suggest at confidence >= {t}: answers {answered:.0%}, right {right:.0%}")
+
+
+def suggested(data: dict, res: dict, t: float) -> tuple[float, float]:
+    """The fraction of modules with an owner answer at confidence t or more, and the fraction right."""
+    sel = [i for i in res if res[i]["answers"]["owner"]["confidence"] >= t]
+    right = sum(res[i]["answers"]["owner"]["choice"] == data[i]["label"]["owner"] for i in sel)
+    return len(sel) / len(res), right / len(sel) if sel else float("nan")
 
 
 def neighbour(repo, true: str, r: random.Random) -> str | None:
@@ -171,7 +184,12 @@ def misfold_report(title: str, planted: list[tuple[str, str, str, float, float]]
         )
 
 
-def owner_misfold(data: dict, res: dict) -> None:
+def planted(data: dict, res: dict) -> tuple[list, list, dict[str, list[int]]]:
+    """The module planted in a random wrong card, and in a neighbouring card, for each answer.
+
+    The neighbour comes from one seeded generator in the order of `res`, so two
+    answer sets in the same order get the same neighbours.
+    """
     rnd, near, rule = [], [], {"random": [0, 0], "neighbour": [0, 0]}
     r = random.Random(7)
     for i, x in res.items():
@@ -186,6 +204,11 @@ def owner_misfold(data: dict, res: dict) -> None:
         if nb is not None:
             near.append((d["repo"], i, true, p.get(true, 0.0), p.get(nb, 0.0)))
             rule["neighbour"][0] += misfold_fires(repo, i, nb)
+    return rnd, near, rule
+
+
+def owner_misfold(data: dict, res: dict) -> None:
+    rnd, near, rule = planted(data, res)
     misfold_report("a random wrong card", rnd)
     misfold_report("a neighbouring card", near)
     print(
@@ -194,8 +217,11 @@ def owner_misfold(data: dict, res: dict) -> None:
     )
 
 
-def score_owner():
-    data, res = rows("owner"), results("owner")
+def score_owner(exp: str = "owner"):
+    owner_report(rows(exp), results(exp))
+
+
+def owner_report(data: dict, res: dict) -> None:
     print("== owner (ideas 1+2): which card claims this module?")
     print("  ", usage_line(res))
     owner_accuracy(data, res)
@@ -284,27 +310,47 @@ def score_flowkind():
     )
 
 
+def at_threshold(
+    pos: list[float], neg: list[float], below: float = 0.0, at: float = 0.0
+) -> tuple[float, float]:
+    """The two figures at the threshold that systemap audit uses.
+
+    With `below`: the fraction of false items flagged (caught), and of true items flagged.
+    With `at`: the fraction of true items suggested (found), and of false items suggested.
+    """
+    if below:
+        return sum(p < below for p in neg) / len(neg), sum(p < below for p in pos) / len(pos)
+    return sum(p >= at for p in pos) / len(pos), sum(p >= at for p in neg) / len(neg)
+
+
 def shipped_line(pos: list[float], neg: list[float], below: float = 0.0, at: float = 0.0) -> str:
     """The figures at the threshold systemap audit ships with."""
+    first, second = at_threshold(pos, neg, below, at)
     if below:
-        caught, flagged = sum(p < below for p in neg), sum(p < below for p in pos)
         return (
-            f"   shipped, flag P<{below}: catches {caught / len(neg):.0%} of false, "
-            f"flags {flagged / len(pos):.0%} of true"
+            f"   shipped, flag P<{below}: catches {first:.0%} of false, flags {second:.0%} of true"
         )
-    found, extra = sum(p >= at for p in pos), sum(p >= at for p in neg)
-    return (
-        f"   shipped, suggest P>={at}: finds {found / len(pos):.0%} of true, "
-        f"suggests {extra / len(neg):.0%} of false"
-    )
+    return f"   shipped, suggest P>={at}: finds {first:.0%} of true, suggests {second:.0%} of false"
+
+
+def pos_neg(data: dict, res: dict, q: str, label: str) -> tuple[list[float], list[float]]:
+    pos = [r["answers"][q]["noul"] for i, r in res.items() if data[i]["label"][label]]
+    neg = [r["answers"][q]["noul"] for i, r in res.items() if not data[i]["label"][label]]
+    return pos, neg
 
 
 def score_noul(exp: str, q: str, label: str, title: str, below: float = 0.0, at: float = 0.0):
     data = rows(exp)
     # Only the rows in the current dataset: a rebuild may drop sampled rows.
     res = {i: r for i, r in results(exp).items() if i in data}
-    pos = [r["answers"][q]["noul"] for i, r in res.items() if data[i]["label"][label]]
-    neg = [r["answers"][q]["noul"] for i, r in res.items() if not data[i]["label"][label]]
+    noul_report(data, res, q, label, title, below, at)
+    return data, res
+
+
+def noul_report(
+    data: dict, res: dict, q: str, label: str, title: str, below: float = 0.0, at: float = 0.0
+) -> None:
+    pos, neg = pos_neg(data, res, q, label)
     print(title)
     print("  ", usage_line(res))
     print(f"   Jev AUC {auc(pos, neg):.3f}   (n pos {len(pos)}, neg {len(neg)})")
@@ -318,7 +364,6 @@ def score_noul(exp: str, q: str, label: str, title: str, below: float = 0.0, at:
             )
         if below or at:
             print(shipped_line(pos, neg, below, at))
-    return data, res
 
 
 def score_crossing():
@@ -398,8 +443,8 @@ def score_drift():
     )
 
 
-def score_issues():
-    data, res = rows("issues"), results("issues")
+def issue_hits(data: dict, res: dict) -> tuple[list, list, list]:
+    """For each answer: is the first pick, one of the first three, and the word baseline right?"""
     top1, top3, base = [], [], []
     for i, r in res.items():
         d = data[i]
@@ -411,6 +456,15 @@ def score_issues():
         top1.append((d["repo"], a["choice"] in owners))
         top3.append((d["repo"], bool(owners & set(ranked[:3]))))
         base.append((d["repo"], word_guess(repo, words(d["state"]["report"])) in owners))
+    return top1, top3, base
+
+
+def score_issues(exp: str = "issues"):
+    issues_report(rows(exp), results(exp))
+
+
+def issues_report(data: dict, res: dict) -> None:
+    top1, top3, base = issue_hits(data, res)
     print("== issues (N5): which card will the fix for this real bug report change?")
     print("  ", usage_line(res))
     print(
@@ -439,48 +493,208 @@ def score_cardkind():
     print("   (map kind, Jev kind):", dict((f"{a}->{b}", n) for (a, b), n in conf.most_common()))
 
 
+# Each yes-or-no experiment: the question name, the label, the title, and the audit threshold.
+NOUL_KINDS: dict[str, tuple[str, str, str, dict[str, float]]] = {
+    "flowverify": (
+        "holds",
+        "holds",
+        "== flowverify (idea 4): does the code carry the flow the sentence claims?",
+        {"below": audit.FLOW_BELOW},
+    ),
+    "sentence": (
+        "describes",
+        "describes",
+        "== sentence (N4): does the card's sentence describe its modules?",
+        {"below": audit.SENTENCE_BELOW},
+    ),
+    "governs": (
+        "governs",
+        "governs",
+        "== governs (N3): does this invariant govern this card?",
+        {"at": audit.GOVERNS_AT},
+    ),
+    "answerfit": (
+        "covers",
+        "covers",
+        "== answerfit (N8): does a recorded answer cover this crossing import?",
+        {},
+    ),
+}
+
+
+def noul_scorer(exp: str):
+    q, label, title, cut = NOUL_KINDS[exp]
+    return lambda: score_noul(exp, q, label, title, **cut)
+
+
 SCORERS = {
     "owner": score_owner,
     "where": score_where,
     "pairs": score_pairs,
     "flowkind": score_flowkind,
-    "flowverify": lambda: score_noul(
-        "flowverify",
-        "holds",
-        "holds",
-        "== flowverify (idea 4): does the code carry the flow the sentence claims?",
-        below=audit.FLOW_BELOW,
-    ),
+    "flowverify": noul_scorer("flowverify"),
     "crossing": score_crossing,
-    "sentence": lambda: score_noul(
-        "sentence",
-        "describes",
-        "describes",
-        "== sentence (N4): does the card's sentence describe its modules?",
-        below=audit.SENTENCE_BELOW,
-    ),
+    "sentence": noul_scorer("sentence"),
     "drift": score_drift,
     "issues": score_issues,
     "cardkind": score_cardkind,
-    "governs": lambda: score_noul(
-        "governs",
-        "governs",
-        "governs",
-        "== governs (N3): does this invariant govern this card?",
-        at=audit.GOVERNS_AT,
-    ),
-    "answerfit": lambda: score_noul(
-        "answerfit",
-        "covers",
-        "covers",
-        "== answerfit (N8): does a recorded answer cover this crossing import?",
-    ),
+    "governs": noul_scorer("governs"),
+    "answerfit": noul_scorer("answerfit"),
 }
 
+
+# ---- the old and the shipped questions on the same rows (build_shipped.py) ----------
+
+ARMS = ("old", "shipped")
+# The acceptance rule of the README section "Do the shipped Jev prompts keep the
+# measured results?": each figure within 10 points of the old figure, and the
+# mis-fold false alarm rate at most 2 points higher.
+WITHIN = 10.0
+MISFOLD_RISE = 2.0
+
+# A figure: its name, its value as a fraction, and the most points that it can rise.
+Figure = tuple[str, float, float | None]
+
+
+def owner_figures(data: dict, res: dict) -> list[Figure]:
+    _, near, _ = planted(data, res)
+    p_true, p_planted = [x[3] for x in near], [x[4] for x in near]
+    caught, flagged = at_threshold(p_true, p_planted, below=audit.MISFOLD_BELOW)
+    answered, right = suggested(data, res, audit.OWNER_AT)
+    fold = f"mis-fold, planted next door (P<{audit.MISFOLD_BELOW})"
+    owner = f"owner (confidence >= {audit.OWNER_AT})"
+    return [
+        (f"{fold}: caught", caught, None),
+        (f"{fold}: flagged", flagged, MISFOLD_RISE),
+        (f"{owner}: answered", answered, None),
+        (f"{owner}: right", right, None),
+    ]
+
+
+def noul_figures(kind: str):
+    q, label, _, cut = NOUL_KINDS[kind]
+    names = ("caught", "flagged") if "below" in cut else ("found", "suggested")
+    where = f"P<{cut['below']}" if "below" in cut else f"P>={cut['at']}"
+
+    def figures(data: dict, res: dict) -> list[Figure]:
+        first, second = at_threshold(*pos_neg(data, res, q, label), **cut)
+        return [
+            (f"{kind} ({where}): {names[0]}", first, None),
+            (f"{kind} ({where}): {names[1]}", second, None),
+        ]
+
+    return figures
+
+
+def noul_reporter(kind: str):
+    q, label, title, cut = NOUL_KINDS[kind]
+    return lambda data, res: noul_report(data, res, q, label, title, **cut)
+
+
+def issues_figures(data: dict, res: dict) -> list[Figure]:
+    top1, _, _ = issue_hits(data, res)
+    return [("issues: top-1", sum(x for _, x in top1) / len(top1), None)]
+
+
+ARM_KINDS = {
+    "owner": (owner_report, owner_figures),
+    "sentence": (noul_reporter("sentence"), noul_figures("sentence")),
+    "flowverify": (noul_reporter("flowverify"), noul_figures("flowverify")),
+    "governs": (noul_reporter("governs"), noul_figures("governs")),
+    "issues": (issues_report, issues_figures),
+}
+
+
+def same_rows(kind: str) -> tuple[dict[str, dict], dict[str, dict]]:
+    """The rows of each set, and the answers of each set for the ids that both sets answered.
+
+    The answers are in the order of the shipped rows, so the mis-fold neighbours are the same.
+    """
+    data = {arm: rows(f"{kind}_{arm}") for arm in ARMS}
+    got = {arm: results(f"{kind}_{arm}") for arm in ARMS}
+    ids = [i for i in data["shipped"] if i in data["old"] and all(i in got[a] for a in ARMS)]
+    return data, {arm: {i: got[arm][i] for i in ids} for arm in ARMS}
+
+
+def refused(data: dict, res: dict, needs: dict) -> int:
+    """How many answers the shipped answer check (jev.checked) refuses."""
+    count = 0
+    for i, r in res.items():
+        ask = jev.Ask(i, data[i]["state"], data[i]["questions"], tuple(needs[i].get("needs", ())))
+        try:
+            jev.checked(ask, r["answers"])
+        except jev.JevError:
+            count += 1
+    return count
+
+
+def printed(report, data: dict, res: dict) -> list[str]:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        report(data, res)
+    return buf.getvalue().splitlines()
+
+
+def score_arm_kind(kind: str) -> list[tuple[Figure, Figure]]:
+    """Print the two sets side by side, and give the figures of each set at the audit threshold."""
+    report, figures = ARM_KINDS[kind]
+    print(f"== {kind}: the old and the shipped questions on the same rows")
+    missing = [f"{kind}_{a}.jsonl" for a in ARMS if not (DATA / f"{kind}_{a}.jsonl").exists()]
+    if missing:
+        print(f"   no rows: {', '.join(missing)} is not in {DATA}. Run build_shipped.py {kind}.")
+        return []
+    data, res = same_rows(kind)
+    n = len(res["shipped"])
+    print(f"   rows: old {len(data['old'])}, shipped {len(data['shipped'])}, answered in both {n}")
+    if not n:
+        return []
+    counts = ", ".join(f"{a} {refused(data[a], res[a], data['shipped'])}" for a in ARMS)
+    print(f"   answers that the shipped answer check refuses: {counts}")
+    models = "; ".join(
+        f"{a} {dict(Counter(r.get('model') for r in res[a].values()))}" for a in ARMS
+    )
+    print(f"   models that gave the answers: {models}")
+    for a, b in itertools.zip_longest(
+        *(printed(report, data[x], res[x]) for x in ARMS), fillvalue=""
+    ):
+        if a == b:
+            print(a)
+            continue
+        print(f"   {'old':<8}| {a.strip()}")
+        print(f"   {'shipped':<8}| {b.strip()}")
+    return list(
+        zip(figures(data["old"], res["old"]), figures(data["shipped"], res["shipped"]), strict=True)
+    )
+
+
+def verdict(old: float, new: float, rise: float | None) -> tuple[str, str]:
+    if math.isnan(old) or math.isnan(new):
+        return "-", "no value"
+    diff = 100 * (new - old)
+    ok = abs(diff) <= WITHIN and (rise is None or diff <= rise)
+    return f"{diff:+.1f}", "pass" if ok else "fail"
+
+
+def score_arms(kinds: list[str]) -> None:
+    table = []
+    for kind in kinds:
+        table += score_arm_kind(kind)
+        print()
+    print("== acceptance: the shipped questions against the old questions on the same rows")
+    print(f"   {'figure':<50} {'old':>6} {'shipped':>8} {'points':>7}  rule")
+    for (name, old, rise), (_, new, _) in table:
+        diff, result = verdict(old, new, rise)
+        rule = f"within {WITHIN:.0f}" + ("" if rise is None else f", at most {rise:.0f} higher")
+        print(f"   {name:<50} {old:>6.0%} {new:>8.0%} {diff:>7}  {rule}: {result}")
+
+
 if __name__ == "__main__":
-    for exp in sys.argv[1:] or SCORERS:
-        if results(exp):
-            SCORERS[exp]()
-            print()
-        else:
-            print(f"== {exp}: no results yet\n")
+    if sys.argv[1:2] == ["--arms"]:
+        score_arms(sys.argv[2:] or list(ARM_KINDS))
+    else:
+        for exp in sys.argv[1:] or SCORERS:
+            if results(exp):
+                SCORERS[exp]()
+                print()
+            else:
+                print(f"== {exp}: no results yet\n")

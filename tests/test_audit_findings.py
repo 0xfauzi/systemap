@@ -344,12 +344,13 @@ def test_each_owner_kind_asks_only_about_its_own_modules(sample: Sample) -> None
 # ---- finding 10: the hints give the measurement limits -----------------------------
 
 
-def test_the_hints_say_that_the_figures_are_for_earlier_prompts() -> None:
+def test_the_hints_say_what_jev_does_and_how_to_stop_them() -> None:
+    assert "systemap audit" in jev_cli.JUDGEMENT_HINT
+    assert "do not change the delta result" in jev_cli.DELTA_HINT
     for hint in (jev_cli.JUDGEMENT_HINT, jev_cli.DELTA_HINT):
-        assert "earlier prompts" in hint
-        assert "Python" in hint
-        assert "bench/jev/README.md" in hint
-    assert "32%" not in jev_cli.JUDGEMENT_HINT
+        assert "%" not in hint, "a benchmark figure is not for the reader of a hint"
+        assert "measurement" not in hint and "bench/" not in hint
+        assert hint.endswith("Set [jev] enabled = false in systemap.toml to stop this hint.")
 
 
 def test_suggest_jev_without_a_key_sends_nothing(
