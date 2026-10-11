@@ -1,8 +1,8 @@
 """The move detector pairs removed modules with added modules.
 
 It compares source content, then public names, then file names and public-name overlap.
-A weak same-name pair remains a candidate for source examination. External answers can
-add unpaired moves.
+A weak same-name pair remains a candidate for source examination. A model answer does
+not add a move. `systemap.delta_jev` prints it as a suggestion.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import PurePosixPath
-from types import MappingProxyType
 from typing import Any
 
 from systemap.model import public_names
@@ -172,26 +171,4 @@ def candidates(
         )
         if alternatives:
             out[old] = alternatives
-    return out
-
-
-# No moves told from outside: the default for `told`, read-only.
-NO_MOVES: Mapping[str, tuple[str, str]] = MappingProxyType({})
-
-
-def with_told(
-    found: dict[str, tuple[str, str]],
-    told: Mapping[str, tuple[str, str]],
-    gone: list[str],
-    new: list[str],
-) -> dict[str, tuple[str, str]]:
-    """This function adds external move answers for unpaired modules. Each new module can
-    occur in one pair only.
-    """
-    out = dict(found)
-    taken = {c for c, _ in found.values()}
-    for old, (cand, how) in told.items():
-        if old in gone and old not in out and cand in new and cand not in taken:
-            out[old] = (cand, how)
-            taken.add(cand)
     return out

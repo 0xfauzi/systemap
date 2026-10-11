@@ -159,6 +159,7 @@ COMPONENTS = (
         implemented_by=(
             "systemap.change",
             "systemap.delta",
+            "systemap.delta_git",
             "systemap.delta_report",
             "systemap.moves",
             "systemap.history",
@@ -316,6 +317,8 @@ COMPONENTS = (
         interface="run(tree, facts, cfg, jev) -> lines; commands return 1 when an optional request fails",
         implemented_by=(
             "systemap.audit",
+            "systemap.audit_code",
+            "systemap.delta_jev",
             "systemap.jev_cli",
             "systemap.jev",
             "systemap.agent",

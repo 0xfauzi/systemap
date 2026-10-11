@@ -260,7 +260,11 @@ DELTA = {
             "Their identities are not known."
         ),
         why="Names such as `run` can occur in unrelated modules.",
-        do="Compare the source. Accept a module move only if the module task stayed the same.",
+        do=(
+            "Compare the source. If the module task stayed the same, change the claim to the "
+            "added module. Otherwise, remove the claim and add the added module to the "
+            "component for its task. The line is then not a decision."
+        ),
     ),
     "structural evidence lost": Lesson(
         means="An import, shared module, or specified mechanism for a flow is now missing.",
@@ -275,12 +279,26 @@ AUDIT = {
     "jev mis-fold": Lesson(
         means="Jev gives a different component for the task of this module.",
         why=(
-            "The `possible mis-fold` rule uses names only. Jev reads the code to find "
-            "modules in incorrect components."
+            "The `possible mis-fold` rule uses names only. Jev reads the module name, "
+            "docstring, public names, and imports to find modules in incorrect components."
         ),
         do=(
             "Compare the module with both components. Move it, or record the reason "
             "for its component at this snapshot."
+        ),
+    ),
+    "jev move": Lesson(
+        means=(
+            "Jev reads a removed module and an added module as the same module. Delta did "
+            "not pair them."
+        ),
+        why=(
+            "A move keeps the module claim of a component. This suggestion does not change "
+            "the delta decisions or the exit code."
+        ),
+        do=(
+            "Read the two source files. If the module task stayed the same, change the claim "
+            "to the added module. Otherwise, do the actions of the delta lines."
         ),
     ),
     "jev owner": Lesson(

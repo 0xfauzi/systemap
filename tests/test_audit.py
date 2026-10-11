@@ -94,8 +94,8 @@ def test_misfold_fires_below_the_threshold_only(sample: Sample) -> None:
     )
     line = audit.owner_line(read, low)
     assert line is not None
-    assert line.text == "jev mis-fold: Parser claims pkg.parser, which reads like Reader"
-    assert line.detail[0].startswith("P(Parser) 0.04")
+    assert line.text == "jev mis-fold: Parser claims pkg.parser"
+    assert line.detail[0].startswith("reads like Reader; P(Parser) 0.04")
     assert audit.owner_line(read, high) is None
 
 
@@ -109,9 +109,11 @@ def test_unclaimed_module_gets_one_card_when_confident_else_three(sample: Sample
         probabilities={"Writer": 0.4, "Parser": 0.3, "Reader": 0.2, "Ledger": 0.1},
     )
     none = answer("owner", choice=audit.NONE, confidence=0.95, probabilities={audit.NONE: 0.97})
-    assert audit.owner_line(read, sure).text.endswith("it reads like Writer")  # type: ignore[union-attr]
-    assert audit.owner_line(read, unsure).text.endswith("closest: Writer, Parser, Reader")  # type: ignore[union-attr]
-    assert audit.owner_line(read, none).text.endswith("it reads like none of the cards")  # type: ignore[union-attr]
+    assert audit.owner_line(read, sure).detail[0].startswith("reads like Writer")  # type: ignore[union-attr]
+    assert audit.owner_line(read, unsure).detail[0].startswith("closest: Writer, Parser, Reader")  # type: ignore[union-attr]
+    assert audit.owner_line(read, none).detail[0].startswith("reads like none of the cards")  # type: ignore[union-attr]
+    texts = {audit.owner_line(read, a).text for a in (sure, unsure, none)}  # type: ignore[union-attr]
+    assert texts == {"jev owner: pkg.stray is claimed by no card"}
 
 
 def test_sentence_flow_and_governs_thresholds(sample: Sample) -> None:
@@ -541,16 +543,6 @@ def test_judgement_ignores_audit_answers(
 
 
 # ---- delta --jev and suggest --jev: the pieces that read the report and the pairs ---
-
-
-def test_unclaimed_modules_are_read_off_delta_lines() -> None:
-    lines = [
-        "added: pkg.new, claimed by no card; name it in a card's implemented_by in map/model.py, or ignore it",
-        "Gateway: added: pkg.gate.x, claimed by no card; the map inside Gateway claims exactly",
-        "moved: pkg.a -> pkg.b (same content); no card claims pkg.b: name it in a card's implemented_by",
-        "added: pkg.claimed, claimed by Reader",
-    ]
-    assert jev_cli.unclaimed_in(lines) == ["pkg.new", "pkg.gate.x", "pkg.b"]
 
 
 def test_delta_asks_only_about_the_unclaimed_modules(sample: Sample) -> None:

@@ -11,9 +11,15 @@ except flow claims: 54% of incorrect claims found, compared with 66%.
 Thus, `jev flow` needs explicit selection with `--kind "jev flow"`.
 Language changes to prompts have not been measured again.
 
-Flow questions include source lines naming imports from the other component.
-Instance calls can be absent, such as `ledger.record(parts)` after a Ledger
-import. That limitation can cause doubt without a source defect.
+Flow questions include source lines naming imports from the other component
+(`systemap.audit_code`). Instance calls can be absent, such as `ledger.record(parts)`
+after a Ledger import. That limitation can cause doubt without a source defect.
+A flow without such lines gets no question. The report gives the count of these flows.
+
+A finding line is an identifier. It does not contain Jev's pick, so a new model
+release that changes only the pick does not change the line. The pick is in the
+detail row. `migrated` changes a line in the earlier form, which ended with the
+pick, to the current form, so that recorded answers continue to match.
 
 Completed reports exit 0. A request error can cause exit 1.
 Check and judgement do not call Jev. Audit answers use `[judgement] answered`.
@@ -31,10 +37,11 @@ from pathlib import Path
 from typing import Any
 
 from systemap import explain, nest
+from systemap.audit_code import code_between
 from systemap.config import AUDIT_KINDS, Answer, Config
 from systemap.evidence import owners
 from systemap.extract import is_empty_marker
-from systemap.jev import Answers, Ask, Jev
+from systemap.jev import Answers, Ask, Jev, JevError
 from systemap.model import Meaning, Model, module_matches
 
 # ---- thresholds, each with what it measured on the development maps ----------
@@ -99,9 +106,18 @@ class Plan:
 
     asks: list[Ask] = field(default_factory=list)
     reads: dict[str, Any] = field(default_factory=dict)
+    # Flows without a source line that uses a name from the other component.
+    unasked: list[str] = field(default_factory=list)
 
-    def add(self, key: str, state: Any, questions: dict[str, Any], read: Any) -> None:
-        self.asks.append(Ask(key, state, questions))
+    def add(
+        self,
+        key: str,
+        state: Any,
+        questions: dict[str, Any],
+        read: Any,
+        needs: tuple[str, ...] = (),
+    ) -> None:
+        self.asks.append(Ask(key, state, questions, needs))
         self.reads[key] = read
 
 
@@ -140,32 +156,6 @@ def owner_criteria(model: Model, meaning: Meaning) -> dict[str, str]:
 
 def owner_question(model: Model, meaning: Meaning) -> dict[str, Any]:
     return {"type": "choice", "instructions": OWNER_Q, "criteria": owner_criteria(model, meaning)}
-
-
-def lines_using(root: Path, facts: dict[str, Any], module: str, names: set[str]) -> list[str]:
-    try:
-        text = (root / facts["components"][module]["file"]).read_text().splitlines()
-    except (FileNotFoundError, UnicodeDecodeError, KeyError):
-        return []
-    pat = re.compile(r"\b(" + "|".join(map(re.escape, sorted(names))) + r")\b")
-    return [f"{module}:{i}: {ln.strip()[:160]}" for i, ln in enumerate(text, 1) if pat.search(ln)]
-
-
-def _uses_of(root: Path, facts: dict[str, Any], a: str, others: list[str]) -> list[str]:
-    uses = facts["components"][a].get("uses", {})
-    names = {n for b in others for n in uses.get(b, [])}
-    return lines_using(root, facts, a, names) if names else []
-
-
-def code_between(
-    root: Path, facts: dict[str, Any], mods: dict[str, list[str]], src: str, dst: str
-) -> list[str]:
-    """Get at most 30 lines using an import name from the other component."""
-    lines: list[str] = []
-    for a_card, b_card in ((src, dst), (dst, src)):
-        for a in mods.get(a_card, []):
-            lines += _uses_of(root, facts, a, mods.get(b_card, []))
-    return lines[:30]
 
 
 # ---- planning: one Ask per question, keyed so the answers find their way back -
@@ -213,7 +203,9 @@ def plan_owner(
     placed = [(mod, cid) for mod, cid in placed if m.model.component(cid).kind != "actor"]
     for mod, cid in placed + [(mod, "") for mod in extra]:
         state = {"system": system, "module": module_state(facts, mod)}
-        plan.add(f"{m.id}|owner|{mod}", state, question, ("owner", m, mod, cid))
+        # A mis-fold reads P(claimed component): an answer without it is refused.
+        needs = (cid,) if cid else ()
+        plan.add(f"{m.id}|owner|{mod}", state, question, ("owner", m, mod, cid), needs)
 
 
 def plan_sentences(plan: Plan, m: nest.Map, facts: dict[str, Any]) -> None:
@@ -237,6 +229,7 @@ def plan_flows(plan: Plan, m: nest.Map, facts: dict[str, Any], root: Path) -> No
             continue
         code = code_between(root, facts, by, f.src, f.dst)
         if not code:
+            plan.unasked.append(f"{f.src} -> {f.dst} ({f.artifact})")
             continue
         brief = {x: card_brief(m.model, m.meaning, x) for x in (f.src, f.dst)}
         claim = {
@@ -271,14 +264,15 @@ def make_plan(
 
     The top map also includes unclaimed modules.
     """
+    kinds = tuple(kinds)
     asked = {QUESTION_OF[k] for k in kinds}
     plan = Plan()
     ignores = [i.module for i in cfg.coverage_ignore]
     for m in tree.maps:
-        extra = unclaimed(m.model, facts, ignores) if m.top else []
+        extra = _owner_extra(m, facts, ignores, kinds)
         view = facts if m.top else _view(facts, m)
         if "owner" in asked:
-            plan_owner(plan, m, view, extra, cfg.name)
+            plan_owner(plan, m, view, extra, cfg.name, placed_too="jev mis-fold" in kinds)
         if "sentence" in asked:
             plan_sentences(plan, m, view)
         if "flow" in asked:
@@ -286,6 +280,15 @@ def make_plan(
         if "governs" in asked:
             plan_governs(plan, m)
     return plan
+
+
+def _owner_extra(
+    m: nest.Map, facts: dict[str, Any], ignores: list[str], kinds: tuple[str, ...]
+) -> list[str]:
+    """Give the unclaimed modules for the owner question: top map, `jev owner` only."""
+    if not m.top or "jev owner" not in kinds:
+        return []
+    return unclaimed(m.model, facts, ignores)
 
 
 def _view(facts: dict[str, Any], m: nest.Map) -> dict[str, Any]:
@@ -305,23 +308,32 @@ def _reads_like(pick: str) -> str:
     return "none of the cards" if pick == NONE else pick
 
 
+def spread(answer: dict[str, Any]) -> dict[str, float]:
+    """Give the probabilities of a choice answer, or the choice at its confidence."""
+    probs = answer.get("probabilities") or {}
+    return dict(probs) if probs else {answer["choice"]: answer["confidence"]}
+
+
 def owner_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
     _, m, mod, cid = read
     a = answers["owner"]
     probs = a.get("probabilities", {})
     detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(probs, 3))
+    pick = f"reads like {_reads_like(a['choice'])}"
     if cid:
-        p = probs.get(cid, 0.0)
+        if cid not in probs:
+            raise JevError(f"Jev gave no probability for {cid}, the component of {mod}")
+        p = probs[cid]
         if p >= MISFOLD_BELOW:
             return None
-        text = f"jev mis-fold: {cid} claims {mod}, which reads like {_reads_like(a['choice'])}"
-        return Line(m.prefix + text, (f"P({cid}) {p:.2f}; most likely: {detail}",))
-    if a.get("confidence", 0.0) >= OWNER_AT:
-        text = f"jev owner: {mod} is claimed by no card; it reads like {_reads_like(a['choice'])}"
-        return Line(m.prefix + text, (f"confidence {a['confidence']:.2f}",))
+        text = f"jev mis-fold: {cid} claims {mod}"
+        return Line(m.prefix + text, (f"{pick}; P({cid}) {p:.2f}; most likely: {detail}",))
+    text = f"jev owner: {mod} is claimed by no card"
+    sure = f"confidence {a['confidence']:.2f}"
+    if a["confidence"] >= OWNER_AT:
+        return Line(m.prefix + text, (f"{pick}; {sure}",))
     closest = ", ".join(k for k, _ in _top(probs, 3))
-    text = f"jev owner: {mod} is claimed by no card; closest: {closest}"
-    return Line(m.prefix + text, (f"confidence {a.get('confidence', 0.0):.2f}; {detail}",))
+    return Line(m.prefix + text, (f"closest: {closest}; {sure}; {detail}",))
 
 
 def sentence_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
@@ -385,6 +397,19 @@ def run(
 # ---- answers, shared with judgement ---------------------------------------------
 
 
+# The earlier form of the mis-fold and owner lines ended with Jev's pick.
+_EARLIER = re.compile(
+    r"^(?P<line>(?:\S+: )?jev (?:mis-fold: \S+ claims \S+|owner: \S+ is claimed by no card))"
+    r"(?:, which reads like .+|; it reads like .+|; closest: .+)$"
+)
+
+
+def migrated(line: str) -> str:
+    """Change a line in the earlier form, with Jev's pick at the end, to the current form."""
+    found = _EARLIER.match(line)
+    return found["line"] if found else line
+
+
 def _bare(line: str) -> str:
     """Remove a nested-map `<map>: ` prefix from a finding."""
     head, sep, rest = line.partition(": ")
@@ -400,8 +425,26 @@ def is_audit_answer(answer: Answer) -> bool:
 
 def _covers(answer: Answer, line: str) -> bool:
     if answer.items:
-        return line in answer.items
+        return any(migrated(item) == line for item in answer.items)
     return _bare(line).startswith(answer.kind + ": ")
+
+
+def _stale(mine: list[Answer], texts: list[str]) -> list[str]:
+    """Give the configured items and kinds that match no current line."""
+    stale = [i for a in mine for i in a.items if migrated(i) not in texts]
+    return stale + [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+
+
+def _with_earlier_lines(evidence: Mapping[str, str], mine: list[Answer]) -> dict[str, str]:
+    """Give each item in the earlier form the evidence of its current line.
+
+    A digest of a group of items was recorded over the configured item text.
+    """
+    out = dict(evidence)
+    for item in (i for a in mine for i in a.items):
+        if migrated(item) in evidence:
+            out.setdefault(item, evidence[migrated(item)])
+    return out
 
 
 def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
@@ -417,10 +460,8 @@ def apply(
     kinds = tuple(kinds)
     mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
     texts = [x.text for x in found]
-    stale = [i for a in mine for i in a.items if i not in texts]
-    stale += [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
     open_lines = [x for x in found if not any(_covers(a, x.text) for a in mine)]
-    return open_lines, len(found) - len(open_lines), stale
+    return open_lines, len(found) - len(open_lines), _stale(mine, texts)
 
 
 @dataclass(frozen=True)
@@ -444,10 +485,11 @@ def apply_reviewed(
     kinds = tuple(kinds)
     mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
     texts = [x.text for x in found]
-    stale = [i for a in mine for i in a.items if i not in texts]
-    stale += [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
-    accepted, pending, policies = _reviewed_audit_answers(mine, texts, evidence)
+    accepted, pending, policies = _reviewed_audit_answers(
+        mine, texts, _with_earlier_lines(evidence, mine)
+    )
     open_lines = [x for x in found if not any(_covers(a, x.text) for a in accepted)]
+    stale = _stale(mine, texts)
     return Reviewed(open_lines, len(found) - len(open_lines), stale, pending, policies)
 
 
@@ -472,7 +514,8 @@ def _reviewed_audit_answers(
 
 
 def _audit_policy_line(answer: Answer, matches: list[str]) -> str:
-    new = sum(line not in answer.reviewed for line in matches)
+    reviewed = {migrated(line) for line in answer.reviewed}
+    new = sum(line not in reviewed for line in matches)
     return (
         f"{answer.label} covers {len(matches)} current lines; {new} outside its reviewed baseline"
     )
@@ -502,10 +545,12 @@ def report(
     teach: bool = True,
     pending: Iterable[str] = (),
     policies: Iterable[str] = (),
+    unasked: Iterable[str] = (),
 ) -> list[str]:
     """Give CLI findings and explanations.
 
     `teach` adds one explanation per finding type. `--brief` removes explanations.
+    `unasked` gives the flows without source lines for a `jev flow` question.
     """
     tail = (f", {answered} answered" if answered else "") + (
         f", {len(stale)} stale" if stale else ""
@@ -519,8 +564,21 @@ def report(
     out += [f"  stale answer: {s}" for s in stale]
     out += [f"  pending answer: {s}" for s in pending]
     out += [f"  policy answer: {s}" for s in policies]
+    out += unasked_lines(list(unasked))
     out.append(usage)
     return out
+
+
+def unasked_lines(unasked: list[str]) -> list[str]:
+    """Give the count of flows that got no `jev flow` question, and the first five."""
+    if not unasked:
+        return []
+    noun = "flow has" if len(unasked) == 1 else "flows have"
+    more = f", and {len(unasked) - 5} more" if len(unasked) > 5 else ""
+    return [
+        f"  not asked: {len(unasked)} {noun} no source line that uses a name from the "
+        f"other component: {', '.join(unasked[:5])}{more}"
+    ]
 
 
 def _taught(open_lines: list[Line], teach: bool) -> list[str]:
@@ -537,13 +595,25 @@ def _taught(open_lines: list[Line], teach: bool) -> list[str]:
     return out
 
 
-def dry_run(plan: Plan, pending: int | None) -> list[str]:
-    """Count planned questions and give the outgoing data fields."""
+def _sent(pending: int | str | None) -> str:
+    if pending is None:
+        return "unknown until a key is set"
+    if isinstance(pending, str):
+        return pending
+    return f"{pending} not in the cache"
+
+
+def dry_run(plan: Plan, pending: int | str | None) -> list[str]:
+    """Count planned questions and give the outgoing data fields.
+
+    `pending` is the count without cached answers, None without a key, or the reason
+    that the count is not known.
+    """
     kinds: dict[str, int] = {}
     for a in plan.asks:
         kinds[a.key.split("|")[1]] = kinds.get(a.key.split("|")[1], 0) + 1
     chars = sum(a.chars() for a in plan.asks)
-    sent = "unknown until a key is set" if pending is None else f"{pending} not in the cache"
+    sent = _sent(pending)
     return [
         f"audit --dry-run: {len(plan.asks)} questions ({sent}), {chars:,} characters of state "
         "and questions",
@@ -551,4 +621,5 @@ def dry_run(plan: Plan, pending: int | None) -> list[str]:
         "  outgoing data: module names, docstrings (600 characters at most), public "
         "names, internal imports, component ids and sentences, invariants, flow sentences, and "
         "source lines with imports between components (30 lines per flow at most)",
+        *unasked_lines(plan.unasked),
     ]

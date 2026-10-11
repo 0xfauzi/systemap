@@ -89,6 +89,9 @@ def shell_run(command: str, question: str, cwd: Path, timeout: float) -> str:
             input=question,
             capture_output=True,
             text=True,
+            # The question and the answer are UTF-8, whatever the locale.
+            encoding="utf-8",
+            errors="replace",
             cwd=cwd,
             timeout=timeout,
             check=False,

@@ -27,6 +27,7 @@ from systemap import (
     check,
     config,
     delta,
+    delta_jev,
     describe,
     explain,
     extract,
@@ -557,51 +558,18 @@ def cmd_delta(args: argparse.Namespace) -> int:
     compared = delta.merge_base(root, base_sha, head_sha)
     head = delta.facts_at(p.cfg, head_sha)
     base = delta.facts_at(p.cfg, compared)
-    asked = jev_cli.uses_jev(p.cfg, args.jev)
-    client, told, extra = _jev_moves(p, base, head) if asked else (None, {}, [])
-    d = delta.compute_tree(
-        p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head, told=told
-    )
-    if client is not None:
-        extra += _delta_jev(p, head, d, client)
-        jev_cli.usage_to_stderr(client)
+    d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
+    # Jev answers are suggestions: they never change the lines or the exit code.
+    asked = delta_jev.NOTHING
+    if jev_cli.uses_jev(p.cfg, args.jev):
+        asked = delta_jev.ask(p.cfg, p.tree, base, head, d)
     if args.format == "markdown":
-        sys.stdout.write(delta.markdown(d, delta.figure_url(p.cfg, head_sha)))
-        if extra:
-            listed = "\n".join(f"- {x}" for x in extra)
-            sys.stdout.write(f"\n**Jev on the unclaimed modules**\n\n{listed}\n")
+        sys.stdout.write(delta.comment(p.cfg, d, head_sha) + delta_jev.markdown(asked))
     else:
-        say(*delta.report(d, teach=not args.brief), *extra)
+        say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.jev is None and d.added and d.removed:
         jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
     return STALE if d.open else OK
-
-
-def _jev_moves(
-    p: Project, base: dict[str, Any], head: dict[str, Any]
-) -> tuple[jev.Jev | None, dict[str, tuple[str, str]], list[str]]:
-    """Get the Jev client and possible module moves for `delta --jev`.
-
-    If the API key is missing or Jev returns an error, give the condition.
-    """
-    try:
-        client = jev.from_env(p.cfg.jev_model, p.cfg.jev_cache_path)
-        return client, jev_cli.jev_moves(base, head, client), []
-    except jev.JevError as exc:
-        return None, {}, [f"delta --jev: {exc}"]
-
-
-def _delta_jev(p: Project, head: dict[str, Any], d: delta.Delta, client: jev.Jev) -> list[str]:
-    """Get possible component owners for modules without components. The delta controls the
-    exit code.
-    """
-    modules = jev_cli.unclaimed_in([line.text for line in d.lines])
-    lines: list[str] = []
-    if modules:
-        lines, _ = jev_cli.run_or_explain(
-            lambda: jev_cli.owner_suggestions(p.cfg, p.tree, head, modules, client), "delta --jev"
-        )
-    return lines
 
 
 # ---- suggest ---------------------------------------------------------------
@@ -650,10 +618,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         say(f"history: {exc}")
         return STALE
     if len(shas) < 2:
-        say(
-            f"history: There are only {len(shas)} commit since {args.since}. Use a longer "
-            f"time range."
-        )
+        say(history.too_few(len(shas), args.since))
         return OK
     say(
         f"history: The command reads facts at {len(shas)} commits. The cache reduces "
@@ -1122,6 +1087,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Ask Jev for possible module moves and owners of modules without components. "
+            "The answers are suggestions. They do not change the decisions or the exit code. "
             "Use --no-jev to send no request. The default is enabled if TYPESAFE_API_KEY "
             "is set and [jev] enabled is not false."
         ),
