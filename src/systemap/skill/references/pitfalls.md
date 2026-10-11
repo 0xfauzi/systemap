@@ -1,7 +1,7 @@
 # Known map and tooling errors
 
 Read these cases before the draft and when many judgement lines stay open.
-Apply `language.md` to all new names and sentences.
+Apply `references/language.md` to all new names and sentences.
 
 ## Module assignments
 
@@ -45,14 +45,14 @@ Do not skip a step to avoid a missing-flow finding.
 A custom layer must answer a different question with source evidence.
 Do not add a layer only to show a directory name again.
 An invariant must have a source citation.
-A proposed rule belongs in the maintainer note, not the current invariant list.
+A proposed rule belongs in the completion report, not the current invariant list.
 
 ## Positions and nested maps
 
 Leave new `x` and `y` values unset. Run `systemap place`.
 After component additions or removals, run `systemap place --all`.
 Use `pinned=True` only for a position that must stay fixed.
-Read `layout.md` for region, route, and label decisions.
+Read `references/layout.md` for region, route, and label decisions.
 Use the measured layout report from `systemap describe`.
 For maps above forty components or components above ten modules, examine the nested-map suggestion.
 A nested map must cover exactly the parent's modules.

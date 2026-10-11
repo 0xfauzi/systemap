@@ -1,8 +1,16 @@
 # Update a map after source changes
 
+## Contents
+
+- Update procedure
+- Delta findings
+- Optional plan before code changes
+- Pull request workflow
+- Completion
+
 For an existing map, use delta to identify the necessary changes.
 A full first-draft procedure is not necessary for a small change.
-The language policy in `language.md` applies to every changed name and sentence.
+The language policy in `references/language.md` applies to every changed name and sentence.
 
 ## Update procedure
 
@@ -27,11 +35,14 @@ The language policy in `language.md` applies to every changed name and sentence.
    Act on newly open lines or record supported reasons under `[judgement] answered`.
    Do these commands again after further model changes.
 5. If delta identifies more than one-third of the components, do the full loop in SKILL.md.
-6. Do the language acceptance procedure in `language.md`.
+6. Do the language acceptance procedure in `references/language.md`.
 
 An added or removed module assignment also opens source review again.
 This includes modules matched by an `implemented_by` wildcard.
 The command below prints current component digests. It does not examine the claims for you.
+The script must import systemap.
+If systemap is a uv tool and not a project dependency, the script can fail to import it.
+If the script fails, show the failure to the maintainer.
 
 ```sh
 uv run python - <<'PY'
@@ -85,7 +96,7 @@ Record unexpected effects in the pull request.
 The experiment covered 86% of affected components over 80 bug reports, with 2.1 selected components per report.
 On a repository not used for threshold selection, coverage was 71%.
 These are recorded experiment results, not a guarantee for a new repository.
-See `bench/jev/README.md` for methods and limits.
+See `bench/jev/README.md` in the systemap source repository for methods and limits.
 
 ## Pull request workflow
 
@@ -96,6 +107,12 @@ The comment gives the required actions and the map at the head commit.
 
 ## Completion
 
-Give the maintainer the delta header and the action for each finding.
-Include the coverage result and the final `judgement --strict` result.
-State any unresolved source or language uncertainty.
+Give the maintainer a completion report with these lines:
+
+```text
+Delta: <delta header>
+Actions: <the action for each finding>
+Coverage: <coverage result from systemap check>
+Judgement: <final systemap judgement --strict result>
+Uncertainty: <each unresolved source or language uncertainty>
+```

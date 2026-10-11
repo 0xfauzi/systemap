@@ -1,9 +1,24 @@
 # Model and facts schema
 
+## Contents
+
+- Model
+- Container
+- Region
+- Component: source and interface, kind and appearance, positions and text, nested map
+- Flow
+- Invariant
+- Journey
+- Step
+- Layer
+- Meaning
+- Structural checks
+- The facts file: the file, each module, each entry point, and the extract summary
+
 The model uses frozen dataclasses exported by `systemap`.
 `map/model.py` exports `MODEL` as a `Model` and `MEANING` as a `Meaning`.
 Default values identify optional fields.
-Use ASD-STE100 names and prose as specified in `language.md`.
+Use ASD-STE100 names and prose as specified in `references/language.md`.
 Keep schema keys and source symbols exact.
 
 ## Model
@@ -87,7 +102,7 @@ ignore = [
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, incident flows, sequences, and invariants before you write it.
 Delta keeps a changed component under `needs a decision` until the digest agrees with the current claims and source.
-Refresh does not write this digest. See `maintenance.md` for the procedure.
+Refresh does not write this digest. See `references/maintenance.md` for the procedure.
 
 ### Kind and appearance
 
@@ -141,7 +156,7 @@ The inspector has a preview and an open button.
 Double-click or a second Enter also opens the nested map.
 `docs/map/Gateway/index.html` has a parent link.
 A further nested map can have identifier `Gateway/Routes`.
-See `layout.md` for thresholds and commands.
+See `references/layout.md` for thresholds and commands.
 
 ## Flow
 
@@ -260,12 +275,6 @@ The checker rejects these conditions:
 The inspector has one selection control for each flow connected to the component.
 Each control shows the artifact, direction, layer, and evidence state.
 Passing these checks does not show source meaning or language compliance.
-
-## Facts file
-
-`systemap extract` writes `docs/map/map.json` by default.
-The exported `systemap.extract.FIELDS` table describes its records.
-The tables below give each field's purpose.
 
 ## The facts file
 

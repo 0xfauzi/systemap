@@ -1,5 +1,14 @@
 # ASD-STE100 language policy
 
+## Contents
+
+- Reference
+- Text and names
+- Words and sentences
+- Technical identities
+- Project glossary: technical nouns and technical verbs
+- Acceptance procedure
+
 All agents must use ASD-STE100 Issue 9 for all text that a person reads.
 This is a requirement for new maps and map updates.
 It is also a requirement for documentation and user interface text.
@@ -140,6 +149,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | revision | An identified version of source files or map output. |
 | schema | The specified fields and types of a data format. |
 | SDK | A software development kit with program interfaces. |
+| skill | A directory that contains a SKILL.md file and reference files with a procedure for an agent. |
 | snapshot | The saved map and source facts for one extraction. |
 | source claim | An authored statement about what source code does. |
 | source code | The program text that an extractor or maintainer reads. |
@@ -151,7 +161,6 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | token | A unit of model input or output, or a parser symbol. |
 | TSX | TypeScript syntax that includes JSX elements. |
 | viewport | The visible area in which the browser shows a map. |
-
 | actor | A map component outside the system source boundary. |
 | alias | An alternative source name for an import or public symbol. |
 | AUC | The area under a measured threshold curve (category 7). |
@@ -325,7 +334,6 @@ If approved dictionary words give the same meaning, use those words instead.
 | update | Change stored software data or interface contents. |
 | type | Enter text into a computer input field. |
 | validate | Do the specified schema or consistency checks on software data. |
-
 | format | Convert software records into specified display text. |
 | group | Give software records a group through a specified algorithm. |
 | index | Associate software records with lookup keys. |

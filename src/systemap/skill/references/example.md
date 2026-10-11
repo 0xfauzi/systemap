@@ -1,5 +1,12 @@
 # A complete model example
 
+## Contents
+
+- The model file
+- Package markers and coverage exclusions
+
+## The model file
+
 This illustrative model shows an input sequence with a reader, parser, writer, and record store.
 The modules are `pkg.reader`, `pkg.parser`, `pkg.writer`, and `pkg.ledger`.
 The tests do the model checks against a source fixture with these modules.
@@ -186,6 +193,8 @@ MEANING = Meaning(
     journeys=JOURNEYS,
 )
 ```
+
+## Package markers and coverage exclusions
 
 An empty `pkg/__init__.py` is a package marker in this example.
 The extractor records that module. Coverage includes the marker without a component claim.

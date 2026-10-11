@@ -1,8 +1,8 @@
 ---
 name: systemap
-description: Make or update a system map from repository source code. Use for map/model.py, component assignments, flows, sequences, invariants, and map checks. Extract source facts, write the model in ASD-STE100, place components, examine source claims, render the map, and record decisions. Use systemap delta for source changes after the first map.
+description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model in ASD-STE100, places components, examines source claims, renders the map, and records decisions. Use systemap delta for source changes after the first map.
 license: MIT
-compatibility: Python 3.11+ and the systemap package (uv tool install systemap)
+compatibility: Python 3.11+ and the systemap package (uv tool install systemap). Delta and history use Git. Jev commands use TYPESAFE_API_KEY and network access.
 ---
 
 # Make or update a system map
@@ -15,6 +15,8 @@ A passing structural check does not show that a claim is correct.
 
 The model is a Python module, usually `map/model.py`, with `MODEL` and `MEANING`.
 Run commands from the repository root. Use `--root DIR` for another repository.
+If the `systemap` command is missing, tell the maintainer. `uv tool install systemap` or `uv add --dev systemap` installs it.
+For a TypeScript repository, the `systemap[typescript]` package is necessary.
 If `systemap.toml` is missing, run `systemap init`.
 
 ## Mandatory language requirement
@@ -28,7 +30,7 @@ Do not change commands, schema keys, identifiers, or quoted source evidence.
 If the official reference is unavailable, tell the maintainer. Do not complete language acceptance.
 Do not claim compliance from an automated word-list check.
 
-## Model decisions
+## Jev decisions
 
 Jev is the TypeSafe model for decisions that imports and names cannot give.
 With `TYPESAFE_API_KEY`, use `suggest --jev` and `audit`.
@@ -41,6 +43,18 @@ Tell the maintainer which procedure was used. Examine modules without findings a
 
 A first draft can omit flows or give a module an incorrect component assignment.
 Structural checks cannot find every omission. Source examination is necessary.
+Copy these lines into your answer. Mark each step when it is complete.
+
+```text
+- [ ] 1 extract: The facts are current.
+- [ ] 2 draft: Each nonempty module has a component assignment. All components have positions.
+- [ ] 3 check: The check has no failures. A `stale` finding can stay until step 5.
+- [ ] 4 judgement: No judgement line or `jev` line stays without an action or an answer.
+- [ ] 5 render: The page and figures are current, and you examined both figures.
+- [ ] 6 source review: A complete source examination causes no model changes.
+- [ ] 7 stop: The work agrees with each stop condition.
+- [ ] 8 completion: The maintainer has the completion report.
+```
 
 1. **extract**: Run `systemap extract`. Read its output through `systemap facts`.
    Do not open the complete facts JSON for routine examination.
@@ -50,7 +64,8 @@ Structural checks cannot find every omission. Source examination is necessary.
 2. **draft**: Use `systemap suggest --jev` when Jev is available.
    Otherwise, use `systemap suggest`. Examine the proposed assignments against source.
    Read the repository's own documentation: its README, AGENTS.md, CLAUDE.md, docs/.
-   Read `references/schema.md`, `references/example.md`, and `references/layout.md`.
+   Read `references/schema.md`, `references/example.md`, `references/layout.md`, and `references/pitfalls.md`.
+   Also read `references/layers.md` and `references/journeys-and-invariants.md`.
    Write components and flows without `x` and `y`. Run `systemap place`.
    The command searches region orders and compares route collisions, refusals, bends, and length.
    Do not substitute a helper script for this search.
@@ -105,8 +120,7 @@ Structural checks cannot find every omission. Source examination is necessary.
    A complete source examination must cause no further model changes.
    Unread documentation must have no rules for source in this repository.
    Complete the language acceptance procedure in `references/language.md`.
-8. **completion**: Give the maintainer the coverage result and the decisions recorded in `systemap.toml`.
-   Give the count of examined module assignments. Identify assignments that must receive a maintainer decision.
+8. **completion**: Give the maintainer the completion report. The Completion section gives its lines.
 
 ## Source changes after the first map
 
@@ -191,8 +205,21 @@ Its actors represent adjacent components. Commands examine every nested map.
 ## Completion
 
 Record every unacted judgement and audit line with its reason in `systemap.toml`.
-Give the maintainer the coverage result and the final check result.
-State any uncertainty about component assignments or source claims.
+Give the maintainer a completion report with these lines:
+
+```text
+Check: <final systemap check result, with its coverage result>
+Judgement: <final systemap judgement --strict result>
+Audit: <final systemap audit result, or "Jev not available">
+Procedure: <Jev or source examination, and each Jev failure>
+Examined module assignments: <count>
+Maintainer decisions: <each assignment that must receive a maintainer decision>
+Recorded decisions: <each answer in systemap.toml, with its reason>
+Evidence limits: <each recorded extractor, source, or Jev limit>
+Uncertainty: <each uncertain component assignment, source claim, or language decision>
+Proposed rules: <each proposed invariant outside the invariant list>
+```
+
 Commit `map/model.py`, `systemap.toml`, and `docs/map/` with the source changes.
 The map must show current source, not proposed components.
 Do not put code or test counts on map components.

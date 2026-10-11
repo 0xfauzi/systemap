@@ -2,7 +2,7 @@
 
 A layer shows the components and flows that answer one system question.
 The page shows one layer at a time.
-Use the language policy in `language.md` for new labels and questions.
+Use the language policy in `references/language.md` for new labels and questions.
 
 ## Derived layers
 
