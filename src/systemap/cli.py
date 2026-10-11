@@ -32,6 +32,7 @@ from systemap import (
     extract,
     figure,
     history,
+    init_language,
     jev,
     jev_cli,
     judgement,
@@ -47,7 +48,6 @@ from systemap import suggest as suggest_mod
 from systemap.config import Config, ConfigError
 from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
-from systemap.typescript_config import discover_typescript_roots
 
 OK, STALE, BAD_CONFIG = 0, 1, 2
 
@@ -110,7 +110,7 @@ MAINTENANCE_SENTENCE = (
 
 def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
-    language, roots = _init_language_roots(root)
+    language, roots = init_language.language_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root)
     say(*scaffold.write(root, name, package, roots, ci=not args.no_ci, language=language))
@@ -120,21 +120,9 @@ def cmd_init(args: argparse.Namespace) -> int:
         f"The command wrote {skill_path.parent.relative_to(root).as_posix()}/ "
         f"({skill.FILE_NAME} and {references} references)"
     )
-    say(*scaffold.TOOLING_NOTE)
+    say(*scaffold.tooling_note(root, language))
     say("Next, give this instruction to your coding agent:", f"  {AGENT_SENTENCE}")
     return OK
-
-
-def _init_language_roots(root: Path) -> tuple[str, list[tuple[str, str]]]:
-    python_roots = config.discover_roots(root)
-    typescript_roots = discover_typescript_roots(root)
-    if python_roots and typescript_roots:
-        raise ConfigError(
-            "The source contains Python and TypeScript. Set language in systemap.toml."
-        )
-    if typescript_roots:
-        return "typescript", typescript_roots
-    return "python", python_roots
 
 
 # ---- extract ---------------------------------------------------------------

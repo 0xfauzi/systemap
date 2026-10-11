@@ -419,6 +419,7 @@ def load(root: Path) -> Config:
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
+    _check_roots(root, language, raw.get("package_roots"), roots, where)
 
     theme = raw.get("theme", {})
     if not isinstance(theme, dict):
@@ -478,6 +479,33 @@ def load(root: Path) -> Config:
         theme=theme,
         figures=tuple(figures),
         source=source,
+    )
+
+
+def _check_roots(
+    root: Path, language: str, configured: Any, roots: tuple[tuple[str, str], ...], where: str
+) -> None:
+    """Reject a configured package root that is not a directory or has a path as its name."""
+    for rel, name in roots if configured is not None else ():
+        path_name = language == "python" and "/" in name
+        if path_name or not (root / rel).is_dir():
+            raise ConfigError(_root_problem(rel, name, path_name, where))
+
+
+def _root_problem(rel: str, name: str, path_name: bool, where: str) -> str:
+    """Give the correction for a configured package root. Name a misplaced setting."""
+    if rel in KNOWN_KEYS:
+        return (
+            f"{where}: [package_roots] contains the setting {rel}. Move the {rel} line above "
+            f"the [package_roots] line."
+        )
+    if path_name:
+        return (
+            f"{where}: The package root {rel} has the import name {name}. A Python import "
+            f"name cannot contain a slash."
+        )
+    return (
+        f"{where}: The package root {rel} is not a directory. Correct the path in [package_roots]."
     )
 
 

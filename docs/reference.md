@@ -295,6 +295,11 @@ The command does not replace files.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
 
+If the repository has no Python package and a directory has a `tsconfig.json` file,
+`init` selects TypeScript.
+If the repository root has no `tsconfig.json` file, `init` writes no package roots.
+Then set `[package_roots]` for each application package.
+
 ### `systemap extract [--check]`
 
 Reads the source tree and writes `docs/map/map.json`.
@@ -569,7 +574,7 @@ Unknown keys are rejected.
 |---|---|---|
 | `language` | `python` | Select `python` or `typescript`. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | `[project] name`, Git repository directory, then directory name | The page title. |
-| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. |
+| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
 | `model` | `map/model.py` | The module that exports `MODEL` and `MEANING`. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (`import journeys`). Imported modules do not stay cached between executions. |

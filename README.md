@@ -147,7 +147,8 @@ public surface.
 TypeScript discovery first uses `src/`, then the repository root. For a
 monorepo or a repository without `src/`, configure `[package_roots]` for the
 application packages. This prevents scripts and fixtures from becoming
-application modules.
+application modules. If only the package directories of a workspace have a
+`tsconfig.json` file, `init` selects TypeScript and writes no package roots.
 
 The `init` command writes the configuration, an empty map, the skill
 instructions, and a CI workflow. The command then prints this instruction:
