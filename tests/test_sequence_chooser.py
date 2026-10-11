@@ -165,10 +165,14 @@ def run(sample: Sample, tmp_path: Path, name: str, viewport: str = "1600x900") -
 def test_chooser_is_a_button_that_opens_a_listbox(sample: Sample) -> None:
     html = build(sample)
     assert '<select id="journey"' not in html and 'id="phone-seq"><option' not in html
-    row = re.search(r'<div class="trace-controls" id="tracecontrols"[^>]*>(.*?)<div class="seq-seg"', html)
+    row = re.search(
+        r'<div class="trace-controls" id="tracecontrols"[^>]*>(.*?)<div class="seq-seg"', html
+    )
     assert row, "the chooser is first in the Sequences toolbar"
     assert '<span class="trace-controls__label" id="seqpick-label">Sequence</span>' in row[1]
-    button = re.search(r'<button type="button" class="seq-choose__btn" id="seqpick"([^>]*)>', row[1])
+    button = re.search(
+        r'<button type="button" class="seq-choose__btn" id="seqpick"([^>]*)>', row[1]
+    )
     assert button
     for attr in (
         'aria-haspopup="listbox"',
@@ -287,7 +291,9 @@ def test_one_line_width_scale(sample: Sample) -> None:
     assert "-m-selected" not in html
     # The halo: amber in Ink, the yellow highlighter in Paper.
     assert ':root:not([data-theme="light"]) #schematic .flowhl{stroke:var(--accent)' in html
-    assert re.search(r"#schematic \.flowhl\{fill:none;stroke:var\(--hl-line,[^}]*stroke-width:12;", html)
+    assert re.search(
+        r"#schematic \.flowhl\{fill:none;stroke:var\(--hl-line,[^}]*stroke-width:12;", html
+    )
 
 
 def test_phone_step_fills_the_screen(sample: Sample) -> None:
@@ -300,4 +306,7 @@ def test_phone_step_fills_the_screen(sample: Sample) -> None:
     rule = re.search(r'body\[data-phone="step"\] \.map,[^{]*\{([^}]*)\}', html)
     assert rule and "flex:1" in rule[1] and "height:auto" in rule[1]
     assert "height:340px" not in html
-    assert ".phone-step{flex-direction:column;padding-bottom:max(16px,env(safe-area-inset-bottom))}" in html
+    assert (
+        ".phone-step{flex-direction:column;padding-bottom:max(16px,env(safe-area-inset-bottom))}"
+        in html
+    )
