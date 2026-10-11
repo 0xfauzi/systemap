@@ -1,4 +1,4 @@
-"""The operational map preserves source evidence and exact review identifiers.
+"""The operational map preserves source evidence and shows no maintainer decisions.
 
 Acceptance: no substituted findings, no missing authored steps, and the sample
 stays within the existing self-contained 300 KiB page limit (test_render.py).
@@ -29,15 +29,21 @@ def payload(html: str) -> dict[str, Any]:
     return json.loads(found[1])  # type: ignore[no-any-return]
 
 
-def test_review_keeps_identifiers_and_leaves_unverified_answers_pending(sample: Sample) -> None:
+def test_the_page_shows_no_maintainer_decisions(sample: Sample) -> None:
+    """Acceptance: zero judgement finding lines and answer reasons on the page.
+
+    The decisions are for the map maintainer. `systemap judgement` and the pull
+    request give them."""
     lines = judgement.run(sample.model, sample.meaning, sample.facts)
     answer = Answer(items=(lines[0],), reason="This part has a separate responsibility.")
     cfg = dataclasses.replace(sample.cfg, judgement_answered=(answer,))
-    data = page_data.review(cfg, sample.model, sample.meaning, sample.facts)
-    assert [r["line"] for r in data["open"]] == lines
-    assert data["answered"] == []
-    assert data["pending"] and "unavailable" in data["pending"][0]
-    assert data["open"][0]["parts"], "a single-module finding identifies its part"
+    html = page.build(cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
+    assert lines
+    for line in lines:
+        assert line not in html
+    assert answer.reason not in html
+    assert "review" not in payload(html)
+    assert 'data-mode="review"' not in html and "Decisions to make" not in html
 
 
 def test_script_cannot_be_closed_by_authored_prose(sample: Sample) -> None:
@@ -61,7 +67,7 @@ def test_source_records_resolve_wildcard_claims(sample: Sample) -> None:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="workspace interactions need Node")
-def test_operations_search_and_review_share_the_same_map(sample: Sample, tmp_path: Path) -> None:
+def test_operations_and_search_share_the_same_map(sample: Sample, tmp_path: Path) -> None:
     out = tmp_path / "map.html"
     out.write_text(
         page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {}),
@@ -87,8 +93,6 @@ def test_operations_search_and_review_share_the_same_map(sample: Sample, tmp_pat
     assert report["partPurpose"]
     assert report["matches"] == ["Reader"] and report["searchOpened"]
     assert report["emptySearch"] and report["comparisonPrompt"]
-    assert report["reviewItems"]
-    assert judgement.run(sample.model, sample.meaning, sample.facts)[0] in report["findingText"]
 
 
 def test_self_map_language_rule_is_in_the_page_and_component_rules() -> None:

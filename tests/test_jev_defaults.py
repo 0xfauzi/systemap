@@ -52,7 +52,7 @@ def test_judgement_says_what_jev_would_add_on_stderr_only(
 ) -> None:
     main(["--root", str(project), "judgement"])
     out, err = capsys.readouterr()
-    assert "systemap audit" in err and "95%" in err
+    assert "systemap audit" in err and "TYPESAFE_API_KEY" in err
     assert "hint:" not in out
 
 

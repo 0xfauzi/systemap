@@ -2,9 +2,10 @@
 
 The mark, the keyboard sheet, layer changes, the map surface, card depth and
 the glow of a selection. Each motion runs one time and shows direction or
-order. With reduced motion, the page shows the final state at once."""
+order. With Reduce motion on, the page shows the final state at once. The page
+setting alone controls the motion: the system setting does not change it."""
 
-# A fine grain on the map surface: light specks on Ink, dark specks on Paper.
+# A fine grain of light specks on the Ink map surface. Paper has no grain.
 # The noise is static. Its alpha comes from the red channel of the noise.
 _GRAIN = (
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E"
@@ -16,16 +17,18 @@ _GRAIN = (
 _GRID = "radial-gradient(var(--grid) 1px,transparent 1px)"
 
 SURFACE_CSS = (
-    "/* ---- the map surface: a fine grain under the dot grid, a soft edge --------- */\n"
+    "/* ---- the map surface. Ink: a fine grain under the dot grid, a soft edge. --- */\n"
+    "/* Paper: a clean surface with only the dot grid, as on a printed sheet.      */\n"
     f'.map{{background-image:url("{_GRAIN.format(c=1, a=".07")}"),{_GRID};'
     "background-size:160px 160px,24px 24px}\n"
-    f':root[data-theme="light"] .map{{background-image:url("{_GRAIN.format(c=0, a=".06")}"),'
-    f"{_GRID}}}\n"
+    f':root[data-theme="light"] .map{{background-image:{_GRID};background-size:24px 24px}}\n'
     '.mapwrap::after{content:"";position:absolute;inset:0;pointer-events:none;'
     "background:radial-gradient(130% 110% at 50% 42%,transparent 62%,"
     "color-mix(in srgb,#000 24%,transparent))}\n"
-    ':root[data-theme="light"] .mapwrap::after{background:radial-gradient(130% 110% at 50% 42%,'
-    "transparent 62%,color-mix(in srgb,#3a2e14 7%,transparent))}\n"
+    ':root[data-theme="light"] .mapwrap::after{display:none}\n'
+    "/* Paper: a segmented control has a toned track, so the white selected segment shows */\n"
+    ':root[data-theme="light"] :is(.seq-seg,.zoom button:not([aria-pressed="true"])){'
+    "background:var(--map)}\n"
 )
 
 
@@ -36,48 +39,45 @@ CSS = r"""
 .node__shade{fill:#000;fill-opacity:.42;stroke:none;transform:translateY(1.6px);
 transition:transform .16s ease-out,fill-opacity .16s ease-out}
 .node:not(.dim):not(.quiet):hover .node__shade{transform:translateY(3.2px);fill-opacity:.5}
-:root[data-theme="light"] .node__shade{fill:#4a3c20;fill-opacity:.13}
-:root[data-theme="light"] .node:not(.dim):not(.quiet):hover .node__shade{fill-opacity:.18}
+:root[data-theme="light"] .node__shade{fill:#1d1b17;fill-opacity:.08}
+:root[data-theme="light"] .node:not(.dim):not(.quiet):hover .node__shade{fill-opacity:.12}
 #schematic .node.sel .node__box,#schematic .node.acts .node__box{
 filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 55%,transparent))}
-:root[data-theme="light"] #schematic :is(.node.sel,.node.acts) .node__box{
-filter:drop-shadow(0 0 6px var(--hl))}
-/* ---- a selected line and the current step line glow --------------------- */
-#schematic .flow.hot,#schematic .seq-line--now,#schematic .seq-line--route{
-filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--accent) 60%,transparent))}
-:root[data-theme="light"] #schematic :is(.flow.hot,.seq-line--now,.seq-line--route){
-filter:drop-shadow(0 0 3px var(--hl))}
+/* Paper has no glow: the highlighter fill shows the selection. */
+:root[data-theme="light"] #schematic :is(.node.sel,.node.acts) .node__box{filter:none}
+/* ---- the wider line under the selected line and the current step line ---- */
+/* The line keeps its kind color. Ink: amber at 30 percent. Paper: the highlighter. */
+:root:not([data-theme="light"]) #schematic .flowhl{stroke:var(--accent);stroke-opacity:.3}
 
-/* ---- a card under the pointer shows its lines; the other lines fade ------ */
-#schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out}
+/* ---- a card under the pointer shows its lines and the cards at their ends -- */
+#schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out,
+stroke-width .14s ease-out}
 #schematic.card-peek .flow:not(.card-lit){stroke-opacity:.18}
+#schematic.card-peek .flow.card-lit{stroke-width:2.6}
 #schematic.card-peek .flowlbl:not(.card-lit){opacity:.25}
+#schematic.card-peek .node:not(.card-lit):not(.quiet):not(.dim){opacity:.6}
 
 /* ---- the cards come in one time, in reading order ----------------------- */
 @keyframes card-in{from{opacity:0;transform:translateY(5px)}}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) #schematic.cards-in .node{
 animation:card-in .32s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--in,0ms)}
 html:not([data-reduce-motion="true"]).scheme-fade :is(body,body *){
 transition:background-color .24s,color .24s,border-color .24s,fill .24s,stroke .24s!important}
-}
 
 /* ---- the mark draws one time: the route, then its two ends --------------- */
 @keyframes mark-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes mark-dot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
 .mark__path{stroke-dasharray:1 1;stroke-dashoffset:0}
 .mark__dot{transform-box:fill-box;transform-origin:center}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) .mark__path{
 animation:mark-draw .6s cubic-bezier(.45,0,.25,1) both}
 html:not([data-reduce-motion="true"]) .mark__dot{animation:mark-dot .16s ease-out .6s both}
-}
 
 /* ---- the keyboard sheet ---------------------------------------------------- */
 .keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
 padding:16px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
 .keys[hidden]{display:none}
-.keys__box{box-sizing:border-box;width:min(340px,100%);max-height:calc(100vh - 32px);overflow:auto;
+.keys__box{box-sizing:border-box;width:min(380px,100%);max-height:calc(100vh - 32px);overflow:auto;
 display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line-2);
 border-radius:10px;background:var(--surface);color:var(--ink);
 box-shadow:0 16px 48px rgba(0,0,0,.28);outline:none}
@@ -95,10 +95,8 @@ border-radius:6px;background:none;color:var(--ink-2);font:12px var(--fs);cursor:
 .keys .keys__close:hover{color:var(--ink);background:var(--raised)}
 .keys .keys__close:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 @keyframes keys-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:no-preference){
 html:not([data-reduce-motion="true"]) .keys:not([hidden]) .keys__box{
 animation:keys-in .12s ease-out}
-}
 """
 
 SCRIPT = r"""
@@ -106,8 +104,7 @@ SCRIPT = r"""
   var svg = document.getElementById('schematic');
   var A = svg && svg.systemap;
   function reduced(){
-    return document.documentElement.dataset.reduceMotion === 'true' ||
-      !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    return document.documentElement.dataset.reduceMotion === 'true';
   }
 
   // ---- a new layer draws its lines in model order ----------------------
@@ -155,8 +152,10 @@ SCRIPT = r"""
   }
 
   // ---- a card under the pointer shows its lines --------------------------
-  // After 120 ms on a card, with no selection and no sequence: its lines and
-  // their labels stay, the other lines fade. Leaving the card ends it.
+  // After 120 ms on a card, with no selection and no sequence: its lines,
+  // their labels and the cards at their other ends stay, the other lines
+  // fade and the other cards go a little dim. Leaving the card ends it.
+  // A drag of the map does not start it.
   if(svg && A){
     var hoverWait = 0, lit = [];
     function unlight(){
@@ -165,22 +164,29 @@ SCRIPT = r"""
       lit.forEach(function(n){ n.classList.remove('card-lit'); });
       lit = [];
     }
+    function mark(n){ n.classList.add('card-lit'); lit.push(n); }
     function light(card){
       unlight();
+      var ends = {};
+      ends[card.dataset.id] = true;
       (A.detail[card.dataset.id].edges || []).forEach(function(i){
         Array.prototype.slice.call(svg.querySelectorAll('[data-edge="' + i + '"]'))
           .forEach(function(n){
             if(n.classList.contains('flow') && n.classList.contains('off')){ return; }
-            n.classList.add('card-lit'); lit.push(n);
+            if(n.classList.contains('flow')){ ends[A.edges[i].from] = ends[A.edges[i].to] = true; }
+            mark(n);
           });
       });
-      if(lit.some(function(n){ return n.classList.contains('flow'); })){
-        svg.classList.add('card-peek'); }
+      if(!lit.some(function(n){ return n.classList.contains('flow'); })){ return; }
+      Array.prototype.slice.call(svg.querySelectorAll('.node')).forEach(function(n){
+        if(ends[n.dataset.id]){ mark(n); } });
+      svg.classList.add('card-peek');
     }
+    svg.addEventListener('pointerdown', unlight);
     svg.addEventListener('pointerover', function(e){
       var card = e.target && e.target.closest ? e.target.closest('.node') : null;
       if(!card || !A.detail[card.dataset.id] || A.state.focus || A.state.journey
-        || A.state.edge >= 0){ return; }
+        || A.state.edge >= 0 || svg.classList.contains('panning')){ return; }
       clearTimeout(hoverWait);
       hoverWait = setTimeout(function(){ light(card); }, 120);
     });
@@ -214,8 +220,6 @@ SCRIPT = r"""
   function open(from){
     if(!sheet.hidden){ return; }
     opener = from || document.activeElement;
-    var menu = opener && opener.closest ? opener.closest('details') : null;
-    if(menu){ menu.open = false; opener = menu.querySelector('summary') || opener; }
     sheet.hidden = false;
     if(closer){ closer.focus(); }
   }
@@ -252,15 +256,15 @@ SCRIPT = r"""
 """
 
 _KEYS: tuple[tuple[str, str], ...] = (
-    ("/", "Find a component"),
+    ("Ctrl K", "Find a component, flow, layer or action"),
     ("1 to 6", "Select a layer"),
-    ("← →", "Previous or next step"),
+    ("← →", "Previous or next layer or step"),
     ("W", "Whole route"),
     ("F", "Full screen"),
     ("B", "Hold to show the base"),
-    ("R", "Read: open the panel"),
-    ("T", "Text view"),
-    ("Esc", "Previous view"),
+    ("D", "Open or close the Details panel"),
+    ("?", "Keyboard keys"),
+    ("Esc", "Close, or go back one view"),
 )
 
 
@@ -272,14 +276,17 @@ def _key(key: str) -> str:
         )
     if key == "1 to 6":
         return f"<kbd data-keys-layers>{key}</kbd>"
+    if key == "Ctrl K":
+        # The Find dialog script shows the Command key on a Mac. The / key also opens it.
+        return "<kbd data-mod-key>Ctrl K</kbd> <kbd>/</kbd>"
     return f"<kbd>{key}</kbd>"
 
 
 def keys_sheet() -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
-    The sheet is a modal dialog. The ? key and the Keyboard keys menu item
-    open it. Escape and its Close button close it and return the focus."""
+    The sheet is a modal dialog. The ? key and the Keyboard keys button in the
+    header open it. Escape and its Close button close it and return the focus."""
     rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
     return (
         '<div class="keys" id="keys" hidden>'

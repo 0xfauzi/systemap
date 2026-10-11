@@ -719,11 +719,13 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     assert run("--root", str(nested), "refresh") == 0
     for rel in ("index.html", "Gateway/index.html"):
         html = (nested / "docs/map" / rel).read_text(encoding="utf-8")
+        # The commit in the header opens the source records of the page.
+        header = html.split("</header>")[0]
         assert (
-            f'<span class="snap" title="HEAD at extraction of the working tree">at <code>{sha[:7]}</code></span>'
-            in html
+            f'title="Source of this map"><span class="snap__at">at </span><code>{sha[:7]}</code>'
+            in header
         ), rel
-        assert f"HEAD at extraction was <code>{sha}</code>." in html, rel
+        assert f"HEAD at extraction was <code>{sha}</code>." in header, rel
         assert "This page cannot find subsequent changes." in html
         assert "Extraction reads the working tree, which can contain uncommitted changes." in html
         assert "Built at" not in html, rel
@@ -772,7 +774,17 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
     assert "source review:" in out
     assert "4 of 9 components specified" in out
     assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1
-    assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in out
+    # The map changes name a nested component with its map id.
+    assert (
+        "- **Components**: Changed source: Gateway, Style, Gateway/App and Gateway/Store.\n" in out
+    )
+    assert (
+        "- **Flows**: Changed: `Gateway: App -> Store (record)` (evidence structural to "
+        "declared).\n" in out
+    )
+    assert '  n0["Gateway/App (changed source)"]\n' in out
 
 
 def test_suggest_reads_the_tree_from_the_command(

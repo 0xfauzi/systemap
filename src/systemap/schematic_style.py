@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from systemap.schematic_cards import PLAIN_FONT
 from systemap.theme import Palette
 
 # The stroke pattern of each evidence state, the same on the map and in the
@@ -37,7 +38,7 @@ def _node_style(s: str, t: Palette) -> str:
     line = tok(t, "card_line", "line_2")
     return (
         f"{s} .node{{cursor:pointer;outline:none;transition:opacity .16s ease-out}}"
-        f'{s} .node [data-layer="job"] text{{font-family:Arial,"Liberation Sans",sans-serif;'
+        f'{s} .node [data-layer="job"] text{{font-family:{PLAIN_FONT};'
         "font-kerning:none;font-variant-ligatures:none}"
         # Only the page script sets --subject. A figure without the script
         # keeps the stroke that the renderer gives each card.
@@ -50,7 +51,10 @@ def _node_style(s: str, t: Palette) -> str:
         f"{s} .node__hl{{fill:{tok(t, 'hl_soft', 'hl', 'accent_soft')}}}"
         f"{s} .node__halo{{fill:none;stroke:{ink};stroke-width:1.5;"
         "vector-effect:non-scaling-stroke}"
+        f"{s} .node__box{{transition:stroke .16s ease-out,stroke-width .16s ease-out}}"
         f"{s} .node:not(.sel):not(.acts):hover .node__box{{stroke-width:1.8}}"
+        f"{s}[data-live] .node:not(.sel):not(.acts):not(.endpoint):not(.subject):hover "
+        f".node__box{{stroke:{t['ink_3']}}}"
         f"{s} .node.endpoint .node__box{{stroke:{accent};stroke-width:2}}"
         f"{s} .node.meas .node__box{{stroke:{steel};stroke-width:2}}"
         f"{s} .node.sel .node__box,{s} .node.acts .node__box{{stroke:{accent};stroke-width:3}}"
@@ -63,16 +67,17 @@ def _node_style(s: str, t: Palette) -> str:
 def _flow_style(s: str, t: Palette, base: bool) -> str:
     """Give the line states: at rest, selected, preview, the cue and the labels.
 
-    At rest a line is 1.6 px at every zoom. The selected line is 3 px in the
-    accent color over the highlighter line. A preview line is 2.6 px and the
-    other lines go dim. The change map sets its own line widths."""
+    A line keeps the color of its flow kind in every state. At rest a line is
+    1.6 px at every zoom. The selected line is 2.6 px over a 12 px underlay in
+    `hl_line`: the highlighter in Paper. The page sets the Ink underlay to the
+    accent at 30 percent. A preview line is 2.6 px and the other lines go dim.
+    The change map sets its own line widths."""
     ink, accent = t["ink"], t["accent"]
     hl = tok(t, "hl", "accent_soft")
     ground = tok(t, "map", "bg")
     rest = (
         f"{s} .flow,{s} .flowtrace,{s} .flowhl{{vector-effect:non-scaling-stroke}}"
         f"{s} .flow{{stroke-width:1.6;stroke-opacity:1}}"
-        f"{s}.focused .flow{{stroke-width:1.8}}"
         if base
         else ""
     )
@@ -82,10 +87,10 @@ def _flow_style(s: str, t: Palette, base: bool) -> str:
         f"{s} .flow.off:not(.peek),{s} .flowlbl.off:not(.peek){{opacity:0;visibility:hidden;"
         "pointer-events:none;transition:opacity .16s ease-out,visibility 0s linear .16s}"
         f"{s} .flow.peek{{stroke-opacity:1;stroke-width:2.6}}"
-        f"{s} .flow.hot{{stroke-opacity:1;stroke-width:3}}"
+        f"{s} .flow.hot{{stroke-opacity:1;stroke-width:2.6}}"
         f"{s}.peeking .flow:not(.peek),{s}.peeking .flowlbl:not(.peek){{opacity:.35}}"
         f"{s} .flowhl{{fill:none;stroke:{tok(t, 'hl_line', 'hl', 'accent_soft')};"
-        "stroke-width:11;stroke-opacity:.9;stroke-linecap:round;stroke-linejoin:round;"
+        "stroke-width:12;stroke-linecap:round;stroke-linejoin:round;"
         "pointer-events:none}"
         f"{s} .flowdot{{fill:{accent};stroke:{hl};stroke-width:10;paint-order:stroke;"
         "pointer-events:none}"
@@ -95,6 +100,7 @@ def _flow_style(s: str, t: Palette, base: bool) -> str:
         f"{s} .flowlbl text{{pointer-events:none;fill:{ink};stroke:{ground}}}"
         f"{s} .flowlbl__chip{{fill:{ground};pointer-events:none}}"
         f"{s} .flowlbl.hot text{{fill:{accent};font-weight:600}}"
+        f"{s} .flowlbl.peek .flowlbl__chip{{stroke:{t['line_2']};stroke-width:1}}"
         f"{s} .flowlbl.cueing{{opacity:0}}"
         f"{s} .flowlbl:focus-visible .flowlbl__hit{{stroke:{ink};stroke-width:1.5}}"
     )
@@ -118,7 +124,10 @@ def _svg_style(svg_id: str, t: Palette) -> str:
         f"@media print{{{s} .view{{transform:none!important}}}}"
         f":root[data-reduce-motion=true] {s} *{{transition:none!important;"
         "animation:none!important}"
-        f"@media (prefers-reduced-motion:reduce){{{s} *{{transition:none!important;"
+        # A figure without the page setting follows the system setting. The page
+        # always stamps the setting, so this rule does not apply on the page.
+        f"@media (prefers-reduced-motion:reduce){{:root:not([data-reduce-motion]) {s} *{{"
+        "transition:none!important;"
         "animation:none!important}}"
         "</style>"
     )
@@ -132,7 +141,6 @@ def _defs(svg_id: str, t: Palette) -> str:
     heads = {lid: t.layer(lid) for lid in t.t["layers"]}
     heads["change"] = t["change"]
     heads["reach"] = t["reach"]
-    heads["selected"] = t["accent"]
     out = ["<defs>"]
     for name, color in heads.items():
         out.append(
@@ -171,7 +179,7 @@ def _panel_text(P: Palette) -> str:
         ".systemap-f{display:flex;flex-direction:column;gap:18px;min-width:0}"
         ".systemap-f>*{margin:0}"
         ".systemap-f__head{display:flex;justify-content:space-between;align-items:center;gap:12px;"
-        "min-height:28px}"
+        "min-height:16px}"
         ".systemap-f__head--room{padding-right:70px}"
         f".systemap-f__eyebrow,.systemap-f__label{{{caps}}}"
         f".systemap-f__clear{{height:28px;padding:0 10px;border:1px solid {P['line_2']};"
@@ -179,7 +187,7 @@ def _panel_text(P: Palette) -> str:
         "cursor:pointer;flex:none}"
         f".systemap-f__clear:hover{{color:{P['ink']};background:{P['raised']}}}"
         ".systemap-f__title{display:flex;flex-direction:column;gap:4px}"
-        f".systemap-f__code{{font:600 22px/28px {P['font_mono']};color:{P['ink']};margin:0;"
+        f".systemap-f__code{{font:600 19px/25px {P['font_mono']};color:{P['ink']};margin:0;"
         "letter-spacing:-.01em;overflow-wrap:anywhere}"
         f".systemap-f__plain{{font:15px/20px {P['font_ui']};color:{P['ink_2']};margin:0}}"
         f".systemap-f__does{{font:13px/20px {P['font_ui']};color:{P['ink_2']}}}"
@@ -214,7 +222,7 @@ def _panel_blocks(P: Palette) -> str:
     """Give the sequence buttons, the module chips, the rules and the details."""
     return (
         f".systemap-f__seq{{display:flex;justify-content:space-between;align-items:flex-start;"
-        f"gap:10px;width:100%;padding:8px 10px;border:1px solid {P['line']};border-radius:6px;"
+        f"gap:10px;width:100%;padding:8px 10px;border:1px solid {P['line']};border-radius:8px;"
         f"background:none;color:{P['ink']};font:13px/18px {P['font_ui']};text-align:left}}"
         "button.systemap-f__seq{cursor:pointer}"
         f"button.systemap-f__seq:hover{{border-color:{P['line_2']};background:{P['raised']}}}"

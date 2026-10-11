@@ -37,6 +37,17 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     assert stage_style and "width:100%" in stage_style[1].split(";")
 
 
+def test_page_styles_have_no_comments_or_line_breaks(sample: Sample) -> None:
+    """The build removes CSS comments and line breaks, and keeps the space between values."""
+    html = page.build(
+        sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {"has_change": False}
+    )
+    style = html.split("<style>", 1)[1].split("</style>", 1)[0]
+    assert "/*" not in style
+    assert "\n" not in style
+    assert page._compact_css("a{b:1px\n  2px;\n}\n/* c */\nd,\ne{f:0}") == "a{b:1px 2px;}d,e{f:0}"
+
+
 def test_schematic_reports_layout_and_detail(sample: Sample) -> None:
     model, meaning = sample.model, sample.meaning
     svg, detail = render_schematic(model, meaning, sample.theme, sample.facts)

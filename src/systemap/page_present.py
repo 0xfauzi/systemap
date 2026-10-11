@@ -1,11 +1,37 @@
-"""Full-screen steps: one sequence step at a time, with the map that follows the step.
+"""Full screen: the map alone in Map and Changes, and one sequence step at a time.
 
-The overlay takes the map drawing while it is open and gives it back when it
-closes. The left and right arrow keys go to the previous or next step, W shows
-the whole route, and Escape closes the overlay. F opens it from the Sequences view.
+The full-screen button at the end of the view row and the F key open full
+screen in each view. In Map and Changes, the header, the view row and the
+panel go, and the map fills the screen. The button then shows Exit full screen
+and the Esc key. A selection opens the panel again. Escape, F and the button
+end full screen, and the panel comes back as it was.
+
+In Sequences, full screen is the step overlay. The overlay takes the map
+drawing while it is open and gives it back when it closes. The left and right
+arrow keys go to the previous or next step, W shows the whole route, and
+Escape closes the overlay.
 """
 
 CSS = r"""
+/* ---- the map in full screen: Map and Changes ------------------------------ */
+body[data-full] .bar,body[data-full] .layer-controls,
+body[data-full] .change-controls{display:none!important}
+body[data-full] .main{height:100svh}
+body[data-full] .readpanel{margin-top:0;height:100svh;top:0}
+body[data-full] .zoom{position:absolute;top:14px;right:24px}
+body[data-full] .mapbar{top:14px}
+body[data-full] .mapwrap{top:92px}
+body[data-full] .change-view{top:0}
+body[data-full] .zoom .zoom__full{width:auto;padding:0 8px 0 10px;color:var(--ink);
+background:var(--surface)}
+body[data-full] .zoom__full .icon:first-child{display:none}
+body[data-full] .zoom__full .icon+.icon,body[data-full] .zoom__exit,
+body[data-full] .zoom__full kbd{display:inline-block}
+body[data-full][data-phone] .map{position:fixed;inset:0;z-index:30;height:auto;margin:0;
+border:0;border-radius:0}
+body[data-full][data-phone] .zoom{top:8px;right:8px}
+body[data-full][data-phone] .zoom__full kbd{display:none}
+
 /* ---- full-screen steps ----------------------------------------------------- */
 .present{position:fixed;inset:0;z-index:45;overflow:hidden;color:var(--ink);
 background-color:var(--map);background-image:radial-gradient(var(--grid) 1px,transparent 1px);
@@ -69,12 +95,90 @@ grid-template-columns:72px minmax(0,1fr);padding:16px;gap:8px 16px}
 
 SCRIPT = r"""
 (function(){
+  // ---- the map in full screen: Map and Changes ------------------------------
+  var svg = document.getElementById('schematic');
+  if(!svg || !svg.systemap || !svg.page){ return; }
+  var A = svg.systemap, P = svg.page, body = document.body, root = document.documentElement;
+  var btn = document.getElementById('full-toggle'), wasOpen = false, asked = false;
+  function isFull(){ return body.dataset.full === 'true'; }
+  function relayout(){
+    // The map frame has a new size: the shell shows the new zoom value.
+    window.requestAnimationFrame(function(){ window.dispatchEvent(new Event('resize')); });
+  }
+  function show(on){
+    if(on){ body.setAttribute('data-full', 'true'); } else { body.removeAttribute('data-full'); }
+    if(btn){ btn.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  }
+  function enter(){
+    if(isFull()){ return; }
+    wasOpen = P.panelOpen() && !A.state.focus;
+    show(true);
+    if(wasOpen){ P.closePanel(); }
+    try {
+      if(root.requestFullscreen && !document.fullscreenElement){
+        var r = root.requestFullscreen();
+        if(r && r.then){ r.then(function(){ asked = true; }, function(){}); }
+      }
+    } catch(_x){}
+    relayout();
+  }
+  function exit(){
+    if(!isFull()){ return false; }
+    show(false);
+    try {
+      if(asked && document.fullscreenElement === root && document.exitFullscreen){
+        var r = document.exitFullscreen();
+        if(r && r.then){ r.then(null, function(){}); }
+      }
+    } catch(_x){}
+    asked = false;
+    if(wasOpen && !P.panelOpen()){ P.openPanel(); }
+    relayout();
+    return true;
+  }
+  function toggle(){
+    if(btn && btn.disabled){ return; }
+    if(P.mode() === 'trace'){ if(P.present){ P.present(); } return; }
+    // A phone shows the map only after the reader opens a region or the full map.
+    if(!exit() && (!body.dataset.phone || body.dataset.phone === 'map')){ enter(); }
+  }
+  function sync(){
+    // In Sequences the button opens the step overlay, so it needs a sequence with steps.
+    // Changes needs a revision comparison.
+    var x = P.journey.state(), j = A.journeys[x.j], m = P.mode();
+    if(btn){ btn.disabled = (m === 'trace' && !(j && j.steps.length))
+      || (m === 'change' && body.dataset.compare === 'false'); }
+  }
+  P.isFull = isFull;
+  P.exitFull = exit;
+  if(btn){ btn.addEventListener('click', toggle); }
+  svg.addEventListener('systemap:mode', function(e){
+    if(e.detail && e.detail.mode === 'trace'){ exit(); }
+    sync();
+  });
+  svg.addEventListener('systemap:step', sync);
+  document.addEventListener('fullscreenchange', function(){
+    if(!document.fullscreenElement && asked){ asked = false; exit(); }
+  });
+  function typing(t){
+    return !!(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '')));
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.altKey || e.ctrlKey || e.metaKey || e.key.toLowerCase() !== 'f' || P.mode() === 'trace'
+      || typing(e.target)){ return; }
+    if(['keys', 'palette', 'present', 'submap'].some(function(id){
+      var n = document.getElementById(id); return n && !n.hidden; })){ return; }
+    toggle();
+    e.preventDefault();
+  });
+  sync();
+})();
+(function(){
   var svg = document.getElementById('schematic');
   function byId(id){ return document.getElementById(id); }
-  var fullBtn = byId('jfull'), box = byId('present'), mapBox = byId('presentmap');
+  var box = byId('present'), mapBox = byId('presentmap');
   var stage = byId('stage'), home = stage && stage.parentNode;
   if(!svg || !svg.systemap || !svg.page || !svg.page.sequence || !box || !mapBox || !home){
-    if(fullBtn){ fullBtn.hidden = true; }
     return;
   }
   var A = svg.systemap, P = svg.page, S = P.sequence, W = window.systemapWorkspace || {};
@@ -185,13 +289,13 @@ SCRIPT = r"""
       A.view.restore(before, true);
       S.go(x.view, x.s, x.view === 'steps' ? 'keep' : 'fit');
     }
-    var back = opener && opener.isConnected !== false ? opener : fullBtn;
+    var back = opener && opener.isConnected !== false ? opener : byId('full-toggle');
     if(back && back.focus){ back.focus({preventScroll:true}); }
     opener = null;
   }
   S.closePresent = closePresent;
+  P.present = openPresent;
   S.on(caption);
-  if(fullBtn){ fullBtn.addEventListener('click', openPresent); }
   if(closeB){ closeB.addEventListener('click', function(){ closePresent(); }); }
   if(prevB){ prevB.addEventListener('click', function(){ step(-1); }); }
   if(nextB){ nextB.addEventListener('click', function(){ step(1); }); }

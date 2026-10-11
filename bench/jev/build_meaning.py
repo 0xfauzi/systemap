@@ -281,11 +281,16 @@ def fetch_prs(name: str, gh_repo: str, limit: int = 400) -> None:
     path.write_text(out.stdout)
 
 
-def build_issues(per_repo: int = 40) -> None:
+def issues_selected(per_repo: int = 40) -> list[dict]:
+    """The issue rows of every repository in the set that has an issue source."""
     sources = [(n, gh) for n, gh in ISSUE_SOURCES.items() if n in REPOS]
     for name, gh in sources:
         fetch_prs(name, gh)
-    write("issues", [x for name, gh in sources for x in issue_rows(name, gh, per_repo)])
+    return [x for name, gh in sources for x in issue_rows(name, gh, per_repo)]
+
+
+def build_issues(per_repo: int = 40) -> None:
+    write("issues", issues_selected(per_repo))
 
 
 # ---- which cards does an invariant govern? --------------------------------
@@ -315,13 +320,17 @@ def governs_rows(name: str) -> list[dict]:
     ]
 
 
-def build_governs() -> None:
+def governs_selected() -> list[dict]:
     """Every governed pair, and twice as many ungoverned ones drawn at random."""
     rows = [x for name in REPOS for x in governs_rows(name)]
     pos = [x for x in rows if x["label"]["governs"]]
     neg = [x for x in rows if not x["label"]["governs"]]
     random.Random(1).shuffle(neg)
-    write("governs", pos + neg[: 2 * len(pos)])
+    return pos + neg[: 2 * len(pos)]
+
+
+def build_governs() -> None:
+    write("governs", governs_selected())
 
 
 # ---- card kind ------------------------------------------------------------

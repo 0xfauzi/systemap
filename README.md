@@ -57,8 +57,8 @@ and the explanation for each connection.
 `Structure` shows no flow lines after a component selection.
 Other layers show only flow lines that connect to the selected component.
 Flow labels show on their lines. A label that does not fit on its line
-shows for a pointer, keyboard focus, or selection, and Read lists it.
-Read opens a panel that keeps all component connections, with direction and evidence.
+shows for a pointer, keyboard focus, or selection, and the Details panel lists it.
+The Details panel keeps all component connections, with direction and evidence.
 
 Flow lines also show evidence. A solid internal line shows a source review
 with references and a claim digest that match the stored source snapshot.
@@ -75,20 +75,34 @@ None of these states records execution.
 
 The page has three views. **Map** shows the layers. **Sequences** shows one
 operation as a route on the map, then one step at a time, with a note at each
-step. **Changes** shows the components and flows that a revision comparison
+step. A button in its row opens the list of sequences. **Changes** shows the components and flows that a revision comparison
 changed. On the first visit, a guide card gives five steps through the map.
+The three views have the same parts: a row of controls under the header,
+a small label and a question above the map, and a panel at the right.
+On a wide window, the Map view opens the panel with the page. With no
+selection, the panel shows the current layer: one card for each flow,
+actor, or region.
 
-The More menu contains Reference, Text view, and the theme. Reference contains
-rules and review records. The themes are Ink and Paper.
+The header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for
+views, layers, components, flows, sequences, rules, and actions. Icon buttons
+select the theme, set Reduce motion, show the keyboard keys, and open the
+Details panel. Motion is on until the reader sets Reduce motion on the page.
+The full-screen button and the F key show the map alone in each view.
+The Map panel gives all rules of the system and an explanation of the lines
+and cards. The commit in the header opens the source records of the page.
+The themes are Ink and Paper.
 Ink has dark surfaces and is the default. Paper has light surfaces.
 The first visit uses the device theme.
 Only the flow kinds, the selection, and the change have colors.
-Cards, regions, text, and other lines are neutral.
+A line has the color of its flow kind in all views. The selection color
+identifies only the current item, such as the selected card, the current step,
+and a wider line under the selected line. Cards, regions, text, and other lines are neutral.
 
 The map has one flat view. Card text changes size with the zoom.
 In a sequence step, the acting component has an ACTS tag and a measurement
 component has a MEASURES tag. On a phone, the map shows its regions as a grid,
-and a sequence shows one step below a small map.
+and a sequence shows one step below the map. The map gets the height that the
+step and its buttons do not use.
 The panel gives source modules, entry points, related sequences, and evidence states.
 These values come from the current model and recorded source data.
 
@@ -296,15 +310,19 @@ This example keeps finding identifiers from an earlier version:
 `Gateway` is a component. Its `implemented_by` field contains the claimed modules.
 Its `entry` field shows a public name at which a reader can start.
 
-The workflow from `init` posts one report comment on the pull request.
-New pushes update that comment. The report starts the inspection with changes
-to parts and connections. CI rejects the pull request while the report contains
-an open decision.
+The workflow from `init` writes one report comment on the pull request.
+New pushes update that comment. The comment first shows if a decision is necessary.
+For each open line, it gives the action.
+Then it gives the components, flows, sequences, and invariants that the change added,
+removed, or changed. Delta compares the model at the base commit with the model at the head commit.
+A Mermaid diagram shows only the changed flows. GitHub shows the diagram in the comment.
+CI rejects the pull request while the report contains an open decision.
 
 The agent can correct these findings without a full new map.
 Three merged pull requests from one 111-module repository cost 2.31, 4.39, and
-2.50 dollars through this procedure. First-map runs cost between 3 and 26
-dollars. Three pull requests from one repository form a small sample.
+2.50 dollars through this procedure. First-map runs cost between 1 and 26
+dollars. The cost depends on the model and the repository size. Three pull
+requests from one repository form a small sample.
 [docs/benchmarks.md](docs/benchmarks.md) gives each run.
 
 ## What other commands can you use?

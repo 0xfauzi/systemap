@@ -34,9 +34,9 @@ from systemap.jev import Ask, JevError
 
 OK, STALE = 0, 1
 
-# Each figure below was measured with earlier prompts on Python repositories.
-# The current prompts have no measurement (bench/jev/README.md, "Which prompts
-# have no measurement?").
+# A hint says what a Jev feature does for the reader and how to stop the hint.
+# Measurements are for maintainers: bench/jev/README.md records them, with the
+# prompts and the repositories of each run.
 #
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
@@ -69,21 +69,15 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
 # ---- when a command asks Jev on its own, and what it says when it cannot ---------
 
 # What the commands that stay offline say Jev would add, when no key is set.
-# Each figure is quoted as measured, with the measurement limits and the
-# bench/jev/README.md section that records it.
 JUDGEMENT_HINT = (
-    "hint: TYPESAFE_API_KEY enables systemap audit. With earlier prompts on Python "
-    "repositories, it found 95% of planted assignments to an adjacent component "
-    '(bench/jev/README.md, "Which repositories are in the holdout set?"). '
-    "The current prompts have no measurement. "
+    "hint: Set TYPESAFE_API_KEY to use systemap audit. Jev then reads each module and "
+    "its component and lists the modules that probably belong to a different component. "
     "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
-    "hint: TYPESAFE_API_KEY enables Jev rename suggestions. With earlier prompts on "
-    "Python repositories, delta found 66 renames, and Jev suggestions added 16 correct "
-    'renames of 17 (bench/jev/README.md, "What did tests 7 and 8 measure?"). '
-    "The current prompts have no measurement. Suggestions do not change the delta "
-    "result. Set [jev] enabled = false in systemap.toml to stop this hint."
+    "hint: Set TYPESAFE_API_KEY to get Jev suggestions for moved modules and for "
+    "modules without a component. The suggestions do not change the delta result. "
+    "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 
 

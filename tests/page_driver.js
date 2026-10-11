@@ -10,16 +10,19 @@
 // of the figure with 10 pixels of margin. A path's box is the box of the
 // points in its `d`, as a browser's getBBox would give it.
 //
-//     node tests/page_driver.js PAGE.html [--reduced] [--light] [--viewport WxH]
-//                                         [--stored NAME] [--no-storage]
+//     node tests/page_driver.js PAGE.html [--reduced] [--system-reduced] [--light]
+//                                         [--viewport WxH]
+//                                         [--stored NAME] [--no-storage] [--phone]
 //                                         [--scenario keyboard|framing|submap|theme]
 //
 // prints one JSON object; tests/test_keyboard.py, tests/test_framing.py,
-// tests/test_nested.py and tests/test_theme.py read it. --reduced makes
-// the page's prefers-reduced-motion query match, --light its
+// tests/test_nested.py and tests/test_theme.py read it. --reduced stores
+// the page setting Reduce motion, --system-reduced makes the
+// prefers-reduced-motion query match, --light its
 // prefers-color-scheme light query; --stored seeds the browser's storage
 // with a scheme, and --no-storage makes every touch of localStorage
-// throw, as a browser that refuses storage does.
+// throw, as a browser that refuses storage does. --phone makes a
+// max-width query match when the viewport width is at or below its limit.
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -457,8 +460,10 @@ function load(html, reducedMotion, viewport, prefs) {
       REPORT.replaceStates.push(url);
       win.location.hash = url.startsWith('#') ? url : '';
     }},
+    // With --phone, a max-width query matches when the --viewport width is at or below its limit.
     matchMedia: (q) => ({
-      matches: (reducedMotion && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q)),
+      matches: (!!prefs.systemReduced && /prefers-reduced-motion/.test(q)) || (!!prefs.light && /prefers-color-scheme: light/.test(q))
+        || (!!prefs.phone && /max-width:\s*(\d+)px/.test(q) && viewport[0] <= +/max-width:\s*(\d+)px/.exec(q)[1]),
       addEventListener() {},
     }),
     requestAnimationFrame: (cb) => { rafCalls++; const id = rafQueue.length + 1; rafQueue.push({id, cb}); return id; },
@@ -481,6 +486,7 @@ function load(html, reducedMotion, viewport, prefs) {
   // every touch throws, as a browser that refuses storage does.
   const store = new Map();
   if (prefs.stored !== undefined && prefs.stored !== null) store.set('systemap-theme', prefs.stored);
+  if (reducedMotion) store.set('systemap-reduce-motion', 'true');
   if (prefs.noStorage) {
     Object.defineProperty(win, 'localStorage', {get() { throw new Error('SecurityError: storage is refused'); }});
   } else {
@@ -513,7 +519,8 @@ function main() {
   const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
   const viewport = flag('--viewport', '1600x900').split('x').map(Number);
   const scenario = flag('--scenario', 'keyboard');
-  const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage')};
+  const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage'),
+    systemReduced: args.includes('--system-reduced'), phone: args.includes('--phone')};
   const html = fs.readFileSync(file, 'utf8');
   const {doc, win} = load(html, reduced, viewport, prefs);
   const context = vm.createContext(win);
@@ -563,10 +570,6 @@ function keyboard(page) {
   report.arrows = arrows;
   report.header = (doc.querySelector('.project .sr-only') || {textContent: ''}).textContent;
   report.kinds = Object.fromEntries(svg.querySelectorAll('.node').map((n) => [n.dataset.id, n.dataset.kind]));
-  // ... and are left alone inside the sequence select.
-  const select = doc.getElementById('journey');
-  report.arrowInSelectPrevented = key('ArrowRight', select);
-  report.layerAfterSelectArrow = A.state.layer;
   // Back to the first tab for what follows.
   while (A.state.layer !== report.buttons[0]) key('ArrowRight');
 
@@ -620,13 +623,14 @@ function keyboard(page) {
   report.spaceOpens = A.state.focus === withEdges.dataset.id;
   key('Escape');
 
-  // A sequence: the select opens the whole route, the arrows step it,
-  // Escape goes back to the whole route and then ends the sequence.
+  // A sequence: the page function that the sequence chooser and the guide call
+  // opens the whole route, the arrows step it, Escape goes back to the whole
+  // route and then ends the sequence. tests/test_sequence_chooser.py drives the
+  // chooser itself.
   const journeys = A.journeys;
   const j = {count: journeys.length};
   if (journeys.length) {
-    select.value = '0';
-    select.dispatchEvent(new EventImpl('change', {bubbles: true}));
+    svg.page.journey.route(0);
     runFrames(win);
     const count = doc.getElementById('jcount');
     j.mode = doc.body.dataset.mode;
@@ -652,7 +656,6 @@ function keyboard(page) {
     key('Escape'); runFrames(win);
     j.ended = A.state.journey;
     j.modeAfter = doc.body.dataset.mode;
-    j.selectReset = select.value;
   }
   report.journey = j;
   report.rafCalls = rafCalls;
@@ -836,44 +839,41 @@ main();
 
 function workspace(page) {
   const {doc, svg, A, key} = page;
-  const atlas = doc.getElementById('atlas');
+  const X = svg.workspace;
   const report = {initialMode: doc.body.dataset.mode};
-  doc.getElementById('view-reading').click();
   const choices = doc.getElementById('journeyindex').querySelectorAll('[data-journey]');
   report.operations = choices.length;
   if (choices.length) {
     choices[0].click();
-    const steps = atlas.querySelectorAll('[data-trace-step]');
-    report.steps = steps.length;
+    report.steps = doc.querySelectorAll('#journeyindex [data-seq-step]').length;
     report.expectedSteps = A.journeys[0].steps.length;
-    report.activeStart = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    report.activeStart = String(X.state().s + 1);
     // The sequence opens as the whole route: the first arrow starts the steps.
     key('ArrowRight'); key('ArrowRight');
-    report.activeNext = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    report.activeNext = String(X.state().s + 1);
     report.evidence = doc.getElementById('step-evidence').textContent;
-    atlas.querySelector('[data-trace-step="0"]').click();
-    report.activeClicked = String(+atlas.querySelector('[aria-current="step"]').dataset.traceStep + 1);
+    doc.querySelector('#journeyindex [data-step="0"]').click();
+    report.activeClicked = String(X.state().s + 1);
     doc.getElementById('step-evidence').querySelector('[data-step-part]').click();
     report.partMode = doc.body.dataset.mode;
     report.partFocus = A.state.focus;
     report.partPurpose = doc.getElementById('panel').textContent.includes(A.detail[A.state.focus].plain);
   }
   doc.querySelector('button[data-mode="understand"]').click();
-  const search = doc.getElementById('partsearch');
+  // The Find button opens the dialog. Its results give the components in their own group.
+  doc.getElementById('find-open').click();
+  const search = doc.getElementById('pal-input');
   search.value = 'pkg.reader';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
-  report.matches = doc.querySelectorAll('.ix').filter((b) => !b.hidden).map((b) => b.dataset.go);
-  // Typing in Find opens the list of results under the field.
-  report.searchOpened = !doc.getElementById('components').hidden;
+  report.matches = doc.getElementById('pal-list').querySelectorAll('[data-k]')
+    .filter((o) => o.parentNode.querySelector('.pal__g').textContent === 'Components')
+    .map((o) => o.querySelector('.pal__t').textContent);
+  report.searchOpened = !doc.getElementById('palette').hidden;
   search.value = 'nothing-matches-this-query';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
-  report.emptySearch = !doc.getElementById('searchempty').hidden;
-  doc.querySelector('button[data-mode="review"]').click();
-  report.comparisonPrompt = doc.querySelector('.commands').textContent.includes('systemap render --base REF');
-  report.reviewItems = doc.querySelectorAll('[data-review-item]').length;
-  if (report.reviewItems) {
-    doc.querySelector('[data-review-item]').click();
-    report.findingText = doc.getElementById('review-detail').textContent;
-  }
+  report.emptySearch = !!doc.querySelector('#pal-list .pal__none');
+  key('Escape', search);
+  // A page without a comparison gives the command that makes one.
+  report.comparisonPrompt = doc.getElementById('change').textContent.includes('systemap render --base REF');
   return report;
 }

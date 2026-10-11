@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from systemap import (
     nest,
-    page_atlas,
     page_changes,
     page_data,
     page_groups,
     page_guide,
+    page_icons,
+    page_mapview,
     page_motion,
+    page_palette,
     page_phone,
     page_present,
     page_sequence_script,
@@ -22,18 +25,21 @@ from systemap import (
 )
 from systemap import theme as theme_mod
 from systemap.config import Config
-from systemap.model import Component, Meaning, Model, all_layers, reading
+from systemap.model import Meaning, Model, all_layers, reading
 from systemap.page_assets import CSS
+from systemap.page_icons import icon
 from systemap.page_script import JS
 from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
 from systemap.schematic import interactive_script, kind_rows, panel_css
 from systemap.schematic import render as render_schematic
 
-STATE_WORD = {"built": "source recorded", "actor": "outside"}
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
 # Where the page keeps the reader's scheme, in this browser.
 SCHEME_KEY = "systemap-theme"
+# Where the page keeps the Reduce motion setting. Motion is on until the reader
+# sets it. The system setting for reduced motion does not change the page.
+MOTION_KEY = "systemap-reduce-motion"
 
 # The mark, inline, so the tab shows it with nothing fetched. It is not
 # themed: a tab's icon is one picture.
@@ -82,7 +88,6 @@ class Nesting:
     parent_href: str = ""
     parent_label: str = ""
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
-    review: dict[str, Any] | None = None
 
 
 def nesting_of(
@@ -105,7 +110,6 @@ def nesting_of(
         parent_href="../index.html" if parent is not None else "",
         parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
         opens=opens,
-        review=page_data.tree_review(cfg, tree, m, facts) if facts is not None else None,
     )
 
 
@@ -127,18 +131,6 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
     return svg
 
 
-def _index_entry(c: Component, state: str, plain: str) -> str:
-    cid = c.id
-    return (
-        f'<button type="button" class="ix" data-go="{esc(cid)}" '
-        f'data-search="{esc(" ".join((cid, plain, c.does, *c.implemented_by)).lower())}">'
-        f'<span class="ix__plain">{esc(plain or cid)}</span>'
-        f"<code>{esc(cid)}</code>"
-        f'<span class="chip chip--{esc(state)}">{esc(STATE_WORD[state])}</span>'
-        "</button>"
-    )
-
-
 def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
     dot = (
         '<i class="views__dot" aria-label="The page has a revision comparison"></i>'
@@ -155,27 +147,45 @@ def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
     )
 
 
-def _more_menu() -> str:
-    LABELS: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
+SCHEME_ICONS = {"dark": "moon", "light": "sun"}
+
+
+def _tool(id_: str, name: str, glyph: str, extra: str = "") -> str:
+    """Give one icon button of the header, with its name and its tooltip."""
+    return (
+        f'<button type="button" class="tool" id="{id_}" aria-label="{esc(name)}" '
+        f'title="{esc(name)}"{extra}>{icon(glyph)}</button>'
+    )
+
+
+def _tools() -> str:
+    """Give the header settings: the theme, Reduce motion and the keyboard keys.
+
+    The theme group has one button for each scheme. The page shows only the
+    button of the scheme that is not in use, so the group is one toggle."""
+    labels: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
     schemes = "".join(
-        f'<button type="button" data-scheme="{esc(name)}" '
-        f'aria-label="{esc(LABELS.get(name, name.title()))} theme" '
-        f'aria-pressed="false"><i></i>{esc(LABELS.get(name, name.title()))}'
-        "</button>"
+        _tool(
+            f"scheme-{name}",
+            f"{labels.get(name, name.title())} theme",
+            SCHEME_ICONS.get(name, "sun"),
+            f' data-scheme="{esc(name)}" aria-pressed="false"',
+        )
         for name in theme_mod.SCHEMES
     )
     return (
-        '<details class="more" id="theme-menu"><summary aria-label="More: reference, theme '
-        'and text view"><span aria-hidden="true">⋯</span></summary><div class="more__menu">'
-        '<button type="button" class="reference-toggle" data-mode="review">Reference</button>'
-        '<button type="button" id="view-reading" aria-pressed="false">Text view</button>'
-        '<button type="button" id="view-map" aria-pressed="true">Map view</button>'
-        '<p class="more__label" id="scheme-label">Theme</p>'
-        f'<div id="scheme" role="group" aria-labelledby="scheme-label">{schemes}</div>'
-        '<label class="motion-control"><input type="checkbox" id="reduce-motion">'
-        "Reduce motion</label>"
-        '<button type="button" id="keys-open">Keyboard keys</button>'
-        "</div></details>"
+        f'<div class="bar__tools"><div id="scheme" role="group" aria-label="Theme">{schemes}</div>'
+        + _tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
+        + _tool(
+            "keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"'
+        )
+        + '</div><span class="bar__div" aria-hidden="true"></span>'
+        + _tool(
+            "panel-toggle",
+            "Details",
+            "panel",
+            ' aria-pressed="false" aria-controls="readpanel" aria-keyshortcuts="D"',
+        )
     )
 
 
@@ -189,6 +199,22 @@ def _summary(model: Model, meaning: Meaning) -> str:
     )
 
 
+def _snap(commit: str, records: str) -> str:
+    """Give the stored commit in the header. It opens the source records of the page."""
+    text = (
+        f'<span class="snap__at">at </span><code>{esc(commit)}</code>'
+        if commit
+        else "commit not recorded"
+    )
+    return (
+        '<div class="snap-at"><button type="button" class="snap" id="snap" '
+        'aria-expanded="false" aria-controls="snap-pop" title="Source of this map">'
+        f"{text}</button>"
+        '<div class="snap__pop" id="snap-pop" role="region" aria-label="Source of this map" '
+        f'hidden><p class="snap__k">SOURCE OF THIS MAP</p>{records}</div></div>'
+    )
+
+
 def _header(
     cfg: Config,
     model: Model,
@@ -196,20 +222,15 @@ def _header(
     facts: dict[str, Any],
     nesting: Nesting,
     ch: dict[str, Any],
+    records: str,
 ) -> str:
-    commit = (facts.get("built_at_commit") or "")[:7]
     parent = (
         f'<a class="crumb" href="{esc(nesting.parent_href)}">{esc(nesting.parent_label)}</a>'
         '<span class="crumb__sep" aria-hidden="true">/</span>'
         if nesting.parent_href
         else ""
     )
-    snap = (
-        f'<span class="snap" title="HEAD at extraction of the working tree">at <code>'
-        f"{esc(commit)}</code></span>"
-        if commit
-        else '<span class="snap">commit not recorded</span>'
-    )
+    snap = _snap((facts.get("built_at_commit") or "")[:7], records)
     return (
         '<a class="skip" href="#map">Skip to the map</a><header class="bar">'
         f'<a class="brand" href="#map" aria-label="systemap: system map">{MARK}</a>'
@@ -217,156 +238,35 @@ def _header(
         f"{esc(nesting.path or cfg.name)}</h1>{snap}{_summary(model, meaning)}</div>"
         + _views(meaning, ch)
         + '<div class="bar__space"></div>'
-        + '<div class="find" role="search"><label for="partsearch">Find</label>'
-        '<input id="partsearch" type="search" placeholder="Name or module" autocomplete="off" '
-        'aria-controls="components" aria-describedby="search-help" aria-expanded="false">'
-        '<kbd aria-hidden="true">/</kbd></div>'
-        '<button type="button" id="read-toggle" aria-pressed="false" aria-controls="readpanel">'
-        "Read</button>" + _more_menu() + "</header>"
+        + '<button type="button" class="find" id="find-open" aria-haspopup="dialog" '
+        'aria-controls="palette" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K /" '
+        f'title="Find">{icon("search")}<span class="find__label">Find</span>'
+        '<kbd data-mod-key aria-hidden="true">Ctrl K</kbd></button>' + _tools() + "</header>"
     )
-
-
-def _index(model: Model, meaning: Meaning, states: dict[str, str], cfg: Config) -> str:
-    groups: dict[str, list[Component]] = {}
-    for c in model.components:
-        groups.setdefault(c.region or "outside", []).append(c)
-    regions = [(r.id, r.label) for r in model.regions] + [("outside", cfg.outside_label)]
-    out = [
-        '<section id="components" class="part-index find__results" hidden>'
-        '<h2 class="sr-only">Components</h2>'
-        '<p id="search-help">Find a component by name, function or module. '
-        "Press / or Ctrl/Cmd+K.</p>"
-        '<p class="search-count" id="searchcount" role="status"></p>'
-        '<details id="partlist-disclosure" open><summary class="sr-only">Component index</summary>'
-        '<div class="ixgrid" id="partlist">'
-    ]
-    for rid, label in regions:
-        if rid not in groups:
-            continue
-        out.append(f'<div class="ixgroup"><h3 class="region">{esc(label)}</h3>')
-        for c in groups[rid]:
-            out.append(_index_entry(c, states[c.id], meaning.plain.get(c.id, "")))
-        out.append("</div>")
-    out.append(
-        '</div></details><p id="searchempty" hidden>No component has this text. '
-        "Find by function or module.</p>"
-    )
-    out.append("</section>")
-    return "\n".join(out)
-
-
-def _review_index(review: dict[str, Any]) -> str:
-    out = [
-        '<section class="review-index" id="reviewindex"><h2>Decisions to make</h2>'
-        "<p>Judgement gives questions for examination of the code. The findings use the "
-        'stored facts for this map.</p><div class="review-count">'
-        f"<strong>{len(review['open'])}</strong> open "
-        f"<span>{len(review['answered'])} answered</span></div>"
-        '<div class="review-filters" role="group" aria-label="Decision status">'
-        '<button type="button" data-review-filter="open" aria-pressed="true">Open</button>'
-        '<button type="button" data-review-filter="answered" '
-        'aria-pressed="false">Answered</button></div><div id="reviewlist"></div>'
-    ]
-    for key, label in (("pending", "Answers for examination"), ("policies", "Policy answers")):
-        notices = review.get(key, [])
-        if notices:
-            out.append(
-                f"<details><summary>{label}</summary><ul>"
-                + "".join(f"<li>{esc(item)}</li>" for item in notices)
-                + "</ul></details>"
-            )
-    out.append("</section>")
-    return "\n".join(out)
-
-
-def _commands(ch: dict[str, Any]) -> str:
-    commands = [
-        (
-            "Update the source data",
-            "Read the source code and make the map again.",
-            "systemap refresh",
-        ),
-        ("Do a map check", "Make sure that the map agrees with the source code.", "systemap check"),
-        (
-            "Examine the decisions",
-            "Read findings without answers and answers for examination in each map.",
-            "systemap judgement --verbose",
-        ),
-        (
-            "Compare a change",
-            "Replace REF with a revision. Open Changes after the render command completes.",
-            "systemap render --base REF",
-        ),
-        (
-            "Read the change history",
-            "Read the changes to the software structure through time.",
-            "systemap history",
-        ),
-        (
-            "Examine a proposed change",
-            "Replace the example with the change that you will make.",
-            'systemap plan "describe the change"',
-        ),
-        (
-            "Do a plan check",
-            "Replace ID and REF. Compare the saved plan with source changes. "
-            "This check does not call a model.",
-            "systemap plan --check ID --base REF",
-        ),
-        (
-            "Read a source comparison",
-            "Replace REF with a revision. Imports show possible effects. "
-            "They do not prove program behavior.",
-            "systemap delta --base REF",
-        ),
-        (
-            "Get a second opinion",
-            "With a configured Jev key, send the map claims to an external model for examination.",
-            "systemap audit",
-        ),
-        (
-            "Examine an issue",
-            "Replace the example issue. Jev gives advice if the configuration has a Jev key.",
-            'systemap triage "describe the issue"',
-        ),
-        (
-            "Make a figure",
-            "Write an SVG file from the same model.",
-            "systemap figure --static --out system.svg",
-        ),
-    ]
-    out = ['<details class="commands"><summary>Work with the source code</summary>']
-    out.append("<p>Run these in the project terminal. This page uses stored source data.</p>")
-    for title, why, command in commands:
-        out.append(
-            f'<div class="command"><b>{title}</b><p>{why}</p><code>{esc(command)}</code>'
-            f'<button type="button" data-copy="{esc(command)}" '
-            f'aria-label="Copy {esc(command)}">Copy</button></div>'
-        )
-    if not ch.get("has_change") and not ch.get("comparison_requested"):
-        out.append("<p>This page has no revision comparison.</p>")
-    out.append('<p id="copystatus" role="status"></p></details>')
-    return "\n".join(out)
 
 
 def _rules(model: Model) -> str:
-    out = [
-        '<details class="rulebook" id="invariants"><summary>Rules of this system</summary>'
-        "<p>An invariant is a rule that must stay correct. Select a component to see its rules. "
-        '</p><ol class="rules">'
-    ]
-    for inv in sorted(model.invariants, key=lambda i: i.n):
-        out.append(
-            f'<li id="rule-{inv.n}" value="{inv.n}"><span>{esc(inv.text)}</span>'
-            '<span class="governs">'
-            + " ".join(
-                f'<button type="button" class="gv" data-go="{esc(i)}">{esc(i)}</button>'
-                for i in inv.governs
-            )
-            + "</span></li>"
+    """Give all rules of the system, for the panel of the Map view.
+
+    The panel of a component gives the rules that govern that component."""
+    if not model.invariants:
+        return ""
+    rows = "".join(
+        f'<li id="rule-{inv.n}" value="{inv.n}" tabindex="-1"><span>{esc(inv.text)}</span>'
+        '<span class="governs">'
+        + "".join(
+            f'<button type="button" class="gv" data-go="{esc(i)}">{esc(i)}</button>'
+            for i in inv.governs
         )
-    out.append("</ol></details>")
-    return "\n".join(out)
+        + "</span></li>"
+        for inv in sorted(model.invariants, key=lambda i: i.n)
+    )
+    return (
+        '<details class="read__more" id="invariants"><summary><span class="seq-kicker">RULES'
+        f'</span><span class="seq-count">{len(model.invariants)}</span></summary>'
+        "<p>A rule must stay correct. Select a component to see its rules.</p>"
+        f'<ol class="rules">{rows}</ol></details>'
+    )
 
 
 def tab_layers(model: Model, meaning: Meaning) -> list[Any]:
@@ -378,68 +278,24 @@ def tab_layers(model: Model, meaning: Meaning) -> list[Any]:
     return layers
 
 
-def _mapbar(model: Model, meaning: Meaning) -> str:
+def _first_question(model: Model, meaning: Meaning) -> str:
     layers = tab_layers(model, meaning)
-    first = layers[0] if layers else None
-    tabs = "".join(
-        f'<button type="button" role="tab" data-layer-btn="{esc(layer.id)}" '
-        f'aria-selected="false" aria-pressed="false" title="{esc(layer.question)}">'
-        f"{esc(layer.label)}</button>"
-        for layer in layers
-    )
+    return layers[0].question if layers else ""
+
+
+def _readpanel(meaning: Meaning, model: Model, t: dict[str, Any], ch: dict[str, Any]) -> str:
     return (
-        '<div class="mapbar" id="mapbar">'
-        f'<div class="layers" role="tablist" aria-label="Layer">{tabs}'
-        '<button type="button" role="tab" data-layer-btn="all" aria-selected="false" '
-        'aria-pressed="false" title="All flows of all layers">All</button></div>'
-        '<p class="mapbar__label" id="mapbar-label" hidden></p>'
-        f'<h2 class="question" id="layer-question">{esc(first.question if first else "")}</h2>'
-        '<label class="mobile-layer"><span class="sr-only">Layer</span>'
-        '<select id="layer-select" aria-label="Layer">'
-        + "".join(
-            f'<option value="{esc(layer.id)}">{esc(layer.label)}</option>' for layer in layers
-        )
-        + '<option value="all">All layers</option></select></label></div>'
-    )
-
-
-def _zoom() -> str:
-    return (
-        '<div class="zoom" role="group" aria-label="Zoom">'
-        '<button type="button" data-zoom="out" aria-label="Zoom out">−</button>'
-        '<button type="button" data-zoom="actual" id="zpct" aria-pressed="false" '
-        'aria-label="Zoom to 100 percent"></button>'
-        '<button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
-        '<button type="button" data-zoom="fit" aria-pressed="true">Fit</button></div>'
-    )
-
-
-def _readpanel(
-    meaning: Meaning,
-    review: dict[str, Any],
-    model: Model,
-    t: dict[str, Any],
-    ch: dict[str, Any],
-    records: str,
-) -> str:
-    return (
-        '<aside class="readpanel" id="readpanel" aria-label="Read the map">'
+        '<aside class="readpanel" id="readpanel" aria-label="Details">'
         '<div class="inspector-empty" id="inspector-empty"></div>'
+        '<div class="read-more" id="read-more">' + _map_key(t, model) + _rules(model) + "</div>"
         '<div class="drawer" id="drawer" hidden><div class="drawer__in">'
         '<button type="button" class="drawer__x" id="drawerclose" '
         'aria-label="Clear the selection">Clear</button>'
         '<div class="systemap-panel" id="panel" aria-live="polite"></div>'
         '<div id="source-detail"></div></div></div>'
         + page_sequences.panel(meaning)
-        + '<section class="reference" id="reference" aria-label="Map records" hidden>'
-        "<h2>Reference</h2>"
-        + _review_index(review)
-        + _rules(model)
-        + _commands(ch)
-        + _map_key(t, model)
-        + records
-        + "</section>"
-        '<div id="review-detail" hidden></div>' + page_changes.panel(ch) + "</aside>"
+        + page_changes.panel(ch)
+        + "</aside>"
     )
 
 
@@ -461,7 +317,8 @@ def _submap(cfg: Config, nesting: Nesting) -> str:
 def _map_key(t: dict[str, Any], model: Model) -> str:
     marks = {"ring": "an inner ring", "notch": "a notch", "dotted": "a dotted border"}
     out = [
-        '<details class="map-key"><summary>Read the map</summary>'
+        '<details class="read__more" id="mapkey"><summary><span class="seq-kicker">'
+        "LINES AND CARDS</span></summary>"
         '<div class="legend"><span class="lg"><i class="lg--solidline"></i>'
         "source review recorded</span>"
         '<span class="lg"><i class="lg--dashline"></i>flow without source review</span></div>'
@@ -498,12 +355,11 @@ def _unknown_provenance(provenance: dict[str, Any]) -> str:
 
 def _source_files(cfg: Config, facts: dict[str, Any], nesting: Nesting) -> str:
     return (
-        '<p class="source-files">Source files: '
-        f"<code>{esc(cfg.out_dir)}/{esc(cfg.facts_file)}</code> and "
-        f"<code>{esc(nesting.model_file)}</code>. "
-        "HEAD at extraction was "
-        f"<code>{esc(facts.get('built_at_commit') or 'not recorded')}</code>. "
-        "Extraction reads the working tree, which can contain uncommitted changes. "
+        "<p>HEAD at extraction was "
+        f"<code>{esc(facts.get('built_at_commit') or 'not recorded')}</code>.</p>"
+        f"<p>Source files: <code>{esc(cfg.out_dir)}/{esc(cfg.facts_file)}</code> and "
+        f"<code>{esc(nesting.model_file)}</code>.</p>"
+        "<p>Extraction reads the working tree, which can contain uncommitted changes. "
         "This page cannot find subsequent changes. Run <code>systemap refresh</code> "
         "in the project terminal to update it.</p>"
     )
@@ -514,7 +370,8 @@ def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, 
         '<section class="map" id="map" aria-label="System map">'
         '<span id="activity-label" hidden></span><h2 id="activity-question" class="sr-only">'
         "What are the components and their connections?</h2>"
-        + _mapbar(model, meaning)
+        + page_mapview.toolbar(tab_layers(model, meaning))
+        + page_mapview.title(_first_question(model, meaning))
         + page_sequences.toolbar(meaning)
         + '<div class="change-controls" id="changecontrols">'
         + page_changes.toolbar(ch)
@@ -523,16 +380,16 @@ def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, 
         + '<div class="mapwrap" id="mapwrap"><div class="stage" id="stage">'
         + system_svg
         + "</div></div></div>"
-        + _zoom()
+        + page_mapview.zoom()
         + '<div class="legend map-legend" id="map-legend" aria-label="Legend"></div>'
         '<p class="readout" id="map-context" aria-live="polite"></p>'
         + page_guide.card()
-        + '<div class="atlas" id="atlas" aria-label="Text view of the system" hidden></div>'
-        '<p class="hint sr-only" id="map-detail">Select a component or flow to read its source '
+        + '<p class="hint sr-only" id="map-detail">Select a component or flow to read its source '
         "evidence. Scroll to zoom. Drag to move the map. Fit shows all components. "
         "Tab selects cards and flow paths. Enter opens their data. Arrow keys change layers or "
         "sequence steps. Escape shows the previous view.</p>"
         '<p id="linkstatus" role="status" aria-live="polite"></p>'
+        '<p class="sr-only" id="copystatus" role="status"></p>'
     )
 
 
@@ -576,9 +433,14 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         f"if({json.dumps(schemes)}.indexOf(s)<0){{s=(window.matchMedia&&"
         "window.matchMedia('(prefers-color-scheme: light)').matches)?"
         f"{json.dumps(theme_mod.LIGHT_SCHEME)}:{json.dumps(theme_mod.DEFAULT_SCHEME)}}}"
-        "document.documentElement.setAttribute('data-theme',s)})();</script>"
-        f"<style>{panel_css(t, variables=True)}{CSS.replace('{ROOT}', theme_mod.root_css(t))}"
-        f"{page_atlas.CSS}{extra_css}</style></head>"
+        "document.documentElement.setAttribute('data-theme',s);var m='false';try{"
+        f"if(localStorage.getItem({json.dumps(MOTION_KEY)})==='true'){{m='true'}}}}catch(e){{}}"
+        "document.documentElement.setAttribute('data-reduce-motion',m)})();</script>"
+        "<style>"
+        + _compact_css(
+            panel_css(t, variables=True) + CSS.replace("{ROOT}", theme_mod.root_css(t)) + extra_css
+        )
+        + "</style></head>"
     )
 
 
@@ -603,24 +465,16 @@ def build(
         opens=nesting.opens,
         variables=True,
     )
-    data = json.loads(detail)
-    states = {cid: rec["state"] for cid, rec in data.items() if cid != "_meta"}
-    review = (
-        nesting.review
-        if nesting.review is not None
-        else page_data.review(
-            cfg, model, meaning, facts, f"{nesting.path}: " if nesting.path else ""
-        )
-    )
     payload: dict[str, Any] = {
         "sources": page_data.sources(model, facts),
-        "review": review,
         "comparison": page_data.comparison(ch),
         "provenance": page_data.provenance(cfg, facts, nesting.model_file),
         "regions": [
             {"label": r.label, "ids": [c.id for c in model.components if c.region == r.id]}
             for r in model.regions
         ],
+        # The Find dialog names the region of each component, or this label.
+        "outside": cfg.outside_label,
         "tabs": [layer.id for layer in tab_layers(model, meaning)],
         "guide": page_guide.steps(model, meaning),
         "sequences": page_sequences.data(model, meaning, facts),
@@ -632,15 +486,25 @@ def build(
         + page_present.CSS
         + page_changes.CSS
         + page_groups.CSS
+        + page_mapview.CSS
+        + page_icons.CSS
         + page_phone.CSS
         + page_motion.CSS
         + page_motion.SURFACE_CSS
+        + page_palette.CSS
     )
     o = [
         _head(cfg, t, nesting, extra_css),
-        '<body data-mode="understand" data-view="map" data-panel="closed">',
-        _header(cfg, model, meaning, facts, nesting, ch),
-        _index(model, meaning, states, cfg),
+        '<body data-mode="understand" data-panel="closed">',
+        _header(
+            cfg,
+            model,
+            meaning,
+            facts,
+            nesting,
+            ch,
+            _unknown_provenance(payload["provenance"]) + _source_files(cfg, facts, nesting),
+        ),
         '<main class="main">',
         _map_section(model, meaning, system_svg, ch),
         page_changes.stage(ch, change_svg),
@@ -649,14 +513,7 @@ def build(
         if nesting.opens
         else "",
         "</section>",
-        _readpanel(
-            meaning,
-            review,
-            model,
-            t,
-            ch,
-            _unknown_provenance(payload["provenance"]) + _source_files(cfg, facts, nesting),
-        ),
+        _readpanel(meaning, model, t, ch),
         "</main>",
         '<details class="map-links"><summary>Child maps</summary>'
         + ", ".join(
@@ -670,6 +527,7 @@ def build(
         page_present.html(),
         page_phone.html(model, meaning),
         page_motion.keys_sheet(),
+        page_palette.html(),
         "<script>window.systemapWorkspace="
         + json.dumps(payload, ensure_ascii=False, sort_keys=True).replace("<", "\\u003c")
         + ";</script>",
@@ -685,13 +543,14 @@ def build(
         JS,
         page_guide.SCRIPT,
         page_sequence_script.SCRIPT,
-        page_atlas.SCRIPT,
         WORKSPACE_SCRIPT,
         page_changes.SCRIPT if change_svg else page_changes.EMPTY_SCRIPT,
         page_groups.SCRIPT,
+        page_mapview.SCRIPT,
         page_phone.SCRIPT,
         page_present.SCRIPT,
         page_motion.SCRIPT,
+        page_palette.SCRIPT,
     )
     o += [f"<script>{_compact(js)}</script>" for js in scripts]
     o.append("</body></html>")
@@ -704,3 +563,12 @@ def _compact(js: str) -> str:
     The page scripts have no template literals, so no string continues on a second line."""
     lines = (line.strip() for line in js.splitlines())
     return "\n".join(line for line in lines if line and not line.startswith("//"))
+
+
+def _compact_css(css: str) -> str:
+    """Remove comments, line breaks and indentation from the page styles.
+
+    A line break after a semicolon, a brace or a comma goes. A different line
+    break becomes one space, because it can separate two values."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    return re.sub(r"([;{},])?[ \t]*\n\s*", lambda m: m.group(1) or " ", css).strip()

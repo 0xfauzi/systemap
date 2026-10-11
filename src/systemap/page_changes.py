@@ -5,8 +5,8 @@ makes it. The comparison uses the model and the stored source facts of this
 page for both revisions. It has no flow evidence for the base revision, so
 the toolbar offers Hold B (the map without change marks) and no base
 evidence control. The panel text comes from the comparison counts, the flow
-evidence in the change map detail and the open decisions. It does not claim
-more than these records show."""
+evidence in the change map detail. It does not claim more than these records
+show."""
 
 from __future__ import annotations
 
@@ -179,7 +179,7 @@ def _unknown(cid: str, module: str, revision: str, issue: dict[str, Any]) -> str
 
 
 def panel(ch: dict[str, Any]) -> str:
-    """Give the Changes panel. The script adds flows, sequences and decisions."""
+    """Give the Changes panel. The script adds the flows and the sequences."""
     start = '<aside class="change-panel" id="change-panel" aria-label="Changes" hidden>'
     if not has_comparison(ch):
         return (
@@ -203,7 +203,6 @@ def panel(ch: dict[str, Any]) -> str:
         + "</section>"
         '<section class="chg-sec" id="chg-flows" aria-label="Flows to examine" hidden></section>'
         '<section class="chg-sec" id="chg-seqs" aria-label="Sequences" hidden></section>'
-        '<section class="chg-sec" id="chg-decisions" aria-label="Decisions" hidden></section>'
         '<section class="chg-limits" aria-label="Limits of the comparison">'
         '<h3 class="chg-cap">NOT IN THIS COMPARISON</h3>' + comparison_limits(ch) + "</section>"
         "</aside>"
@@ -256,7 +255,7 @@ CSS = r"""
 
 /* ---- Changes view: map stage ------------------------------------------- */
 .change-view .stage{top:80px;bottom:24px}
-.map-legend .chg-tag{font-size:9px;line-height:14px;padding:0 4px}
+.map-legend .chg-tag{font-size:11px;line-height:14px;padding:0 4px}
 .lg__line--chg{display:block;width:18px;height:0;border-top:2px dashed var(--change)}
 
 /* ---- the change map: marks, selection and the ordered reveal ------------- */
@@ -298,7 +297,6 @@ CSS = r"""
   transition-delay:var(--chg-d,0ms)}
 #changemap.chg-reveal .chg-tag{transition:opacity 160ms ease-out;transition-delay:var(--chg-d,0ms)}
 :root[data-reduce-motion="true"] #changemap.chg-reveal *{transition:none!important}
-@media (prefers-reduced-motion:reduce){#changemap.chg-reveal *{transition:none!important}}
 
 /* ---- Changes view: panel ------------------------------------------------- */
 .change-panel{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -341,7 +339,7 @@ CSS = r"""
 .chg-flowpick{border-color:var(--accent)}
 .chg-flowpick__art{margin:0;font-size:13px!important;color:var(--ink-2)}
 .chg-flowpick__art b{color:var(--ink);font-weight:600}
-.chg-tag{display:inline-block;flex:none;font:700 10px/16px var(--fm);letter-spacing:.06em;
+.chg-tag{display:inline-block;flex:none;font:700 11px/16px var(--fm);letter-spacing:.06em;
   padding:0 5px;border-radius:3px;white-space:nowrap}
 .chg-tag--changed{background:var(--change);color:var(--on-change,var(--bg))}
 .chg-tag--tests{border:1px solid var(--change);color:var(--change);line-height:14px}
@@ -349,7 +347,7 @@ CSS = r"""
 .chg-tag--none{border:1px solid var(--line-2);color:var(--ink-3);line-height:14px}
 .chg-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:baseline;
   font:13px/18px var(--fs);color:var(--ink-2)}
-.chg-rows .chg-tag{justify-self:start;font-size:10px;line-height:14px}
+.chg-rows .chg-tag{justify-self:start;font-size:11px;line-height:14px}
 .chg-name{display:inline;min-height:0;height:auto;padding:0;border:0;background:none;
   font:600 13px var(--fm);color:var(--ink);cursor:pointer}
 .chg-name:hover{background:none;text-decoration:underline}
@@ -369,8 +367,7 @@ CSS = r"""
   color:var(--ink);font:13px/18px var(--fs);text-align:left;cursor:pointer;min-height:36px}
 .chg-seq__steps{flex:none;font:12px var(--fm);color:var(--change)}
 .chg-foot{margin:0;font-size:12px!important;line-height:18px!important;color:var(--ink-3)}
-.chg-decisions p,.chg-sec p.chg-text{margin:0;font:13px/20px var(--fs)!important;color:var(--ink-2)}
-.chg-go{align-self:flex-start;height:30px;min-height:30px;padding:0 12px;font-size:13px}
+.chg-sec p.chg-text{margin:0;font:13px/20px var(--fs)!important;color:var(--ink-2)}
 .chg-limits{display:flex;flex-direction:column;gap:6px;padding:12px 14px;
   border:1px dashed var(--line-2);border-radius:8px}
 .chg-limits p{margin:0;font-size:12px!important;line-height:18px!important;color:var(--ink-2)}

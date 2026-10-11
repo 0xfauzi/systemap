@@ -308,6 +308,8 @@ def test_text_on_a_filled_tag_and_on_the_highlighter_clears_four_and_a_half(sche
     pairs["ink_2 on hl_soft"] = (t["ink_2"], t["hl_soft"])
     if scheme == "light":
         pairs["ink on hl"] = (t["ink"], t["hl"])
+        # A selected flow row in the panel has the hl fill and ink_3 route text.
+        pairs["ink_3 on hl"] = (t["ink_3"], t["hl"])
     ratios = {label: contrast(ink, fill) for label, (ink, fill) in pairs.items()}
     assert all(ratio >= 4.5 for ratio in ratios.values()), ratios
 
@@ -339,6 +341,50 @@ def test_actor_and_inspector_text_clear_four_and_a_half_on_actual_fills(scheme: 
     }
     ratios = {label: contrast(ink, fill) for label, (ink, fill) in pairs.items()}
     assert all(ratio >= 4.5 for ratio in ratios.values()), ratios
+
+
+def oklab_lc(colour: str) -> tuple[float, float]:
+    """OKLab lightness and chroma of an sRGB colour (Ottosson's matrices)."""
+    lin = []
+    for i in (1, 3, 5):
+        c = int(colour[i : i + 2], 16) / 255
+        lin.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    r, g, b = lin
+    lms = (
+        0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b,
+        0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b,
+        0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b,
+    )
+    l_, m_, s_ = (v ** (1 / 3) for v in lms)
+    lightness = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_
+    a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_
+    b2 = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    return lightness, (a * a + b2 * b2) ** 0.5
+
+
+def test_paper_surfaces_are_near_neutral_and_lighter_from_map_to_panel_to_card() -> None:
+    """Paper is warm but not beige: each surface has an OKLCH chroma of 0.007
+    or less. Ink surfaces go to 0.009. The map is the toned sheet, the header and panel are
+    lighter, and a card is the lightest, so the cards stand out on the map.
+    The highlighter hue is not the hue of the paper."""
+    paper = theme_mod.LIGHT
+    chroma = {key: round(oklab_lc(paper[key])[1], 4) for key in TEXT_GROUNDS}
+    assert all(c <= 0.007 for c in chroma.values()), chroma
+    light = {key: oklab_lc(paper[key])[0] for key in ("bg", "map", "surface", "card")}
+    assert light["bg"] < light["map"] < light["surface"] < light["card"], light
+    assert contrast(paper["card"], paper["map"]) >= 1.1
+    assert oklab_lc(paper["hl_line"])[1] >= 0.08, "the halo is a clear highlighter yellow"
+
+
+def test_every_paper_kind_line_reads_on_the_highlighter_halo() -> None:
+    """A selected or current line keeps its kind colour over the halo
+    `hl_line`. Each kind colour has 3:1 or more on the halo, as a line."""
+    paper = theme_mod.LIGHT
+    ratios = {
+        name: round(contrast(colour, paper["hl_line"]), 2)
+        for name, colour in kind_colours(paper).items()
+    }
+    assert all(ratio >= 3 for ratio in ratios.values()), ratios
 
 
 def test_the_schemes_are_ink_and_paper_and_the_default_is_ink() -> None:
@@ -378,18 +424,20 @@ def test_the_schemes_are_ink_and_paper_and_the_default_is_ink() -> None:
         "#B97874",
         "#8A8B22",
     )
+    # The Paper surfaces of the 2026-10-11 Paper measurement in bench/jev/README.md.
     assert (paper["bg"], paper["surface"], paper["map"], paper["card"]) == (
-        "#ECE8DE",
-        "#F1EEE6",
-        "#F6F3EC",
-        "#FFFEFB",
+        "#F1EFEC",
+        "#FCFAF7",
+        "#F4F2EF",
+        "#FFFEFC",
     )
     assert (paper["accent"], paper["hl"], paper["change"], paper["ink"]) == (
         "#1D1B17",
-        "#FFD33D",
+        "#FFEBA0",
         "#AC312A",
         "#1D1B17",
     )
+    assert (paper["flow"], paper["hl_line"], paper["hl_soft"]) == ("#8E8C85", "#FFEBA0", "#FFF5D6")
     assert (paper["layers"]["data"], paper["layers"]["control"], paper["layer_palette"][0]) == (
         "#014438",
         "#A05B5A",
@@ -510,11 +558,13 @@ def test_the_page_carries_every_scheme_and_stamps_the_default(sample: Sample) ->
     assert '\'(prefers-color-scheme: light)\').matches)?"light":"dark"' in head
     assert "document.documentElement.setAttribute('data-theme',s)" in head
     assert head.index("<script>") < head.index("<style>"), "the root is stamped before the styles"
-    # The picker in the header, one option per scheme, with the page names.
+    # The picker in the header, one icon button per scheme, with the page names.
     header = html.split("</header>")[0]
     assert re.findall(r'<button[^>]*data-scheme="(\w+)"', header) == SCHEMES
     for name, label in theme_mod.SCHEME_LABELS.items():
-        assert re.search(rf'data-scheme="{name}"[^>]*>(?:<i></i>)?{label}<', header), label
+        button = re.search(rf'<button[^>]*id="scheme-{name}"[^>]*>', header)
+        assert button and f'aria-label="{label} theme"' in button[0], label
+        assert f'title="{label} theme"' in button[0], label
     assert "Clay" not in header
     # The device theme replaces the configured figure palette on the page.
     t = theme_mod.resolve({"scheme": "light"}, layers)

@@ -1225,7 +1225,7 @@ The tests keep the measured text to replay the recorded answers:
 The `plan` question was not sent in a measurement. `plan_eval.py` uses the recorded triage answers.
 All measured repositories are Python repositories. No result was measured on TypeScript.
 A measurement is necessary before a figure in this README applies to the shipped prompts or to TypeScript.
-The hints of `judgement` and `delta` say this, and they give the section of each figure.
+The hints of `judgement` and `delta` give no figures. They say what each Jev feature does and how to stop the hint.
 
 Test 8 measured delta followed by Jev picks at P>=0.8 as moves.
 In the shipped `delta`, a pick is a `jev move` suggestion. It does not change the delta lines or the exit code.
@@ -1234,6 +1234,187 @@ The 16 correct picks of 17 thus measure the suggestions, not a change to the dec
 The `possible mis-fold` word rule has two recorded values on 195 development cases.
 `results/report.txt` gives 32%. The table in "Why was package ownership evidence rejected?" gives 61/195 (31%).
 The two values come from different recorded runs.
+
+The next section gives the method and the acceptance rule for a measurement of the shipped prompts.
+
+## Do the shipped Jev prompts keep the measured results? (2026-10-11)
+
+The method, the data, and the acceptance rule were written before the run.
+The run was on 2026-10-11. All 674 answers came from the model `jev-1.13.0`, with 0 errors.
+
+### Method
+
+The test sends two question sets on the same rows and the same current maps.
+Thus a difference between the two sets comes from the questions, not from the maps.
+
+- The old set uses the measured questions in `build.py`, `build_flows.py`, and `build_meaning.py`.
+  Its rows are the rows of these scripts, with no change.
+- The shipped set has the same row ids, items, and labels.
+  Its state and questions come from the shipped code: `audit.make_plan`, `audit.plan_governs`, and the triage values in `jev_cli`.
+  `build_shipped.py` imports these builders. It does not copy question text.
+
+`build_shipped.py` writes `data/holdout/<kind>_old.jsonl` and `data/holdout/<kind>_shipped.jsonl`.
+The new names stop `run.py` from using the recorded answers in `results/holdout/<kind>.jsonl.gz`.
+Those answers came from earlier maps. They stay unchanged.
+
+Before it writes a kind, `build_shipped.py` does a check on each shipped question.
+Each name in backticks must be in the state.
+Each option in `needs` must be an option.
+The shipped answer check, `jev.checked`, must accept a correct answer.
+All shipped questions in the table below passed these checks.
+
+A one-time check, not kept in the repository, ran `cmd_audit` and `cmd_triage` with an injected `send`.
+The `send` function kept each request body and then refused the request. No request left the computer.
+Each shipped row with the state of the shipped code was one of the requests of `cmd_audit`.
+For a test report, `triage_ask` in `build_shipped.py` gave the same request as `cmd_triage`.
+
+`score.py --arms` scores the two sets with the same functions.
+It uses only the rows with an answer in the two sets, in the same order.
+Thus the neighbour card of each mis-fold row is the same in the two sets.
+It prints the two results line by line, and the acceptance result of each figure.
+It also prints the number of answers that the shipped answer check refuses, and the model of each answer.
+`run.py` now keeps the model name of each answer.
+
+### Repositories
+
+- systemap: this checkout at commit `6e4c6b1`. Its source tree is the same as at `5e5aac5`.
+- httpie: a new first map of commit `2105caa49bae87c5809c274e407619a0de2639d1` (tag 3.2.4), in `bench/scratch/cli-first-map-20261011T201433Z`.
+- scorecard: `../scorecard` is not on this computer. The set does not include it.
+  `common.py` now writes a line for a holdout repository that is not available, and leaves it out.
+  Before this change, `common.load` stopped with an error for that repository.
+
+The httpie map had two runs of `bench/run.sh`:
+
+1. `--ref 2105caa49bae87c5809c274e407619a0de2639d1` stopped before the session started. It did not write a line in `bench/results.jsonl`.
+   The output was `fatal: Remote branch 2105caa49bae87c5809c274e407619a0de2639d1 not found in upstream origin`.
+   A shallow clone with `--branch` accepts a branch or a tag, not a commit.
+2. `--ref 3.2.4`, `--max-turns 120`, `--from /home/user/systemap` finished.
+   The tag 3.2.4 is the same commit. The line in `bench/results.jsonl` gives this commit.
+
+| Run | Turns | Minutes | Dollars | Model | systemap | Check | Judgement | Modules |
+|---|---|---|---|---|---|---|---|---|
+| 2026-09-19 (recorded) | 46 | 4.8 | 3.43 | claude-opus-5[1m] | 1.1.0 from the tag | clean | clean | 78 |
+| 2026-10-11 (run 2) | 50 | 4.7 | 1.14 | claude-sonnet-5-5 | 1.2.0 from this checkout | clean | clean | 78 |
+
+The default `--from` installs the tag v1.2.0. This branch is 66 commits after that tag, and the skill changed.
+To make a current map, run 2 installed systemap from this checkout.
+`bench/run.sh` does not set a model. The default model of the agent on this computer is different from the recorded run.
+Thus the new httpie map is not the map of the recorded holdout results.
+`systemap init` wrote `name = "repo"`, the name of the checkout directory, in the httpie configuration.
+Before the Jev run, the coordinator changed it to `name = "httpie"` and made the shipped rows again.
+The old rows did not change (a byte comparison). Thus the two sets send the same system name.
+
+### Question counts
+
+Each row is one request with one question. The input size is the number of JSON characters of the state and the questions (`jev.Ask.chars`).
+The token counts come from the run.
+
+| Kind | Old set | Shipped set | systemap | httpie | Median input characters (old, shipped) |
+|---|---|---|---|---|---|
+| owner (mis-fold and owner) | 80 | 80 | 40 | 40 | 4,620, 4,583 |
+| sentence | 64 | 64 | 32 | 32 | 2,189, 2,180 |
+| flowverify | 64 | 64 | 32 | 32 | 1,360, 1,372 |
+| governs | 129 | 129 | 129 | 0 | 718, 700 |
+| issues | not made | not made | | | |
+
+The labels give these numbers of items:
+owner 80 modules, and 79 of them have a neighbour card for the mis-fold figure.
+Sentence 32 own and 32 sibling sentences. Flowverify 32 own and 32 different claims.
+Governs 43 listed pairs and 86 other pairs.
+With 32 items, one item is 3.1 points. With 79 items, one item is 1.3 points.
+
+The issues rows were not made on this computer.
+`gh pr list -R httpie/cli` stopped with `HTTP 403: GitHub GraphQL is not available from Claude Code sessions`.
+The GitHub REST API also refused access to httpie/cli.
+The issues rows need a computer where `gh` can read httpie/cli, and the httpie map in `bench/scratch`.
+
+### Differences between the two sets
+
+The shipped code sends some state in a different form. The shipped set uses the shipped form.
+
+- owner and issues: the shipped state `system` is the configured name. After the change above, it is `systemap` and `httpie`, as in the old rows.
+- flowverify: the shipped `code` lines come from `systemap.audit_code`, which also reads whole-module imports.
+  18 of 64 rows (9 flows) have different lines. On these rows, the result includes the effect of the lines and of the question.
+- governs: the shipped audit does not ask about a pair that `governs` lists.
+  The 43 listed pairs have the same question form. `plan_governs` made them from a copy of the map without the `governs` lists.
+  The httpie map has no invariants. Thus governs has rows from systemap only.
+- sentence and flowverify: the shipped audit asks only about the sentence of the component and the claim of the flow.
+  The sibling and different-claim rows use the shipped state with the sentence or the claim of the old row.
+- mis-fold: the shipped audit refuses an answer without P(claimed component).
+  `score.py` uses 0 for a missing probability, as in the earlier scores. The output gives the number of refused answers.
+- owner: the shipped `jev owner` question goes only to modules without a component.
+  The test uses modules with a component, because their labels are known. The earlier measurement did the same.
+- issues: `systemap triage` cuts the report at 2,000 characters.
+  The old reports have a title and at most 1,500 characters of text, so a cut occurs only with a long title.
+- The holdout set has no rows for the move question of `delta`, the pair question of `suggest --jev`, or the plan question.
+  This test does not include them.
+
+### Acceptance rule
+
+The rule applies to each kind at the threshold of the shipped code.
+Each figure of the shipped set must be within 10 points of the same figure of the old set, on the same rows.
+This is the rule of the holdout section.
+For mis-fold, the false alarm rate of the shipped set must also be at most 2 points higher than the old set.
+
+| Kind | Threshold | Figures |
+|---|---|---|
+| mis-fold, planted in a neighbour card | P<0.05 | caught, flagged (false alarm) |
+| owner | confidence >= 0.9 | answered, right |
+| sentence | P<0.2 | caught, flagged |
+| flowverify | P<0.2 | caught, flagged |
+| governs | P>=0.8 | found, suggested |
+| issues | the first option | top-1 |
+
+If a figure fails, the recorded figure does not apply to the shipped prompt of that kind.
+
+### Commands
+
+Run these commands in this checkout, because the httpie map is in `bench/scratch`.
+Only `run.py` calls Jev. It must have `TYPESAFE_API_KEY`.
+After the first Jev call, do not make the data again. The answers must agree with the rows.
+
+    # Only on a computer where gh can read httpie/cli. No Jev call.
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/build_shipped.py issues
+    # The Jev calls: 674 requests, and two for each issues row.
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py owner_old owner_shipped sentence_old sentence_shipped flowverify_old flowverify_shipped governs_old governs_shipped
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py issues_old issues_shipped
+    # The scores of the two sets. No Jev call.
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/score.py --arms owner sentence flowverify governs issues > bench/jev/results/holdout/prompts-report.txt
+
+The data for owner, sentence, flowverify, and governs is in `data/holdout/`. This command made it:
+
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/build_shipped.py owner sentence flowverify governs
+
+### Results
+
+`results/holdout/prompts-report.txt` has the full output. Issues were not measured.
+
+| Figure | Old set | Shipped set | Points | Result |
+|---|---|---|---|---|
+| mis-fold, planted next door (P<0.05): caught | 82% | 82% | 0.0 | pass |
+| mis-fold, planted next door (P<0.05): flagged | 1% | 4% | +2.5 | fail (limit +2) |
+| owner (confidence >= 0.9): answered | 52% | 50% | -2.5 | pass |
+| owner (confidence >= 0.9): right | 100% | 100% | 0.0 | pass |
+| sentence (P<0.2): caught | 78% | 72% | -6.2 | pass |
+| sentence (P<0.2): flagged | 0% | 0% | 0.0 | pass |
+| flowverify (P<0.2): caught | 62% | 59% | -3.1 | pass |
+| flowverify (P<0.2): flagged | 12% | 9% | -3.1 | pass |
+| governs (P>=0.8): found | 16% | 7% | -9.3 | pass |
+| governs (P>=0.8): suggested | 0% | 0% | 0.0 | pass |
+
+Nine figures pass and one figure fails.
+The mis-fold false alarm rate failed: 1 of 80 correct modules in the old set and 3 of 80 in the shipped set.
+The difference is two modules. This set cannot show if the cause is the question or chance.
+A larger set is necessary before the recorded mis-fold false alarm rate applies to the shipped prompt.
+The mis-fold catch rate and the AUC did not change (AUC 0.980 and 0.977 next door, 0.990 and 0.989 at random).
+
+Governs passed the rule, but the shipped question is weaker.
+Its AUC went from 0.814 to 0.725, and the share of true pairs found at P>=0.8 went from 16% to 7%.
+The governs rows come from systemap only (43 true pairs), and governs was already the weakest question.
+
+The old-set figures are lower than the recorded holdout figures (for example, mis-fold caught next door 82% here and 93% recorded).
+The maps are different: the httpie map is new and from a different model, scorecard is not included, and systemap has more modules.
+Thus this run compares the two question sets. It does not repeat the recorded holdout measurement.
 
 ## TypeScript extraction time with a large node_modules directory (2026-10-11)
 
@@ -1309,3 +1490,272 @@ differ by 20.2 and 20.3 degrees between the themes, above the 20 degree limit.
 Compared with the earlier palette: Ink still shows four kinds on one view. Paper still shows data,
 control and one custom kind, and not a second custom kind. The first search value `#855762` passed
 Paper set B. The page does not use it, because it can look mauve.
+
+## Map page size with the new Map view (2026-10-11)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+Before this change, the sample page had 257 bytes of space. The new Map view needs more space.
+The build now removes the comments, line breaks and indentation from the page styles, as it does for the page scripts.
+A line break that does not follow a semicolon, a brace or a comma becomes one space.
+In Chromium, the computed style of each of the 1,463 elements of the self-map page is the same with and without this step.
+The comparison used Ink and Paper at 1440 pixels, and Ink at 800 and 390 pixels.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (6e4c6b1) | 306,943 |
+| Sample page, with compact styles (327dba0) | 302,873 |
+| Sample page, with the new Map view | 306,145 |
+| Self-map page, no comparison, base | 645,992 |
+| Self-map page, no comparison, with the new Map view | 643,606 |
+
+The sample page passes with 1,055 bytes of space. A small addition to the page can exceed the limit again.
+
+## Map view pointer highlight and pan speed (2026-10-11)
+
+Acceptance: the new Map view may add at most 20 percent to the mean frame time of the base page (6e4c6b1), in each state and in each run.
+The new Map view has three changes that can occur during a pan: the pointer highlight gives low contrast to the cards that do not connect to the card under the pointer,
+the card border has a transition, and the panel opens with the page.
+The method is the method of "Card depth and pan speed": a new camera transform in each animation frame for 120 frames,
+in the All layer of the self-map page at 1440 by 900 pixels in Ink. The first 5 frames are not counted.
+There are two states: a selected card, and the pointer on the Page card with no selection.
+The new page ran with the panel open, which is the default, and with the panel closed.
+
+| Page | Run | Selected card (mean / p95 ms) | Pointer on a card (mean / p95 ms) |
+|---|---|---|---|
+| Base | 1 | 21.88 / 33.4 | 25.80 / 50.0 |
+| Base | 2 | 20.29 / 33.4 | 25.22 / 50.0 |
+| New, panel open | 1 | 23.19 / 33.4 | 24.20 / 50.0 |
+| New, panel open | 2 | 23.19 / 33.4 | 24.06 / 33.4 |
+| New, panel closed | 1 | 22.46 / 33.4 | 24.06 / 50.0 |
+| New, panel closed | 2 | 20.58 / 33.4 | 22.75 / 50.0 |
+
+The new page passed. The largest increase is 14.3 percent: the selected card with the panel open in run 2.
+The differences between runs of one page are as large as the differences between the pages.
+A drag of the map does not start the pointer highlight. The new effects use no filter.
+
+## Paper theme surfaces and highlighter (2026-10-11)
+
+The maintainer said that the Paper theme looked bad. Before the change, screenshots of all views in Ink and Paper
+at 1440 by 900 and 390 by 844 pixels and these values of the base (9defc3d) showed the causes:
+
+| Item | Paper on the base | Ink |
+|---|---|---|
+| OKLCH chroma of bg, surface, raised, map, card | 0.0098 to 0.0170, hue 86 to 91 | 0.0043 to 0.0088 |
+| OKLCH hue of the highlighter `hl` | 92 (`#FFD33D`), the hue of the surfaces | no highlighter |
+| Panel against map | panel darker than map (L 0.949 and 0.965) | map darker than panel |
+| Map surface | dark grain at 6 percent, a brown dark edge | light grain, dark edge |
+| Selection | ink ring, yellow glow, highlighter 11 px at 90 percent under an ink line | amber ring and glow |
+| `ink_3` text on `hl` (a selected flow row in the panel) | 4.16:1 | not applicable |
+| Paper data, tools and custom 1 kind colors | OKLCH L 0.35 to 0.38 | L 0.61 to 0.70 |
+
+Acceptance (written before the runs):
+
+- Each text token has 4.5:1 or more on bg, surface, raised, map and card, and where it shows on `hl` or `hl_soft`.
+- `card_line`, `region` and `flow` have 3:1 or more on the map.
+- The kind colors pass the limits of "Flow kind colors without blue or purple" on the new surfaces:
+  the required sets A, S and CH, 4.5:1 on the map and card, 3:1 on bg, surface and raised, and no hue in the band.
+- Each Paper kind color has 3:1 or more on the highlighter under a selected or current line.
+- Ink does not change. The sample page stays smaller than 307,200 bytes.
+
+The new Paper surfaces have an OKLCH chroma of 0.0028 to 0.0063 at hue 75 to 85.
+The map is the toned sheet. The header, the row and the panel are lighter. A card is the lightest surface.
+Paper has no grain, no dark edge and no glow. The card shade is ink at 8 percent.
+A segmented control has the map color as its track, so the white selected segment shows on the white row.
+
+| Token | Before | After |
+|---|---|---|
+| `bg` | `#ECE8DE` | `#F1EFEC` |
+| `surface` | `#F1EEE6` | `#FCFAF7` |
+| `raised` | `#E6E1D5` | `#EDEAE6` |
+| `map` | `#F6F3EC` | `#F4F2EF` |
+| `grid` | `#E6E1D6` | `#E6E3DF` |
+| `card` | `#FFFEFB` | `#FFFEFC` |
+| `card_line`, derived layers | `#8C877D` | `#8F8B85` |
+| `region` | `#8F8A80` | `#8F8B85` |
+| `line` | `#E0DBD0` | `#E4E2DF` |
+| `line_2`, `ghost` line, containers | `#D3CDC0` | `#D4D1CD` |
+| `ink_2`, `steel`, `good` | `#4B4740` | `#524F4A` |
+| `ink_3`, `delta.tests` | `#686359` | `#6D6963` |
+| `flow` (neutral line) | `#8F8C84` | `#8E8C85` |
+| `on_accent` | `#F6F3EC` | `#FCFAF7` |
+| `hl`, `hl_line` | `#FFD33D` | `#FFEBA0` |
+| `hl_soft`, `accent_soft` | `#FFF1BF` | `#FFF5D6` |
+
+The kind colors measurement is a copy of the script of the earlier measurement with the new Paper surfaces.
+
+| Run | Change | Result |
+|---|---|---|
+| 1 | neutral line `#8D8A86` | Fail: sets A and S, control / neutral line, normal 23.8 (25) |
+| 2 | neutral line `#8E8C85`, found by a search for 3:1 on the map and the set limits | Pass: A worst control / context, deutan 12.3; S worst control / neutral line, normal 25.7; CH 32.4 |
+| 3 | highlighter `#FFEBA0` | The same sets. Lowest kind on the highlighter: control 4.26:1 |
+
+With the highlighter `#FFE380` of run 2, `ink_3` had 4.30:1 on it. That failed the text limit, so run 3 uses a lighter yellow.
+The lowest values after the change: text 4.55:1 (`ink_3` on raised), a kind color 4.54:1 (control on the map),
+`flow` 3.01:1, `card_line` and `region` 3.03:1 on the map. The kind colors do not change.
+Set B and the custom 3 and custom 4 hue differences (20.2 and 20.3 degrees) still fail, as before.
+Paper data, tools and custom 1 stay dark. The earlier measurement found no passing set with Paper data at L 0.40 or more.
+The Ink token tables of the page are the same before and after the change.
+
+| Page | Before | After |
+|---|---|---|
+| Sample page (`test_page_is_small_and_self_contained`) | 306,145 | 305,750 |
+| Self-map page, no comparison, scratch build | 644,811 | 644,416 |
+
+These measurements do not show user comprehension.
+
+## Map page size with the new header and the Find dialog (2026-10-11)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+This change removes Reference, the Text view, the More menu and the component index of the Find field.
+It adds the header icons, the full-screen control and the Find dialog.
+The self-map rows use the model and the facts of the shared checkout for both pages, so the two rows compare only the page code.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (9defc3d) | 306,145 |
+| Sample page, with the new header and the Find dialog | 301,610 |
+| Self-map page, no comparison, base (9defc3d) | 653,205 |
+| Self-map page, no comparison, with the new header and the Find dialog | 640,512 |
+
+The sample page passes with 5,590 bytes of space.
+
+## Sequences view: sequence button, line colors and phone step (2026-10-11)
+
+Acceptance:
+
+- Phone step: on screens of 390 x 844, 375 x 667, and 430 x 932 pixels, Previous and Next are on the screen
+  without a scroll for each step of the self map. The space under them is 16 px, or the bottom safe area when that area is larger.
+- Line colors: in Ink and Paper, with normal vision and with protanopia and deuteranopia simulations,
+  the current step line is the line that is easiest to see. A line keeps the color of its flow kind.
+- Page size: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+
+### Phone step
+
+Before the change, the map frame of a phone step had a fixed height of 340 px, and the step did not fill the screen.
+The method: Chromium from Playwright, the self-map page from a scratch build, the Sequences view in Ink.
+A script goes to each of the 46 steps of the 11 sequences. It reads the bounds of the map frame and of the row with Previous and Next.
+The space is the distance from the bottom of that row to the bottom of the screen.
+
+| Screen | Space before | Map frame before | Space after | Map frame after |
+|---|---|---|---|---|
+| 390 x 844 | 3 to 105 px | 340 px | 16 px | 327 to 429 px |
+| 430 x 932 | 105 to 193 px | 340 px | 16 px | 429 to 517 px |
+| 375 x 667 | Previous and Next below the screen for 46 of 46 steps, up to 178 px | 340 px | 2 to 16 px | 160 to 252 px |
+
+The first change set a minimum of 180 px for the map frame. With it, 2 of the 46 steps put Previous and Next 18 px below
+the 375 x 667 screen. That failed the acceptance value. A minimum of 160 px gives the values in the table.
+For the longest step on 375 x 667, the space under the buttons is 2 px, and the page scrolls 14 px to show the bottom padding.
+The page has no `viewport-fit=cover` in its viewport tag. Thus the bottom safe area is 0 in a browser now,
+and the space is 16 px. With `viewport-fit=cover`, the safe area applies when it is larger than 16 px.
+
+### Line colors
+
+The method: screenshots of steps 1 and 4 of the sequence "Read the change history" at 1440 x 900 pixels.
+Step 1 is a control flow, and step 4 is a data flow. A script applies the coloraide Brettel filter for protanopia
+and deuteranopia, severity 1, in linear sRGB, to each color of a 500 x 360 pixel part of the map.
+The examination of the images is visual. It is not a contrast measurement.
+
+| Run | Values | Result |
+|---|---|---|
+| 1 | Ink. Under the current line: the `hl` token, 11 px, 0.9 opacity (16 percent amber). Current line 2.6 px. | Fail: the wider line under the current line is almost not visible |
+| 2 | Ink. Under the line: accent at 0.3, 0.35, and 0.4 opacity, 10 to 12 px. Current line 2.6, 2.8, and 3.0 px. | Pass for each variant, in all three images. The values 0.3, 11 px, and 2.6 px are the smallest |
+| 3 | After the merge of the Paper change: 12 px in both themes. Ink: accent at 0.3. Paper: `hl_line` `#FFEBA0` at full opacity | Pass in Ink and Paper, steps 1 and 4, in all three images |
+
+The earlier steps have the rest width, 1.6 px, at full opacity. The later steps have the rest width at 40 percent opacity.
+
+### Page size
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (9defc3d) | 306,145 |
+| Sample page, base with the line rule | 304,154 |
+| Sample page, base with the line rule and the sequence button | 306,815 |
+| Sample page, codex/map-workspace with the Paper change (8e95034) | 305,750 |
+| Sample page, this branch after the merge of 8e95034 | 306,599 |
+| Self-map page, scratch build, 8e95034 | 652,810 |
+| Self-map page, scratch build, this branch after the merge | 652,563 |
+| Sample page, codex/map-workspace with the header and the Find dialog (6f6eb27) | 301,215 |
+| Sample page, this branch after the merge of 6f6eb27, without the Sequences Full screen button | 301,615 |
+| Self-map page, scratch build, 6f6eb27 | 637,789 |
+| Self-map page, scratch build, this branch after the merge of 6f6eb27 | 637,093 |
+
+After the merge of 6f6eb27, Previous and Next stay on the 375 x 667 screen for each of the 46 steps.
+The sequence button needs about 2,300 bytes of script. The line rule removes the sequence arrowheads, the glow rules and the key
+under the step list. The panel styles merge repeated declarations. After the merge of 8e95034, the sample page
+passed with 601 bytes of space. After the merge of 6f6eb27, it passes with 5,585 bytes of space.
+
+## Map page type (2026-10-11)
+
+Acceptance: no text on the page is less than 11px, and running text is 12px or more.
+Card descriptions and card names do not get wider than the measured widths.
+The sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+
+Method: Chromium 141.0.7390.37 (Playwright) at 1440 by 900 and 390 by 844 pixels, in Ink and Paper.
+The audit read the computed style of each visible text element and the font that Chromium used
+(DevTools protocol, `CSS.getPlatformFontsForNode`). The states were the Map view, a selected component,
+a sequence step, Find, the keyboard keys, Text view, Reference, and the phone layout.
+In this container, `system-ui` gives Inter, the monospace font is DejaVu Sans Mono, and Arial gives Liberation Sans 2.1.
+fontTools 4.66.1 measured the font files. The font files came from the npm registry.
+
+Results of the audit on the base page (9defc3d):
+
+- At Fit, the zoom was 75 percent with the panel open. Flow labels, region labels, and container labels
+  showed at 8.2 CSS pixels. Card names showed at 11 and card descriptions at 10.1. This change does not correct these sizes.
+  A label box is 6.1 units for each character. At 11 units, Inter Medium is wider than the box for 2 of 70 labels,
+  and Liberation Sans for 0. At 12 units, the counts are 10 and 2. Thus a larger label needs a new label width rule.
+- The legend ACTS tag was 9px, and the other tags and the phone region labels were 10px.
+- The Find match line and the flow ends in a group panel were 11px running text.
+- The Read button was 14px, and the other header controls were 13px. The page body was 14px, and DESIGN.md gave 13px.
+- The layer names in the guide steps used the monospace font.
+- On the phone, a sequence step showed the 11-unit map text at 5.9 CSS pixels. This change does not correct it.
+
+Width measurements:
+
+- Arimo 400 and Liberation Sans have the same advances as the Arial table for all 95 characters, and no larger overhangs.
+- For the card descriptions of the self-map and the sample, the total width relative to Arial is
+  1.069 for Inter 4, 1.040 for Geist, 1.003 for IBM Plex Sans, 0.933 for Source Sans 3, and 1.133 for DejaVu Sans.
+  With the Inter, Geist, or Source Sans 3 widths, one card gets a different number of lines. With DejaVu Sans, five cards do.
+- DejaVu Sans Mono has 1233 of 2048 units (0.60205 em) for each character. The name advance was 0.602 em
+  and is now 0.6021 em. JetBrains Mono, Geist Mono, IBM Plex Mono, and Liberation Mono have 0.600 em.
+
+Embedded font sizes (WOFF2 bytes / base64 bytes). The subsets keep the kern and tnum features of a sans font.
+
+| Font | Subset | WOFF2 | base64 |
+|---|---|---|---|
+| Inter 4 | Latin, weight 400 to 600 | 21,448 | 28,600 |
+| Inter 4 | ASCII and 5 symbols, weight 400 to 600 | 13,316 | 17,756 |
+| Inter 4 | ASCII and 5 symbols, weight 400 | 7,688 | 10,252 |
+| IBM Plex Sans | Latin, weight 400 to 600 | 22,452 | 29,936 |
+| IBM Plex Sans | ASCII and 5 symbols, weight 400 to 600 | 12,372 | 16,496 |
+| Geist | Latin, weight 400 to 600 | 16,972 | 22,632 |
+| Geist | ASCII and 5 symbols, weight 400 to 600 | 10,856 | 14,476 |
+| Source Sans 3 | Latin, weight 400 to 600 | 17,784 | 23,712 |
+| Source Sans 3 | ASCII and 5 symbols, weight 400 to 600 | 10,752 | 14,336 |
+| JetBrains Mono | Name characters, weight 600 | 3,336 | 4,448 |
+| JetBrains Mono | ASCII and 5 symbols, weight 400 to 600 | 8,044 | 10,728 |
+| Geist Mono | Name characters, weight 600 | 3,512 | 4,684 |
+| IBM Plex Mono | Name characters, weight 600 | 3,312 | 4,416 |
+
+All seven fonts have the SIL Open Font License 1.1. IBM Plex has the Reserved Font Name "Plex",
+and Source Sans 3 has "Source". A subset of these two fonts must have a different name.
+Inter, JetBrains Mono, and Geist have no Reserved Font Name.
+
+The page is 1,055 bytes under the limit, so the page uses only the fonts of the computer.
+The change removes 28 bytes from each of the four sans font declarations and the `.hint` rule,
+and adds `text-wrap-style` to the heading and paragraph rules.
+
+| Page | Before | After |
+|---|---|---|
+| Sample page, no comparison | 306,145 | 306,048 |
+| Self-map page, no comparison, with the same model | 653,205 | 653,108 |
+
+A prepared option, which is not applied, embeds the Inter subset with the ASCII characters and 5 symbols,
+weight 400 to 600, with the copyright and license URL records (17,916 base64 bytes).
+With it, the sample page has 324,177 bytes, 16,977 bytes over the limit.
+For each character, its description width table uses the larger advance of Inter and Arial.
+This table is wider than the Arial table for 78 of 95 characters.
+With this table, five placement tests failed, because the Config description of the workspace fixture
+(49 characters) did not fit on two lines.
+
+The new tests in `tests/test_typography.py` gave 6 failures and 1 pass on the base and 7 passes after the change.
+The full test suite gave 767 passes and 1 skipped test.

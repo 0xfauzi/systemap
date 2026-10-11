@@ -61,10 +61,7 @@ TOUR: list[tuple[str, str]] = [
 DRIVER = """<script>(function(){{
 var A = document.getElementById('schematic').systemap;
 function layer(id){{ document.querySelector('[data-layer-btn="' + id + '"]').click(); }}
-function journey(k){{
-  var s = document.getElementById('journey'); s.value = String(k);
-  s.dispatchEvent(new Event('change'));
-}}
+function journey(k){{ document.getElementById('schematic').page.journey.route(k); }}
 function start(){{ document.getElementById('jstart').click(); }}
 function next(){{ document.getElementById('jnext').click(); }}
 {actions}
@@ -92,15 +89,19 @@ def render(root: Path) -> str:
 
 
 def seeded(html: str, scheme: str, guide: bool = True) -> str:
-    """The page with the browser's storage seeded to one scheme, ahead of
-    the page's own head script, which reads it back and stamps the root.
+    """The page with the browser's storage seeded to one scheme, ahead of the
+    page's own head script, which reads it back and stamps the root. A style
+    stops CSS transitions and animations, so each screenshot shows a final
+    state, and the Reduce motion button keeps its default state (off).
 
     The guide card shows only on a first visit. Without `guide`, the
     storage records that visit as done and the card does not show."""
     done = "" if guide else "localStorage.setItem('systemap-guide','done');"
     seed = (
         "<script>try{localStorage.setItem("
-        f"{json.dumps(page.SCHEME_KEY)},{json.dumps(scheme)});{done}}}catch(e){{}}</script>"
+        f"{json.dumps(page.SCHEME_KEY)},{json.dumps(scheme)});"
+        f"{done}}}catch(e){{}}</script>"
+        "<style>*,*::before,*::after{transition:none!important;animation:none!important}</style>"
     )
     return html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + seed, 1)
 

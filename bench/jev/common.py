@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import sys
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -43,9 +44,20 @@ HOLDOUT_REPOS = {
 SET = os.environ.get("JEV_SET", "dev")
 if SET not in ("dev", "holdout"):
     raise SystemExit(f"JEV_SET is dev or holdout, not {SET}")
-REPOS: dict[str, Path] = (
-    DEV_REPOS if SET == "dev" else {k: v for k, v in HOLDOUT_REPOS.items() if v is not None}
-)
+
+
+def _present(repos: dict[str, Path | None]) -> dict[str, Path]:
+    """Keep the repositories that are on this computer, and name each one that is not."""
+    for name, root in repos.items():
+        if root is None or not root.exists():
+            print(
+                f"{SET}: {name} is not available ({root}). The set does not include it.",
+                file=sys.stderr,
+            )
+    return {k: v for k, v in repos.items() if v is not None and v.exists()}
+
+
+REPOS: dict[str, Path] = DEV_REPOS if SET == "dev" else _present(HOLDOUT_REPOS)
 DATA = HERE / "data" / ("" if SET == "dev" else "holdout")
 RESULTS = HERE / "results" / ("" if SET == "dev" else "holdout")
 DATA.mkdir(parents=True, exist_ok=True)

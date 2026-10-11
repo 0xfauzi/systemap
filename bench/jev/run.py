@@ -32,11 +32,13 @@ async def one(client, sem, row, out):
         t0 = time.perf_counter()
         try:
             resp = await client.system_one(row["state"], row["questions"])
+            dump = resp.model_dump(mode="json")
             rec = {
                 "id": row["id"],
                 "repo": row["repo"],
-                "answers": resp.model_dump(mode="json")["answers"],
-                "usage": resp.model_dump(mode="json").get("usage"),
+                "answers": dump["answers"],
+                "usage": dump.get("usage"),
+                "model": dump.get("model"),
                 "seconds": round(time.perf_counter() - t0, 3),
             }
         except TypeSafeAPIError as e:

@@ -9,6 +9,16 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+- The pull request comment from `systemap delta --format markdown` starts with the decision.
+  Then it gives the components, flows, sequences, and invariants that the change added, removed, or changed.
+  For this comparison, delta loads the models at the common Git ancestor and at the head commit from the committed files.
+  A Mermaid diagram shows only the changed flows.
+  Before this change, the comment showed the image of the full map. Now it gives the URL of that image.
+  The lines for which no action is necessary are in a closed section.
+  The comment does not give the list of connected components now.
+  The comment shows a full commit ID as its first seven characters.
+  The delta lines, the decisions, and the exit code do not change.
+
 - All user interface text, command explanations, map prose, and documentation use the ASD-STE100 language policy.
   Agents must use Issue 9 for names, sequences, and all map updates.
   Coding-agent requests and cache keys contain the packaged policy.
@@ -76,6 +86,14 @@ A layer is a filtered view of the map.
 
 - Each heading in `README.md` and `docs/reference.md` is a question answered by its section.
   Both pages give their scope and order before the details.
+
+- The map page header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for views,
+  layers, components, flows, sequences, rules, and actions. Icon buttons set the theme and Reduce motion,
+  show the keyboard keys, and open the Details panel. Read is now Details, and its key is D.
+  The full-screen button and the F key show the map alone in Map, Sequences, and Changes.
+  The Text view and Reference are removed. The Map panel gives all rules and the help for lines and cards.
+  The commit in the header opens the source records. The page no longer shows judgement decisions.
+  Motion is on until the reader sets Reduce motion on the page. The system setting no longer stops it.
 
 ## 1.2.0 - 2026-09-20
 
