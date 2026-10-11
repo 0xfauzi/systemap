@@ -472,6 +472,7 @@ layout score, bends and length per edge, label gutters, and gutter seat usage.
 It also gives evidence-state counts and components and edges per layer.
 Position counts distinguish pinned, placed, and temporary display positions.
 Edges with the worst geometry come first.
+A gutter line counts the labels that the edge lines put in that gutter.
 
 The sequence section gives steps, starting entries, steps without import
 evidence, unconfirmed agent drafts, and covered entry counts.
@@ -526,6 +527,8 @@ The agent gives components in the execution path and a sentence for each step.
 A step with no authored flow is rejected with a finding.
 The command does not write that step.
 Accepted sequences enter the model with `drafted=True`.
+The command writes them into the `JOURNEYS = (...)` tuple of the model.
+The tuple can have a type annotation, as in the model from `init`.
 `judgement` prints `drafted journey` until a person examines the sequence and
 removes the mark. The default limit is three sequences per invocation.
 

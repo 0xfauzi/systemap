@@ -352,6 +352,32 @@ def test_describe_reads_the_picture_back(sample: Sample) -> None:
     assert "check refuses" not in text, "a clean map has nothing to refuse"
 
 
+GUTTER_LINE = re.compile(r"  (.+) \(\d+ units\): \d+ of \d+ seats used, (\d+) labels?$")
+
+
+def gutter_counts(lines: list[str]) -> tuple[dict[str, int], dict[str, int]]:
+    """Count labels per gutter in the edge lines and in the gutter lines."""
+    named: dict[str, int] = {}
+    for line in lines:
+        found = re.search(r"\. label (.+)$", line)
+        if found and found.group(1) != "on its path":
+            named[found.group(1)] = named.get(found.group(1), 0) + 1
+    counted = {m.group(1): int(m.group(2)) for line in lines if (m := GUTTER_LINE.match(line))}
+    return named, counted
+
+
+def test_describe_counts_each_label_in_the_gutter_that_its_edge_line_names(
+    sample: Sample,
+) -> None:
+    # A path label can be in a gutter of the other direction: the edge line and the
+    # gutter line use the same gutter for it.
+    lines = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
+    named, counted = gutter_counts(lines)
+    assert named, "the sample map has labels in gutters"
+    assert {name: counted.get(name, 0) for name in named} == named
+    assert sum(counted.values()) == sum(named.values())
+
+
 def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **FOUR_MODULES})
     assert run("--root", str(tmp_path), "init", "--no-ci") == 0
