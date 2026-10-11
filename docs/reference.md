@@ -582,14 +582,14 @@ Unknown keys are rejected.
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. |
 | `spec_path` | none | A document with `##` headings that identify specification sections. |
 | `planes` | none | Second-level package names with different planes in the facts. |
-| `outside_label` | `OUTSIDE THE SYSTEM` | The index heading for actors outside all regions. |
+| `outside_label` | `EXTERNAL COMPONENTS` | The index heading for actors outside all regions. |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. Empty package markers require no ignore. |
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A leading `-` removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds, including `"jev flow"`, use this table too. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[theme]` | warm | Color-token overrides. `scheme = "warm"`, `"graphite"`, or `"paper"` selects the default. The page offers all three. The 0.11 names `dark` and `light` still select graphite and paper. `[theme.paper]` overrides one scheme. `[theme.layers]` sets a color per layer id, including standard ids. `[theme.marks]` selects a mark per agent kind. |
+| `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, including standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
 TypeScript discovery does not include `.d.ts` declaration files.

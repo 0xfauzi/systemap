@@ -31,6 +31,7 @@ color values from the same table."""
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Iterable
 from typing import Any
 
@@ -285,6 +286,40 @@ def _check_tables(tokens: dict[str, Any]) -> None:
             raise unavailable(key)
 
 
+# The tokens that `tints` mixes with other colors. A mixed color must have the form #RRGGBB.
+MIXED_TOKENS = ("bg", "raised", "change", "reach")
+HEX_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
+
+
+def _colour(key: str, value: object) -> None:
+    if not isinstance(value, str) or HEX_COLOUR.fullmatch(value) is None:
+        raise ValueError(
+            f'The theme value {key} must be a color in the form #RRGGBB, such as "#D4675B". '
+            f"The value is {value!r}."
+        )
+
+
+def _check_values(t: dict[str, Any]) -> None:
+    """Reject a token value that the palette calculations cannot use.
+
+    The message gives the key name. Other tokens go to the page without a change."""
+    for key in MIXED_TOKENS:
+        _colour(key, t.get(key))
+    named = t.get("layers")
+    if not isinstance(named, dict):
+        raise ValueError("The theme value layers must be a table of layer IDs and colors.")
+    for lid, colour in named.items():
+        _colour(f"layers.{lid}", colour)
+    palette = t.get("layer_palette")
+    if not isinstance(palette, list) or not palette:
+        raise ValueError("The theme value layer_palette must be a list of one or more colors.")
+    for colour in palette:
+        _colour("layer_palette", colour)
+    marks = t.get("marks")
+    if not isinstance(marks, dict) or not all(isinstance(v, str) for v in marks.values()):
+        raise ValueError("The theme value marks must be a table of component kinds and marks.")
+
+
 def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
     """Assign one color to each layer in layer order.
 
@@ -322,6 +357,7 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
         if scheme == name:
             override = merge(own, override)
         t = merge(base, override)
+        _check_values(t)
         t["scheme"] = scheme
         t["layers"] = _layers(t, layers)
         tables[scheme] = t
