@@ -224,7 +224,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="468b96abb71fd6dff2071c6975d9d63d09750a26bd79645dc0b6d275c12ff85a",
+        source_review="c4ae1a43f929c3d790734573b1bec03312df8dcd66942fe79c87af3804c3bb61",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -243,7 +243,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="b9dba4b31522d56a8041062756f13990cd010d310271bca6a242c6bfaa41847d",
+        source_review="f9c4904bfb39179d4287088b0eeffaedcae969f5a4a2755b40235c476b34fc7c",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Text view shows the same components and flows. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
