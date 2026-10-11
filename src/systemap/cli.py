@@ -554,7 +554,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     if jev_cli.uses_jev(p.cfg, args.jev):
         asked = delta_jev.ask(p.cfg, p.tree, base, head, d)
     if args.format == "markdown":
-        sys.stdout.write(delta.comment(p.cfg, d, head_sha) + delta_jev.markdown(asked))
+        sys.stdout.write(delta.comment(p.cfg, p.tree, d, base, head) + delta_jev.markdown(asked))
     else:
         say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.jev is None and d.added and d.removed:
@@ -1065,7 +1065,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--format",
         choices=["text", "markdown"],
         default="text",
-        help="Use markdown for a pull request comment with the committed map.",
+        help="Use markdown for a pull request comment with the map changes and a diagram.",
     )
     s.add_argument(
         "--jev",

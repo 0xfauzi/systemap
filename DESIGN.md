@@ -31,27 +31,27 @@ colors:
   dark-custom-2: "#DCE8B8"
   dark-custom-3: "#C6ED9F"
   dark-custom-4: "#7C9128"
-  light-bg: "#ECE8DE"
-  light-surface: "#F1EEE6"
-  light-raised: "#E6E1D5"
-  light-map: "#F6F3EC"
-  light-grid: "#E6E1D6"
-  light-card: "#FFFEFB"
-  light-card-line: "#8C877D"
-  light-line: "#E0DBD0"
-  light-line-2: "#D3CDC0"
+  light-bg: "#F1EFEC"
+  light-surface: "#FCFAF7"
+  light-raised: "#EDEAE6"
+  light-map: "#F4F2EF"
+  light-grid: "#E6E3DF"
+  light-card: "#FFFEFC"
+  light-card-line: "#8F8B85"
+  light-line: "#E4E2DF"
+  light-line-2: "#D4D1CD"
   light-ink: "#1D1B17"
-  light-ink-2: "#4B4740"
-  light-ink-3: "#686359"
-  light-region: "#8F8A80"
-  light-flow: "#8F8C84"
+  light-ink-2: "#524F4A"
+  light-ink-3: "#6D6963"
+  light-region: "#8F8B85"
+  light-flow: "#8E8C85"
   light-accent: "#1D1B17"
-  light-on-accent: "#F6F3EC"
-  light-hl: "#FFD33D"
-  light-hl-soft: "#FFF1BF"
+  light-on-accent: "#FCFAF7"
+  light-hl: "#FFEBA0"
+  light-hl-soft: "#FFF5D6"
   light-change: "#AC312A"
   light-on-change: "#FFFFFF"
-  light-steel: "#4B4740"
+  light-steel: "#524F4A"
   light-data: "#014438"
   light-control: "#A05B5A"
   light-context: "#497B15"
@@ -210,6 +210,11 @@ The map uses `map` and has a grid of dots in `grid`. A card uses `card` and `car
 A container has a 1px solid border in `line_2` and no fill.
 A region has a 1px dashed border in `region` and a number in a ring.
 
+In Paper, each surface color is a neutral color with an OKLCH chroma of 0.007 or less.
+Thus the surfaces do not have the color of the yellow highlighter.
+The map is darker than the header, the row, and the panel. A card is the lightest surface.
+Thus the panel and the map are different areas, and each card is easy to see on the map.
+
 ### Color roles
 
 Only the flow kinds, the selection, and the change have colors.
@@ -224,6 +229,11 @@ the current step card, and the step note.
 A wider line is under the selected line and under the current step line. It is 11 px wide.
 In Ink, it is amber at 30 percent opacity. In Paper, it is the yellow highlighter fill.
 Vermilion shows a change. Only the Changes view shows vermilion.
+Stroke patterns identify evidence states. External components have dashed borders.
+Measurement components use `steel`, which is a neutral color.
+The tokens `good`, `warn`, `bad`, and `violet` have neutral values.
+
+Color is not the only indication of meaning.
 
 ### Line widths
 
@@ -232,11 +242,6 @@ A line with emphasis is 2.6 px wide: the selected line, the current step line,
 a preview, and the lines of a card under the pointer. Group lines keep the widths from their flow counts.
 A sequence shows its progress with the width and the opacity of its lines, not with their color.
 A dash shows only an evidence state.
-Stroke patterns identify evidence states. External components have dashed borders.
-Measurement components use `steel`, which is a neutral color.
-The tokens `good`, `warn`, `bad`, and `violet` have neutral values.
-
-Color is not the only indication of meaning.
 
 ### Measured colors
 
@@ -249,6 +254,7 @@ The measurement uses these limits for each pair of colors that can show on one v
 
 Text has a contrast ratio of 4.5:1 or more on the page, panel, map, and card colors.
 A flow kind color has 4.5:1 or more on the map and the card. Other lines have 3:1 or more on the map.
+In Paper, a flow kind color also has 3:1 or more on the yellow highlighter under a selected line.
 
 No flow kind color has an OKLCH hue from 180 to 350 degrees, in either theme.
 This hue range contains cyan, blue, violet, purple, and magenta.
@@ -280,6 +286,7 @@ The row is 52px high. In the Map view, it has the label Layer and a segmented co
 System context, Structure, Data flow, Control flow, Map review, and All.
 This control has the design of Whole route and Steps in the Sequences toolbar.
 A selected segment has the card color and ink text. The focus ring of a segment is inside the segment.
+In Paper, the segmented control and the zoom buttons have the map color. Thus the selected segment shows on the row.
 
 The title block has a small label and the question. The label uses the kicker type.
 In the Map view, it gives the layer name and its position, for example SYSTEM CONTEXT · LAYER 1 OF 5.
@@ -341,8 +348,10 @@ and the card border changes to `ink_3` in 160 ms. A selected card and the ends o
 After 120 ms on a card, its lines get thicker and the cards at their other ends stay at full contrast.
 The other cards go to 60 percent opacity, and the other lines and labels fade.
 A press on the map ends this state. A drag of the map does not start it.
-The selected card has a soft glow: amber in Ink, the highlighter yellow in Paper.
-The map surface has a fine static grain under the dot grid and a soft dark edge.
+In Ink, the selected card has a soft amber glow. In Paper, it has no glow.
+The highlighter fill and the ink ring show the selection.
+In Ink, the map surface has a fine static grain under the dot grid and a soft dark edge.
+In Paper, the map surface has only the dot grid.
 All cards of a map use one type size. The page uses the largest size at which the text of all cards fits.
 The maximum size is a 13px name and a 12px description at 88 percent zoom.
 The minimum size is the base size that the map check examines. Card text changes size with the zoom.

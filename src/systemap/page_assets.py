@@ -103,7 +103,7 @@ body[data-view="reading"] #view-reading,body:not([data-view="reading"]) #view-ma
 color:var(--ink-3)}
 #scheme{display:flex;flex-direction:column;gap:2px}
 [data-scheme] i{width:12px;height:12px;border-radius:50%;border:1px solid var(--line-2)}
-[data-scheme="dark"] i{background:#12110F}[data-scheme="light"] i{background:#F6F3EC}
+[data-scheme="dark"] i{background:#12110F}[data-scheme="light"] i{background:#F4F2EF}
 .motion-control{display:flex;gap:10px;align-items:center;font-size:13px;min-height:32px;
 padding:0 12px;color:var(--ink);border-top:1px solid var(--line);margin-top:4px}
 

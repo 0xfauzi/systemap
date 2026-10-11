@@ -18,8 +18,8 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import extract
-from systemap.config import Config
+from systemap import extract, nest
+from systemap.config import Config, ConfigError
 
 # Git tree entry modes that this reader writes.
 REGULAR = ("100644", "100755")
@@ -138,6 +138,23 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
         facts = extract.build(dataclasses.replace(cfg, root=into))
     facts["built_at_commit"] = sha
     return facts
+
+
+def model_at(cfg: Config, sha: str) -> nest.Tree | str:
+    """This function loads the map tree from the committed model files at `sha`.
+
+    The model files are Python, as on disk. The configuration on disk gives the model
+    path. If the commit has no model that loads, the result is the reason, not a tree.
+    """
+    with tempfile.TemporaryDirectory(prefix="systemap-model-") as tmp:
+        into = Path(tmp).resolve()
+        write_tree(cfg.root, sha, into)
+        if not (into / cfg.model).is_file():
+            return f"{cfg.model} is not in the commit {sha[:7]}"
+        try:
+            return nest.load(dataclasses.replace(cfg, root=into))
+        except ConfigError as exc:
+            return f"the model at {sha[:7]} does not load: {exc}"
 
 
 def remote_repository(repo: Path) -> str:
