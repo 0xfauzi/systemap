@@ -232,6 +232,17 @@ function zoomAt(f, cx, cy, instant){
   var k = clampView({k:goal.k * f, tx:goal.tx, ty:goal.ty}).k, g = k / goal.k;
   userView({k:k, tx:cx - g * (cx - goal.tx), ty:cy - g * (cy - goal.ty)}, instant);
 }
+function aboveFoot(t, bt){
+  // On the page, the legend and the readout lie over the foot of the map.
+  // A framing keeps the selection above them, as a sequence step does.
+  var top = bt;
+  (PAGE ? ['map-legend', 'map-context'] : []).forEach(function(id){
+    var n = document.getElementById(id), b = n && !n.hidden && n.getBoundingClientRect
+      ? n.getBoundingClientRect() : null;
+    if(b && b.height > 0 && b.top > (t + bt) / 2 && b.top < top){ top = b.top - 8; }
+  });
+  return top;
+}
 function visibleArea(cover){
   // The part of the figure the reader can see, in viewBox units: the
   // figure's box on screen clipped to the window, less the box the page
@@ -251,6 +262,7 @@ function visibleArea(cover){
     if(cover.side === 'left'){ l = Math.max(l, cover.rect.right + 12); }
     else { r = Math.min(r, cover.rect.left - 12); }
   }
+  bt = aboveFoot(t, bt);
   var p = toVb(l, t), q = toVb(r, bt);
   // `meet` can leave unused space inside the CSS box. The native SVG
   // clips at the viewBox, so that space cannot hold framed content.

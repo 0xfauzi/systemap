@@ -175,7 +175,7 @@ def _panel_text(P: Palette) -> str:
         ".systemap-f{display:flex;flex-direction:column;gap:18px;min-width:0}"
         ".systemap-f>*{margin:0}"
         ".systemap-f__head{display:flex;justify-content:space-between;align-items:center;gap:12px;"
-        "min-height:28px}"
+        "min-height:16px}"
         ".systemap-f__head--room{padding-right:70px}"
         f".systemap-f__eyebrow,.systemap-f__label{{{caps}}}"
         f".systemap-f__clear{{height:28px;padding:0 10px;border:1px solid {P['line_2']};"

@@ -83,7 +83,9 @@ def test_layer_row_is_the_segmented_control_of_the_sequence_toolbar(sample: Samp
 
 def test_zoom_controls_have_icons_and_names(sample: Sample) -> None:
     html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {})
-    zoom = re.search(r'<div class="zoom" role="group" aria-label="Zoom">(.*?data-zoom="fit".*?</button>)', html)
+    zoom = re.search(
+        r'<div class="zoom" role="group" aria-label="Zoom">(.*?data-zoom="fit".*?</button>)', html
+    )
     assert zoom
     buttons = re.findall(r'<button type="button" data-zoom="(\w+)"([^>]*)>(.*?)</button>', zoom[1])
     assert [b[0] for b in buttons] == ["out", "actual", "in", "fit"]
@@ -269,3 +271,27 @@ def test_card_and_label_states_for_pointer_and_focus(sample: Sample) -> None:
     assert "#schematic .flowlbl.peek .flowlbl__chip{stroke:var(--line-2" in html
     # The other cards go a little dim while the pointer is on a card.
     assert "#schematic.card-peek .node:not(.card-lit):not(.quiet):not(.dim){opacity:.6}" in html
+
+
+FOOT = r"""
+function mapfoot(page){
+  const {doc,A}=page,lg=doc.getElementById('map-legend');
+  const bottom=a=>a.y+a.h;
+  const before=A.view.visibleArea(null),top=bottom(before)-40;
+  lg.hidden=false;
+  lg.getBoundingClientRect=()=>({left:24,top:top,right:300,bottom:top+26,width:276,height:26});
+  const after=A.view.visibleArea(null);
+  lg.hidden=true;
+  const hidden=A.view.visibleArea(null);
+  return {before:bottom(before),top:top,after:bottom(after),hidden:bottom(hidden)};
+}
+"""
+
+
+def test_framing_keeps_the_selection_above_the_legend(sample: Sample, tmp_path: Path) -> None:
+    report = run_scenario(sample, tmp_path, "mapfoot", FOOT)
+    top = report["top"]
+    assert isinstance(top, (int, float))
+    # The area for a framing stops 8 pixels above the legend, as a sequence step does.
+    assert report["after"] == top - 8
+    assert report["hidden"] == report["before"]
