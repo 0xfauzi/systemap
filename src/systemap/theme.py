@@ -42,10 +42,10 @@ from systemap.model import Layer
 MARKS = ("ring", "notch", "dotted")
 KIND_MARKS: dict[str, str] = {"agent": "ring", "tool": "notch", "context": "dotted"}
 
-SANS = (
-    'ui-sans-serif,system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,'
-    '"Helvetica Neue",Arial,sans-serif'
-)
+# The page uses the fonts of the computer and loads no font files. `system-ui`
+# gives SF Pro on macOS, Segoe UI on Windows and the desktop font on Linux.
+# Card descriptions use the measured font in `schematic_cards.PLAIN_FONT`.
+SANS = 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
 # ---- Ink (scheme `dark`, the default) -----------------------------------------

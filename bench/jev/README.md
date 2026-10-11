@@ -1683,3 +1683,79 @@ After the merge of 6f6eb27, Previous and Next stay on the 375 x 667 screen for e
 The sequence button needs about 2,300 bytes of script. The line rule removes the sequence arrowheads, the glow rules and the key
 under the step list. The panel styles merge repeated declarations. After the merge of 8e95034, the sample page
 passed with 601 bytes of space. After the merge of 6f6eb27, it passes with 5,585 bytes of space.
+
+## Map page type (2026-10-11)
+
+Acceptance: no text on the page is less than 11px, and running text is 12px or more.
+Card descriptions and card names do not get wider than the measured widths.
+The sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+
+Method: Chromium 141.0.7390.37 (Playwright) at 1440 by 900 and 390 by 844 pixels, in Ink and Paper.
+The audit read the computed style of each visible text element and the font that Chromium used
+(DevTools protocol, `CSS.getPlatformFontsForNode`). The states were the Map view, a selected component,
+a sequence step, Find, the keyboard keys, Text view, Reference, and the phone layout.
+In this container, `system-ui` gives Inter, the monospace font is DejaVu Sans Mono, and Arial gives Liberation Sans 2.1.
+fontTools 4.66.1 measured the font files. The font files came from the npm registry.
+
+Results of the audit on the base page (9defc3d):
+
+- At Fit, the zoom was 75 percent with the panel open. Flow labels, region labels, and container labels
+  showed at 8.2 CSS pixels. Card names showed at 11 and card descriptions at 10.1. This change does not correct these sizes.
+  A label box is 6.1 units for each character. At 11 units, Inter Medium is wider than the box for 2 of 70 labels,
+  and Liberation Sans for 0. At 12 units, the counts are 10 and 2. Thus a larger label needs a new label width rule.
+- The legend ACTS tag was 9px, and the other tags and the phone region labels were 10px.
+- The Find match line and the flow ends in a group panel were 11px running text.
+- The Read button was 14px, and the other header controls were 13px. The page body was 14px, and DESIGN.md gave 13px.
+- The layer names in the guide steps used the monospace font.
+- On the phone, a sequence step showed the 11-unit map text at 5.9 CSS pixels. This change does not correct it.
+
+Width measurements:
+
+- Arimo 400 and Liberation Sans have the same advances as the Arial table for all 95 characters, and no larger overhangs.
+- For the card descriptions of the self-map and the sample, the total width relative to Arial is
+  1.069 for Inter 4, 1.040 for Geist, 1.003 for IBM Plex Sans, 0.933 for Source Sans 3, and 1.133 for DejaVu Sans.
+  With the Inter, Geist, or Source Sans 3 widths, one card gets a different number of lines. With DejaVu Sans, five cards do.
+- DejaVu Sans Mono has 1233 of 2048 units (0.60205 em) for each character. The name advance was 0.602 em
+  and is now 0.6021 em. JetBrains Mono, Geist Mono, IBM Plex Mono, and Liberation Mono have 0.600 em.
+
+Embedded font sizes (WOFF2 bytes / base64 bytes). The subsets keep the kern and tnum features of a sans font.
+
+| Font | Subset | WOFF2 | base64 |
+|---|---|---|---|
+| Inter 4 | Latin, weight 400 to 600 | 21,448 | 28,600 |
+| Inter 4 | ASCII and 5 symbols, weight 400 to 600 | 13,316 | 17,756 |
+| Inter 4 | ASCII and 5 symbols, weight 400 | 7,688 | 10,252 |
+| IBM Plex Sans | Latin, weight 400 to 600 | 22,452 | 29,936 |
+| IBM Plex Sans | ASCII and 5 symbols, weight 400 to 600 | 12,372 | 16,496 |
+| Geist | Latin, weight 400 to 600 | 16,972 | 22,632 |
+| Geist | ASCII and 5 symbols, weight 400 to 600 | 10,856 | 14,476 |
+| Source Sans 3 | Latin, weight 400 to 600 | 17,784 | 23,712 |
+| Source Sans 3 | ASCII and 5 symbols, weight 400 to 600 | 10,752 | 14,336 |
+| JetBrains Mono | Name characters, weight 600 | 3,336 | 4,448 |
+| JetBrains Mono | ASCII and 5 symbols, weight 400 to 600 | 8,044 | 10,728 |
+| Geist Mono | Name characters, weight 600 | 3,512 | 4,684 |
+| IBM Plex Mono | Name characters, weight 600 | 3,312 | 4,416 |
+
+All seven fonts have the SIL Open Font License 1.1. IBM Plex has the Reserved Font Name "Plex",
+and Source Sans 3 has "Source". A subset of these two fonts must have a different name.
+Inter, JetBrains Mono, and Geist have no Reserved Font Name.
+
+The page is 1,055 bytes under the limit, so the page uses only the fonts of the computer.
+The change removes 28 bytes from each of the four sans font declarations and the `.hint` rule,
+and adds `text-wrap-style` to the heading and paragraph rules.
+
+| Page | Before | After |
+|---|---|---|
+| Sample page, no comparison | 306,145 | 306,048 |
+| Self-map page, no comparison, with the same model | 653,205 | 653,108 |
+
+A prepared option, which is not applied, embeds the Inter subset with the ASCII characters and 5 symbols,
+weight 400 to 600, with the copyright and license URL records (17,916 base64 bytes).
+With it, the sample page has 324,177 bytes, 16,977 bytes over the limit.
+For each character, its description width table uses the larger advance of Inter and Arial.
+This table is wider than the Arial table for 78 of 95 characters.
+With this table, five placement tests failed, because the Config description of the workspace fixture
+(49 characters) did not fit on two lines.
+
+The new tests in `tests/test_typography.py` gave 6 failures and 1 pass on the base and 7 passes after the change.
+The full test suite gave 767 passes and 1 skipped test.

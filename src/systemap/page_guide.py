@@ -143,7 +143,7 @@ display:inline-flex;align-items:center;justify-content:center;font:600 11px/1 va
 color:var(--ink-3)}
 .read__step[aria-current="true"] b{border:0;background:var(--accent);color:var(--on-accent)}
 .read__step span{font:13px/18px var(--fs);color:var(--ink)}
-.read__step small{font:12px var(--fm);color:var(--ink-3)}
+.read__step small{font:12px var(--fs);color:var(--ink-3)}
 .read__q{margin:0;font:500 17px/24px var(--fs);color:var(--ink)}
 """
 

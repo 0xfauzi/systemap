@@ -29,8 +29,10 @@ LABEL_GAP = 2.0
 PLAIN_CHARS = 26
 PLAIN_WIDTH = CARD_W - 20
 # ArialMT and Liberation Sans 2.1.5 give these character widths for ASCII 32 through 126.
+# Arimo 400 gives the same widths and no larger overhangs.
 # Each value uses 2048 font units.
 # The CSS requires font-kerning:none and font-variant-ligatures:none.
+PLAIN_FONT = 'Arial,"Liberation Sans",Arimo,sans-serif'
 PLAIN_ADVANCES = (
     569,
     569,
@@ -286,8 +288,10 @@ def card_text(kind: str, cid: str, plain: str) -> tuple[list[str], list[str], li
 NAME_PX_MAX = 14.75
 TEXT_PX_MAX = 13.6
 SIZE_STEPS = 8
-# A mono glyph is 0.602 em wide. The line heights are the board values.
-NAME_ADVANCE = 0.602
+# A mono glyph is 0.6021 em wide or less: DejaVu Sans Mono has 1233 of 2048 units
+# (0.60205 em), and JetBrains Mono and Liberation Mono have 0.600 em.
+# The line heights are the board values.
+NAME_ADVANCE = 0.6021
 NAME_LEADING = 16 / 13
 TEXT_LEADING = 13 / 12
 CARD_PAD = 4.0

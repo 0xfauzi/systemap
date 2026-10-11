@@ -111,7 +111,7 @@ body[data-phone="step"] .phone-full{display:inline-flex;align-items:center}
 .phone-grid button{height:auto;min-height:0;margin:0;text-align:left;font-weight:400}
 .phone-out{display:flex;flex-direction:column;gap:4px;align-items:stretch;padding:10px 8px;
   border:1px solid var(--line-2);border-radius:8px;background:transparent;color:var(--ink)}
-.phone-out__k,.phone-region__name{font:600 10px/14px var(--fm);letter-spacing:.06em;
+.phone-out__k,.phone-region__name{font:600 11px/16px var(--fm);letter-spacing:.02em;
   color:var(--ink-3);overflow-wrap:anywhere}
 .phone-actors{margin-top:6px;display:flex;flex-direction:column;gap:10px}
 .phone-actor{padding:6px 5px;border:1px dashed var(--card-line);border-radius:5px;
@@ -174,7 +174,7 @@ body[data-phone="step"] .phone-full{display:inline-flex;align-items:center}
 .phone-call__roles{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:13px/20px var(--fm);
   color:var(--ink)}
 .phone-call__roles:empty{display:none}
-.phone-tag{font:700 10px/16px var(--fm);letter-spacing:.06em;padding:0 6px;border-radius:3px;
+.phone-tag{font:700 11px/16px var(--fm);letter-spacing:.06em;padding:0 6px;border-radius:3px;
   border:1px solid var(--accent);background:var(--accent);color:var(--on-accent)}
 .phone-tag--meas{margin-left:10px;border-color:var(--steel);background:transparent;
   color:var(--steel)}

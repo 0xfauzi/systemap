@@ -255,7 +255,7 @@ CSS = r"""
 
 /* ---- Changes view: map stage ------------------------------------------- */
 .change-view .stage{top:80px;bottom:24px}
-.map-legend .chg-tag{font-size:9px;line-height:14px;padding:0 4px}
+.map-legend .chg-tag{font-size:11px;line-height:14px;padding:0 4px}
 .lg__line--chg{display:block;width:18px;height:0;border-top:2px dashed var(--change)}
 
 /* ---- the change map: marks, selection and the ordered reveal ------------- */
@@ -339,7 +339,7 @@ CSS = r"""
 .chg-flowpick{border-color:var(--accent)}
 .chg-flowpick__art{margin:0;font-size:13px!important;color:var(--ink-2)}
 .chg-flowpick__art b{color:var(--ink);font-weight:600}
-.chg-tag{display:inline-block;flex:none;font:700 10px/16px var(--fm);letter-spacing:.06em;
+.chg-tag{display:inline-block;flex:none;font:700 11px/16px var(--fm);letter-spacing:.06em;
   padding:0 5px;border-radius:3px;white-space:nowrap}
 .chg-tag--changed{background:var(--change);color:var(--on-change,var(--bg))}
 .chg-tag--tests{border:1px solid var(--change);color:var(--change);line-height:14px}
@@ -347,7 +347,7 @@ CSS = r"""
 .chg-tag--none{border:1px solid var(--line-2);color:var(--ink-3);line-height:14px}
 .chg-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:baseline;
   font:13px/18px var(--fs);color:var(--ink-2)}
-.chg-rows .chg-tag{justify-self:start;font-size:10px;line-height:14px}
+.chg-rows .chg-tag{justify-self:start;font-size:11px;line-height:14px}
 .chg-name{display:inline;min-height:0;height:auto;padding:0;border:0;background:none;
   font:600 13px var(--fm);color:var(--ink);cursor:pointer}
 .chg-name:hover{background:none;text-decoration:underline}

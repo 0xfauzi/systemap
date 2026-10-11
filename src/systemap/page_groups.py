@@ -57,7 +57,7 @@ grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
 .readpanel .fg-flow{display:flex;flex-direction:column;align-items:flex-start}
 .readpanel .fg-flow:hover span{text-decoration:underline;text-underline-offset:3px}
 .readpanel .fg-flow span{font:13px/18px var(--fs);color:var(--ink);overflow-wrap:anywhere}
-.readpanel .fg-flow small{font:11px/15px var(--fm);color:var(--ink-3);overflow-wrap:anywhere}
+.readpanel .fg-flow small{font:12px/16px var(--fm);color:var(--ink-3);overflow-wrap:anywhere}
 .readpanel .fg-open__sum{margin:0;padding-left:30px;font:12px/16px var(--fs);color:var(--ink-3)}
 .readpanel .fg-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 .readpanel .fg-row{display:grid;grid-template-columns:20px auto minmax(0,1fr);gap:10px;

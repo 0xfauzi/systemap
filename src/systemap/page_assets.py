@@ -6,7 +6,7 @@ CSS = r"""
 [hidden]{display:none!important}
 html{scroll-padding-top:1rem}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fs);
-font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100svh}
+font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100svh}
 ::selection{background:var(--hl);color:var(--ink)}
 button,input,select{font:inherit;color:inherit;accent-color:var(--accent)}
 button,summary{cursor:pointer}
@@ -19,8 +19,8 @@ button:disabled:hover{background:transparent}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 a{color:var(--ink);text-underline-offset:3px}
 code,kbd{font-family:var(--fm);font-size:.92em;overflow-wrap:anywhere}
-p{margin:.6rem 0;color:var(--ink-2);overflow-wrap:anywhere}
-h1,h2,h3,h4{line-height:1.3;overflow-wrap:anywhere}
+p{margin:.6rem 0;color:var(--ink-2);overflow-wrap:anywhere;text-wrap-style:pretty}
+h1,h2,h3,h4{line-height:1.3;overflow-wrap:anywhere;text-wrap-style:balance}
 summary{min-height:32px;padding:.4rem 0;color:var(--ink-2)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);
 white-space:nowrap}
@@ -126,7 +126,6 @@ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .readout__more{min-height:0;height:auto;padding:0;border:0;background:transparent;color:var(--ink-2);
 font:12px/16px var(--fs);text-decoration:underline;text-underline-offset:3px}
 .readout__more:hover{background:transparent;color:var(--ink)}
-.hint{font-size:11px;color:var(--ink-3)}
 #linkstatus{position:absolute;left:24px;bottom:44px;z-index:4;margin:0;font-size:12px;
   color:var(--ink-2)}
 #linkstatus:empty{display:none}
