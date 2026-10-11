@@ -510,7 +510,7 @@ SCRIPT = r"""
   var S = {layer:null, open:'', routes:{}, hover:'', focus:null};
   function active(){
     var L = A.state.layer, m = P.mode ? P.mode() : 'understand';
-    return info(L).on && !S.routes[L] && (m === 'understand' || m === 'review')
+    return info(L).on && !S.routes[L] && m === 'understand'
       && !A.state.focus && !A.state.journey && A.state.edge < 0;
   }
   function groupOf(L, key){

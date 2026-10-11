@@ -9,7 +9,7 @@ JS = r"""
   function byId(id){ return document.getElementById(id); }
   var panel = byId('panel'), drawer = byId('drawer'), readpanel = byId('readpanel');
   var empty = byId('inspector-empty'), sourceDetail = byId('source-detail');
-  var reviewDetail = byId('review-detail'), reference = byId('reference');
+  var readMore = byId('read-more');
   var LAY = {};
   A.layers.forEach(function(l){ LAY[l.id] = l; });
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
@@ -42,8 +42,7 @@ JS = r"""
   var hasChange = !!byId('changemap');
   function panelOpen(){
     if(mode === 'change'){ return hasChange && !collapsed; }
-    if(mode !== 'understand' && mode !== 'review'){ return !collapsed; }
-    if(mode === 'review'){ return !collapsed || !!A.state.focus; }
+    if(mode !== 'understand'){ return !collapsed; }
     return readOpen || !!A.state.focus;
   }
   function sections(){
@@ -52,10 +51,9 @@ JS = r"""
     body.dataset.panel = open ? 'open' : 'closed';
     show(readpanel, open);
     show(empty, mode === 'understand' && !focus);
+    show(readMore, mode === 'understand' && !focus);
     show(drawer, focus && mode !== 'change');
     show(byId('journeyindex'), mode === 'trace' && !focus);
-    show(reference, mode === 'review' && !focus);
-    show(reviewDetail, mode === 'review' && !focus);
     show(byId('change-panel'), mode === 'change');
     if(readBtn){ readBtn.setAttribute('aria-pressed', open ? 'true' : 'false'); }
     if(before !== body.dataset.panel){
@@ -104,7 +102,7 @@ JS = r"""
       b.tabIndex = on ? 0 : -1;
     });
     if(layerSelect){ layerSelect.value = id; }
-    if(mode === 'understand' || mode === 'review'){ setTitle('', layerQuestion(id)); }
+    if(mode === 'understand'){ setTitle('', layerQuestion(id)); }
     if(A.state.focus && !restoringView){ frameBeside(A.state.focus); }
     if(changed){ emit('systemap:layer', {layer:id}); }
     emit('systemap:workspace');
@@ -154,8 +152,7 @@ JS = r"""
     body.dataset.mode = name;
     body.dataset.compare = String(hasChange);
     all('button[data-mode]').forEach(function(b){
-      var on = b.dataset.mode === name || (name === 'review' && b.dataset.mode === 'understand');
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.setAttribute('aria-pressed', b.dataset.mode === name ? 'true' : 'false');
     });
     collapsed = false;
     if(TITLES[name]){ setTitle(TITLES[name][0], TITLES[name][1]); }
@@ -164,16 +161,14 @@ JS = r"""
     show(change, name === 'change');
     show(byId('spatialmap'), name !== 'change');
     if(name === 'change' && A.state.focus){ A.clear(); }
-    if(name === 'review'){ renderReview(); }
     if(more){ more.open = false; }
     var label = byId('activity-label');
     if(label){ label.textContent = {understand:'System components', trace:'Operation sequence',
-      change:'Revision comparison', review:'Map records'}[name]; }
+      change:'Revision comparison'}[name]; }
     var activity = byId('activity-question');
     if(activity){ activity.textContent = {
       understand:'What are the components and their connections?',
-      trace:'What are the operation steps?', change:'What did this change touch?',
-      review:'Which decisions and rules apply to this map?'}[name]; }
+      trace:'What are the operation steps?', change:'What did this change touch?'}[name]; }
     sections();
     var M = shownMap();
     if(M && M.view){ showZoom(M.view.zoom(), M.view.isFit()); }
@@ -181,12 +176,7 @@ JS = r"""
     emit('systemap:workspace');
   }
   all('button[data-mode]').forEach(function(b){
-    b.addEventListener('click', function(){
-      if(b.dataset.mode === mode && mode === 'review'){ setMode('understand'); return; }
-      setMode(b.dataset.mode);
-      // Reference shows the records, not a selection from an earlier view.
-      if(b.dataset.mode === 'review' && A.state.focus){ A.clear(); }
-    });
+    b.addEventListener('click', function(){ setMode(b.dataset.mode); });
   });
 
   // ---- search: the Find field and its list of components ---------------------
@@ -251,6 +241,7 @@ JS = r"""
     if(results && !results.hidden && !results.contains(e.target) && e.target !== find){
       closeFind(); }
     if(more && more.open && !more.contains(e.target)){ more.open = false; }
+    if(snap && !snap.parentNode.contains(e.target)){ showSnap(false); }
   });
   all('.ix[data-go], .gv[data-go]').forEach(function(b){
     b.addEventListener('click', function(){
@@ -298,7 +289,7 @@ JS = r"""
     if(P.journey.active() && !A.state.journey){ P.journey.back(); }
   });
   svg.addEventListener('systemap:flow', function(e){
-    if(mode === 'understand' || mode === 'review'){ setLayer(A.edges[e.detail.edge].layer); }
+    if(mode === 'understand'){ setLayer(A.edges[e.detail.edge].layer); }
   });
   // A sequence button anywhere in the panel starts that sequence.
   if(readpanel){ readpanel.addEventListener('click', function(e){
@@ -354,6 +345,26 @@ JS = r"""
   }
   svg.addEventListener('systemap:open', openSubmap);
   if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
+
+  // ---- the stored commit opens the source records of the page ---------------
+  var snap = byId('snap'), snapPop = byId('snap-pop');
+  function showSnap(on){
+    if(!snap || !snapPop || snapPop.hidden === !on){ return false; }
+    snapPop.hidden = !on;
+    snap.setAttribute('aria-expanded', on ? 'true' : 'false');
+    return true;
+  }
+  if(snap){ snap.addEventListener('click', function(){ showSnap(snapPop.hidden); }); }
+
+  // ---- all rules, in the panel of the Map view ------------------------------
+  P.showRule = function(n){
+    if(mode !== 'understand'){ setMode('understand'); }
+    if(A.state.focus){ A.clear(); }
+    P.openPanel();
+    var rules = byId('invariants'), row = byId('rule-' + n);
+    if(rules){ rules.open = true; }
+    if(row){ row.scrollIntoView({block:'center'}); row.focus({preventScroll:true}); }
+  };
 
   // ---- the scheme -------------------------------------------------------
   // The head script stamped the root before the first paint; the buttons
@@ -428,11 +439,11 @@ JS = r"""
   }
   function escape(e){
     if(more && more.open){ more.open = false; e.preventDefault(); return; }
+    if(showSnap(false)){ snap.focus(); e.preventDefault(); return; }
     if(P.journey.active()){ P.journey.end(); e.preventDefault(); return; }
     if(A.state.focus){ A.clear(); A.view.back(); e.preventDefault(); return; }
     if(readOpen && mode === 'understand'){ readOpen = false; sections(); e.preventDefault();
       return; }
-    if(mode === 'review'){ setMode('understand'); e.preventDefault(); return; }
     A.view.back();
   }
   function letter(e){
@@ -460,7 +471,7 @@ JS = r"""
       if(e.target && e.target.closest && e.target.closest('#readpanel')){ return; }
       var d = e.key === 'ArrowRight' ? 1 : -1;
       if(P.journey.active()){ if(P.journey.stepBy(d)){ e.preventDefault(); } }
-      else if(mode === 'understand' || mode === 'review'){ stepLayer(d); e.preventDefault(); }
+      else if(mode === 'understand'){ stepLayer(d); e.preventDefault(); }
       return;
     }
     if(letter(e)){ e.preventDefault(); }
@@ -550,74 +561,6 @@ JS = r"""
   }); }
   ['systemap:step', 'systemap:workspace'].forEach(function(name){
     svg.addEventListener(name, stepEvidence); });
-
-  // ---- reference: decisions ----------------------------------------------
-  var reviewFilter = 'open', reviewPick = -1;
-  function reviewCards(line){
-    return Object.keys(W.sources || {}).filter(function(id){
-      // Match identifiers as tokens, including hyphenated or dotted card names.
-      var safe = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp('(^|[^A-Za-z0-9_.-])' + safe + '($|[^A-Za-z0-9_.-])').test(line);
-    });
-  }
-  function pickReview(k){
-    reviewPick = k;
-    var item = W.review[reviewFilter][k];
-    if(!item){ return; }
-    var label = reviewFilter === 'open' ? 'Decision to make' : 'Recorded decision';
-    var h = '<p class="review-kicker">' + esc(label)
-      + '</p><h2>' + esc(item.kind) + '</h2><div class="review-line">'
-         + esc(item.line) + '</div>'
-      + '<p>' + esc(item.means) + '</p><p>' + esc(item.why) + '</p>';
-    if(item.reasons.length){
-      h += '<h3>Answer explanation</h3>' + item.reasons.map(function(r){
-        return '<p class="review-reason">' + esc(r) + '</p>';
-      }).join('');
-    } else { h += '<h3>What to do</h3><p>' + esc(item.do) + '</p>'; }
-    h += '<div class="review-cards">' + reviewCards(item.line).map(function(id){
-      return '<button type="button" data-inspect="' + esc(id) + '">Examine ' + esc(id)
-         + '</button>';
-    }).join('') + '</div><p>Keep the finding text unchanged when you record an answer in '
-      + '<code>[judgement] answered</code>. Run <code>systemap judgement</code> against the '
-      + 'working tree before you make a decision.</p>';
-    reviewDetail.innerHTML = h;
-    all('[data-inspect]', reviewDetail).forEach(function(b){
-      b.addEventListener('click', function(){ A.select(b.dataset.inspect); });
-    });
-    all('[data-review-item]').forEach(function(b){
-      b.setAttribute('aria-pressed', +b.dataset.reviewItem === k ? 'true' : 'false');
-    });
-  }
-  function renderReview(){
-    if(!W.review){ return; }
-    var items = W.review[reviewFilter];
-    byId('reviewlist').innerHTML = items.map(function(item, k){
-      return '<button type="button" class="review-choice" data-review-item="' + k
-        + '" aria-pressed="false">' + esc(item.kind) + '<small>' + esc(item.line)
-         + '</small></button>';
-    }).join('') || '<p>' + (reviewFilter === 'open' ? 'This map has no findings without answers. '
-      + 'A person must still examine the map claims.'
-      : 'These findings have no applicable stored answers.') + '</p>';
-    all('[data-review-item]').forEach(function(b){
-      b.addEventListener('click', function(){
-        A.clear(); pickReview(+b.dataset.reviewItem); sections();
-      });
-    });
-    reviewDetail.innerHTML = '<h2>Read the decisions.</h2>'
-      + '<p>Select a finding to read its explanation and the necessary action. '
-      + 'Answered findings contain the recorded explanation. Jev audits and checks of the working '
-      + 'tree are separate commands.</p>';
-    if(items.length){ pickReview(Math.max(0, Math.min(reviewPick, items.length - 1))); }
-  }
-  all('[data-review-filter]').forEach(function(b){
-    b.addEventListener('click', function(){
-      reviewFilter = b.dataset.reviewFilter; reviewPick = -1;
-      all('[data-review-filter]').forEach(function(x){
-        x.setAttribute('aria-pressed', x.dataset.reviewFilter === reviewFilter ? 'true' : 'false');
-      });
-      A.clear(); renderReview(); sections();
-    });
-  });
 
   // ---- copy a command -------------------------------------------------------
   // The button says Copied for a short time; the status line says it too.

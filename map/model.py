@@ -448,7 +448,6 @@ _FLOW_REVIEWS = {
     'Model -> SecondOpinion': ('systemap.model systemap.audit', 'a584bbc52c30cea9087b67eea05a1578718206f9db6502b14dbe483a6f01ff89'),
     'Judgement -> ChangeDetector': ('systemap.judgement systemap.explain systemap.delta systemap.delta_report', '635dc1267e2c7f60a011c8f74bb9d0d57fc4f0b3699870c0a99973e2a4aed8ae'),
     'FactsExtractor -> Page': ('systemap.extract systemap.page_data', '7457dc4b890eeffa8a45025e43d28cbab8c40190270b48500cc54d650334b54d'),
-    'Judgement -> Page': ('systemap.judgement systemap.page_data', '2aa45cca1e666e51ced40a26ec1909c4d36aad1cec06c796b942b261635e45ce'),
 }
 # fmt: on
 
@@ -539,7 +538,6 @@ FLOWS = tuple(
         Flow("Maintainer", "Model", "corrections", "judge"),
         Flow("Model", "Judgement", "model", "judge"),
         Flow("Judgement", "Check", "finding explanations", "judge"),
-        Flow("Judgement", "Page", "findings and reasons", "judge"),
         Flow("Judgement", "Agent", "second-pass list", "judge"),
         Flow("Judgement", "Maintainer", "judgement answers", "judge"),
         Flow("Model", "SecondOpinion", "cards, sentences", "judge"),
@@ -727,7 +725,6 @@ _RELATIONS = {
     "Router -> Describe": "Describe shows spaces between cards and the number of label positions in each space.",
     "Schematic -> Page": "The page contains the SVG and JSON data for the interaction script.",
     "FactsExtractor -> Page": "The page shows stored source records for a selected component. Imports show connections, not evidence for the flow explanation.",
-    "Judgement -> Page": "The page keeps exact finding identifiers and accepted answer explanations from judgement.",
     "Schematic -> Figures": "A figure contains the same SVG in an HTML figure element or as an SVG image.",
     "Schematic -> Check": "The check makes the diagram and reads its geometry: paths, labels and text sizes.",
     "Schematic -> Describe": "describe makes the diagram and reads geometry for regions, flows, spaces and layers.",

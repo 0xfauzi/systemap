@@ -866,12 +866,7 @@ function workspace(page) {
   search.value = 'nothing-matches-this-query';
   search.dispatchEvent(new EventImpl('input', {bubbles: true}));
   report.emptySearch = !doc.getElementById('searchempty').hidden;
-  doc.querySelector('button[data-mode="review"]').click();
-  report.comparisonPrompt = doc.querySelector('.commands').textContent.includes('systemap render --base REF');
-  report.reviewItems = doc.querySelectorAll('[data-review-item]').length;
-  if (report.reviewItems) {
-    doc.querySelector('[data-review-item]').click();
-    report.findingText = doc.getElementById('review-detail').textContent;
-  }
+  // A page without a comparison gives the command that makes one.
+  report.comparisonPrompt = doc.getElementById('change').textContent.includes('systemap render --base REF');
   return report;
 }

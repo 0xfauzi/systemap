@@ -67,7 +67,7 @@ def zoom() -> str:
 
 CSS = r"""
 /* ---- the Map view: the layer row and the panel for a layer --------------- */
-body:not([data-mode="understand"]):not([data-mode="review"]) .layer-controls,
+body:not([data-mode="understand"]) .layer-controls,
 body[data-phone] .layer-controls{display:none}
 .seq-seg button:focus-visible{outline-offset:-3px}
 .lay{display:flex;flex-direction:column;gap:14px}
@@ -97,7 +97,7 @@ SCRIPT = r"""
     return document.documentElement.dataset.reduceMotion === 'true' ||
       !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
-  function mapMode(){ var m = P.mode(); return m === 'understand' || m === 'review'; }
+  function mapMode(){ return P.mode() === 'understand'; }
 
   // ---- the title block: the layer name and its position ----------------------
   function eyebrow(){
