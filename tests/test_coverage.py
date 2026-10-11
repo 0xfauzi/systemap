@@ -229,6 +229,31 @@ def test_an_ignore_that_names_only_markers_is_not_needed(
     assert "coverage: 3 of 3 modules mapped, 1 an empty package marker" in out
 
 
+def test_an_ignore_for_a_claimed_module_is_not_needed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scaffold(tmp_path)
+    ignore(tmp_path, '{ module = "pkg.reader", reason = "a component also claims it" }')
+    assert run("--root", str(tmp_path), "check") == 1
+    out = capsys.readouterr().out
+    assert (
+        "ignore is not necessary: pkg.reader has a component claim. Remove the ignore entry."
+    ) in out
+    assert "Remove each ignore entry that a line identifies as not necessary" in out
+
+
+def test_a_pattern_ignore_that_also_covers_unclaimed_modules_is_kept(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scaffold(tmp_path)
+    write_tree(tmp_path, {"pkg/extra.py": "def extra() -> None:\n    pass\n"})
+    assert run("--root", str(tmp_path), "extract") == 0
+    ignore(tmp_path, '{ module = "pkg.*", reason = "the unclaimed modules are scratch files" }')
+    assert run("--root", str(tmp_path), "refresh") == 0
+    assert run("--root", str(tmp_path), "check") == 0
+    assert "ignore is not necessary" not in capsys.readouterr().out
+
+
 def test_subtree_ignore_glob(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """`module = "pkg.sub.*"` ignores the subtree; its marker is a marker, the rest ignored."""
     scaffold(tmp_path)

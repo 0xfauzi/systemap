@@ -374,9 +374,9 @@ def test_the_schemes_are_ink_and_paper_and_the_default_is_ink() -> None:
         "#66625A",
     )
     assert (ink["layers"]["data"], ink["layers"]["control"], ink["layer_palette"][0]) == (
-        "#86CDFF",
-        "#C287BC",
-        "#6C9455",
+        "#2CB59A",
+        "#B97874",
+        "#8A8B22",
     )
     assert (paper["bg"], paper["surface"], paper["map"], paper["card"]) == (
         "#ECE8DE",
@@ -391,9 +391,9 @@ def test_the_schemes_are_ink_and_paper_and_the_default_is_ink() -> None:
         "#1D1B17",
     )
     assert (paper["layers"]["data"], paper["layers"]["control"], paper["layer_palette"][0]) == (
-        "#116BB5",
-        "#491A70",
-        "#34591B",
+        "#014438",
+        "#A05B5A",
+        "#493901",
     )
 
 

@@ -295,7 +295,14 @@ def _write_journeys(
         return STALE
     print(*out, sep="\n")
     writer_usage(writer)
-    return OK
+    return _written_code(take, written)
+
+
+def _written_code(
+    take: list[tuple[nest.Map, journeys.Group]], written: dict[Path, list[str]]
+) -> int:
+    """The command fails when it had sequences to write and wrote none."""
+    return OK if written or not take else STALE
 
 
 def _record_journey(

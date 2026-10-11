@@ -23,14 +23,14 @@ colors:
   dark-change: "#D4675B"
   dark-on-change: "#1E0904"
   dark-steel: "#BEB8AC"
-  dark-data: "#86CDFF"
-  dark-control: "#C287BC"
-  dark-context: "#049886"
-  dark-tools: "#D1F1B2"
-  dark-custom-1: "#6C9455"
-  dark-custom-2: "#C7F1D3"
-  dark-custom-3: "#FDD3EF"
-  dark-custom-4: "#9798F9"
+  dark-data: "#2CB59A"
+  dark-control: "#B97874"
+  dark-context: "#D1EC9F"
+  dark-tools: "#8A8708"
+  dark-custom-1: "#8A8B22"
+  dark-custom-2: "#DCE8B8"
+  dark-custom-3: "#C6ED9F"
+  dark-custom-4: "#7C9128"
   light-bg: "#ECE8DE"
   light-surface: "#F1EEE6"
   light-raised: "#E6E1D5"
@@ -52,14 +52,14 @@ colors:
   light-change: "#AC312A"
   light-on-change: "#FFFFFF"
   light-steel: "#4B4740"
-  light-data: "#116BB5"
-  light-control: "#491A70"
-  light-context: "#05544A"
-  light-tools: "#6F650D"
-  light-custom-1: "#34591B"
-  light-custom-2: "#80586D"
-  light-custom-3: "#4B0634"
-  light-custom-4: "#65508E"
+  light-data: "#014438"
+  light-control: "#A05B5A"
+  light-context: "#497B15"
+  light-tools: "#544002"
+  light-custom-1: "#493901"
+  light-custom-2: "#3D7C23"
+  light-custom-3: "#5C5C01"
+  light-custom-4: "#71640B"
   brand: "#F2B33D"
 typography:
   body:
@@ -199,13 +199,20 @@ The measurement uses these limits for each pair of colors that can show on one v
 Text has a contrast ratio of 4.5:1 or more on the page, panel, map, and card colors.
 A flow kind color has 4.5:1 or more on the map and the card. Other lines have 3:1 or more on the map.
 
+No flow kind color has an OKLCH hue from 180 to 350 degrees, in either theme.
+This hue range contains cyan, blue, violet, purple, and magenta.
+The kind colors are teal green, clay, pale green, olive, and other yellow-green colors.
+Each kind has the same hue family in Ink and Paper.
+
 The measured limit is four flow kind colors on one view. The page does not apply this limit.
 In both themes, the data, control, context, and tools colors are in these limits on one view.
+In both themes, the data, control, and first custom kind colors are in these limits on one view.
 In Ink, the data, control, and two custom kind colors are in these limits on one view.
 In Paper, a second custom kind color next to data, control, and the first custom kind is not in these limits.
-In Paper, five flow kind colors on one view are not in these limits.
-In Ink, five flow kind colors are in these limits only with a very bright context color.
-The theme does not use that color.
+In both themes, five flow kind colors on one view are not in these limits.
+In both themes, the first custom kind color is near the tools color.
+The second custom kind color is near the context color.
+A view that shows one of these pairs does not have distinct colors for them.
 
 ## Navigation and layout
 

@@ -106,8 +106,10 @@ repos:
       # containing model-authored typos, render-probe results quote raw tesseract
       # OCR misreads (the misread IS the measurement), and E40's manual results
       # quote source documents verbatim, truncated mid-word to fit a table.
+      # docs/map/map.json is generated: the extractor cuts each constant value
+      # at a fixed length, so a cut can stop inside a word (SOURC from SOURCE).
       - id: codespell
-        exclude: '^scripts/precommit/|^experiments/(taste-spike|walking-skeleton)/out/|^fixtures/sources/|^experiments/(E[0-9]+|render-probes)/results.*\.json$|^experiments/E40/manual-results\.md$|^bench/jev/(results|data)/'
+        exclude: '^scripts/precommit/|^experiments/(taste-spike|walking-skeleton)/out/|^fixtures/sources/|^experiments/(E[0-9]+|render-probes)/results.*\.json$|^experiments/E40/manual-results\.md$|^bench/jev/(results|data)/|^docs/map/map\.json$'
 
   - repo: https://github.com/jendrikseipp/vulture
     rev: v2.16

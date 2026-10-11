@@ -54,7 +54,7 @@ mode = "system"
 interactive = false
 
 # [theme]
-# accent = "#5DADE2"
+# accent = "#D98E04"
 """
 
 MODEL = '''# ruff: noqa: E501

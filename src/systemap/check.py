@@ -183,6 +183,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
                 f"ignore is not necessary: {ignore.module} is an empty package marker. The "
                 f"coverage rule omits it automatically. Remove the ignore entry."
             )
+    problems += _claimed_ignores(model, modules, markers, ignore_list)
     ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
     mapped = n_ignored = n_markers = 0
     for m in modules:
@@ -203,6 +204,22 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
         else:
             problems.append(f"unmapped: {m} (no component has this module claim)")
     return Coverage(True, mapped, len(modules), n_ignored, tuple(problems), n_markers)
+
+
+def _claimed_ignores(
+    model: Model, modules: list[str], markers: set[str], ignores: list[Ignore]
+) -> list[str]:
+    """This function finds an ignore entry whose modules all have a component claim."""
+    claims = [p for c in model.components for p in c.implemented_by]
+    out = []
+    for ignore in ignores:
+        matched = [m for m in modules if module_matches(ignore.module, m) and m not in markers]
+        if matched and all(any(module_matches(p, m) for p in claims) for m in matched):
+            out.append(
+                f"ignore is not necessary: {ignore.module} has a component claim. "
+                f"Remove the ignore entry."
+            )
+    return out
 
 
 # The coverage of a map inside a card: nothing, on record.
@@ -725,7 +742,8 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         if cov.problems:
             out.append(
                 f"  fix: Give each module a component in {model_file}, or give a reason to "
-                f"ignore it in [coverage] in the configuration."
+                f"ignore it in [coverage] in the configuration. Remove each ignore entry "
+                f"that a line identifies as not necessary or missing from the facts."
             )
     else:
         out.append("coverage: No facts are available for the check. Use systemap extract.")

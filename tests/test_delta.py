@@ -318,12 +318,12 @@ def test_nothing_to_do_and_no_change_exit_zero(
     git(repo, "commit", "-q", "-am", "body")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
-    assert "1 modules changed, 0 added, 0 removed, 0 moved. 1 of 6 components specified" in out
+    assert "1 module changed, 0 added, 0 removed, 0 moved. 1 of 6 components specified" in out
     assert "source review: Writer has changed code in pkg.writer" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")
-    assert "the map has no source-fact change" in out
+    assert "The map has no source-fact change" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD", "--format", "markdown"]) == 0
     assert "No module changed" in capsys.readouterr().out
 

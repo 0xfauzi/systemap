@@ -25,8 +25,9 @@ def _label(ref: str, sha: str) -> str:
 
 
 def _counts(d: Delta) -> str:
+    modules = "module" if d.changed == 1 else "modules"
     return (
-        f"{d.changed} modules changed, {d.added} added, {d.removed} removed, {d.moved} "
+        f"{d.changed} {modules} changed, {d.added} added, {d.removed} removed, {d.moved} "
         f"moved. {len(d.named)} of {d.cards} components specified"
     )
 
@@ -45,7 +46,7 @@ def report(d: Delta, teach: bool = True) -> list[str]:
     span = f"{_label(d.base_ref, d.base)} -> {_label(d.head_ref, d.head)}"
     if not d.has_change:
         pair = f"{_label(d.base_ref, d.base)} and {_label(d.head_ref, d.head)}"
-        return [f"delta: no module changed between {pair}. the map has no source-fact change"]
+        return [f"delta: no module changed between {pair}. The map has no source-fact change"]
     out = [f"delta: {span}: {_counts(d)}"]
     # One report teaches a kind once, whichever group it first appears in.
     taught: set[str] = set()

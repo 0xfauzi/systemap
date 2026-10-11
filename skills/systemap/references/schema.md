@@ -256,7 +256,7 @@ Theme overrides use `[theme]` or `[theme.<scheme>]`:
 [theme]
 scheme = "dark"
 [theme.layers]
-record = "#6C9455"
+record = "#8A8B22"
 [theme.light]
 accent = "#1D1B17"
 ```

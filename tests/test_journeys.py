@@ -264,7 +264,7 @@ def test_a_walk_the_map_cannot_hold_is_reported_and_the_model_is_left_alone(
     bad = {**ANSWER, "steps": [{**ANSWER["steps"][0], "edge": ["Writer", "Reader"]}]}
     before = cfg.model_path.read_text(encoding="utf-8")
     run, _asked = answering(json.dumps(bad))
-    assert cmd_journeys(args_for(cfg), run_command=run) == 0
+    assert cmd_journeys(args_for(cfg), run_command=run) == 1, "no sequence was written"
     out = capsys.readouterr().out
     assert "no sequence written for GET /read (route)" in out
     assert "which is not a flow" in out

@@ -1255,3 +1255,57 @@ the same computer, so the times are approximate. The profile is one more run und
 enter `node_modules`, and the tsconfig input walk starts at the fixed directory of each
 `include` pattern. The fixture has 11 modules before the change and 10 after it, because a
 file in `__tests__` is now a test file.
+
+## Flow kind colors without blue or purple (2026-10-11)
+
+The maintainer asked for no blue and no purple in the page.
+The excluded band is OKLCH hue 180 to 350 degrees for a color with chroma 0.02 or more.
+The band 195 to 335 lets through named cyan, aqua, teal (194.8) and turquoise (185.1),
+and medium violet red (349.7), so the band is wider.
+
+Acceptance (written before the runs): every pair of colors that can show on one view has
+CIEDE2000 25 or more with normal vision and 12 or more with protanopia, deuteranopia and
+tritanopia (Brettel). Each kind color has a contrast of 4.5:1 or more on the map and card, and
+3:1 or more on the page, panel and raised colors. No kind hue is in the band. The Ink and Paper
+hues of a kind differ by 20 degrees or less. Required view sets: data, control, context and
+tools (set A) and data, control and custom 1 (set S) in both themes, data, control, custom 1
+and custom 2 (set B) in Ink, and change, neutral line and selection (set CH).
+
+A search in OKLCH found the values. The first Paper control value, `#855762`, has hue 4, which
+is near pale violet red, and can look mauve. A second search kept the other values and changed
+only Paper control to hue 20 to 43. It found 8 values that pass sets A and S. The page uses
+`#A05B5A` (hue 21).
+
+| Kind | Ink | Paper | Ink hue | Paper hue |
+|---|---|---|---|---|
+| data | `#2CB59A` | `#014438` | 176 | 176 |
+| control | `#B97874` | `#A05B5A` | 23 | 21 |
+| context | `#D1EC9F` | `#497B15` | 124 | 133 |
+| tools | `#8A8708` | `#544002` | 108 | 88 |
+| custom 1 | `#8A8B22` | `#493901` | 110 | 91 |
+| custom 2 | `#DCE8B8` | `#3D7C23` | 119 | 138 |
+| custom 3 | `#C6ED9F` | `#5C5C01` | 130 | 110 |
+| custom 4 | `#7C9128` | `#71640B` | 120 | 100 |
+
+| Theme | Set | Lowest pair | Value (limit) | Result |
+|---|---|---|---|---|
+| Ink | A | context / selection, deutan | 12.3 (12) | pass |
+| Ink | B | data / custom 2, normal | 25.6 (25) | pass |
+| Ink | S | custom 1 / neutral line, normal | 25.6 (25) | pass |
+| Ink | CH | change / neutral line, protan | 12.1 (12) | pass |
+| Ink | data, control, custom 3 | data / custom 3, normal | 24.5 (25) | fail |
+| Paper | A | control / neutral line, normal | 25.4 (25) | pass |
+| Paper | S | control / neutral line, normal | 25.4 (25) | pass |
+| Paper | CH | change / neutral line, normal | 32.2 (25) | pass |
+| Paper | B | control / custom 2, deutan | 10.5 (12) | fail |
+| Paper | data, control, custom 4 | control / custom 4, tritan | 12.0 (12) | fail |
+
+The lowest kind contrast on the map or card is 4.58:1 (Paper control on the map).
+Five kinds on one view fail in both themes. Custom 1 is near tools (CIEDE2000 2.4 in Ink and 3.0
+in Paper) and custom 2 is near context (6.4 and 3.1). Without blue, Ink has four color positions
+that pass together, so the custom kinds repeat two standard kinds. The custom 3 and custom 4 hues
+differ by 20.2 and 20.3 degrees between the themes, above the 20 degree limit.
+
+Compared with the earlier palette: Ink still shows four kinds on one view. Paper still shows data,
+control and one custom kind, and not a second custom kind. The first search value `#855762` passed
+Paper set B. The page does not use it, because it can look mauve.
