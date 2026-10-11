@@ -147,10 +147,8 @@ function stepsHtml(j){
   }).join('');
   return '<div class="seq-row"><p class="seq-kicker">SEQUENCE</p><span class="seq-count">'
     + plural(j.steps.length, 'step') + '</span></div>' + headHtml('', j, meta(cur.j))
-    + '<ol class="seq-steps">' + items + '</ol><div class="seq-key"><i class="now"></i>'
-    + '<span>This step</span><i class="was"></i><span>Steps before this step</span>'
-    + '<i class="later"></i><span>Steps after this step</span></div><p class="seq-note">The '
-    + 'model gives the order of these steps. It is not a record of program execution.</p>';
+    + '<ol class="seq-steps">' + items + '</ol><p class="seq-note">The model gives the order '
+    + 'of these steps. It is not a record of program execution.</p>';
 }
 function syncStrip(){
   var j = J(), st = j && cur.view === 'steps' ? j.steps[cur.s] : null;
@@ -409,18 +407,25 @@ P.readoutFor.push(function(){
   return parts.join(' · ');
 });
 function lg(mark, text){ return '<span class="lg">' + mark + esc(text) + '</span>'; }
+function kindsLg(j){
+  // The color of a line is its flow kind, as on the Map view.
+  var on = {};
+  j.steps.forEach(function(st){ var e = edgeOf(st); if(e){ on[e.layer] = true; } });
+  return A.layers.filter(function(l){ return on[l.id]; }).map(function(l){
+    return lg('<i class="lg__line" style="--c:' + l.colour + '"></i>', l.label); }).join('');
+}
 P.legendFor.push(function(){
   if(!shownNow()){ return null; }
-  var j = J();
+  var j = J(), h = kindsLg(j);
   if(cur.view !== 'steps'){
-    return lg('<i class="seq-lg-line"></i>', 'Route') + lg('<i class="seq-lg-n">1</i>', 'Step')
+    return h + lg('<i class="seq-lg-n">1</i>', 'Step')
       + lg('<i class="seq-tag seq-tag--start">START</i>', 'Entry point')
       + lg('<i class="seq-lg-quiet"></i>', 'Not in this sequence');
   }
-  var st = j.steps[cur.s], h = lg('<i class="seq-lg-line seq-lg-line--now"></i>', 'This step');
-  if(cur.s > 0){ h += lg('<i class="seq-lg-line seq-lg-line--was"></i>', 'Before'); }
+  var st = j.steps[cur.s];
+  h += lg('<i class="lg__line seq-lg-now"></i>', 'This step');
   if(cur.s < j.steps.length - 1 && !presenting){
-    h += lg('<i class="seq-lg-line seq-lg-line--later"></i>', 'After'); }
+    h += lg('<i class="lg__line seq-lg-later"></i>', 'After'); }
   if((st.acts || []).length){
     h += lg('<i class="seq-tag seq-tag--acts">ACTS</i>', 'Acting component'); }
   if((st.measures || []).length){

@@ -42,17 +42,15 @@ transition:transform .16s ease-out,fill-opacity .16s ease-out}
 filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 55%,transparent))}
 :root[data-theme="light"] #schematic :is(.node.sel,.node.acts) .node__box{
 filter:drop-shadow(0 0 6px var(--hl))}
-/* ---- a selected line and the current step line glow --------------------- */
-#schematic .flow.hot,#schematic .seq-line--now,#schematic .seq-line--route{
-filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--accent) 60%,transparent))}
-:root[data-theme="light"] #schematic :is(.flow.hot,.seq-line--now,.seq-line--route){
-filter:drop-shadow(0 0 3px var(--hl))}
+/* ---- the halo under the selected line and the current step line ---------- */
+/* The line keeps its kind color. Ink: amber. Paper: the yellow highlighter. */
+:root:not([data-theme="light"]) #schematic .flowhl{stroke:var(--accent);stroke-opacity:.3}
 
 /* ---- a card under the pointer shows its lines and the cards at their ends -- */
 #schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out,
 stroke-width .14s ease-out}
 #schematic.card-peek .flow:not(.card-lit){stroke-opacity:.18}
-#schematic.card-peek .flow.card-lit{stroke-width:2.2}
+#schematic.card-peek .flow.card-lit{stroke-width:2.6}
 #schematic.card-peek .flowlbl:not(.card-lit){opacity:.25}
 #schematic.card-peek .node:not(.card-lit):not(.quiet):not(.dim){opacity:.6}
 

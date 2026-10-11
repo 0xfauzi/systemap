@@ -19,16 +19,16 @@ from systemap.model import Box, Journey, Meaning, Model
 GLYPH_W, GLYPH_H = 72.0, 52.0
 MISSING_SHOWN = 5
 
-# The route on the map. Sizes are in map units: about 0.9 units for one board pixel.
+# The route on the map. A line keeps the color of its flow kind and the width of a
+# map line: 1.6 px. The current step is the selected line of the map: 2.6 px over
+# the halo. Later steps are at 40 percent opacity. The other sizes are in map
+# units: about 0.9 units for one board pixel.
 MARKS_CSS = r"""
 /* ---- the route on the map ------------------------------------------------ */
 #schematic .seq-lines,#schematic .seq-marks{pointer-events:none}
-#schematic .seq-line{fill:none;stroke-linecap:round;stroke-linejoin:round}
-#schematic .seq-line--route{stroke:var(--accent);stroke-width:2.2}
-#schematic .seq-line--was{stroke:var(--ink-2);stroke-width:1.6}
-#schematic .seq-line--later{stroke:var(--ink-3);stroke-width:1.3;opacity:.5}
-#schematic .seq-head--was{fill:var(--ink-2)}
-#schematic .seq-head--later{fill:var(--ink-3)}
+#schematic .seq-line{fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+vector-effect:non-scaling-stroke}
+#schematic .seq-line--later{opacity:.4}
 #schematic .seq-pill__bg{fill:var(--map)}
 #schematic .seq-pill circle{fill:var(--map);stroke:var(--ink-2);stroke-width:1}
 #schematic .seq-pill text{font-family:var(--fs);font-size:13.6px;fill:var(--ink-2)}
@@ -39,7 +39,7 @@ MARKS_CSS = r"""
 stroke:var(--map);stroke-width:2}
 #schematic .seq-pill--route .seq-pill__n,#schematic .seq-pill--now .seq-pill__n{
 fill:var(--on-accent);font-weight:700}
-#schematic .seq-pill--route text{fill:var(--accent);font-weight:600}
+#schematic .seq-pill--route text{fill:var(--ink);font-weight:600}
 #schematic .seq-tagm rect{fill:var(--accent)}
 #schematic .seq-tagm text{font:700 11.4px var(--fm);letter-spacing:.06em;fill:var(--on-accent);
 text-anchor:middle}
@@ -64,7 +64,6 @@ justify-content:center;font:700 12.5px/1 var(--fm)}
 #schematic .seq-co .seq-co__ft{font:12.5px/17px var(--fm);color:var(--ink-3)}
 #schematic .node.dim.seq-route{opacity:1}
 body[data-mode="trace"] #schematic .flowlbl{display:none}
-body[data-mode="trace"] #schematic .flow.hot{stroke-width:3}
 body[data-mode="trace"] #schematic .node.endpoint:not(.acts):not(.meas) .node__box{
 stroke:var(--card-line);stroke-width:1.1}
 body[data-mode="trace"] #schematic .node.endpoint.meas:not(.acts) .node__box{stroke:var(--steel);
@@ -180,21 +179,15 @@ padding:0 3px;margin-left:-3px;border-radius:2px}
 letter-spacing:.06em;padding:0 6px;border-radius:3px;white-space:nowrap}
 .seq-tag--acts,.seq-tag--start{background:var(--accent);color:var(--on-accent);line-height:18px}
 .seq-tag--meas{border:1px solid var(--steel);color:var(--steel)}
-.seq-key{display:grid;grid-template-columns:28px 1fr;gap:8px 10px;align-items:center;
-padding-top:12px;border-top:1px solid var(--line);font:12px/16px var(--fs);color:var(--ink-2)}
-.seq-key i{display:block;border-top:1px solid var(--ink-3)}
-.seq-key i.now{border-top:3px solid var(--accent)}
-.seq-key i.was{border-top:2px solid var(--ink-2)}
-.seq-key i.later{opacity:.6}
 .seq-more{border-top:1px solid var(--line);padding-top:4px}
 .seq-more>summary{font-size:12px;color:var(--ink-3)}
 .readpanel .seq-more p{font-size:12px;line-height:18px}
 
 /* ---- legend marks -------------------------------------------------------- */
-.seq-lg-line{display:block;width:22px;border-top:2px solid var(--accent)}
-.seq-lg-line--now{width:18px;border-top-width:3px}
-.seq-lg-line--was{width:18px;border-top-color:var(--ink-2)}
-.seq-lg-line--later{width:18px;border-top:1px solid var(--ink-3);opacity:.6}
+.seq-lg-now{border-top-width:3px;
+box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+:root[data-theme="light"] .seq-lg-now{box-shadow:0 0 0 3px var(--hl)}
+.seq-lg-later{opacity:.4}
 .seq-lg-n{width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--on-accent);
 display:inline-flex;align-items:center;justify-content:center;font:700 10px/1 var(--fm);
 font-style:normal}
@@ -408,7 +401,6 @@ function mk(name, attrs, text){
   return e;
 }
 function empty(node){ while(node && node.firstChild){ node.removeChild(node.firstChild); } }
-var defs = svg.querySelector('defs');
 var flowLayer = svg.querySelector('.view > g[data-layer="flow"]')
   || svg.querySelector('g[data-layer="flow"]');
 var tagLayer = svg.querySelector('g[data-layer="tags"]') || svg.querySelector('.view');
@@ -418,15 +410,6 @@ var gauge = mk('g', {visibility:'hidden', 'aria-hidden':'true'}), gaugeText = mk
 gauge.appendChild(gaugeText);
 if(flowLayer){ flowLayer.appendChild(lines); }
 if(tagLayer){ tagLayer.appendChild(marks); tagLayer.appendChild(gauge); }
-function arrowhead(id, cls){
-  if(!defs){ return; }
-  var m = mk('marker', {id:svg.id + '-m-' + id, viewBox:'0 0 8 8', refX:7, refY:4,
-    markerUnits:'userSpaceOnUse', markerWidth:9, markerHeight:9, orient:'auto-start-reverse'});
-  m.appendChild(mk('path', {d:'M0,0 L8,4 L0,8 z', 'class':cls}));
-  defs.appendChild(m);
-}
-arrowhead('seq-was', 'seq-head--was');
-arrowhead('seq-later', 'seq-head--later');
 
 // ---- geometry -------------------------------------------------------------
 function polyline(d){
@@ -454,6 +437,7 @@ all('.node', svg).forEach(function(n){
 });
 all('path.flow', svg).forEach(function(p){
   PATH[p.dataset.edge] = {d:p.getAttribute('d'), dash:p.getAttribute('stroke-dasharray'),
+    stroke:p.getAttribute('stroke'), head:p.getAttribute('marker-end'),
     pts:polyline(p.getAttribute('d'))};
 });
 function walk(pts, step, trim){
@@ -511,11 +495,11 @@ function clearMarks(){ empty(lines); empty(marks); placed = []; }
 function showMarks(on){
   lines.style.display = on ? '' : 'none'; marks.style.display = on ? '' : 'none'; }
 function drawLine(edge, kind){
+  // A copy of the flow line, with its color, its dash and its arrowhead.
   var src = PATH[edge];
   if(!src){ return null; }
-  var head = kind === 'route' ? '-m-selected' : '-m-seq-' + kind;
-  var a = {'class':'seq-line seq-line--' + kind, d:src.d,
-    'marker-end':'url(#' + svg.id + head + ')'};
+  var a = {'class':'seq-line seq-line--' + kind, d:src.d, stroke:src.stroke,
+    'marker-end':src.head};
   if(src.dash){ a['stroke-dasharray'] = src.dash; }
   var p = mk('path', a);
   lines.appendChild(p);

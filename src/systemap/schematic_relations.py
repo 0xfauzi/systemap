@@ -18,10 +18,6 @@ function layerIds(L){
     if(id !== '_meta' && (ids[id] || subjectOf(id, L))){ out.push(id); } });
   return out;
 }
-flows.forEach(function(p){
-  p.dataset.stroke = p.getAttribute('stroke');
-  p.dataset.marker = p.getAttribute('marker-end');
-});
 function after(node){
   // The sibling after a node, or null: the place for a new sibling.
   var kids = node.parentNode.childNodes, k = Array.prototype.indexOf.call(kids, node);
@@ -82,14 +78,6 @@ labels.forEach(function(l){
   }
 });
 besideEdges.sort(function(a, b){ return a - b; });
-function recolour(i, selected){
-  // Only the selection changes a line color. A layer never recolors a line:
-  // the line keeps the hue of its flow kind and the dash of its evidence.
-  var p = flowOf[i];
-  if(!p){ return; }
-  p.setAttribute('stroke', selected ? PAL.accent : p.dataset.stroke);
-  p.setAttribute('marker-end', selected ? 'url(#' + svg.id + '-m-selected)' : p.dataset.marker);
-}
 function selectedEdge(){
   return state.edge >= 0 ? state.edge : (state.journey ? state.journey.edge : -1);
 }
@@ -229,7 +217,8 @@ function syncDraw(f, chosen, lit){
 }
 var underlay = null;
 function syncUnderlay(i){
-  // The highlighter under the selected or current line: 8 px, round ends.
+  // The halo under the selected or current line. No state changes the color of a
+  // line: the line keeps the hue of its flow kind and the dash of its evidence.
   var p = flowOf[i];
   if(!p){
     if(underlay && underlay.parentNode){ underlay.parentNode.removeChild(underlay); }
@@ -269,7 +258,6 @@ function paint(){
       setCls(labelOf[i], {off:!shown, hot:hot, dim:false, peek:preview});
       labelOf[i].setAttribute('aria-pressed', hot ? 'true' : 'false');
     }
-    recolour(i, hot);
   });
   nodes.forEach(function(n){
     var id = n.dataset.id;
