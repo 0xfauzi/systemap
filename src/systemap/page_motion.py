@@ -4,7 +4,7 @@ The mark, the keyboard sheet, layer changes, the map surface, card depth and
 the glow of a selection. Each motion runs one time and shows direction or
 order. With reduced motion, the page shows the final state at once."""
 
-# A fine grain on the map surface: light specks on Ink, dark specks on Paper.
+# A fine grain of light specks on the Ink map surface. Paper has no grain.
 # The noise is static. Its alpha comes from the red channel of the noise.
 _GRAIN = (
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E"
@@ -16,16 +16,18 @@ _GRAIN = (
 _GRID = "radial-gradient(var(--grid) 1px,transparent 1px)"
 
 SURFACE_CSS = (
-    "/* ---- the map surface: a fine grain under the dot grid, a soft edge --------- */\n"
+    "/* ---- the map surface. Ink: a fine grain under the dot grid, a soft edge. --- */\n"
+    "/* Paper: a clean surface with only the dot grid, as on a printed sheet.      */\n"
     f'.map{{background-image:url("{_GRAIN.format(c=1, a=".07")}"),{_GRID};'
     "background-size:160px 160px,24px 24px}\n"
-    f':root[data-theme="light"] .map{{background-image:url("{_GRAIN.format(c=0, a=".06")}"),'
-    f"{_GRID}}}\n"
+    f':root[data-theme="light"] .map{{background-image:{_GRID};background-size:24px 24px}}\n'
     '.mapwrap::after{content:"";position:absolute;inset:0;pointer-events:none;'
     "background:radial-gradient(130% 110% at 50% 42%,transparent 62%,"
     "color-mix(in srgb,#000 24%,transparent))}\n"
-    ':root[data-theme="light"] .mapwrap::after{background:radial-gradient(130% 110% at 50% 42%,'
-    "transparent 62%,color-mix(in srgb,#3a2e14 7%,transparent))}\n"
+    ':root[data-theme="light"] .mapwrap::after{display:none}\n'
+    "/* Paper: a segmented control has a toned track, so the white selected segment shows */\n"
+    ':root[data-theme="light"] :is(.seq-seg,.zoom button:not([aria-pressed="true"])){'
+    "background:var(--map)}\n"
 )
 
 
@@ -36,17 +38,16 @@ CSS = r"""
 .node__shade{fill:#000;fill-opacity:.42;stroke:none;transform:translateY(1.6px);
 transition:transform .16s ease-out,fill-opacity .16s ease-out}
 .node:not(.dim):not(.quiet):hover .node__shade{transform:translateY(3.2px);fill-opacity:.5}
-:root[data-theme="light"] .node__shade{fill:#4a3c20;fill-opacity:.13}
-:root[data-theme="light"] .node:not(.dim):not(.quiet):hover .node__shade{fill-opacity:.18}
+:root[data-theme="light"] .node__shade{fill:#1d1b17;fill-opacity:.08}
+:root[data-theme="light"] .node:not(.dim):not(.quiet):hover .node__shade{fill-opacity:.12}
 #schematic .node.sel .node__box,#schematic .node.acts .node__box{
 filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 55%,transparent))}
-:root[data-theme="light"] #schematic :is(.node.sel,.node.acts) .node__box{
-filter:drop-shadow(0 0 6px var(--hl))}
 /* ---- a selected line and the current step line glow --------------------- */
 #schematic .flow.hot,#schematic .seq-line--now,#schematic .seq-line--route{
 filter:drop-shadow(0 0 2.5px color-mix(in srgb,var(--accent) 60%,transparent))}
-:root[data-theme="light"] #schematic :is(.flow.hot,.seq-line--now,.seq-line--route){
-filter:drop-shadow(0 0 3px var(--hl))}
+/* Paper has no glow: the highlighter fill shows the selection. */
+:root[data-theme="light"] #schematic :is(.node.sel,.node.acts) .node__box,
+:root[data-theme="light"] #schematic :is(.flow.hot,.seq-line--now,.seq-line--route){filter:none}
 
 /* ---- a card under the pointer shows its lines and the cards at their ends -- */
 #schematic .flow,#schematic .flowlbl{transition:stroke-opacity .14s ease-out,opacity .14s ease-out,
