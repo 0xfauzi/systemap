@@ -25,13 +25,15 @@ from pathlib import Path
 from typing import Any
 
 from systemap import source_text, ways_in
+from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
-from systemap.model import Model, is_symbol, module_matches, public_names
+from systemap.model import Model, is_symbol, module_matches, public_names, source_parsed
+from systemap.python_imports import python_unresolved, relative_source
 from systemap.reexports import resolve_reexports
 
 # A stored file of an older facts format is reported as stale.
-FORMAT = 4
+FORMAT = 5
 TESTS_KEPT = 25
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
@@ -100,6 +102,20 @@ class PythonLanguage:
     ) -> dict[str, set[str]]:
         del repo, paths, context
         return internal_uses(raw, prefixes, known, module, is_package)
+
+    def unresolved_imports(
+        self,
+        raw: str,
+        prefixes: set[str],
+        known: set[str],
+        module: str,
+        repo: Path,
+        paths: dict[str, Path],
+        context: Any,
+    ) -> list[str]:
+        del repo, context
+        is_package = paths[module].name == "__init__.py"
+        return python_unresolved(raw, prefixes, known, module, is_package)
 
     def external_imports(
         self,
@@ -185,8 +201,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 4, with portable syntax hashes and compiler provenance. "
-        "`extract --check` marks older formats stale",
+        "The facts format is 5, with portable syntax hashes, compiler provenance, and "
+        "module completeness. `extract --check` marks older formats stale",
     ),
     (
         "facts",
@@ -314,7 +330,24 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "tests_digest",
         "A digest of every qualified test identity. It also includes hidden identities",
     ),
-    ("module", "parse_error", "Python source read or parse errors, with line and parser version"),
+    (
+        "module",
+        "parse_error",
+        "Python source read or parse errors, with line and parser version. Other "
+        "systemap modules read `completeness`",
+    ),
+    (
+        "module",
+        "completeness",
+        "The read condition of the module, with the same meaning for each language. "
+        "`parsed` is `false` if the extractor could not read or parse all of the source, "
+        "and `line` and `reason` then give the first problem. `unresolved_imports` lists "
+        "each local import, as the source writes it, that has no module in the facts. A "
+        "local import is a relative import, a path, a TypeScript path alias, or a name below a "
+        "package root. If `parsed` is `false`, the import list is not known and is `null`. "
+        "Third-party packages, standard-library modules, Node.js built-in modules, and imports "
+        "with a calculated module name are not in the list",
+    ),
     (
         "entry point",
         "kind",
@@ -734,6 +767,7 @@ def collect_module(
         "syntax_sha": hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16],
         **surface,
         "constants": surface["constants"][:CONSTANTS_KEPT],
+        "completeness": parse_state(issue),
     }
     if issue is not None:
         record["parse_error"] = issue
@@ -783,20 +817,10 @@ def internal_uses(
                         uses[target].add(WHOLE_MODULE)
         elif isinstance(node, ast.ImportFrom):
             if node.level:
-                if not module:
+                relative = relative_source(module, is_package, node.level, node.module or "")
+                if not module or relative is None:
                     continue
-                # The anchor package: a module's own package, or the package
-                # itself when the source is an __init__. Each further level
-                # climbs one package up.
-                anchor = module.split(".")
-                if not is_package:
-                    anchor = anchor[:-1]
-                if node.level > 1:
-                    anchor = anchor[: len(anchor) - (node.level - 1)]
-                if not anchor:
-                    continue
-                parts = [*anchor, *node.module.split(".")] if node.module else anchor
-                src = ".".join(parts)
+                src = relative
             else:
                 if not node.module:
                     continue
@@ -1101,12 +1125,7 @@ def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:
     """List files with an unresolved source inventory."""
     out: list[str] = []
     for module, record in sorted(facts.get("components", {}).items()):
-        if record.get("parse_error"):
-            out.append(f"source inventory unresolved: {module} ({record['file']})")
-        elif any(
-            "syntax could not be parsed" in issue.get("reason", "")
-            for issue in record.get("unknown", [])
-        ):
+        if not source_parsed(record):
             out.append(f"source inventory unresolved: {module} ({record['file']})")
     for issue in facts.get("test_file_issues", []):
         out.append(f"source inventory unresolved: test file {issue['file']}")
@@ -1168,6 +1187,12 @@ def _module_facts(
     }
     record["external"] = language.external_imports(
         raw, prefixes, module=module, repo=cfg.root, paths=paths, context=context
+    )
+    # Source that did not parse can hide imports: the list is then not known (None).
+    record["completeness"]["unresolved_imports"] = (
+        language.unresolved_imports(raw, prefixes, known, module, cfg.root, paths, context)
+        if record["completeness"]["parsed"]
+        else None
     )
     return record, raw, set(uses)
 
@@ -1382,6 +1407,7 @@ def _component_drift(
         "constants",
         "unknown",
         "parse_error",
+        "completeness",
     )
     for m in sorted(set(new_c) & set(old_c) - set(moved)):
         if any(new_c[m].get(key) != old_c[m].get(key) for key in derived):

@@ -12,10 +12,11 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, Sample, init_two_cards, write_tree
 
-from systemap import audit, explain, extract, jev, jev_cli, nest
+from systemap import audit, explain, extract, jev, jev_cli, jev_provider, nest
 from systemap.cli import main
 from systemap.config import Answer, Config
 from systemap.config import load as load_config
+from systemap.decision import JEV, ChoiceAnswer, DecisionError
 from systemap.judgement import answer_digest
 from systemap.model import Component, Flow, Meaning, Model
 
@@ -108,9 +109,9 @@ def test_audit_triage_plan_and_suggest_say_why_a_bad_answer_stops_them(
 
 def test_a_missing_probability_for_the_claimed_component_is_an_error(sample: Sample) -> None:
     read = ("owner", tree_of(sample).top, "pkg.reader", "Reader")
-    answer = {"owner": {"type": "choice", "choice": "Reader", "confidence": 0.99}}
-    with pytest.raises(jev.JevError, match="no probability for Reader"):
-        audit.owner_line(read, answer)
+    answer = ChoiceAnswer("Reader", confidence=0.99)
+    with pytest.raises(DecisionError, match="no probability for Reader"):
+        audit.owner_line(read, answer, JEV)
 
 
 def test_an_owner_answer_without_the_claimed_probability_is_not_kept(
@@ -127,7 +128,7 @@ def test_an_owner_answer_without_the_claimed_probability_is_not_kept(
     )
     cache = tmp_path / "jev.json"
     with pytest.raises(jev.JevError, match="no probability for"):
-        jev.Jev(partial, cache=jev.Cache(cache)).ask(plan.asks)
+        jev_provider.JevProvider(jev.Jev(partial, cache=jev.Cache(cache))).decide(plan.questions)
     assert jev.Cache(cache).entries == {}
 
 
@@ -214,8 +215,8 @@ def test_a_python_flow_through_a_whole_module_import_is_asked(
     )
     cfg = Config(root=tmp_path, name="flows", package_roots=(("pkg", "pkg"),))
     plan = flow_asks(cfg, *flow_model("pkg.writer", "pkg.reader"))
-    assert [a.key for a in plan.asks] == ["|flow|Writer->Reader:request"]
-    assert any(used in line for line in plan.asks[0].state["code"])
+    assert [a.key for a in plan.questions] == ["|flow|Writer->Reader:request"]
+    assert any(used in line for line in plan.questions[0].state["code"])
     assert plan.unasked == []
 
 
@@ -239,8 +240,8 @@ def test_a_typescript_flow_through_a_namespace_or_default_import_is_asked(
     cfg = load_config(tmp_path)
     for target in ("acme.web.client", "acme.web.view"):
         plan = flow_asks(cfg, *flow_model("acme.web.service", target))
-        assert [a.key for a in plan.asks] == ["|flow|Writer->Reader:request"], target
-        code = plan.asks[0].state["code"]
+        assert [a.key for a in plan.questions] == ["|flow|Writer->Reader:request"], target
+        code = plan.questions[0].state["code"]
         used = "client.fetchUser(id)" if target.endswith("client") else "fetchAll();"
         assert any(used in line for line in code), (target, code)
 
@@ -256,9 +257,11 @@ def test_the_dry_run_counts_the_flows_that_it_cannot_ask_about(tmp_path: Path) -
     )
     cfg = Config(root=tmp_path, name="flows", package_roots=(("pkg", "pkg"),))
     plan = flow_asks(cfg, *flow_model("pkg.writer", "pkg.reader"))
-    assert plan.asks == []
+    assert plan.questions == []
     assert plan.unasked == ["Writer -> Reader (request)"]
-    assert any("1 flow" in line for line in audit.dry_run(plan, None))
+    assert any(
+        "1 flow" in line for line in audit.dry_run(plan, None, jev_provider.chars(plan.questions))
+    )
 
 
 # ---- finding 15: the identifier does not contain Jev's pick ------------------------
@@ -267,21 +270,14 @@ def test_the_dry_run_counts_the_flows_that_it_cannot_ask_about(tmp_path: Path) -
 def test_the_audit_identifier_does_not_contain_the_pick(sample: Sample) -> None:
     read = ("owner", tree_of(sample).top, "pkg.parser", "Parser")
     probs = {"Parser": 0.01, "Reader": 0.9, "Writer": 0.0, "Ledger": 0.0, audit.NONE: 0.09}
-    first = audit.owner_line(
-        read, {"owner": {"choice": "Reader", "confidence": 0.9, "probabilities": probs}}
-    )
-    later = audit.owner_line(
-        read, {"owner": {"choice": audit.NONE, "confidence": 0.5, "probabilities": probs}}
-    )
+    first = audit.owner_line(read, ChoiceAnswer("Reader", probs, 0.9), JEV)
+    later = audit.owner_line(read, ChoiceAnswer(audit.NONE, probs, 0.5), JEV)
     assert first is not None and later is not None
     assert first.text == later.text == "jev mis-fold: Parser claims pkg.parser"
     assert first.detail[0].startswith("reads like Reader; P(Parser) 0.01")
     assert later.detail[0].startswith("reads like none of the cards")
     stray = ("owner", tree_of(sample).top, "pkg.stray", "")
-    sure = audit.owner_line(
-        stray,
-        {"owner": {"choice": "Writer", "confidence": 0.95, "probabilities": {"Writer": 0.95}}},
-    )
+    sure = audit.owner_line(stray, ChoiceAnswer("Writer", {"Writer": 0.95}, 0.95), JEV)
     assert sure is not None and sure.text == "jev owner: pkg.stray is claimed by no card"
     assert sure.detail == ("reads like Writer; confidence 0.95",)
 
@@ -335,10 +331,10 @@ def test_each_owner_kind_asks_only_about_its_own_modules(sample: Sample) -> None
     )
     facts = extract.build(sample.cfg)
     owner_only = audit.make_plan(tree_of(sample), facts, sample.cfg, ("jev owner",))
-    assert [a.key for a in owner_only.asks] == ["|owner|pkg.stray"]
+    assert [a.key for a in owner_only.questions] == ["|owner|pkg.stray"]
     misfold_only = audit.make_plan(tree_of(sample), facts, sample.cfg, ("jev mis-fold",))
-    assert "|owner|pkg.stray" not in [a.key for a in misfold_only.asks]
-    assert len(misfold_only.asks) == 4
+    assert "|owner|pkg.stray" not in [a.key for a in misfold_only.questions]
+    assert len(misfold_only.questions) == 4
 
 
 # ---- finding 10: the hints give the measurement limits -----------------------------

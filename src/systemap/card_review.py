@@ -15,7 +15,15 @@ import hashlib
 import json
 from typing import Any
 
-from systemap.model import Component, Journey, Meaning, Model, claimed, is_symbol
+from systemap.model import (
+    Component,
+    Journey,
+    Meaning,
+    Model,
+    claimed,
+    is_symbol,
+    source_parsed,
+)
 
 
 def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | None:
@@ -37,7 +45,7 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
     source = []
     for name in sorted(names):
         record = components.get(name)
-        if not isinstance(record, dict) or record.get("parse_error"):
+        if not isinstance(record, dict) or not source_parsed(record):
             return None
         digest = record.get("syntax_sha")
         if not isinstance(digest, str) or not digest:
@@ -99,7 +107,7 @@ def _claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
 def digest(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any]) -> str | None:
     """Hash claimed parsed source and related semantic claims.
 
-    Missing source records and parse errors prevent a digest.
+    Missing source records and source that did not parse completely prevent a digest.
     Formatting and comments do not change the parsed-source hash.
     """
     source = _source(card, facts)

@@ -35,7 +35,6 @@ from systemap import (
     figure,
     history,
     init_language,
-    jev,
     jev_cli,
     judgement,
     judgement_json,
@@ -43,6 +42,7 @@ from systemap import (
     nest,
     page,
     place,
+    review,
     scaffold,
     serve,
     skill,
@@ -577,14 +577,13 @@ def cmd_delta(args: argparse.Namespace) -> int:
     base = delta.facts_at(p.cfg, compared)
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
     # Jev answers are suggestions: they never change the lines or the exit code.
-    asked = delta_jev.NOTHING
-    if jev_cli.uses_jev(p.cfg, args.jev):
-        asked = delta_jev.ask(p.cfg, p.tree, base, head, d)
+    selected = jev_cli.uses_jev(p.cfg, args.jev)
+    asked = delta_jev.ask(p.cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
-    if args.jev is None and d.added and d.removed:
-        jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
+    if args.jev is None and not selected and d.added and d.removed:
+        jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
 
 
@@ -602,16 +601,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
     if args.jev:
-        try:
-            client = jev.from_env(cfg.jev_model, cfg.jev_cache_path)
-        except jev.JevError as exc:
-            say(f"suggest --jev: {exc}")
-            return STALE
-        lines, code = jev_cli.run_or_explain(
-            lambda: jev_cli.suggest_groups(cfg, facts, client), "suggest --jev"
-        )
-        say(*lines, client.usage.line())
-        return code
+        return jev_cli.cmd_suggest_jev(cfg, facts)
     say(*suggest_mod.lines(facts))
     if cfg.model_path.is_file():
         tree = nest.load(cfg)
@@ -1103,8 +1093,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Ask Jev for possible module moves and owners of modules without components. "
             "The answers are suggestions. They do not change the delta lines or the exit code. "
-            "Use --no-jev to send no request. The default is enabled if TYPESAFE_API_KEY "
-            "is set and [jev] enabled is not false."
+            "Use --no-jev to send no request. Without --jev, delta sends questions to Jev "
+            "only if systemap.toml sets [jev] enabled = true and TYPESAFE_API_KEY is set."
         ),
     )
     s.add_argument(
@@ -1221,6 +1211,7 @@ def build_parser() -> argparse.ArgumentParser:
     jev_cli.add_parsers(sub, add_root)
     serve.add_parsers(sub, add_root)
     model_convert.add_parsers(sub, add_root)
+    review.add_parsers(sub, add_root)
     return parser
 
 

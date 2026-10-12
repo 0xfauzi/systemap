@@ -389,6 +389,32 @@ JOURNEYS = (
         ),
     ),
     Journey(
+        id="record-review",
+        label="Record the review of one target",
+        starts="review (subcommand in systemap.review)",
+        covers=('["subcommand","systemap.review","","review"]',),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The agent examines the source and all the claims of one component or one flow. Then the agent runs systemap review for that target.",
+            ),
+            Step(
+                acts=("Config",),
+                measures=(),
+                edge=("Config", "Model"),
+                say="The command reads the model as data. The model gives the current digest of the target from the source and the claims.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("Config", "SecondOpinion"),
+                say="The command reads the new text without running code. If only the review value changes, the model writer replaces the file.",
+            ),
+        ),
+    ),
+    Journey(
         id="draw-figure",
         label="Make a map figure",
         covers=('["subcommand","systemap.cli","systemap","figure"]',),

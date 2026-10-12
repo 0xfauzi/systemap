@@ -24,6 +24,7 @@ from systemap.model import (
     claimed,
     is_symbol,
     module_matches,
+    source_parsed,
     symbol_claims,
 )
 
@@ -97,7 +98,7 @@ def _resolves(ref: str, facts: dict[str, Any]) -> bool:
         return False
     module, colon, symbol = location.partition(":")
     record = facts.get("components", {}).get(module)
-    if not isinstance(record, dict) or record.get("parse_error"):
+    if not isinstance(record, dict) or not source_parsed(record):
         return False
     source_hash = record.get("source_sha256")
     if source_hash != digest:

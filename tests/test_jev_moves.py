@@ -9,11 +9,14 @@ change the delta lines or the exit code.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from jev_replay import Recording
 
 from systemap import delta_jev, jev
+from systemap.decision import JEV
+from systemap.jev_provider import JevProvider, ask_of
 from systemap.moves import find as find_moves
 
 
@@ -91,7 +94,7 @@ def test_jev_names_the_rewritten_module_and_leaves_the_deleted_one() -> None:
             "answers": {"became": {"type": "choice", "choice": choice, "confidence": 0.9}},
         }
 
-    client = jev.Jev(send)
+    client = JevProvider(jev.Jev(send))
     moves = delta_jev.jev_moves({"components": BASE}, {"components": HEAD}, client)
     assert list(moves) == ["pkg.ledger"]
     new, how = moves["pkg.ledger"]
@@ -118,13 +121,12 @@ def test_historical_move_answers_replay_exact_requests() -> None:
     )
     asks = []
     for old in ("pkg.ledger", "pkg.legacy_csv"):
-        current = delta_jev._move_ask(BASE, old, criteria)
-        question = {**current.questions["became"], "instructions": HISTORICAL_BECAME_Q}
-        assert question["instructions"] != delta_jev.BECAME_Q
-        asks.append(jev.Ask(current.key, current.state, {"became": question}))
+        current = delta_jev._move_question(BASE, old, criteria)
+        assert HISTORICAL_BECAME_Q != delta_jev.BECAME_Q
+        asks.append(ask_of(replace(current, instructions=HISTORICAL_BECAME_Q)))
     answers = client.ask(asks)
     assert answers["pkg.ledger"]["became"]["choice"] == "pkg.accounts.book"
-    assert answers["pkg.ledger"]["became"]["confidence"] >= delta_jev.MOVE_AT
+    assert answers["pkg.ledger"]["became"]["confidence"] >= JEV.move_at
     assert answers["pkg.legacy_csv"]["became"]["choice"] == delta_jev.NOT_MOVED
     assert [path for method, path in recording.sent if method == "POST"] == [
         "/systemone",
@@ -153,6 +155,8 @@ def test_a_pick_takes_only_a_new_module_that_delta_and_stronger_picks_left() -> 
         answer = {"type": "choice", "choice": choice, "confidence": confidence}
         return {"model": "synthetic", "usage": {}, "answers": {"became": answer}}
 
-    found = delta_jev.jev_moves({"components": base}, {"components": head}, jev.Jev(send))
+    found = delta_jev.jev_moves(
+        {"components": base}, {"components": head}, JevProvider(jev.Jev(send))
+    )
     # pkg.x is delta's pair for pkg.a, and pkg.y went to the stronger pick for pkg.c.
     assert {old: new for old, (new, _how) in found.items()} == {"pkg.c": "pkg.y"}

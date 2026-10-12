@@ -1,0 +1,200 @@
+{
+ "delta": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"old_module\": {\"module\": \"pkg.reader\", \"file\": \"pkg/reader.py\", \"docstring\": \"\", \"names\": [\"read\"]}}, \"questions\": {\"became\": {\"type\": \"choice\", \"instructions\": \"The commit removed `old_module` and added the option modules. Which new module is the removed module after a move, rename, or edit? If no option continues the removed module, select the deleted option.\", \"criteria\": {\"pkg.intake\": \"pkg/intake.py: Takes the input. Names: take\", \"pkg.stray\": \"pkg/stray.py: A module that no component claims. Names: stray\", \"not moved: deleted\": \"The removed module was deleted. No new module continues its function.\"}}}}",
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module\": {\"module\": \"pkg.intake\", \"docstring\": \"Takes the input.\", \"public_names\": [\"take (function)\"], \"imports\": [], \"imported_by\": [\"pkg.writer\"]}}, \"questions\": {\"owner\": {\"type\": \"choice\", \"instructions\": \"Which component has the function of `module`? Each option is a system part with one function. Select the component whose function includes the work of this module.\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}",
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module\": {\"module\": \"pkg.stray\", \"docstring\": \"A module that no component claims.\", \"public_names\": [\"stray (function)\"], \"imports\": [], \"imported_by\": []}}, \"questions\": {\"owner\": {\"type\": \"choice\", \"instructions\": \"Which component has the function of `module`? Each option is a system part with one function. Select the component whose function includes the work of this module.\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}"
+  ],
+  "code": 1,
+  "keys": [
+   "0805c760253d19f7327dd9a2a7f51685a102b38be749a0996d7e198427c39304",
+   "1b7667e6310a4b2e33347449d491d97056c46585b18e3aaaf3f68be528efb169",
+   "7511211c6de6927dfee235098d195b3cf8e62852d977b9a9bdf536a42a37bf4c"
+  ],
+  "out": [
+   "delta: HEAD~1 (<commit>) -> HEAD (<commit>): 1 module changed, 2 added, 1 removed, 0 moved. 2 of 2 components specified",
+   "The map needs an update (6):",
+   "  added: pkg.intake, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]",
+   "      why: Without a component for the module, the map omits part of the system.",
+   "      do:  Add the module to the component for its task, or give a reason to ignore it in `[coverage]`.",
+   "  added: pkg.stray, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]",
+   "  removed: pkg.reader. Reader specifies it in implemented_by. Remove the claim in map/model.py",
+   "      why: A claim for a missing module makes the component description and coverage count incorrect.",
+   "      do:  Remove the module claim. If the component no longer has a task, remove the component.",
+   "  structural evidence lost: Reader -> Writer (request) had an import or declared mechanism at the base commit. That evidence is missing now. Examine the flow.",
+   "      why: The claim can still be correct, but its previous structure no longer gives evidence.",
+   "      do:  Read the changed source. Then change or remove the flow claim.",
+   "  source review: Reader has changed code in pkg.reader. Compare its description, flows, sequences, and invariants with the new source.",
+   "      why: Imports and public signatures do not give all behavior changes. The component description and related claims can now be incorrect.",
+   "      do:  Read the changed source. Correct the claims. Then record the `source_review` digest as the maintenance guide specifies.",
+   "  source review: Writer has changed code in pkg.writer. Compare its description, flows, sequences, and invariants with the new source.",
+   "next to the change:",
+   "  Writer has the most changed modules. It has flows to 1 of the 2 components, so the list gives no useful context.",
+   "The change includes more than one third of the components. Use the full skill maintenance procedure.",
+   "Do the action in each line under \"The map needs an update\". Then run systemap refresh && systemap check && systemap judgement --strict",
+   "Jev suggestions. They do not change the delta lines or the exit code (3):",
+   "  jev move: pkg.reader -> pkg.intake (read as the same module by Jev, confidence 0.90)",
+   "      why: A move keeps the module claim of a component. This suggestion does not change the delta lines or the exit code.",
+   "      do:  Read the two source files. If the module task did not change, change the claim to the added module. Otherwise, do the actions of the delta lines.",
+   "  jev owner: pkg.intake is claimed by no card (reads like Reader; confidence 0.95)",
+   "      why: Without a component for the module, the map omits part of the system.",
+   "      do:  Add the module to the specified component or one of the three nearest components. Or give a reason to ignore it.",
+   "  jev owner: pkg.stray is claimed by no card (reads like Reader; confidence 0.95)"
+  ]
+ },
+ "dry run": {
+  "code": 0,
+  "out": [
+   "audit --dry-run: 7 questions (unknown until a key is set), 3,845 characters of state and questions",
+   "  by type: flow 1, governs 1, owner 3, sentence 2",
+   "  outgoing data: module names, docstrings, public names, internal imports, component ids and sentences, invariants, flow sentences, and source lines with imports between components. A docstring has 600 characters at most. A flow has 30 source lines at most."
+  ]
+ },
+ "jev flow": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"claim\": {\"from\": \"Reader\", \"to\": \"Writer\", \"artifact\": \"request\", \"sentence\": \"The reader hands the writer one request at a time; the writer never goes back to the source.\"}, \"ends\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\"}, \"code\": [\"pkg.writer:1: from pkg.reader import read\", \"pkg.writer:5: return read(request)\"]}, \"questions\": {\"holds\": {\"type\": \"noul\", \"instructions\": \"Does `code` show that `claim.from` sends `claim.artifact` to `claim.to` as stated in `claim.sentence`? `ends` gives each component's function.\"}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "596fcf034983ca423d7e0a265ac5aae9df8068d9401012626c05bd439417ee54"
+  ],
+  "out": [
+   "audit: 1 item for the maintainer to confirm",
+   "  jev flow: Reader -> Writer ('request'): the code where they meet may not carry it",
+   "      P(carries it) 0.10",
+   "      why: An incorrect flow tells the reader that a connection is available when the code has no such connection.",
+   "      do:  Find the call for the flow. Jev has no instance-call evidence. If the flow uses an instance call, record that reason.",
+   "jev: 1 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ },
+ "jev governs": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"rule\": \"The writer never reads the input itself.\", \"component\": {\"id\": \"Reader\", \"description\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\"}}, \"questions\": {\"governs\": {\"type\": \"noul\", \"instructions\": \"Does `rule` apply directly to `component`? Must its code obey this rule? Can a change to its code make the rule incorrect?\"}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "ab4d5722c6ad8c2517cf63260b824a4b8d1173c406ab59d80ba53e22bec4ada5"
+  ],
+  "out": [
+   "audit: 1 item for the maintainer to confirm",
+   "  jev governs: invariant 1 may govern Reader, which it does not name",
+   "      P(governs) 0.90",
+   "      why: A missing component in the rule scope can let a change cause an error without a notice.",
+   "      do:  If a change to the component can make the rule incorrect, add the component to `governs`. Otherwise, record the reason.",
+   "jev: 1 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ },
+ "jev mis-fold": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module\": {\"module\": \"pkg.reader\", \"docstring\": null, \"public_names\": [\"read (function)\"], \"imports\": [], \"imported_by\": [\"pkg.writer\"]}}, \"questions\": {\"owner\": {\"type\": \"choice\", \"instructions\": \"Which component has the function of `module`? Each option is a system part with one function. Select the component whose function includes the work of this module.\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}",
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module\": {\"module\": \"pkg.writer\", \"docstring\": null, \"public_names\": [\"write (function)\"], \"imports\": [\"pkg.reader\"], \"imported_by\": []}}, \"questions\": {\"owner\": {\"type\": \"choice\", \"instructions\": \"Which component has the function of `module`? Each option is a system part with one function. Select the component whose function includes the work of this module.\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "56bf0e9d51bea426897b00e0a9b2829056b9653e63546c2a89dfd5106f2b96d1",
+   "aaac15752a70796797598ad373714e0214a82893d00839c43b855bf8b53e94c7"
+  ],
+  "out": [
+   "audit: 2 items for the maintainer to confirm",
+   "  jev mis-fold: Reader claims pkg.reader",
+   "      reads like none of the cards; P(Reader) 0.02; most likely: none of these 0.96, Reader 0.02, Writer 0.02",
+   "      why: The `possible mis-fold` rule uses names only. Jev reads the module name, docstring, public names, and imports to find modules in incorrect components.",
+   "      do:  Compare the module with both components. Move it, or record the reason for its component at this snapshot.",
+   "  jev mis-fold: Writer claims pkg.writer",
+   "      reads like none of the cards; P(Writer) 0.02; most likely: none of these 0.96, Reader 0.02, Writer 0.02",
+   "jev: 2 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ },
+ "jev owner": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module\": {\"module\": \"pkg.stray\", \"docstring\": \"A module that no component claims.\", \"public_names\": [\"stray (function)\"], \"imports\": [], \"imported_by\": []}}, \"questions\": {\"owner\": {\"type\": \"choice\", \"instructions\": \"Which component has the function of `module`? Each option is a system part with one function. Select the component whose function includes the work of this module.\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "0805c760253d19f7327dd9a2a7f51685a102b38be749a0996d7e198427c39304"
+  ],
+  "out": [
+   "audit: 1 item for the maintainer to confirm",
+   "  jev owner: pkg.stray is claimed by no card",
+   "      reads like Reader; confidence 0.95",
+   "      why: Without a component for the module, the map omits part of the system.",
+   "      do:  Add the module to the specified component or one of the three nearest components. Or give a reason to ignore it.",
+   "jev: 1 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ },
+ "jev sentence": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"sentence\": \"Reads the input and turns it into a request.\", \"modules\": [{\"module\": \"pkg.reader\", \"docstring\": null, \"public_names\": [\"read (function)\"], \"imports\": [], \"imported_by\": [\"pkg.writer\"]}]}, \"questions\": {\"describes\": {\"type\": \"noul\", \"instructions\": \"Does `sentence` give the correct function of the code in `modules`, read together as one system part?\"}}}",
+   "{\"model\": \"jev-latest\", \"state\": {\"sentence\": \"Takes a request and writes the result.\", \"modules\": [{\"module\": \"pkg.writer\", \"docstring\": null, \"public_names\": [\"write (function)\"], \"imports\": [\"pkg.reader\"], \"imported_by\": []}]}, \"questions\": {\"describes\": {\"type\": \"noul\", \"instructions\": \"Does `sentence` give the correct function of the code in `modules`, read together as one system part?\"}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "099271089f0cea4f13bf340e5685ca0456ba47625342c468bfb8d8e3567a30cc",
+   "9fece865828c086583bc3ac59a8c72188cd0843f6d5348cd01c9b14e772923ab"
+  ],
+  "out": [
+   "audit: 2 items for the maintainer to confirm",
+   "  jev sentence: Reader's sentence may not describe its modules",
+   "      P(describes) 0.10",
+   "      why: An incorrect component description gives the reader incorrect information about the modules.",
+   "      do:  Read the modules again. Correct the description, or record the reason that it is still correct.",
+   "  jev sentence: Writer's sentence may not describe its modules",
+   "      P(describes) 0.10",
+   "jev: 2 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ },
+ "plan": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"task\": \"read the input in parts\"}, \"questions\": {\"where\": {\"type\": \"choice\", \"instructions\": \"`task` gives the planned work on this system. Which component has the largest probability of a change from this task?\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "11ed3a0edba946d55e0fe1b2de65f5e3cae1b249211c16fd797f20be88576128"
+  ],
+  "out": [
+   "plan <day>-read-the-input-in: 1 components this work will probably change",
+   "  Writer (0.96)",
+   "      flow: Reader -> Writer (request)",
+   "      sequence: input-to-output: An input becomes an output",
+   "      rule: 1. The writer never reads the input itself.",
+   "  written to .systemap/plans/<day>-read-the-input-in.json",
+   "  after the work: systemap plan --check <day>-read-the-input-in --base <ref>"
+  ]
+ },
+ "suggest": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module_a\": {\"module\": \"pkg.reader\", \"docstring\": null, \"public_names\": [\"read (function)\"], \"imports\": [], \"imported_by\": [\"pkg.writer\"]}, \"module_b\": {\"module\": \"pkg.stray\", \"docstring\": \"A module that no component claims.\", \"public_names\": [\"stray (function)\"], \"imports\": [], \"imported_by\": []}}, \"questions\": {\"same\": {\"type\": \"noul\", \"instructions\": \"Do `module_a` and `module_b` have the same system function and belong to one component? Components that only call each other or share types stay different.\"}}}",
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module_a\": {\"module\": \"pkg.reader\", \"docstring\": null, \"public_names\": [\"read (function)\"], \"imports\": [], \"imported_by\": [\"pkg.writer\"]}, \"module_b\": {\"module\": \"pkg.writer\", \"docstring\": null, \"public_names\": [\"write (function)\"], \"imports\": [\"pkg.reader\"], \"imported_by\": []}}, \"questions\": {\"same\": {\"type\": \"noul\", \"instructions\": \"Do `module_a` and `module_b` have the same system function and belong to one component? Components that only call each other or share types stay different.\"}}}",
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"module_a\": {\"module\": \"pkg.stray\", \"docstring\": \"A module that no component claims.\", \"public_names\": [\"stray (function)\"], \"imports\": [], \"imported_by\": []}, \"module_b\": {\"module\": \"pkg.writer\", \"docstring\": null, \"public_names\": [\"write (function)\"], \"imports\": [\"pkg.reader\"], \"imported_by\": []}}, \"questions\": {\"same\": {\"type\": \"noul\", \"instructions\": \"Do `module_a` and `module_b` have the same system function and belong to one component? Components that only call each other or share types stay different.\"}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "5d59fe49dfe150949a7168e5a564a44f7f3db3130d478333f48e52561821e769",
+   "7de52782c079aa31c2285c82d694efd16caa7de504c08e9cb5862ba4c82501ce",
+   "a223b5b6a53eaf4a1970f1c37844997f8c1b08f1bcd6b2d9171e83b096cf2075"
+  ],
+  "out": [
+   "suggest --jev: 1 groups from 3 questions about module pairs. A pair is in one component if P >= 0.4. Examine these proposed groups. On two of five development maps, the accuracy was lower than with one component for each package",
+   "  group 1 (3 modules): pkg.reader, pkg.stray, pkg.writer",
+   "jev: 3 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ },
+ "triage": {
+  "bodies": [
+   "{\"model\": \"jev-latest\", \"state\": {\"system\": \"golden\", \"report\": \"Reading a file with a BOM leaves the BOM in the request\"}, \"questions\": {\"where\": {\"type\": \"choice\", \"instructions\": \"`report` is an issue for this system. Which component will the fix probably change?\", \"criteria\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\", \"none of these\": \"No component on this map has the function of this module.\"}}}}"
+  ],
+  "code": 0,
+  "keys": [
+   "551e53c9e0a8acc683466c39f35d94394a90be6f305c03545658470fa092adc9"
+  ],
+  "out": [
+   "triage: confidence 0.95",
+   "  0.96  none of the components",
+   "  0.02  Reader: pkg.reader",
+   "        on the map: flows from nothing. Flows to Writer",
+   "  0.02  Writer: pkg.writer",
+   "        on the map: flows from Reader. Flows to nothing",
+   "jev: 1 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
+  ]
+ }
+}

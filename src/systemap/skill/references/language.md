@@ -177,11 +177,13 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | card | The visual representation of one map component. |
 | CI | Automated repository checks after a push or pull request. |
 | CLI | The command-line interface of a program. |
+| choice question | A question to a decision provider that selects one option from a list. |
 | component | The system part that a map assigns to source modules or symbols. |
 | configuration | The settings that control a program. |
 | contrast ratio | The measured relation between two color luminances (category 7). |
 | control flow | A flow that causes a component to do an action. |
 | data flow | A flow that carries data between components. |
+| decision provider | A service that gives typed answers to typed questions. Jev is a decision provider. |
 | digest | A hash value of recorded source or claim contents. |
 | docstring | A string in source code that documents a module or symbol. |
 | entry point | A command, route, or public symbol where a run can start. |
@@ -209,12 +211,14 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | palette | The specified set of colors in a user interface. |
 | parser | The program that reads syntax and makes source records. |
 | precision | The fraction of positive results that are correct (category 7). |
+| predicate question | A question to a decision provider that gives the probability that a condition is correct. |
 | probability | A mathematical value for an event or decision (category 7). |
 | provenance | Recorded information about the origin of a source fact or output. |
 | public surface | The exports and entry points available to other code. |
 | pull request | A request to merge a branch into a repository branch. |
 | Python, TypeScript | The source languages that systemap reads. |
 | recall | The fraction of applicable items that a method finds (category 7). |
+| refusal | An answer from a decision provider that gives no decision. |
 | repository | The source files and version history of a project. |
 | revision | An identified version of source files or map output. |
 | schema | The specified fields and types of a data format. |

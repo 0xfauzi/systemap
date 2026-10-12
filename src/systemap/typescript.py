@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import typescript_entry
+from systemap.completeness import parse_state
 from systemap.config import ConfigError
 from systemap.source_text import configured_out_dir, out_dir_below, read_problems, ts_skipped
 from systemap.typescript_config import (
@@ -473,6 +474,34 @@ def _resolve_reexport(
     return True
 
 
+def _unresolved(
+    root: Any,
+    module: str,
+    prefixes: set[str],
+    known: set[str],
+    paths: dict[str, Path],
+    context: TypeScriptContext,
+) -> set[tuple[str, bool]]:
+    """This function gives each import without a target module, and if it is local.
+
+    A local import is a relative or absolute path, a `paths` alias, or a name below a
+    package root. Another import names an npm package. Node.js modules are not included.
+    """
+    importer = paths.get(module)
+    out: set[tuple[str, bool]] = set()
+    for specifier, _names in _imports(root):
+        if _node_module(specifier) or _resolve(specifier, module, known, paths, context):
+            continue
+        name = _module_name(specifier)
+        local = any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
+        if importer is not None:
+            local = local or not _is_package(specifier, importer, context)
+        else:
+            local = local or specifier.startswith(".")
+        out.add((specifier, local))
+    return out
+
+
 def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> bool:
     """This function tells if an import that does not resolve names an npm package."""
     return not specifier.startswith((".", "/")) and not is_alias(
@@ -558,7 +587,9 @@ class TypeScriptLanguage:
         except OSError:
             return None
         surface = parse_surface(raw, path.as_posix())
+        problem = _problem(0, problems[0], "") if problems else None
         if surface is None:
+            problem = parse_problem(raw, path.as_posix())
             surface = {
                 "docstring": "",
                 "functions": [],
@@ -567,7 +598,7 @@ class TypeScriptLanguage:
                 "constants": [],
                 "names": [],
                 "api": [],
-                "unknown": [parse_problem(raw, path.as_posix())],
+                "unknown": [problem],
             }
         surface["unknown"].extend(_problem(0, reason, "") for reason in problems)
         _resolve_reexports(surface, path, module, known, paths, context)
@@ -581,6 +612,7 @@ class TypeScriptLanguage:
             ).hexdigest()[:16],
             **surface,
             "constants": surface["constants"][:CONSTANTS_KEPT],
+            "completeness": parse_state(problem),
         }
 
     def internal_uses(
@@ -619,19 +651,24 @@ class TypeScriptLanguage:
         root = syntax_tree(raw, source_path.as_posix() if source_path else "")
         if context is None:
             return []
-        out = {
-            specifier
-            for specifier, _names in _imports(root)
-            if not specifier.startswith(".")
-            and not _node_module(specifier)
-            and _resolve(specifier, module, set(paths or {}), paths or {}, context) is None
-            and not any(
-                _module_name(specifier) == prefix
-                or _module_name(specifier).startswith(prefix + ".")
-                for prefix in prefixes
-            )
-        }
-        return sorted(out)
+        found = _unresolved(root, module, prefixes, set(paths or {}), paths or {}, context)
+        return sorted(specifier for specifier, local in found if not local)
+
+    def unresolved_imports(
+        self,
+        raw: str,
+        prefixes: set[str],
+        known: set[str],
+        module: str,
+        repo: Path,
+        paths: dict[str, Path],
+        context: TypeScriptContext,
+    ) -> list[str]:
+        del repo
+        source_path = paths.get(module)
+        root = syntax_tree(raw, source_path.as_posix() if source_path else "")
+        found = _unresolved(root, module, prefixes, known, paths, context)
+        return sorted(specifier for specifier, local in found if local)
 
     def collect_tests(
         self,

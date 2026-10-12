@@ -16,6 +16,11 @@ Flow questions include source lines naming imports from the other component
 after a Ledger import. That limitation can cause doubt without a source defect.
 A flow without such lines gets no question. The report gives the count of these flows.
 
+The questions and the answers use the provider records in `systemap.decision`.
+The Jev values in `decision.JEV` are the thresholds. `systemap.jev_provider` sends
+the questions to Jev. A refusal from a provider gives no finding, and the report
+gives the count of the questions that got a refusal.
+
 A finding line is an identifier. It does not contain Jev's pick, so a new model
 release that changes only the pick does not change the line. The pick is in the
 detail row. `migrated` changes a line in the earlier form, which ended with the
@@ -36,30 +41,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, nest
+from systemap import decision, explain, nest
 from systemap.audit_code import code_between
 from systemap.config import AUDIT_KINDS, Answer, Config
+from systemap.decision import (
+    ChoiceAnswer,
+    ChoiceQuestion,
+    DecisionError,
+    DecisionProvider,
+    PredicateQuestion,
+    Question,
+    Thresholds,
+)
 from systemap.evidence import owners
 from systemap.extract import is_empty_marker
-from systemap.jev import Answers, Ask, Jev, JevError
 from systemap.model import Meaning, Model, module_matches
 
-# ---- thresholds, each with what it measured on the development maps ----------
-
-# P(current card) below this: planted in a neighbouring card, 95% caught;
-# 4% of correctly placed modules flagged.
-MISFOLD_BELOW = 0.05
-# Choice confidence at or above this: 56% of modules get one card, 98% right.
-OWNER_AT = 0.9
-# P(sentence describes its modules) below this: 67% of wrong sentences caught,
-# 1% of right ones flagged.
-SENTENCE_BELOW = 0.2
-# P(code carries the claim) below this: 66% of wrong claims caught, 2% of
-# real ones flagged; on the holdout maps 54% and 4%, so asked only on request.
-FLOW_BELOW = 0.2
-# P(invariant governs card) at or above this: 31% of governed cards found,
-# 1% of the rest suggested.
-GOVERNS_AT = 0.8
+# The thresholds of each provider are in `systemap.decision.THRESHOLDS`.
 
 # The question each line kind comes from: the owner question gives two kinds.
 QUESTION_OF = {
@@ -104,21 +102,14 @@ class Line:
 class Plan:
     """Collect audit questions and the use of each answer."""
 
-    asks: list[Ask] = field(default_factory=list)
+    questions: list[Question] = field(default_factory=list)
     reads: dict[str, Any] = field(default_factory=dict)
     # Flows without a source line that uses a name from the other component.
     unasked: list[str] = field(default_factory=list)
 
-    def add(
-        self,
-        key: str,
-        state: Any,
-        questions: dict[str, Any],
-        read: Any,
-        needs: tuple[str, ...] = (),
-    ) -> None:
-        self.asks.append(Ask(key, state, questions, needs))
-        self.reads[key] = read
+    def add(self, question: Question, read: Any) -> None:
+        self.questions.append(question)
+        self.reads[question.key] = read
 
 
 # ---- the state each question reads ------------------------------------------
@@ -154,11 +145,7 @@ def owner_criteria(model: Model, meaning: Meaning) -> dict[str, str]:
     return crit
 
 
-def owner_question(model: Model, meaning: Meaning) -> dict[str, Any]:
-    return {"type": "choice", "instructions": OWNER_Q, "criteria": owner_criteria(model, meaning)}
-
-
-# ---- planning: one Ask per question, keyed so the answers find their way back -
+# ---- planning: one question for each item, with a key to find its answer -----
 
 
 def modules_by_card(model: Model, facts: dict[str, Any]) -> dict[str, list[str]]:
@@ -198,14 +185,16 @@ def plan_owner(
     `placed_too=False` selects only the unclaimed `extra` modules.
     """
     by = modules_by_card(m.model, facts) if placed_too else {}
-    question = {"owner": owner_question(m.model, m.meaning)}
+    options = owner_criteria(m.model, m.meaning)
     placed = [(mod, cid) for cid, ms in by.items() for mod in ms]
     placed = [(mod, cid) for mod, cid in placed if m.model.component(cid).kind != "actor"]
     for mod, cid in placed + [(mod, "") for mod in extra]:
         state = {"system": system, "module": module_state(facts, mod)}
         # A mis-fold reads P(claimed component): an answer without it is refused.
         needs = (cid,) if cid else ()
-        plan.add(f"{m.id}|owner|{mod}", state, question, ("owner", m, mod, cid), needs)
+        key = f"{m.id}|owner|{mod}"
+        question = ChoiceQuestion(key, "owner", OWNER_Q, state, options, needs)
+        plan.add(question, ("owner", m, mod, cid))
 
 
 def plan_sentences(plan: Plan, m: nest.Map, facts: dict[str, Any]) -> None:
@@ -218,8 +207,8 @@ def plan_sentences(plan: Plan, m: nest.Map, facts: dict[str, Any]) -> None:
             "sentence": c.does,
             "modules": [module_state(facts, x, doc_cap=300, names_cap=15) for x in mods],
         }
-        questions = {"describes": {"type": "noul", "instructions": DESCRIBES_Q}}
-        plan.add(f"{m.id}|sentence|{c.id}", state, questions, ("sentence", m, c.id))
+        key = f"{m.id}|sentence|{c.id}"
+        plan.add(PredicateQuestion(key, "describes", DESCRIBES_Q, state), ("sentence", m, c.id))
 
 
 def plan_flows(plan: Plan, m: nest.Map, facts: dict[str, Any], root: Path) -> None:
@@ -239,9 +228,8 @@ def plan_flows(plan: Plan, m: nest.Map, facts: dict[str, Any], root: Path) -> No
             "sentence": m.meaning.relations.get(f.edge, ""),
         }
         state = {"claim": claim, "ends": brief, "code": code}
-        questions = {"holds": {"type": "noul", "instructions": VERIFY_Q}}
         key = f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}"
-        plan.add(key, state, questions, ("flow", m, f))
+        plan.add(PredicateQuestion(key, "holds", VERIFY_Q, state), ("flow", m, f))
 
 
 def plan_governs(plan: Plan, m: nest.Map) -> None:
@@ -253,8 +241,9 @@ def plan_governs(plan: Plan, m: nest.Map) -> None:
                 "rule": inv.text,
                 "component": {"id": c.id, "description": card_brief(m.model, m.meaning, c.id)},
             }
-            questions = {"governs": {"type": "noul", "instructions": GOVERNS_Q}}
-            plan.add(f"{m.id}|governs|{inv.n}|{c.id}", state, questions, ("governs", m, inv, c.id))
+            key = f"{m.id}|governs|{inv.n}|{c.id}"
+            question = PredicateQuestion(key, "governs", GOVERNS_Q, state)
+            plan.add(question, ("governs", m, inv, c.id))
 
 
 def make_plan(
@@ -308,47 +297,54 @@ def _reads_like(pick: str) -> str:
     return "none of the cards" if pick == NONE else pick
 
 
-def spread(answer: dict[str, Any]) -> dict[str, float]:
-    """Give the probabilities of a choice answer, or the choice at its confidence."""
-    probs = answer.get("probabilities") or {}
-    return dict(probs) if probs else {answer["choice"]: answer["confidence"]}
-
-
-def owner_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
+def owner_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
+    """Give a mis-fold line or an owner line. A refusal gives no line."""
     _, m, mod, cid = read
-    a = answers["owner"]
-    probs = a.get("probabilities", {})
-    detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(probs, 3))
-    pick = f"reads like {_reads_like(a['choice'])}"
+    a = decision.choice(answer, f"{m.id}|owner|{mod}")
+    if a is None:
+        return None
     if cid:
-        if cid not in probs:
-            raise JevError(f"Jev gave no probability for {cid}, the component of {mod}")
-        p = probs[cid]
-        if p >= MISFOLD_BELOW:
-            return None
-        text = f"jev mis-fold: {cid} claims {mod}"
-        return Line(m.prefix + text, (f"{pick}; P({cid}) {p:.2f}; most likely: {detail}",))
+        return _misfold_line(m, mod, cid, a, limits)
     text = f"jev owner: {mod} is claimed by no card"
-    sure = f"confidence {a['confidence']:.2f}"
-    if a["confidence"] >= OWNER_AT:
+    pick = f"reads like {_reads_like(a.choice)}"
+    sure = "no confidence" if a.confidence is None else f"confidence {a.confidence:.2f}"
+    if a.confidence is not None and a.confidence >= limits.owner_at:
         return Line(m.prefix + text, (f"{pick}; {sure}",))
-    closest = ", ".join(k for k, _ in _top(probs, 3))
+    detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(a.probabilities, 3))
+    closest = ", ".join(k for k, _ in _top(a.probabilities, 3))
     return Line(m.prefix + text, (f"closest: {closest}; {sure}; {detail}",))
 
 
-def sentence_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
+def _misfold_line(
+    m: nest.Map, mod: str, cid: str, a: ChoiceAnswer, limits: Thresholds
+) -> Line | None:
+    probs = a.probabilities
+    if cid not in probs:
+        raise DecisionError(f"the answer gives no probability for {cid}, the component of {mod}")
+    p = probs[cid]
+    if p >= limits.misfold_below:
+        return None
+    text = f"jev mis-fold: {cid} claims {mod}"
+    detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(probs, 3))
+    pick = f"reads like {_reads_like(a.choice)}"
+    return Line(m.prefix + text, (f"{pick}; P({cid}) {p:.2f}; most likely: {detail}",))
+
+
+def sentence_line(
+    read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds
+) -> Line | None:
     _, m, cid = read
-    p = answers["describes"]["noul"]
-    if p >= SENTENCE_BELOW:
+    p = decision.probability(answer, f"{m.id}|sentence|{cid}")
+    if p is None or p >= limits.sentence_below:
         return None
     text = f"jev sentence: {cid}'s sentence may not describe its modules"
     return Line(m.prefix + text, (f"P(describes) {p:.2f}",))
 
 
-def flow_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
+def flow_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
     _, m, f = read
-    p = answers["holds"]["noul"]
-    if p >= FLOW_BELOW:
+    p = decision.probability(answer, f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}")
+    if p is None or p >= limits.flow_below:
         return None
     text = (
         f"jev flow: {f.src} -> {f.dst} ('{f.artifact}'): the code where they meet may not carry it"
@@ -356,10 +352,10 @@ def flow_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
     return Line(m.prefix + text, (f"P(carries it) {p:.2f}",))
 
 
-def governs_line(read: tuple[Any, ...], answers: Answers) -> Line | None:
+def governs_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
     _, m, inv, cid = read
-    p = answers["governs"]["noul"]
-    if p < GOVERNS_AT:
+    p = decision.probability(answer, f"{m.id}|governs|{inv.n}|{cid}")
+    if p is None or p < limits.governs_at:
         return None
     text = f"jev governs: invariant {inv.n} may govern {cid}, which it does not name"
     return Line(m.prefix + text, (f"P(governs) {p:.2f}",))
@@ -373,11 +369,12 @@ READERS = {
 }
 
 
-def lines(plan: Plan, answered: dict[str, Answers]) -> list[Line]:
+def lines(plan: Plan, answers: list[decision.Answer], limits: Thresholds) -> list[Line]:
+    """Give the findings. `answers` has one answer for each question, in the same order."""
     out = []
-    for ask in plan.asks:
-        read = plan.reads[ask.key]
-        line = READERS[read[0]](read, answered[ask.key])
+    for question, answer in zip(plan.questions, answers, strict=True):
+        read = plan.reads[question.key]
+        line = READERS[read[0]](read, answer, limits)
         if line is not None:
             out.append(line)
     return out
@@ -387,11 +384,11 @@ def run(
     tree: nest.Tree,
     facts: dict[str, Any],
     cfg: Config,
-    jev: Jev,
+    provider: DecisionProvider,
     kinds: Iterable[str] = DEFAULT_KINDS,
 ) -> list[Line]:
     plan = make_plan(tree, facts, cfg, kinds)
-    return lines(plan, jev.ask(plan.asks))
+    return lines(plan, provider.decide(plan.questions), decision.thresholds(provider.name))
 
 
 # ---- answers, shared with judgement ---------------------------------------------
@@ -549,11 +546,13 @@ def report(
     pending: Iterable[str] = (),
     policies: Iterable[str] = (),
     unasked: Iterable[str] = (),
+    refused: Iterable[str] = (),
 ) -> list[str]:
     """Give CLI findings and explanations.
 
     `teach` adds one explanation per finding type. `--brief` removes explanations.
     `unasked` gives the flows without source lines for a `jev flow` question.
+    `refused` gives the keys of the questions that got a refusal.
     """
     tail = (f", {answered} answered" if answered else "") + (
         f", {len(stale)} stale" if stale else ""
@@ -568,8 +567,20 @@ def report(
     out += [f"  pending answer: {s}" for s in pending]
     out += [f"  policy answer: {s}" for s in policies]
     out += unasked_lines(list(unasked))
+    out += refused_lines(list(refused))
     out.append(usage)
     return out
+
+
+def refused_lines(refused: list[str]) -> list[str]:
+    """Give the count of questions that got a refusal, and the first five keys."""
+    if not refused:
+        return []
+    more = f", and {len(refused) - 5} more" if len(refused) > 5 else ""
+    return [
+        f"  no answer: the decision provider gave a refusal for {len(refused)} questions: "
+        f"{', '.join(refused[:5])}{more}"
+    ]
 
 
 def unasked_lines(unasked: list[str]) -> list[str]:
@@ -606,19 +617,19 @@ def _sent(pending: int | str | None) -> str:
     return f"{pending} not in the cache"
 
 
-def dry_run(plan: Plan, pending: int | str | None) -> list[str]:
+def dry_run(plan: Plan, pending: int | str | None, chars: int) -> list[str]:
     """Count planned questions and give the outgoing data fields.
 
     `pending` is the count without cached answers, None without a key, or the reason
-    that the count is not known.
+    that the count is not known. `chars` is the count of characters that the provider
+    sends: the provider adapter counts them.
     """
     kinds: dict[str, int] = {}
-    for a in plan.asks:
+    for a in plan.questions:
         kinds[a.key.split("|")[1]] = kinds.get(a.key.split("|")[1], 0) + 1
-    chars = sum(a.chars() for a in plan.asks)
     sent = _sent(pending)
     return [
-        f"audit --dry-run: {len(plan.asks)} questions ({sent}), {chars:,} characters of state "
+        f"audit --dry-run: {len(plan.questions)} questions ({sent}), {chars:,} characters of state "
         "and questions",
         "  by type: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())),
         "  outgoing data: module names, docstrings, public names, internal imports, component "

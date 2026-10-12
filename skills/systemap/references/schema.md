@@ -126,6 +126,7 @@ ignore = [
 
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, connected flows, sequences, and invariants before you write it.
+Then run `systemap review ID` to write it. Do not write the digest with a script.
 Delta keeps a changed component under `The map needs an update` until the digest agrees with the current claims and source.
 If the value is not the current digest, `systemap judgement` gives a `stale source review` finding.
 Refresh does not write this digest. See `references/maintenance.md` for the procedure.
@@ -212,24 +213,9 @@ An actor has no modules. For a flow with an actor end, use a module of the other
 If no reference is in an endpoint module, the flow is not `observed`, and `systemap judgement` gives a `no endpoint source` finding.
 The page shows `observed` as "current source review". It is a recorded source review, not a record of program execution.
 A reference has the form `module[:symbol]@<source_sha256>`.
-The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+The facts file gives the `source_sha256` of each module in `components`. The section "The facts file" gives its fields.
+`systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
 It does not examine the claims for you. Examine the source before you record the values.
-
-```sh
-uv run python - <<'PY'
-from pathlib import Path
-from systemap import config, evidence, extract, nest
-
-cfg = config.load(Path.cwd())
-facts = extract.build(cfg)
-for module, record in sorted(facts["components"].items()):
-    print(f"source_sha256 {module} {record.get('source_sha256')}")
-for current_map in nest.load(cfg).maps:
-    for flow in current_map.model.flows:
-        digest = evidence.flow_claim_digest(flow, current_map.meaning)
-        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
-PY
-```
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
@@ -341,7 +327,7 @@ These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 4, with portable syntax hashes and compiler provenance. `extract --check` marks older formats stale.
+- `version`: The facts format is 5, with portable syntax hashes, compiler provenance, and module completeness. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -380,7 +366,8 @@ These fields come from `systemap.extract.FIELDS`.
 - `tests_primary`: The number of those functions in a file with the module name.
 - `tests`: Up to 25 test names, with primary tests first.
 - `tests_digest`: A digest of every qualified test identity. It also includes hidden identities.
-- `parse_error`: Python source read or parse errors, with line and parser version.
+- `parse_error`: Python source read or parse errors, with line and parser version. Other systemap modules read `completeness`.
+- `completeness`: The read condition of the module, with the same meaning for each language. `parsed` is `false` if the extractor could not read or parse all of the source, and `line` and `reason` then give the first problem. `unresolved_imports` lists each local import, as the source writes it, that has no module in the facts. A local import is a relative import, a path, a TypeScript path alias, or a name below a package root. If `parsed` is `false`, the import list is not known and is `null`. Third-party packages, standard-library modules, Node.js built-in modules, and imports with a calculated module name are not in the list.
 
 **Each entry point, under `entry_points`**
 

@@ -24,6 +24,7 @@ No error is replaced by a guessed answer.
 
 Tests inject `send`: a function from method, path, and body to parsed JSON.
 It supplies recorded responses from API calls.
+`systemap.jev_provider` uses this client as a decision provider.
 """
 
 from __future__ import annotations
@@ -44,6 +45,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap.decision import DecisionError
+
 API = "https://api.typesafe.ai/v1"
 KEY_ENV = "TYPESAFE_API_KEY"
 BASE_ENV = "TYPESAFE_BASE_URL"
@@ -58,7 +61,7 @@ Send = Callable[[str, str, "dict[str, Any] | None"], "dict[str, Any]"]
 Answers = dict[str, dict[str, Any]]
 
 
-class JevError(Exception):
+class JevError(DecisionError):
     """A Jev call cannot complete. The message gives the cause."""
 
 

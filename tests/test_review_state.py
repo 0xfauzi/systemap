@@ -44,8 +44,14 @@ def _one_card(review: str = "") -> tuple[Component, Model, Meaning]:
     return card, Model((800, 600), (), (), (card,), (), ()), Meaning({"Reader": "Reader"})
 
 
-FACTS: dict[str, Any] = {"components": {"pkg.reader": {"syntax_sha": "one"}}}
-CHANGED: dict[str, Any] = {"components": {"pkg.reader": {"syntax_sha": "two"}}}
+# A shared reader accepts only a module record with a parsed completeness record.
+PARSED = {"parsed": True, "line": 0, "reason": "", "unresolved_imports": []}
+FACTS: dict[str, Any] = {
+    "components": {"pkg.reader": {"syntax_sha": "one", "completeness": PARSED}}
+}
+CHANGED: dict[str, Any] = {
+    "components": {"pkg.reader": {"syntax_sha": "two", "completeness": PARSED}}
+}
 
 
 def test_the_review_state_is_missing_stale_or_current() -> None:

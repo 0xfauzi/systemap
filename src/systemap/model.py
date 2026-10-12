@@ -644,6 +644,17 @@ def public_names(record: Mapping[str, Any]) -> set[str]:
     }
 
 
+def source_parsed(record: Mapping[str, Any]) -> bool:
+    """True when the extractor read and parsed all of the source of a module record.
+
+    The `completeness` record gives this state with the same meaning for each language.
+    A record without a `completeness` record, for example from an older facts format,
+    has an unknown state. An unknown state gives False.
+    """
+    state = record.get("completeness")
+    return isinstance(state, Mapping) and state.get("parsed") is True
+
+
 def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
     """True when a component module or symbol claim includes its entry point."""
     components = facts.get("components", {})
