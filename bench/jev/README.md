@@ -1759,3 +1759,28 @@ With this table, five placement tests failed, because the Config description of 
 
 The new tests in `tests/test_typography.py` gave 6 failures and 1 pass on the base and 7 passes after the change.
 The full test suite gave 767 passes and 1 skipped test.
+
+## Map page size and time with the map changes in the Changes view (2026-10-12)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+The change adds the `#changes` link script to the page shell, and the map changes style rules and section to the Changes view.
+The map changes section and the rules of a selected component are only in a page with a revision comparison.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (bf3a3f8) | 301,986 |
+| Sample page, with the `#changes` link | 302,425 |
+| Sample page, with the map changes styles | 302,691 |
+| Sample page, with the rules of a selected component | 302,692 |
+| Self-map page, no comparison, base code | 636,231 |
+| Self-map page, no comparison, new code | 636,937 |
+| Self-map page, comparison with 9defc3d, base code | 915,195 |
+| Self-map page, comparison with 9defc3d, new code | 917,834 |
+
+The self-map rows use the model and the facts of the worktree for the base code and the new code,
+so each pair compares only the page code. The self-map page contains the pages of its nested maps.
+The sample page passes with 4,508 bytes of space.
+
+The map comparison loads the committed model at the merge base for each render with `--base`.
+For this repository against 9defc3d, two runs gave 0.19 s and 0.20 s for the map comparison,
+and 1.09 s and 1.16 s for the source comparison that the page had before this change.
