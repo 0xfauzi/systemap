@@ -115,7 +115,7 @@ FLOWS = (
          source_refs=("systemap.extract@fc776bea2192890f60eca83e867357dd1b0b648e751ea08832ae828dcfa22043", "systemap.schematic@9183a82aebdccfe0ae072229f31b5907acb20972c5afc7b759cdbec3444dde40", "systemap.evidence@5ea45452adae383e467355600a74cc01cf8d081a236f9774b95d9efb69acffb3"),
          review_digest="eecbb468025bf89bdc129b103013ed5d0ccb1018946c50180b5ad8ad7d2fb921"),
     Flow("FactsExtractor", "Judgement", "entry points", "data",
-         source_refs=("systemap.judgement@cbc17c78936022e34de93cc48e64aa86af2b8a0083ae88e2c8d8800ff335a9db", "systemap.journey_coverage@44d615ed243a6c3a636e16e1d4deeb6562121c93300395d049c1f1f0993bd19d"),
+         source_refs=("systemap.judgement@312c1f12e1883306a6fbf5ad096aa664f23745f3bede5882b7c1cd657edea38d", "systemap.journey_coverage@44d615ed243a6c3a636e16e1d4deeb6562121c93300395d049c1f1f0993bd19d"),
          review_digest="d98c92e37c779d11aee2c865d530332618884a8e508293f1fdc977c535a53247"),
     Flow("FactsExtractor", "ChangeDetector", "public surfaces", "data",
          source_refs=("systemap.extract@fc776bea2192890f60eca83e867357dd1b0b648e751ea08832ae828dcfa22043", "systemap.change@50788fb70e4f1e8d087e8b86ec503e5ef55e05c5d4aa307c2f0bd5adf69a4683"),

@@ -28,6 +28,7 @@ from systemap import (
     delta_jev,
     delta_link,
     describe,
+    drift_order,
     explain,
     extract,
     extract_check,
@@ -558,7 +559,9 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
         say(_no_facts(p))
     result = judgement_json.evaluate(p.tree, facts, p.cfg).result
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
+    result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
+    say(*notes)
     say(*judgement.review_counts(p.tree, facts))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
@@ -579,7 +582,9 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
     detail = judgement.crossing_detail_tree(p.tree, facts)
     reviews = judgement.review_states(p.tree, facts)
-    say(json.dumps(judgement_json.payload(judged, detail, reviews, args.kind or ""), indent=2))
+    obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
+    say(json.dumps(obj, indent=2))
+    warn(*notes)
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
@@ -1093,6 +1098,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Write one JSON object with the open lines, answers, and counts. "
             "The object has no explanation text."
+        ),
+    )
+    s.add_argument(
+        "--order-by-drift",
+        action="store_true",
+        help=(
+            "Send one Jev question for each open stale source review line. Put these lines "
+            "in sequence from the lowest probability that the claims agree with the source. "
+            "The option does not change the open lines or the exit code. "
+            "It must have TYPESAFE_API_KEY."
         ),
     )
     s.set_defaults(func=cmd_judgement)

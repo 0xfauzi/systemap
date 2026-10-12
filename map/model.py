@@ -329,6 +329,7 @@ COMPONENTS = (
             "systemap.audit",
             "systemap.audit_code",
             "systemap.delta_jev",
+            "systemap.drift_order",
             "systemap.jev_cli",
             "systemap.jev",
             "systemap.jev_provider",
@@ -414,7 +415,7 @@ INVARIANTS = (
     ),
     Invariant(
         11,
-        "check and judgement do not use the network. A different Jev command sends requests only with a key (src/systemap/jev_cli.py, docstring).",
+        "check does not use the network. judgement uses the network only with --order-by-drift (src/systemap/drift_order.py, docstring). A different Jev command sends requests only with a key (src/systemap/jev_cli.py, docstring).",
         governs=("Check", "Judgement", "SecondOpinion"),
     ),
     Invariant(
@@ -561,7 +562,7 @@ RELATIONS = {
     ("Judgement", "Check"): "Judgement stores explanations for finding kinds. The check uses these explanations to give reasons and necessary actions.",
     ("Judgement", "Agent"): "During the second examination, the agent examines each import between components and each entry point without a sequence. It changes the model or records answers.",
     ("Judgement", "Maintainer"): "The maintainer examines each judgement answer. The agent must give the findings for this examination.",
-    ("CLI", "SecondOpinion"): "audit, journeys, plan, triage and --jev run model commands. These commands use Jev or a configured coding agent. delta sends questions to Jev only with --jev or [jev] enabled = true. A key alone does not select Jev. check and judgement do not call external services.",
+    ("CLI", "SecondOpinion"): "audit, journeys, plan, triage and --jev run model commands. These commands use Jev or a configured coding agent. delta sends questions to Jev only with --jev or [jev] enabled = true. A key alone does not select Jev. judgement sends its open stale source review lines to Jev only with --order-by-drift. check does not call external services.",
     ("Config", "SecondOpinion"): "The configuration gives the model, answer cache and answers for Jev findings.",
     ("FactsExtractor", "SecondOpinion"): "The facts give module docstrings, public names, imports and source lines for each question.",
     ("SecondOpinion", "TypeSafe"): "The command sends one typed question through HTTPS with the Jev key. It sends no requests without a key.",

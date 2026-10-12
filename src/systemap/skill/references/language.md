@@ -184,7 +184,9 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | control flow | A flow that causes a component to do an action. |
 | data flow | A flow that carries data between components. |
 | decision provider | A service that gives typed answers to typed questions. Jev is a decision provider. |
+| drift score | The probability from a decision provider that the claims of a component agree with its changed source (category 7). |
 | digest | A hash value of recorded source or claim contents. |
+| diff | The text that Git gives for the changed lines between two revisions of files. |
 | docstring | A string in source code that documents a module or symbol. |
 | entry point | A command, route, or public symbol where a run can start. |
 | evidence state | The recorded classification of support for a flow claim. |

@@ -447,14 +447,19 @@ def stale_source_reviews(model: Model, meaning: Meaning, facts: dict[str, Any]) 
     if not facts.get("components"):
         return []
     return [
-        (
-            f"stale source review: {card.id} has a source_review digest that is not the "
-            f"current digest. Examine its source and claims again. Then record the current digest."
-        )
+        stale_review_line(card.id)
         for card in model.components
         if card.kind != "actor"
         and card_review.state(card, model, meaning, facts) == card_review.STALE
     ]
+
+
+def stale_review_line(card_id: str) -> str:
+    """This function gives the stale source review line of one component."""
+    return (
+        f"stale source review: {card_id} has a source_review digest that is not the "
+        f"current digest. Examine its source and claims again. Then record the current digest."
+    )
 
 
 def review_states(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int] | None:
