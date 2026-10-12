@@ -452,7 +452,7 @@ Uses the page generator to render one figure for a document.
 
 - `--base REF` renders a change.
 
-- `--layer ID` renders that layer's edges and all components.
+- `--layer ID` renders that layer's flows and all components.
   The legend contains only that layer.
 
 - `--map ID` selects a nested map.
@@ -544,11 +544,11 @@ than one-third of the map.
 
 Prints measured map geometry for an agent that cannot see the page.
 The report includes position counts, components per region, region order,
-layout score, bends and length per edge, label gutters, and gutter seat usage.
-It also gives evidence-state counts and components and edges per layer.
+layout score, bends and length for each flow path, label gutters, and gutter seat usage.
+It also gives evidence-state counts, and the component and flow counts for each layer.
 Position counts distinguish pinned, placed, and temporary display positions.
-Edges with the worst geometry come first.
-A gutter line counts the labels that the edge lines put in that gutter.
+Flow paths with the worst geometry come first.
+A gutter line counts the labels that the flow paths put in that gutter.
 
 The sequence section gives steps, the entry point where each sequence starts, steps without import
 evidence, unconfirmed agent drafts, and covered entry counts.
@@ -682,7 +682,7 @@ Unknown keys are rejected.
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must not contain `#`, because the link adds `#changes`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
-| `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's edges. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
+| `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
 The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.
