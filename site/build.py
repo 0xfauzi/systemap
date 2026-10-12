@@ -386,21 +386,8 @@ def font_bytes() -> bytes:
 
 
 def mark_svg() -> str:
-    """Give the browser tab icon: the mark on the Ink page color."""
-    route = re.search(r'd="([^"]+)"', page.MARK)
-    if route is None:
-        raise SiteError("page.MARK has no route path.")
-    t = theme.SCHEMES[theme.DEFAULT_SCHEME]
-    dot = '<circle cx="{}" cy="{}" r="44" fill="' + t["brand"] + '"/>'
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
-        f'<rect width="512" height="512" rx="112" fill="{t["bg"]}"/>'
-        f'<path d="{route[1]}" fill="none" stroke="{t["ink"]}" stroke-width="44" '
-        'stroke-linecap="round" stroke-linejoin="round"/>'
-        + dot.format(380, 132)
-        + dot.format(132, 380)
-        + "</svg>\n"
-    )
+    """Give the browser tab icon. The map page uses the same icon (page.FAVICON)."""
+    return page.mark_icon() + "\n"
 
 
 # ---- the build -----------------------------------------------------------------

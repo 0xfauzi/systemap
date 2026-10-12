@@ -7,6 +7,11 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+- The browser tab icon of the map page is the same as the icon of the website.
+  It shows the mark of the page header in the colors of the Ink theme.
+
 ## 3.0.0 - 2026-10-12
 
 This version changes four behaviors. Each change can stop a command or change a CI result.

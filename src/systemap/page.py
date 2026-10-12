@@ -7,6 +7,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import quote
 
 from systemap import (
     nest,
@@ -42,18 +43,45 @@ SCHEME_KEY = "systemap-theme"
 # sets it. The system setting for reduced motion does not change the page.
 MOTION_KEY = "systemap-reduce-motion"
 
-# The mark, inline, so the tab shows it with nothing fetched. It is not
-# themed: a tab's icon is one picture.
-FAVICON = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='112'%20fill='%23121417'/%3E%3Cpath%20d='M380,132%20H172%20V256%20H340%20V380%20H132'%20fill='none'%20stroke='%23e6e4df'%20stroke-width='40'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3Ccircle%20cx='380'%20cy='132'%20r='40'%20fill='%23e0a458'/%3E%3Ccircle%20cx='132'%20cy='380'%20r='40'%20fill='%23e0a458'/%3E%3C/svg%3E"
+# The mark is one line between two dots, in a view box of 512 units.
+# The radius of each dot is the same as the width of the line.
+MARK_PATH = "M380,132 H172 V256 H340 V380 H132"
+MARK_DOTS = ((380, 132), (132, 380))
+MARK_WIDTH = 44
 
 # The mark in the header: one route between two ends. The path draws one
 # time when the page loads (page_motion).
 MARK = (
     '<svg class="mark" viewBox="0 0 512 512" aria-hidden="true">'
-    '<path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/>'
-    '<circle class="mark__dot" cx="380" cy="132" r="44"/>'
-    '<circle class="mark__dot" cx="132" cy="380" r="44"/></svg>'
+    f'<path class="mark__path" pathLength="1" d="{MARK_PATH}"/>'
+    + "".join(
+        f'<circle class="mark__dot" cx="{x}" cy="{y}" r="{MARK_WIDTH}"/>' for x, y in MARK_DOTS
+    )
+    + "</svg>"
 )
+
+
+def mark_icon() -> str:
+    """Give the browser tab icon: the mark on the page color of the Ink theme.
+
+    FAVICON contains this icon. site/build.py writes it to docs/assets/mark.svg.
+    Thus the map page and the website show the same icon."""
+    t = theme_mod.SCHEMES[theme_mod.DEFAULT_SCHEME]
+    dots = "".join(
+        f'<circle cx="{x}" cy="{y}" r="{MARK_WIDTH}" fill="{t["brand"]}"/>' for x, y in MARK_DOTS
+    )
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
+        f'<rect width="512" height="512" rx="112" fill="{t["bg"]}"/>'
+        f'<path d="{MARK_PATH}" fill="none" stroke="{t["ink"]}" stroke-width="{MARK_WIDTH}" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>{dots}</svg>'
+    )
+
+
+# The browser tab icon of the map page, as a data URL. The page contains the
+# icon. Thus the page uses no external file for the icon. The icon has the
+# colors of the Ink theme, also in the Paper theme.
+FAVICON = "data:image/svg+xml," + quote(mark_icon(), safe="/:=,")
 
 
 def esc(text: object) -> str:

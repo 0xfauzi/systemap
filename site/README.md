@@ -33,7 +33,7 @@ The build also stops if a page loads a file from a different site.
 | `site/site.js` | `docs/assets/site.js` |
 | `src/systemap/page_font.py` | `docs/assets/inter.woff2` |
 | `src/systemap/fonts/Inter-OFL.txt` | `docs/assets/Inter-OFL.txt` |
-| `src/systemap/page.py` (`MARK`), `theme.py` | `docs/assets/mark.svg`, the icon of the browser tab |
+| `src/systemap/page.py` (`mark_icon`), `theme.py` | `docs/assets/mark.svg`, the icon of the browser tab. The map page uses the same icon. |
 | `site/delta.txt` | the recorded `systemap delta` output on the landing page |
 
 The build owns `docs/index.html`, `docs/.nojekyll`, `docs/guide/`, and `docs/assets/`.

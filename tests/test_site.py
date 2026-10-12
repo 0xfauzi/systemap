@@ -13,10 +13,11 @@ import re
 import sys
 from pathlib import Path
 from types import ModuleType
+from urllib.parse import unquote
 
 import pytest
 
-from systemap import __version__, page_font
+from systemap import __version__, page, page_font
 from systemap import theme as theme_mod
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -176,3 +177,17 @@ def test_the_site_uses_the_tokens_and_the_font_of_the_map_page(
     font = site.build()["assets/inter.woff2"]
     assert hashlib.sha256(font).hexdigest() == page_font.WOFF2_SHA256
     assert f"Version <code>{__version__}</code>" in fixture_site["index.html"]
+
+
+def test_the_map_page_and_the_site_have_the_same_tab_icon() -> None:
+    # The map page puts FAVICON in a quoted HTML attribute.
+    # Thus FAVICON must not contain a quotation mark.
+    assert page.FAVICON.startswith("data:image/svg+xml,") and '"' not in page.FAVICON
+    icon = unquote(page.FAVICON.removeprefix("data:image/svg+xml,"))
+    assert icon + "\n" == (DOCS / "assets" / "mark.svg").read_text(encoding="utf-8")
+    ink = theme_mod.SCHEMES[theme_mod.DEFAULT_SCHEME]
+    assert f'fill="{ink["bg"]}"' in icon and f'stroke="{ink["ink"]}"' in icon
+    assert icon.count(f'r="{page.MARK_WIDTH}" fill="{ink["brand"]}"') == len(page.MARK_DOTS)
+    assert f'd="{page.MARK_PATH}"' in icon and f'd="{page.MARK_PATH}"' in page.MARK
+    map_page = (DOCS / "map" / "index.html").read_text(encoding="utf-8")
+    assert f'<link rel="icon" href="{page.FAVICON}">' in map_page
