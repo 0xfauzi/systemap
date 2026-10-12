@@ -1,6 +1,6 @@
 """The generated inspector preserves the limits of each flow's evidence.
 
-Acceptance: zero unreviewed claims labelled source review recorded, zero missing
+Acceptance: zero unreviewed claims labelled current source review, zero missing
 review warnings or source records, and zero substituted flow selections.
 Selection preserves every original dash and has at most one moving cue.
 Reduced motion has zero moving cues. The local DOM harness checks interaction
@@ -143,7 +143,7 @@ def test_generated_metadata_retains_review_and_independent_structure(
     assert sample.model.flows[4].source_refs[0].split("@")[-1] != ledger_hash
     assert edges[3]["import_present"] and not edges[3]["source_refs"]
     svg, _ = render_schematic(sample.model, sample.meaning, sample.theme, sample.facts)
-    assert ', source review recorded"' in svg
+    assert ', current source review"' in svg
     assert ', observed"' not in svg
 
 
@@ -197,7 +197,7 @@ def test_inspector_keeps_exact_review_state_warnings_and_escaped_refs(
 ) -> None:
     for flow in flow_report["flows"]:
         expected = flow["metadata"]
-        label = "source review recorded" if flow["index"] == 1 else expected["evidence"]
+        label = "current source review" if flow["index"] == 1 else expected["evidence"]
         assert [s["focus"] for s in flow["states"]][1:3] == [expected["to"], expected["from"]]
         for state in flow["states"]:
             assert state["edge"] == flow["index"]
@@ -233,7 +233,7 @@ def test_inspector_keeps_exact_review_state_warnings_and_escaped_refs(
     assert len(unresolved["warnings"]) == 1
     assert "references do not identify source at this revision" in unresolved["warnings"][0]
     assert not reviewed["warnings"] and not structural["warnings"]
-    assert "source review recorded" in flow_report["readingLabels"][1]
+    assert "current source review" in flow_report["readingLabels"][1]
     assert all("observed" not in label for label in flow_report["readingLabels"])
 
 

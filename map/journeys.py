@@ -319,6 +319,76 @@ JOURNEYS = (
         ),
     ),
     Journey(
+        id="live-map",
+        label="Show the map of the working tree",
+        starts="live (subcommand in systemap.serve)",
+        covers=('["subcommand","systemap.serve","","live"]',),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The agent or the maintainer runs systemap live. The command supplies the page on 127.0.0.1 and writes one event line for each version.",
+            ),
+            Step(
+                acts=("FactsExtractor",),
+                measures=(),
+                edge=("CLI", "FactsExtractor"),
+                say="When a watched file changes, or after POST /refresh, the command extracts the facts of the working tree. It does not write the facts file.",
+            ),
+            Step(
+                acts=("ChangeDetector",),
+                measures=(),
+                edge=("CLI", "ChangeDetector"),
+                say="The detector compares the working tree with the merge base of the base ref and HEAD. The delta lines that need an action are the map updates.",
+            ),
+            Step(
+                acts=("Page",),
+                measures=(),
+                edge=("CLI", "Page"),
+                say="The page generator makes the pages in a temporary directory. The page script loads the page again for each version and keeps the view of the reader.",
+            ),
+            Step(
+                acts=("Figures",),
+                measures=(),
+                edge=("CLI", "Figures"),
+                say="The figure generator makes change.svg beside the page. It is the change figure, or the system figure if the comparison has no change.",
+            ),
+            Step(
+                acts=("Maintainer",),
+                measures=(),
+                edge=("Page", "Maintainer"),
+                say="The maintainer examines the page in a browser while the agent changes the code.",
+            ),
+        ),
+    ),
+    Journey(
+        id="convert-model",
+        label="Write a model file with literal values",
+        starts="convert (subcommand in systemap.model_convert)",
+        covers=('["subcommand","systemap.model_convert","","convert"]',),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The maintainer examines the code of the model files. Then the maintainer or the agent runs systemap convert with SYSTEMAP_TRUST_MODEL_CODE=1.",
+            ),
+            Step(
+                acts=("Config",),
+                measures=(),
+                edge=("Config", "Model"),
+                say="The configuration reader runs each model file that the safe reader refuses, one time. It gives the model and its meaning.",
+            ),
+            Step(
+                acts=("SecondOpinion",),
+                measures=(),
+                edge=("Config", "SecondOpinion"),
+                say="The command reads the new text without running code. If it gives the same model, the model writer replaces the file.",
+            ),
+        ),
+    ),
+    Journey(
         id="draw-figure",
         label="Make a map figure",
         covers=('["subcommand","systemap.cli","systemap","figure"]',),

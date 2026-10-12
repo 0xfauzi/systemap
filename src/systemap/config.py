@@ -7,21 +7,19 @@ evidence mechanisms. The reference document lists the keys and defaults.
 
 from __future__ import annotations
 
-import contextlib
 import dataclasses
 import os
 import re
 import subprocess
-import sys
 import tomllib
-import types
-from collections.abc import Collection, Iterator
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap import model_load
 from systemap.delta_link import page_url
-from systemap.language_config import package_roots, tests_directories
+from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
 from systemap.root_check import checked_roots
 
@@ -57,6 +55,7 @@ KNOWN_KEYS = {
     "jev",
     "agent",
     "delta",
+    "writing",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
@@ -80,6 +79,8 @@ LINE_KINDS = (
     "crossing import",
     "declared flow",
     "flow review",
+    "no endpoint source",
+    "stale source review",
     "model sdk",
     "unknown surface",
 )
@@ -190,6 +191,7 @@ class Config:
     agent_timeout: float = 300.0
     # The URL of the published map page of a pull request, with {number}. Empty: no comment.
     delta_page_url: str = ""
+    writing_profile: str = "plain"  # the writing profile for map text
     source: str = ""
 
     @property
@@ -442,6 +444,7 @@ def load(root: Path) -> Config:
         roots = checked_roots(root, language, raw, roots, KNOWN_KEYS, where)
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
         delta_page_url = page_url(raw, where)
+        writing = writing_profile(raw.get("writing"), where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -471,6 +474,7 @@ def load(root: Path) -> Config:
         theme=theme,
         figures=_figures(raw, where),
         delta_page_url=delta_page_url,
+        writing_profile=writing,
         source=source,
     )
 
@@ -729,63 +733,23 @@ def _answer_review(
     return evidence, policy, tuple(reviewed)
 
 
-@contextlib.contextmanager
-def _beside(folder: Path) -> Iterator[None]:
-    """This context puts the model directory on the import path during model execution. It
-    restores the path afterward.
-    """
-    sys.path.insert(0, str(folder))
-    held = set(sys.modules)
-    try:
-        yield
-    finally:
-        with contextlib.suppress(ValueError):
-            sys.path.remove(str(folder))
-        for name in set(sys.modules) - held:
-            found = getattr(sys.modules[name], "__file__", None) or ""
-            if found and Path(found).resolve().parent == folder:
-                del sys.modules[name]
-
-
-def _import_problem(label: str, exc: ImportError | NameError) -> str:
-    """Give the model import error. Only a systemap name gets the systemap import fix."""
-    from systemap import __all__ as exported
-
-    name = getattr(exc, "name", None)
-    if isinstance(exc, NameError) and name in exported:
-        return f"{label} could not import: {exc}. Add the missing name to the import from systemap."
-    if isinstance(exc, ImportError) and name == "systemap":
-        names = ", ".join(n for n in exported if not n.startswith("_"))
-        return f"{label} could not import: {exc}. Use a name that systemap exports: {names}."
-    return f"{label} could not import: {type(exc).__name__}: {exc}"
-
-
 def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
-    """This function imports the model file and gets MODEL and MEANING.
+    """This function reads the model file and gets MODEL and MEANING.
 
-    The optional label supplies the path name in error messages. An import error gives a
-    configuration diagnostic.
+    The reader runs no code from the file. Only the environment of the command can permit
+    code, with SYSTEMAP_TRUST_MODEL_CODE=1 (see model_load). The optional label supplies
+    the path name in error messages. A refusal or an import error gives a configuration
+    diagnostic.
     """
     if not path.is_file():
         raise ConfigError(f"The model module is missing: {path}")
     label = label or str(path)
-    name = f"systemap_model_{abs(hash(str(path)))}"
-    module = types.ModuleType(name)
-    module.__file__ = str(path)
-    sys.modules[name] = module
-    beside = path.parent.resolve()
     try:
-        source = path.read_text(encoding="utf-8-sig")
-        with _beside(beside):
-            exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - it is code
-    except (ImportError, NameError) as exc:
-        raise ConfigError(_import_problem(label, exc)) from exc
-    except Exception as exc:  # noqa: BLE001 - the consumer's module may fail any way
-        raise ConfigError(f"{label} could not import: {type(exc).__name__}: {exc}") from exc
-    finally:
-        sys.modules.pop(name, None)
-    model = getattr(module, "MODEL", None)
-    meaning = getattr(module, "MEANING", None)
+        names = model_load.load(path, label)
+    except model_load.ModelFileError as exc:
+        raise ConfigError(str(exc)) from exc
+    model = names.get("MODEL")
+    meaning = names.get("MEANING")
     if not isinstance(model, Model):
         raise ConfigError(f"{label}: MODEL must be a systemap.Model")
     if not isinstance(meaning, Meaning):

@@ -87,7 +87,7 @@ def test_starter_is_a_2x2_grid_with_corridors(tmp_path: Path) -> None:
     assert (ax, ay) == (cx, dy - (cy - ay)) or ax == cx
     assert by == ay and dx == bx and dy == cy
     assert "corridors" in text and "references/layout.md" in text
-    assert "ASD-STE100 Issue 9" in text
+    assert "[writing] profile" in text
     assert "from systemap import (" in text and "    Layer,\n" in text
     # The position tables are fenced from the formatter, with the reason
     # beside the fence; every schema name is imported and used.
@@ -120,7 +120,7 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
     """The consumer's formatter must accept the starter as written, whatever
     its line length; trailing commas keep the collections exploded."""
     pytest.importorskip("ruff")
-    files = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci=False)
+    files = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci="")
     model = tmp_path / "model.py"
     model.write_text(files["map/model.py"], encoding="utf-8")
     for width in ("88", "100"):

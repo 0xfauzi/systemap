@@ -2,6 +2,7 @@
 
 ## Contents
 
+- The model file
 - Model
 - Container
 - Region
@@ -18,8 +19,31 @@
 The model uses frozen dataclasses exported by `systemap`.
 `map/model.py` exports `MODEL` as a `Model` and `MEANING` as a `Meaning`.
 Default values identify optional fields.
-Use ASD-STE100 names and prose as specified in `references/language.md`.
+Use names and prose under the writing profile in `references/language.md`.
 Keep schema keys and source symbols exact.
+
+## The model file
+
+systemap reads the model file as data. It does not run the file as Python code.
+Write only these statements:
+
+- The module docstring and `from __future__ import annotations`.
+- `from systemap import ...` for the model classes and `AGENT_KINDS`, `KINDS`, and `STANDARD_KINDS`.
+- `import NAME` for the file `NAME.py` in the same directory, such as `import journeys`.
+  Then use `NAME.VALUE` for a value from that file.
+- `NAME = value` and `NAME: annotation = value`. systemap does not read the annotation.
+- A type alias for annotations, such as `Steps = tuple[Step, ...]`.
+
+A value is a `str`, `int`, `float`, `bool`, or `None` constant, or a `tuple`, `list`, `set`, or `dict` of values.
+A value can also be a minus sign before a number, a model class call, or a name that an earlier statement defines.
+Write each position, digest, and source record as a literal value.
+Do not write functions, loops, comprehensions, f-strings, operators, indexes, or other imports.
+systemap refuses other syntax and gives the file and the line.
+If systemap refuses a statement, write the value as a literal value.
+
+The maintainer can set `SYSTEMAP_TRUST_MODEL_CODE=1` to run model code in a repository with safe code.
+Do not set this value to make a refused model file load.
+For a model file from an earlier version, tell the maintainer about `systemap convert`. It writes the same model with literal values only.
 
 ## Model
 
@@ -85,7 +109,7 @@ Examples are `read(source) -> Request` and `Ledger.record / Ledger.history`.
 The checker reads the first identifier before `(`, `.`, `->`, or whitespace.
 For `Class.method`, both the class and its public method must exist.
 
-Keep literal signatures exact. Write any additional description in ASD-STE100.
+Keep literal signatures exact. Write any additional description under the writing profile.
 
 An empty package marker has no public names, internal imports, external imports, or top-level execution.
 The coverage check includes these markers without a manual exclusion.
@@ -103,6 +127,7 @@ ignore = [
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, connected flows, sequences, and invariants before you write it.
 Delta keeps a changed component under `The map needs an update` until the digest agrees with the current claims and source.
+If the value is not the current digest, `systemap judgement` gives a `stale source review` finding.
 Refresh does not write this digest. See `references/maintenance.md` for the procedure.
 
 ### Kind and appearance
@@ -182,6 +207,10 @@ Represent the other direction as a separate flow with its own sentence.
 
 An import, common module, or configured mechanism gives `structural` evidence only.
 `observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
+At least one reference must be in a module of the source or target component.
+An actor has no modules. For a flow with an actor end, use a module of the other end.
+If no reference is in an endpoint module, the flow is not `observed`, and `systemap judgement` gives a `no endpoint source` finding.
+The page shows `observed` as "current source review". It is a recorded source review, not a record of program execution.
 A reference has the form `module[:symbol]@<source_sha256>`.
 The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
 It does not examine the claims for you. Examine the source before you record the values.
@@ -244,7 +273,7 @@ A nonempty sequence covers only those identities.
 `acts` identifies the components that act.
 `measures` identifies components that monitor or record the step. If none applies, use `()`.
 `edge` is the `(src, dst)` pair of an existing flow.
-`say` gives one ASD-STE100 sentence about the action and result.
+`say` gives one sentence about the action and result, under the writing profile.
 
 ## Layer
 

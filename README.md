@@ -13,6 +13,8 @@
  <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
+The website has the guide, the reference, and a live example: <https://0xfauzi.github.io/systemap/>.
+
 A coding agent can write code faster than you can read it. After many changes,
 you can forget parts of your Python or TypeScript system.
 
@@ -64,8 +66,9 @@ A label moves along its line to a place where it touches no card, label, or othe
 A label without such a place also shows only for a pointer, keyboard focus, or selection.
 The Details panel keeps all component connections, with direction and evidence.
 
-Flow lines also show evidence. A solid internal line shows a source review
-with references and a claim digest that match the stored source snapshot.
+Flow lines also show evidence. A solid internal line shows a current source review.
+This is a recorded source review whose source records and claim digest still agree with
+the stored source snapshot. At least one source record is in a module of a flow endpoint.
 A short dashed line shows structural evidence: an import, a shared module,
 or a configured mechanism. A long dashed line shows a declared flow
 without that evidence.
@@ -84,7 +87,7 @@ operation as a route on the map, then one step at a time, with a note at each
 step. A button in its row opens the list of sequences. **Changes** shows the components and flows that a revision comparison
 changed.
 
-On the first visit, a guide card gives five steps through the map.
+On the first visit, a guide card gives up to five steps through the map.
 The three views have the same parts. Each has a row of controls under the header
 and a panel at the right. Above the map, one line gives a small label and a question.
 On a wide window, the Map view opens the panel with the page. With no
@@ -126,7 +129,7 @@ These values come from the current model and recorded source data.
 Install systemap. Then write the initial files:
 
     uv tool install systemap        # or: uv add --dev systemap
-    systemap init                   # --no-ci writes no workflow
+    systemap init                   # --no-ci: no workflow. --strict-ci: findings fail CI.
 
 For a TypeScript repository, install the parser extra:
 
@@ -193,7 +196,7 @@ application modules. If only the package directories of a workspace have a
 The `init` command writes the configuration, an empty map, the skill
 instructions, and a CI workflow. The command then prints this instruction:
 
-> Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9.
+> Make a map of this repository with systemap. Obey the systemap skill and its writing rules.
 
 Give the instruction to your agent. The agent reads the code, selects a component
 for each module, writes flows, and does the checks. A second examination finds missing claims.
@@ -206,10 +209,19 @@ For Claude Code, use the repository's plugin marketplace:
     /plugin marketplace add 0xfauzi/systemap
     /plugin install systemap@systemap
 
+The plugin also gives a live map in Claude Code.
+See [What does the live map in Claude Code show?](#what-does-the-live-map-in-claude-code-show)
+
 Other agents can use the same instructions if they can read files and execute commands.
 
-All map names, sequence steps, interface text, and documentation must use ASD-STE100 Issue 9.
-The [language policy](src/systemap/skill/references/language.md) gives the official reference, the glossary, and the necessary examination procedure.
+The writing profile in `systemap.toml` sets the writing rules for map names, sequence steps, and other map text.
+The default profile is `plain`. Its rules limit the sentence length and require literal words and one term for each concept.
+A person or a program can examine these rules without a dictionary.
+
+To use the full ASD-STE100 Issue 9 rules, set `profile = "asd-ste100"` in the `[writing]` table.
+These rules need the official ASD dictionary.
+The [language policy](src/systemap/skill/references/language.md) gives the two profiles, the glossary, and the examination procedure.
+This repository uses the `asd-ste100` profile for its map, its interface text, and its documentation.
 
 ### TypeScript example
 
@@ -271,6 +283,43 @@ The larger fixture in
 [`tests/fixtures/typescript-app`](tests/fixtures/typescript-app) includes path
 aliases, TSX, and a package binary.
 
+### What does the live map in Claude Code show?
+
+The Claude Code plugin shows the map of the current files while an agent changes them.
+It uses the `systemap live` command.
+
+In a repository with `systemap.toml`, or with `[tool.systemap]` in `pyproject.toml`,
+the plugin shows one line above the prompt:
+
+    map: not started · Start live map
+
+The live map reads `map/model.py` without running its code, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is in the environment of Claude Code.
+To start it, select `Start live map` or type `/map`.
+The plugin then runs `systemap live --port 0 --json --no-watch`.
+
+After a turn that changes files, the plugin tells `systemap live` to render the map again.
+The line above the prompt then shows the state of the live map:
+
+- `map: live · 3 map updates · Open map · Show`. The map shows the current files.
+  A map update is a `systemap delta` line that needs an action.
+- `map: rendering`. systemap renders the map now.
+- `map: not updated: ...`. systemap could not render the map. The page keeps the last correct map.
+
+`Open map` opens the full page in a browser. `Show` and `/map` open a pane.
+On a surface other than the terminal, the pane shows the change figure and the map update lines.
+In a terminal, the pane shows the map update lines and the link.
+If the figure has more than 131,072 characters, the pane shows the link and no figure.
+
+The plugin has two options. Set them with `/plugin configure systemap@systemap` or in `/config`:
+
+- `command`: the command that starts systemap. The default is `systemap`.
+  Examples are `uv run systemap` and `uvx systemap`.
+- `autostart`: if true, the live map starts with each session in a systemap repository.
+  The default is false.
+
+If the command cannot start, the line says so and gives the name of the `command` option.
+In a directory without systemap configuration, the plugin shows nothing.
+
 ## Why does an agent write the map?
 
 Extraction finds modules, public names, imports, and test references.
@@ -305,6 +354,7 @@ include a single-module component, an entry point with no sequence, and an impor
 across components with no flow. Change the map or record a reason in
 `systemap.toml`. Exact answers must have evidence for the stored source snapshot. Family answers must have
 an explicit policy. Changed evidence can open an exact finding again.
+A component `source_review` digest that is not current is also a finding.
 
 A report with no open findings does not show that every component assignment is correct.
 The rules use names and imports. They can miss a module in the incorrect component.
@@ -329,7 +379,9 @@ This example keeps finding identifiers from an earlier version:
 Its `entry` field shows a public name at which a reader can start.
 
 The workflow from `init` runs delta on each pull request. The job log gives each line
-and its action. CI rejects the pull request while it is necessary to update the map.
+and its action. By default, a necessary map update gives a warning, and the job passes.
+To reject the pull request while a map update is necessary, set `SYSTEMAP_CI: strict`
+in the workflow, or run `systemap init --strict-ci`.
 
 CI writes no comment by default. If your repository publishes the map page of each
 pull request, set `[delta] page_url` in `systemap.toml`. Then CI writes one comment
@@ -344,6 +396,19 @@ Three merged pull requests from one 111-module repository cost 2.31, 4.39, and
 dollars. The cost depends on the model and the repository size. Three pull
 requests from one repository form a small sample.
 [docs/benchmarks.md](docs/benchmarks.md) gives each run.
+
+## How do you see the map while the code changes?
+
+`systemap live` renders the map of the working tree and supplies it at `http://127.0.0.1:8765/`.
+Open this address in a browser.
+When a source, model, or configuration file changes, the command renders the map again.
+Then the browser loads the page again and keeps your view, layer, selection, and sequence step.
+The Changes view compares the working tree with `origin/main`, or with the ref of `--base`.
+It includes the edits that are not in a commit.
+The command does not write tracked files. It can add a cache file in `.systemap/facts/`.
+On this repository, the command takes about 7 to 8 seconds to render the map.
+`--json`, `GET /status`, and `POST /refresh` give the state to other programs.
+[docs/reference.md](docs/reference.md) gives the options and the HTTP requests.
 
 ## What other commands can you use?
 
@@ -381,6 +446,31 @@ systemap does not read framework-specific TypeScript routes.
 The map contains authored and examined flows. It does not contain all function
 calls or one component for each module. Systemap is not a UML tool.
 It uses one picture and one layout, with components, flows, and sequences.
+
+## What does systemap run and read?
+
+systemap reads the source files, `systemap.toml`, and the model files of the repository.
+The extractor parses the source files. It does not import them.
+systemap reads `map/model.py` and the model files that it imports as data.
+It does not run them.
+A model file can contain only literal values, calls of the model classes, and names that
+the file defines. For other code in a model file, the commands stop and give the file,
+the line, and the necessary change.
+
+If you know that the code in a repository is safe, you can set
+`SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command.
+Then systemap runs the model files as Python code, as version 2.0 did.
+The repository cannot give this permission. systemap does not read it from `systemap.toml`
+or from another file in the repository.
+
+To change a model file from an earlier version to literal values, examine its code first.
+Then run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
+The command writes the same model with literal values only, and makes sure that systemap reads it to the same model.
+
+systemap runs `git` to read the commits and revisions of the repository.
+`systemap journeys` runs the program that `[agent] command` in `systemap.toml` gives.
+Before you run `journeys` in a repository that you do not know, read that value.
+Commands that use Jev or an agent send source text and map text to that service.
 
 ## How do you develop systemap?
 

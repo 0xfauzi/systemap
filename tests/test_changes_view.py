@@ -196,7 +196,7 @@ INVARIANTS = (
 MODEL = Model(canvas=(740, 440), containers=CONTAINERS, regions=REGIONS,
               components=COMPONENTS, flows=FLOWS, flow_kinds=(), invariants=INVARIANTS)
 MEANING = Meaning(
-    plain={{c.id: c.id.lower() for c in COMPONENTS}},
+    plain={{"Reader": "reader", "Writer": "writer", "Store": "store", {last_plain}}},
     relations={{("Reader", "Writer"): "{relation}",
                ("Writer", "Store"): "The writer keeps the records.",
                {last_relation}}},
@@ -217,6 +217,7 @@ BASE_MODEL = MODEL.format(
         'region="core", x=60, y=200),'
     ),
     digest="1" * 64,
+    last_plain='"Spare": "spare"',
     last_flow='Flow("Spare", "Writer", "extra", "data"),',
     governs='("Writer", "Store")',
     last_invariant='Invariant(2, "The spare gives nothing.", ("Spare",)),',
@@ -236,6 +237,7 @@ HEAD_MODEL = MODEL.format(
     ),
     # A new digest for the same source record is a renewed review, not a change.
     digest="2" * 64,
+    last_plain='"Audit": "audit"',
     last_flow='Flow("Writer", "Audit", "text <checked>", "control"),',
     # The same components in a different order are not a change.
     governs='("Store", "Writer")',

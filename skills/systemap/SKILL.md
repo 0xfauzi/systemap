@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model in ASD-STE100, gives positions to components, examines source claims, renders the map, and records answers to findings. Use systemap delta for source changes after the first map.
+description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model, gives positions to components, examines source claims, renders the map, and records answers to findings. The map text obeys the writing profile: plain or ASD-STE100. Use systemap delta for source changes after the first map.
 license: MIT
 compatibility: Python 3.11+ and the systemap package (uv tool install systemap). Delta and history use Git. Jev commands use TYPESAFE_API_KEY and network access.
 ---
@@ -11,7 +11,7 @@ A map has source facts and an authored model.
 `systemap extract` reads modules, exports, imports, and entry points from source code.
 The model gives component assignments for source modules and identifies each flow artifact.
 A maintainer must examine these claims against source code. A structural check without failures does not show that a claim is correct.
-The model is a Python module, usually `map/model.py`, with `MODEL` and `MEANING`.
+The model is a file in Python syntax, usually `map/model.py`, with `MODEL` and `MEANING`. systemap reads it as data and does not run it. Write only literal values and model class calls.
 
 Run commands from the repository root. Use `--root DIR` for another repository.
 If the `systemap` command is missing, tell the maintainer. `uv tool install systemap` or `uv add --dev systemap` installs it.
@@ -20,15 +20,13 @@ If `systemap.toml` is missing, run `systemap init`.
 
 ## Mandatory language requirement
 
-You must use ASD-STE100 Issue 9 for all names and all text that a person reads.
-This requirement applies to every new map and every map update.
+Read `[writing] profile` in `systemap.toml`. If the key is missing, use `plain`.
+Apply the profile to all names and text that a person reads in every new map and every map update.
 It includes component names, artifacts, layers, sequences, steps, invariants, explanations, and recorded reasons.
-Before you write, read [references/language.md](references/language.md) and the official ASD rules and dictionary.
-Use approved meanings and parts of speech. Use technical terms only with their glossary meanings.
+Read [references/language.md](references/language.md) before you write. Do not change commands, schema keys, identifiers, or quoted source evidence.
 
-Do not change commands, schema keys, identifiers, or quoted source evidence.
-If the official reference is not available, tell the maintainer. Do not complete language acceptance.
-Do not use an automated word-list check as the only evidence that the text obeys the standard.
+- `plain`: the common rules and the glossary terms with their meanings. There is no dictionary step. Do not say that the text obeys ASD-STE100.
+- `asd-ste100`: also ASD-STE100 Issue 9, with the official ASD rules and dictionary. Use approved meanings and parts of speech. If the dictionary is not available, tell the maintainer. Do not give an ASD-STE100 acceptance result.
 
 ## Jev answers
 
@@ -102,6 +100,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
    | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Renew the record or correct the claim. |
+   | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
+   | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then record the current digest. |
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 
@@ -148,19 +148,17 @@ An actor is a person or system outside the mapped source.
 A flow carries one artifact between two components.
 Standard kinds are `data`, `control`, `context`, and `tool`.
 Each other kind must have a declaration in `flow_kinds` and a layer assignment.
-Use one to three words for an artifact noun phrase.
-Write one relation sentence from the source component.
+Use one to three words for an artifact noun phrase. Write one relation sentence from the source component.
 Write one short name in `plain` for each component.
 
 Every flow has an evidence state:
 
 - `structural`: an import, common module, or configured observation gives structural evidence for a relation only.
-- `observed`: current source records and a claim digest support direction and artifact.
+- `observed`: a current source review. Current source records and a claim digest support direction and artifact. At least one record is in a module of an endpoint.
 - `external`: one endpoint is an actor.
 - `declared`: no structural evidence or examined source supports the flow.
 
-Structural and declared flows use dashed lines. Examine their source evidence.
-An import alone does not show an artifact or its direction. Never renew a digest without source examination.
+Structural and declared flows use dashed lines. Examine their source evidence. An import alone does not show an artifact or its direction. Never renew a digest without source examination.
 
 Write sequences for the entry points that are important to a reader.
 `starts` is a display label. `covers` contains exact examined entry identities.
@@ -183,7 +181,7 @@ Its actors represent adjacent components. Commands examine every nested map.
 
 | command | result |
 |---|---|
-| `systemap init` | Write missing configuration, initial model, skill, and CI workflow. With `--no-ci`, do not write the workflow. |
+| `systemap init` | Write missing configuration, initial model, skill, and CI workflow. With `--no-ci`, do not write the workflow. With `--strict-ci`, the workflow fails on a map finding. |
 | `systemap extract` | Write source facts. `--check` exits 1 for stale facts. |
 | `systemap facts` | Show one source view: `--modules`, `--docstrings`, `--module NAME`, `--names NAME`, `--entry-points`, `--external`, or `--imports NAME`. |
 | `systemap place` | Write positions for components without positions. `--all` keeps only pinned positions. `--keep-order` keeps region order. `--print` shows positions without file changes. |
@@ -218,7 +216,7 @@ Examined module assignments: <count>
 Open questions: <each assignment that the maintainer must examine>
 Recorded answers: <each answer in systemap.toml, with its reason>
 Evidence limits: <each recorded extractor, source, or Jev limit>
-Uncertainty: <each uncertain component assignment, source claim, or ASD-STE100 word>
+Uncertainty: <each uncertain component assignment, source claim, or word under the writing profile>
 Proposed rules: <each proposed invariant outside the invariant list>
 ```
 
@@ -228,7 +226,7 @@ Do not put code or test counts on map components. Keep relationships on flows. D
 
 ## References
 
-- `references/language.md`: mandatory ASD-STE100 rules, technical glossary, and language acceptance procedure. Read it before every text change.
+- `references/language.md`: the writing profiles, the common rules, the ASD-STE100 rules, the glossary, and the language acceptance procedure. Read it before every text change.
 - `references/schema.md`: dataclasses, fields, and structural checks. Read it before the draft.
 - `references/example.md`: a complete small model and configuration. Read it with the schema.
 - `references/layout.md`: automatic positions, pinned positions, routes, and descriptions. Read it before placement.

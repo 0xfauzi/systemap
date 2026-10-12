@@ -1,7 +1,8 @@
 """The skill supplies the coding-agent procedure for map creation and maintenance.
 
 The extractor supplies mechanical facts. The agent writes meaning from source evidence.
-The skill specifies ASD-STE100 Issue 9 for map names, descriptions, and documentation.
+The skill specifies the writing rules of each writing profile for map names and descriptions.
+The "plain" profile is the default. The "asd-ste100" profile adds ASD-STE100 Issue 9.
 """
 
 from __future__ import annotations

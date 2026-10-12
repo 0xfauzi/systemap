@@ -1,7 +1,7 @@
 # Reference
 
 This document gives the rules, commands, and configuration keys.
-[README.md](README.md) gives the introduction.
+[README.md](../README.md) gives the introduction.
 If a check has a finding, first read its rule below.
 The command descriptions and configuration keys follow the rules.
 
@@ -49,13 +49,22 @@ The renderer and the checks use the evidence state of the stored source snapshot
 
 | Evidence | Condition | Indication |
 |---|---|---|
-| `observed` | `source_refs` resolve to extracted source hashes. `review_digest` agrees with the current flow claim and sentence. | A solid line. The panel shows a source review for the stored snapshot. |
+| `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim and sentence. | A solid line. The page shows "current source review". |
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
 
+The stored value `observed` is an identifier. It does not mean that a program ran.
+The page legend, the Details panel, and `systemap describe` use the words "current source review".
+A current source review is a recorded source review whose source records still agree with the stored source snapshot.
+
 For `observed`, a flow records `source_refs` and a `review_digest`.
 A reference has the form `module[:symbol]@<source_sha256>`.
+At least one reference must be in a module of the source component or the target component.
+A package pattern or a symbol claim in `implemented_by` also puts a component in a module.
+An actor has no modules. For a flow with an actor end, use a module of the other end.
+If no reference is in an endpoint module, the flow is not `observed`.
+`systemap judgement` then prints a `no endpoint source` finding.
 The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
 It does not examine the claims for you. Examine the source before you record the values.
 
@@ -91,14 +100,23 @@ For each finding, change the model or record the reason for its stored state.
 | possible mis-fold | A module's dotted path has no word in common with its component's id, `does`, plain text, or `interface`. The component has multiple modules. No other module is in the same package. Is the assignment incorrect? |
 | no sentence | A flow has no relation sentence. |
 | thin layer | A layer contains fewer than two components. This includes an unused standard kind. |
-| entry point X has no journey | The entry point's identity is absent from each examined sequence's `covers`. |
+| entry point X has no sequence (component C) | The identity of the entry point is not in the `covers` of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example `entry point 6 routes into C have no sequence (component C)`. |
 | crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. |
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
+| no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
+| stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
 Without `--strict`, the report exits 0.
 With `--strict`, it exits 1 while a finding is open.
+
+Each source component has one review state:
+`missing` (no `source_review`), `stale` (`source_review` is not the current digest), or `current`.
+`systemap delta` and `systemap judgement` use the same state.
+A stale review is a `stale source review` finding, so `judgement --strict` fails on it.
+A missing review is not a finding. Many maps have no `source_review` values, and these maps pass `judgement --strict`.
+The report counts the three states on one line, for example `source reviews: 16 current, 0 stale, 0 missing`.
 `[judgement] answered` in `systemap.toml` contains recorded answers.
 Accepted answers suppress findings and increase the answered count.
 The report can print `judgement: 3 possible map errors to examine, 21 answered`.
@@ -288,12 +306,13 @@ Commands use all maps in the map tree:
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
-The fixture in [`tests/test_nested.py`](tests/test_nested.py) has five top-level
+The fixture in [`tests/test_nested.py`](../tests/test_nested.py) has five top-level
 components. Two open nested maps.
 
 ## What does a model contain?
 
-The agent writes one Python module with frozen dataclasses.
+The agent writes one model file in Python syntax with the frozen dataclasses of `systemap`.
+systemap reads the file as data. It does not run the file as Python code.
 This example contains two components and one flow from the self-map.
 A model does not declare the standard flow kinds.
 The page derives standard layers.
@@ -330,9 +349,38 @@ The example has no `x` or `y` values.
 After component additions or removals, `systemap place --all` writes new
 positions. A component with `pinned=True` keeps its selected position.
 
+A model file can contain only these statements:
+
+- The module docstring and `from __future__ import annotations`.
+- `from systemap import ...` or `from systemap.model import ...` for the model classes
+  and for `AGENT_KINDS`, `KINDS`, and `STANDARD_KINDS`.
+- `import NAME` for the file `NAME.py` in the same directory, such as `import journeys`.
+  `NAME.VALUE` gives a value from that file. The same rules apply to that file.
+  systemap refuses a symbolic link to a file outside the directory, and an import cycle.
+- `NAME = value` and `NAME: annotation = value`. systemap does not read the annotation.
+- A type alias for annotations, such as `Steps = tuple[Step, ...]`.
+
+A value is a `str`, `int`, `float`, `bool`, or `None` constant, a minus sign before
+a number, or a `tuple`, `list`, `set`, or `dict` of values.
+A value can also be a call of a model class with positional and keyword values,
+or a name that an earlier statement in the same file defines.
+systemap refuses all other syntax before it makes a value. Examples are functions,
+classes, comprehensions, f-strings, operators, indexes, `**` and `*` in a call, and other imports.
+The message gives the file, the line, and the refused syntax.
+
+The reader also has limits: 512 KiB and 16 files for one model with the files that it imports,
+100,000 values, 32 levels of nested values, and 8,000,000 parts and characters in one value
+when each name in it is written out. Move a part of a larger map into a nested map.
+
+If you know that the code in a repository is safe, set `SYSTEMAP_TRUST_MODEL_CODE=1`
+in the environment of the command. Then systemap runs each model file as Python code,
+as version 2.0 did. Only the value `1` gives this permission.
+systemap does not read this permission from `systemap.toml`, because the repository controls that file.
+To write a model file with code again as literal values, use `systemap convert`.
+
 The full schema and examples are in
-[`SKILL.md`](src/systemap/skill/SKILL.md) and its
-[`references/`](src/systemap/skill/references/).
+[`SKILL.md`](../src/systemap/skill/SKILL.md) and its
+[`references/`](../src/systemap/skill/references/).
 
 ## Which command do you use?
 
@@ -343,13 +391,20 @@ configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, `systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
-### `systemap init [--no-ci]`
+### `systemap init [--no-ci | --strict-ci]`
 
 Writes `systemap.toml`, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
-The command does not replace files.
+The command does not replace `systemap.toml`, the model, or the workflow.
+It writes the skill directory again on each run.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
+
+The workflow has the variable `SYSTEMAP_CI`. Its default value is `advisory`:
+a map finding gives a warning annotation, and the job passes.
+With `--strict-ci`, the value is `strict`: a map finding makes the job fail.
+You can change the value in the workflow file later.
+If systemap cannot run (exit code 2 or more), the job fails with both values.
 
 If the repository has no Python package and a directory has a `tsconfig.json` file,
 `init` selects TypeScript.
@@ -408,9 +463,9 @@ For more regions, it uses a greedy start and pairwise swaps.
 A bend estimate scores each candidate.
 The router renders the best twelve estimates and the model's listed order.
 It scores label collisions, rejected routes, bends, and length, in that order.
-The report gives the selected order and score:
+The report gives the selected order and score. This line is from `systemap place --all --print` in this repository:
 
-    region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed
+    region order: draw, gather, mean, keep, operate. 159 bends, 32,562 units. 120 orders examined, 13 routed
 
 The procedure is deterministic and uses only the standard library.
 
@@ -426,6 +481,8 @@ The procedure is deterministic and uses only the standard library.
 Writes the page from the facts and model.
 
 - `--check` exits 1 if the page is stale.
+  It renders the page with the same options and compares the two pages.
+  Thus a page that `render --base REF` wrote is stale for `render --check` without `--base REF`.
 
 - `--base REF` adds a change map relative to that revision.
   The page link `#changes`, for example `index.html#changes`, opens the Changes view.
@@ -484,7 +541,9 @@ components that can become nested maps.
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
 sentences, thin layers, uncovered entry points, crossing imports, unreviewed
-flows, and model SDK imports outside agents.
+flows, source records outside the flow endpoints, stale component source reviews,
+and model SDK imports outside agents.
+A line after the findings counts the component source reviews by state: current, stale, and missing.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
 The first finding of each kind has rows about its effect and necessary action.
@@ -600,6 +659,7 @@ An examination must add a new entry to that list before the entry counts as cove
 
 `[agent] command` reads source from the entry point.
 The agent gives components in the execution path and a sentence for each step.
+Each request contains the language policy of the `[writing]` profile.
 The command rejects a step with no authored flow and gives a finding.
 The command does not write that step.
 
@@ -640,12 +700,90 @@ Prints one finding kind's meaning, effect on the map, and necessary action.
 With no kind, it lists all printed kinds and their one-line meanings.
 An unknown kind causes exit 1.
 
+### `systemap convert`
+
+Writes each model file that systemap refuses again, with literal values only.
+The command must run each refused file one time, so it needs `SYSTEMAP_TRUST_MODEL_CODE=1`.
+Examine the code of the model files before you set this value.
+Without the value, the command writes nothing and exits 2 if a model file is refused.
+If all model files have literal values only, it writes nothing and exits 0.
+
+For each refused file, the command reads the new text with the reader that runs no code.
+It writes the file only if that reader gives the same model as the old file.
+Fields with their default values are not in the new text.
+If the old file imported a file beside it, the command names that file. The new file does not import it.
+
 ### `systemap serve [--port 8765]`
 
 Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
 If the port is not available, the command exits 2.
 Then use `--port 0` to select an available port, or give a different port.
+The server answers only a request whose Host header is `127.0.0.1` or `localhost` with the server port.
+Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
+`systemap live` has the same rule.
+
+### `systemap live [--port 8765] [--base REF] [--no-watch] [--json]`
+
+Renders the page of the working tree and supplies it through HTTP on the loopback address.
+The facts come from the source files in memory. The models come from the model files.
+The command writes the pages and `change.svg` into a temporary directory and deletes it when it stops.
+It does not write the output directory, the facts file, or a tracked file.
+For the comparison, it can add the facts of the merge base to the cache in `.systemap/facts/`,
+as `systemap render --base` does.
+
+Each time that the command renders the page, the page gets a new version number.
+The command renders one version at a time.
+If a request occurs while the command renders, the command renders one more version after the current version.
+If the command cannot render a version, the last page stays and the command gives the error.
+Examples are a model file that does not load, a source syntax error, and an extraction error.
+If the first version fails, the page gives the error.
+
+- `--base REF` sets the base of the Changes view.
+  The default is the first of `origin/HEAD`, `origin/main`, `main`, `origin/master`, and `master`
+  that has a merge base with HEAD. If no ref has one, the page has no revision comparison.
+  The Changes view compares the working tree with that merge base.
+  The comparison includes the commits since the merge base, the edits that are not in a commit,
+  and the untracked files that Git does not ignore.
+
+- Without `--no-watch`, the command scans the configuration files, the model files,
+  and the source and test files one time each second.
+  When a scan finds a change and the next scan finds no more change, the command renders the page again.
+
+- `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
+
+- `--json` writes one JSON object on a line for each event. Without it, the command writes short text lines.
+
+- `--port 0` selects an available port. If the port is not available, the command exits 2.
+
+The browser loads the page again after each version and keeps the view of the reader.
+DESIGN.md gives the parts of the view that the page keeps.
+
+| Request | Answer |
+|---|---|
+| `GET /` | The page of the top map. Nested maps are at `<map id>/index.html`. |
+| `GET /change.svg` | The change figure. If the comparison has no change, the system figure. |
+| `GET /events` | Server-sent events. `rendered` with `{"version": N}` after each version. `error` with `{"version": N, "text": "..."}` if the command cannot render a version. A new connection first gets `rendered` with the version of the page on disk. |
+| `POST /refresh` | Asks for a version. The answer is 202 with `{"queued": true}`. |
+| `GET /status` | The state as JSON: `version`, `state` (`rendering`, `ready`, or `error`), `seconds`, `updates`, `lines` (each with `text` and `action`), `components`, `error`, `url`, `svg`, `svg_bytes`, `base`, and `comparison_base`. |
+
+`version` in `GET /status` is the number of the last version that started.
+`updates` is the number of map update lines: the `systemap delta` lines that need an action,
+for the working tree and the merge base. `action` is the action of the line kind from `systemap explain`.
+`components` are the changed components of the top map.
+`svg` is the absolute path of `change.svg`. `seconds` is the time of the last good version.
+
+| JSON line | When |
+|---|---|
+| `{"event": "serving", "url": "...", "base": "...", "comparison_base": "..."}` | One time, when the server is ready. |
+| `{"event": "rendering", "version": N}` | When a version starts. |
+| `{"event": "rendered", "version": N, "seconds": S, "updates": K, "components": [...], "svg": "...", "svg_bytes": B}` | When a version is on the page. |
+| `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version. |
+| `{"event": "stopped"}` | When the command stops after Ctrl-C or SIGTERM, or Ctrl-Break on Windows. The exit code is 0. |
+
+On this repository, one version takes about 7 to 8 seconds.
+Thus the command waits until the files stop changing before it renders the page.
+[bench/jev/README.md](../bench/jev/README.md) gives the measurements.
 
 ### `systemap skill [--dir PATH] [--print]`
 
@@ -663,12 +801,12 @@ Unknown keys are rejected.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `language` | `python` | Select `python` or `typescript`. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
+| `language` | `python` | The source language. Select `python` or `typescript`. The `[writing]` table sets the writing rules for map text. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | `[project] name`, Git repository directory, then directory name | The page title. |
 | `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
-| `model` | `map/model.py` | The module that exports `MODEL` and `MEANING`. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (`import journeys`). Imported modules do not stay cached between executions. |
+| `model` | `map/model.py` | The model file that gives `MODEL` and `MEANING`. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (`import journeys`). [What does a model contain?](#what-does-a-model-contain) gives the permitted syntax. |
 | `out_dir` | `docs/map` | The directory for facts, pages, and figures. |
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. |
 | `spec_path` | none | A document with `##` headings that identify specification sections. |
@@ -680,9 +818,17 @@ Unknown keys are rejected.
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must not contain `#`, because the link adds `#changes`. |
+| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
+| `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
+
+The environment of a command can set two values. A repository file cannot set them.
+
+| Variable | Meaning |
+|---|---|
+| `TYPESAFE_API_KEY` | The key for Jev questions. Without it, no question goes to Jev. |
+| `SYSTEMAP_TRUST_MODEL_CODE` | With the value `1`, systemap runs the model files as Python code. Without it, systemap reads them as data. Set it only for a repository with safe code. |
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
 The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.

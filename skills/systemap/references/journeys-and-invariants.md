@@ -40,7 +40,7 @@ New entry points do not automatically receive coverage from that sequence.
 
 With `[agent] command`, `systemap journeys` asks the agent for a draft sequence.
 The agent reads one entry point or two or three entries from a group.
-The prompt makes ASD-STE100 mandatory for the identifier, label, and step sentences.
+The prompt makes the writing profile mandatory for the identifier, label, and step sentences.
 The command rejects steps with unknown components or missing flows.
 Accepted drafts have `drafted=True` and a `drafted journey` finding.
 
@@ -68,7 +68,7 @@ Use these sources in this order:
 4. Tests that state a rule, for example `test_every_record_is_written_once`.
    Cite the test file.
 
-Write the rule in ASD-STE100 without a change to its meaning.
+Write the rule under the writing profile without a change to its meaning.
 If the identity of an external quotation is necessary, keep the exact quotation.
 Put the citation in the invariant text.
 List directly affected component identifiers in `governs`.

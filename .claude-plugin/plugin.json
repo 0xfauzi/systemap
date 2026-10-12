@@ -1,7 +1,7 @@
 {
   "name": "systemap",
-  "version": "2.0.0",
-  "description": "The systemap skill makes a system map from source facts and examined claims. All reader text must use ASD-STE100.",
+  "version": "3.0.0",
+  "description": "The systemap skill makes a system map from source facts and examined claims. Reader text obeys the configured writing profile: plain or ASD-STE100.",
   "author": {
     "name": "0xfauzi",
     "email": "wumpini.hussein@gmail.com"
@@ -14,5 +14,20 @@
     "system map",
     "documentation",
     "coding agents"
-  ]
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "command": {
+      "type": "string",
+      "title": "systemap command",
+      "description": "The command that starts systemap, for example \"uv run systemap\" or \"uvx systemap\". The plugin adds \"live --port 0 --json --no-watch\" to this command.",
+      "default": "systemap"
+    },
+    "autostart": {
+      "type": "boolean",
+      "title": "Start the live map with each session",
+      "description": "If true, the live map starts when a session starts in a systemap repository. The live map reads map/model.py without running its code, unless SYSTEMAP_TRUST_MODEL_CODE=1 is in the environment of Claude Code.",
+      "default": false
+    }
+  }
 }

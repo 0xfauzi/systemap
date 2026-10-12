@@ -89,7 +89,9 @@ def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample)
     assert reviewed.state == evidence.OBSERVED
     assert reviewed.import_present
     assert reviewed.source_refs == (ref,)
-    assert reviewed.says == "source reviewed: The references resolve at this source snapshot."
+    assert reviewed.says == (
+        "current source review: The source records agree with this source snapshot."
+    )
     _svg, detail = render_schematic(model, sample.meaning, sample.theme, sample.facts)
     edges = json.loads(detail)["_meta"]["edges"]
     edge = next(e for e in edges if (e["from"], e["to"]) == ("Reader", "Parser"))

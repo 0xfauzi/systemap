@@ -1,7 +1,7 @@
 """Files that the init command writes for a new system map.
 
 The initial model has one container, four regions, and no components.
-The installed skill gives the source examination and ASD-STE100 language requirements.
+The installed skill gives the source examination and the writing rules of each writing profile.
 The agent writes components from source facts and calculates positions with the placement command.
 
 The optional CI workflow uses the released package version that made it.
@@ -9,6 +9,7 @@ The project does not need systemap as a declared dependency."""
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 from systemap import __version__
@@ -27,6 +28,14 @@ out_dir = "docs/map"
 # Keep these keys above the table lines. A key after a table header is part of that table.
 {roots_note}
 {roots}
+
+# The writing profile selects the writing rules for the map text that a person reads.
+# "plain" selects the common writing rules of the installed skill. A person or a program
+# can examine these rules without a dictionary.
+# "asd-ste100" also selects the full ASD-STE100 Issue 9 rules. These rules need the
+# official ASD dictionary.
+[writing]
+profile = "plain"
 
 # Each source module must have a component assignment or a recorded ignore.
 # Each ignore must give an explanation.
@@ -66,9 +75,9 @@ interactive = false
 MODEL = '''# ruff: noqa: E501
 """The system map of {doc_name}.
 
-All reader text must use ASD-STE100 Issue 9.
+All reader text must obey the writing profile in systemap.toml ([writing] profile).
 Before you write names or sentences, read the language policy of the installed systemap skill.
-Use the official writing rules and dictionary. Use only the approved word meanings.
+The "plain" profile has no dictionary step. The "asd-ste100" profile needs the ASD dictionary.
 
 The extractor supplies source facts. This file records component purposes and flow claims.
 Each component identifies its source modules and an applicable public entry point.
@@ -175,7 +184,9 @@ WORKFLOW = """name: systemap
 # This workflow uses the package version that made it.
 # When you install a new systemap version, change the version in this file.
 #
-# The delta job fails if a map update is necessary. Its log gives each action.
+# SYSTEMAP_CI below controls what a map finding does. With advisory, a finding gives a
+# warning and the job passes. With strict, a finding makes the job fail. When systemap
+# cannot run, the job fails with both values. The delta log gives each action.
 # Only the link job can write a pull request comment. It runs only if
 # [delta] page_url in systemap.toml gives the map page of each pull request,
 # and only for a pull request from a branch of this repository.
@@ -188,6 +199,10 @@ on:
 
 permissions:
   contents: read
+
+env:
+  # advisory: a map finding gives a warning. strict: a map finding makes the job fail.
+  SYSTEMAP_CI: __CI_MODE__
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -210,31 +225,59 @@ jobs:
 
       - name: Source facts match
         run: |
-          uvx --from "systemap==__VERSION__" systemap extract --check || {
-            echo "::error title=Stale map::Source facts do not agree with the repository. Run systemap refresh. Then commit the output directory."
-            exit 1
-          }
+          code=0
+          uvx --from "systemap==__VERSION__" systemap extract --check || code=$?
+          if [ "$code" = "1" ]; then
+            level=warning
+            if [ "$SYSTEMAP_CI" = "strict" ]; then level=error; fi
+            echo "::$level title=Stale map::Source facts do not agree with the repository. Run systemap refresh. Then commit the output directory."
+            if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi
+          elif [ "$code" != "0" ]; then
+            echo "::error title=Stale map::systemap could not run (exit $code). The lines above give the reason."
+            exit "$code"
+          fi
 
       - name: Map consistency checks
         run: |
-          uvx --from "systemap==__VERSION__" systemap check || {
-            echo "::error title=Map check::The model has fields that do not agree, or modules without a component. Examine the findings above."
-            exit 1
-          }
+          code=0
+          uvx --from "systemap==__VERSION__" systemap check || code=$?
+          if [ "$code" = "1" ]; then
+            level=warning
+            if [ "$SYSTEMAP_CI" = "strict" ]; then level=error; fi
+            echo "::$level title=Map check::The model has fields that do not agree, or modules without a component. Examine the findings above."
+            if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi
+          elif [ "$code" != "0" ]; then
+            echo "::error title=Map check::systemap could not run (exit $code). The lines above give the reason."
+            exit "$code"
+          fi
 
       - name: Judgement answers
         run: |
-          uvx --from "systemap==__VERSION__" systemap judgement --strict || {
-            echo "::error title=Judgement::A judgement finding has no answer. Change the map or record an answer under [judgement] answered in systemap.toml."
-            exit 1
-          }
+          code=0
+          uvx --from "systemap==__VERSION__" systemap judgement --strict || code=$?
+          if [ "$code" = "1" ]; then
+            level=warning
+            if [ "$SYSTEMAP_CI" = "strict" ]; then level=error; fi
+            echo "::$level title=Judgement::A judgement finding has no answer. Change the map or record an answer under [judgement] answered in systemap.toml."
+            if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi
+          elif [ "$code" != "0" ]; then
+            echo "::error title=Judgement::systemap could not run (exit $code). The lines above give the reason."
+            exit "$code"
+          fi
 
       - name: Rendered page matches
         run: |
-          uvx --from "systemap==__VERSION__" systemap render --check || {
-            echo "::error title=Stale map::index.html does not agree with the renderer output. Run systemap refresh. Then commit the output directory."
-            exit 1
-          }
+          code=0
+          uvx --from "systemap==__VERSION__" systemap render --check || code=$?
+          if [ "$code" = "1" ]; then
+            level=warning
+            if [ "$SYSTEMAP_CI" = "strict" ]; then level=error; fi
+            echo "::$level title=Stale map::index.html does not agree with the renderer output. Run systemap refresh. Then commit the output directory."
+            if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi
+          elif [ "$code" != "0" ]; then
+            echo "::error title=Stale map::systemap could not run (exit $code). The lines above give the reason."
+            exit "$code"
+          fi
 
   delta:
     if: github.event_name == 'pull_request'
@@ -276,11 +319,14 @@ jobs:
         run: |
           code="$(cat delta.code)"
           if [ "$code" = "1" ]; then
-            echo "::error title=Map delta::A map update is necessary. Do the action in each line of the Map change results step. Then run the command in its last line."
+            level=warning
+            if [ "$SYSTEMAP_CI" = "strict" ]; then level=error; fi
+            echo "::$level title=Map delta::A map update is necessary. Do the action in each line of the Map change results step. Then run the command in its last line."
+            if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi
           elif [ "$code" != "0" ]; then
             echo "::error title=Map delta::systemap delta could not run (exit $code). The Map change results step gives the reason."
+            exit "$code"
           fi
-          exit "$code"
 
   # This job runs only if [delta] page_url in systemap.toml gives the map page of each pull request.
   # It runs only for a pull request from a branch of this repository. The code and the settings
@@ -371,17 +417,46 @@ def _roots_block(roots: list[tuple[str, str]], language: str) -> str:
     return "\n".join(lines)
 
 
+# The value of SYSTEMAP_CI in the workflow. An empty value writes no workflow.
+ADVISORY = "advisory"
+STRICT = "strict"
+
+
+def add_ci_options(parser: argparse.ArgumentParser) -> None:
+    """Add the init options that select the CI workflow."""
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--no-ci", action="store_true", help="Do not write .github/workflows/systemap.yml."
+    )
+    group.add_argument(
+        "--strict-ci",
+        action="store_true",
+        help=(
+            "Write a workflow whose jobs fail on a map finding. Without this option, a "
+            "finding gives a warning and the jobs pass."
+        ),
+    )
+
+
+def ci_mode(args: argparse.Namespace) -> str:
+    """Give the workflow mode that the init options select, or "" for no workflow."""
+    if args.no_ci:
+        return ""
+    return STRICT if args.strict_ci else ADVISORY
+
+
 def files(
     name: str,
     package: str,
     roots: list[tuple[str, str]],
-    ci: bool = True,
+    ci: str = ADVISORY,
     language: str = "python",
 ) -> dict[str, str]:
     """Get initial file paths and contents.
 
     The init command installs the skill separately on each run.
-    Existing configuration, model, and workflow files stay unchanged."""
+    Existing configuration, model, and workflow files stay unchanged. `ci` is the
+    workflow mode (ADVISORY or STRICT); an empty value writes no workflow."""
     out = {
         "systemap.toml": CONFIG.format(
             language=language,
@@ -403,7 +478,7 @@ def files(
         )
         out[".github/workflows/systemap.yml"] = WORKFLOW.replace(
             "systemap==__VERSION__", requirement
-        )
+        ).replace("__CI_MODE__", ci)
     return out
 
 
@@ -412,7 +487,7 @@ def write(
     name: str,
     package: str,
     roots: list[tuple[str, str]],
-    ci: bool = True,
+    ci: str = ADVISORY,
     language: str = "python",
 ) -> list[str]:
     """Write missing files. Give one output line for each written or existing file."""

@@ -618,7 +618,7 @@ SCRIPT = r"""
 
   // ---- the Details panel ------------------------------------------------------------
   function evidenceText(list){
-    var words = {observed:'with a recorded source review'};
+    var words = {observed:'with a current source review'};
     var b = bucket(list, function(i){ return A.edges[i].evidence; });
     if(b.order.length === 1){ return 'all ' + (words[b.order[0]] || b.order[0]); }
     return b.order.map(function(v){ return b.by[v].length + ' ' + (words[v] || v); }).join(' · ');

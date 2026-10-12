@@ -1,31 +1,48 @@
-# ASD-STE100 language policy
+# Language policy
 
 ## Contents
 
-- Reference
-- Text and names
-- Words and sentences
+- Writing profiles
+- Common rules: text and names, sentences, words, and meaning
 - Technical identities
+- ASD-STE100 profile
 - Project glossary: technical nouns and technical verbs
 - Acceptance procedure
 
-All agents must use ASD-STE100 Issue 9 for all text that a person reads.
-This is a requirement for new maps and map updates.
-It is also a requirement for documentation and user interface text.
+This policy applies to all text that a person reads in a map.
+It applies to new maps, map updates, agent answers, and documentation.
 
-## Reference
+## Writing profiles
 
-ASD publishes the [official standard](https://www.asd-ste100.org/STE_downloads.html).
-Use the writing rules in part 1 and the dictionary in part 2.
-Do not use a general English dictionary or a summary of plain English instead.
-Do not put a copy of the ASD dictionary in the repository.
+The writing profile selects the writing rules.
+Set the profile in the `[writing]` table of `systemap.toml`.
+In `pyproject.toml`, use the `[tool.systemap.writing]` table.
 
-Before you write, make sure that the official reference is available.
-If it is not available, tell the maintainer that the reference is missing. Do not complete the language acceptance step.
+```toml
+[writing]
+profile = "plain"
+```
 
-## Text and names
+| Profile | Writing rules |
+|---|---|
+| `plain` | The common rules and the project glossary. This profile is the default. |
+| `asd-ste100` | The common rules, the project glossary, and the full ASD-STE100 Issue 9 rules. |
 
-Use ASD-STE100 for these fields and outputs:
+Before you write, read the profile in the configuration.
+If the configuration has no profile, use `plain`.
+Apply the rules of that profile to each new or changed name and sentence.
+
+A person or a program can examine the common rules without the ASD dictionary.
+The `plain` profile has no dictionary step.
+Under the `plain` profile, do not say that the text obeys ASD-STE100.
+
+## Common rules
+
+These rules apply to the two profiles.
+
+### Text and names
+
+Apply the writing profile to these fields and outputs:
 
 - Component names, `does`, `plain`, and interface descriptions.
 - Flow artifacts, relation sentences, and direction verbs.
@@ -36,8 +53,7 @@ Use ASD-STE100 for these fields and outputs:
 - New identifiers that are also names for the reader.
 - Agent answers, command help, errors, explanations, and documentation.
 
-Select short, literal names. Use one term for one concept.
-For new names, use approved dictionary words or an applicable technical noun from the project glossary.
+Select short, literal names.
 Keep a new multi-word noun to three words or fewer.
 If a recorded technical noun has more words, use the full official name when necessary.
 Do not use metaphors, slang, or new abbreviations to make a name shorter.
@@ -47,25 +63,29 @@ The schema uses `Journey` and `journeys` for a sequence. Do not change these sch
 Use "sequence" in new prose. Use "entry point" for the place where a run starts.
 Use "component" for the system part that a map card shows.
 
-## Words and sentences
+### Sentences
 
-For each ordinary word, examine its dictionary entry.
-Use only its approved meaning, part of speech, and word forms.
-A word that is approved as a noun is not automatically approved as a verb.
-For example, use "do a check" instead of the ordinary verb "check".
+- Descriptive sentences must not exceed 25 words.
+- Procedural sentences must not exceed 20 words.
+- Write one instruction in each sentence. Two actions can be in one sentence only if they occur at the same time.
+- Put a necessary condition before the instruction. For example, write "If the check fails, examine the source."
+- Use the active voice. Use an imperative verb for an instruction.
+- Do not use contractions. For example, write "do not" and "it is".
+- Do not use em dashes.
 
-Use active voice and the permitted simple verb forms.
-Use an imperative verb for an instruction.
-Put a necessary condition before the instruction.
-Use one instruction per sentence unless the actions occur at the same time.
+Under the `plain` profile, each group of characters between spaces is one word.
+For example, a number or a file path is one word.
 
-Procedural sentences must not exceed 20 words.
-Descriptive sentences must not exceed 25 words.
-Use the word-count rules in section 8 of the standard.
-Keep each paragraph to one topic and no more than six sentences.
-Do not use contractions or semicolons in new prose.
+### Words
+
+- Use literal words. Do not use metaphors or idioms.
+- Use one term for one concept. After you select a term for a concept, use only that term.
+- Use the project glossary terms only with their glossary meanings.
+
+### Meaning
 
 If a word replacement changes the meaning, write a different sentence.
+Do not change the meaning of a claim to make its words shorter.
 Do not remove uncertainty, evidence limits, source direction, or artifact identity.
 Do not replace a specific computer process with a different process.
 
@@ -83,10 +103,59 @@ This exception does not apply to new explanations or labels around them.
 Do not change a recorded identifier without a migration of every reference.
 Do not rewrite recorded evidence as if the new words were the original result.
 
+## ASD-STE100 profile
+
+Use this section only under the `asd-ste100` profile.
+It adds the full ASD-STE100 Issue 9 rules to the common rules.
+
+### Reference
+
+ASD publishes the [official standard](https://www.asd-ste100.org/STE_downloads.html).
+Use the writing rules in part 1 and the dictionary in part 2.
+Do not use a general English dictionary or a summary of plain English instead.
+Do not put a copy of the ASD dictionary in the repository.
+
+Before you write, make sure that the official reference is available.
+If it is not available, tell the maintainer that the reference is missing.
+Then do not give an ASD-STE100 acceptance result.
+
+### Words and sentences
+
+For each ordinary word, examine its dictionary entry.
+Use only its approved meaning, part of speech, and word forms.
+A word that is approved as a noun is not automatically approved as a verb.
+For example, use "do a check" instead of the ordinary verb "check".
+For new names, use approved dictionary words or an applicable technical noun from the project glossary.
+
+Use the permitted simple verb forms.
+Use the word-count rules in section 8 of the standard.
+Keep each paragraph to one topic and no more than six sentences.
+Do not use semicolons in new prose.
+
+### Glossary categories and technical verbs
+
+The category numbers in the project glossary are the technical-name categories of the standard.
+The technical verbs belong to the computer-process category in rule 1.12.
+If approved dictionary words give the same meaning as a technical verb, use those words instead.
+Use "compare the revisions" only if the dictionary meaning of "compare" applies.
+
+### Acceptance steps
+
+Do these steps in addition to the acceptance procedure for the two profiles:
+
+1. Examine the applicable dictionary entries and their meanings.
+2. Examine each technical term against the glossary and the standard categories.
+3. Make sure that verb forms, punctuation, and word counts obey the standard.
+
+Do not add an ordinary word to the glossary to avoid its dictionary rule.
+An automated word list cannot show approved meanings or parts of speech.
+Without the official dictionary, do not say that the text obeys ASD-STE100.
+
 ## Project glossary
 
 The tables give project technical terms, not additions to the ASD dictionary.
 Use a term only for its specified technical meaning.
+The category numbers apply only under the `asd-ste100` profile.
 Category 19 refers to computer science, information, and communication technology.
 Category 7 refers to mathematical, scientific, and engineering terms.
 Category 15 refers to documentation and standards.
@@ -162,6 +231,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | token | A unit of model input or output, or a parser symbol. |
 | TSX | TypeScript syntax that includes JSX elements. |
 | viewport | The visible area in which the browser shows a map. |
+| writing profile | The configuration value that selects the writing rules for map text: `plain` or `asd-ste100`. |
 | actor | A map component outside the system source boundary. |
 | alias | An alternative source name for an import or public symbol. |
 | AUC | The area under a measured threshold curve (category 7). |
@@ -240,6 +310,11 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | exact match | A full identity comparison with no wildcard or substring matching. |
 | source pattern | A module name or wildcard expression used for component assignment. |
 | wildcard | A pattern symbol that matches a specified set of names. |
+| literal value | A value that source syntax gives directly: a `str`, `int`, `float`, `bool`, or `None` constant, or a `tuple`, `list`, `set`, or `dict` of such values. |
+| type alias | A source name for a type, such as `tuple[Step, ...]`, for use in annotations. |
+| annotation | The type text after a colon in a source assignment. |
+| environment variable | A named value that the environment of a command supplies to a program. |
+| symbolic link | A file system entry that refers to a different file. |
 
 | Term | Technical meaning |
 |---|---|
@@ -309,9 +384,7 @@ They refer only to the contents and structure of documentation.
 
 ### Technical verbs
 
-These verbs belong to the computer-process category in rule 1.12.
-Use them only for the specified computer operation.
-If approved dictionary words give the same meaning, use those words instead.
+Use these verbs only for the specified computer operation.
 
 | Verb | Computer operation |
 |---|---|
@@ -344,20 +417,20 @@ If approved dictionary words give the same meaning, use those words instead.
 
 Do not use these verbs for general human actions.
 Use "examine the source" for a human source review.
-Use "compare the revisions" only if the dictionary meaning of "compare" applies.
 
 ## Acceptance procedure
 
 Before you complete a map or documentation update:
 
 1. Read every new or changed name and sentence.
-2. Examine the applicable dictionary entries and their meanings.
-3. Examine each technical term against the glossary and the standard categories.
-4. Make sure that sentences, verb forms, punctuation, and word counts obey the standard.
-5. Compare each claim with its source. Keep the meaning and evidence limits.
+2. Examine each sentence against the common rules.
+3. Examine each technical term against the project glossary.
+4. Compare each claim with its source. Keep the meaning and evidence limits.
+5. Under the `asd-ste100` profile, do the acceptance steps of the ASD-STE100 profile.
 6. Do the repository checks. Record any language uncertainty for the maintainer.
 
-If a necessary technical term is missing, add its meaning and category before use.
-Do not add an ordinary word to the glossary to avoid its dictionary rule.
-An automated word list cannot show correct meanings, parts of speech, or source claims.
-Do not use an automated check as the only evidence that the text obeys the standard.
+If a necessary technical term is missing, add its meaning before use.
+Under the `asd-ste100` profile, also add its category.
+A program can count words and find contractions and em dashes.
+A program cannot show literal meanings, one term for one concept, or correct source claims.
+Do not use an automated check as the only evidence that the text obeys the rules.

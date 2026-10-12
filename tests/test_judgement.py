@@ -244,7 +244,7 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
         .replace(
             "COMPONENTS = (\n",
             'COMPONENTS = (\n    Component(id="Extra", region="core", does="Extra.", '
-            'implemented_by=("pkg.extra",), entry="extra", x=COL["c1"], y=200),\n',
+            'implemented_by=("pkg.extra",), entry="extra", x=80, y=200),\n',
         )
         .replace(
             '"Reader": "the part that reads",',
@@ -793,7 +793,7 @@ def test_crossing_into_and_from_in_the_configuration(
         .replace(
             "COMPONENTS = (\n",
             'COMPONENTS = (\n    Component(id="Extra", region="core", does="Extra.", '
-            'implemented_by=("pkg.extra",), entry="extra", x=COL["c1"], y=200),\n',
+            'implemented_by=("pkg.extra",), entry="extra", x=80, y=200),\n',
         )
         .replace(
             '"Reader": "the part that reads",',

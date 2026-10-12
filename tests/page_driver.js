@@ -400,6 +400,21 @@ class EventImpl {
 }
 class CustomEventImpl extends EventImpl {}
 class KeyboardEventImpl extends EventImpl {}
+// The event source of `systemap live`: the scenario fires its events. A fired event
+// with data is a server event; without data it is a broken connection.
+const SOURCES = [];
+class EventSourceImpl {
+  constructor(url) { this.url = url; this.listeners = {}; this.closed = false; SOURCES.push(this); }
+  addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
+  close() { this.closed = true; }
+  fire(type, data) {
+    if (this.closed) return;
+    const ev = data === undefined ? {type} : {type, data: JSON.stringify(data)};
+    (this.listeners[type] || []).forEach((fn) => fn.call(this, ev));
+  }
+}
+// The session storage of the browser tab: it stays across a reload.
+const SESSION = new Map();
 class DOMPointImpl {
   constructor(x, y) { this.x = x; this.y = y; }
   matrixTransform(m) { return {x: m.a * this.x + m.c * this.y + m.e, y: m.b * this.x + m.d * this.y + m.f}; }
@@ -482,13 +497,23 @@ function load(html, reducedMotion, viewport, prefs) {
   };
   win.window = win;
   win.self = win;
+  win.parent = win;
+  win.EventSource = EventSourceImpl;
+  win.location.reload = () => { REPORT.reloads = (REPORT.reloads || 0) + 1; };
+  if (prefs.hash) win.location.hash = prefs.hash;
   // The browser's storage: a map, seeded with --stored; with --no-storage
   // every touch throws, as a browser that refuses storage does.
   const store = new Map();
   if (prefs.stored !== undefined && prefs.stored !== null) store.set('systemap-theme', prefs.stored);
   if (reducedMotion) store.set('systemap-reduce-motion', 'true');
+  win.sessionStorage = {
+    getItem: (k) => (SESSION.has(k) ? SESSION.get(k) : null),
+    setItem: (k, v) => { SESSION.set(k, String(v)); },
+    removeItem: (k) => { SESSION.delete(k); },
+  };
   if (prefs.noStorage) {
     Object.defineProperty(win, 'localStorage', {get() { throw new Error('SecurityError: storage is refused'); }});
+    Object.defineProperty(win, 'sessionStorage', {get() { throw new Error('SecurityError: storage is refused'); }});
   } else {
     win.localStorage = {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
@@ -522,6 +547,21 @@ function main() {
   const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage'),
     systemReduced: args.includes('--system-reduced'), phone: args.includes('--phone')};
   const html = fs.readFileSync(file, 'utf8');
+  const page = boot(html, reduced, viewport, prefs);
+  // A reload: the same page in a new window, with the link fragment of the old one.
+  const reload = (hash) => {
+    const next = boot(html, reduced, viewport, Object.assign({}, prefs, {hash}));
+    next.reload = reload;
+    return next;
+  };
+  page.reload = reload;
+  const scenarios = {keyboard, framing, submap, theme, workspace};
+  scenarios.live = live;
+  const report = (scenarios[scenario] || keyboard)(page);
+  process.stdout.write(JSON.stringify(report) + '\n');
+}
+
+function boot(html, reduced, viewport, prefs) {
   const {doc, win} = load(html, reduced, viewport, prefs);
   const context = vm.createContext(win);
   doc.querySelectorAll('script').forEach((s) => { vm.runInContext(s.textContent, context); });
@@ -537,10 +577,7 @@ function main() {
     runFrames(win);
     return ev.defaultPrevented;
   };
-  const page = {doc, win, svg, A, key, reduced, viewport, views: () => viewEvents};
-  const scenarios = {keyboard, framing, submap, theme, workspace};
-  const report = (scenarios[scenario] || keyboard)(page);
-  process.stdout.write(JSON.stringify(report) + '\n');
+  return {doc, win, svg, A, key, reduced, viewport, views: () => viewEvents};
 }
 
 function keyboard(page) {
@@ -875,5 +912,98 @@ function workspace(page) {
   key('Escape', search);
   // A page without a comparison gives the command that makes one.
   report.comparisonPrompt = doc.getElementById('change').textContent.includes('systemap render --base REF');
+  return report;
+}
+
+
+function live(page) {
+  // The script of `systemap live` (tests/test_live_view.py): a `rendered` event with a
+  // newer version saves the view and loads the page again; the new page puts the view
+  // back. Three views: the Map view with a layer, a flow and a camera; the Sequences
+  // view at a step; the Changes view with a selection and a camera. Then a failed
+  // render and a broken connection.
+  const report = {};
+  const source = () => SOURCES[SOURCES.length - 1];
+  const viewOf = (p) => {
+    const A = p.A, P = p.svg.page, C = p.doc.getElementById('changemap');
+    const M = C && C.systemap;
+    const e = A.edges[A.state.edge];
+    return {
+      mode: P.mode(), layer: A.state.layer, focus: A.state.focus,
+      edge: e ? [e.from, e.to, e.art] : null, camera: A.view.snapshot(), fit: A.view.isFit(),
+      journey: P.journey.state(),
+      change: M ? {focus: M.state.focus, camera: M.view.snapshot(), fit: M.view.isFit()} : null,
+    };
+  };
+  const cycle = (p, name) => {
+    const before = viewOf(p);
+    const reloads = REPORT.reloads || 0;
+    source().fire('rendered', {version: 3});
+    const same = (REPORT.reloads || 0) - reloads;
+    source().fire('rendered', {version: 4});
+    const stored = SESSION.size;
+    const next = p.reload(p.win.location.hash);
+    runFrames(next.win);
+    report[name] = {before, after: viewOf(next), sameVersionReloads: same,
+      reloads: (REPORT.reloads || 0) - reloads, stored, storedAfter: SESSION.size};
+    return next;
+  };
+
+  // The Map view: the second layer, a component, one of its flows in that layer, a zoom.
+  let p = page;
+  const A = p.A;
+  report.sources = SOURCES.length;
+  report.url = source().url;
+  const layer = A.layers[1] ? A.layers[1].id : 'all';
+  p.svg.page.setLayer(layer);
+  const reading = A.detail._meta.readings[layer];
+  const inLayer = (i) => !reading || reading.edges.indexOf(i) >= 0;
+  const id = Object.keys(A.detail).filter((k) => k !== '_meta'
+    && (A.detail[k].edges || []).some(inLayer))[0];
+  A.inspectFlow(A.detail[id].edges.filter(inLayer)[0], id);
+  runFrames(p.win);
+  A.view.zoomBy(1.25);
+  runFrames(p.win);
+  p = cycle(p, 'map');
+
+  // The Sequences view at the second step.
+  p.svg.page.journey.route(0);
+  p.svg.page.sequence.go('steps', 1, 'keep');
+  runFrames(p.win);
+  p = cycle(p, 'trace');
+
+  // The Changes view: a selected component and a zoom of the change map.
+  const C = p.doc.getElementById('changemap');
+  if (C) {
+    p.svg.page.setMode('change');
+    const M = C.systemap;
+    M.select(Object.keys(M.detail).filter((k) => k !== '_meta')[1]);
+    runFrames(p.win);
+    M.view.zoomBy(1 / 1.25);
+    runFrames(p.win);
+    p = cycle(p, 'change');
+  }
+
+  // A failed render shows a notice. A broken connection closes the source: no reload.
+  const reloads = REPORT.reloads || 0;
+  source().fire('error', {version: 5, text: 'map/model.py could not import\nline 2'});
+  const notice = p.doc.getElementById('live-notice');
+  report.notice = notice ? notice.textContent : null;
+  report.noticeRole = notice ? notice.getAttribute('role') : null;
+  source().fire('error');
+  report.closed = source().closed;
+  source().fire('rendered', {version: 9});
+  report.reloadsAfterClose = (REPORT.reloads || 0) - reloads;
+
+  // A saved view with a component that the new page does not have leaves the map clear.
+  SESSION.set('systemap-live-view', JSON.stringify({path: '/index.html', mode: 'understand',
+    layer: 'no-such-layer', focus: 'NoSuchComponent', edge: null, camera: null, journey: null,
+    change: null}));
+  const clear = p.reload('');
+  report.unknown = {focus: clear.A.state.focus, layer: clear.A.state.layer,
+    firstLayer: (clear.svg.page && clear.doc.querySelector('[data-layer-btn]'))
+      ? clear.doc.querySelector('[data-layer-btn]').dataset.layerBtn : 'all',
+    stored: SESSION.size};
+  report.sourcesAtEnd = SOURCES.length;
   return report;
 }

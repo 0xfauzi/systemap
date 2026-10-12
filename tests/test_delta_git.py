@@ -49,7 +49,7 @@ COMPONENTS = (
 )
 MODEL = Model(canvas=(740, 440), containers=CONTAINERS, regions=REGIONS,
               components=COMPONENTS, flows=(), flow_kinds=())
-MEANING = Meaning(plain={c.id: c.id.lower() for c in COMPONENTS})
+MEANING = Meaning(plain={"Reader": "reader", "Writer": "writer"})
 """
 
 

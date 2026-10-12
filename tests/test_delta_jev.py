@@ -40,7 +40,7 @@ FLOWS = (Flow("Reader", "Ledger", "payment", "data"),)
 MODEL = Model(canvas=(740, 440), containers=CONTAINERS, regions=REGIONS,
               components=COMPONENTS, flows=FLOWS, flow_kinds=())
 MEANING = Meaning(
-    plain={c.id: c.id.lower() for c in COMPONENTS},
+    plain={"Reader": "reader", "Ledger": "ledger"},
     relations={("Reader", "Ledger"): "The reader gives each payment to the ledger."},
 )
 """

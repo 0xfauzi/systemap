@@ -38,10 +38,12 @@ from systemap import (
     jev,
     jev_cli,
     judgement,
+    model_convert,
     nest,
     page,
     place,
     scaffold,
+    serve,
     skill,
     trend,
 )
@@ -50,7 +52,7 @@ from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
 from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
-from systemap.serve import make_server
+from systemap.serve import DEFAULT_PORT, make_server
 
 OK, STALE = 0, 1
 
@@ -101,13 +103,13 @@ def _project(args: argparse.Namespace) -> Project:
 
 
 AGENT_SENTENCE = (
-    "Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9."
+    "Make a map of this repository with systemap. Obey the systemap skill and its writing rules."
 )
 # The sentence for a repository that already has a map: the skill's "the
 # code changed" path, with the ref the map is compared against.
 MAINTENANCE_SENTENCE = (
     "The code changed. Update the map with systemap. Obey the maintenance procedure "
-    "of the systemap skill and ASD-STE100 Issue 9. Use base {base}."
+    "of the systemap skill and its writing rules. Use base {base}."
 )
 
 
@@ -116,7 +118,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     language, roots = init_language.language_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root)
-    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci, language=language))
+    say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=language))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
@@ -511,16 +513,14 @@ def cmd_judgement(args: argparse.Namespace) -> int:
             f"only the model."
         )
     lines = judgement.run_tree(
-        p.tree,
-        facts,
-        judgement.sdk_list(p.cfg.model_sdks),
-        p.cfg.observed_by,
+        p.tree, facts, judgement.sdk_list(p.cfg.model_sdks), p.cfg.observed_by
     )
     mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
     current_evidence = judgement.evidence_for_tree(p.tree, facts, p.cfg.root, lines)
     result = judgement.apply_answers(lines, mine, current_evidence)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
+    say(*judgement.review_counts(p.tree, facts))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(
@@ -723,9 +723,6 @@ def cmd_place(args: argparse.Namespace) -> int:
 # ---- serve -----------------------------------------------------------------
 
 
-DEFAULT_PORT = 8765
-
-
 def cmd_serve(args: argparse.Namespace) -> int:
     """Serve the output directory over HTTP.
 
@@ -800,7 +797,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "A map must have a configuration, a model, and a skill for the coding agent. "
             "This command writes these files and a GitHub workflow. The workflow gives map "
-            "changes and rejects stale maps. Use this command once in the project root."
+            "changes and warns about stale maps. Use this command once in the project root."
         ),
     )
     add_root(s)
@@ -812,9 +809,7 @@ def build_parser() -> argparse.ArgumentParser:
             "name, or root directory name."
         ),
     )
-    s.add_argument(
-        "--no-ci", action="store_true", help="Do not write .github/workflows/systemap.yml."
-    )
+    scaffold.add_ci_options(s)
     s.set_defaults(func=cmd_init)
 
     s = sub.add_parser(
@@ -1190,6 +1185,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--print", action="store_true", help="Print SKILL.md to stdout.")
     s.set_defaults(func=cmd_skill)
     jev_cli.add_parsers(sub, add_root)
+    serve.add_parsers(sub, add_root)
+    model_convert.add_parsers(sub, add_root)
     return parser
 
 

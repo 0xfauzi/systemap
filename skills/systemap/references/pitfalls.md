@@ -26,10 +26,11 @@ Write a relation sentence about the actual action from the source component.
 A generic sentence such as "A sends data to B" can omit the important behavior.
 
 An import, common module, or configured mechanism does not show a flow's direction or artifact.
-Read the applicable source before you record an observed flow.
+Read the applicable source before you record source records for an `observed` flow.
+At least one source record must be in a module of the source or target component. A module of a third component does not show the flow.
 Keep declared and structural evidence explicit.
 Remove claims that the source does not support.
-A judgement answer does not change a declared flow into observed evidence.
+A judgement answer does not change a declared flow into `observed` evidence.
 
 ## Entry points and sequences
 

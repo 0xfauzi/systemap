@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reference · systemap</title>
+<meta name="description" content="This page gives the rules of each check, each command, and each setting.">
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){var d=document.documentElement,s=null;d.className+=' js';try{s=localStorage.getItem('systemap-theme')}catch(e){}if(s!=='dark'&&s!=='light'){s=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('data-theme',s)})();</script>
+<script src="../assets/site.js" defer></script>
+</head>
+<body class="docs-page">
+<a class="skip" href="#main">Go to the content</a>
+<header class="bar">
+<a class="brand" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<nav class="nav" aria-label="Site"><a class="nav__a" href="../guide/" aria-current="page">Docs</a><a class="nav__a" href="../map/">Live example</a><a class="nav__a" href="https://github.com/0xfauzi/systemap">GitHub</a></nav>
+<span class="bar__space"></span>
+<button type="button" class="tool" id="theme" aria-label="Paper theme" title="Paper theme" hidden><span class="tool__to-paper"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75v1.25M8 13v1.25M1.75 8H3M13 8h1.25M3.58 3.58l.88.88M11.54 11.54l.88.88M3.58 12.42l.88-.88M11.54 4.46l.88-.88M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></svg></span><span class="tool__to-ink"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.25 9.75A5.5 5.5 0 1 1 6.25 2.75a4.5 4.5 0 0 0 7 7z"/></svg></span></button>
+</header>
+<div class="docbar"><button type="button" class="docbar__btn" aria-controls="side" aria-expanded="false" hidden><span class="kicker">Docs</span><span class="docbar__t">Reference</span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 6.25 8 9.75l3.5-3.5"/></svg></button></div>
+<div class="layout">
+<nav class="side" id="side" aria-label="Docs">
+<a class="side__home" href="index.html">Docs home</a>
+<p class="kicker">Guide</p>
+<ol class="side__list">
+<li><a href="getting-started.html"><span class="ring" aria-hidden="true">1</span><span>Get started</span></a></li>
+<li><a href="concepts.html"><span class="ring" aria-hidden="true">2</span><span>Concepts</span></a></li>
+<li><a href="reading-the-map.html"><span class="ring" aria-hidden="true">3</span><span>Read the map</span></a></li>
+<li><a href="coding-agents.html"><span class="ring" aria-hidden="true">4</span><span>Coding agents</span></a></li>
+<li><a href="pull-requests-and-ci.html"><span class="ring" aria-hidden="true">5</span><span>Pull requests and CI</span></a></li>
+<li><a href="live-map.html"><span class="ring" aria-hidden="true">6</span><span>The live map</span></a></li>
+<li><a href="trust-and-security.html"><span class="ring" aria-hidden="true">7</span><span>Trust and security</span></a></li>
+<li><a href="limits.html"><span class="ring" aria-hidden="true">8</span><span>Limits</span></a></li>
+</ol>
+<p class="kicker">Reference</p>
+<ul class="side__list">
+<li><a href="reference.html" aria-current="page"><span>Reference</span></a></li>
+<li><a href="benchmarks.html"><span>Benchmarks</span></a></li>
+</ul>
+</nav>
+<main id="main" class="doc">
+<p class="kicker doc__k">Reference</p>
+<h1>Reference</h1>
+<p class="lead">This document gives the rules, commands, and configuration keys.
+<a href="https://github.com/0xfauzi/systemap/blob/main/README.md">README.md</a> gives the introduction.
+If a check has a finding, first read its rule below.
+The command descriptions and configuration keys follow the rules.</p>
+<h2 id="what-does-systemap-check-reject">What does <code>systemap check</code> reject?</h2>
+<p><code>systemap check</code> executes the rules below.
+Each finding appears under its rule with a correction.
+The command exits 1 if a rule rejects the map.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-does-systemap-check-reject">
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Rejected condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>coverage</td>
+<td>No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is an <code>__init__</code> with no public names or imports. The rule automatically excludes these markers.</td>
+</tr>
+<tr>
+<td>entry</td>
+<td>A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty <code>entry</code>. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
+</tr>
+<tr>
+<td>interface</td>
+<td>The first identifier of an <code>interface</code> is absent from the component's public names and re-exports. The identifier ends at <code>(</code>, <code>.</code>, <code>-&gt;</code>, or whitespace. Both parts of <code>Class.method</code> must be available. The finding gives the nearest defined name.</td>
+</tr>
+<tr>
+<td>nesting</td>
+<td>A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map.</td>
+</tr>
+<tr>
+<td>placement</td>
+<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number.</td>
+</tr>
+<tr>
+<td>routes</td>
+<td>A route crosses an unrelated component or an unrelated region.</td>
+</tr>
+<tr>
+<td>labels</td>
+<td>Text does not fit or touches an obstacle. The conditions are below.</td>
+</tr>
+<tr>
+<td>type size</td>
+<td>Text is smaller than 11 px at native scale.</td>
+</tr>
+<tr>
+<td>meaning</td>
+<td>A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id.</td>
+</tr>
+<tr>
+<td>stale</td>
+<td>Facts, a page, or a figure are older than the source tree or model. Each map has a page.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The labels rule rejects these conditions:</p>
+<ul>
+<li>
+<p>A label touches a component, header, or other label.
+The finding shows the two labels and the applicable correction.
+For a full gutter, it shows the adjacent components and the region
+that must have more space. If not, the label can be wider than its seat.</p>
+</li>
+<li>
+<p>A container or region header is wider than its box.
+A <code>sub</code> uses more than two lines, or a header touches a component.</p>
+</li>
+<li>
+<p>A component's name or plain text does not fit its budget.
+The finding gives the budget. The map does not remove text to add an ellipsis.</p>
+</li>
+</ul>
+<p>Exit code <code>0</code> shows a map with no stale outputs.
+Exit code <code>1</code> shows a rejected check.
+Exit code <code>2</code> shows unusable configuration, an unusable model, or an unusable option value.
+To keep a module out of map coverage, add an ignore under <code>[coverage]</code>.
+Each ignore must have a reason.</p>
+<p>The check compares components with the code.
+An import alone cannot show a flow's direction or artifact.
+The renderer and the checks use the evidence state of the stored source snapshot:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-does-systemap-check-reject">
+<table>
+<thead>
+<tr>
+<th>Evidence</th>
+<th>Condition</th>
+<th>Indication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observed</code></td>
+<td><code>source_refs</code> resolve to extracted source hashes. At least one reference is in a module of the source or target component. <code>review_digest</code> agrees with the current flow claim and sentence.</td>
+<td>A solid line. The page shows &quot;current source review&quot;.</td>
+</tr>
+<tr>
+<td><code>structural</code></td>
+<td>An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution.</td>
+<td>A dashed line. The panel identifies the structural fact. <code>judgement</code> asks for source review.</td>
+</tr>
+<tr>
+<td><code>external</code></td>
+<td>An actor is at one end. The flow crosses the code boundary.</td>
+<td>A solid line. The panel identifies the endpoint outside the source code.</td>
+</tr>
+<tr>
+<td><code>declared</code></td>
+<td>No source review or structural fact gives evidence for the flow.</td>
+<td>A dashed line. <code>systemap judgement</code> prints a <code>declared flow</code> finding.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The stored value <code>observed</code> is an identifier. It does not mean that a program ran.
+The page legend, the Details panel, and <code>systemap describe</code> use the words &quot;current source review&quot;.
+A current source review is a recorded source review whose source records still agree with the stored source snapshot.</p>
+<p>For <code>observed</code>, a flow records <code>source_refs</code> and a <code>review_digest</code>.
+A reference has the form <code>module[:symbol]@&lt;source_sha256&gt;</code>.
+At least one reference must be in a module of the source component or the target component.
+A package pattern or a symbol claim in <code>implemented_by</code> also puts a component in a module.
+An actor has no modules. For a flow with an actor end, use a module of the other end.
+If no reference is in an endpoint module, the flow is not <code>observed</code>.
+<code>systemap judgement</code> then prints a <code>no endpoint source</code> finding.
+The command below prints the <code>source_sha256</code> of each module and the <code>review_digest</code> of each flow.
+It does not examine the claims for you. Examine the source before you record the values.</p>
+<pre><code class="language-sh">uv run python - &lt;&lt;'PY'
+from pathlib import Path
+from systemap import config, evidence, extract, nest
+
+cfg = config.load(Path.cwd())
+facts = extract.build(cfg)
+for module, record in sorted(facts[&quot;components&quot;].items()):
+    print(f&quot;source_sha256 {module} {record.get('source_sha256')}&quot;)
+for current_map in nest.load(cfg).maps:
+    for flow in current_map.model.flows:
+        digest = evidence.flow_claim_digest(flow, current_map.meaning)
+        print(f&quot;review_digest {current_map.prefix}{flow.src} -&gt; {flow.dst} {digest}&quot;)
+PY
+</code></pre>
+<p>A source change gives a new <code>source_sha256</code>.
+A change to the flow or its relation sentence gives a new <code>review_digest</code>.</p>
+<h2 id="what-does-the-second-pass-find">What does the second pass find?</h2>
+<p>The check rejects contradictions.
+It cannot show all omissions.
+<code>systemap judgement</code> uses mechanical rules to find possible omissions.
+For each finding, change the model or record the reason for its stored state.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-does-the-second-pass-find">
+<table>
+<thead>
+<tr>
+<th>Finding identifier</th>
+<th>Question or condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>single module</td>
+<td>A component claims one module. Does the module have a different function?</td>
+</tr>
+<tr>
+<td>possible mis-fold</td>
+<td>A module's dotted path has no word in common with its component's id, <code>does</code>, plain text, or <code>interface</code>. The component has multiple modules. No other module is in the same package. Is the assignment incorrect?</td>
+</tr>
+<tr>
+<td>no sentence</td>
+<td>A flow has no relation sentence.</td>
+</tr>
+<tr>
+<td>thin layer</td>
+<td>A layer contains fewer than two components. This includes an unused standard kind.</td>
+</tr>
+<tr>
+<td>entry point X has no sequence (component C)</td>
+<td>The identity of the entry point is not in the <code>covers</code> of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example <code>entry point 6 routes into C have no sequence (component C)</code>.</td>
+</tr>
+<tr>
+<td>crossing import</td>
+<td>Module A in component P imports module B in component Q. No flow connects P and Q in either direction.</td>
+</tr>
+<tr>
+<td>declared flow</td>
+<td>A flow has no source review or structural evidence. Find source evidence or change the claim.</td>
+</tr>
+<tr>
+<td>flow review</td>
+<td>An import, shared module, or mechanism word is available. Direction and artifact must have a source review.</td>
+</tr>
+<tr>
+<td>no endpoint source</td>
+<td>A flow has <code>source_refs</code>, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow.</td>
+</tr>
+<tr>
+<td>stale source review</td>
+<td>A component has a <code>source_review</code> digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest.</td>
+</tr>
+<tr>
+<td>model sdk</td>
+<td>A module imports a model SDK or agent framework. Its component is neither an agent nor <code>calls_model</code>. Examples are anthropic, openai, and google.adk. <code>[facts] model_sdks</code> can add or remove names from the built-in list.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Without <code>--strict</code>, the report exits 0.
+With <code>--strict</code>, it exits 1 while a finding is open.</p>
+<p>Each source component has one review state:
+<code>missing</code> (no <code>source_review</code>), <code>stale</code> (<code>source_review</code> is not the current digest), or <code>current</code>.
+<code>systemap delta</code> and <code>systemap judgement</code> use the same state.
+A stale review is a <code>stale source review</code> finding, so <code>judgement --strict</code> fails on it.
+A missing review is not a finding. Many maps have no <code>source_review</code> values, and these maps pass <code>judgement --strict</code>.
+The report counts the three states on one line, for example <code>source reviews: 16 current, 0 stale, 0 missing</code>.
+<code>[judgement] answered</code> in <code>systemap.toml</code> contains recorded answers.
+Accepted answers suppress findings and increase the answered count.
+The report can print <code>judgement: 3 possible map errors to examine, 21 answered</code>.
+An answer that matches no finding is stale.</p>
+<p>An answer can show exact lines or a family of lines:</p>
+<ul>
+<li>
+<p><code>item</code> shows one exact line.</p>
+</li>
+<li>
+<p><code>items</code> shows multiple exact lines with one reason.</p>
+</li>
+<li>
+<p><code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code> shows crossings between any two listed ids.</p>
+</li>
+<li>
+<p><code>crossing_into = &quot;A&quot;</code> shows crossings into A.</p>
+</li>
+<li>
+<p><code>crossing_from = &quot;A&quot;</code> shows crossings from A.</p>
+</li>
+<li>
+<p><code>kind = &quot;single module&quot;</code> shows all lines of that kind.
+<code>&quot;declared flow&quot;</code> and other kinds use the same form.</p>
+</li>
+<li>
+<p><code>module_sdk = &quot;google.adk&quot;</code> shows all model-sdk findings for that import.</p>
+</li>
+</ul>
+<p>The maintainer examines these answers adjacent to the model.
+Before the second pass, <code>systemap suggest</code> gives proposed module groups.
+It gives one proposal for each package with two or more modules, and the imports
+between proposals. Examine these proposals against the source.
+A component must have one clear function. Module quantity alone does not identify a component.</p>
+<p>An exact <code>item</code> or <code>items</code> answer includes <code>evidence = &quot;&lt;SHA-256 digest&gt;&quot;</code>.
+When source or import evidence changes, the finding opens again.
+<code>judgement</code> prints the current digest for examination.
+An exact answer without evidence stays pending until source review.</p>
+<p>A family answer is a policy for a family of lines and must have <code>policy = true</code>.
+The report counts current matches and matches outside the optional
+<code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> baseline.
+A family answer without <code>policy = true</code> stays pending.</p>
+<h2 id="what-questions-does-jev-answer">What questions does Jev answer?</h2>
+<p><code>systemap audit</code> is optional.
+CI does not execute this command.
+The command sends individual semantic questions to TypeSafe's Jev model.
+It prints a finding when Jev's answer does not agree with the map.
+The mechanical <code>judgement</code> rules use names and imports instead.</p>
+<p>The development experiments selected thresholds on five mapped repositories in
+<code>bench/jev</code>. Three holdout maps used the same thresholds: systemap, scorecard,
+and a first map of httpie.
+The table gives measured results from the recorded prompts.</p>
+<p>The prompts changed for ASD-STE100 after these measurements. The changed prompts have no new benchmark measurements.
+All measured repositories are Python repositories. No TypeScript result was measured.
+Do not use the recorded scores as results for the changed prompts or your system.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-questions-does-jev-answer">
+<table>
+<thead>
+<tr>
+<th>line</th>
+<th>what it asks</th>
+<th>development maps</th>
+<th>holdout maps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>jev mis-fold</td>
+<td>The component for each module claim. A line prints when the claimed component has P &lt; 0.05.</td>
+<td>95% of incorrect component assignments found. 4% of correct assignments gave incorrect findings. The word rule for <code>possible mis-fold</code> found 32%.</td>
+<td>93% found. 1% of correct assignments gave incorrect findings.</td>
+</tr>
+<tr>
+<td>jev owner</td>
+<td>The same question for a module without a component claim. One component prints at confidence 0.9 or more. Otherwise, three print.</td>
+<td>56% of modules get one component. 98% of those answers are correct.</td>
+<td>60% of modules get one component. 100% of those answers are correct.</td>
+</tr>
+<tr>
+<td>jev sentence</td>
+<td>Does the component sentence agree with its modules? A line prints below P 0.2.</td>
+<td>67% of incorrect sentences found. 1% of correct sentences gave incorrect findings. Small source changes can cause no finding.</td>
+<td>61% found. 2% of correct sentences gave incorrect findings.</td>
+</tr>
+<tr>
+<td>jev flow</td>
+<td>Does the code connection agree with the flow claim? A line prints below P 0.2. <strong><code>audit</code> sends these questions only with <code>--kind &quot;jev flow&quot;</code>.</strong></td>
+<td>66% of incorrect claims found. 2% of correct claims gave incorrect findings. Evidence excludes instance calls. This exclusion can cause an incorrect finding.</td>
+<td>54% found. 4% of correct claims gave incorrect findings. The result was more than 10 points below development. It failed the default-question threshold.</td>
+</tr>
+<tr>
+<td>jev governs</td>
+<td>Does a rule apply to a component outside its scope? A line prints at P 0.8 or more.</td>
+<td>31% of applicable components found. 1% of other components proposed.</td>
+<td>38% of applicable components found. 1% of other components proposed.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>No question goes to Jev without <code>TYPESAFE_API_KEY</code>.
+<code>audit --dry-run</code> counts the questions and shows the data to send.
+The data contains module names, docstrings, public names, internal imports, component ids,
+sentences, invariants, and source lines at connections between components.
+With a key, the dry run gets the model list to count cached answers. It sends no map data.</p>
+<p>A <code>jev flow</code> question gets the source lines that use a name from the other component.
+For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
+For TypeScript, it compares the last part of the import path with the file name of the target module.
+A flow without such lines gets no question. The report gives the count of these flows.</p>
+<p>Each Jev answer must agree with its question: a choice from the offered options,
+and numbers from 0 to 1. An answer that does not agree stops the command with a message.
+The cache does not keep that answer.</p>
+<p>The cache is <code>.systemap/jev-cache.json</code>.
+Its key includes the model, release date, state, and question.
+A map without changes uses cached answers at no additional cost.
+A new model release causes new questions.
+If the model list is not available and the cache has every answer for the last known
+release, the command uses the cache. The usage line says so.</p>
+<p>Audit answers use <code>[judgement] answered</code> with <code>item</code>, <code>items</code>, or a kind such as
+<code>&quot;jev flow&quot;</code>. <code>audit</code> reads only answers for the kinds in its report.
+A kind excluded from the report does not make its answer stale.
+<code>judgement</code> ignores all audit answers.</p>
+<p>The <code>jev mis-fold</code> and <code>jev owner</code> lines do not contain the component that Jev selects.
+The detail row gives that component. Thus a new model release that changes only that component
+does not open an answer again. Earlier versions put that component at the end of the line,
+for example <code>jev mis-fold: Writer claims pkg.emit, which reads like Reader</code>.
+An answer with the earlier line text matches the current line, with the same evidence digest.</p>
+<p><code>systemap triage &quot;&lt;issue&gt;&quot;</code> gives the three components likely to change in an
+issue fix. The report includes their modules and adjacent components.
+On 80 closed issues from two repositories, the component of the pull request with the fix was first
+in 80% of predictions. It was in the first three in 88%.</p>
+<p>With the key set, <code>delta</code> automatically sends questions to Jev.
+<code>--jev</code> explicitly sends questions and gives a reason if the request cannot complete.
+<code>--no-jev</code> sends nothing.
+If delta has no question for Jev, it sends nothing and prints no Jev line.</p>
+<p>Jev answers are suggestions for source examination. They are not evidence.
+They do not change the delta lines or the exit code.
+Thus a run with Jev, a run without a key, and a run in CI give the same result.
+The suggestions print under their own heading.
+If Jev does not answer, a <code>delta --jev:</code> line gives the reason under a different heading.</p>
+<p>Jev examines removed modules that delta did not pair with added modules.
+Delta first compares source, public names, and filenames.
+A pair that Jev selects with confidence of at least 0.8 prints as a <code>jev move</code> line, for example
+<code>jev move: pkg.ledger -&gt; pkg.accounts.book (read as the same module by Jev, confidence 0.94)</code>.
+Jev also suggests a component for each module that no component claims, as a <code>jev owner</code> line.</p>
+<p>With earlier prompts on Python repositories, delta found 66 renames.
+Jev selected 17 more pairs, and 16 of them were correct.
+An agent wrote reference labels from commits without Jev's answers.
+The records are in <code>bench/jev</code>.</p>
+<p>A <code>move candidate</code> line has a necessary action while a component specifies the removed module
+in <code>implemented_by</code>. It also has a necessary action while an added module has no claim and no ignore.
+Read the two source files. Then change the claims.
+The line then moves to the changes with no necessary action.</p>
+<p><code>suggest --jev</code> groups modules from pair answers.
+Pairs have an import connection or the same package.
+Its groups were better than package-only groups on three of five development maps.
+They were not better on the other two.
+The measured first-map run saved no turns.
+Thus, the command stays optional.</p>
+<p>Without a key, <code>judgement</code> prints an audit hint to stderr.
+<code>delta</code> prints a hint when a module was removed and another was added.
+Each hint gives a result that was measured with earlier prompts on Python repositories.
+<code>[jev] enabled = false</code> stops the hints and automatic delta questions.</p>
+<h2 id="what-do-you-do-above-forty-components">What do you do above forty components?</h2>
+<p>A large repository can exceed the capacity of one readable canvas.
+Above approximately forty components, each layer can contain almost all
+components. Layer selection then gives little separation.</p>
+<p>A component can have <code>map=&quot;gateway.py&quot;</code>.
+This path is relative to its model file.
+The target module exports <code>MODEL</code> and <code>MEANING</code>.
+The nested map shows the parent component's internal structure.</p>
+<p>Each parent module must have one claim, without duplicates, in the nested map.
+No extra module is permitted.
+Symbol claims are permitted.
+Empty package markers are excluded.
+Nested actors must be components from the parent map.
+Coverage counts the parent component one time.</p>
+<p>The nesting rule rejects differences and shows each module or actor.</p>
+<p>Commands use all maps in the map tree:</p>
+<ul>
+<li>
+<p><code>check</code> executes all rules on each map.
+A nested finding has its map id, as in <code>Gateway: map layout: clean ...</code>.</p>
+</li>
+<li>
+<p><code>refresh</code> and <code>render</code> write one page per map.
+The top page is <code>docs/map/index.html</code>.
+The nested page is <code>docs/map/Gateway/index.html</code>.
+Each page has a link to the other.</p>
+</li>
+<li>
+<p><code>figure --map Gateway</code> renders one map.
+A <code>[[figures]]</code> entry also accepts <code>map</code>.</p>
+</li>
+<li>
+<p><code>place</code> writes positions in each model file.</p>
+</li>
+<li>
+<p><code>describe</code> and <code>judgement</code> use map-id prefixes.
+An <code>item</code> answer contains the printed line.
+A family answer can apply to all maps.</p>
+</li>
+<li>
+<p><code>delta</code> compares each map's claimed modules.
+A moved module shows its component and model file.</p>
+</li>
+<li>
+<p><code>suggest</code> shows maps above forty components.
+It lists the components with the most modules as possible nested maps.</p>
+</li>
+</ul>
+<p>A second nested level uses an id such as <code>Gateway/Routes</code>.
+The self-map in the recorded experiment had no nested map.
+Its 18 components were below the threshold.
+The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/test_nested.py"><code>tests/test_nested.py</code></a> has five top-level
+components. Two open nested maps.</p>
+<h2 id="what-does-a-model-contain">What does a model contain?</h2>
+<p>The agent writes one model file in Python syntax with the frozen dataclasses of <code>systemap</code>.
+systemap reads the file as data. It does not run the file as Python code.
+This example contains two components and one flow from the self-map.
+A model does not declare the standard flow kinds.
+The page derives standard layers.</p>
+<pre><code class="language-python">from systemap import Component, Flow, Meaning, Model, Region
+
+MODEL = Model(
+    canvas=(900, 420),
+    containers=(),
+    regions=(Region(&quot;gather&quot;, &quot;GATHER&quot;, (24, 40, 400, 340)),
+             Region(&quot;draw&quot;, &quot;DRAW&quot;, (460, 40, 416, 340))),
+    components=(
+        Component(id=&quot;FactsExtractor&quot;, region=&quot;gather&quot;,
+                  does=&quot;Reads the package syntax tree and writes facts.&quot;,
+                  implemented_by=(&quot;systemap.extract&quot;,), entry=&quot;build&quot;),
+        Component(id=&quot;Schematic&quot;, region=&quot;draw&quot;,
+                  does=&quot;Renders components, routes, and the interaction script.&quot;,
+                  implemented_by=(&quot;systemap.schematic&quot;, &quot;systemap.theme&quot;), entry=&quot;render&quot;),
+    ),
+    flows=(Flow(&quot;FactsExtractor&quot;, &quot;Schematic&quot;, &quot;map.json&quot;, &quot;data&quot;),),
+    flow_kinds=(),
+)
+
+MEANING = Meaning(
+    plain={&quot;FactsExtractor&quot;: &quot;what reads the code&quot;, &quot;Schematic&quot;: &quot;what renders the map&quot;},
+    relations={(&quot;FactsExtractor&quot;, &quot;Schematic&quot;):
+               &quot;The schematic reads module facts to show flow evidence for mapped components.&quot;},
+)
+</code></pre>
+<p>The example has no <code>x</code> or <code>y</code> values.
+<code>systemap place</code> writes these positions.
+After component additions or removals, <code>systemap place --all</code> writes new
+positions. A component with <code>pinned=True</code> keeps its selected position.</p>
+<p>A model file can contain only these statements:</p>
+<ul>
+<li>The module docstring and <code>from __future__ import annotations</code>.</li>
+<li><code>from systemap import ...</code> or <code>from systemap.model import ...</code> for the model classes
+and for <code>AGENT_KINDS</code>, <code>KINDS</code>, and <code>STANDARD_KINDS</code>.</li>
+<li><code>import NAME</code> for the file <code>NAME.py</code> in the same directory, such as <code>import journeys</code>.
+<code>NAME.VALUE</code> gives a value from that file. The same rules apply to that file.
+systemap refuses a symbolic link to a file outside the directory, and an import cycle.</li>
+<li><code>NAME = value</code> and <code>NAME: annotation = value</code>. systemap does not read the annotation.</li>
+<li>A type alias for annotations, such as <code>Steps = tuple[Step, ...]</code>.</li>
+</ul>
+<p>A value is a <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, or <code>None</code> constant, a minus sign before
+a number, or a <code>tuple</code>, <code>list</code>, <code>set</code>, or <code>dict</code> of values.
+A value can also be a call of a model class with positional and keyword values,
+or a name that an earlier statement in the same file defines.
+systemap refuses all other syntax before it makes a value. Examples are functions,
+classes, comprehensions, f-strings, operators, indexes, <code>**</code> and <code>*</code> in a call, and other imports.
+The message gives the file, the line, and the refused syntax.</p>
+<p>The reader also has limits: 512 KiB and 16 files for one model with the files that it imports,
+100,000 values, 32 levels of nested values, and 8,000,000 parts and characters in one value
+when each name in it is written out. Move a part of a larger map into a nested map.</p>
+<p>If you know that the code in a repository is safe, set <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>
+in the environment of the command. Then systemap runs each model file as Python code,
+as version 2.0 did. Only the value <code>1</code> gives this permission.
+systemap does not read this permission from <code>systemap.toml</code>, because the repository controls that file.
+To write a model file with code again as literal values, use <code>systemap convert</code>.</p>
+<p>The full schema and examples are in
+<a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/SKILL.md"><code>SKILL.md</code></a> and its
+<a href="https://github.com/0xfauzi/systemap/tree/main/src/systemap/skill/references"><code>references/</code></a>.</p>
+<h2 id="which-command-do-you-use">Which command do you use?</h2>
+<p>All commands accept <code>--root DIR</code> before or after the command.
+This option shows a project outside the current directory.
+Exit codes are <code>0</code> for current, <code>1</code> for stale or rejected, and <code>2</code> for unusable
+configuration, model, or option value.
+The line after an error tells you which input to correct.
+The input is a command option, <code>systemap.toml</code> or the model module, a <code>tsconfig.json</code> file, or a Git ref.</p>
+<h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
+<p>Writes <code>systemap.toml</code>, an initial model, the skill directory, and a GitHub
+workflow. The workflow pins this version.
+The command does not replace <code>systemap.toml</code>, the model, or the workflow.
+It writes the skill directory again on each run.
+It prints the instruction for your agent.
+<code>--no-ci</code> does not include the workflow.</p>
+<p>The workflow has the variable <code>SYSTEMAP_CI</code>. Its default value is <code>advisory</code>:
+a map finding gives a warning annotation, and the job passes.
+With <code>--strict-ci</code>, the value is <code>strict</code>: a map finding makes the job fail.
+You can change the value in the workflow file later.
+If systemap cannot run (exit code 2 or more), the job fails with both values.</p>
+<p>If the repository has no Python package and a directory has a <code>tsconfig.json</code> file,
+<code>init</code> selects TypeScript.
+If the repository root has no <code>tsconfig.json</code> file, <code>init</code> writes no package roots.
+Then set <code>[package_roots]</code> for each application package.</p>
+<h3 id="systemap-extract-check"><code>systemap extract [--check]</code></h3>
+<p>Reads the source tree and writes <code>docs/map/map.json</code>.
+Module records contain public surface, public names, internal imports, external
+imports, test references, and entry points.
+Package <code>__init__</code> records include re-exports.
+The other commands read this file.</p>
+<ul>
+<li><code>--check</code> exits 1 if stored facts differ from the source tree.
+It also exits 1 if a model claim names a module that the source tree does not have.
+The report gives the two problem groups separately.
+For stale facts, run <code>systemap extract</code>.
+For a model claim, correct the model. A new extraction does not correct it.</li>
+</ul>
+<h3 id="systemap-facts"><code>systemap facts</code></h3>
+<p>Prints stored facts one view at a time.
+With no option, it prints the extraction summary.</p>
+<ul>
+<li>
+<p><code>--modules</code> prints one row per module.
+Each row gives the first docstring sentence and counts of names, imports,
+and tests.</p>
+</li>
+<li>
+<p><code>--docstrings</code> prints the first sentence only.</p>
+</li>
+<li>
+<p><code>--module NAME</code> prints the module's docstring, names and kinds, imports,
+importers, external imports, and test count. It does not print test names.</p>
+</li>
+<li>
+<p><code>--names NAME</code> prints public names and kinds.</p>
+</li>
+<li>
+<p><code>--entry-points</code> prints entry points and their targets.</p>
+</li>
+<li>
+<p><code>--external</code> prints third-party imports and their importers.</p>
+</li>
+<li>
+<p><code>--imports NAME</code> prints imports and importers for one module.</p>
+</li>
+</ul>
+<h3 id="systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></h3>
+<p>A component must have a position before you render the map.
+This command writes positions for unpositioned components on all maps.
+The command keeps positions already in the model.
+Only <code>x=</code>, <code>y=</code>, boxes, and the canvas change.</p>
+<p>Regions use a two-column grid with routing corridors.
+The search selects the region order with the best score.
+Barycenter sweeps through flows select component order within regions.
+With six or fewer regions, the search tries every order.
+For more regions, it uses a greedy start and pairwise swaps.</p>
+<p>A bend estimate scores each candidate.
+The router renders the best twelve estimates and the model's listed order.
+It scores label collisions, rejected routes, bends, and length, in that order.
+The report gives the selected order and score. This line is from <code>systemap place --all --print</code> in this repository:</p>
+<pre><code>region order: draw, gather, mean, keep, operate. 159 bends, 32,562 units. 120 orders examined, 13 routed
+</code></pre>
+<p>The procedure is deterministic and uses only the standard library.</p>
+<ul>
+<li>
+<p><code>--all</code> writes new positions except for <code>pinned=True</code> components.
+Use it after you add or remove components.</p>
+</li>
+<li>
+<p><code>--keep-order</code> uses the listed region order without a search.</p>
+</li>
+<li>
+<p><code>--print</code> prints positions without file changes.</p>
+</li>
+</ul>
+<h3 id="systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></h3>
+<p>Writes the page from the facts and model.</p>
+<ul>
+<li>
+<p><code>--check</code> exits 1 if the page is stale.
+It renders the page with the same options and compares the two pages.
+Thus a page that <code>render --base REF</code> wrote is stale for <code>render --check</code> without <code>--base REF</code>.</p>
+</li>
+<li>
+<p><code>--base REF</code> adds a change map relative to that revision.
+The page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
+The Changes panel lists the map changes: the components, flows, sequences, and rules
+that the change added, removed, or changed in the model.
+The list compares the committed model at the merge base with the model on disk.
+A new digest for the same cited module or symbol is not a flow change.
+If the base model does not load, the panel gives the reason.</p>
+</li>
+</ul>
+<h3 id="systemap-check-brief"><code>systemap check [--brief]</code></h3>
+<p>Executes all rules on all maps.
+A rejected map causes exit 1.
+Each finding gives a correction.
+Two rows below a rejected rule give its effect and the necessary action.</p>
+<ul>
+<li><code>--brief</code> does not include these two rows.</li>
+</ul>
+<h3 id="systemap-figure-out-file"><code>systemap figure --out FILE</code></h3>
+<p>Uses the page generator to render one figure for a document.</p>
+<ul>
+<li>
+<p><code>--components A,B</code> renders a plan's reach.</p>
+</li>
+<li>
+<p><code>--base REF</code> renders a change.</p>
+</li>
+<li>
+<p><code>--layer ID</code> renders that layer's flows and all components.
+The legend contains only that layer.</p>
+</li>
+<li>
+<p><code>--map ID</code> selects a nested map.</p>
+</li>
+<li>
+<p>An <code>--out</code> filename with a <code>.svg</code> suffix writes the drawing without a frame.</p>
+</li>
+</ul>
+<h3 id="systemap-refresh"><code>systemap refresh</code></h3>
+<p>Executes extraction and the checks, and renders the page and the configured figures,
+in dependency order. Then it does a check of the written outputs.
+A result without changes prints
+<code>map: The page agrees with the rendered model fields and the facts.</code>
+A rejected check causes exit 1, and the command renders nothing.
+<code>-q</code> or <code>--quiet</code> prints only errors and check results.</p>
+<h3 id="systemap-suggest-jev"><code>systemap suggest [--jev]</code></h3>
+<p>Proposes the first module groups for revision.
+From facts alone, it gives one component per package with two or more modules.
+It lists modules and imports across proposals.
+With a model, it also shows maps above forty components and large
+components that can become nested maps.</p>
+<ul>
+<li><code>--jev</code> uses Jev's module-pair answers instead of package groups.
+Set <code>TYPESAFE_API_KEY</code> for this option.</li>
+</ul>
+<h3 id="systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></h3>
+<p>Prints the second-pass findings.
+These include single-module components, possible incorrect assignments, missing
+sentences, thin layers, uncovered entry points, crossing imports, unreviewed
+flows, source records outside the flow endpoints, stale component source reviews,
+and model SDK imports outside agents.
+A line after the findings counts the component source reviews by state: current, stale, and missing.
+A crossing-import row gives one component pair and a module count.
+Accepted answers under <code>[judgement] answered</code> suppress findings.
+The first finding of each kind has rows about its effect and necessary action.</p>
+<ul>
+<li>
+<p><code>--strict</code> exits 1 while a finding is open. If not, the exit code is 0.</p>
+</li>
+<li>
+<p><code>--kind KIND</code> prints one kind.</p>
+</li>
+<li>
+<p><code>--verbose</code> prints imports below each crossing-import row.</p>
+</li>
+<li>
+<p><code>--brief</code> does not include the two explanation rows.</p>
+</li>
+</ul>
+<h3 id="systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></h3>
+<p>Compares extracted facts from two Git commits.
+Python and TypeScript use the configured language adapter, as the working tree
+does. The report shows moved, added, and removed modules with their
+components and model files.
+Delta reads the committed files. The Git attributes <code>export-subst</code> and
+<code>export-ignore</code> do not change them.</p>
+<p>Findings include unclaimed new modules, removed entry and interface names,
+new crossing imports without flows, and flows with lost evidence.
+Each finding gives a correction.
+An answer for a new crossing import must agree with the <code>judgement</code> rule.
+An exact answer must have the current evidence digest. A family answer must have <code>policy = true</code>.
+The exit code is 0 if the map is current, or 1 if it is necessary to update the map.</p>
+<p>The lines with a necessary action come first, under <code>The map needs an update (N):</code>.
+The lines with no necessary action follow.
+If no line has a necessary action, the last line starts with <code>The map is current.</code>
+If not, the last line tells you to do the actions and gives the next command.</p>
+<p>Before its last line, the text report gives adjacent components.
+These have flows to the component with the most changes.
+This list gives context, not a finding.
+The list does not print if the component with the most changes connects to more
+than one-third of the map.</p>
+<ul>
+<li>
+<p><code>--comment FILE --pr N</code> writes the pull-request comment to <code>FILE</code> if <code>[delta] page_url</code> is set.
+The comment has one link to the Changes view of the page for pull request <code>N</code>.
+If it is necessary to update the map, one more line says so and gives the number of lines.</p>
+<p>The first comment line is <code>&lt;!-- systemap delta --&gt;</code>. CI finds the comment with it and changes that comment.
+Without <code>page_url</code>, the command writes no file.
+The comment does not change the delta lines or the exit code.</p>
+</li>
+<li>
+<p><code>TYPESAFE_API_KEY</code> or <code>--jev</code> enables Jev suggestions for modules with changed
+names and content, and for unclaimed modules. The suggestions do not change
+the delta lines or the exit code.</p>
+</li>
+<li>
+<p><code>--no-jev</code> sends nothing.</p>
+</li>
+<li>
+<p>The Jev cost goes to stderr.</p>
+</li>
+</ul>
+<h3 id="systemap-describe"><code>systemap describe</code></h3>
+<p>Prints measured map geometry for an agent that cannot see the page.
+The report includes position counts, components per region, region order,
+layout score, bends and length for each flow path, label gutters, and gutter seat usage.
+It also gives evidence-state counts, and the component and flow counts for each layer.
+Position counts distinguish pinned, placed, and temporary display positions.
+Flow paths with the worst geometry come first.
+A gutter line counts the labels that the flow paths put in that gutter.</p>
+<p>The sequence section gives steps, the entry point where each sequence starts, steps without import
+evidence, unconfirmed agent drafts, and covered entry counts.</p>
+<h3 id="systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></h3>
+<p>Sends questions about semantic claims to Jev.
+The finding kinds are <code>jev mis-fold</code>, <code>jev owner</code>, <code>jev sentence</code>, and
+<code>jev governs</code>. <code>--kind &quot;jev flow&quot;</code> also sends questions about flow claims.
+Answers use the cache.
+The command exits 0 for a completed report, or 1 if it cannot complete.
+Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
+<ul>
+<li>
+<p>Use <code>--kind KIND</code> again to select another question kind.</p>
+</li>
+<li>
+<p><code>--dry-run</code> lists proposed questions and does not send them.</p>
+</li>
+</ul>
+<h3 id="systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></h3>
+<p>Predicts components likely to change in a task.
+Jev compares the task with each component's function.
+The projection includes components with probability of at least 0.05.
+The report includes flows, sequences, and rules for each component.
+It lists six of each, then gives a count.
+The projection is in <code>.systemap/plans/&lt;id&gt;.json</code>.</p>
+<p>The measured threshold of 0.05 is in <code>bench/jev/plan_eval.py</code>.
+Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
+<ul>
+<li>
+<p><code>--check ID --base REF</code> compares the projection with changed components
+since <code>REF</code>. The default base is <code>origin/main</code>.
+It exits 1 for changed components outside the plan.</p>
+</li>
+<li>
+<p><code>-</code> instead of a task reads stdin.</p>
+</li>
+</ul>
+<h3 id="systemap-triage-text"><code>systemap triage TEXT</code></h3>
+<p>Predicts the three components likely to change in an issue fix.
+The report includes their modules and adjacent components.
+<code>-</code> reads stdin. The text limit is 2,000 characters.
+Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
+<h3 id="systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></h3>
+<p>Writes a sequence for an entry point with no examined sequence.
+For multiple same-kind entries in one component, it can write a grouped
+sequence. Its <code>covers</code> field records the examined entry identities.
+An examination must add a new entry to that list before the entry counts as covered.</p>
+<p><code>[agent] command</code> reads source from the entry point.
+The agent gives components in the execution path and a sentence for each step.
+Each request contains the language policy of the <code>[writing]</code> profile.
+The command rejects a step with no authored flow and gives a finding.
+The command does not write that step.</p>
+<p>Accepted sequences enter the model with <code>drafted=True</code>.
+The command writes them into the <code>JOURNEYS = (...)</code> tuple of the model.
+The tuple can have a type annotation, as in the model from <code>init</code>.
+<code>judgement</code> prints <code>drafted journey</code> until a person examines the sequence and
+removes the mark.</p>
+<p>By default, the command writes no more than three sequences.</p>
+<ul>
+<li>
+<p><code>--limit N</code> writes no more than N sequences.</p>
+</li>
+<li>
+<p><code>--dry-run</code> lists proposed sequences without file changes.</p>
+</li>
+<li>
+<p>With no <code>[agent] command</code>, the command also lists proposals and gives the
+reason it cannot write them.</p>
+</li>
+</ul>
+<h3 id="systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></h3>
+<p>Reads source samples across repository history.
+The defaults are <code>1 year ago</code>, one sample every 14 days, and the five largest
+windows (<code>--top</code> default 5). Each window compares two samples.
+Facts use the cache <code>.systemap/facts/&lt;sha&gt;-&lt;scope&gt;.json</code>.</p>
+<p>Each window shows module and entry additions or removals, component size
+changes, and new crossing imports.
+It shows the commits that added new modules.
+All samples use the component assignments in the selected map.
+Thus, a moved module counts under its component in the selected map.
+TypeScript samples include <code>.ts</code>, <code>.tsx</code>, tests, and package entry points.</p>
+<ul>
+<li><code>--ref REF</code> starts from that branch or commit instead of <code>HEAD</code>.</li>
+</ul>
+<h3 id="systemap-explain-kind"><code>systemap explain [KIND]</code></h3>
+<p>Prints one finding kind's meaning, effect on the map, and necessary action.
+With no kind, it lists all printed kinds and their one-line meanings.
+An unknown kind causes exit 1.</p>
+<h3 id="systemap-convert"><code>systemap convert</code></h3>
+<p>Writes each model file that systemap refuses again, with literal values only.
+The command must run each refused file one time, so it needs <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>.
+Examine the code of the model files before you set this value.
+Without the value, the command writes nothing and exits 2 if a model file is refused.
+If all model files have literal values only, it writes nothing and exits 0.</p>
+<p>For each refused file, the command reads the new text with the reader that runs no code.
+It writes the file only if that reader gives the same model as the old file.
+Fields with their default values are not in the new text.
+If the old file imported a file beside it, the command names that file. The new file does not import it.</p>
+<h3 id="systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></h3>
+<p>Supplies the output directory through HTTP on the loopback address.
+The command prints the URL.
+If the port is not available, the command exits 2.
+Then use <code>--port 0</code> to select an available port, or give a different port.
+The server answers only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port.
+Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
+<code>systemap live</code> has the same rule.</p>
+<h3 id="systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></h3>
+<p>Renders the page of the working tree and supplies it through HTTP on the loopback address.
+The facts come from the source files in memory. The models come from the model files.
+The command writes the pages and <code>change.svg</code> into a temporary directory and deletes it when it stops.
+It does not write the output directory, the facts file, or a tracked file.
+For the comparison, it can add the facts of the merge base to the cache in <code>.systemap/facts/</code>,
+as <code>systemap render --base</code> does.</p>
+<p>Each time that the command renders the page, the page gets a new version number.
+The command renders one version at a time.
+If a request occurs while the command renders, the command renders one more version after the current version.
+If the command cannot render a version, the last page stays and the command gives the error.
+Examples are a model file that does not load, a source syntax error, and an extraction error.
+If the first version fails, the page gives the error.</p>
+<ul>
+<li>
+<p><code>--base REF</code> sets the base of the Changes view.
+The default is the first of <code>origin/HEAD</code>, <code>origin/main</code>, <code>main</code>, <code>origin/master</code>, and <code>master</code>
+that has a merge base with HEAD. If no ref has one, the page has no revision comparison.
+The Changes view compares the working tree with that merge base.
+The comparison includes the commits since the merge base, the edits that are not in a commit,
+and the untracked files that Git does not ignore.</p>
+</li>
+<li>
+<p>Without <code>--no-watch</code>, the command scans the configuration files, the model files,
+and the source and test files one time each second.
+When a scan finds a change and the next scan finds no more change, the command renders the page again.</p>
+</li>
+<li>
+<p><code>--no-watch</code> stops the scan. Then the command renders the page again only after <code>POST /refresh</code>.</p>
+</li>
+<li>
+<p><code>--json</code> writes one JSON object on a line for each event. Without it, the command writes short text lines.</p>
+</li>
+<li>
+<p><code>--port 0</code> selects an available port. If the port is not available, the command exits 2.</p>
+</li>
+</ul>
+<p>The browser loads the page again after each version and keeps the view of the reader.
+DESIGN.md gives the parts of the view that the page keeps.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-live-port-8765-base-ref-no-watch-json">
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /</code></td>
+<td>The page of the top map. Nested maps are at <code>&lt;map id&gt;/index.html</code>.</td>
+</tr>
+<tr>
+<td><code>GET /change.svg</code></td>
+<td>The change figure. If the comparison has no change, the system figure.</td>
+</tr>
+<tr>
+<td><code>GET /events</code></td>
+<td>Server-sent events. <code>rendered</code> with <code>{&quot;version&quot;: N}</code> after each version. <code>error</code> with <code>{&quot;version&quot;: N, &quot;text&quot;: &quot;...&quot;}</code> if the command cannot render a version. A new connection first gets <code>rendered</code> with the version of the page on disk.</td>
+</tr>
+<tr>
+<td><code>POST /refresh</code></td>
+<td>Asks for a version. The answer is 202 with <code>{&quot;queued&quot;: true}</code>.</td>
+</tr>
+<tr>
+<td><code>GET /status</code></td>
+<td>The state as JSON: <code>version</code>, <code>state</code> (<code>rendering</code>, <code>ready</code>, or <code>error</code>), <code>seconds</code>, <code>updates</code>, <code>lines</code> (each with <code>text</code> and <code>action</code>), <code>components</code>, <code>error</code>, <code>url</code>, <code>svg</code>, <code>svg_bytes</code>, <code>base</code>, and <code>comparison_base</code>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code>version</code> in <code>GET /status</code> is the number of the last version that started.
+<code>updates</code> is the number of map update lines: the <code>systemap delta</code> lines that need an action,
+for the working tree and the merge base. <code>action</code> is the action of the line kind from <code>systemap explain</code>.
+<code>components</code> are the changed components of the top map.
+<code>svg</code> is the absolute path of <code>change.svg</code>. <code>seconds</code> is the time of the last good version.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-live-port-8765-base-ref-no-watch-json">
+<table>
+<thead>
+<tr>
+<th>JSON line</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{&quot;event&quot;: &quot;serving&quot;, &quot;url&quot;: &quot;...&quot;, &quot;base&quot;: &quot;...&quot;, &quot;comparison_base&quot;: &quot;...&quot;}</code></td>
+<td>One time, when the server is ready.</td>
+</tr>
+<tr>
+<td><code>{&quot;event&quot;: &quot;rendering&quot;, &quot;version&quot;: N}</code></td>
+<td>When a version starts.</td>
+</tr>
+<tr>
+<td><code>{&quot;event&quot;: &quot;rendered&quot;, &quot;version&quot;: N, &quot;seconds&quot;: S, &quot;updates&quot;: K, &quot;components&quot;: [...], &quot;svg&quot;: &quot;...&quot;, &quot;svg_bytes&quot;: B}</code></td>
+<td>When a version is on the page.</td>
+</tr>
+<tr>
+<td><code>{&quot;event&quot;: &quot;error&quot;, &quot;version&quot;: N, &quot;text&quot;: &quot;...&quot;}</code></td>
+<td>When the command cannot render a version.</td>
+</tr>
+<tr>
+<td><code>{&quot;event&quot;: &quot;stopped&quot;}</code></td>
+<td>When the command stops after Ctrl-C or SIGTERM, or Ctrl-Break on Windows. The exit code is 0.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>On this repository, one version takes about 7 to 8 seconds.
+Thus the command waits until the files stop changing before it renders the page.
+<a href="https://github.com/0xfauzi/systemap/blob/main/bench/jev/README.md">bench/jev/README.md</a> gives the measurements.</p>
+<h3 id="systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></h3>
+<p>Reinstalls the skill directory from <code>init</code>: <code>SKILL.md</code> and <code>references/</code>.</p>
+<ul>
+<li>
+<p><code>--dir PATH</code> writes to another directory.</p>
+</li>
+<li>
+<p><code>--print</code> writes <code>SKILL.md</code> to stdout.</p>
+</li>
+</ul>
+<h2 id="what-can-you-configure">What can you configure?</h2>
+<p>Use <code>systemap.toml</code> at the repository root or <code>[tool.systemap]</code> in
+<code>pyproject.toml</code>. All keys are optional.
+Unknown keys are rejected.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-can-you-configure">
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>language</code></td>
+<td><code>python</code></td>
+<td>The source language. Select <code>python</code> or <code>typescript</code>. The <code>[writing]</code> table sets the writing rules for map text. <code>init</code> detects an unambiguous TypeScript repository. TypeScript must have the <code>systemap[typescript]</code> extra.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>[project] name</code>, Git repository directory, then directory name</td>
+<td>The page title.</td>
+</tr>
+<tr>
+<td><code>[package_roots]</code></td>
+<td>Python packages, or <code>src</code> then repository root for TypeScript</td>
+<td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
+</tr>
+<tr>
+<td><code>tests_dir</code></td>
+<td>All directories with the name <code>tests</code> or <code>test</code></td>
+<td>One directory or a list. Import references associate tests with modules.</td>
+</tr>
+<tr>
+<td><code>test_patterns</code></td>
+<td>none</td>
+<td>Additional repository-relative test globs. Extraction and <code>delta</code> use the same patterns.</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td><code>map/model.py</code></td>
+<td>The model file that gives <code>MODEL</code> and <code>MEANING</code>. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (<code>import journeys</code>). <a href="#what-does-a-model-contain">What does a model contain?</a> gives the permitted syntax.</td>
+</tr>
+<tr>
+<td><code>out_dir</code></td>
+<td><code>docs/map</code></td>
+<td>The directory for facts, pages, and figures.</td>
+</tr>
+<tr>
+<td><code>facts_file</code></td>
+<td><code>map.json</code></td>
+<td>The facts filename inside <code>out_dir</code>.</td>
+</tr>
+<tr>
+<td><code>spec_path</code></td>
+<td>none</td>
+<td>A document with <code>##</code> headings that identify specification sections.</td>
+</tr>
+<tr>
+<td><code>planes</code></td>
+<td>none</td>
+<td>Second-level package names with different planes in the facts.</td>
+</tr>
+<tr>
+<td><code>outside_label</code></td>
+<td><code>EXTERNAL COMPONENTS</code></td>
+<td>The index heading for actors outside all regions.</td>
+</tr>
+<tr>
+<td><code>[coverage]</code></td>
+<td>none</td>
+<td><code>ignore = [{module = &quot;pkg.mod&quot;, reason = &quot;...&quot;}]</code> excludes a module. <code>module = &quot;pkg.sub.*&quot;</code> excludes a subtree. An ignore must have a reason. No ignore is necessary for empty package markers.</td>
+</tr>
+<tr>
+<td><code>[facts]</code></td>
+<td>none</td>
+<td><code>model_sdks = [...]</code> adds import names to the built-in SDK list. A <code>-</code> at the start removes a built-in name (<code>&quot;-google.adk&quot;</code>).</td>
+</tr>
+<tr>
+<td><code>[flows]</code></td>
+<td>none</td>
+<td><code>observed_by = [&quot;subprocess&quot;, &quot;queue&quot;, ...]</code> identifies mechanism words as structural evidence. A word does not show evidence for a flow.</td>
+</tr>
+<tr>
+<td><code>[judgement]</code></td>
+<td>none</td>
+<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;jev flow&quot;</code>.</td>
+</tr>
+<tr>
+<td><code>[jev]</code></td>
+<td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled = true</code></td>
+<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --jev</code>. <code>enabled = false</code> stops automatic delta questions and hints.</td>
+</tr>
+<tr>
+<td><code>[agent]</code></td>
+<td><code>command</code> unset, <code>timeout = 300</code>, <code>cache = &quot;.systemap/agent-cache.json&quot;</code></td>
+<td>The command for sequence generation. It reads the question from stdin, for example <code>command = &quot;claude -p --output-format json&quot;</code>. With no command, nothing executes and the reason is printed.</td>
+</tr>
+<tr>
+<td><code>[delta]</code></td>
+<td>none</td>
+<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, <code>systemap delta --comment FILE --pr N</code> writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
+</tr>
+<tr>
+<td><code>[writing]</code></td>
+<td><code>profile = &quot;plain&quot;</code></td>
+<td>The writing profile for the map text that a person reads. <code>plain</code> selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. <code>asd-ste100</code> also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. <code>systemap journeys</code> puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. <code>init</code> writes <code>profile = &quot;plain&quot;</code>.</td>
+</tr>
+<tr>
+<td><code>[theme]</code></td>
+<td><code>dark</code></td>
+<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>.</td>
+</tr>
+<tr>
+<td><code>[[figures]]</code></td>
+<td>none</td>
+<td>Figures for <code>refresh</code>. Keys are <code>out</code>, <code>mode</code> (<code>system</code> or <code>reach</code>), <code>components</code>, <code>caption</code>, <code>interactive</code>, <code>layer</code>, and <code>map</code>. <code>layer</code> selects that layer's flows. <code>map</code> identifies a nested map. An <code>out</code> with <code>.svg</code> suffix writes the drawing alone.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The environment of a command can set two values. A repository file cannot set them.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-can-you-configure">
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TYPESAFE_API_KEY</code></td>
+<td>The key for Jev questions. Without it, no question goes to Jev.</td>
+</tr>
+<tr>
+<td><code>SYSTEMAP_TRUST_MODEL_CODE</code></td>
+<td>With the value <code>1</code>, systemap runs the model files as Python code. Without it, systemap reads them as data. Set it only for a repository with safe code.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>TypeScript discovery does not include <code>.d.ts</code>, <code>.d.mts</code>, and <code>.d.cts</code> declaration files.
+The <code>external</code> imports do not include Node.js built-in modules, such as <code>node:fs</code> and <code>path</code>.
+A re-export from an npm package keeps the package name and gives no unknown record.
+A missing npm package in <code>tsconfig.json</code> <code>extends</code> gives an <code>unknown surface</code>
+finding. Extraction continues with the compiler options that it can read.</p>
+<p>In each file of the <code>extends</code> chain, <code>${configDir}</code> at the start of a path uses
+the top-level <code>tsconfig.json</code> directory. This applies to <code>baseUrl</code>, <code>paths</code>,
+<code>rootDir</code>, and <code>outDir</code>, as it does in <code>tsc</code>.
+A plain relative path uses the directory of the file that declares it.</p>
+<p>Without <code>rootDir</code>, the source root follows the project's <code>tsc</code> rule:</p>
+<ul>
+<li>
+<p>TypeScript 5 uses the longest common directory of selected non-declaration
+files. The <code>files</code>, <code>include</code>, and <code>exclude</code> options select files.
+These files include tests.</p>
+</li>
+<li>
+<p>TypeScript 6 and later use the <code>tsconfig.json</code> directory.</p>
+</li>
+<li>
+<p><code>composite</code> uses the <code>tsconfig.json</code> directory on all versions.</p>
+</li>
+</ul>
+<p>The version comes from <code>node_modules/typescript/package.json</code>, then the
+<code>typescript</code> range in <code>package.json</code>.
+If the two files do not give a version, systemap tries the two roots.
+A compiled target maps to a module only if one root gives a match and the other does not.
+Two matches leave the target unmapped.</p>
+<p><code>check</code> prints unknown records without rejection.
+Each unknown record must have a correction or accepted answer under
+<code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
+<nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
+</main>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+</div>
+<footer class="foot" id="footer">
+<div class="foot__in">
+<a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
+<span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
+</div>
+</footer>
+</body>
+</html>

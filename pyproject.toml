@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "2.0.0"
+version = "3.0.0"
 description = "A system map with source facts, examined claims, and ordered sequences."
 readme = "README.md"
 license = "MIT"
@@ -51,10 +51,16 @@ dev = [
     "ruff>=0.5",
     "tree-sitter>=0.25,<0.26",
     "tree-sitter-typescript>=0.23,<0.24",
+    # tests/test_site.py builds the website.
+    { include-group = "site" },
 ]
 # scripts/inter_subset.py makes the Inter subset of the map page with these packages.
 fonts = [
     "fonttools[woff]==4.66.1",
+]
+# site/build.py makes the website in docs/ with these packages.
+site = [
+    "markdown-it-py==4.2.0",
 ]
 
 [tool.pytest.ini_options]

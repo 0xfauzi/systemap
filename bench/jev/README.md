@@ -2079,3 +2079,281 @@ The test that passes on the base examines that the layout widths do not change.
 The sample page of `test_page_is_small_and_self_contained` is 326,739 bytes after the three merges.
 The limit is 329,728 bytes, so the page passes with 2,989 bytes of space.
 The label script and the Fit changes added 5,595 bytes.
+
+## Live map: render time, change.svg and file scan (2026-10-12)
+
+`systemap live` renders the map of the working tree again after each change. These measurements decide how often it can do that.
+The scripts are in the session scratch directory of the work, `/tmp/claude-0/-home-user-systemap/6b590864-2df7-5a7b-8dc8-f2bf55c85a45/scratchpad/live/`.
+They ran on this repository (86 modules at 7b29986, 87 with `page_live`), 4 processors, CPython 3.11.17.
+
+### One render before the change (measured by the coordinator, copied)
+
+`measure_render.py`, at 7b29986, one Python process, median of 3 after one run to warm up:
+
+| Step | Time |
+|---|---|
+| `extract.build` | 3.21 s |
+| Page build without a comparison | 1.38 s |
+| Page build with a comparison with main | 2.52 s |
+| Extraction and the compared page | 5.73 s |
+
+The acceptance value, written before the run, was 3.0 s or less for extraction and the compared page. The result FAILED.
+Thus `systemap live` renders after the files stop changing, or once for each agent turn (`--no-watch` and `POST /refresh`).
+It does not render while the files continue to change.
+With the installed command, `delta --base origin/main` took about 6.0 s and `check` about 9.7 s. `uv run` adds about 5 s.
+
+### The working-tree comparison agrees with the committed comparison
+
+`measure_parity.py`. Acceptance value, written before the run: for each of 6 bases, the `direct` set of the working-tree
+comparison is the same as the `direct` set of the committed comparison (`systemap render --base` gives that comparison to the page).
+The script computes the committed comparison of B and HEAD. Then `git reset --mixed B` puts the same change in the working tree
+as edits that are not in a commit and untracked files, and the script computes the working-tree comparison.
+
+The first run used HEAD~60 as the last base. The scratch clone is shallow (52 first-parent commits), so Git could not resolve HEAD~60
+and the run stopped after HEAD~25. The second run used HEAD~50:
+
+| Base | Files | Changed components | `direct` | `modules` | `adjacent` | Committed | Working tree (without extraction) |
+|---|---|---|---|---|---|---|---|
+| HEAD~1 (f70c3e8) | 130 | 13 | same | same | same | 0.91 s | 0.80 s |
+| HEAD~2 (6e4c6b1) | 165 | 14 | same | same | same | 1.22 s | 1.00 s |
+| HEAD~5 (0a1e6da) | 230 | 16 | same | same | same | 1.91 s | 1.71 s |
+| HEAD~10 (83aabb8) | 261 | 16 | same | same | same | 2.00 s | 1.53 s |
+| HEAD~25 (28b68a1) | 337 | 16 | same | same | same | 1.78 s | 1.34 s |
+| HEAD~50 (5ea982b) | 335 | 16 | same | same | same | 1.81 s | 1.36 s |
+
+Result: 6 of 6 the same. The acceptance value passed.
+
+### One render of `systemap live`, by step
+
+`measure_live.py`, one Python process, median of 3 after one run to warm up (the scan: median of 10).
+Acceptance values, written before the run: change.svg adds 1.0 s or less to a render.
+One scan of the watched files takes 50 ms or less (5% or less of one processor at one scan each second).
+
+| Step | Base HEAD (no change) | Base HEAD~1 (13 changed components) |
+|---|---|---|
+| Configuration and model load | 0.00 s | 0.01 s |
+| `extract.build` | 2.74 s | 2.96 s |
+| Pages (comparison and `page.build`) | 2.53 s | 3.37 s |
+| `change.compute` in the working tree, alone | 0.02 s | 0.80 s |
+| change.svg (`figure.make`) | 1.24 s (system figure, 97,234 characters) | 2.16 s (change figure, 108,545 characters) |
+| Map update lines (`delta.compute_tree`, cached base facts) | 0.05 s | 0.04 s |
+| `render_tree`, one call | 7.00 s | 8.09 s |
+| List of the watched files | 1.6 ms (170 paths) | 1.7 ms (170 paths) |
+| List and scan | 2.2 ms (168 files) | 2.3 ms (168 files) |
+
+change.svg: the acceptance value FAILED. The figure adds 1.24 s without a change and 2.16 s with a change.
+`figure.make` computes the comparison again (0.80 s for HEAD~1), and the schematic of the figure takes the rest.
+The page already has the comparison, but `figure.make` has no parameter for it.
+A new parameter would increase its cognitive complexity (22 now, the limit is 15), so this change does not add one.
+The scan: the acceptance value passed, with 2.3 ms or less.
+
+### One edit cycle of the command
+
+`cycle.py` started `uv run systemap live --port 0 --json` in a scratch clone at 37a50b5, without `--no-watch`.
+It added a function to `src/systemap/serve.py`, waited for the next `rendered` line, read `GET /status`, removed the function,
+waited for one more `rendered` line, and sent SIGTERM. No acceptance value was written before this run.
+
+| Version | Seconds | Map updates | Changed components | change.svg bytes |
+|---|---|---|---|---|
+| 1 | 10.22 | 0 | none | 97,257 |
+| 2 | 7.13 | 1 | CLI | 103,400 |
+| 3 | 6.64 | 0 | none | 97,257 |
+
+The first version also extracts the facts of the merge base into the cache. From the edit to the `rendered` line took 9.1 s:
+the scan waits for one scan without a change, then the render takes about 7 s.
+The exit code was 0, the temporary directory was removed, and `git status --porcelain` was empty before and after.
+An earlier run, with an earlier version of the code, `--no-watch` and `POST /refresh`, took 6.9 s from the edit to the `rendered` line.
+
+The new tests (`tests/test_live_change.py`, `tests/test_live.py`, `tests/test_live_view.py`) gave 3 collection errors on the base (7b29986):
+`change.WORKING_TREE` and `page_live` do not exist there. After the change, all of them pass (32 tests).
+These errors show only that the interface is new. The parity measurement above compares the behavior.
+
+## Component review state and source records outside the flow endpoints (2026-10-12)
+
+This work gives each component one review state: `missing` (no `source_review`), `stale`
+(`source_review` is not the current digest), or `current`. It also makes a rule for flow source
+records: at least one source record must be in a module of the source component or the target component.
+Two census scripts measured the maps before the decisions. They are not in the repository:
+`review_census.py` counts the review states and the flows with source records outside their endpoints.
+`strict_compare.py` gives the `judgement --strict` result with the code of 7b29986 and with the changed code.
+
+Acceptance (written before the census):
+
+1. A map that passes `judgement --strict` with the code of 7b29986 fails it with the changed code only
+   if a review is stale. If a map that passes now has a component without `source_review`, then a
+   `missing` review is a count line, not a finding.
+2. If no reviewed flow on these maps has source records outside its endpoints, the rule can change
+   the evidence state and add a judgement finding without a migration of an existing map.
+
+The census used the stored facts of each map. The fixture has no stored facts, so the census made its facts in memory.
+
+| Map | Source components | current | stale | missing | `judgement --strict` at 7b29986 | Flows | With source records | Records outside the endpoints |
+|---|---|---|---|---|---|---|---|---|
+| Self-map at 7b29986 | 16 | 16 | 0 | 0 | pass, 6 answered | 76 | 61 | 0 |
+| `bench/scratch/cli-first-map-20261011T201433Z` (httpie) | 17 | 0 | 0 | 17 | pass, 73 answered | 34 | 0 | 0 |
+| `tests/fixtures/typescript-app` | 1 | 0 | 0 | 1 | fail, 6 open | 0 | 0 | 0 |
+
+No flow in these maps has source records and an actor end.
+
+Decisions:
+
+- A `missing` review is a count line, `source reviews: N current, N stale, N missing`, and not a finding.
+  The httpie map passes `judgement --strict` with 17 of 17 reviews missing.
+  As a finding, a missing review would add 17 open lines and make that map fail.
+- A `stale` review is a `stale source review` finding.
+- A flow with source records outside its endpoints is not `observed`, and judgement prints a `no endpoint source` finding.
+  The census found 0 such flows, so neither change has an effect on these maps.
+  The state change keeps the page from showing "current source review" for records that do not show the flow.
+  The finding gives the correct reason and action. The `flow review` and `declared flow` lines give a different reason.
+
+Result with the changed code (`strict_compare.py`):
+the self-map at 7b29986 passes with 6 answered and `source reviews: 16 current, 0 stale, 0 missing`.
+The httpie map passes with 73 answered and `source reviews: 0 current, 0 stale, 17 missing`.
+The fixture fails with the same 6 open lines as before.
+Acceptance 1 and acceptance 2 are met.
+
+The self-map after the source changes of this work (facts made again with `systemap refresh`, not committed):
+
+- `systemap check` passes.
+- `systemap judgement --strict` fails with 60 open lines:
+  8 `stale source review` lines (CLI, Config, ChangeDetector, Model, Schematic, Page, Judgement, Describe),
+  0 `no endpoint source` lines, 45 `flow review` lines, 1 `declared flow` line, and 6 `single module` lines with pending answers.
+- `systemap delta --base 7b29986` gives `source review` lines for the same 8 components.
+
+The 45 `flow review` lines, the `declared flow` line, and the 6 pending answers come from the new source hashes of the changed modules.
+Each source change has this effect. The maintainer renews the digests and the answers after the source review.
+
+A probe (`stale_probe.py`, not in the repository) wrote the two-card test map with one stale `source_review` value.
+Acceptance (written before the run): exit code 0 with the code of 7b29986, and exit code 1 with one
+`stale source review` line with the changed code.
+`judgement --strict` gave exit code 0 with the code of 7b29986 and exit code 1 with the changed code. Acceptance met.
+
+The sample page of `test_page_is_small_and_self_contained` is 326,741 bytes with the code of 7b29986 and
+326,810 bytes with the changed reader text. The limit is 329,728 bytes.
+
+## Claude Code version for the plugin job (2026-10-12)
+
+Acceptance value, written before the run: the lowest Claude Code version that does all steps of the
+CI plugin job with the hooks module of the live map. The steps are `claude plugin validate .`, the two
+`scripts/check_plugin_manifest.py` checks, the marketplace install with the plugin enabled, and
+`claude plugin test .` with 15 passed tests. Each lower version must fail.
+The script `ci_versions.py` installed each version with npm into a scratch directory and used an empty
+configuration directory. It was not added to the repository.
+
+| Versions | `plugin test` command | Manifest checks | Install | Plugin tests |
+|---|---|---|---|---|
+| 2.1.278, 2.1.280 | No | Fail: `$ is passed to "update", imported from "claude-code"` | Pass | Cannot run |
+| 2.1.281 to 2.1.285 | No | Pass | Pass | Cannot run |
+| 2.1.286 to 2.1.288, link to `http://127.0.0.1` | Yes | Pass | Pass | 9 pass, 6 fail |
+| 2.1.286 to 2.1.296, link to `http://localhost` | Yes | Pass | Pass | 15 pass |
+
+Result: 2.1.286. The CI plugin job installs it and runs `claude plugin test .`.
+Versions 2.1.286 to 2.1.288 refuse a `Link` to `http://127.0.0.1:PORT/` with
+`Link href must be https: (or http://localhost)`. Then they draw no line above the prompt.
+Thus the `Open map` link uses `localhost`. Version 2.1.296 takes both addresses.
+A second run of 2.1.286 without the session variables of this computer also passed all steps.
+
+## A model reader that runs no code (2026-10-12)
+
+systemap 2.0.0 ran `map/model.py` as Python code. The new reader (`src/systemap/model_load.py`)
+parses the model file and makes the values from literal syntax only.
+`SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command selects the 2.0.0 loader.
+All runs used Python 3.11.17 on Linux. Other processes can run on the same computer, so the times are approximate.
+
+### Parser limits (model_parse_limits.py)
+
+Acceptance (written before the run): each input parses or gives SyntaxError, RecursionError,
+MemoryError, or ValueError, and the process does not stop. The peak memory for a 1 MB file
+with the most syntax nodes for its size is less than 400 MB.
+
+| Input | Result |
+|---|---|
+| 300 nested parentheses | SyntaxError: too many nested parentheses |
+| 300 nested lists | SyntaxError: too many nested parentheses |
+| 100,000 minus signs before a number | MemoryError, at once |
+| 100,000 additions | RecursionError during the syntax tree construction (0.05 s) |
+| An attribute chain of 100,000 names | RecursionError during the syntax tree construction (0.03 s) |
+| A chain of 50,000 calls | RecursionError during the syntax tree construction (0.05 s) |
+| 100,000 `not` operators | MemoryError, at once |
+| A flat list, 1,000,006 bytes | 500,006 nodes, peak 485 MB, 2.80 s |
+| A flat list, 524,294 bytes | 262,150 nodes, peak 262 MB, 1.49 s |
+| A flat list, 262,150 bytes | 131,078 nodes, peak 137 MB, 0.31 s |
+
+No input stopped the process. The 1 MB file failed the memory acceptance value.
+The reader therefore reads at most 512 KiB for one model and the files that it imports.
+It refuses a larger file before it parses it. The reader gives the parser errors as refusals.
+Its own check also refuses values that are nested more than 32 levels.
+The three self-map files contain 72,442 bytes after this change.
+
+### Load time (model_load_time.py)
+
+Acceptance (written before the run): the safe reader takes at most twice the time of the
+2.0.0 code loader for the self-map. Each line is one process with 30 loads after one load
+that is not counted. The values are the medians in milliseconds.
+
+| Files | Code loader (ms) | Safe reader (ms) | Ratio |
+|---|---|---|---|
+| 2.0.0 self-map (7b29986), bytecode cache | 3.3, 3.4, 4.2 | refused | |
+| New self-map, bytecode cache | 2.5, 2.5, 2.3 | 8.0, 7.2, 6.7 | 3.16, 2.91, 2.88 |
+| New self-map, no bytecode cache (`PYTHONDONTWRITEBYTECODE=1`) | 7.0, 4.2, 4.3 | 7.5, 6.7, 6.5 | 1.07, 1.60, 1.50 |
+
+The safe reader failed the acceptance value when Python keeps the bytecode of
+`map/flows.py` and `map/journeys.py` in `map/__pycache__`. Then the code loader compiles
+only `map/model.py`. The reader passed the acceptance value without the bytecode cache.
+Against the 2.0.0 self-map with the code loader (the state before this change), the
+ratios of the medians across the runs are between 1.5 and 2.4.
+
+A profile of a first version gave these means of 30 runs for the three files:
+the complete read 9.47 ms, `ast.parse` 4.35 ms, a count of the syntax nodes with `ast.walk`
+1.89 ms, and the values 0.79 ms. `compile` of the same three files takes 3.72 ms.
+The check now counts the values that it examines, and the `ast.walk` count is removed.
+The remaining time of the current reader, about 1.5 ms, is the check and the file reads
+(calculated from the table, not measured separately).
+`ast.parse` alone is near twice the time of the code loader with the bytecode cache,
+so a check with no cost would also be near the acceptance value. A measurement is
+necessary before a decision about a cache of the parsed files.
+The difference is 4 to 5 ms for each load. `systemap check` loads the model one time.
+
+### Model files that the reader accepts (model_census.py)
+
+Acceptance (written before the run): 0 refusals for the self-map, the TypeScript test
+fixture, the model that `systemap init` writes, and the worked example of the skill.
+
+| File | Result in the worktree of this change |
+|---|---|
+| The `systemap init` template | accepted |
+| `map/model.py`, with `map/flows.py` and `map/journeys.py` | accepted |
+| `tests/fixtures/typescript-app/map/model.py` | accepted |
+| The worked example in `references/example.md` (three skill directories) | accepted |
+| The example in `docs/reference.md` | accepted |
+| `bench/scratch/cli-first-map-20261011T201433Z/repo/map/model.py` | accepted |
+| The skill example in that bench repository (skill 2.0.0) | refused: line 46, an index (`x=COL["c1"]`) |
+
+The change passed the acceptance value. Before this change, the reader refused
+`map/model.py` (line 15, `from dataclasses import replace`, then `_reviewed` and a
+dictionary comprehension) and the skill example (line 46, an index into `COL`).
+The bench model has `Steps = tuple[Step, ...]` from the 2.0.0 `init` template.
+The reader accepts this form as a type alias, so the `init` models of 0.11.0 to 2.0.0 load
+with no change. The census of the model texts that the tests write is in the test suite:
+the two-card fixture (`x=COL["c1"]`), four delta and comparison fixtures
+(`plain={c.id: ... for c in COMPONENTS}`) and the placement fixture (a Python module with
+`from typing import Any` and a calculated grid) were refused. They now use literal values.
+
+Of the 69 commits that changed the self-map, the reader accepts 4: this change and three
+commits of 2026-08-26 and 2026-08-27. The other 65 have `from dataclasses import replace` (56)
+or a comprehension (9). `render --base` with one of these commits shows the refusal in the
+Changes view, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is set.
+
+### Adversarial tests
+
+`tests/test_model_load.py` has 43 tests. With the 2.0.0 loader (the code of de8358e), 37 failed
+and 6 passed. In 22 of the failures, the model file wrote its marker file: `os.system`,
+`__import__`, `exec`, `eval`, `getattr`, `__builtins__`, a lambda, a function, a class,
+a decorator, a comprehension, an f-string, `systemap.config` and other systemap modules
+(three tests), a call of `open`, a sibling file through a symbolic link to outside the
+directory, a committed model in the revision comparison, and the four values of
+`SYSTEMAP_TRUST_MODEL_CODE` other than `1`. The other 15 failures were refusals that did not
+occur or messages without the line. The 6 tests that passed examine files that both loaders
+accept, and the annotation test: the 2.0.0 loader also did not evaluate annotations, because
+`compile` received `from __future__ import annotations` from `config.py`.
+With the safe reader, all 43 tests pass.

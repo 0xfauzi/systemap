@@ -7,7 +7,116 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
-## Unreleased
+## 3.0.0 - 2026-10-12
+
+This version changes four behaviors. Each change can stop a command or change a CI result.
+
+- systemap reads a model file as data, and it refuses a model file that needs code.
+  To write such a file with literal values, run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
+  Set this value only if you trust the code in the repository.
+- The workflow from `systemap init` is advisory by default. A workflow file that exists does not change.
+- Maps use the `plain` writing profile by default.
+  To keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
+- `systemap judgement --strict` fails on a stale source review.
+
+The changes:
+
+- The website at <https://0xfauzi.github.io/systemap/> has a landing page, eight guide pages,
+  the reference, and the benchmarks. `site/build.py` makes the pages in `docs/` from `site/pages/`,
+  `docs/reference.md`, and `docs/benchmarks.md`. The pages make no requests to other sites.
+
+- `systemap serve` and `systemap live` answer only a request whose Host header is `127.0.0.1` or
+  `localhost` with the server port. A web page that makes its own domain name point at 127.0.0.1
+  cannot read the map.
+
+- The workflow from `systemap init` is advisory by default. A map finding gives a warning
+  annotation, and the job passes. The variable `SYSTEMAP_CI` in the workflow selects the mode.
+  `systemap init --strict-ci` writes `strict`: a map finding makes the job fail.
+  If systemap cannot run, the job fails in both modes. A workflow that exists does not change.
+
+- `systemap live` renders the map of the working tree and supplies it on 127.0.0.1.
+  When a source, model, or configuration file changes, the command renders the map again.
+  The browser then loads the page again and keeps the view, the layer, the selection, the sequence step, and the camera.
+  The Changes view compares the working tree with the merge base of a base ref and HEAD.
+  This comparison includes the edits that are not in a commit and the untracked files.
+
+  `--json`, `GET /status`, `GET /events`, and `POST /refresh` give the state and the map update lines to other programs.
+  The command writes the pages and `change.svg` into a temporary directory. It does not write tracked files.
+  docs/reference.md gives the options, the HTTP requests, and the JSON lines.
+
+- `systemap judgement --strict` can now fail on a stale source review.
+  Each component has one review state: `missing` (no `source_review`), `stale` (`source_review` is not
+  the current digest), or `current`. `systemap delta` and `systemap judgement` use the same state.
+  Delta lines do not change. Judgement prints a `stale source review` finding for each stale component.
+  A missing review is not a finding, because many maps have no `source_review` values.
+  Judgement counts the states on a new line, for example `source reviews: 16 current, 0 stale, 0 missing`.
+
+- A flow is `observed` only if at least one of its source records is in a module of its source
+  component or its target component. For a flow with an actor end, a record must be in a module of
+  the other end. If no record is in an endpoint module, the flow has the evidence state that its
+  imports or mechanism give. Judgement then prints a `no endpoint source` finding.
+  No existing map in this repository, `bench/scratch`, or `tests/fixtures` has such a flow.
+
+- The page legend, the Details panel, the flow labels for screen readers, and `systemap describe`
+  show `observed` as "current source review". The stored value `observed` does not change.
+  The `evidence lost` line of `systemap delta` now says "had a current source review" instead of "was observed".
+
+- Maps that users make use the `plain` writing profile by default.
+  The `[writing] profile` key in `systemap.toml` selects `plain` or `asd-ste100`.
+  A different value or key gives a configuration error.
+  The source-language key `language` does not change.
+
+  `plain` uses the common writing rules of the language policy.
+  These rules include sentence length, active voice, literal words, and one term for one concept.
+  A person or a program can examine them without a dictionary.
+  `asd-ste100` adds the full ASD-STE100 Issue 9 rules, which need the official ASD dictionary.
+
+  A configuration from an earlier version has no `[writing]` table, so its map uses `plain`.
+  To keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
+  `systemap init` writes the table with `profile = "plain"` and a comment for each value.
+
+  The skill reads the profile and applies it.
+  The language policy gives the common rules, the ASD-STE100 profile, and the glossary in separate sections.
+  `systemap journeys` puts the policy of the profile in each agent request.
+  The cache key contains the policy, so a request does not use an answer from an earlier version.
+  The instruction from `init` is now "Obey the systemap skill and its writing rules."
+
+  This repository keeps the `asd-ste100` profile for its map, interface text, and documentation.
+
+- The Claude Code plugin shows a live map. In a repository with systemap configuration,
+  one line above the prompt shows `map: not started · Start live map`.
+  `Start live map` or `/map` starts `systemap live --port 0 --json --no-watch`.
+  The plugin starts it only after `Start live map` or `/map`, or when the `autostart` option is true.
+
+  After a turn that changes files, the plugin tells `systemap live` to render the map again.
+  The line then shows the number of map updates, `Open map`, and `Show`.
+  `Show` and `/map` open a pane with the change figure and the map update lines.
+  A terminal pane shows the lines and the link only.
+  The `command` option sets the command that starts systemap, for example `uv run systemap`.
+  The `Open map` link uses `localhost` in place of `127.0.0.1`.
+  Claude Code 2.1.286 refuses a link to `http://127.0.0.1`, and then it shows no line above the prompt.
+
+- The CI plugin job runs the plugin tests with `claude plugin test .`.
+  The job installs Claude Code 2.1.286, the lowest version that does all steps of the job.
+  Versions 2.1.278 to 2.1.285 have no `plugin test` command.
+
+- systemap reads a model file as data. It does not run code from the model file.
+  Earlier versions ran `map/model.py` as Python code in `check`, `render`, `delta`, and the other commands.
+  The comparison of a base revision also ran the committed model files.
+
+  A model file can contain only literal values, calls of the model classes, names that the file
+  defines, `import NAME` for a file in the same directory, and a type alias such as
+  `Steps = tuple[Step, ...]`. [docs/reference.md](docs/reference.md) gives the full list and the limits.
+  systemap refuses all other syntax before it makes a value. The message gives the file, the line,
+  and the refused syntax. A model file from `systemap init` loads with no change.
+
+  A model file with functions, comprehensions, indexes, or other imports does not load in this version.
+  Write the values as literal values. If you know that the code in a repository is safe, set
+  `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command to run the model file as in 2.0.0.
+  `systemap convert` writes such a model file again with literal values only. It needs this value,
+  because it runs the old file one time. It writes the file only if systemap reads the new text to the same model.
+  The base revision of `render --base` uses the same rule. For a base model with code, the Changes view
+  gives the refusal, unless the environment sets this value.
 
 ## 2.0.0 - 2026-10-12
 

@@ -38,7 +38,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert "wrote .claude/skills/systemap/ (SKILL.md and 9 references)" in out
     assert "SKILL.md\n" not in out.replace("(SKILL.md and 9 references)\n", "")
     assert out.rstrip().endswith(
-        "Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9."
+        "Make a map of this repository with systemap. Obey the systemap skill and its writing rules."
     )
     # One note names the two gates a strict repository runs, with the exact
     # pyproject lines deptry needs; mypy is answered in the file itself.
@@ -50,7 +50,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     )
     model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
-    assert "ASD-STE100 Issue 9" in model
+    assert "[writing] profile" in model
     assert "language policy of the installed systemap skill" in model
 
     # The starter model is empty: the check has one line to say, and says only that.
@@ -139,9 +139,10 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
 
 
 def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path) -> None:
-    """The pull_request jobs: delta gives its lines in the log and fails if the map needs
-    an update. Only the link job can write a comment, and it runs only when delta wrote
-    one, which needs [delta] page_url. Nothing is expanded inside a run block."""
+    """The pull_request jobs: delta gives its lines in the log, and SYSTEMAP_CI decides if a
+    necessary map update fails the job. Only the link job can write a comment, and it runs
+    only when delta wrote one, which needs [delta] page_url. Nothing is expanded inside a
+    run block."""
     import re
 
     from systemap import delta_link
@@ -161,8 +162,8 @@ def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path
     assert "--format" not in workflow and "What this change does to the map" not in workflow
     # The delta job has no write permission and writes no comment.
     assert "permissions:" not in job and "gh api" not in job
-    assert job.rstrip().endswith('exit "$code"')
-    assert "::error title=Map delta::A map update is necessary." in job
+    assert 'if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi' in job
+    assert "::$level title=Map delta::A map update is necessary." in job
     # The link job: write permission on that job alone, only with a comment from delta.
     assert workflow.count("pull-requests: write") == 1
     assert "    permissions:\n      pull-requests: write" in link
@@ -245,18 +246,21 @@ def test_configuration_errors_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
     assert (
-        "map/model.py could not import: name 'Layer' is not defined. Add the missing name to the import from systemap"
-        in err
+        "map/model.py:2: The model file contains the name Layer, which the file does not "
+        "define before this line. Add Layer to the import from systemap." in err
     )
     assert "Traceback" not in err
     write_tree(tmp_path, {"map/model.py": "from systemap import Model, Layers\n"})
     assert run("--root", str(tmp_path), "check") == 2
     err = capsys.readouterr().err
-    assert "map/model.py could not import: cannot import name 'Layers' from 'systemap'" in err
-    assert "Use a name that systemap exports: AGENT_KINDS, KINDS," in err
+    assert "map/model.py:1: The model file contains an import of Layers from systemap." in err
+    assert "Use a name that systemap exports for a model: AGENT_KINDS, KINDS," in err
+    # The reader runs no code, so a statement that raises an error is refused.
     write_tree(tmp_path, {"map/model.py": "raise ValueError('boom')\n"})
     assert run("--root", str(tmp_path), "check") == 2
-    assert "map/model.py could not import: ValueError: boom" in capsys.readouterr().err
+    assert "map/model.py:1: The model file contains the Python syntax Raise." in (
+        capsys.readouterr().err
+    )
 
     write_tree(tmp_path, {"pyproject.toml": '[tool.systemap]\ntheme = "dark"\n'})
     (tmp_path / "systemap.toml").unlink()
@@ -290,9 +294,7 @@ def test_check_fails_on_overlapping_fixture(
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     init_two_cards(tmp_path)
     model = tmp_path / "map/model.py"
-    model.write_text(
-        model.read_text(encoding="utf-8").replace('x=COL["c2"]', 'x=COL["c1"]'), encoding="utf-8"
-    )
+    model.write_text(model.read_text(encoding="utf-8").replace("x=370,", "x=80,"), encoding="utf-8")
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
     assert "placement: Reader overlaps Writer" in out
