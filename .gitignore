@@ -16,3 +16,7 @@ bench/jev/data/
 bench/jev/.venv/
 bench/jev/label-page/items.json
 .systemap/
+
+# Claude Code writes its plugin API declarations here when it loads the plugin
+# from this folder with --plugin-dir. They belong to the installed Claude Code version.
+.claude-plugin/types/
