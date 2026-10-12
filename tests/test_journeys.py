@@ -1,6 +1,6 @@
 """A walk written for a way in that nothing walks from yet.
 
-`systemap journeys` asks the agent named under `[agent]` to read the code
+`systemap journeys` asks the agent in `SYSTEMAP_AGENT_COMMAND` to read the code
 from one way into the system and answer with the cards a run passes through.
 systemap checks that answer against the map before it is written in: a step
 tracing a flow the map does not draw is not a journey, it is a line to fix.
@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -227,18 +229,62 @@ def test_with_no_agent_set_it_says_so_and_writes_nothing(
     assert agent.NO_AGENT in capsys.readouterr().out
 
 
-def with_agent(cfg: Config) -> Config:
+def with_agent(cfg: Config, monkeypatch: pytest.MonkeyPatch) -> Config:
+    """The person who runs systemap sets the agent command in the environment variable."""
+    monkeypatch.setenv(agent.COMMAND_ENV, "agent -p")
+    return cfg
+
+
+def in_the_file_only(cfg: Config, command: str) -> Config:
+    """A repository file with an agent command. A repository from a different person can have one."""
     toml = cfg.root / "systemap.toml"
     toml.write_text(
-        toml.read_text(encoding="utf-8") + '\n[agent]\ncommand = "agent -p"\n', encoding="utf-8"
+        toml.read_text(encoding="utf-8") + f"\n[agent]\ncommand = {json.dumps(command)}\n",
+        encoding="utf-8",
     )
     return load(cfg.root)
 
 
-def test_the_walk_that_comes_back_is_written_in_and_judgement_asks_about_it(
+def test_a_command_only_in_systemap_toml_does_not_run(
     two_cards: Config, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    cfg = with_agent(two_cards)
+    cfg = in_the_file_only(two_cards, "planted --run")
+    before = cfg.model_path.read_text(encoding="utf-8")
+    run, asked = answering(json.dumps(ANSWER))
+    assert cmd_journeys(args_for(cfg), run_command=run) == 1, "the refusal is a failure"
+    assert asked == [], "the injected command ran"
+    out = capsys.readouterr().out
+    assert "GET /read (route)" in out
+    assert '"planted --run"' in out and agent.COMMAND_ENV in out
+    assert cfg.model_path.read_text(encoding="utf-8") == before
+    # A dry run writes no files. It gives the same reason and exit code 0.
+    assert cmd_journeys(args_for(cfg, dry_run=True), run_command=run) == 0
+    assert asked == []
+    assert agent.COMMAND_ENV in capsys.readouterr().out
+
+
+def test_the_cli_starts_no_program_that_only_systemap_toml_names(
+    two_cards: Config, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The subprocess path: the program starts only if the environment variable has its command."""
+    marker = two_cards.root / "started"
+    script = two_cards.root / "planted.py"
+    script.write_text(f"open({str(marker)!r}, 'w').close()\n", encoding="utf-8")
+    command = f"{shlex.quote(sys.executable)} {shlex.quote(str(script))}"
+    cfg = in_the_file_only(two_cards, command)
+    assert main(["--root", str(cfg.root), "journeys"]) == 1
+    assert not marker.exists(), "systemap started the program from systemap.toml"
+    assert agent.COMMAND_ENV in capsys.readouterr().out
+    # The control: the environment variable starts the same program. Its empty answer gives no sequence.
+    monkeypatch.setenv(agent.COMMAND_ENV, command)
+    main(["--root", str(cfg.root), "journeys"])
+    assert marker.exists()
+
+
+def test_the_walk_that_comes_back_is_written_in_and_judgement_asks_about_it(
+    two_cards: Config, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = with_agent(two_cards, monkeypatch)
     run, asked = answering(json.dumps(ANSWER))
     assert cmd_journeys(args_for(cfg), run_command=run) == 0
     out = capsys.readouterr().out
@@ -260,9 +306,9 @@ def test_the_walk_that_comes_back_is_written_in_and_judgement_asks_about_it(
 
 
 def test_the_walk_is_written_into_a_model_file_with_a_byte_order_mark(
-    two_cards: Config, capsys: pytest.CaptureFixture[str]
+    two_cards: Config, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    cfg = with_agent(two_cards)
+    cfg = with_agent(two_cards, monkeypatch)
     cfg.model_path.write_bytes(b"\xef\xbb\xbf" + cfg.model_path.read_bytes())
     run, _asked = answering(json.dumps(ANSWER))
     assert cmd_journeys(args_for(cfg), run_command=run) == 0
@@ -271,9 +317,9 @@ def test_the_walk_is_written_into_a_model_file_with_a_byte_order_mark(
 
 
 def test_a_walk_the_map_cannot_hold_is_reported_and_the_model_is_left_alone(
-    two_cards: Config, capsys: pytest.CaptureFixture[str]
+    two_cards: Config, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    cfg = with_agent(two_cards)
+    cfg = with_agent(two_cards, monkeypatch)
     bad = {**ANSWER, "steps": [{**ANSWER["steps"][0], "edge": ["Writer", "Reader"]}]}
     before = cfg.model_path.read_text(encoding="utf-8")
     run, _asked = answering(json.dumps(bad))

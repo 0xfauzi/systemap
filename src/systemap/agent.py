@@ -1,7 +1,10 @@
 """The interface that supplies questions to a configured coding agent.
 
 systemap asks the agent to write explanations from source facts.
-Set the agent command under `[agent]` in `systemap.toml`.
+Set the agent command in the `SYSTEMAP_AGENT_COMMAND` environment variable.
+systemap does not run `[agent] command` from `systemap.toml`,
+because a repository file can contain any command.
+`[agent] cache` and `[agent] timeout` stay in `systemap.toml`.
 The command reads its question from stdin and writes its answer to stdout.
 For a JSON answer, systemap reads the string in the `result` field.
 
@@ -15,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shlex
 import subprocess
 import time
@@ -32,10 +36,19 @@ OUTPUT_CAP = 200_000
 LANGUAGE_POLICY = (
     resources.files("systemap").joinpath("skill/references/language.md").read_text(encoding="utf-8")
 )
+# The person who runs systemap selects the program. A repository file never does.
+COMMAND_ENV = "SYSTEMAP_AGENT_COMMAND"
 NO_AGENT = (
     "No agent is configured. The output contains facts without an agent explanation. "
-    'Set the command under [agent] in systemap.toml, for example command = "claude -p". '
+    f'Set the {COMMAND_ENV} environment variable, for example {COMMAND_ENV}="claude -p". '
     "Then run the command again."
+)
+FILE_ONLY = (
+    "systemap.toml sets [agent] command = {command}. "
+    "systemap does not run a command from a repository file, "
+    "because that file can contain any command. "
+    f"Examine the command before you set the {COMMAND_ENV} environment variable to it. "
+    "A coding agent must ask a person to set this variable."
 )
 
 
@@ -84,7 +97,7 @@ Run = Any  # (command, question, cwd, timeout) -> str; the tests pass their own.
 def shell_run(command: str, question: str, cwd: Path, timeout: float) -> str:
     """Execute the configured command with the question on stdin."""
     try:
-        done = subprocess.run(  # noqa: S603 - the command is the maintainer's own configuration
+        done = subprocess.run(  # noqa: S603 - from SYSTEMAP_AGENT_COMMAND, not a repository file
             shlex.split(command),
             input=question,
             capture_output=True,
@@ -136,12 +149,28 @@ class Agent:
         return prose
 
 
+def env_command() -> str:
+    """The agent command from the environment variable of the person who runs systemap."""
+    return os.environ.get(COMMAND_ENV, "").strip()
+
+
+def missing(cfg: Config) -> str:
+    """The reason that no agent runs. A command in systemap.toml gets its own reason."""
+    if cfg.agent_command:
+        return FILE_ONLY.format(command=json.dumps(cfg.agent_command))
+    return NO_AGENT
+
+
 def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
-    """Get the configured agent. Raise AgentError if no command is configured."""
-    if not cfg.agent_command.strip():
-        raise AgentError(NO_AGENT)
+    """Get the agent from the environment variable. Raise AgentError if it has no command.
+
+    The cache path and the timeout come from systemap.toml. The command never does.
+    """
+    command = env_command()
+    if not command:
+        raise AgentError(missing(cfg))
     return Agent(
-        command=cfg.agent_command.strip(),
+        command=command,
         root=cfg.root,
         cache=Cache(cfg.agent_cache_path),
         timeout=cfg.agent_timeout,
@@ -149,5 +178,5 @@ def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
     )
 
 
-def has_agent(cfg: Config) -> bool:
-    return bool(cfg.agent_command.strip())
+def has_agent() -> bool:
+    return bool(env_command())

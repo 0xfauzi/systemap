@@ -38,7 +38,12 @@ Set `starts` to the component identifier, for example `starts="HttpApi"`.
 List each examined entry identity in `covers`.
 New entry points do not automatically receive coverage from that sequence.
 
-With `[agent] command`, `systemap journeys` asks the agent for a draft sequence.
+If the `SYSTEMAP_AGENT_COMMAND` environment variable has an agent command,
+`systemap journeys` asks the agent for a draft sequence.
+systemap does not run `[agent] command` from `systemap.toml`,
+because a repository file can contain any command.
+Do not set `SYSTEMAP_AGENT_COMMAND` yourself. Ask the person to examine the command.
+Only that person sets the variable.
 The agent reads one entry point or two or three entries from a group.
 The prompt makes ASD-STE100 mandatory for the identifier, label, and step sentences.
 The command rejects steps with unknown components or missing flows.

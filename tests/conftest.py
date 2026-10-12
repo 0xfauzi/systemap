@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from systemap import extract, jev
+from systemap import agent, extract, jev
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -32,6 +32,13 @@ def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     maintainer's key is removed; a test that means to ask sets its own and a
     recorded transport (jev_replay reads the real key at import, for recording)."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_agent_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test runs the coding agent of the maintainer. The agent command comes from an
+    environment variable, so this fixture removes it. A test that runs an agent sets its own."""
+    monkeypatch.delenv(agent.COMMAND_ENV, raising=False)
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:

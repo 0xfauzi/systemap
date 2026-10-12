@@ -67,9 +67,58 @@ def test_without_a_command_nothing_runs_and_the_reason_is_said(tmp_path: Path) -
         'name = "x"\nmodel = "map/model.py"\n', encoding="utf-8"
     )
     cfg = load_config(tmp_path)
-    assert cfg.agent_command == "" and not agent.has_agent(cfg)
+    assert cfg.agent_command == "" and not agent.has_agent()
     with pytest.raises(agent.AgentError, match="No agent is configured"):
         agent.from_cfg(cfg)
+
+
+def test_a_command_only_in_systemap_toml_never_runs(tmp_path: Path) -> None:
+    """systemap does not get the agent from a repository file, because it can contain any command."""
+    (tmp_path / "systemap.toml").write_text(
+        'name = "x"\nmodel = "map/model.py"\n[agent]\ncommand = "planted --run"\n',
+        encoding="utf-8",
+    )
+    cfg = load_config(tmp_path)
+    run, asked = recorder(["An answer that must not arrive."])
+    assert cfg.agent_command == "planted --run" and not agent.has_agent()
+    with pytest.raises(agent.AgentError) as refused:
+        agent.from_cfg(cfg, run)
+    assert asked == [], "the injected command ran"
+    assert '"planted --run"' in str(refused.value)
+    assert agent.COMMAND_ENV in str(refused.value)
+
+
+def test_a_blank_environment_command_is_no_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "systemap.toml").write_text('name = "x"\n', encoding="utf-8")
+    monkeypatch.setenv(agent.COMMAND_ENV, "   ")
+    assert not agent.has_agent()
+    with pytest.raises(agent.AgentError, match="No agent is configured"):
+        agent.from_cfg(load_config(tmp_path))
+
+
+def test_the_environment_selects_the_command_and_the_file_keeps_cache_and_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "systemap.toml").write_text(
+        'name = "x"\nmodel = "map/model.py"\n'
+        '[agent]\ncommand = "planted --run"\ntimeout = 90\ncache = ".systemap/a.json"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(agent.COMMAND_ENV, "  agent -p  ")
+    ran: list[tuple[str, float]] = []
+
+    def run(command: str, question: str, cwd: Path, timeout: float) -> str:
+        ran.append((command, timeout))
+        return "The source supplies records."
+
+    configured = agent.from_cfg(load_config(tmp_path), run)
+    assert agent.has_agent()
+    assert configured.ask("q") == "The source supplies records."
+    # The environment variable gives the command. The different command in the file does not run.
+    assert ran == [("agent -p", 90.0)]
+    assert (tmp_path / ".systemap/a.json").is_file()
 
 
 def test_language_policy_reaches_the_agent_and_invalidates_old_answers(tmp_path: Path) -> None:

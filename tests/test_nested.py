@@ -22,7 +22,7 @@ import pytest
 from conftest import write_tree
 from test_keyboard import DRIVER, needs_node
 
-from systemap import nest, place
+from systemap import agent, nest, place
 from systemap.cli import main
 
 TREE = {
@@ -244,7 +244,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
 
 
 def test_journeys_command_writes_child_route_in_child_model(
-    nested: Path, capsys: pytest.CaptureFixture[str]
+    nested: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from systemap.config import load
     from systemap.jev_cli import cmd_journeys
@@ -265,10 +265,7 @@ def test_journeys_command_writes_child_route_in_child_model(
     preview = capsys.readouterr().out
     assert "Gateway: GET /read (route) (map/gateway.py)" in preview
 
-    toml = nested / "systemap.toml"
-    toml.write_text(
-        toml.read_text(encoding="utf-8") + '\n[agent]\ncommand = "agent -p"\n', encoding="utf-8"
-    )
+    monkeypatch.setenv(agent.COMMAND_ENV, "agent -p")
     answer = json.dumps(
         {
             "id": "read-route",

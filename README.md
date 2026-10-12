@@ -353,6 +353,7 @@ requests from one repository form a small sample.
 
 - **Write a missing sequence.** An agent can write steps for an entry point.
   systemap compares each step with the map before it writes the sequence.
+  Set `SYSTEMAP_AGENT_COMMAND` for this option.
 
 - **Read changes across a year.** `systemap history` reads repository samples.
   Its report shows parts that grew and the associated commits.
@@ -370,6 +371,26 @@ The experiment records include features that did not meet their thresholds and
 are not in systemap. See [bench/jev](bench/jev).
 `systemap --help` lists all commands.
 [docs/reference.md](docs/reference.md) gives all options, rules, and settings.
+
+## What does systemap run and read?
+
+systemap reads the source files, `systemap.toml`, and the Git history of the repository.
+Commands that load the map execute the model file as Python code.
+The model file is `map/model.py` by default.
+Before you run systemap in a repository from a different person, examine that file.
+
+`systemap journeys` runs a coding agent.
+Only the `SYSTEMAP_AGENT_COMMAND` environment variable gives the agent command:
+
+    export SYSTEMAP_AGENT_COMMAND="claude -p --output-format json"
+    systemap journeys
+
+systemap does not run `[agent] command` from `systemap.toml`,
+because a repository file can contain any command.
+If only `systemap.toml` has an agent command, `journeys` gives that command and stops with exit code 1.
+Examine the command before you set the environment variable to it.
+A coding agent must ask a person to set this variable.
+`[agent] timeout` and `[agent] cache` stay in `systemap.toml`.
 
 ## What are the limits?
 

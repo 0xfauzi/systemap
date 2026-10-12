@@ -183,8 +183,8 @@ class Config:
     jev_cache: str = ".systemap/jev-cache.json"
     # false: delta does not ask Jev on its own, and no command says what Jev would add
     jev_enabled: bool = True
-    # The command that writes the prose systemap asks for; none by default, and
-    # then the commands that would ask print their structure and say so.
+    # The command in systemap.toml. systemap never runs it, because a repository file can
+    # contain any command. Only the SYSTEMAP_AGENT_COMMAND environment variable gives the agent.
     agent_command: str = ""
     agent_cache: str = ".systemap/agent-cache.json"
     agent_timeout: float = 300.0

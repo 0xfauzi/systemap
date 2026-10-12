@@ -236,10 +236,15 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     if not left:
         print("journeys: every entry point has an examined sequence")
         return OK
-    if args.dry_run or not agent.has_agent(cfg):
+    if args.dry_run or not agent.has_agent():
         print(*_would_write(left, cfg), sep="\n")
-        return OK
+        return _listed_code(cfg, dry_run=args.dry_run)
     return _write_journeys(cfg, facts, left[: args.limit], run_command)
+
+
+def _listed_code(cfg: config.Config, *, dry_run: bool) -> int:
+    """A command in systemap.toml that systemap does not run is a failure. A dry run is not."""
+    return STALE if cfg.agent_command and not dry_run else OK
 
 
 def _would_write(left: list[tuple[nest.Map, journeys.Group]], cfg: config.Config) -> list[str]:
@@ -258,8 +263,8 @@ def _would_write(left: list[tuple[nest.Map, journeys.Group]], cfg: config.Config
     out += [f"  {current.prefix}{group.label} ({current.rel})" for current, group in left[:20]]
     if len(left) > 20:
         out.append(f"  and {len(left) - 20} more")
-    if not agent.has_agent(cfg):
-        out.append(f"  {agent.NO_AGENT}")
+    if not agent.has_agent():
+        out.append(f"  {agent.missing(cfg)}")
     return out
 
 
@@ -597,7 +602,9 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         help="Write sequences for entry points without an examined sequence.",
         description="For an entry point without a sequence, the map does not give the steps "
         "of its operation. "
-        "The configured [agent] command reads source and gives component steps with sentences. "
+        "The SYSTEMAP_AGENT_COMMAND environment variable gives the agent command. "
+        "The agent reads source and gives component steps with sentences. "
+        "systemap does not run [agent] command from systemap.toml. "
         "systemap compares the steps with map flows and writes accepted sequences as drafts. "
         "Before you accept a draft, compare it with the source.",
     )

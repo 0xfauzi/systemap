@@ -116,6 +116,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | digest | A hash value of recorded source or claim contents. |
 | docstring | A string in source code that documents a module or symbol. |
 | entry point | A command, route, or public symbol where a run can start. |
+| environment variable | A named text value that a program gets from the program that starts it. |
 | evidence state | The recorded classification of support for a flow claim. |
 | export, re-export | A public source symbol, including one supplied through another module. |
 | fixture | Recorded test input or a small source project used by a test. |

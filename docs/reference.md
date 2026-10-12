@@ -598,7 +598,8 @@ For multiple same-kind entries in one component, it can write a grouped
 sequence. Its `covers` field records the examined entry identities.
 An examination must add a new entry to that list before the entry counts as covered.
 
-`[agent] command` reads source from the entry point.
+The `SYSTEMAP_AGENT_COMMAND` environment variable gives the agent command.
+The agent reads source from the entry point.
 The agent gives components in the execution path and a sentence for each step.
 The command rejects a step with no authored flow and gives a finding.
 The command does not write that step.
@@ -615,8 +616,12 @@ By default, the command writes no more than three sequences.
 
 - `--dry-run` lists proposed sequences without file changes.
 
-- With no `[agent] command`, the command also lists proposals and gives the
+- With no `SYSTEMAP_AGENT_COMMAND`, the command also lists proposals and gives the
   reason it cannot write them.
+
+- If only `[agent] command` in `systemap.toml` has an agent command, `journeys`
+  lists proposals and gives that agent command. Then `journeys` stops with exit code 1.
+  systemap does not run a command from a repository file.
 
 ### `systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]`
 
@@ -679,7 +684,7 @@ Unknown keys are rejected.
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
-| `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
+| `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The timeout and the cache for sequence generation. The `SYSTEMAP_AGENT_COMMAND` environment variable gives the agent command, for example `SYSTEMAP_AGENT_COMMAND="claude -p --output-format json"`. The agent command reads the question from stdin. systemap does not run `command` from this table, because a repository file can contain any command. If only this table has a command, `journeys` gives that command and stops with exit code 1. With no agent command, nothing executes and `journeys` gives the reason. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must not contain `#`, because the link adds `#changes`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |

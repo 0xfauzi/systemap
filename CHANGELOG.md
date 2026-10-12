@@ -9,6 +9,23 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+This version changes the source of the agent command for `systemap journeys`.
+The first item gives the procedure for a configuration with `[agent] command`.
+
+- `systemap journeys` gets the agent command only from the `SYSTEMAP_AGENT_COMMAND` environment variable.
+  systemap does not run `[agent] command` from `systemap.toml`, because a repository file can contain any command.
+  Previously, `journeys` ran the command from that file, also in a repository from a different person.
+
+  If only `systemap.toml` has an agent command, `journeys` gives that command and stops with exit code 1.
+  `--dry-run` gives the same reason and stops with exit code 0.
+  To use the command again, examine it. Then set `SYSTEMAP_AGENT_COMMAND` to it.
+  A coding agent must ask a person to set this variable.
+  `[agent] timeout` and `[agent] cache` stay in `systemap.toml`.
+
+- The project glossary has the term "environment variable".
+  Each agent request and its cache key contain the language policy.
+  Because the policy changed, systemap does not use agent answers from the cache of an earlier version.
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.
