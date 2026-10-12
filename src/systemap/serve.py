@@ -24,6 +24,7 @@ import os
 import queue
 import shutil
 import signal
+import sys
 import tempfile
 import threading
 import time
@@ -615,21 +616,29 @@ def _stop(_signum: int, _frame: FrameType | None) -> None:
     raise KeyboardInterrupt
 
 
+# Windows cannot send SIGTERM to a different process: it ends the process at once.
+# There, Ctrl-Break (SIGBREAK) stops the command.
+STOP_SIGNALS = [signal.SIGTERM]
+if sys.platform == "win32":
+    STOP_SIGNALS.append(signal.SIGBREAK)
+
+
 @contextlib.contextmanager
 def _sigterm_stops() -> Iterator[None]:
-    """In the main thread, SIGTERM stops the command as Ctrl-C does."""
+    """In the main thread, SIGTERM and SIGBREAK stop the command as Ctrl-C does."""
     if threading.current_thread() is not threading.main_thread():
         yield
         return
-    before = signal.signal(signal.SIGTERM, _stop)
+    before = {number: signal.signal(number, _stop) for number in STOP_SIGNALS}
     try:
         yield
     finally:
-        signal.signal(signal.SIGTERM, before)
+        for number, handler in before.items():
+            signal.signal(number, handler)
 
 
 def run(root: Path, port: int, base: str, scan_files: bool, emit: Callable[..., None]) -> int:
-    """Supply the live map until Ctrl-C or SIGTERM. Then delete the temporary directory.
+    """Supply the live map until Ctrl-C, SIGTERM, or SIGBREAK. Then delete the temporary directory.
 
     A port that the computer cannot give is an option error. Then the command writes no
     event line.

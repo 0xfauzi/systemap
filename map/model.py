@@ -81,7 +81,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="ae9edd06feefc200aa3986a62873540746030ddc32856c92c9c8f72548cba183",
+        source_review="51e902a0f22daba713a34799a748bd2c414cbab492db6c4dab6fa964a0c1b43b",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),

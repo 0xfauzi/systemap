@@ -779,7 +779,7 @@ for the working tree and the merge base. `action` is the action of the line kind
 | `{"event": "rendering", "version": N}` | When a version starts. |
 | `{"event": "rendered", "version": N, "seconds": S, "updates": K, "components": [...], "svg": "...", "svg_bytes": B}` | When a version is on the page. |
 | `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version. |
-| `{"event": "stopped"}` | When the command stops after Ctrl-C or SIGTERM. The exit code is 0. |
+| `{"event": "stopped"}` | When the command stops after Ctrl-C or SIGTERM, or Ctrl-Break on Windows. The exit code is 0. |
 
 On this repository, one version takes about 7 to 8 seconds.
 Thus the command waits until the files stop changing before it renders the page.

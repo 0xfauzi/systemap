@@ -386,13 +386,24 @@ def test_the_command_writes_json_lines_and_stops_on_sigterm(repo: Path) -> None:
     write_tree(repo, {"pkg/audit.py": "def check(text: str) -> bool:\n    return True\n"})
     before = git(repo, "status", "--porcelain", "--untracked-files=no")
     command = [sys.executable, "-m", "systemap", "live", "--port", "0", "--json", "--no-watch"]
+    # Windows ends a process at once on SIGTERM from a different process. There the test
+    # sends Ctrl-Break to a new process group, and the command stops on SIGBREAK.
+    if sys.platform == "win32":
+        flags, stop = subprocess.CREATE_NEW_PROCESS_GROUP, signal.CTRL_BREAK_EVENT
+    else:
+        flags, stop = 0, signal.SIGTERM
     proc = subprocess.Popen(
-        command, cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        command,
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        creationflags=flags,
     )
     assert proc.stdout is not None
     try:
         lines = [json.loads(proc.stdout.readline()) for _ in range(3)]
-        proc.send_signal(signal.SIGTERM)
+        proc.send_signal(stop)
         out, err = proc.communicate(timeout=30)
     finally:
         proc.kill()

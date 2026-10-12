@@ -19,7 +19,7 @@ map: Version 1 is on the page (0.1 s). Map updates: 0. Changed components: Comma
 
 Each render makes a new version of the page.
 A map update is a `systemap delta` line that needs an action, for the working tree and the merge base.
-Ctrl-C or SIGTERM stops the command with exit code 0.
+Ctrl-C or SIGTERM stops the command with exit code 0. On Windows, use Ctrl-Break in place of SIGTERM.
 
 In Claude Code, the systemap plugin starts this command for you. [Coding agents](coding-agents.html#the-live-map-in-claude-code) tells how.
 

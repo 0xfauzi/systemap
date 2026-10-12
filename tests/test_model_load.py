@@ -65,7 +65,9 @@ def load_refused(tmp_path: Path, body: str, name: str = "model.py") -> str:
 
 
 def m_str(marker: Path) -> str:
-    return repr(str(marker))
+    # Forward slashes: Python 3.11 refuses a backslash of a Windows path in an f-string
+    # expression, and open() reads a path with forward slashes on Windows also.
+    return repr(marker.as_posix())
 
 
 # Each case: the model text (MARKER is the marker path), the refused line, and words of
