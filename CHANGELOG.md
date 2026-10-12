@@ -70,8 +70,7 @@ A layer is a filtered view of the map.
 - The Claude Code plugin shows a live map. In a repository with systemap configuration,
   one line above the prompt shows `map: not started · Start live map`.
   `Start live map` or `/map` starts `systemap live --port 0 --json --no-watch`.
-  The live map runs the code in `map/model.py` of the repository.
-  Thus the plugin starts it only after `Start live map` or `/map`, or when the `autostart` option is true.
+  The plugin starts it only after `Start live map` or `/map`, or when the `autostart` option is true.
 
   After a turn that changes files, the plugin tells `systemap live` to render the map again.
   The line then shows the number of map updates, `Open map`, and `Show`.

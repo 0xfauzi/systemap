@@ -12,22 +12,25 @@ For `delta`, `history`, `render --base`, and `live`, it also reads committed fil
 Extraction parses the source files. It does not import or run them.
 Python source goes to the Python `ast` parser. TypeScript source goes to the tree-sitter parser.
 
-## The model file runs as Python code
+## The model file is data
 
-<!-- loader: update after the merge -->
-The model, usually `map/model.py`, is a Python module. systemap loads it with the Python `exec` function.
-Thus the code in the model file runs with your permissions. The modules that it imports from its directory also run.
-Nested map files run in the same way.
+systemap reads the model, usually `map/model.py`, with a reader that runs no code.
+The reader accepts literal values, calls of the model classes, names that the file defines, and imports of files beside the model file.
+For other syntax, the command stops and gives the file, the line, and the refused syntax.
+[What does a model contain?](reference.html#what-does-a-model-contain) gives the full list and the limits.
 
-Each command that reads the model runs this code.
-These commands include `extract`, `facts`, `place`, `render`, `check`, `figure`, `refresh`, `judgement`, `delta`, `describe`, `history`, `live`, and the Jev commands.
-`systemap init`, `systemap explain`, `systemap skill`, and `systemap serve` do not load the model.
+The person who runs a command can set `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command.
+Then systemap runs the model files as Python code, as version 2.0 did.
+A repository cannot give this permission, because systemap does not read it from a file in the repository.
+Set this value only for a repository whose code you trust.
 
-With a comparison, `render --base`, `figure --base`, and `live` also load the committed model files of the merge base.
-Thus they run the model code of that commit too.
+`systemap convert` writes a model file that needs code again with literal values only.
+The command runs the old file one time, so it needs the same value.
+It writes the new file only if the reader that runs no code gives the same model.
 
-Run systemap only in a repository that you trust, or in an isolated environment.
-The same rule applies to the live map in Claude Code. [Coding agents](coding-agents.html#the-live-map-in-claude-code) tells when the plugin starts it.
+`render --base`, `figure --base`, and `live` read the committed model files of the merge base with the same reader.
+If a base model file needs code, the Changes view gives the refusal.
+The live map in Claude Code uses the same reader. [Coding agents](coding-agents.html#the-live-map-in-claude-code) tells when the plugin starts it.
 
 ## The agent command
 

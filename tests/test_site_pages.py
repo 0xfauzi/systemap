@@ -22,8 +22,6 @@ MAX_LINES = 250
 REFERENCE_SLUGS = {"reference", "benchmarks"}
 CONTRACTION = re.compile(r"\b[A-Za-z]+'(t|re|ve|ll|d|m)\b")
 GUIDE_LINK = re.compile(r"\]\(([a-z0-9-]+)\.html(?:#[a-z0-9-]+)?\)")
-# The coordinator updates this paragraph after the model loader changes.
-LOADER_MARK = "<!-- loader: update after the merge -->"
 
 
 def _pages() -> list[Path]:
@@ -67,6 +65,9 @@ def test_links_name_a_guide_page_or_the_reference() -> None:
             assert target in slugs, f"{path.name}: {target}.html"
 
 
-def test_trust_page_marks_the_loader_paragraph() -> None:
+def test_trust_page_gives_the_model_reader_of_this_version() -> None:
     (trust,) = PAGES.glob("*-trust-and-security.md")
-    assert LOADER_MARK in trust.read_text(encoding="utf-8")
+    text = trust.read_text(encoding="utf-8")
+    assert "runs no code" in text and "SYSTEMAP_TRUST_MODEL_CODE=1" in text
+    assert "systemap convert" in text
+    assert "exec" not in text and "update after the merge" not in text

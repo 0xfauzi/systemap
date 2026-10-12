@@ -81,8 +81,8 @@ In a repository with `systemap.toml`, or with `[tool.systemap]` in `pyproject.to
 map: not started · Start live map
 ```
 
-The live map runs the code in `map/model.py` of the repository.
-Start it only in a repository that you trust. [Trust and security](trust-and-security.html) tells what the model file can do.
+The live map reads `map/model.py` without running its code, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is in the environment of Claude Code.
+[Trust and security](trust-and-security.html) tells what systemap reads and runs.
 
 To start the live map, select `Start live map`, or type `/map`.
 The plugin then runs this command in the repository:
@@ -121,7 +121,7 @@ The plugin has two options. Set them with `/plugin configure systemap@systemap` 
 | `autostart` | `false` | If true, the live map starts when a session starts in a systemap repository. |
 
 The plugin describes `autostart` with this sentence:
-"The live map runs the Python code in map/model.py of that repository. Set true only if you trust each repository that you open."
+"The live map reads map/model.py without running its code, unless SYSTEMAP_TRUST_MODEL_CODE=1 is in the environment of Claude Code."
 
 ## Other agents
 

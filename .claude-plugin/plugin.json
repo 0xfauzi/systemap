@@ -26,7 +26,7 @@
     "autostart": {
       "type": "boolean",
       "title": "Start the live map with each session",
-      "description": "If true, the live map starts when a session starts in a systemap repository. The live map runs the Python code in map/model.py of that repository. Set true only if you trust each repository that you open.",
+      "description": "If true, the live map starts when a session starts in a systemap repository. The live map reads map/model.py without running its code, unless SYSTEMAP_TRUST_MODEL_CODE=1 is in the environment of Claude Code.",
       "default": false
     }
   }

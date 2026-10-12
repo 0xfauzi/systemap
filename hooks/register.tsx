@@ -2,9 +2,9 @@
 //
 // In a repository with systemap.toml, or pyproject.toml with [tool.systemap],
 // the band above the prompt shows `map: not started` and a Button that starts
-// `systemap live`. The live map loads map/model.py, which runs code from the
-// repository, so it starts only on a press, on /map, or with the `autostart`
-// option. After a turn that changed files, the mod asks the process for a new
+// `systemap live`. The process stays open and serves on the loopback address,
+// so it starts only on a press, on /map, or with the `autostart` option.
+// After a turn that changed files, the mod asks the process for a new
 // render. The band shows the state and the number of map updates, and /map
 // shows change.svg and the map update lines in a pane.
 

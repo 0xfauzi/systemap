@@ -291,7 +291,7 @@ the plugin shows one line above the prompt:
 
     map: not started · Start live map
 
-The live map runs the code in `map/model.py` of the repository, so start it only in a repository that you trust.
+The live map reads `map/model.py` without running its code, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is in the environment of Claude Code.
 To start it, select `Start live map` or type `/map`.
 The plugin then runs `systemap live --port 0 --json --no-watch`.
 
