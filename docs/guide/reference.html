@@ -171,22 +171,9 @@ A package pattern or a symbol claim in <code>implemented_by</code> also puts a c
 An actor has no modules. For a flow with an actor end, use a module of the other end.
 If no reference is in an endpoint module, the flow is not <code>observed</code>.
 <code>systemap judgement</code> then prints a <code>no endpoint source</code> finding.
-The command below prints the <code>source_sha256</code> of each module and the <code>review_digest</code> of each flow.
+The facts file (<code>docs/map/map.json</code> by default) gives the <code>source_sha256</code> of each module in <code>components</code>.
+<code>systemap review --flow 'SRC-&gt;DST'</code> writes the current <code>review_digest</code> of one flow.
 It does not examine the claims for you. Examine the source before you record the values.</p>
-<pre><code class="language-sh">uv run python - &lt;&lt;'PY'
-from pathlib import Path
-from systemap import config, evidence, extract, nest
-
-cfg = config.load(Path.cwd())
-facts = extract.build(cfg)
-for module, record in sorted(facts[&quot;components&quot;].items()):
-    print(f&quot;source_sha256 {module} {record.get('source_sha256')}&quot;)
-for current_map in nest.load(cfg).maps:
-    for flow in current_map.model.flows:
-        digest = evidence.flow_claim_digest(flow, current_map.meaning)
-        print(f&quot;review_digest {current_map.prefix}{flow.src} -&gt; {flow.dst} {digest}&quot;)
-PY
-</code></pre>
 <p>A source change gives a new <code>source_sha256</code>.
 A change to the flow or its relation sentence gives a new <code>review_digest</code>.</p>
 <h2 id="what-does-the-second-pass-find">What does the second pass find?</h2>
@@ -241,7 +228,7 @@ For each finding, change the model or record the reason for its stored state.</p
 </tr>
 <tr>
 <td>stale source review</td>
-<td>A component has a <code>source_review</code> digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest.</td>
+<td>A component has a <code>source_review</code> digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with <code>systemap review ID</code>.</td>
 </tr>
 <tr>
 <td>model sdk</td>
@@ -866,6 +853,36 @@ If all model files have literal values only, it writes nothing and exits 0.</p>
 It writes the file only if that reader gives the same model as the old file.
 Fields with their default values are not in the new text.
 If the old file imported a file beside it, the command names that file. The new file does not import it.</p>
+<h3 id="systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow 'SRC-&gt;DST' [--map ID] [--dry-run]</code></h3>
+<p>Writes the current review digest of one target into the model file.
+<code>systemap review ID</code> writes <code>source_review</code> of the component ID.
+<code>systemap review --flow 'SRC-&gt;DST'</code> writes <code>review_digest</code> of the flow from SRC to DST.
+Put the flow value between quotation marks, because the shell reads <code>&gt;</code> as a redirection.
+<code>--map ID</code> selects a nested map.
+<code>--dry-run</code> prints the digest and the file, and it writes nothing.</p>
+<p>The command does not examine claims.
+Before you use it, examine the source and all the claims of the target.
+One command writes one target.
+The command has no option for all targets, because a person or an agent must examine each claim separately.</p>
+<p>The command reads the source in the working tree.
+<code>systemap judgement</code> reads the stored facts, so run <code>systemap refresh</code> before <code>systemap judgement</code>.
+A flow digest is one of the claims of its two endpoint components.
+Thus, a new flow digest makes a current review of an endpoint stale, and the command tells you.
+Record flow digests before component digests.</p>
+<p>The command writes the value into the file that defines the target.
+This file can be a file that the model file imports.
+The command changes only the value, or it adds one keyword argument.
+It keeps the comments and the format of the file.
+It writes the file only if the reader that runs no code gives the same model with only the new value.
+If the value is the current digest, the command writes nothing.</p>
+<p>The command stops with exit 1 and writes nothing in these conditions:</p>
+<ul>
+<li>The map has no such component or flow.</li>
+<li>The component has no current digest. It claims no module, a claimed module is missing, or the parser cannot read a claimed module.</li>
+<li>The flow has no <code>source_refs</code>, or a source record does not agree with the current source.</li>
+<li>systemap cannot read the model file as data. Use <code>systemap convert</code> first.</li>
+<li>The command finds no literal call for the target, or more than one.</li>
+</ul>
 <h3 id="systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></h3>
 <p>Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
@@ -1171,7 +1188,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

@@ -613,6 +613,17 @@ def read(path: Path, label: str) -> dict[str, Any]:
     return _build(source, {})
 
 
+def files(path: Path, label: str) -> tuple[Path, ...]:
+    """This function gives the model file and each file that it imports.
+
+    It checks all the files first, as `read` does. The paths are resolved paths.
+    """
+    labels = PurePosixPath(label.replace("\\", "/")).parent
+    reader = _Reader(path.parent.resolve(), labels)
+    reader.source(path, label)
+    return tuple(reader.done)
+
+
 # ---- the permitted alternative: run the model file as Python code ------------------------
 
 

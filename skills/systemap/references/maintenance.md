@@ -31,7 +31,7 @@ The language policy in `references/language.md` applies to every changed name an
 3. For each `source review` line, examine the changed modules against all component claims.
    Include its description, interface, flows, sequences, and invariants.
    Correct claims that no longer agree with source.
-   Only then record the current `source_review` digest.
+   Only then run `systemap review ID` to record the current `source_review` digest.
 4. Run `systemap refresh`. Then run `systemap check && systemap judgement --strict`.
    Act on newly open lines or record supported reasons under `[judgement] answered`.
    After more model changes, do these commands again.
@@ -52,26 +52,15 @@ Delta gives a `source review` line for a changed component that is not `current`
 Judgement gives a `stale source review` finding for each `stale` component, so `judgement --strict` fails.
 Judgement counts `missing` components on its `source reviews:` line. A missing review is not a finding.
 
-The command below prints current component digests. It does not examine the claims for you.
-The script must import systemap.
-If systemap is a uv tool and not a project dependency, the script can fail to import it.
-If the script fails, show the failure to the maintainer.
+`systemap review ID` writes the current digest into `source_review` of the component ID.
+It does not examine the claims for you. Examine all the claims before you use it.
+One command writes one component. The command has no option for all components.
+`systemap review --dry-run ID` prints the digest and the file, and it writes nothing.
+A flow digest is one of the claims of its two endpoint components.
+Record flow digests with `systemap review --flow 'SRC->DST'` before component digests.
 
-```sh
-uv run python - <<'PY'
-from pathlib import Path
-from systemap import card_review, config, extract, nest
-
-cfg = config.load(Path.cwd())
-facts = extract.build(cfg)
-for current_map in nest.load(cfg).maps:
-    for card in current_map.model.components:
-        if card.implemented_by:
-            print(current_map.id, card.id, card_review.digest(card, current_map.model, current_map.meaning, facts))
-PY
-```
-
-A missing module, or a module that the parser cannot read, gives `None`.
+If a claimed module is missing or the parser cannot read it, the component has no digest.
+Then the command stops with exit 1 and writes nothing.
 Correct extraction before you record the digest.
 If the source or the claims change after that, the finding opens again.
 

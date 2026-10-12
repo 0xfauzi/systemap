@@ -126,6 +126,7 @@ ignore = [
 
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, connected flows, sequences, and invariants before you write it.
+Then run `systemap review ID` to write it. Do not write the digest with a script.
 Delta keeps a changed component under `The map needs an update` until the digest agrees with the current claims and source.
 If the value is not the current digest, `systemap judgement` gives a `stale source review` finding.
 Refresh does not write this digest. See `references/maintenance.md` for the procedure.
@@ -212,24 +213,9 @@ An actor has no modules. For a flow with an actor end, use a module of the other
 If no reference is in an endpoint module, the flow is not `observed`, and `systemap judgement` gives a `no endpoint source` finding.
 The page shows `observed` as "current source review". It is a recorded source review, not a record of program execution.
 A reference has the form `module[:symbol]@<source_sha256>`.
-The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+The facts file gives the `source_sha256` of each module in `components`. The section "The facts file" gives its fields.
+`systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
 It does not examine the claims for you. Examine the source before you record the values.
-
-```sh
-uv run python - <<'PY'
-from pathlib import Path
-from systemap import config, evidence, extract, nest
-
-cfg = config.load(Path.cwd())
-facts = extract.build(cfg)
-for module, record in sorted(facts["components"].items()):
-    print(f"source_sha256 {module} {record.get('source_sha256')}")
-for current_map in nest.load(cfg).maps:
-    for flow in current_map.model.flows:
-        digest = evidence.flow_claim_digest(flow, current_map.meaning)
-        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
-PY
-```
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
