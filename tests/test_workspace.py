@@ -1,7 +1,7 @@
 """The operational map preserves source evidence and shows no judgement findings.
 
 Acceptance: no substituted findings, no missing authored steps, and the sample
-stays within the existing self-contained 300 KiB page limit (test_render.py).
+stays within the self-contained page limit of test_render.py.
 """
 
 from __future__ import annotations

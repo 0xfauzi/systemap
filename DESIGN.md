@@ -63,28 +63,28 @@ colors:
   brand: "#F2B33D"
 typography:
   body:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontFamily: '"systemap Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "13px"
     lineHeight: 1.5
   project-name:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontFamily: '"systemap Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "15px"
     fontWeight: 600
     lineHeight: 1
     letterSpacing: "-0.02em"
   layer-question:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontFamily: '"systemap Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "22px"
     fontWeight: 500
     lineHeight: "28px"
     letterSpacing: "-0.01em"
   panel-title:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontFamily: '"systemap Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "19px"
     fontWeight: 600
     lineHeight: "25px"
   secondary:
-    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontFamily: '"systemap Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "12px"
     lineHeight: "18px"
   kicker:
@@ -117,6 +117,10 @@ typography:
     fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
     fontSize: "11 SVG units"
     fontWeight: 500
+  container-description:
+    fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+    fontSize: "11 SVG units"
+    fontWeight: 400
 rounded:
   control: "6px"
   menu: "10px"
@@ -432,16 +436,35 @@ Document figures use the same card type size and keep the authored coordinate pl
 
 ## Type
 
-The page uses the fonts of the computer. It loads no font files.
-The sans font is `system-ui`: SF Pro on macOS, Segoe UI on Windows, and the desktop font on Linux.
-The sans font shows controls, questions, titles, panel text, and flow labels.
-The monospace font shows identifiers, paths, commands, counts, finding lines, small labels, and tags.
+The page contains one font: a subset of Inter with the family name "systemap Inter".
+The font is in the page style as a data URI. The page loads no font files.
+Thus the page text has the same font on macOS, Windows, and Linux.
+Inter shows the sans text of the page: the header, the controls, the title block, the panel, the Find dialog,
+the guide, the legend, the readout, the list of keyboard keys, and the phone layout.
+On the map, Inter shows the step labels of a sequence. The browser measures these labels.
+The monospace font of the computer shows identifiers, paths, commands, counts, finding lines, small labels, and tags.
+The page does not contain a monospace font.
 A layer name is text, not an identifier. It uses the sans font, also in the guide steps of the panel.
+
+The subset contains the ASCII characters, the middle dot, the right arrow, and the minus sign.
+Its `wght` axis is from 400 to 700, and its `opsz` axis is 14. It keeps only the `kern` feature.
+Inter has no U+21C4. The system sans font shows that character.
+The left, up, and down arrows and the command key symbol show only in keyboard keys, in the monospace font.
+Inter has the SIL Open Font License 1.1 with no Reserved Font Name.
+`src/systemap/fonts/Inter-OFL.txt` contains the license.
+The name table of the subset contains the copyright, the version, and the license URL.
+`scripts/inter_subset.py` makes the subset from the npm package inter-ui 4.1.1 and writes `page_font.py`.
+
+Map text with a measured width keeps its font.
+The renderer gives each character of a flow label and of a container description a fixed width.
+Inter is wider than that width for most characters. Thus these labels use the system sans font:
+SF Pro on macOS, Segoe UI on Windows, and the desktop font on Linux.
 
 Card descriptions use Arial. Liberation Sans and Arimo have the same character widths.
 The page uses one of them when Arial is not available.
 The renderer measures each description with these widths, so a description stays in its card.
-The SVG figures use the same fonts. On GitHub, the fonts of the computer of the reader show the figures.
+A separate SVG figure does not contain Inter. Its sans text uses the system sans font.
+On GitHub, the fonts of the computer of the reader show the figures.
 The renderer gives each character of a card name 0.6021 em.
 DejaVu Sans Mono has 0.60205 em, and JetBrains Mono and Liberation Mono have 0.600 em.
 The widths of SF Mono, Menlo, and Consolas are not measured. A measurement is necessary.
@@ -553,6 +576,6 @@ A figure outside the page has no page setting. A figure obeys the system setting
 The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
 `page_palette.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
 `page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `page_mapview.py`,
-`page_icons.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+`page_icons.py`, `page_font.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
 The build removes the comments, line breaks, and indentation from the page styles and scripts.
 The browser measurements and test results are in `bench/jev/README.md`.

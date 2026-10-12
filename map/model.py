@@ -265,6 +265,7 @@ COMPONENTS = (
             "systemap.page_mapview",
             "systemap.page_icons",
             "systemap.page_palette",
+            "systemap.page_font",
         ),
         entry="build",
         region="draw",

@@ -1784,3 +1784,120 @@ The sample page passes with 4,508 bytes of space.
 The map comparison loads the committed model at the merge base for each render with `--base`.
 For this repository against 9defc3d, two runs gave 0.19 s and 0.20 s for the map comparison,
 and 1.09 s and 1.16 s for the source comparison that the page had before this change.
+
+## Map page font (2026-10-12)
+
+The maintainer decided to embed the font. This change puts a subset of Inter in the map page.
+
+Acceptance:
+
+- The page stays one file with no external requests. The font is a data URI in an `@font-face` rule.
+- Map text with a measured width keeps its font, unless Inter fits the width rule for each character of the subset.
+  Thus no card description wraps differently, and no placement result changes.
+- At 1440, 1024, 800, and 390 pixels, no text in an HTML control gets more lines or becomes clipped.
+- The sample page limit increases by the measured cost of the font and not more than 4 KiB of additional space.
+  The limit is a whole number of KiB.
+
+Method: Chromium 141.0.7390.37 (Playwright), Ink and Paper, 1440 by 900 and 390 by 844 pixels for the screenshots.
+fontTools 4.66.1 with brotli 1.2.0 made and measured the fonts.
+In this container, `system-ui` gives Inter 4.000 from the Debian package fonts-inter 4.0+ds-1.
+SF Pro and Segoe UI are not available here. A measurement with these fonts is necessary.
+
+### Source font
+
+`scripts/inter_subset.py` downloads the npm package inter-ui 4.1.1 and compares its SHA-512 value with the recorded value.
+It uses `package/variable/InterVariable.woff2`, "Version 4.001;git-9221beed3".
+The earlier option used `inter-latin-opsz-normal.woff2` of @fontsource-variable/inter 5.3.0, "Version 4.001;git-66647c0bb".
+The two files have the same ASCII advances at the weights 400, 500, 600, and 700.
+They have the same `hhea` and `OS/2` typo metrics. Only `usWinAscent` and `usWinDescent` are different (2269 and 660 against 1984 and 494).
+The fontsource file has no U+2190, U+2192, U+21C4, U+22EF, or U+2318.
+Thus the subset of the earlier option had only the ASCII characters and U+00B7 (96 codes), not 5 symbols.
+
+The page shows U+00B7, U+2192, and U+2212 in sans text. It shows U+2190, U+2191, U+2193, and U+2318 only in keyboard keys,
+which use the monospace font. Inter has no U+21C4. The system sans font shows it.
+
+The script did not give the same file two times at first: fontTools writes the current time in the `head` table.
+The script now keeps the time of the source font. Three runs then gave the same SHA-256 value.
+
+### Subset sizes
+
+All rows use the optical size 14 and the name records 0, 1, 2, 5, 13, and 14, except the last row.
+The name records 5 and 13 (version and license description) add 208 WOFF2 bytes.
+
+| Characters | Weights | Features | WOFF2 bytes | base64 bytes |
+|---|---|---|---|---|
+| ASCII and 7 symbols | 400 to 700 | kern, tnum | 15,028 | 20,040 |
+| ASCII and 7 symbols | 400 to 700 | kern | 14,292 | 19,056 |
+| ASCII, U+00B7, U+2192, U+2212 (the page) | 400 to 700 | kern | 13,596 | 18,128 |
+| ASCII, U+00B7, U+2192, U+2212 | 400 to 650 | kern | 13,312 | 17,752 |
+| ASCII, U+00B7, U+2192, U+2212 | 400 to 600 | kern | 13,076 | 17,436 |
+| ASCII and U+00B7, name records 0, 1, 2, and 14 | 400 to 600 | kern, tnum | 13,532 | 18,044 |
+
+No page rule uses tabular figures, so the subset does not keep `tnum`.
+The page uses the weights 400, 500, 600, and 650 in sans text. The weight axis goes to 700 for bold text.
+
+### Width rules of the map
+
+The values are the advances of Inter 4.001 at the optical size 14, for each of the 98 characters of the subset.
+
+| Map text | Width rule | Inter | Characters wider than the rule | Largest |
+|---|---|---|---|---|
+| Flow label | 6.1 units for each character at 11 units | 500 | 65 of 98 | W, 11.03 |
+| Flow label under a selection | 6.1 units at 11 units | 600 | 65 of 98 | W, 11.22 |
+| Container description | 5.6 units at 11 units | 400 | 67 of 98 | W, 10.84 |
+| Card description | the Arial table | 400 | 78 of 95 ASCII characters | |
+
+The sum of the ASCII advances of Inter 400 is 1.066 times the sum of the Arial table.
+Card names, region labels, and container labels use the monospace font. The monospace font does not change.
+Thus flow labels and container descriptions keep the system sans font, and card descriptions keep Arial.
+On the page, a rule sets `--fs` to the system sans font on these SVG text elements.
+
+`CSS.getPlatformFontsForNode` gave these fonts on the self-map page after the change:
+
+| Text | Font |
+|---|---|
+| Project name, view buttons, layer segments, Find, question, panel title, legend, sequence button | Inter Variable (embedded) |
+| Step labels of a sequence on the map | Inter Variable (embedded) |
+| Flow labels and container descriptions | Inter Medium and Inter (the system font in this container) |
+| Card names, container labels, region labels, step numbers | DejaVu Sans Mono |
+| Card descriptions | Liberation Sans |
+
+At `DOMContentLoaded`, `document.fonts.status` was `loaded` and `document.fonts.check('13px "systemap Inter"')` was true.
+
+### Fit of the controls
+
+An audit read each visible element with its own text in 10 states at 1440, 1024, 800, and 390 pixels:
+the Map view, the All layer, a selected component, a selected flow, Find, the keyboard keys, the source panel of the commit,
+the sequence list, a sequence step, and the first-visit guide.
+Before and after the change, the audit found the same 2,467 elements.
+No element got more lines. No element became clipped.
+The 278 clipped boxes before and after are the same: screen reader text and rows with an ellipsis.
+These rows are in Find, in the sequence list, and in the group list.
+The canvas text widths of the view buttons, the layer segments, and Find were the same before and after.
+In this container the base page also used Inter widths, because `system-ui` gives Inter 4.000.
+
+The layout boxes of the text were the same before and after, at device scales of 1 and 2.
+At a device scale of 1, the glyphs in the screenshots were on the same pixel rows.
+At a device scale of 2, the 13px text of the panel was 2 device pixels lower. The 19px title and the Clear button did not move.
+The installed font has CFF outlines with hint values. The subset has TrueType outlines and no hint tables.
+The difference is probably in how the renderer aligns hinted glyphs. A comparison with SF Pro on a macOS screen is necessary.
+
+### Page size
+
+| Page | Before (f70c3e8) | After |
+|---|---|---|
+| Sample page, no comparison | 301,519 | 319,971 |
+| Self-map page, no comparison, scratch build | 637,718 | 656,170 |
+
+The font costs 18,452 bytes on each page: 18,256 bytes for the `@font-face` rule, 68 bytes for the font name in the four
+`--fs` values, and 128 bytes for the rule of the map text with a measured width.
+The limit of `test_page_is_small_and_self_contained` was 300 KiB (307,200 bytes). It is now 322 KiB (329,728 bytes).
+The limit increases by 22,528 bytes: the font cost and 4,076 bytes of additional space.
+The sample page passes with 9,757 bytes of space.
+
+The new tests in `tests/test_typography.py` gave 3 failures and 15 passes on the base with only `page_font.py`
+and the license file added, and 18 passes after the change.
+The full test suite gave 790 passes and 1 skipped test.
+
+After the merge with the map changes in the Changes view, the sample page is 321,144 bytes.
+It passes with 8,584 bytes of space.

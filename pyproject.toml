@@ -52,6 +52,10 @@ dev = [
     "tree-sitter>=0.25,<0.26",
     "tree-sitter-typescript>=0.23,<0.24",
 ]
+# scripts/inter_subset.py makes the Inter subset of the map page with these packages.
+fonts = [
+    "fonttools[woff]==4.66.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -90,4 +94,5 @@ paths = ['src']
 ignore-words-list = "nam,nd,raed,recrod"
 # bench/jev/results holds captured commit subjects and model answers: another
 # project's typo in a commit message is evidence, not something to correct.
-skip = "uv.lock,*/package-lock.json,.git,bench/jev/results,bench/jev/data"
+# src/systemap/page_font.py holds a font as base64 text, which can contain word-like parts.
+skip = "uv.lock,*/package-lock.json,.git,bench/jev/results,bench/jev/data,src/systemap/page_font.py"
