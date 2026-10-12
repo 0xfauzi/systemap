@@ -9,6 +9,10 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+- `systemap serve` and `systemap live` answer only a request whose Host header is `127.0.0.1` or
+  `localhost` with the server port. A web page that makes its own domain name point at 127.0.0.1
+  cannot read the map.
+
 - The workflow from `systemap init` is advisory by default. A map finding gives a warning
   annotation, and the job passes. The variable `SYSTEMAP_CI` in the workflow selects the mode.
   `systemap init --strict-ci` writes `strict`: a map finding makes the job fail.

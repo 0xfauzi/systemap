@@ -652,6 +652,9 @@ Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
 If the port is not available, the command exits 2.
 Then use `--port 0` to select an available port, or give a different port.
+The server answers only a request whose Host header is `127.0.0.1` or `localhost` with the server port.
+Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
+`systemap live` has the same rule.
 
 ### `systemap live [--port 8765] [--base REF] [--no-watch] [--json]`
 

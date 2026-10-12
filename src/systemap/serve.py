@@ -67,9 +67,27 @@ def _listen(handler: Callable[..., BaseHTTPRequestHandler], port: int) -> Thread
         ) from exc
 
 
+class PageHandler(SimpleHTTPRequestHandler):
+    """Supply files only for requests to this loopback server.
+
+    A web page can make its own domain name point at 127.0.0.1 (DNS rebinding). Then the
+    browser sends that name in the Host header. The server refuses each request whose Host
+    is not 127.0.0.1 or localhost with the server port, so such a page cannot read the map.
+    """
+
+    def parse_request(self) -> bool:
+        if not super().parse_request():
+            return False
+        port = self.server.server_address[1]  # type: ignore[index] # a TCP server: (host, port)
+        if self.headers.get("Host", "") in {f"127.0.0.1:{port}", f"localhost:{port}"}:
+            return True
+        self.send_error(403, "The server answers only requests to 127.0.0.1 or localhost.")
+        return False
+
+
 def make_server(directory: Path, port: int) -> ThreadingHTTPServer:
     """Make an HTTP server for `directory` on 127.0.0.1. Port 0 selects an available port."""
-    return _listen(partial(SimpleHTTPRequestHandler, directory=str(directory)), port)
+    return _listen(partial(PageHandler, directory=str(directory)), port)
 
 
 # ---- one version of the working tree --------------------------------------------------
@@ -393,7 +411,7 @@ def _event(name: str, data: dict[str, Any]) -> str:
 # ---- the HTTP server -----------------------------------------------------------------
 
 
-class LiveHandler(SimpleHTTPRequestHandler):
+class LiveHandler(PageHandler):
     """Supply the rendered files, the events and the state, and receive the requests."""
 
     def __init__(self, live: LiveMap, *args: Any, **kwargs: Any) -> None:
