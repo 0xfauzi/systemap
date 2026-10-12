@@ -341,7 +341,7 @@ These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 4, with portable syntax hashes and compiler provenance. `extract --check` marks older formats stale.
+- `version`: The facts format is 5, with portable syntax hashes, compiler provenance, and module completeness. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -380,7 +380,8 @@ These fields come from `systemap.extract.FIELDS`.
 - `tests_primary`: The number of those functions in a file with the module name.
 - `tests`: Up to 25 test names, with primary tests first.
 - `tests_digest`: A digest of every qualified test identity. It also includes hidden identities.
-- `parse_error`: Python source read or parse errors, with line and parser version.
+- `parse_error`: Python source read or parse errors, with line and parser version. Other systemap modules read `completeness`.
+- `completeness`: The read condition of the module, with the same meaning for each language. `parsed` is `false` if the extractor could not read or parse all of the source, and `line` and `reason` then give the first problem. `unresolved_imports` lists each local import, as the source writes it, that has no module in the facts. A local import is a relative import, a path, a TypeScript path alias, or a name below a package root. If `parsed` is `false`, the import list is not known and is `null`. Third-party packages, standard-library modules, Node.js built-in modules, and imports with a calculated module name are not in the list.
 
 **Each entry point, under `entry_points`**
 

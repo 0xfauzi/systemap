@@ -16,6 +16,9 @@ from systemap import card_review, delta, evidence, extract, history, journey_cov
 from systemap.config import Config
 from systemap.model import Component, Flow, Journey, Meaning, Model, Step
 
+# A shared reader accepts only a module record with a parsed completeness record.
+PARSED = {"parsed": True, "line": 0, "reason": "", "unresolved_imports": []}
+
 
 def _model(*cards: Component, flows: tuple[Flow, ...] = ()) -> Model:
     return Model((800, 600), (), (), cards, flows, ("data",))
@@ -88,7 +91,7 @@ def test_historical_cache_discards_pre_portability_hashes(
     cache.write_text(json.dumps(old), encoding="utf-8")
     monkeypatch.setattr(extract, "FORMAT", current_format)
     fresh = history.facts_at(cfg, sha)
-    assert fresh["version"] == 4
+    assert fresh["version"] == 5
     assert fresh["components"]["pkg.reader"]["syntax_sha"] != "obsolete-python-313-hash"
 
 
@@ -117,9 +120,9 @@ def test_wildcard_membership_change_reopens_review(remove: bool) -> None:
     card = Component("Package", "Reads inputs.", implemented_by=("pkg.*",))
     model = _model(card)
     meaning = Meaning({"Package": "Package"})
-    one = {"components": {"pkg.reader": {"syntax_sha": "reader"}}}
+    one = {"components": {"pkg.reader": {"syntax_sha": "reader", "completeness": PARSED}}}
     two = copy.deepcopy(one)
-    two["components"]["pkg.writer"] = {"syntax_sha": "writer"}
+    two["components"]["pkg.writer"] = {"syntax_sha": "writer", "completeness": PARSED}
     base, head = (two, one) if remove else (one, two)
     stamp = card_review.digest(card, model, meaning, base)
     assert stamp is not None
@@ -152,8 +155,13 @@ def test_changed_reviewed_flow_references_reopen_delta(keep_import: bool) -> Non
                 "syntax_sha": "reader",
                 "source_sha256": "a" * 64,
                 "uses": {"pkg.writer": []},
+                "completeness": PARSED,
             },
-            "pkg.writer": {"syntax_sha": "writer", "source_sha256": "b" * 64},
+            "pkg.writer": {
+                "syntax_sha": "writer",
+                "source_sha256": "b" * 64,
+                "completeness": PARSED,
+            },
         }
     }
     head = copy.deepcopy(base)
