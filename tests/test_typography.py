@@ -119,15 +119,16 @@ def test_measured_map_text_keeps_the_system_sans_font(sample: Sample) -> None:
     does not contain Inter and does not need the rule."""
     args = (sample.model, sample.meaning, sample.theme, sample.facts)
     svg, _detail = render_schematic(*args, variables=True)
-    rule = f"#schematic .view>text,#schematic .flowlbl text{{--fs:{theme_mod.SYSTEM_SANS}}}"
+    rule = f"#schematic .box__h text,#schematic .flowlbl text{{--fs:{theme_mod.SYSTEM_SANS}}}"
     assert rule in svg
     figure, _detail = render_schematic(*args)
     assert "--fs:" not in figure
-    # The direct text children of the view are the container labels and descriptions.
+    # The container head groups hold the container labels and descriptions.
     ns = "{http://www.w3.org/2000/svg}"
     view = ET.fromstring(svg).find(f".//{ns}g[@class='view']")
     assert view is not None
-    texts = [e for e in view if e.tag == f"{ns}text"]
+    heads = [g for g in view if g.get("class") == "box__h"]
+    texts = [e for g in heads for e in g if e.tag == f"{ns}text"]
     expected = sum(1 + len(container_header(box)[1]) for box in sample.model.containers)
     assert len(texts) == expected == 3
     labels = [g for g in view.iter(f"{ns}g") if "flowlbl" in g.get("class", "").split()]

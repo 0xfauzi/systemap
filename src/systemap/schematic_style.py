@@ -116,7 +116,7 @@ def _measured_text(s: str, t: Palette) -> str:
     use `--fm` and do not change. A separate figure does not contain Inter."""
     if not t.variables:
         return ""
-    return f"{s} .view>text,{s} .flowlbl text{{--fs:{SYSTEM_SANS}}}"
+    return f"{s} .box__h text,{s} .flowlbl text{{--fs:{SYSTEM_SANS}}}"
 
 
 def _svg_style(svg_id: str, t: Palette) -> str:
