@@ -87,7 +87,7 @@ background-size:24px 24px}
 .mapwrap{position:absolute;inset:2px 0 0 0;overflow:hidden}
 .stage{width:100%;height:100%}
 .stage svg,.stage #schematic,.stage #changemap{display:block;width:100%;height:100%}
-.mapbar{position:relative;margin:62px 24px 0;z-index:4;display:flex;flex-wrap:wrap;
+.mapbar{position:relative;margin:62px 24px 0;display:flex;flex-wrap:wrap;
 align-items:baseline;gap:2px 16px;pointer-events:none}
 .mapbar>*{pointer-events:auto}
 .mapbar__label{margin:0;

@@ -124,6 +124,9 @@ function relabel(){
     if(BESIDE.indexOf(b.i) >= 0 || !on(b.i)){ tf(b.g, s, b.x, b.y); }
     else if(!placeLabel(b, s, ctx)){ crowd.push(b.i); }
   });
+  // The paint and the readout change only when the list changes.
+  if(crowd.length === besideEdges.length && crowd.every(function(i){ return besideOf[i]; })){
+    return; }
   for(var e in besideOf){ delete besideOf[e]; }
   besideEdges.length = 0;
   crowd.forEach(function(i){ besideOf[i] = true; besideEdges.push(i); });
