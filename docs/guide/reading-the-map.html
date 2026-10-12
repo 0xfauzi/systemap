@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Read the map · systemap</title>
-<meta name="description" content="The page that systemap renders shows the map in three views: Map, Sequences, and Changes. This page tells you how to use each view and its controls.">
+<meta name="description" content="The page that systemap renders shows the map in three views: Map, Sequences, and Changes. This page gives the controls and the keys of each view.">
 <link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
 <link rel="preload" href="../assets/inter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css">
@@ -44,123 +44,18 @@
 <p class="kicker doc__k">Guide · 3 of 8</p>
 <h1>Read the map</h1>
 <p class="lead">The page that systemap renders shows the map in three views: Map, Sequences, and Changes.
-This page tells you how to use each view and its controls.</p>
+This page gives the controls and the keys of each view.</p>
 <p>To try each control, open the <a href="../map/">live example</a>. It is the map of systemap itself.</p>
-<h2 id="the-header">The header</h2>
-<p>At the left, the header shows the systemap symbol, the project name, and the commit of the facts, for example <code>at 42172a9</code>.
-Select the commit to see the source records of the page.
-A small panel gives the commit at extraction, the source files, and the limits of the stored snapshot.
-Then the header has the three view buttons. A dot on Changes shows that the page has a revision comparison.</p>
-<p>At the right, the header has these controls:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="the-header">
-<table>
-<thead>
-<tr>
-<th>Control</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Find</td>
-<td>Opens one search field for views, layers, components, flows, sequences, steps, rules, and actions.</td>
-</tr>
-<tr>
-<td>Theme</td>
-<td>Changes the theme between Ink and Paper. A sun selects Paper. A moon selects Ink.</td>
-</tr>
-<tr>
-<td>Reduce motion</td>
-<td>Stops the motion of the page.</td>
-</tr>
-<tr>
-<td>Keyboard keys (?)</td>
-<td>Opens the list of keyboard keys.</td>
-</tr>
-<tr>
-<td>Details</td>
-<td>Opens or closes the Details panel at the right of the map.</td>
-</tr>
-</tbody>
-</table>
-</div>
-<h2 id="the-three-views">The three views</h2>
-<p>Each view asks one question above the map.</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="the-three-views">
-<table>
-<thead>
-<tr>
-<th>View</th>
-<th>Question</th>
-<th>Contents</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Map</td>
-<td>The question of the current layer, for example &quot;Which actors connect to the system?&quot;</td>
-<td>The components and the flows of one layer.</td>
-</tr>
-<tr>
-<td>Sequences</td>
-<td>&quot;Which parts does this operation use?&quot; for the whole route. &quot;What occurs at each step?&quot; for one step.</td>
-<td>One sequence as a route on the map, then one step at a time.</td>
-</tr>
-<tr>
-<td>Changes</td>
-<td>&quot;What did this change touch?&quot;</td>
-<td>The components and the flows that a revision comparison changed.</td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>The three views have the same parts.
-A row of controls is under the header. A small label and the question are above the map.
-The legend is at the bottom left of the map, and the readout is at the bottom right.
-The Details panel is at the right.</p>
-<h2 id="layers">Layers</h2>
-<p>In the Map view, the row gives the layers of the map, for example System context, Structure, Data flow, Control flow, and All.
-<a href="concepts.html#layer">Concepts</a> tells which flows each layer shows.
-Select a layer in the row. You can also press a number key.
-The left and right arrow keys select the previous or the next layer.</p>
-<p>The small label above the map gives the layer name and its position, for example <code>SYSTEM CONTEXT · LAYER 1 OF 5</code>.
-The readout gives the counts of the view or of the selected item, for example <code>15 flows · 4 actors</code>.
-When a label does not fit on its line, the readout tells you that it is in the list of the Details panel.</p>
-<p>A layer with more than 20 flows shows its flows in groups.
-One grey line shows all the flows of the layer between two regions, with the number of flows.
-Flows inside one region stay as routes.
-Select a group on the map or in the Details panel to show its routes. Show all routes in the panel shows each flow.</p>
-<p>On the first visit, a guide card at the bottom right gives up to five steps.
-Each step selects a layer or starts a sequence. The Details panel gives the same steps.</p>
-<h2 id="select-a-component-or-a-flow">Select a component or a flow</h2>
-<p>Select a card to select its component.
-The selected card has a ring, and its flows show at full contrast. The other cards and lines have low contrast.
-The Structure layer shows no flow lines after a component selection.</p>
-<p>The Details panel of a component gives:</p>
+<h2 id="the-page">The page</h2>
 <ul>
-<li>its description and its short name,</li>
-<li>the flows that it receives and sends, with the artifact and the other component,</li>
-<li>the sequences that use it,</li>
-<li>the rules that apply to it,</li>
-<li>the source modules that it contains.</li>
+<li><strong>Map</strong> shows the components and the flows of one layer.</li>
+<li><strong>Sequences</strong> shows one sequence as a route, then one step at a time.</li>
+<li><strong>Changes</strong> shows the components and the flows that a revision comparison changed.</li>
 </ul>
-<p>Move the pointer or the keyboard focus to a line to see a preview of that flow.
-Select a line to see its artifact, its direction, its evidence state, and its source records.
-Press Escape to clear the selection.</p>
-<h2 id="the-details-panel">The Details panel</h2>
-<p>Details, or the D key, opens and closes the panel.
-On a window wider than 820 pixels, the Map view opens the panel with the page.</p>
-<p>With no selection, the panel shows the current layer.
-It gives one card for each flow, actor, or region of the layer, and then the guide steps.
-Two more sections open when you select them:</p>
-<ul>
-<li><strong>Lines and cards</strong> tells how to read the line patterns, the card marks, and the evidence states.</li>
-<li><strong>Rules</strong> gives all the invariants of the system. Each rule has a button for each component to which it applies.</li>
-</ul>
-<h2 id="find">Find</h2>
-<p>Ctrl+K opens Find. On a Mac, use Cmd+K. The / key also opens it.
-Type part of a name. A name that starts with the text comes first.
-The up and down arrow keys move the selection. Enter does the action of the result. Escape closes the dialog.</p>
+<p>The header gives the commit of the facts, for example <code>at 42172a9</code>. Select it to see the source records of the page.
+At the right, the header has Find, Theme, Reduce motion, Keyboard keys (?), and Details.</p>
+<p>The question of the view is above the map. The legend is at the bottom left, and the readout is at the bottom right.
+If a label does not fit on its line, the readout tells you that it is in the list of the Details panel.</p>
 <h2 id="keyboard-keys">Keyboard keys</h2>
 <p>Press ? to see this list on the page:</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="keyboard-keys">
@@ -211,31 +106,34 @@ The up and down arrow keys move the selection. Enter does the action of the resu
 </tbody>
 </table>
 </div>
-<p>Escape closes the newest item first.
-The order is the Find dialog, the list of keys, the source records, full screen, the sequence, the selection, and then the panel.</p>
+<p>On a Mac, use Cmd+K for Find.</p>
+<h2 id="layers">Layers</h2>
+<p>Select a layer in the row under the header. <a href="concepts.html#layer">Concepts</a> tells which flows each layer shows.
+A layer with more than 20 flows shows one grey line for the flows between two regions. Select the line to show its routes.</p>
+<h2 id="select-a-component-or-a-flow">Select a component or a flow</h2>
+<ul>
+<li>Select a card. The Details panel gives its flows, sequences, rules, and source modules.</li>
+<li>Move the pointer or the keyboard focus to a line to see a preview of the flow.</li>
+<li>Select a line. The Details panel gives its artifact, direction, evidence state, and source records.</li>
+<li>Press Escape to clear the selection.</li>
+</ul>
+<h2 id="the-details-panel">The Details panel</h2>
+<p>With no selection, the panel shows the current layer and a guide with up to five steps.
+<strong>Lines and cards</strong> tells how to read the line patterns and the card marks. <strong>Rules</strong> gives all the invariants.</p>
 <h2 id="fit-and-zoom">Fit and zoom</h2>
 <p>The zoom controls are at the end of the row: zoom out, the zoom value, zoom in, and Fit.
-The zoom value sets the actual size. Fit shows the full map as large as the map area permits.
-When the window or the panel changes the map area, a map at Fit stays at Fit.</p>
-<p>When the zoom is less than 100 percent, the flow labels and the region labels become larger, so that you can read them.
-A label then moves along its line to a place where it touches no card and no other label.
-A label without such a place shows only for a pointer, keyboard focus, or a selection.</p>
-<p>The full-screen button, or the F key, shows the map alone. Escape or F ends full screen.
-In the Sequences view, full screen shows the map and a bar with the current step.</p>
+Fit shows the full map as large as the map area permits.</p>
 <h2 id="sequences">Sequences</h2>
-<p>The sequence button in the row opens the list of sequences.
-Whole route shows all the steps on the map, with a number on each line.
-The START tag marks the component where the sequence starts.</p>
-<p>Steps shows one step at a time. Use Previous and Next, or the left and right arrow keys.
-A note next to the line gives the step number, the artifact, the two ends, and the step sentence.
-The acting component has an ACTS tag. A measurement component has a MEASURES tag.
-The Details panel gives the route in order, all sequences, and the entry points that have a sequence.</p>
-<p>The steps are an authored order. They do not record a run of the program.</p>
+<ul>
+<li>The sequence button in the row opens the list of sequences.</li>
+<li><strong>Whole route</strong> shows all the steps, with a number on each line. The START tag marks the component where the sequence starts.</li>
+<li><strong>Steps</strong> shows one step at a time. Use Previous and Next, or the left and right arrow keys.</li>
+<li>The acting component has an ACTS tag. A measurement component has a MEASURES tag.</li>
+</ul>
 <h2 id="changes">Changes</h2>
-<p>The Changes view needs a page with a revision comparison.
-<code>systemap render --base REF</code> writes such a page, and <code>systemap live</code> supplies one.
-Without a comparison, the view shows &quot;This page has no revision comparison&quot; and the command to make one.
-The live example has no revision comparison.</p>
+<p><code>systemap render --base REF</code> and <code>systemap live</code> make a page with a revision comparison.
+A dot on Changes shows that the page has a revision comparison. The live example has none.
+<a href="pull-requests-and-ci.html#the-changes-view">Pull requests and CI</a> tells how to make this page.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="changes">
 <table>
 <thead>
@@ -264,14 +162,9 @@ The live example has no revision comparison.</p>
 </tbody>
 </table>
 </div>
-<p>Hold the B key, or the Hold B button, to show the map without the change marks.
-The Details panel gives a summary, the changed components, the map changes, and the flows to examine.
-The map changes are the components, flows, sequences, and rules that the change added, removed, or changed in the model.
-A page link that ends in <code>#changes</code> opens the Changes view.
-<a href="pull-requests-and-ci.html#the-changes-view">Pull requests and CI</a> tells how to make this page.</p>
+<p>Hold B to show the map without the change marks. A page link that ends in <code>#changes</code> opens this view.</p>
 <h2 id="the-legend-and-the-line-marks">The legend and the line marks</h2>
-<p>The legend shows only the items that the current view uses. Each flow kind has one color in all views.
-Color shows only the flow kind, the selection, and the change. Cards, regions, and text are neutral.</p>
+<p>Color shows only the flow kind, the selection, and the change.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-legend-and-the-line-marks">
 <table>
 <thead>
@@ -310,20 +203,14 @@ Color shows only the flow kind, the selection, and the change. Cards, regions, a
 </div>
 <p><a href="concepts.html#evidence-states">Concepts</a> gives the evidence states, and <a href="concepts.html#component">Concepts</a> gives the card marks of each component kind.</p>
 <h2 id="themes-and-motion">Themes and motion</h2>
-<p>The page has two themes. Ink has dark surfaces. Paper has light surfaces.
-The first visit uses the device theme: Paper for a light setting, and Ink for other settings.
-The theme button changes the theme, and the browser keeps your selection.</p>
-<p>Motion is on until you set Reduce motion on the page. The browser keeps this setting.
-The system setting for reduced motion does not change the page.</p>
+<p>Ink has dark surfaces. Paper has light surfaces. The first visit uses the device theme.
+The system setting for reduced motion does not change the page. Use Reduce motion on the page.</p>
 <h2 id="phone-layout">Phone layout</h2>
-<p>At a width of 640 pixels or less, the page uses the phone layout.
-The Map view shows the regions as a grid. Select a region to open the map at a size that you can read.
-Open the full map shows the complete map.
-A sequence shows one step below the map, with a button for each step, and Previous and Next.
-The header shows Find, the theme, and Reduce motion.</p>
+<p>At a width of 640 pixels or less, the Map view shows the regions as a grid.
+Select a region to open the map at a size that you can read.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="concepts.html" rel="prev"><span class="kicker">Previous</span><span>Concepts</span></a><a class="pager__a pager__next" href="coding-agents.html" rel="next"><span class="kicker">Next</span><span>Coding agents</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-header">The header</a></li><li class="toc__l2"><a href="#the-three-views">The three views</a></li><li class="toc__l2"><a href="#layers">Layers</a></li><li class="toc__l2"><a href="#select-a-component-or-a-flow">Select a component or a flow</a></li><li class="toc__l2"><a href="#the-details-panel">The Details panel</a></li><li class="toc__l2"><a href="#find">Find</a></li><li class="toc__l2"><a href="#keyboard-keys">Keyboard keys</a></li><li class="toc__l2"><a href="#fit-and-zoom">Fit and zoom</a></li><li class="toc__l2"><a href="#sequences">Sequences</a></li><li class="toc__l2"><a href="#changes">Changes</a></li><li class="toc__l2"><a href="#the-legend-and-the-line-marks">The legend and the line marks</a></li><li class="toc__l2"><a href="#themes-and-motion">Themes and motion</a></li><li class="toc__l2"><a href="#phone-layout">Phone layout</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-page">The page</a></li><li class="toc__l2"><a href="#keyboard-keys">Keyboard keys</a></li><li class="toc__l2"><a href="#layers">Layers</a></li><li class="toc__l2"><a href="#select-a-component-or-a-flow">Select a component or a flow</a></li><li class="toc__l2"><a href="#the-details-panel">The Details panel</a></li><li class="toc__l2"><a href="#fit-and-zoom">Fit and zoom</a></li><li class="toc__l2"><a href="#sequences">Sequences</a></li><li class="toc__l2"><a href="#changes">Changes</a></li><li class="toc__l2"><a href="#the-legend-and-the-line-marks">The legend and the line marks</a></li><li class="toc__l2"><a href="#themes-and-motion">Themes and motion</a></li><li class="toc__l2"><a href="#phone-layout">Phone layout</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

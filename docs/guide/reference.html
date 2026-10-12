@@ -173,20 +173,19 @@ If no reference is in an endpoint module, the flow is not <code>observed</code>.
 <code>systemap judgement</code> then prints a <code>no endpoint source</code> finding.
 The command below prints the <code>source_sha256</code> of each module and the <code>review_digest</code> of each flow.
 It does not examine the claims for you. Examine the source before you record the values.</p>
-<pre><code class="language-sh">uv run python - &lt;&lt;'PY'
-from pathlib import Path
-from systemap import config, evidence, extract, nest
+<pre class="code"><code class="language-sh"><span class="k">uv</span> run python - &lt;&lt;<span class="s">'PY'</span>
+<span class="k">from</span> pathlib import Path
+<span class="k">from</span> systemap import config, evidence, extract, nest
 
-cfg = config.load(Path.cwd())
-facts = extract.build(cfg)
-for module, record in sorted(facts[&quot;components&quot;].items()):
-    print(f&quot;source_sha256 {module} {record.get('source_sha256')}&quot;)
-for current_map in nest.load(cfg).maps:
-    for flow in current_map.model.flows:
-        digest = evidence.flow_claim_digest(flow, current_map.meaning)
-        print(f&quot;review_digest {current_map.prefix}{flow.src} -&gt; {flow.dst} {digest}&quot;)
-PY
-</code></pre>
+<span class="k">cfg</span> = config.load(Path.cwd())
+<span class="k">facts</span> = extract.build(cfg)
+<span class="k">for</span> module, record in sorted(facts[<span class="s">"components"</span>].items()):
+    <span class="k">print(f</span><span class="s">"source_sha256 {module} {record.get('source_sha256')}"</span>)
+<span class="k">for</span> current_map in nest.load(cfg).maps:
+    <span class="k">for</span> flow in current_map.model.flows:
+        <span class="k">digest</span> = evidence.flow_claim_digest(flow, current_map.meaning)
+        <span class="k">print(f</span><span class="s">"review_digest {current_map.prefix}{flow.src} -&gt; {flow.dst} {digest}"</span>)
+<span class="k">PY</span></code></pre>
 <p>A source change gives a new <code>source_sha256</code>.
 A change to the flow or its relation sentence gives a new <code>review_digest</code>.</p>
 <h2 id="what-does-the-second-pass-find">What does the second pass find?</h2>
@@ -479,31 +478,31 @@ systemap reads the file as data. It does not run the file as Python code.
 This example contains two components and one flow from the self-map.
 A model does not declare the standard flow kinds.
 The page derives standard layers.</p>
-<pre><code class="language-python">from systemap import Component, Flow, Meaning, Model, Region
+<pre class="code"><code class="language-python"><span class="k">from </span>systemap <span class="k">import </span>Component<span class="p">, </span>Flow<span class="p">, </span>Meaning<span class="p">, </span>Model<span class="p">, </span>Region
 
-MODEL = Model(
-    canvas=(900, 420),
-    containers=(),
-    regions=(Region(&quot;gather&quot;, &quot;GATHER&quot;, (24, 40, 400, 340)),
-             Region(&quot;draw&quot;, &quot;DRAW&quot;, (460, 40, 416, 340))),
-    components=(
-        Component(id=&quot;FactsExtractor&quot;, region=&quot;gather&quot;,
-                  does=&quot;Reads the package syntax tree and writes facts.&quot;,
-                  implemented_by=(&quot;systemap.extract&quot;,), entry=&quot;build&quot;),
-        Component(id=&quot;Schematic&quot;, region=&quot;draw&quot;,
-                  does=&quot;Renders components, routes, and the interaction script.&quot;,
-                  implemented_by=(&quot;systemap.schematic&quot;, &quot;systemap.theme&quot;), entry=&quot;render&quot;),
+MODEL <span class="p">= </span><span class="f">Model</span><span class="p">(
+    </span><span class="a">canvas</span><span class="p">=(</span><span class="n">900</span><span class="p">, </span><span class="n">420</span><span class="p">),
+    </span><span class="a">containers</span><span class="p">=(),
+    </span><span class="a">regions</span><span class="p">=(</span><span class="f">Region</span><span class="p">(</span><span class="s">"gather"</span><span class="p">, </span><span class="s">"GATHER"</span><span class="p">, (</span><span class="n">24</span><span class="p">, </span><span class="n">40</span><span class="p">, </span><span class="n">400</span><span class="p">, </span><span class="n">340</span><span class="p">)),
+             </span><span class="f">Region</span><span class="p">(</span><span class="s">"draw"</span><span class="p">, </span><span class="s">"DRAW"</span><span class="p">, (</span><span class="n">460</span><span class="p">, </span><span class="n">40</span><span class="p">, </span><span class="n">416</span><span class="p">, </span><span class="n">340</span><span class="p">))),
+    </span><span class="a">components</span><span class="p">=(
+        </span><span class="f">Component</span><span class="p">(</span><span class="a">id</span><span class="p">=</span><span class="s">"FactsExtractor"</span><span class="p">, </span><span class="a">region</span><span class="p">=</span><span class="s">"gather"</span><span class="p">,
+                  </span><span class="a">does</span><span class="p">=</span><span class="s">"Reads the package syntax tree and writes facts."</span><span class="p">,
+                  </span><span class="a">implemented_by</span><span class="p">=(</span><span class="s">"systemap.extract"</span><span class="p">,), </span><span class="a">entry</span><span class="p">=</span><span class="s">"build"</span><span class="p">),
+        </span><span class="f">Component</span><span class="p">(</span><span class="a">id</span><span class="p">=</span><span class="s">"Schematic"</span><span class="p">, </span><span class="a">region</span><span class="p">=</span><span class="s">"draw"</span><span class="p">,
+                  </span><span class="a">does</span><span class="p">=</span><span class="s">"Renders components, routes, and the interaction script."</span><span class="p">,
+                  </span><span class="a">implemented_by</span><span class="p">=(</span><span class="s">"systemap.schematic"</span><span class="p">, </span><span class="s">"systemap.theme"</span><span class="p">), </span><span class="a">entry</span><span class="p">=</span><span class="s">"render"</span><span class="p">),
     ),
-    flows=(Flow(&quot;FactsExtractor&quot;, &quot;Schematic&quot;, &quot;map.json&quot;, &quot;data&quot;),),
-    flow_kinds=(),
+    </span><span class="a">flows</span><span class="p">=(</span><span class="f">Flow</span><span class="p">(</span><span class="s">"FactsExtractor"</span><span class="p">, </span><span class="s">"Schematic"</span><span class="p">, </span><span class="s">"map.json"</span><span class="p">, </span><span class="s">"data"</span><span class="p">),),
+    </span><span class="a">flow_kinds</span><span class="p">=(),
 )
 
-MEANING = Meaning(
-    plain={&quot;FactsExtractor&quot;: &quot;what reads the code&quot;, &quot;Schematic&quot;: &quot;what renders the map&quot;},
-    relations={(&quot;FactsExtractor&quot;, &quot;Schematic&quot;):
-               &quot;The schematic reads module facts to show flow evidence for mapped components.&quot;},
+</span>MEANING <span class="p">= </span><span class="f">Meaning</span><span class="p">(
+    </span><span class="a">plain</span><span class="p">={</span><span class="s">"FactsExtractor"</span><span class="p">: </span><span class="s">"what reads the code"</span><span class="p">, </span><span class="s">"Schematic"</span><span class="p">: </span><span class="s">"what renders the map"</span><span class="p">},
+    </span><span class="a">relations</span><span class="p">={(</span><span class="s">"FactsExtractor"</span><span class="p">, </span><span class="s">"Schematic"</span><span class="p">):
+               </span><span class="s">"The schematic reads module facts to show flow evidence for mapped components."</span><span class="p">},
 )
-</code></pre>
+</span></code></pre>
 <p>The example has no <code>x</code> or <code>y</code> values.
 <code>systemap place</code> writes these positions.
 After component additions or removals, <code>systemap place --all</code> writes new

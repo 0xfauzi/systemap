@@ -1,0 +1,58 @@
+== base
+   development: 160 calls, 123329 in, 3200 out, median in 698; AUC 0.878 (true 80, swapped 80)
+   holdout:     96 calls, 80837 in, 1920 out, median in 726; AUC 0.882 (true 48, swapped 48)
+   P<0.05  dev caught   6% flagged   0%   holdout caught   2% flagged   0%
+   P<0.1   dev caught  31% flagged   0%   holdout caught  21% flagged   0%
+   P<0.15  dev caught  49% flagged   1%   holdout caught  40% flagged   2%
+   P<0.2   dev caught  66% flagged   5%   holdout caught  60% flagged   4%
+   P<0.25  dev caught  75% flagged  14%   holdout caught  67% flagged  12%
+   P<0.3   dev caught  79% flagged  20%   holdout caught  83% flagged  19%
+   P<0.35  dev caught  86% flagged  29%   holdout caught  88% flagged  25%
+   P<0.4   dev caught  88% flagged  44%   holdout caught  92% flagged  38%
+   P<0.5   dev caught  94% flagged  59%   holdout caught  94% flagged  58%
+   selected P<0.15: dev 48.8% caught, 1.2% flagged; holdout 39.6% caught, 2.1% flagged
+== around
+   development: 160 calls, 192839 in, 3200 out, median in 1119; AUC 0.880 (true 80, swapped 80)
+   holdout:     96 calls, 124443 in, 1920 out, median in 1161; AUC 0.909 (true 48, swapped 48)
+   P<0.05  dev caught   5% flagged   0%   holdout caught   2% flagged   0%
+   P<0.1   dev caught  21% flagged   0%   holdout caught  15% flagged   0%
+   P<0.15  dev caught  42% flagged   1%   holdout caught  29% flagged   2%
+   P<0.2   dev caught  62% flagged   6%   holdout caught  62% flagged   2%
+   P<0.25  dev caught  74% flagged  14%   holdout caught  69% flagged   4%
+   P<0.3   dev caught  79% flagged  20%   holdout caught  79% flagged  19%
+   P<0.35  dev caught  85% flagged  24%   holdout caught  88% flagged  21%
+   P<0.4   dev caught  86% flagged  32%   holdout caught  92% flagged  35%
+   P<0.5   dev caught  94% flagged  48%   holdout caught  98% flagged  52%
+   selected P<0.15: dev 42.5% caught, 1.2% flagged; holdout 29.2% caught, 2.1% flagged
+== calls
+   development: 160 calls, 165439 in, 3200 out, median in 848; AUC 0.898 (true 80, swapped 80)
+   holdout:     96 calls, 107757 in, 1920 out, median in 870; AUC 0.931 (true 48, swapped 48)
+   P<0.05  dev caught   5% flagged   0%   holdout caught   2% flagged   0%
+   P<0.1   dev caught  20% flagged   0%   holdout caught  17% flagged   0%
+   P<0.15  dev caught  44% flagged   1%   holdout caught  40% flagged   0%
+   P<0.2   dev caught  60% flagged   2%   holdout caught  54% flagged   0%
+   P<0.25  dev caught  71% flagged   6%   holdout caught  69% flagged   6%
+   P<0.3   dev caught  78% flagged  14%   holdout caught  77% flagged  12%
+   P<0.35  dev caught  82% flagged  21%   holdout caught  90% flagged  19%
+   P<0.4   dev caught  84% flagged  26%   holdout caught  94% flagged  21%
+   P<0.5   dev caught  89% flagged  40%   holdout caught  96% flagged  38%
+   selected P<0.2: dev 60.0% caught, 2.5% flagged; holdout 54.2% caught, 0.0% flagged
+== targets
+   development: 160 calls, 180825 in, 3200 out, median in 932; AUC 0.899 (true 80, swapped 80)
+   holdout:     96 calls, 119259 in, 1920 out, median in 987; AUC 0.932 (true 48, swapped 48)
+   P<0.05  dev caught   4% flagged   0%   holdout caught   2% flagged   0%
+   P<0.1   dev caught  21% flagged   0%   holdout caught  17% flagged   0%
+   P<0.15  dev caught  39% flagged   0%   holdout caught  38% flagged   0%
+   P<0.2   dev caught  59% flagged   2%   holdout caught  58% flagged   0%
+   P<0.25  dev caught  71% flagged  12%   holdout caught  67% flagged   4%
+   P<0.3   dev caught  76% flagged  16%   holdout caught  75% flagged   8%
+   P<0.35  dev caught  81% flagged  21%   holdout caught  83% flagged  17%
+   P<0.4   dev caught  85% flagged  29%   holdout caught  94% flagged  23%
+   P<0.5   dev caught  89% flagged  39%   holdout caught  96% flagged  38%
+   selected P<0.2: dev 58.8% caught, 2.5% flagged; holdout 58.3% caught, 0.0% flagged
+
+== acceptance
+   base     threshold 0.15: fail: development catch below 50%
+   around   threshold 0.15: fail: development catch below 50%; catch gap -13.3 points
+   calls    threshold 0.2: pass
+   targets  threshold 0.2: pass
