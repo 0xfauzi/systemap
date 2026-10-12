@@ -132,17 +132,19 @@ def test_the_document_reread_is_bounded() -> None:
     second_pass = text[text.index("6. **source review**") : text.index("8. **completion**")]
     for phrase in (
         "README, AGENTS.md, CLAUDE.md, the documentation index, and the first level of docs/",
-        "Stop further document reading when new rules apply only to source outside the repository",
-        "Unread documentation must have no rules for source in this repository",
+        "If new rules apply only to source outside the repository, do not read more documents",
+        "Documentation that you did not read must have no rules for source in this repository",
     ):
         assert phrase in second_pass
     reference = skill.files()["references/second-pass.md"]
     assert "first level of docs/" in reference
     assert (
-        "Stop further document reading when new rules apply only to source outside the repository"
+        "If new rules apply only to source outside the repository, do not read more documents"
         in reference
     )
-    assert "Unread documentation has no rules for source in the repository" in reference
+    assert (
+        "Documentation that you did not read has no rules for source in the repository" in reference
+    )
 
 
 def test_schema_defines_state_the_flow_list_and_the_pair_rule() -> None:
@@ -154,7 +156,7 @@ def test_schema_defines_state_the_flow_list_and_the_pair_rule() -> None:
     assert "other direction as a separate flow" in schema
     assert "empty package marker" in schema
     assert 'module = "pkg.vendor.*"' in schema
-    assert "does not show source meaning or language compliance" in schema
+    assert "do not show source meaning or that the text obeys the language policy" in schema
 
 
 def test_layers_reference_covers_the_agentic_kinds() -> None:

@@ -6,7 +6,7 @@ Use the language policy in `references/language.md` for new labels and questions
 
 ## Derived layers
 
-The renderer computes these layers from the model:
+The renderer makes these layers from the model:
 
 - **Structure** shows every component in its region and container, without flows.
   The page starts with this layer.
@@ -20,8 +20,8 @@ Each flow has one kind:
 - `data` carries an artifact such as a file, record, request, or response.
 - `control` causes another component to execute an operation.
 
-First identify the artifact. Use data when the reader must know what moves.
-Use control when the reader must know which component starts an action.
+First identify the artifact. If the reader must know what moves, use data.
+If the reader must know which component starts an action, use control.
 If both apply, select the kind that best answers the reader's question.
 Keep one flow per ordered component pair.
 A model without control flows receives a finding about possible missing flows.
@@ -33,9 +33,9 @@ Do not use a physical metaphor for a software action.
 ## Custom layers
 
 For another question with source evidence, declare a kind in `flow_kinds`.
-Add its `Layer` to `Meaning.layers` and its mapping to `layer_of_kind`.
+Add its `Layer` to `Meaning.layers`. Add its layer assignment to `layer_of_kind`.
 Add its direction verb pair to `verbs`.
-Use `layer_overrides` when one flow must use a different layer from its kind.
+If one flow must use a different layer from its kind, use `layer_overrides`.
 Custom layers receive palette colors in order.
 
 Page order is Structure, System context, Data flow, and Control flow.
@@ -67,7 +67,7 @@ The facts list third-party imports under `external`.
 The `model sdk` finding identifies model SDK imports without a model-calling component.
 Configure import prefixes under `[facts] model_sdks`.
 A prefix also matches framework tool and session modules.
-Use a leading minus, such as `"-google.adk"`, to remove a built-in prefix.
+To remove a built-in prefix, put a minus sign before it, for example `"-google.adk"`.
 Do not classify all framework modules as agents only because of their imports.
 
 Use these flow kinds for model operations:
@@ -87,7 +87,8 @@ The model schema and structural checker keep these endpoint rules consistent.
 An import or common module gives structural evidence only.
 A configured mechanism in `[flows] observed_by` also gives structural evidence only.
 This evidence does not show the direction or artifact.
-For `observed`, examine source and record current `source_refs` and `review_digest`.
+
+For `observed`, examine source. Then record current `source_refs` and `review_digest`.
 The Flow section of `references/schema.md` gives a command that prints these values.
 A declared flow has no structural or examined source evidence.
 Layer selection must not change an evidence state or hide its uncertainty.

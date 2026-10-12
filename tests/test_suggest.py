@@ -135,7 +135,7 @@ def test_the_skill_states_the_target_and_runs_suggest_and_the_check_together() -
     # The check step runs the check and the strict judgement together, and says why.
     step = text[text.index("3. **check**") : text.index("4. **judgement**")]
     assert "`systemap check && systemap judgement --strict`" in step
-    assert "Removing a flow can reopen crossing-import findings" in step
+    assert "If you remove a flow, crossing-import findings can open again" in step
     second = skill.files()["references/second-pass.md"]
     assert "`systemap check && systemap judgement --strict`" in second
     for form in (
