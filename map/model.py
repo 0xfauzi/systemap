@@ -267,6 +267,7 @@ COMPONENTS = (
             "systemap.page_icons",
             "systemap.page_palette",
             "systemap.page_font",
+            "systemap.page_live",
         ),
         entry="build",
         region="draw",

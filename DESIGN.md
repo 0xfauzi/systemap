@@ -625,6 +625,24 @@ A removed item has a dashed border and no action. A group shows ten rows and the
 A selected component with changed source shows its source changes and then its rules, because the change must keep them. The page does not show the judgement findings or the delta lines.
 `systemap judgement` and the CI log give them to the maintainer.
 
+## Live map
+
+`systemap live` adds one script to each page that it supplies. The page that `systemap render` writes does not have this script.
+Each version of the page has a version number. When the command has a newer version, the script keeps the view of the reader in the session storage of the browser.
+Then it loads the page again.
+
+The new page puts back the view (Map, Sequences, or Changes), the layer, the selected component or flow, and the sequence and its step.
+It also puts back the camera of the map and of the change map. A camera at Fit stays at Fit for the new window size.
+The script identifies a flow by its two components and its artifact, and a sequence by its identifier.
+Thus a new flow or sequence in the model does not change the selection.
+If the new page does not have the selected item, nothing is selected.
+The page puts back the camera one animation frame after the selection, because the framing of the selection occurs in that frame.
+
+An event with the version number of the page does not load the page again.
+If the command cannot render a version, the page does not change. A notice at the bottom left gives the first line of the error.
+The notice has the status role, so a screen reader reads it.
+If the connection to the command breaks, the script closes it. The page does not load again and does not try to connect again.
+
 ## Selection and evidence
 
 A selected component has an accent ring. Its flows show at full contrast. Other cards and lines have low contrast.

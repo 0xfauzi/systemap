@@ -1,4 +1,4 @@
-"""The change analysis compares two committed source snapshots.
+"""The change analysis compares a committed source snapshot with a commit or the working tree.
 
 It gives changed components, public names, and direct importers of changed modules.
 Imports give possible effects for examination. They do not give evidence of runtime
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,9 @@ from systemap.model import Model, module_matches, symbol_claims
 # (operations, types, refusals, tests), so its +N badge always equals the sum
 # of the segments; constants stay in the surface detail.
 BUCKETS = ("operations", "types", "refusals", "constants")
+# The head of a comparison that includes the edits that are not in a commit. A Git ref
+# name cannot contain a space character, so no Git ref has this name.
+WORKING_TREE = "working tree"
 
 
 class ChangeError(Exception):
@@ -76,10 +80,13 @@ def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
         return {}
 
 
-def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
-    """This function lists changed paths. NUL delimiters keep spaces in path names."""
+def _changed_files(repo: Path, merge_base: str, *head: str) -> list[str]:
+    """This function lists changed paths. NUL delimiters keep spaces in path names.
+
+    Without a head commit, Git compares the merge base with the working tree.
+    """
     proc = subprocess.run(
-        ["git", "diff", "--name-only", "-z", merge_base, head, "--no-renames"],
+        ["git", "diff", "--name-only", "-z", merge_base, *head, "--no-renames"],
         cwd=repo,
         capture_output=True,
         text=True,
@@ -88,8 +95,20 @@ def _changed_files(repo: Path, merge_base: str, head: str) -> list[str]:
         timeout=90,
     )
     if proc.returncode:
-        raise ChangeError(f"Git could not compare {merge_base} and {head}")
+        raise ChangeError(f"Git could not compare {merge_base} and {''.join(head) or WORKING_TREE}")
     return [f for f in proc.stdout.split("\0") if f]
+
+
+def _untracked_files(repo: Path) -> list[str]:
+    """This function lists the files that Git does not track and does not ignore.
+
+    The list does not include the systemap cache directory `.systemap/`.
+    """
+    out = _run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--exclude=/.systemap/", "-z"],
+        repo,
+    )
+    return [f for f in out.split("\0") if f]
 
 
 def _resolve(repo: Path, ref: str) -> str:
@@ -110,6 +129,65 @@ def _comparison_revisions(repo: Path, base: str, head: str) -> tuple[str, str, s
     if not shared:
         raise ChangeError(f"{base} and {head} have no common ancestor for the comparison.")
     return base_revision, head_revision, shared
+
+
+def comparison_base(repo: Path, base: str) -> str:
+    """This function gives the merge base of `base` and HEAD, or raises ChangeError."""
+    return _comparison_revisions(repo, base, "HEAD")[2]
+
+
+class _Commit:
+    """The head of a comparison at a commit. Git gives the files, the facts and the text."""
+
+    def __init__(self, cfg: Config, revision: str) -> None:
+        self.cfg, self.revision = cfg, revision
+
+    def files(self, merge_base: str) -> list[str]:
+        return _changed_files(self.cfg.root, merge_base, self.revision)
+
+    def facts(self) -> dict[str, Any]:
+        return history.facts_at(self.cfg, self.revision)
+
+    def text(self, path: str) -> str:
+        return _show(self.cfg.root, self.revision, path)
+
+
+class _WorkingTree:
+    """The head of a comparison in the working tree.
+
+    The changed files are the commits since the merge base, the edits that are not in a
+    commit, and the untracked files. The disk gives the text. The caller gives the facts.
+    """
+
+    def __init__(self, cfg: Config, facts: dict[str, Any]) -> None:
+        self.cfg, self._facts = cfg, facts
+
+    def files(self, merge_base: str) -> list[str]:
+        changed = _changed_files(self.cfg.root, merge_base)
+        return sorted(set(changed) | set(_untracked_files(self.cfg.root)))
+
+    def facts(self) -> dict[str, Any]:
+        return self._facts
+
+    def text(self, path: str) -> str:
+        try:
+            return (self.cfg.root / path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+
+
+def _sides(
+    cfg: Config, base: str, head: str, facts: dict[str, Any]
+) -> tuple[str, str, str, _Commit | _WorkingTree]:
+    """This function resolves the revisions and gives the head side of the comparison.
+
+    The working tree uses HEAD for its revision and its merge base.
+    """
+    if head == WORKING_TREE:
+        revisions = _comparison_revisions(cfg.root, base, "HEAD")
+        return (*revisions, _WorkingTree(cfg, facts))
+    revisions = _comparison_revisions(cfg.root, base, head)
+    return (*revisions, _Commit(cfg, revisions[1]))
 
 
 def _empty_surface() -> dict[str, Any]:
@@ -219,14 +297,14 @@ def _test_file_changes(
     language: LanguageAdapter,
     path: str,
     base: str,
-    head: str,
+    head: Callable[[str], str],
     prefixes: set[str],
     known: set[str],
     paths: dict[str, Path],
     context: Any,
 ) -> tuple[set[str], set[str], set[str]] | None:
     base_raw = _show(cfg.root, base, path)
-    head_raw = _show(cfg.root, head, path)
+    head_raw = head(path)
     before = {f"{path}::{name}" for name in language.test_names(base_raw, path)}
     after = {f"{path}::{name}" for name in language.test_names(head_raw, path)}
     added, removed = after - before, before - after
@@ -257,7 +335,7 @@ def _changed_test_deltas(
     facts: dict[str, Any],
     modules: set[str],
     base: str,
-    head: str,
+    head: Callable[[str], str],
 ) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
     prefixes = set(facts.get("packages", []))
     known = set(facts.get("components", {})) | modules
@@ -288,10 +366,12 @@ def compute(
     head: str = "HEAD",
     artifact_owner: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """This function gives the change-view data for two explicit Git refs.
+    """This function gives the change-view data for a Git ref and a head.
 
     The head ref can differ from the branch in the working tree. The facts come from the
-    resolved head snapshot. The `artifact_owner` table assigns flow artifacts to their
+    resolved head snapshot. With the head `WORKING_TREE`, the comparison includes the
+    edits that are not in a commit and the untracked files, and `facts` are the facts of
+    the working tree. The `artifact_owner` table assigns flow artifacts to their
     defining modules. Without this table, public-name changes do not highlight flow
     artifacts.
     """
@@ -301,7 +381,7 @@ def compute(
     if artifact_owner is None:
         artifact_owner = {}
 
-    base_revision, head_revision, merge_base = _comparison_revisions(repo, base, head)
+    base_revision, head_revision, merge_base, side = _sides(cfg, base, head, facts)
     empty: dict[str, Any] = {
         "has_change": False,
         "comparison_requested": True,
@@ -320,10 +400,10 @@ def compute(
         "reach_known": True,
         "unparsed": [],
     }
-    files = _changed_files(repo, merge_base, head_revision)
+    files = side.files(merge_base)
     if not files:
         return empty
-    snapshot_facts = history.facts_at(cfg, head_revision)
+    snapshot_facts = side.facts()
 
     # Each changed source module: its surface delta, from the two git blobs.
     deltas: dict[str, dict[str, Any]] = {}
@@ -332,9 +412,7 @@ def compute(
         module = language.module_for_path(repo, path, roots)
         if not module or language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
             continue
-        delta = surface_delta(
-            _show(repo, merge_base, path), _show(repo, head_revision, path), language, path
-        )
+        delta = surface_delta(_show(repo, merge_base, path), side.text(path), language, path)
         if delta is None:
             unparsed.append(module)
             continue
@@ -342,7 +420,7 @@ def compute(
     modules = set(deltas) | set(unparsed)
 
     tests_added, tests_removed = _changed_test_deltas(
-        cfg, language, files, snapshot_facts, modules, merge_base, head_revision
+        cfg, language, files, snapshot_facts, modules, merge_base, side.text
     )
 
     direct: set[str] = set()

@@ -14,6 +14,16 @@ A layer is a filtered view of the map.
   `systemap init --strict-ci` writes `strict`: a map finding makes the job fail.
   If systemap cannot run, the job fails in both modes. A workflow that exists does not change.
 
+- `systemap live` renders the map of the working tree and supplies it on 127.0.0.1.
+  When a source, model, or configuration file changes, the command renders the map again.
+  The browser then loads the page again and keeps the view, the layer, the selection, the sequence step, and the camera.
+  The Changes view compares the working tree with the merge base of a base ref and HEAD.
+  This comparison includes the edits that are not in a commit and the untracked files.
+
+  `--json`, `GET /status`, `GET /events`, and `POST /refresh` give the state and the map update lines to other programs.
+  The command writes the pages and `change.svg` into a temporary directory. It does not write tracked files.
+  docs/reference.md gives the options, the HTTP requests, and the JSON lines.
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.
