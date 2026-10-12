@@ -87,7 +87,7 @@ A layer is a filtered view of the map.
   Literal phrases replace metaphors, and terms have definitions at first use.
   The page, `describe`, `figure`, and skill now use the term layer for a filtered view.
   Previously, some text used readings and some used layers, although only layers had a definition.
-  The first line of `systemap suggest` is now `a first grouping to revise, not the answer`.
+  The first line of `systemap suggest` is now `suggest: These groups must have a source review.`
   `README.md`, `docs/reference.md`, `docs/benchmarks.md`, `bench/jev/README.md`, `explain.py`, `page.py`, and the skill use the same rules.
 
   No check rule, judgement finding, or delta finding changed its identifier text.
