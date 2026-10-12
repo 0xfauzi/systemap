@@ -5,6 +5,10 @@ These commands are outside cli.py to keep the CLI module small.
 Jev calls must have `TYPESAFE_API_KEY` and print usage.
 Completed semantic reports exit 0. Request errors exit 1.
 Plan comparison can exit 1 for changes outside the recorded plan.
+
+The questions and the answers use the provider records in `systemap.decision`.
+`systemap.jev_provider` is the only provider at this time.
+A refusal from the decision provider stops triage and plan with exit 1.
 """
 
 from __future__ import annotations
@@ -19,18 +23,27 @@ from systemap import (
     agent,
     audit,
     config,
+    decision,
     delta,
     evidence,
     extract,
     history,
     jev,
+    jev_provider,
     journeys,
     judgement,
     model_write,
     nest,
 )
 from systemap import plan as plan_mod
-from systemap.jev import Ask, JevError
+from systemap.decision import (
+    ChoiceAnswer,
+    ChoiceQuestion,
+    DecisionError,
+    DecisionProvider,
+    PredicateQuestion,
+)
+from systemap.jev_provider import JevProvider
 
 OK, STALE = 0, 1
 
@@ -41,11 +54,7 @@ OK, STALE = 0, 1
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
 REPORT_CAP = 2000
-# Pairs at or above this are one part, for `suggest --jev`: with the threshold
-# chosen on four development maps and scored on the fifth, pairwise F1 beat one
-# card per package by 0.18 on average, and lost on two maps of five
-# (bench/jev/results/grouping-report.txt).
-SAME_AT = 0.4
+# The `suggest --jev` limit for one part is `same_at` in `systemap.decision.THRESHOLDS`.
 
 TRIAGE_Q = "`report` is an issue for this system. Which component will the fix probably change?"
 SAME_Q = (
@@ -54,8 +63,18 @@ SAME_Q = (
 )
 
 
-def _client(cfg: config.Config, send: jev.Send | None = None) -> jev.Jev:
-    return jev.from_env(cfg.jev_model, cfg.jev_cache_path, send)
+def _client(cfg: config.Config, send: jev.Send | None = None) -> JevProvider:
+    return jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send)
+
+
+def _one(provider: DecisionProvider, question: decision.Question, label: str) -> ChoiceAnswer:
+    """Give the choice answer to one question. A refusal raises DecisionError."""
+    answer = provider.decide([question])[0]
+    if isinstance(answer, decision.Refusal):
+        raise DecisionError(f"the decision provider gave a refusal: {jev.printable(answer.reason)}")
+    if not isinstance(answer, ChoiceAnswer):
+        raise DecisionError(f"the answer to {label} does not select an option")
+    return answer
 
 
 def _facts(cfg: config.Config) -> dict[str, Any] | None:
@@ -88,7 +107,7 @@ def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
     return cfg.jev_enabled and jev.has_key()
 
 
-def usage_to_stderr(client: jev.Jev) -> None:
+def usage_to_stderr(client: JevProvider) -> None:
     """Print usage to stderr when a run used Jev or its cache."""
     if client.usage.sent or client.usage.cached:
         print(client.usage.line(), file=sys.stderr)
@@ -116,8 +135,9 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return _dry_run(cfg, plan, send)
     try:
         client = _client(cfg, send)
-        found = audit.lines(plan, client.ask(plan.asks))
-    except JevError as exc:
+        answers = client.decide(plan.questions)
+        found = audit.lines(plan, answers, decision.thresholds(client.name))
+    except DecisionError as exc:
         print(f"audit: {exc}")
         return STALE
     texts = [line.text for line in found]
@@ -134,6 +154,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
             result.pending,
             result.policies,
             plan.unasked,
+            decision.refused(plan.questions, answers),
         ),
         sep="\n",
     )
@@ -143,13 +164,14 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
 def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None) -> int:
     """Count the questions. With a key, get only the model list to count cached answers."""
     pending: int | str | None = None
+    chars = jev_provider.chars(plan.questions)
     if send is not None or jev.has_key():
         try:
-            pending = len(_client(cfg, send).pending(plan.asks))
-        except JevError as exc:
-            print(*audit.dry_run(plan, f"unknown: {exc}"), sep="\n")
+            pending = _client(cfg, send).pending(plan.questions)
+        except DecisionError as exc:
+            print(*audit.dry_run(plan, f"unknown: {exc}", chars), sep="\n")
             return STALE
-    print(*audit.dry_run(plan, pending), sep="\n")
+    print(*audit.dry_run(plan, pending, chars), sep="\n")
     return OK
 
 
@@ -173,24 +195,18 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         print("triage: give the issue text, or - to read it from stdin")
         return STALE
     top = nest.load(cfg).top
-    state = {"system": cfg.name, "report": text[:REPORT_CAP]}
-    question = {
-        "where": {
-            "type": "choice",
-            "instructions": TRIAGE_Q,
-            "criteria": audit.owner_criteria(top.model, top.meaning),
-        }
-    }
     try:
         client = _client(cfg, send)
-        answer = client.ask([Ask("triage", state, question)])["triage"]["where"]
-    except JevError as exc:
+        answer = _one(client, triage_question(cfg, top, text), "triage")
+        spread = decision.spread(answer)
+    except DecisionError as exc:
         print(f"triage: {exc}")
         return STALE
     by = audit.modules_by_card(top.model, facts)
     cut = " (the command used only the first 2,000 characters)" if len(text) > REPORT_CAP else ""
-    print(f"triage: confidence {answer['confidence']:.2f}{cut}")
-    for cid, p in audit._top(audit.spread(answer), 3):
+    sure = "no confidence" if answer.confidence is None else f"confidence {answer.confidence:.2f}"
+    print(f"triage: {sure}{cut}")
+    for cid, p in audit._top(spread, 3):
         if cid == audit.NONE:
             print(f"  {p:.2f}  none of the components")
             continue
@@ -200,6 +216,13 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         print(f"        on the map: {_neighbours(top.model, cid)}")
     print(client.usage.line())
     return OK
+
+
+def triage_question(cfg: config.Config, top: nest.Map, text: str) -> ChoiceQuestion:
+    """Make the triage question for one issue text."""
+    state = {"system": cfg.name, "report": text[:REPORT_CAP]}
+    options = audit.owner_criteria(top.model, top.meaning)
+    return ChoiceQuestion("triage", "where", TRIAGE_Q, state, options)
 
 
 # ---- journeys: a walk written for a way in nothing walks from yet ------------------
@@ -394,44 +417,59 @@ def groups(mods: list[str], edges: list[tuple[str, str]]) -> list[list[str]]:
     return sorted(out.values(), key=lambda g: (-len(g), g[0]))
 
 
-def suggest_groups(cfg: config.Config, facts: dict[str, Any], client: jev.Jev) -> list[str]:
+def same_question(cfg: config.Config, facts: dict[str, Any], a: str, b: str) -> PredicateQuestion:
+    """Make the question that asks if two modules are in one component."""
+    state = {
+        "system": cfg.name,
+        "module_a": audit.module_state(facts, a, names_cap=25),
+        "module_b": audit.module_state(facts, b, names_cap=25),
+    }
+    return PredicateQuestion(f"{a}|{b}", "same", SAME_Q, state)
+
+
+def suggest_groups(
+    cfg: config.Config, facts: dict[str, Any], provider: DecisionProvider
+) -> list[str]:
+    """Give the module groups. A refusal gives no pair. The output gives the count of refusals."""
     comps = facts["components"]
     mods = sorted(m for m in comps if not extract.is_empty_marker(comps[m]))
-    asks = [
-        Ask(
-            f"{a}|{b}",
-            {
-                "system": cfg.name,
-                "module_a": audit.module_state(facts, a, names_cap=25),
-                "module_b": audit.module_state(facts, b, names_cap=25),
-            },
-            {"same": {"type": "noul", "instructions": SAME_Q}},
-        )
-        for a, b in pair_candidates(facts, mods)
-    ]
-    answered = client.ask(asks)
-    edges = [
-        (a.key.split("|")[0], a.key.split("|")[1])
-        for a in asks
-        if answered[a.key]["same"]["noul"] >= SAME_AT
-    ]
+    questions = [same_question(cfg, facts, a, b) for a, b in pair_candidates(facts, mods)]
+    answers = provider.decide(questions)
+    same_at = decision.thresholds(provider.name).same_at
+    edges = []
+    for q, answer in zip(questions, answers, strict=True):
+        p = decision.probability(answer, q.key)
+        if p is not None and p >= same_at:
+            edges.append((q.key.split("|")[0], q.key.split("|")[1]))
     found = groups(mods, edges)
     out = [
-        f"suggest --jev: {len(found)} groups from {len(asks)} questions about module pairs. "
-        f"A pair is in one component if P >= {SAME_AT}. Examine these proposed groups. "
+        f"suggest --jev: {len(found)} groups from {len(questions)} questions about module pairs. "
+        f"A pair is in one component if P >= {same_at}. Examine these proposed groups. "
         "On two of five development maps, the accuracy was lower than with one component "
         "for each package",
     ]
+    refused = decision.refused(questions, answers)
+    if refused:
+        count = len(refused)
+        out.append(f"  no answer: the decision provider gave a refusal for {count} pair questions")
     for k, g in enumerate(found, 1):
         out.append(f"  group {k} ({len(g)} modules): {', '.join(g)}")
     return out
 
 
-def run_or_explain(fn: Callable[[], list[str]], label: str) -> tuple[list[str], int]:
+def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
+    """Print the module groups from the provider answers, or the reason for no groups."""
     try:
-        return fn(), OK
-    except JevError as exc:
-        return [f"{label}: {exc}"], STALE
+        client = _client(cfg)
+    except DecisionError as exc:
+        print(f"suggest --jev: {exc}")
+        return STALE
+    try:
+        lines, code = suggest_groups(cfg, facts, client), OK
+    except DecisionError as exc:
+        lines, code = [f"suggest --jev: {exc}"], STALE
+    print(*lines, client.usage.line(), sep="\n")
+    return code
 
 
 # ---- plan: the work projected onto the map, then checked against what happened ------
@@ -449,12 +487,12 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     top = nest.load(cfg).top
     try:
         client = _client(cfg, send)
-        answer = client.ask([Ask("plan", _plan_state(cfg, text), _plan_question(top))])
-    except JevError as exc:
+        spread = decision.spread(_one(client, plan_question(cfg, top, text), "plan"))
+        cut = decision.thresholds(client.name).plan_cut
+    except DecisionError as exc:
         print(f"plan: {exc}")
         return STALE
-    spread = audit.spread(answer["plan"]["where"])
-    made = plan_mod.project(top.model, top.meaning, text.strip(), spread)
+    made = plan_mod.project(top.model, top.meaning, text.strip(), spread, cut=cut)
     # A projection that names nothing is not written down: there would be
     # nothing to check it against later.
     where = plan_mod.save(cfg, made) if made.cards else None
@@ -463,18 +501,11 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     return OK
 
 
-def _plan_state(cfg: config.Config, text: str) -> dict[str, Any]:
-    return {"system": cfg.name, "task": text[: plan_mod.TEXT_CAP]}
-
-
-def _plan_question(top: nest.Map) -> dict[str, Any]:
-    return {
-        "where": {
-            "type": "choice",
-            "instructions": plan_mod.PLAN_Q,
-            "criteria": audit.owner_criteria(top.model, top.meaning),
-        }
-    }
+def plan_question(cfg: config.Config, top: nest.Map, text: str) -> ChoiceQuestion:
+    """Make the plan question for one task text."""
+    state = {"system": cfg.name, "task": text[: plan_mod.TEXT_CAP]}
+    options = audit.owner_criteria(top.model, top.meaning)
+    return ChoiceQuestion("plan", "where", plan_mod.PLAN_Q, state, options)
 
 
 def _plan_lines(made: plan_mod.Projection, cfg: config.Config, where: Path | None) -> list[str]:

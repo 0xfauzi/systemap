@@ -23,6 +23,7 @@ from conftest import STARTER_MODULES, init_two_cards, write_tree
 from systemap import plan as plan_mod
 from systemap.cli import main
 from systemap.config import Config, load
+from systemap.decision import JEV
 from systemap.jev_cli import cmd_plan
 from systemap.model import Meaning
 
@@ -54,7 +55,9 @@ def answering(spread: dict[str, float]) -> Any:
 
 def test_only_the_cards_with_real_weight_are_named() -> None:
     spread = {"Reader": 0.7, "Writer": 0.06, "Ledger": 0.04, "none of these": 0.2}
-    assert plan_mod.named(spread) == ["Reader", "Writer"], "the cut is 0.05, and none is not a card"
+    assert plan_mod.named(spread, JEV.plan_cut) == ["Reader", "Writer"], (
+        "the cut is 0.05, and none is not a card"
+    )
     assert plan_mod.named(spread, cut=0.5) == ["Reader"]
 
 
@@ -70,7 +73,9 @@ def test_a_card_is_given_with_what_it_sits_in(sample: Any) -> None:
 
 def test_the_projection_keeps_the_task_the_weights_and_the_day(sample: Any) -> None:
     spread = {"Parser": 0.6, "Writer": 0.2, "Reader": 0.01}
-    made = plan_mod.project(sample.model, sample.meaning, "split the input differently", spread)
+    made = plan_mod.project(
+        sample.model, sample.meaning, "split the input differently", spread, cut=JEV.plan_cut
+    )
     assert made.cards == ("Parser", "Writer")
     assert made.weights == {"Parser": 0.6, "Writer": 0.2}
     assert made.id.endswith("-split-the-input-differently")

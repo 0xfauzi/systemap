@@ -24,7 +24,8 @@ from pathlib import Path
 
 from common import DATA, RESULTS, load
 
-from systemap import audit, jev
+from systemap import jev
+from systemap.decision import JEV
 from systemap.judgement import package_of, share_a_package, share_a_word, words
 
 HERE = Path(__file__).parent
@@ -499,19 +500,19 @@ NOUL_KINDS: dict[str, tuple[str, str, str, dict[str, float]]] = {
         "holds",
         "holds",
         "== flowverify (idea 4): does the code carry the flow the sentence claims?",
-        {"below": audit.FLOW_BELOW},
+        {"below": JEV.flow_below},
     ),
     "sentence": (
         "describes",
         "describes",
         "== sentence (N4): does the card's sentence describe its modules?",
-        {"below": audit.SENTENCE_BELOW},
+        {"below": JEV.sentence_below},
     ),
     "governs": (
         "governs",
         "governs",
         "== governs (N3): does this invariant govern this card?",
-        {"at": audit.GOVERNS_AT},
+        {"at": JEV.governs_at},
     ),
     "answerfit": (
         "covers",
@@ -559,10 +560,10 @@ Figure = tuple[str, float, float | None]
 def owner_figures(data: dict, res: dict) -> list[Figure]:
     _, near, _ = planted(data, res)
     p_true, p_planted = [x[3] for x in near], [x[4] for x in near]
-    caught, flagged = at_threshold(p_true, p_planted, below=audit.MISFOLD_BELOW)
-    answered, right = suggested(data, res, audit.OWNER_AT)
-    fold = f"mis-fold, planted next door (P<{audit.MISFOLD_BELOW})"
-    owner = f"owner (confidence >= {audit.OWNER_AT})"
+    caught, flagged = at_threshold(p_true, p_planted, below=JEV.misfold_below)
+    answered, right = suggested(data, res, JEV.owner_at)
+    fold = f"mis-fold, planted next door (P<{JEV.misfold_below})"
+    owner = f"owner (confidence >= {JEV.owner_at})"
     return [
         (f"{fold}: caught", caught, None),
         (f"{fold}: flagged", flagged, MISFOLD_RISE),

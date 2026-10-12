@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +13,12 @@ import pytest
 from conftest import STARTER_MODULES, Sample, init_two_cards, write_tree
 from jev_replay import Recording, serve
 
-from systemap import audit, extract, jev, jev_cli, nest
+from systemap import audit, decision, extract, jev, jev_cli, nest
 from systemap.cli import main
 from systemap.config import Answer, ConfigError
 from systemap.config import load as load_config
+from systemap.decision import JEV, ChoiceAnswer, PredicateAnswer
+from systemap.jev_provider import JevProvider
 
 
 def tree_of(sample: Sample) -> nest.Tree:
@@ -30,8 +33,12 @@ def tree_of(sample: Sample) -> nest.Tree:
     return nest.Tree((top,))
 
 
-def answer(key: str, **fields: Any) -> dict[str, Any]:
-    return {key: fields}
+def answer(key: str, **fields: Any) -> decision.Answer:
+    """Make the answer record that the Jev adapter makes from these Jev fields."""
+    if "noul" in fields:
+        return PredicateAnswer(fields["noul"], {key: fields})
+    probabilities = fields.get("probabilities", {})
+    return ChoiceAnswer(fields["choice"], probabilities, fields["confidence"], {key: fields})
 
 
 # ---- the plan: which questions an audit asks ------------------------------------
@@ -39,9 +46,9 @@ def answer(key: str, **fields: Any) -> dict[str, Any]:
 
 def test_plan_asks_one_question_per_module_card_flow_and_invariant_pair(sample: Sample) -> None:
     plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, audit.KINDS)
-    kinds = sorted({a.key.split("|")[1] for a in plan.asks})
+    kinds = sorted({a.key.split("|")[1] for a in plan.questions})
     assert kinds == ["flow", "governs", "owner", "sentence"]
-    owners = sorted(a.key for a in plan.asks if "|owner|" in a.key)
+    owners = sorted(a.key for a in plan.questions if "|owner|" in a.key)
     # the package root is an empty marker and is not asked about
     assert owners == [
         "|owner|pkg.ledger",
@@ -51,16 +58,16 @@ def test_plan_asks_one_question_per_module_card_flow_and_invariant_pair(sample: 
     ]
     # flows between cards whose modules import each other: parser uses reader, writer uses ledger;
     # the user is an actor, and parser -> writer and ledger -> parser share no import
-    flows = sorted(a.key.split("|")[2] for a in plan.asks if "|flow|" in a.key)
+    flows = sorted(a.key.split("|")[2] for a in plan.questions if "|flow|" in a.key)
     assert flows == ["Reader->Parser:parse", "Writer->Ledger:record"]
     # invariant 1 governs Writer; invariant 2 governs Writer and Ledger; actors are never asked
-    governs = sorted(a.key.split("|", 2)[2] for a in plan.asks if "|governs|" in a.key)
+    governs = sorted(a.key.split("|", 2)[2] for a in plan.questions if "|governs|" in a.key)
     assert governs == ["1|Ledger", "1|Parser", "1|Reader", "2|Parser", "2|Reader"]
 
 
 def test_flow_state_holds_the_lines_where_the_two_cards_meet(sample: Sample) -> None:
     plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, audit.KINDS)
-    ask = next(a for a in plan.asks if a.key == "|flow|Reader->Parser:parse")
+    ask = next(a for a in plan.questions if a.key == "|flow|Reader->Parser:parse")
     assert ask.state["claim"]["sentence"] == "The reader calls the parser on each request."
     assert any("pkg.parser:" in line and "Request" in line for line in ask.state["code"])
 
@@ -73,7 +80,7 @@ def test_unclaimed_modules_are_asked_about_on_the_top_map(sample: Sample) -> Non
 
     facts = extract.build(sample.cfg)
     plan = audit.make_plan(tree_of(sample), facts, sample.cfg)
-    stray = next(a for a in plan.asks if a.key == "|owner|pkg.stray")
+    stray = next(a for a in plan.questions if a.key == "|owner|pkg.stray")
     assert plan.reads[stray.key][3] == ""  # no card claims it
 
 
@@ -92,11 +99,11 @@ def test_misfold_fires_below_the_threshold_only(sample: Sample) -> None:
     high = answer(
         "owner", choice="Reader", confidence=0.6, probabilities={"Parser": 0.05, "Reader": 0.9}
     )
-    line = audit.owner_line(read, low)
+    line = audit.owner_line(read, low, JEV)
     assert line is not None
     assert line.text == "jev mis-fold: Parser claims pkg.parser"
     assert line.detail[0].startswith("reads like Reader; P(Parser) 0.04")
-    assert audit.owner_line(read, high) is None
+    assert audit.owner_line(read, high, JEV) is None
 
 
 def test_unclaimed_module_gets_one_card_when_confident_else_three(sample: Sample) -> None:
@@ -109,10 +116,12 @@ def test_unclaimed_module_gets_one_card_when_confident_else_three(sample: Sample
         probabilities={"Writer": 0.4, "Parser": 0.3, "Reader": 0.2, "Ledger": 0.1},
     )
     none = answer("owner", choice=audit.NONE, confidence=0.95, probabilities={audit.NONE: 0.97})
-    assert audit.owner_line(read, sure).detail[0].startswith("reads like Writer")  # type: ignore[union-attr]
-    assert audit.owner_line(read, unsure).detail[0].startswith("closest: Writer, Parser, Reader")  # type: ignore[union-attr]
-    assert audit.owner_line(read, none).detail[0].startswith("reads like none of the cards")  # type: ignore[union-attr]
-    texts = {audit.owner_line(read, a).text for a in (sure, unsure, none)}  # type: ignore[union-attr]
+    assert audit.owner_line(read, sure, JEV).detail[0].startswith("reads like Writer")  # type: ignore[union-attr]
+    assert (
+        audit.owner_line(read, unsure, JEV).detail[0].startswith("closest: Writer, Parser, Reader")
+    )  # type: ignore[union-attr]
+    assert audit.owner_line(read, none, JEV).detail[0].startswith("reads like none of the cards")  # type: ignore[union-attr]
+    texts = {audit.owner_line(read, a, JEV).text for a in (sure, unsure, none)}  # type: ignore[union-attr]
     assert texts == {"jev owner: pkg.stray is claimed by no card"}
 
 
@@ -120,16 +129,21 @@ def test_sentence_flow_and_governs_thresholds(sample: Sample) -> None:
     top = tree_of(sample).top
     flow = sample.model.flows[1]
     inv = sample.model.invariants[0]
-    assert audit.sentence_line(("sentence", top, "Reader"), answer("describes", noul=0.19))
-    assert audit.sentence_line(("sentence", top, "Reader"), answer("describes", noul=0.2)) is None
-    assert audit.flow_line(("flow", top, flow), answer("holds", noul=0.19))
-    assert audit.flow_line(("flow", top, flow), answer("holds", noul=0.2)) is None
-    got = audit.governs_line(("governs", top, inv, "Reader"), answer("governs", noul=0.8))
+    assert audit.sentence_line(("sentence", top, "Reader"), answer("describes", noul=0.19), JEV)
+    assert (
+        audit.sentence_line(("sentence", top, "Reader"), answer("describes", noul=0.2), JEV) is None
+    )
+    assert audit.flow_line(("flow", top, flow), answer("holds", noul=0.19), JEV)
+    assert audit.flow_line(("flow", top, flow), answer("holds", noul=0.2), JEV) is None
+    got = audit.governs_line(("governs", top, inv, "Reader"), answer("governs", noul=0.8), JEV)
     assert (
         got is not None
         and got.text == "jev governs: invariant 1 may govern Reader, which it does not name"
     )
-    assert audit.governs_line(("governs", top, inv, "Reader"), answer("governs", noul=0.79)) is None
+    assert (
+        audit.governs_line(("governs", top, inv, "Reader"), answer("governs", noul=0.79), JEV)
+        is None
+    )
 
 
 # ---- answers live beside judgement's, and each command reads only its own --------
@@ -154,10 +168,10 @@ def test_audit_answers_are_told_apart_from_judgement_answers() -> None:
 
 def test_by_default_the_flow_question_is_not_asked(sample: Sample) -> None:
     plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg)
-    assert sorted({a.key.split("|")[1] for a in plan.asks}) == ["governs", "owner", "sentence"]
+    assert sorted({a.key.split("|")[1] for a in plan.questions}) == ["governs", "owner", "sentence"]
     assert "jev flow" not in audit.DEFAULT_KINDS
     one = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ["jev flow"])
-    assert {a.key.split("|")[1] for a in one.asks} == {"flow"}
+    assert {a.key.split("|")[1] for a in one.questions} == {"flow"}
 
 
 def test_an_answer_about_a_kind_not_asked_is_not_stale() -> None:
@@ -297,20 +311,22 @@ HISTORICAL_QUESTIONS = {
 }
 
 
-def historical_asks(asks: list[jev.Ask]) -> list[jev.Ask]:
-    """Use the original request text only for exact replay of historical evidence."""
-    out = []
-    for ask in asks:
-        questions = {}
-        for key, question in ask.questions.items():
-            copied = {**question, "instructions": HISTORICAL_QUESTIONS[key]}
-            if key == "owner":
-                copied["criteria"] = {
-                    **question["criteria"],
-                    audit.NONE: "No component on this map carries out what this module does.",
-                }
-            questions[key] = copied
-        out.append(jev.Ask(ask.key, ask.state, questions))
+def historical_questions(questions: list[decision.Question]) -> list[decision.Question]:
+    """Use the original request text only for exact replay of historical evidence.
+
+    The historical requests did not have `needs`.
+    """
+    out: list[decision.Question] = []
+    for question in questions:
+        text = HISTORICAL_QUESTIONS[question.name]
+        if isinstance(question, decision.ChoiceQuestion):
+            options = {
+                **question.options,
+                audit.NONE: "No component on this map carries out what this module does.",
+            }
+            out.append(replace(question, instructions=text, options=options, needs=()))
+        else:
+            out.append(replace(question, instructions=text))
     return out
 
 
@@ -318,9 +334,9 @@ def test_historical_audit_on_exact_recorded_answers(sample: Sample) -> None:
     recording = Recording("jev_sample")
     client = jev.Jev(recording.send)
     plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, audit.KINDS)
-    asks = historical_asks(plan.asks)
-    assert asks[0].questions != plan.asks[0].questions
-    found = audit.lines(plan, client.ask(asks))
+    questions = historical_questions(plan.questions)
+    assert questions[0] != plan.questions[0]
+    found = audit.lines(plan, JevProvider(client).decide(questions), JEV)
     # What the real model said about the sample, recorded. Every module reads like its own
     # card. Both flows are doubted: Reader -> Parser rightly (nothing in pkg.reader calls the
     # parser; the parser only imports Request), Writer -> Ledger because the evidence is the
@@ -412,7 +428,7 @@ class Synthetic:
 
 def test_current_audit_prompts_use_explicit_synthetic_answers(sample: Sample) -> None:
     synthetic = Synthetic()
-    client = jev.Jev(synthetic.send)
+    client = JevProvider(jev.Jev(synthetic.send))
     assert audit.run(tree_of(sample), sample.facts, sample.cfg, client, audit.KINDS) == []
     assert len(synthetic.requests) == 15
     assert {key for body in synthetic.requests for key in body["questions"]} == {
@@ -445,9 +461,10 @@ def test_historical_two_card_audit_replays_exact_requests(two_cards: Path) -> No
     plan = audit.make_plan(nest.load(cfg), facts, cfg)
     recording = Recording("jev_two_cards")
     client = jev.Jev(recording.send)
-    found = audit.lines(plan, client.ask(historical_asks(plan.asks)))
+    answers = JevProvider(client).decide(historical_questions(plan.questions))
+    found = audit.lines(plan, answers, JEV)
     assert found == []
-    assert client.usage.sent == len(plan.asks) == 5
+    assert client.usage.sent == len(plan.questions) == 5
 
 
 def test_historical_triage_replays_the_exact_request(two_cards: Path) -> None:
@@ -551,7 +568,7 @@ def test_judgement_ignores_audit_answers(
 def test_delta_asks_only_about_the_unclaimed_modules(sample: Sample) -> None:
     plan = audit.Plan()
     audit.plan_owner(plan, tree_of(sample).top, sample.facts, ["pkg"], "sample", placed_too=False)
-    assert [a.key for a in plan.asks] == ["|owner|pkg"]
+    assert [a.key for a in plan.questions] == ["|owner|pkg"]
 
 
 def test_groups_are_connected_components_largest_first() -> None:
