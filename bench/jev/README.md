@@ -1845,7 +1845,7 @@ Fit now fits the drawn bounds of the map (`data-fit`), not the viewBox with its 
 It keeps the map 8 px from the frame and above one line of the legend. With a measured legend top, the zoom of the
 self map changed from layer to layer at 1024 x 768 and 800 x 600, because the legend has two lines on a narrow window
 for some layers. Thus Fit uses one line of the legend. The title block on one line had the same problem when the
-question went onto a second line: a map narrower than 860 px now shows only the question.
+question went onto a second line: a window of 1259 px or less now shows only the question.
 
 ### After the change
 
@@ -1900,8 +1900,8 @@ Result for each acceptance value:
   no text size less than 11px)". The layout digests are the same: `c234e180810b1631` and `37a8ed23f412ee50`.
   In a scratch worktree, `systemap refresh` and then `systemap check` gave "coverage: 84 of 84 modules mapped" and the same layout line.
   The other check lines are stale source records, which the maintainer renews after the merge.
-- Page size: the sample page is 307,150 bytes (before: 301,519), 50 bytes under the limit. The self-map page is 643,503 bytes (before: 637,718).
-  The label script is 4,561 bytes of the 5,631. The change removes an unused camera function (`fracOf`) and a second legend
+- Page size: the sample page is 307,114 bytes (before: 301,519), 86 bytes under the limit. The self-map page is 643,467 bytes (before: 637,718).
+  The label script is 4,561 bytes of the 5,595. The change removes an unused camera function (`fracOf`) and a second legend
   calculation in the sequence script. A further addition to the page can exceed the limit.
 - The zoom controls: in Chromium, Fit, the zoom value (100 percent), zoom in and zoom out (1.25), the wheel, a selection frame,
   Escape back to Fit, full screen and the panel button all gave the expected zoom and pressed state. A view at Fit stays at Fit

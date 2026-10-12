@@ -78,9 +78,9 @@ body:not([data-mode="understand"]) .layer-controls,
 body[data-phone] .layer-controls{display:none}
 .seq-seg button:focus-visible{outline-offset:-3px}
 /* The title block is one line: the label, then the question on the same baseline.
-   A narrow map shows only the question, so a layer change does not change Fit. */
-.map{container-type:inline-size}
-@container (max-width:860px){.mapbar__label{display:none}}
+   A window of 1259px or less shows only the question, so that the question does not
+   go onto a second line and a layer change does not change Fit. */
+@media(max-width:1259px){.mapbar__label{display:none}}
 .lay{display:flex;flex-direction:column;gap:14px}
 .readpanel .lay-text{margin:0;font:13px/20px var(--fs);color:var(--ink-2)}
 .lay-card{color:var(--ink-2)}

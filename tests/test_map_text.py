@@ -232,9 +232,8 @@ def test_the_title_block_is_one_line_above_the_map(sample: Sample) -> None:
     assert ".mapbar{position:relative;margin:62px 24px 0;" in css
     assert "flex-wrap:wrap;align-items:baseline;gap:2px 16px;" in css
     assert ".mapwrap{position:absolute;inset:2px 0 0 0;" in css
-    # A narrow map shows only the question, so a layer change does not change Fit.
-    assert ".map{container-type:inline-size}" in css
-    assert "@container (max-width:860px){.mapbar__label{display:none}}" in css
+    # A window of 1259px or less shows only the question: a layer change does not change Fit.
+    assert "@media(max-width:1259px){.mapbar__label{display:none}}" in css
 
 
 def test_the_sequence_marks_use_the_card_description_size(sample: Sample) -> None:

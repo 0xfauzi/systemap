@@ -327,7 +327,7 @@ In Paper, the segmented control and the zoom buttons have the map color. Thus th
 The title block has a small label and the question on one line. The label uses the kicker type.
 In the Map view, it gives the layer name and its position, for example SYSTEM CONTEXT · LAYER 1 OF 5.
 The All segment gives ALL LAYERS. The question shows in 22px type.
-When the map is narrower than 860px, the title block shows only the question.
+On a window of 1259px or less, the title block shows only the question.
 Thus the title block has one line in each layer, and a layer change does not change Fit.
 The map starts 2px below the title block.
 
