@@ -65,24 +65,9 @@ A package pattern or a symbol claim in `implemented_by` also puts a component in
 An actor has no modules. For a flow with an actor end, use a module of the other end.
 If no reference is in an endpoint module, the flow is not `observed`.
 `systemap judgement` then prints a `no endpoint source` finding.
-The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
+The facts file (`docs/map/map.json` by default) gives the `source_sha256` of each module in `components`.
+`systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
 It does not examine the claims for you. Examine the source before you record the values.
-
-```sh
-uv run python - <<'PY'
-from pathlib import Path
-from systemap import config, evidence, extract, nest
-
-cfg = config.load(Path.cwd())
-facts = extract.build(cfg)
-for module, record in sorted(facts["components"].items()):
-    print(f"source_sha256 {module} {record.get('source_sha256')}")
-for current_map in nest.load(cfg).maps:
-    for flow in current_map.model.flows:
-        digest = evidence.flow_claim_digest(flow, current_map.meaning)
-        print(f"review_digest {current_map.prefix}{flow.src} -> {flow.dst} {digest}")
-PY
-```
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
@@ -105,7 +90,7 @@ For each finding, change the model or record the reason for its stored state.
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
 | no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
-| stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest. |
+| stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with `systemap review ID`. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
 Without `--strict`, the report exits 0.
@@ -749,6 +734,41 @@ For each refused file, the command reads the new text with the reader that runs 
 It writes the file only if that reader gives the same model as the old file.
 Fields with their default values are not in the new text.
 If the old file imported a file beside it, the command names that file. The new file does not import it.
+
+### `systemap review ID | --flow 'SRC->DST' [--map ID] [--dry-run]`
+
+Writes the current review digest of one target into the model file.
+`systemap review ID` writes `source_review` of the component ID.
+`systemap review --flow 'SRC->DST'` writes `review_digest` of the flow from SRC to DST.
+Put the flow value between quotation marks, because the shell reads `>` as a redirection.
+`--map ID` selects a nested map.
+`--dry-run` prints the digest and the file, and it writes nothing.
+
+The command does not examine claims.
+Before you use it, examine the source and all the claims of the target.
+One command writes one target.
+The command has no option for all targets, because a person or an agent must examine each claim separately.
+
+The command reads the source in the working tree.
+`systemap judgement` reads the stored facts, so run `systemap refresh` before `systemap judgement`.
+A flow digest is one of the claims of its two endpoint components.
+Thus, a new flow digest makes a current review of an endpoint stale, and the command tells you.
+Record flow digests before component digests.
+
+The command writes the value into the file that defines the target.
+This file can be a file that the model file imports.
+The command changes only the value, or it adds one keyword argument.
+It keeps the comments and the format of the file.
+It writes the file only if the reader that runs no code gives the same model with only the new value.
+If the value is the current digest, the command writes nothing.
+
+The command stops with exit 1 and writes nothing in these conditions:
+
+- The map has no such component or flow.
+- The component has no current digest. It claims no module, a claimed module is missing, or the parser cannot read a claimed module.
+- The flow has no `source_refs`, or a source record does not agree with the current source.
+- systemap cannot read the model file as data. Use `systemap convert` first.
+- The command finds no literal call for the target, or more than one.
 
 ### `systemap serve [--port 8765]`
 

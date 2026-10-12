@@ -99,9 +99,9 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `drafted journey` | An agent sequence still has no source examination. | Examine every step. Correct errors before removal of `drafted=True`. |
    | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
-   | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Renew the record or correct the claim. |
+   | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow 'SRC->DST'`. |
    | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
-   | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then record the current digest. |
+   | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then run `systemap review ID`. |
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 

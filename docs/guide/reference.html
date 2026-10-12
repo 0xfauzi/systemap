@@ -171,7 +171,8 @@ A package pattern or a symbol claim in <code>implemented_by</code> also puts a c
 An actor has no modules. For a flow with an actor end, use a module of the other end.
 If no reference is in an endpoint module, the flow is not <code>observed</code>.
 <code>systemap judgement</code> then prints a <code>no endpoint source</code> finding.
-The command below prints the <code>source_sha256</code> of each module and the <code>review_digest</code> of each flow.
+The facts file (<code>docs/map/map.json</code> by default) gives the <code>source_sha256</code> of each module in <code>components</code>.
+<code>systemap review --flow 'SRC-&gt;DST'</code> writes the current <code>review_digest</code> of one flow.
 It does not examine the claims for you. Examine the source before you record the values.</p>
 <pre class="code"><code class="language-sh"><span class="k">uv</span> run python - &lt;&lt;<span class="s">'PY'</span>
 <span class="k">from</span> pathlib import Path
@@ -240,7 +241,7 @@ For each finding, change the model or record the reason for its stored state.</p
 </tr>
 <tr>
 <td>stale source review</td>
-<td>A component has a <code>source_review</code> digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest.</td>
+<td>A component has a <code>source_review</code> digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with <code>systemap review ID</code>.</td>
 </tr>
 <tr>
 <td>model sdk</td>
@@ -972,6 +973,36 @@ If all model files have literal values only, it writes nothing and exits 0.</p>
 It writes the file only if that reader gives the same model as the old file.
 Fields with their default values are not in the new text.
 If the old file imported a file beside it, the command names that file. The new file does not import it.</p>
+<h3 id="systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow 'SRC-&gt;DST' [--map ID] [--dry-run]</code></h3>
+<p>Writes the current review digest of one target into the model file.
+<code>systemap review ID</code> writes <code>source_review</code> of the component ID.
+<code>systemap review --flow 'SRC-&gt;DST'</code> writes <code>review_digest</code> of the flow from SRC to DST.
+Put the flow value between quotation marks, because the shell reads <code>&gt;</code> as a redirection.
+<code>--map ID</code> selects a nested map.
+<code>--dry-run</code> prints the digest and the file, and it writes nothing.</p>
+<p>The command does not examine claims.
+Before you use it, examine the source and all the claims of the target.
+One command writes one target.
+The command has no option for all targets, because a person or an agent must examine each claim separately.</p>
+<p>The command reads the source in the working tree.
+<code>systemap judgement</code> reads the stored facts, so run <code>systemap refresh</code> before <code>systemap judgement</code>.
+A flow digest is one of the claims of its two endpoint components.
+Thus, a new flow digest makes a current review of an endpoint stale, and the command tells you.
+Record flow digests before component digests.</p>
+<p>The command writes the value into the file that defines the target.
+This file can be a file that the model file imports.
+The command changes only the value, or it adds one keyword argument.
+It keeps the comments and the format of the file.
+It writes the file only if the reader that runs no code gives the same model with only the new value.
+If the value is the current digest, the command writes nothing.</p>
+<p>The command stops with exit 1 and writes nothing in these conditions:</p>
+<ul>
+<li>The map has no such component or flow.</li>
+<li>The component has no current digest. It claims no module, a claimed module is missing, or the parser cannot read a claimed module.</li>
+<li>The flow has no <code>source_refs</code>, or a source record does not agree with the current source.</li>
+<li>systemap cannot read the model file as data. Use <code>systemap convert</code> first.</li>
+<li>The command finds no literal call for the target, or more than one.</li>
+</ul>
 <h3 id="systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></h3>
 <p>Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.

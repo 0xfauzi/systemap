@@ -113,6 +113,8 @@ COMPONENTS = (
             "systemap.language_config",
             "systemap.model_load",
             "systemap.model_convert",
+            "systemap.model_edit",
+            "systemap.review",
             "systemap.root_check",
             "systemap.typescript_config",
         ),

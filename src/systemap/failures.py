@@ -12,7 +12,7 @@ import argparse
 import sys
 from collections.abc import Callable
 
-from systemap import change, delta, delta_link, figure, place
+from systemap import change, delta, delta_link, figure, place, review
 from systemap.config import ArgumentError, ConfigError
 
 STALE, BAD_CONFIG = 1, 2
@@ -31,6 +31,7 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (ConfigError, CONFIG_FIX, BAD_CONFIG),
     (figure.FigureError, "", STALE),
     (place.PlaceError, "", STALE),
+    (review.ReviewError, "", STALE),
     (
         delta.DeltaError,
         "Give delta a Git ref that Git can resolve. Then run the command again.",

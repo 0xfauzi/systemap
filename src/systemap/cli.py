@@ -43,6 +43,7 @@ from systemap import (
     nest,
     page,
     place,
+    review,
     scaffold,
     serve,
     skill,
@@ -1220,6 +1221,7 @@ def build_parser() -> argparse.ArgumentParser:
     jev_cli.add_parsers(sub, add_root)
     serve.add_parsers(sub, add_root)
     model_convert.add_parsers(sub, add_root)
+    review.add_parsers(sub, add_root)
     return parser
 
 
