@@ -42,6 +42,7 @@ from systemap import (
     page,
     place,
     scaffold,
+    serve,
     skill,
     trend,
 )
@@ -50,7 +51,7 @@ from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
 from systemap.model import Meaning, Model
 from systemap.model import problems as model_problems
-from systemap.serve import make_server
+from systemap.serve import DEFAULT_PORT, make_server
 
 OK, STALE = 0, 1
 
@@ -723,9 +724,6 @@ def cmd_place(args: argparse.Namespace) -> int:
 # ---- serve -----------------------------------------------------------------
 
 
-DEFAULT_PORT = 8765
-
-
 def cmd_serve(args: argparse.Namespace) -> int:
     """Serve the output directory over HTTP.
 
@@ -1190,6 +1188,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--print", action="store_true", help="Print SKILL.md to stdout.")
     s.set_defaults(func=cmd_skill)
     jev_cli.add_parsers(sub, add_root)
+    serve.add_parsers(sub, add_root)
     return parser
 
 
