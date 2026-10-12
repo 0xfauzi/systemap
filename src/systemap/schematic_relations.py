@@ -636,7 +636,7 @@ svg.systemap = {
     if(panel){ panel.innerHTML = ''; panel.classList.remove('on'); }
   },
   view: {
-    fit: function(){ userView({k:1, tx:0, ty:0}); },
+    fit: function(instant){ fit(instant); },
     actual: function(){ var c = centre(); zoomAt(1 / (base() * goal.k), c.x, c.y); },
     zoomBy: function(f){ var c = centre(); zoomAt(f, c.x, c.y); },
     zoom: function(){ return base() * goal.k; },
@@ -653,7 +653,6 @@ svg.systemap = {
     frameRegion: frameRegion,
     frame: function(){ return lastFrame; },
     visibleArea: visibleArea,
-    fracOf: fracOf,
     whenStill: whenStill,
     back: back
   },

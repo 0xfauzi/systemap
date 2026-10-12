@@ -115,7 +115,7 @@ typography:
     lineHeight: 1.08
   flow-label:
     fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
-    fontSize: "11 SVG units"
+    fontSize: "11 SVG units, up to the card description size when the zoom is less than 100 percent"
     fontWeight: 500
   container-description:
     fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
@@ -342,9 +342,13 @@ This control has the design of Whole route and Steps in the Sequences toolbar.
 A selected segment has the card color and ink text. The focus ring of a segment is inside the segment.
 In Paper, the segmented control and the zoom buttons have the map color. Thus the selected segment shows on the row.
 
-The title block has a small label and the question. The label uses the kicker type.
+The title block has a small label and the question on one line. The label uses the kicker type.
 In the Map view, it gives the layer name and its position, for example SYSTEM CONTEXT · LAYER 1 OF 5.
 The All segment gives ALL LAYERS. The question shows in 22px type.
+
+On a window of 1259px or less, the title block shows only the question.
+Thus the title block has one line in each layer, and a layer change does not change Fit.
+The map starts 2px below the title block.
 
 The zoom controls and the full-screen button are at the end of the row in each view.
 Zoom out, the zoom value, zoom in, and Fit are one segmented group. The full-screen button follows the group.
@@ -352,6 +356,14 @@ Zoom out, the zoom value, zoom in, and Fit are one segmented group. The full-scr
 The buttons have icons on a 16-unit grid with a 1.5-unit line, round ends, and round joins.
 Each icon button has a name and a tooltip. The zoom value button sets the actual size. Fit shows the full map.
 The Fit icon has small corners around a rectangle. The full-screen icon has large corners.
+
+Fit shows the drawn map: the containers, the regions, the cards, the lines, and the labels.
+It does not show the empty space around them. The map is 8px or more from the edges of the map area.
+It is above one line of the legend and the readout.
+
+On a narrow window, a legend with two lines can cover the bottom of the map.
+The page opens at Fit. When the window, the panel, or the legend changes the map area, a map at Fit stays at Fit.
+The zoom value then shows the new zoom. Fit is 150 percent or less.
 
 The full-screen button and the F key open full screen in each view.
 In Map and Changes, the header, the row, and the panel go. The browser shows the page in full screen if it can.
@@ -436,6 +448,10 @@ At widths of 640px or less, the phone layout replaces the map area.
 The phone layout shows the regions as a grid. A region opens the map at a size that you can read.
 
 A sequence shows one step: the sequence button, the map area, the step note, the step buttons, and Previous and Next.
+The map area of a step shows the two cards and the line of the step. Its zoom is not less than the zoom
+at which card names show at 12px and card descriptions at 11px. If the step does not fit at that zoom,
+the acting component stays in the map area. It is as near to the middle of the step as possible.
+
 The step fills the height of the screen. The map area has the height that the other parts do not use.
 The space under Previous and Next is 16px, or the bottom safe area of the device when that area is larger.
 On a phone, the sequence button is in the head under the views. Its list has the width of the button.
@@ -468,6 +484,18 @@ The minimum size is the base size that the map check examines. Card text changes
 
 Flow labels show on their line at rest. A label that does not fit on its line shows only for a pointer, focus, or selection.
 The readout and the panel tell the reader that such labels are in the list.
+
+When the zoom is less than 100 percent, the flow labels, the region labels, and the container labels become larger.
+They show at 11px on the screen, but they do not become larger than the card descriptions.
+A container label becomes larger from the top left corner of its container. A region label becomes larger from the left edge
+of its region, at the middle of its number ring. Each becomes as large as the space in its box permits.
+
+A larger flow label moves along the nearest part of its own line to the nearest free place.
+At a free place, the label text touches no card and no other label.
+It also touches no line that it did not touch at its layout size.
+A label that has no such place shows only for a pointer, focus, or selection, as a label beside its line does. The readout counts it with those labels.
+
+The layout sizes do not change, so the map check and the placement give the same results.
 A layer change draws the lines of the new layer in model order. Each line draws from its source to its target.
 
 Document figures use the same card type size and keep the authored coordinate plane.
@@ -524,6 +552,13 @@ The type scale has these sizes in CSS pixels:
 Text in sentences is 12px or more. No text on the page is less than 11px.
 The phone layout uses 14px and 15px for body text and controls.
 Map text uses SVG units and changes size with the zoom. The smallest map text is 11 SVG units.
+
+When the zoom is less than 100 percent, labels become larger (see Map and text).
+The tags, the step numbers, and the line with the two ends in the step note use 13.6 SVG units.
+This size is the largest card description size.
+At Fit on a 1440 by 900 screen, the self map shows card names at 12px or more.
+The other map text of the self map shows at 11px or more.
+Only the container label OUTSIDE THE PACKAGE is smaller: its box gives room for 10.7px.
 
 In a browser that can do it, the lines of a heading have almost the same length.
 The last line of a paragraph does not contain only one short word.
@@ -638,7 +673,7 @@ A figure outside the page has no page setting. A figure obeys the system setting
 The source modules are `page.py`, `page_assets.py`, `page_data.py`, `page_script.py`, `page_workspace.py`,
 `page_guide.py`, `page_palette.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`,
 `page_present.py`, `page_changes.py`, `page_changes_map.py`, `page_changes_script.py`, `page_phone.py`,
-`page_motion.py`, `page_mapview.py`, `page_icons.py`, `page_font.py`, `schematic.py`, `schematic_cards.py`,
-`schematic_change.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+`page_motion.py`, `page_mapview.py`, `page_icons.py`, and `page_font.py`.
+The map source modules are `schematic.py`, `schematic_cards.py`, `schematic_change.py`, `schematic_style.py`, `schematic_script.py`, `schematic_labels.py`, and `schematic_relations.py`.
 The build removes the comments, line breaks, and indentation from the page styles and scripts.
 The browser measurements and test results are in `bench/jev/README.md`.

@@ -58,6 +58,10 @@ and the explanation for each connection.
 Other layers show only flow lines that connect to the selected component.
 Flow labels show on their lines. A label that does not fit on its line
 shows for a pointer, keyboard focus, or selection, and the Details panel lists it.
+
+When the map is smaller than 100 percent, the labels become larger, so that you can read them.
+A label moves along its line to a place where it touches no card, label, or other line.
+A label without such a place also shows only for a pointer, keyboard focus, or selection.
 The Details panel keeps all component connections, with direction and evidence.
 
 Flow lines also show evidence. A solid internal line shows a source review
@@ -81,8 +85,8 @@ step. A button in its row opens the list of sequences. **Changes** shows the com
 changed.
 
 On the first visit, a guide card gives five steps through the map.
-The three views have the same parts. Each has a row of controls under the header,
-a small label and a question above the map, and a panel at the right.
+The three views have the same parts. Each has a row of controls under the header
+and a panel at the right. Above the map, one line gives a small label and a question.
 On a wide window, the Map view opens the panel with the page. With no
 selection, the panel shows the current layer: one card for each flow,
 actor, or region.
@@ -106,10 +110,13 @@ identifies only the current item, such as the selected card, the current step,
 and a wider line under the selected line. Cards, regions, text, and other lines are neutral.
 
 The map has one flat view. Card text changes size with the zoom.
+Fit shows the full map as large as the map area permits.
+
 In a sequence step, the acting component has an ACTS tag and a measurement
 component has a MEASURES tag. On a phone, the map shows its regions as a grid,
 and a sequence shows one step below the map. The map gets the height that the
-step and its buttons do not use.
+step and its buttons do not use. Its zoom keeps the card text at a size that you can read,
+and the acting component stays in view.
 
 The panel gives source modules, entry points, related sequences, and evidence states.
 These values come from the current model and recorded source data.

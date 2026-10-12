@@ -23,7 +23,9 @@ MISSING_SHOWN = 5
 # The route on the map. A line keeps the color of its flow kind and the width of a
 # map line: 1.6 px. The current step is the selected line of the map: 2.6 px over
 # the halo. Later steps are at 40 percent opacity. The other sizes are in map
-# units: about 0.9 units for one board pixel.
+# units: about 0.9 units for one board pixel. The text of a tag, a step number
+# and a step note is 13.6 units or more, the size of the card descriptions: it
+# shows at 11 px or more when the map is at 81 percent or more.
 MARKS_CSS = r"""
 /* ---- the route on the map ------------------------------------------------ */
 #schematic .seq-lines,#schematic .seq-marks{pointer-events:none}
@@ -33,7 +35,7 @@ vector-effect:non-scaling-stroke}
 #schematic .seq-pill__bg{fill:var(--map)}
 #schematic .seq-pill circle{fill:var(--map);stroke:var(--ink-2);stroke-width:1}
 #schematic .seq-pill text{font-family:var(--fs);font-size:13.6px;fill:var(--ink-2)}
-#schematic .seq-pill .seq-pill__n{font:600 12.5px var(--fm);fill:var(--ink);text-anchor:middle}
+#schematic .seq-pill .seq-pill__n{font:600 13.6px var(--fm);fill:var(--ink);text-anchor:middle}
 #schematic .seq-pill--later circle{stroke:var(--line-2)}
 #schematic .seq-pill--later text,#schematic .seq-pill--later .seq-pill__n{fill:var(--ink-3)}
 #schematic .seq-pill--route circle,#schematic .seq-pill--now circle{fill:var(--accent);
@@ -42,7 +44,7 @@ stroke:var(--map);stroke-width:2}
 fill:var(--on-accent);font-weight:700}
 #schematic .seq-pill--route text{fill:var(--ink);font-weight:600}
 #schematic .seq-tagm rect{fill:var(--accent)}
-#schematic .seq-tagm text{font:700 11.4px var(--fm);letter-spacing:.06em;fill:var(--on-accent);
+#schematic .seq-tagm text{font:700 13.6px var(--fm);letter-spacing:.06em;fill:var(--on-accent);
 text-anchor:middle}
 #schematic .seq-tagm--meas rect,#schematic .seq-tagm--start rect{fill:var(--map);
 stroke:var(--steel);stroke-width:1}
@@ -61,8 +63,8 @@ background:var(--surface);color:var(--ink);font:14.75px/21.5px var(--fs);text-al
 font:600 13.6px/18px var(--fs);color:var(--accent)}
 #schematic .seq-co__n{width:22.7px;height:22.7px;flex:none;border-radius:50%;
 background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;
-justify-content:center;font:700 12.5px/1 var(--fm)}
-#schematic .seq-co .seq-co__ft{font:12.5px/17px var(--fm);color:var(--ink-3)}
+justify-content:center;font:700 13.6px/1 var(--fm)}
+#schematic .seq-co .seq-co__ft{font:13.6px/18px var(--fm);color:var(--ink-3)}
 #schematic .node.dim.seq-route{opacity:1}
 body[data-mode="trace"] #schematic .flowlbl{display:none}
 body[data-mode="trace"] #schematic .node.endpoint:not(.acts):not(.meas) .node__box{
@@ -516,7 +518,12 @@ function textWidth(text, cls, size){
 
 // ---- marks ------------------------------------------------------------------
 var placed = [];
-function clearMarks(){ empty(lines); empty(marks); placed = []; }
+function clearMarks(){
+  // The step numbers keep off the region and container labels at their layout size.
+  empty(lines); empty(marks);
+  placed = [].map.call(svg.querySelectorAll('.zone__h,.box__h'), function(g){
+    var b = g.getBBox(); return {x:b.x, y:b.y, w:b.width, h:b.height}; });
+}
 function showMarks(on){
   lines.style.display = on ? '' : 'none'; marks.style.display = on ? '' : 'none'; }
 function drawLine(edge, kind){
@@ -533,13 +540,13 @@ function drawLine(edge, kind){
 function tag(id, word, kind, shift){
   var b = CARD[id];
   if(!b){ return 0; }
-  // Board size with the map at 88 percent: 10 px type in a 16 px tag.
-  var w = Math.round(textWidth(word, 'seq-tagm', 11.4) + 12), h = 18;
+  // 13.6 units of type in an 18 unit tag: 11 px or more at Fit on a desktop screen.
+  var w = Math.round(textWidth(word, 'seq-tagm', 13.6) + 12), h = 18;
   var x = b.x + b.w - 8 - w - shift, y = b.y - h / 2;
   var g = mk('g', {'class':'seq-tagm seq-tagm--' + kind,
     transform:'translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ')'});
   g.appendChild(mk('rect', {width:w, height:h, rx:3}));
-  g.appendChild(mk('text', {x:w / 2, y:13}, word));
+  g.appendChild(mk('text', {x:w / 2, y:14}, word));
   marks.appendChild(g);
   placed.push({x:x, y:y, w:w, h:h});
   return w + 6;
@@ -589,7 +596,7 @@ function pill(spec, ctx){
   }
   g.appendChild(mk('circle', {r:spec.label || spec.kind === 'was' || spec.kind === 'later'
     ? 11 : 11.5}));
-  g.appendChild(mk('text', {'class':'seq-pill__n', y:4.4}, String(spec.n)));
+  g.appendChild(mk('text', {'class':'seq-pill__n', y:4.8}, String(spec.n)));
   if(spec.label){
     g.appendChild(mk('text', {x:at.side === 'r' ? 16 : -16, y:4.8,
       'text-anchor':at.side === 'r' ? 'start' : 'end'}, spec.label));

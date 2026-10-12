@@ -38,7 +38,7 @@ from systemap.model import (
     entry_module,
     reading,
 )
-from systemap.route import path_d, place_labels, route_all
+from systemap.route import Placed, Route, path_d, place_labels, route_all
 from systemap.schematic_cards import (
     CARD_W as CARD_W,
 )
@@ -265,23 +265,28 @@ def render(
         x, y, w, h = box.box
         stroke, fill = P.container(box.tone)
         _header, sub_lines, _unfit = container_header(box)
+        # The header text is one group, so the page can scale it about the
+        # container corner when the map is small (`data-at`: x, y and width).
         floor.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
             f'fill="{fill}" stroke="{stroke}" stroke-width="1"{fixed}/>'
+            f'<g class="box__h" data-at="{x} {y} {w}">'
             + L(x + 13, y + 19, box.label, TEXT_PX, INK_3, "600", True, "start", ".08em")
             + "".join(
                 L(x + 13, y + 33 + 12 * k, line, TEXT_PX, INK_3, "400", False, "start")
                 for k, line in enumerate(sub_lines)
             )
+            + "</g>"
         )
 
+    # A region header grows about the middle of its number ring (`data-at`).
     zones: list[str] = []
     for i, region in enumerate(model.regions, start=1):
         x, y, w, h = region.box
         zones.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="none" '
             f'stroke="{P["region"]}" stroke-width="1" stroke-dasharray="3 3"{fixed}/>'
-            f'<g class="zone__h" data-zone="{esc(region.id)}">'
+            f'<g class="zone__h" data-zone="{esc(region.id)}" data-at="{x} {y + 16} {w}">'
             f'<circle cx="{x + 17:.0f}" cy="{y + 16:.0f}" r="9" fill="{HALO}" '
             f'stroke="{P["region"]}" stroke-width="1"{fixed}/>'
             + L(x + 17, y + 20, str(i), TEXT_PX, P["ink_2"], "600", True)
@@ -651,6 +656,7 @@ def render(
     p: list[str] = [
         f'<svg id="{svg_id}" class="scene" xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="{-pad} {-pad} {width + pad * 2} {height + pad * 2}" '
+        f"{view_data(model, boxes, routes, seats, sizes)}"
         f'preserveAspectRatio="xMidYMid meet" tabindex="0" role="application" '
         f'aria-label="{esc(what)}">'
         f"<title>{esc(title)}</title>",
@@ -675,3 +681,38 @@ def render(
     p.append(text_css())
     p.append("</svg>")
     return "".join(p), json.dumps({**detail, **meta}, ensure_ascii=False)
+
+
+def view_data(
+    model: Model,
+    boxes: Mapping[str, tuple[float, float, float, float]],
+    routes: Mapping[int, Route],
+    seats: Mapping[int, Placed],
+    sizes: tuple[float, float],
+) -> str:
+    """Give the SVG attributes that the page camera and the label sizes use.
+
+    `data-fit` gives the drawn bounds: the containers, the regions, the cards,
+    the flow paths and the label boxes. Fit shows these bounds, not the empty
+    margin of the viewBox. `data-grow` gives the largest scale of a flow label,
+    a region label and a container label: the card description size divided by
+    the label size. `data-read` gives the smallest zoom at which card names
+    show at 12 px and card descriptions at 11 px. The values do not change
+    the layout."""
+    rects: list[tuple[float, float, float, float]] = [c.box for c in model.containers]
+    rects += [r.box for r in model.regions]
+    rects += [(x, y, w + MAP_OFFSET, h + MAP_OFFSET) for x, y, w, h in boxes.values()]
+    rects += [seat.box for seat in seats.values()]
+    rects += [(x, y, 0.0, 0.0) for route in routes.values() for x, y in route.points]
+    if not rects:
+        return ""
+    x0 = min(r[0] for r in rects)
+    y0 = min(r[1] for r in rects)
+    x1 = max(r[0] + r[2] for r in rects)
+    y1 = max(r[1] + r[3] for r in rects)
+    grow = max(1.0, sizes[1] / LABEL_PX)
+    read = max(12 / sizes[0], 11 / sizes[1])
+    return (
+        f'data-fit="{x0:g} {y0:g} {round(x1 - x0, 1):g} {round(y1 - y0, 1):g}" '
+        f'data-grow="{grow:.3f}" data-read="{read:.3f}" '
+    )

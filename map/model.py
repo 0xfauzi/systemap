@@ -232,6 +232,7 @@ COMPONENTS = (
             "systemap.schematic_cards",
             "systemap.schematic_style",
             "systemap.schematic_script",
+            "systemap.schematic_labels",
             "systemap.schematic_relations",
             "systemap.schematic_change",
             "systemap.theme",

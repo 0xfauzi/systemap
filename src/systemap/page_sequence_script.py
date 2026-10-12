@@ -210,17 +210,9 @@ function markRoute(j, upto){
   });
   all('.node', svg).forEach(function(n){ n.classList.toggle('seq-route', !!ids[n.dataset.id]); });
 }
-function clearArea(){
-  // The visible map less the band of the legend and the readout at its foot.
-  var a = A.view.visibleArea(null), lg = document.getElementById('map-legend');
-  var m = svg.getScreenCTM ? svg.getScreenCTM() : null;
-  if(!a || !lg || !lg.offsetParent || !m){ return a; }
-  var foot = lg.getBoundingClientRect().top - 8;
-  var y = new DOMPoint(0, foot).matrixTransform(m.inverse()).y;
-  return y > a.y + a.h / 2 && y < a.y + a.h ? {x:a.x, y:a.y, w:a.w, h:y - a.y} : a;
-}
 function drawingArea(){
-  var a = clearArea(), v = A.view.snapshot();
+  // The visible map (the view script leaves out the legend and the readout at its foot).
+  var a = A.view.visibleArea(null), v = A.view.snapshot();
   if(!a || !(a.w > 0) || !(v.k > 0)){ return null; }
   return {x:(a.x - v.tx) / v.k, y:(a.y - v.ty) / v.k, w:a.w / v.k, h:a.h / v.k};
 }
@@ -228,7 +220,7 @@ function keepInView(rect, before){
   // The camera moves only when the step is not in view: a 300 ms pan at the same zoom.
   // It zooms out only when the step cannot fit at this zoom.
   A.view.restore(before, true);
-  var area = clearArea(), v = before, m = 6;
+  var area = A.view.visibleArea(null), v = before, m = 6;
   if(!rect || !area || !(area.w > 0)){ return; }
   if(VB){
     // Only the drawing can be in view: cut the rect at the drawing bounds.

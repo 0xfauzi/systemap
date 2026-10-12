@@ -19,8 +19,7 @@ body[data-full] .change-controls{display:none!important}
 body[data-full] .main{height:100svh}
 body[data-full] .readpanel{margin-top:0;height:100svh;top:0}
 body[data-full] .zoom{position:absolute;top:14px;right:24px}
-body[data-full] .mapbar{top:14px}
-body[data-full] .mapwrap{top:92px}
+body[data-full] .mapbar{margin:14px 200px 0 24px}
 body[data-full] .change-view{top:0}
 body[data-full] .zoom .zoom__full{width:auto;padding:0 8px 0 10px;color:var(--ink);
 background:var(--surface)}
