@@ -162,8 +162,9 @@ jobs:
         with:
           version: latest
 
-      - name: Make the wheel
-        run: uv build --wheel
+      # The release makes the wheel from the source archive, so this job does the same.
+      - name: Make the wheel from the source archive
+        run: uv build
 
       - name: Install the wheel in an empty environment
         run: |
