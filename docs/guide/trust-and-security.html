@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trust and security · systemap</title>
+<meta name="description" content="This page tells what systemap reads, what it runs, what it sends over the network, and what it writes. Read it before you run systemap on a repository that another person controls.">
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){var d=document.documentElement,s=null;d.className+=' js';try{s=localStorage.getItem('systemap-theme')}catch(e){}if(s!=='dark'&&s!=='light'){s=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('data-theme',s)})();</script>
+<script src="../assets/site.js" defer></script>
+</head>
+<body class="docs-page">
+<a class="skip" href="#main">Go to the content</a>
+<header class="bar">
+<a class="brand" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<nav class="nav" aria-label="Site"><a class="nav__a" href="../guide/" aria-current="page">Docs</a><a class="nav__a" href="../map/">Live example</a><a class="nav__a" href="https://github.com/0xfauzi/systemap">GitHub</a></nav>
+<span class="bar__space"></span>
+<button type="button" class="tool" id="theme" aria-label="Paper theme" title="Paper theme" hidden><span class="tool__to-paper"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75v1.25M8 13v1.25M1.75 8H3M13 8h1.25M3.58 3.58l.88.88M11.54 11.54l.88.88M3.58 12.42l.88-.88M11.54 4.46l.88-.88M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></svg></span><span class="tool__to-ink"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.25 9.75A5.5 5.5 0 1 1 6.25 2.75a4.5 4.5 0 0 0 7 7z"/></svg></span></button>
+</header>
+<div class="docbar"><button type="button" class="docbar__btn" aria-controls="side" aria-expanded="false" hidden><span class="kicker">Docs</span><span class="docbar__t">Trust and security</span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 6.25 8 9.75l3.5-3.5"/></svg></button></div>
+<div class="layout">
+<nav class="side" id="side" aria-label="Docs">
+<a class="side__home" href="index.html">Docs home</a>
+<p class="kicker">Guide</p>
+<ol class="side__list">
+<li><a href="getting-started.html"><span class="ring" aria-hidden="true">1</span><span>Get started</span></a></li>
+<li><a href="concepts.html"><span class="ring" aria-hidden="true">2</span><span>Concepts</span></a></li>
+<li><a href="reading-the-map.html"><span class="ring" aria-hidden="true">3</span><span>Read the map</span></a></li>
+<li><a href="coding-agents.html"><span class="ring" aria-hidden="true">4</span><span>Coding agents</span></a></li>
+<li><a href="pull-requests-and-ci.html"><span class="ring" aria-hidden="true">5</span><span>Pull requests and CI</span></a></li>
+<li><a href="live-map.html"><span class="ring" aria-hidden="true">6</span><span>The live map</span></a></li>
+<li><a href="trust-and-security.html" aria-current="page"><span class="ring" aria-hidden="true">7</span><span>Trust and security</span></a></li>
+<li><a href="limits.html"><span class="ring" aria-hidden="true">8</span><span>Limits</span></a></li>
+</ol>
+<p class="kicker">Reference</p>
+<ul class="side__list">
+<li><a href="reference.html"><span>Reference</span></a></li>
+<li><a href="benchmarks.html"><span>Benchmarks</span></a></li>
+</ul>
+</nav>
+<main id="main" class="doc">
+<p class="kicker doc__k">Guide · 7 of 8</p>
+<h1>Trust and security</h1>
+<p class="lead">This page tells what systemap reads, what it runs, what it sends over the network, and what it writes.
+Read it before you run systemap on a repository that another person controls.</p>
+<h2 id="what-systemap-reads">What systemap reads</h2>
+<p>systemap reads the source files under the package roots, the test files, and the configuration files:
+<code>systemap.toml</code>, <code>pyproject.toml</code>, <code>package.json</code>, and <code>tsconfig.json</code>.
+For <code>delta</code>, <code>history</code>, <code>render --base</code>, and <code>live</code>, it also reads committed files from Git.</p>
+<p>Extraction parses the source files. It does not import or run them.
+Python source goes to the Python <code>ast</code> parser. TypeScript source goes to the tree-sitter parser.</p>
+<h2 id="the-model-file-is-data">The model file is data</h2>
+<p>systemap reads the model, usually <code>map/model.py</code>, with a reader that runs no code.
+The reader accepts literal values, calls of the model classes, names that the file defines, and imports of files beside the model file.
+For other syntax, the command stops and gives the file, the line, and the refused syntax.
+<a href="reference.html#what-does-a-model-contain">What does a model contain?</a> gives the full list and the limits.</p>
+<p>The person who runs a command can set <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> in the environment of the command.
+Then systemap runs the model files as Python code, as version 2.0 did.
+A repository cannot give this permission, because systemap does not read it from a file in the repository.
+Set this value only for a repository whose code you trust.</p>
+<p><code>systemap convert</code> writes a model file that needs code again with literal values only.
+The command runs the old file one time, so it needs the same value.
+It writes the new file only if the reader that runs no code gives the same model.</p>
+<p><code>render --base</code>, <code>figure --base</code>, and <code>live</code> read the committed model files of the merge base with the same reader.
+If a base model file needs code, the Changes view gives the refusal.
+The live map in Claude Code uses the same reader. <a href="coding-agents.html#the-live-map-in-claude-code">Coding agents</a> tells when the plugin starts it.</p>
+<h2 id="the-agent-command">The agent command</h2>
+<p><code>systemap journeys</code> runs the command under <code>[agent] command</code> in <code>systemap.toml</code>.
+It sends the question on the standard input of the command. It does not use a shell.
+A repository can set this command in its own <code>systemap.toml</code>. Examine the value before you run <code>systemap journeys</code>.
+No other command runs it.</p>
+<h2 id="jev">Jev</h2>
+<p>Jev is the TypeSafe model for questions that imports and names cannot answer.
+Without <code>TYPESAFE_API_KEY</code>, no question goes to Jev.
+<code>systemap check</code> and <code>systemap judgement</code> make no network requests.</p>
+<p>With the key, these commands can send questions to Jev:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="jev">
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>systemap audit</code></td>
+<td>Each run, except with <code>--dry-run</code>.</td>
+</tr>
+<tr>
+<td><code>systemap suggest --jev</code></td>
+<td>Each run.</td>
+</tr>
+<tr>
+<td><code>systemap plan &quot;&lt;task&gt;&quot;</code></td>
+<td>Each run. <code>plan --check</code> sends nothing.</td>
+</tr>
+<tr>
+<td><code>systemap triage</code></td>
+<td>Each run.</td>
+</tr>
+<tr>
+<td><code>systemap delta</code></td>
+<td>Each run, unless you use <code>--no-jev</code> or set <code>[jev] enabled = false</code>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
+<code>systemap audit --dry-run</code> shows the data that it would send.
+With a key, the dry run gets the model list from the server, but it sends no map data.</p>
+<p>The server is <code>https://api.typesafe.ai/v1</code>. The environment variable <code>TYPESAFE_BASE_URL</code> selects a different server.
+Answers go into the cache <code>.systemap/jev-cache.json</code>.
+Jev answers are suggestions for source examination. They are not evidence, and they do not change the <code>delta</code> lines or the exit code.</p>
+<h2 id="the-ci-link-job">The CI link job</h2>
+<p>The workflow from <code>init</code> has one job that can write to the pull request: the <code>link</code> job.
+Only this job has the <code>pull-requests: write</code> permission.
+It runs only if these two conditions are true:</p>
+<ul>
+<li><code>systemap delta</code> wrote a comment. This occurs only with <code>[delta] page_url</code> in <code>systemap.toml</code>.</li>
+<li>The pull request comes from a branch of the same repository.</li>
+</ul>
+<p>The <code>delta</code> job writes the comment text. That job runs the model code of the pull request.
+The code and the settings of a pull request from a fork can thus change the comment text.
+For this reason, the <code>link</code> job does not run for a pull request from a fork.</p>
+<p>The other jobs have only the <code>contents: read</code> permission. They check out the code without stored credentials.
+Each action in the workflow has a fixed commit, with its version in a comment.
+<a href="pull-requests-and-ci.html">Pull requests and CI</a> gives the jobs.</p>
+<h2 id="the-local-servers">The local servers</h2>
+<p><code>systemap serve</code> and <code>systemap live</code> listen only on 127.0.0.1.
+They answer only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port:</p>
+<pre><code class="language-text">$ curl -s -o /dev/null -w &quot;%{http_code}\n&quot; http://127.0.0.1:8765/
+200
+$ curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Host: evil.example:8765&quot; http://127.0.0.1:8765/
+403
+</code></pre>
+<p>Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
+The servers have no other access control.
+Other programs on the same computer can read the map, and they can send <code>POST /refresh</code> to <code>systemap live</code>.</p>
+<h2 id="the-page">The page</h2>
+<p>The page that systemap renders contains its styles, its scripts, and its font. It loads no files from other servers.
+A test of the renderer examines a sample page: its only URL is the SVG namespace.</p>
+<p>The page keeps a few settings in the storage of your browser: the theme, Reduce motion, and the end of the first-visit guide.
+The live map also keeps your view in the session storage before it loads a new version.</p>
+<h2 id="what-systemap-writes">What systemap writes</h2>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-systemap-writes">
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>init</code></td>
+<td><code>systemap.toml</code>, <code>map/model.py</code>, <code>docs/map/.gitkeep</code>, the workflow, and the skill directory. It keeps a configuration, model, or workflow file that exists.</td>
+</tr>
+<tr>
+<td><code>skill</code></td>
+<td>The skill directory.</td>
+</tr>
+<tr>
+<td><code>extract</code></td>
+<td>The facts file, <code>docs/map/map.json</code> by default.</td>
+</tr>
+<tr>
+<td><code>render</code></td>
+<td>The page of each map in the output directory.</td>
+</tr>
+<tr>
+<td><code>refresh</code></td>
+<td>The facts, the page of each map, and the configured figures.</td>
+</tr>
+<tr>
+<td><code>figure --out FILE</code></td>
+<td>One figure.</td>
+</tr>
+<tr>
+<td><code>place</code></td>
+<td>The positions in the model files.</td>
+</tr>
+<tr>
+<td><code>journeys</code></td>
+<td>The sequences in the model file, and the cache <code>.systemap/agent-cache.json</code>.</td>
+</tr>
+<tr>
+<td><code>delta --comment FILE</code></td>
+<td>The comment file, only with <code>[delta] page_url</code>.</td>
+</tr>
+<tr>
+<td><code>history</code>, <code>render --base</code>, <code>live</code></td>
+<td>Cached facts in <code>.systemap/facts/</code>.</td>
+</tr>
+<tr>
+<td>Jev commands</td>
+<td><code>.systemap/jev-cache.json</code>. <code>plan</code> also writes <code>.systemap/plans/</code>.</td>
+</tr>
+<tr>
+<td><code>live</code></td>
+<td>A temporary directory that it deletes when it stops.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<nav class="pager" aria-label="Pages"><a class="pager__a" href="live-map.html" rel="prev"><span class="kicker">Previous</span><span>The live map</span></a><a class="pager__a pager__next" href="limits.html" rel="next"><span class="kicker">Next</span><span>Limits</span></a></nav>
+</main>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-systemap-reads">What systemap reads</a></li><li class="toc__l2"><a href="#the-model-file-is-data">The model file is data</a></li><li class="toc__l2"><a href="#the-agent-command">The agent command</a></li><li class="toc__l2"><a href="#jev">Jev</a></li><li class="toc__l2"><a href="#the-ci-link-job">The CI link job</a></li><li class="toc__l2"><a href="#the-local-servers">The local servers</a></li><li class="toc__l2"><a href="#the-page">The page</a></li><li class="toc__l2"><a href="#what-systemap-writes">What systemap writes</a></li></ul></aside>
+</div>
+<footer class="foot" id="footer">
+<div class="foot__in">
+<a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<span class="foot__v">Version <code>2.0.0</code></span>
+<span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
+<span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
+</div>
+</footer>
+</body>
+</html>

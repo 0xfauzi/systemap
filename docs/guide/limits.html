@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Limits · systemap</title>
+<meta name="description" content="A map without open findings agrees with the mechanical rules of systemap. It does not prove that each claim is correct.">
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){var d=document.documentElement,s=null;d.className+=' js';try{s=localStorage.getItem('systemap-theme')}catch(e){}if(s!=='dark'&&s!=='light'){s=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('data-theme',s)})();</script>
+<script src="../assets/site.js" defer></script>
+</head>
+<body class="docs-page">
+<a class="skip" href="#main">Go to the content</a>
+<header class="bar">
+<a class="brand" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<nav class="nav" aria-label="Site"><a class="nav__a" href="../guide/" aria-current="page">Docs</a><a class="nav__a" href="../map/">Live example</a><a class="nav__a" href="https://github.com/0xfauzi/systemap">GitHub</a></nav>
+<span class="bar__space"></span>
+<button type="button" class="tool" id="theme" aria-label="Paper theme" title="Paper theme" hidden><span class="tool__to-paper"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75v1.25M8 13v1.25M1.75 8H3M13 8h1.25M3.58 3.58l.88.88M11.54 11.54l.88.88M3.58 12.42l.88-.88M11.54 4.46l.88-.88M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></svg></span><span class="tool__to-ink"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.25 9.75A5.5 5.5 0 1 1 6.25 2.75a4.5 4.5 0 0 0 7 7z"/></svg></span></button>
+</header>
+<div class="docbar"><button type="button" class="docbar__btn" aria-controls="side" aria-expanded="false" hidden><span class="kicker">Docs</span><span class="docbar__t">Limits</span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 6.25 8 9.75l3.5-3.5"/></svg></button></div>
+<div class="layout">
+<nav class="side" id="side" aria-label="Docs">
+<a class="side__home" href="index.html">Docs home</a>
+<p class="kicker">Guide</p>
+<ol class="side__list">
+<li><a href="getting-started.html"><span class="ring" aria-hidden="true">1</span><span>Get started</span></a></li>
+<li><a href="concepts.html"><span class="ring" aria-hidden="true">2</span><span>Concepts</span></a></li>
+<li><a href="reading-the-map.html"><span class="ring" aria-hidden="true">3</span><span>Read the map</span></a></li>
+<li><a href="coding-agents.html"><span class="ring" aria-hidden="true">4</span><span>Coding agents</span></a></li>
+<li><a href="pull-requests-and-ci.html"><span class="ring" aria-hidden="true">5</span><span>Pull requests and CI</span></a></li>
+<li><a href="live-map.html"><span class="ring" aria-hidden="true">6</span><span>The live map</span></a></li>
+<li><a href="trust-and-security.html"><span class="ring" aria-hidden="true">7</span><span>Trust and security</span></a></li>
+<li><a href="limits.html" aria-current="page"><span class="ring" aria-hidden="true">8</span><span>Limits</span></a></li>
+</ol>
+<p class="kicker">Reference</p>
+<ul class="side__list">
+<li><a href="reference.html"><span>Reference</span></a></li>
+<li><a href="benchmarks.html"><span>Benchmarks</span></a></li>
+</ul>
+</nav>
+<main id="main" class="doc">
+<p class="kicker doc__k">Guide · 8 of 8</p>
+<h1>Limits</h1>
+<p class="lead">A map without open findings agrees with the mechanical rules of systemap. It does not prove that each claim is correct.</p>
+<p>Such a map can still have an incorrect component assignment, flow direction, or artifact.
+This page tells what the checks show, what they do not show, and the measured limits.</p>
+<h2 id="what-a-map-without-findings-shows">What a map without findings shows</h2>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-a-map-without-findings-shows">
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What a result without findings shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>systemap check</code></td>
+<td>Each module that is not an empty package marker has one component, or an ignore with a reason. Entry and interface names exist in the claimed modules. Routes and labels obey the layout rules. The facts, the page, and the figures are current.</td>
+</tr>
+<tr>
+<td><code>systemap judgement --strict</code></td>
+<td>Each possible map error has a change in the map, or an answer with a reason. Each exact answer has the current evidence digest.</td>
+</tr>
+<tr>
+<td><code>systemap delta</code></td>
+<td>The component claims agree with the moved, added, and removed modules. Each changed component has a current source review.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="what-a-map-without-findings-does-not-show">What a map without findings does not show</h2>
+<ul>
+<li>The rules use names and imports. A module in an incorrect component can pass all of them.</li>
+<li>An import does not show the direction of a flow or its artifact.</li>
+<li>A test reference does not show test coverage.</li>
+<li>A sequence is an authored order of steps. It does not record a run of the program.</li>
+<li>No check proves the behavior of the program at run time.</li>
+<li>A program cannot show that the map text obeys the writing rules. It can count words and find contractions and em dashes.</li>
+</ul>
+<p>For these reasons, the skill tells the agent to examine the source in a second pass.
+The maintainer reads the completion report and corrects the claims that are not correct.</p>
+<h2 id="evidence-is-a-record-not-a-proof">Evidence is a record, not a proof</h2>
+<p>&quot;Current source review&quot; means that a person or an agent recorded source records and a review digest for the flow.
+These records still agree with the current source and the current claim.
+The words do not mean that the examination was correct, and they do not mean that a program ran.</p>
+<p><code>observed</code> is the stored identifier of this evidence state. <a href="concepts.html#evidence-states">Concepts</a> gives all the states.</p>
+<h2 id="the-review-digests">The review digests</h2>
+<p>systemap uses digests to find changes in recorded evidence:</p>
+<ul>
+<li>the <code>source_sha256</code> value in each source record of a flow,</li>
+<li>the <code>review_digest</code> of a flow,</li>
+<li>the <code>source_review</code> digest of a component,</li>
+<li>the <code>evidence</code> digest of an exact answer.</li>
+</ul>
+<p>When the source or the claim changes, the digest changes, and the finding opens again.
+A digest identifies the recorded source and claims. It does not show that the claim is correct.
+A person or an agent can record a current digest without an examination of the source.
+The skill tells the agent not to do this, but no program can find it.</p>
+<h2 id="languages">Languages</h2>
+<p>systemap reads Python and TypeScript. The TypeScript reader reads <code>.ts</code>, <code>.tsx</code>, <code>.mts</code>, and <code>.cts</code> modules.
+It does not read declaration files, such as <code>.d.ts</code>.
+It does not read framework-specific TypeScript routes.
+systemap reads no other languages.</p>
+<p>When the parser cannot read some syntax or map a package target, the facts get an explicit unknown record.
+<code>systemap check</code> prints these records but does not reject the map for them.
+<code>systemap judgement --strict</code> accepts each unknown record only after a correction or an accepted answer.</p>
+<p>The Jev measurements in <code>bench/jev</code> used Python repositories only. No TypeScript result was measured.
+The <a href="reference.html#what-questions-does-jev-answer">reference</a> gives the measured results and their limits.</p>
+<h2 id="size-limits">Size limits</h2>
+<div class="table" role="region" tabindex="0" aria-labelledby="size-limits">
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Value</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Components on one map</td>
+<td>About forty</td>
+<td>Above this number, each layer can contain almost all components. A component can open a nested map.</td>
+</tr>
+<tr>
+<td>Figure in the Claude Code pane</td>
+<td>131,072 characters</td>
+<td>A larger change figure does not show in the pane. The pane shows the link to the page.</td>
+</tr>
+<tr>
+<td>Page of the sample map in the tests</td>
+<td>329,728 bytes (322 KiB)</td>
+<td>A test of the renderer keeps this page smaller.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The page size test applies to one sample map in the tests of systemap. It is not a limit on your map.
+The page of the systemap map in <code>docs/map/</code> is larger than this value.
+The test value includes 300 KiB, the embedded font subset of 18,452 bytes, and 4,076 bytes of more space.</p>
+<p><code>systemap suggest</code> shows maps above forty components and the components that can become nested maps.
+The <a href="reference.html#what-do-you-do-above-forty-components">reference</a> tells how a nested map works.</p>
+<p>On the systemap repository, one render of the live map takes about 7 to 8 seconds.
+<a href="live-map.html#update-time">The live map</a> gives the measurements.</p>
+<h2 id="the-map-is-authored">The map is authored</h2>
+<p>A person or an agent writes the model. Extraction gives the facts, but it does not make the components or the flows.
+The map contains authored and examined flows. It does not contain all function calls, or one component for each module.
+systemap is not a UML tool. It uses one picture and one layout, with components, flows, and sequences.</p>
+<nav class="pager" aria-label="Pages"><a class="pager__a" href="trust-and-security.html" rel="prev"><span class="kicker">Previous</span><span>Trust and security</span></a><a class="pager__a pager__next" href="reference.html" rel="next"><span class="kicker">Next</span><span>Reference</span></a></nav>
+</main>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-a-map-without-findings-shows">What a map without findings shows</a></li><li class="toc__l2"><a href="#what-a-map-without-findings-does-not-show">What a map without findings does not show</a></li><li class="toc__l2"><a href="#evidence-is-a-record-not-a-proof">Evidence is a record, not a proof</a></li><li class="toc__l2"><a href="#the-review-digests">The review digests</a></li><li class="toc__l2"><a href="#languages">Languages</a></li><li class="toc__l2"><a href="#size-limits">Size limits</a></li><li class="toc__l2"><a href="#the-map-is-authored">The map is authored</a></li></ul></aside>
+</div>
+<footer class="foot" id="footer">
+<div class="foot__in">
+<a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<span class="foot__v">Version <code>2.0.0</code></span>
+<span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
+<span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
+</div>
+</footer>
+</body>
+</html>

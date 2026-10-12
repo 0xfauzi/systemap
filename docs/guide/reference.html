@@ -23,6 +23,17 @@
 <div class="layout">
 <nav class="side" id="side" aria-label="Docs">
 <a class="side__home" href="index.html">Docs home</a>
+<p class="kicker">Guide</p>
+<ol class="side__list">
+<li><a href="getting-started.html"><span class="ring" aria-hidden="true">1</span><span>Get started</span></a></li>
+<li><a href="concepts.html"><span class="ring" aria-hidden="true">2</span><span>Concepts</span></a></li>
+<li><a href="reading-the-map.html"><span class="ring" aria-hidden="true">3</span><span>Read the map</span></a></li>
+<li><a href="coding-agents.html"><span class="ring" aria-hidden="true">4</span><span>Coding agents</span></a></li>
+<li><a href="pull-requests-and-ci.html"><span class="ring" aria-hidden="true">5</span><span>Pull requests and CI</span></a></li>
+<li><a href="live-map.html"><span class="ring" aria-hidden="true">6</span><span>The live map</span></a></li>
+<li><a href="trust-and-security.html"><span class="ring" aria-hidden="true">7</span><span>Trust and security</span></a></li>
+<li><a href="limits.html"><span class="ring" aria-hidden="true">8</span><span>Limits</span></a></li>
+</ol>
 <p class="kicker">Reference</p>
 <ul class="side__list">
 <li><a href="reference.html" aria-current="page"><span>Reference</span></a></li>
@@ -463,7 +474,8 @@ Its 18 components were below the threshold.
 The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/test_nested.py"><code>tests/test_nested.py</code></a> has five top-level
 components. Two open nested maps.</p>
 <h2 id="what-does-a-model-contain">What does a model contain?</h2>
-<p>The agent writes one Python module with frozen dataclasses.
+<p>The agent writes one model file in Python syntax with the frozen dataclasses of <code>systemap</code>.
+systemap reads the file as data. It does not run the file as Python code.
 This example contains two components and one flow from the self-map.
 A model does not declare the standard flow kinds.
 The page derives standard layers.</p>
@@ -496,6 +508,32 @@ MEANING = Meaning(
 <code>systemap place</code> writes these positions.
 After component additions or removals, <code>systemap place --all</code> writes new
 positions. A component with <code>pinned=True</code> keeps its selected position.</p>
+<p>A model file can contain only these statements:</p>
+<ul>
+<li>The module docstring and <code>from __future__ import annotations</code>.</li>
+<li><code>from systemap import ...</code> or <code>from systemap.model import ...</code> for the model classes
+and for <code>AGENT_KINDS</code>, <code>KINDS</code>, and <code>STANDARD_KINDS</code>.</li>
+<li><code>import NAME</code> for the file <code>NAME.py</code> in the same directory, such as <code>import journeys</code>.
+<code>NAME.VALUE</code> gives a value from that file. The same rules apply to that file.
+systemap refuses a symbolic link to a file outside the directory, and an import cycle.</li>
+<li><code>NAME = value</code> and <code>NAME: annotation = value</code>. systemap does not read the annotation.</li>
+<li>A type alias for annotations, such as <code>Steps = tuple[Step, ...]</code>.</li>
+</ul>
+<p>A value is a <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, or <code>None</code> constant, a minus sign before
+a number, or a <code>tuple</code>, <code>list</code>, <code>set</code>, or <code>dict</code> of values.
+A value can also be a call of a model class with positional and keyword values,
+or a name that an earlier statement in the same file defines.
+systemap refuses all other syntax before it makes a value. Examples are functions,
+classes, comprehensions, f-strings, operators, indexes, <code>**</code> and <code>*</code> in a call, and other imports.
+The message gives the file, the line, and the refused syntax.</p>
+<p>The reader also has limits: 512 KiB and 16 files for one model with the files that it imports,
+100,000 values, 32 levels of nested values, and 8,000,000 parts and characters in one value
+when each name in it is written out. Move a part of a larger map into a nested map.</p>
+<p>If you know that the code in a repository is safe, set <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>
+in the environment of the command. Then systemap runs each model file as Python code,
+as version 2.0 did. Only the value <code>1</code> gives this permission.
+systemap does not read this permission from <code>systemap.toml</code>, because the repository controls that file.
+To write a model file with code again as literal values, use <code>systemap convert</code>.</p>
 <p>The full schema and examples are in
 <a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/SKILL.md"><code>SKILL.md</code></a> and its
 <a href="https://github.com/0xfauzi/systemap/tree/main/src/systemap/skill/references"><code>references/</code></a>.</p>
@@ -815,6 +853,16 @@ TypeScript samples include <code>.ts</code>, <code>.tsx</code>, tests, and packa
 <p>Prints one finding kind's meaning, effect on the map, and necessary action.
 With no kind, it lists all printed kinds and their one-line meanings.
 An unknown kind causes exit 1.</p>
+<h3 id="systemap-convert"><code>systemap convert</code></h3>
+<p>Writes each model file that systemap refuses again, with literal values only.
+The command must run each refused file one time, so it needs <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>.
+Examine the code of the model files before you set this value.
+Without the value, the command writes nothing and exits 2 if a model file is refused.
+If all model files have literal values only, it writes nothing and exits 0.</p>
+<p>For each refused file, the command reads the new text with the reader that runs no code.
+It writes the file only if that reader gives the same model as the old file.
+Fields with their default values are not in the new text.
+If the old file imported a file beside it, the command names that file. The new file does not import it.</p>
 <h3 id="systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></h3>
 <p>Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
@@ -986,7 +1034,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>model</code></td>
 <td><code>map/model.py</code></td>
-<td>The module that exports <code>MODEL</code> and <code>MEANING</code>. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (<code>import journeys</code>). Imported modules do not stay cached between executions.</td>
+<td>The model file that gives <code>MODEL</code> and <code>MEANING</code>. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (<code>import journeys</code>). <a href="#what-does-a-model-contain">What does a model contain?</a> gives the permitted syntax.</td>
 </tr>
 <tr>
 <td><code>out_dir</code></td>
@@ -1066,6 +1114,27 @@ Unknown keys are rejected.</p>
 </tbody>
 </table>
 </div>
+<p>The environment of a command can set two values. A repository file cannot set them.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-can-you-configure">
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TYPESAFE_API_KEY</code></td>
+<td>The key for Jev questions. Without it, no question goes to Jev.</td>
+</tr>
+<tr>
+<td><code>SYSTEMAP_TRUST_MODEL_CODE</code></td>
+<td>With the value <code>1</code>, systemap runs the model files as Python code. Without it, systemap reads them as data. Set it only for a repository with safe code.</td>
+</tr>
+</tbody>
+</table>
+</div>
 <p>TypeScript discovery does not include <code>.d.ts</code>, <code>.d.mts</code>, and <code>.d.cts</code> declaration files.
 The <code>external</code> imports do not include Node.js built-in modules, such as <code>node:fs</code> and <code>path</code>.
 A re-export from an npm package keeps the package name and gives no unknown record.
@@ -1097,9 +1166,9 @@ Two matches leave the target unmapped.</p>
 <p><code>check</code> prints unknown records without rejection.
 Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
-<nav class="pager" aria-label="Pages"><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
+<nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

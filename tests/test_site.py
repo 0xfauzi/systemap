@@ -35,8 +35,16 @@ def site() -> ModuleType:
 
 
 @pytest.fixture(scope="module")
-def fixture_site(site: ModuleType) -> dict[str, str]:
-    files = site.build(site.Inputs(pages_dir=PAGES))
+def fixture_site(site: ModuleType, tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
+    # The landing page links to the guide pages of the site. The test pages have other
+    # names, so the test build uses a landing page with links to the docs home.
+    site_dir = tmp_path_factory.mktemp("site")
+    for name in ("site.css", "site.js", "delta.txt", "index.html"):
+        text = (ROOT / "site" / name).read_text(encoding="utf-8")
+        if name == "index.html":
+            text = re.sub(r'href="guide/[a-z0-9-]+\.html"', 'href="guide/"', text)
+        (site_dir / name).write_text(text, encoding="utf-8")
+    files = site.build(site.Inputs(pages_dir=PAGES, site_dir=site_dir))
     return {k: v.decode("utf-8") for k, v in files.items() if not k.endswith(".woff2")}
 
 

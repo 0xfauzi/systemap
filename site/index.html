@@ -69,6 +69,7 @@ systemap judgement --strict</code></pre>
 </ul>
 </div>
 </div>
+<p class="more"><a href="guide/getting-started.html">Get started</a> · <a href="guide/concepts.html">Concepts</a></p>
 </div>
 </section>
 
@@ -96,6 +97,7 @@ systemap judgement --strict</code></pre>
 <p>The Changes view compares two revisions. It marks the components with changed source code and the flows that need a new source review.</p>
 </li>
 </ul>
+<p class="more"><a href="guide/reading-the-map.html">Read the map</a></p>
 </div>
 </section>
 
@@ -110,6 +112,7 @@ systemap judgement --strict</code></pre>
 <pre class="out"><code>{{delta}}</code></pre>
 <p class="cap">The output of <code>systemap delta --base d6161f8^ --head d6161f8 --brief</code> in this repository. Commit d6161f8 added <code>systemap live</code>.</p>
 <p>By default, a necessary map update gives a warning, and the job passes. With <code>systemap init --strict-ci</code>, a necessary map update makes the job fail. <code>systemap render --base REF</code> adds a comparison with that revision to the page, in the Changes view.</p>
+<p class="more"><a href="guide/pull-requests-and-ci.html">Pull requests and CI</a></p>
 </div>
 </section>
 
@@ -135,10 +138,10 @@ systemap judgement --strict</code></pre>
 <h3>The live map</h3>
 <p><code>systemap live</code> renders the map of the working tree and supplies it on 127.0.0.1. When a source, model, or configuration file changes, it renders the map again. The browser keeps the view, the layer, the selection, and the sequence step.</p>
 <p>In Claude Code, <code>/map</code> starts the live map. A line above the prompt shows its state, and a pane shows the map update lines.</p>
-<!-- loader: update after the merge -->
-<p>The live map runs the code in <code>map/model.py</code> of the repository. Start it only in a repository that you trust.</p>
+<p>systemap reads <code>map/model.py</code> as data and does not run its code. <a href="guide/trust-and-security.html">Trust and security</a> tells what systemap reads and runs.</p>
 </li>
 </ul>
+<p class="more"><a href="guide/coding-agents.html">Coding agents</a> · <a href="guide/live-map.html">The live map</a></p>
 </div>
 </section>
 
@@ -156,6 +159,7 @@ systemap judgement --strict</code></pre>
 <li><strong>Evidence is a record.</strong> A current source review records that a person or an agent examined the source code. After a source change, the review is not current, and <code>systemap judgement</code> gives a finding.</li>
 <li><strong>No network requests in the checks.</strong> <code>systemap check</code> and <code>systemap judgement</code> make no network requests. Other commands send requests to Jev, the TypeSafe model, only if you set <code>TYPESAFE_API_KEY</code>.</li>
 </ul>
+<p class="more"><a href="guide/limits.html">Limits</a></p>
 </div>
 </section>
 

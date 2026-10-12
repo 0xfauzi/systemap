@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The live map · systemap</title>
+<meta name="description" content="systemap live renders the map of the working tree and supplies it on 127.0.0.1. It renders the map again after each change.">
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){var d=document.documentElement,s=null;d.className+=' js';try{s=localStorage.getItem('systemap-theme')}catch(e){}if(s!=='dark'&&s!=='light'){s=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('data-theme',s)})();</script>
+<script src="../assets/site.js" defer></script>
+</head>
+<body class="docs-page">
+<a class="skip" href="#main">Go to the content</a>
+<header class="bar">
+<a class="brand" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<nav class="nav" aria-label="Site"><a class="nav__a" href="../guide/" aria-current="page">Docs</a><a class="nav__a" href="../map/">Live example</a><a class="nav__a" href="https://github.com/0xfauzi/systemap">GitHub</a></nav>
+<span class="bar__space"></span>
+<button type="button" class="tool" id="theme" aria-label="Paper theme" title="Paper theme" hidden><span class="tool__to-paper"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75v1.25M8 13v1.25M1.75 8H3M13 8h1.25M3.58 3.58l.88.88M11.54 11.54l.88.88M3.58 12.42l.88-.88M11.54 4.46l.88-.88M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></svg></span><span class="tool__to-ink"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.25 9.75A5.5 5.5 0 1 1 6.25 2.75a4.5 4.5 0 0 0 7 7z"/></svg></span></button>
+</header>
+<div class="docbar"><button type="button" class="docbar__btn" aria-controls="side" aria-expanded="false" hidden><span class="kicker">Docs</span><span class="docbar__t">The live map</span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 6.25 8 9.75l3.5-3.5"/></svg></button></div>
+<div class="layout">
+<nav class="side" id="side" aria-label="Docs">
+<a class="side__home" href="index.html">Docs home</a>
+<p class="kicker">Guide</p>
+<ol class="side__list">
+<li><a href="getting-started.html"><span class="ring" aria-hidden="true">1</span><span>Get started</span></a></li>
+<li><a href="concepts.html"><span class="ring" aria-hidden="true">2</span><span>Concepts</span></a></li>
+<li><a href="reading-the-map.html"><span class="ring" aria-hidden="true">3</span><span>Read the map</span></a></li>
+<li><a href="coding-agents.html"><span class="ring" aria-hidden="true">4</span><span>Coding agents</span></a></li>
+<li><a href="pull-requests-and-ci.html"><span class="ring" aria-hidden="true">5</span><span>Pull requests and CI</span></a></li>
+<li><a href="live-map.html" aria-current="page"><span class="ring" aria-hidden="true">6</span><span>The live map</span></a></li>
+<li><a href="trust-and-security.html"><span class="ring" aria-hidden="true">7</span><span>Trust and security</span></a></li>
+<li><a href="limits.html"><span class="ring" aria-hidden="true">8</span><span>Limits</span></a></li>
+</ol>
+<p class="kicker">Reference</p>
+<ul class="side__list">
+<li><a href="reference.html"><span>Reference</span></a></li>
+<li><a href="benchmarks.html"><span>Benchmarks</span></a></li>
+</ul>
+</nav>
+<main id="main" class="doc">
+<p class="kicker doc__k">Guide · 6 of 8</p>
+<h1>The live map</h1>
+<p class="lead"><code>systemap live</code> renders the map of the working tree and supplies it on 127.0.0.1. It renders the map again after each change.</p>
+<p>A change is a change to a source, model, or configuration file.
+The browser loads each new page and keeps your view. The command writes no tracked file.</p>
+<h2 id="start-the-live-map">Start the live map</h2>
+<p>Run the command in the repository. Then open the URL in a browser:</p>
+<pre><code class="language-text">$ systemap live
+map: The live map is at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.
+map: The Changes view compares the working tree with main at the merge base 5e0837b.
+map: The command renders version 1.
+map: Version 1 is on the page (0.1 s). Map updates: 0. Changed components: CommandLine, OrderFiles, Orders.
+</code></pre>
+<p>Each render makes a new version of the page.
+A map update is a <code>systemap delta</code> line that needs an action, for the working tree and the merge base.
+Ctrl-C or SIGTERM stops the command with exit code 0.</p>
+<p>In Claude Code, the systemap plugin starts this command for you. <a href="coding-agents.html#the-live-map-in-claude-code">Coding agents</a> tells how.</p>
+<h2 id="options">Options</h2>
+<div class="table" role="region" tabindex="0" aria-labelledby="options">
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--port N</code></td>
+<td>The server port. The default is 8765. <code>0</code> selects an available port. If the port is not available, the command exits 2.</td>
+</tr>
+<tr>
+<td><code>--base REF</code></td>
+<td>The base of the Changes view. The default is the first of <code>origin/HEAD</code>, <code>origin/main</code>, <code>main</code>, <code>origin/master</code>, and <code>master</code> that has a merge base with HEAD.</td>
+</tr>
+<tr>
+<td><code>--no-watch</code></td>
+<td>Do not scan the files. Render the page again only after <code>POST /refresh</code>.</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Write one JSON object on a line for each event.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <a href="reference.html#systemap-live-port-8765-base-ref-no-watch-json">reference</a> gives each option and each JSON line.</p>
+<h2 id="what-the-changes-view-compares">What the Changes view compares</h2>
+<p>The Changes view compares the working tree with the merge base of the base ref and HEAD.
+The comparison includes the commits since the merge base and the edits that are not in a commit.
+It also includes the untracked files that Git does not ignore.
+If no base ref has a merge base with HEAD, the page has no revision comparison.</p>
+<h2 id="what-the-command-writes">What the command writes</h2>
+<p>The command writes the pages and <code>change.svg</code> into a temporary directory. It deletes the directory when it stops.
+It does not write the output directory, the facts file, or a tracked file.</p>
+<p>For the comparison, the command can add the facts of the merge base to a cache in <code>.systemap/facts/</code>.
+Git shows this directory as untracked unless <code>.gitignore</code> contains it.</p>
+<h2 id="when-the-command-renders-again">When the command renders again</h2>
+<p>Without <code>--no-watch</code>, the command scans the files one time each second.
+It scans the configuration files, the model files, and the source and test files.
+When a scan finds a change and the next scan finds no more change, the command renders the page again:</p>
+<pre><code class="language-text">map: The command renders version 2.
+map: Version 2 is on the page (0.1 s). Map updates: 1. Changed components: CommandLine, OrderFiles, Orders.
+</code></pre>
+<p>The command renders one version at a time.
+A request during a render causes one more version after the current version.</p>
+<p>If the command cannot render a version, the last page stays, and the command gives the error.
+Examples are a model file that does not load, a source syntax error, and an extraction error:</p>
+<pre><code class="language-text">map: The command could not render version 1. The page does not change.
+map/model.py could not import: NameError: name 'Meanin' is not defined
+</code></pre>
+<p>If the first version fails, the page gives the error. When you correct the error, the page shows the map.</p>
+<h2 id="the-reload-that-keeps-your-view">The reload that keeps your view</h2>
+<p><code>systemap live</code> adds one script to each page that it supplies. The page from <code>systemap render</code> does not have this script.
+When a newer version is on the server, the script keeps your view in the session storage of the browser. Then it loads the page again.</p>
+<p>The new page puts back:</p>
+<ul>
+<li>the view: Map, Sequences, or Changes,</li>
+<li>the layer,</li>
+<li>the selected component or flow,</li>
+<li>the sequence and its step,</li>
+<li>the camera of the map and of the change map. A camera at Fit stays at Fit.</li>
+</ul>
+<p>The script identifies a flow by its two components and its artifact, and a sequence by its identifier.
+If the new page does not have the selected item, nothing is selected.</p>
+<p>If the command cannot render a version, a notice at the bottom left gives the first line of the error.
+If the connection to the command breaks, the script stops. The page does not load again.</p>
+<h2 id="http-requests">HTTP requests</h2>
+<p>Other programs can read the state of the live map. The Claude Code plugin uses these requests.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="http-requests">
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /</code></td>
+<td>The page of the top map. Nested maps are at <code>&lt;map id&gt;/index.html</code>.</td>
+</tr>
+<tr>
+<td><code>GET /change.svg</code></td>
+<td>The change figure. If the comparison has no change, the system figure.</td>
+</tr>
+<tr>
+<td><code>GET /events</code></td>
+<td>Server-sent events: <code>rendered</code> after each version, and <code>error</code> if the command cannot render a version.</td>
+</tr>
+<tr>
+<td><code>POST /refresh</code></td>
+<td>Asks for a version. The answer is 202 with <code>{&quot;queued&quot;: true}</code>.</td>
+</tr>
+<tr>
+<td><code>GET /status</code></td>
+<td>The state as JSON.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code>POST</code> to another path gives 404 with <code>{&quot;error&quot;: &quot;Use POST /refresh.&quot;}</code>.
+This is a <code>GET /status</code> answer from the example project, with two of its four lines:</p>
+<pre><code class="language-json">{
+    &quot;version&quot;: 1,
+    &quot;state&quot;: &quot;ready&quot;,
+    &quot;seconds&quot;: 0.13,
+    &quot;updates&quot;: 4,
+    &quot;lines&quot;: [
+        {
+            &quot;text&quot;: &quot;moved: shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py&quot;,
+            &quot;action&quot;: &quot;Change the module claim to the new name. Or put the module in the component for its task at this snapshot.&quot;
+        },
+        {
+            &quot;text&quot;: &quot;added: shop.discounts, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]&quot;,
+            &quot;action&quot;: &quot;Add the module to the component for its task, or give a reason to ignore it in `[coverage]`.&quot;
+        }
+    ],
+    &quot;components&quot;: [
+        &quot;CommandLine&quot;,
+        &quot;OrderFiles&quot;
+    ],
+    &quot;error&quot;: &quot;&quot;,
+    &quot;url&quot;: &quot;http://127.0.0.1:8790/&quot;,
+    &quot;svg&quot;: &quot;/tmp/systemap-live-aq122e_r/change.svg&quot;,
+    &quot;svg_bytes&quot;: 14636,
+    &quot;base&quot;: &quot;main&quot;,
+    &quot;comparison_base&quot;: &quot;5e0837b07a17f92ea02b1602ec4f0d134e8cfd6c&quot;
+}
+</code></pre>
+<p>With <code>--json</code>, the command writes the same events on standard output:</p>
+<pre><code class="language-text">{&quot;event&quot;: &quot;serving&quot;, &quot;url&quot;: &quot;http://127.0.0.1:8765/&quot;, &quot;base&quot;: &quot;main&quot;, &quot;comparison_base&quot;: &quot;5e0837b07a17f92ea02b1602ec4f0d134e8cfd6c&quot;}
+{&quot;event&quot;: &quot;rendering&quot;, &quot;version&quot;: 1}
+{&quot;event&quot;: &quot;rendered&quot;, &quot;version&quot;: 1, &quot;seconds&quot;: 0.11, &quot;updates&quot;: 0, &quot;components&quot;: [&quot;CommandLine&quot;, &quot;OrderFiles&quot;, &quot;Orders&quot;], &quot;svg&quot;: &quot;/tmp/systemap-live-79fpemzx/change.svg&quot;, &quot;svg_bytes&quot;: 15042}
+{&quot;event&quot;: &quot;stopped&quot;}
+</code></pre>
+<h2 id="update-time">Update time</h2>
+<p>In the small example project above, each version took about 0.1 s. The systemap repository is larger.
+<code>bench/jev/README.md</code> records measurements on the systemap repository: 86 modules at commit 7b29986, 87 with the live page module, 4 processors, and CPython 3.11.17.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="update-time">
+<table>
+<thead>
+<tr>
+<th>Measurement</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One render, no change from the base</td>
+<td>7.00 s</td>
+</tr>
+<tr>
+<td>One render, 13 changed components</td>
+<td>8.09 s</td>
+</tr>
+<tr>
+<td>From a file edit to the <code>rendered</code> line, with the file scan</td>
+<td>9.1 s</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The acceptance value for extraction and the compared page was 3.0 s or less. The measured time was 5.73 s, so the result failed.
+For this reason, the command does not render while the files continue to change.
+It renders after the files stop changing, or one time for each agent turn with <code>--no-watch</code> and <code>POST /refresh</code>.</p>
+<h2 id="the-loopback-host-rule">The loopback Host rule</h2>
+<p>The server listens only on 127.0.0.1.
+It answers only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port.
+For another Host header, it answers 403 with &quot;The server answers only requests to 127.0.0.1 or localhost.&quot;
+Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
+<code>systemap serve</code> has the same rule. <a href="trust-and-security.html#the-local-servers">Trust and security</a> gives more information.</p>
+<nav class="pager" aria-label="Pages"><a class="pager__a" href="pull-requests-and-ci.html" rel="prev"><span class="kicker">Previous</span><span>Pull requests and CI</span></a><a class="pager__a pager__next" href="trust-and-security.html" rel="next"><span class="kicker">Next</span><span>Trust and security</span></a></nav>
+</main>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#start-the-live-map">Start the live map</a></li><li class="toc__l2"><a href="#options">Options</a></li><li class="toc__l2"><a href="#what-the-changes-view-compares">What the Changes view compares</a></li><li class="toc__l2"><a href="#what-the-command-writes">What the command writes</a></li><li class="toc__l2"><a href="#when-the-command-renders-again">When the command renders again</a></li><li class="toc__l2"><a href="#the-reload-that-keeps-your-view">The reload that keeps your view</a></li><li class="toc__l2"><a href="#http-requests">HTTP requests</a></li><li class="toc__l2"><a href="#update-time">Update time</a></li><li class="toc__l2"><a href="#the-loopback-host-rule">The loopback Host rule</a></li></ul></aside>
+</div>
+<footer class="foot" id="footer">
+<div class="foot__in">
+<a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<span class="foot__v">Version <code>2.0.0</code></span>
+<span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
+<span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
+</div>
+</footer>
+</body>
+</html>

@@ -236,6 +236,7 @@ font-weight:500;color:var(--ink)}
 .out__l{display:block;white-space:pre-wrap;overflow-wrap:anywhere;
 padding-left:calc((var(--i) + 2) * 1ch);text-indent:calc((var(--i) + 2) * -1ch)}
 .cap{margin:-8px 0 20px;font-size:13px;line-height:20px;color:var(--ink-3)}
+.more{margin:24px 0 0;font-size:14px;line-height:22px;color:var(--ink-3)}
 
 .agents{list-style:none;margin:0;padding:0}
 .agents>li{padding:20px 0;border-top:1px solid var(--line)}
