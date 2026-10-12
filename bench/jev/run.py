@@ -1,10 +1,15 @@
 """Send every dataset row to Jev once; cache the raw answers with usage and latency.
 
     uv run python run.py [exp ...] [--limit N]
+    uv run python run.py --provider openai [exp ...]
 
 A row already in results/<exp>.jsonl.gz is skipped, so a rerun resumes. A
 failed call is written with its error and retried on the next run; it is
 never replaced by a guess.
+
+With `--provider openai`, each row goes to OpenAI Decisions with the request body of
+`systemap.openai_provider` (one request for each row), and the raw answers go to
+results/openai/<exp>.jsonl.gz. The command must have `OPENAI_API_KEY`.
 """
 
 from __future__ import annotations
@@ -15,12 +20,13 @@ import gzip
 import json
 import time
 
+import run_openai
 from common import DATA, RESULTS
 from typesafe_sdk import AsyncTypeSafeClient, TypeSafeAPIError
 
 
-def done(exp: str) -> set[str]:
-    path = RESULTS / f"{exp}.jsonl.gz"
+def done(exp: str, results=RESULTS) -> set[str]:
+    path = results / f"{exp}.jsonl.gz"
     if not path.exists():
         return set()
     with gzip.open(path, "rt") as fh:
@@ -55,10 +61,10 @@ async def one(client, sem, row, out):
         return rec
 
 
-def todo_rows(exp: str, limit: int) -> tuple[int, list[dict]]:
+def todo_rows(exp: str, limit: int, results=RESULTS) -> tuple[int, list[dict]]:
     """How many rows the experiment has, and the ones not answered yet."""
     rows = [json.loads(line) for line in (DATA / f"{exp}.jsonl").read_text().splitlines()]
-    have = done(exp)
+    have = done(exp, results)
     todo = [r for r in rows if r["id"] not in have]
     return len(rows), todo[:limit] if limit else todo
 
@@ -87,8 +93,14 @@ async def main() -> None:
     ap.add_argument("exps", nargs="*")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--concurrency", type=int, default=8)
+    ap.add_argument("--provider", choices=("jev", "openai"), default="jev")
     a = ap.parse_args()
     exps = a.exps or [p.stem for p in sorted(DATA.glob("*.jsonl"))]
+    if a.provider == "openai":
+        for exp in exps:
+            total, todo = todo_rows(exp, a.limit, RESULTS / "openai")
+            run_openai.run_exp(exp, total, todo, a.concurrency, summary)
+        return
     async with AsyncTypeSafeClient() as client:
         sem = asyncio.Semaphore(a.concurrency)
         for exp in exps:

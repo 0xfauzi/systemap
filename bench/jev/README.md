@@ -2480,3 +2480,66 @@ All the measured repositories are Python repositories. A TypeScript measurement 
 The `targets` lines from the facts signatures did not increase the development catch rate (47/80 compared with 48/80 for `calls`).
 The `around` lines decreased the catch rate on the two sets.
 With 48 holdout claims, one claim is 2.1 points. Thus the difference between `calls` and `targets` on holdout is 2 claims.
+
+## Can OpenAI Decisions use the measured audit rules? (2026-10-13)
+
+OpenAI Decisions is a second decision provider: `POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta.
+A threshold of Jev does not apply to a different model.
+Thus `decision.thresholds("openai")` stays an error until this experiment gives a value for each question kind.
+This experiment sends the Jev bench rows to OpenAI, selects each threshold on development, and compares it with holdout.
+`provider_eval.py` has the method and the acceptance value in its docstring.
+
+### Method
+
+The rows are the recorded rows of `data/` (development, five maps) and `data/holdout/` (holdout, three maps).
+The kinds are owner (also mis-fold), sentence, flowverify, governs, and issues (triage and plan).
+Each row goes to OpenAI one time, as one request.
+
+The request body comes from `systemap.openai_provider.request_body`.
+The `input` is the JSON text of the row state.
+A Jev `noul` question becomes a `predicate` question. A Jev `choice` question becomes a `choice` question, with the criteria as `choices`.
+The question text is the text of the row. Thus the two providers get the same rows and the same question text.
+
+`provider_eval.py curve` scores the recorded Jev answers and the OpenAI answers with the functions of `score.py` and `plan_eval.py`.
+Each kind uses only the rows that the two providers answered.
+A row with an OpenAI refusal is not in the figures of the two providers. The output gives the count of these rows.
+
+The holdout systemap map must be the map of its cached facts.
+`JEV_ROOT_SYSTEMAP` gives an archive of commit `5704068`, the commit of the facts. This map must have `SYSTEMAP_TRUST_MODEL_CODE=1`.
+`JEV_ROOT_SCORECARD` gives `../scorecard`, because a worktree has a different parent directory.
+With these roots, `score.py` gave the recorded Jev holdout figures again (for example, mis-fold next door 93% caught and 1% flagged, triage top-1 31/39).
+
+The same-pair question of `suggest --jev` and the move question of `delta --jev` have no holdout rows.
+Thus the experiment cannot give a holdout result for these two kinds, and it does not send their rows.
+
+### Acceptance value
+
+The acceptance value was written before the first request of the bench rows.
+One earlier request with a test input of two questions examined the response form. It did not use bench rows.
+
+- The development set gives the threshold of each kind. The holdout set does not.
+- The budget of each kind is the Jev development figure at the shipped Jev threshold, on the same rows.
+- Mis-fold: the threshold is the largest candidate where the fraction of correct modules flagged is at most the Jev budget at P<0.05. A module is planted in a neighbour card, as in `score.py`.
+- Sentence and flow: the threshold is the largest candidate where the fraction of correct rows flagged is at most the Jev budget at P<0.2.
+- Governs: the threshold is the smallest candidate where the fraction of incorrect pairs suggested is at most the Jev budget at P>=0.8.
+- Owner: the threshold is the smallest candidate where the fraction of correct answers is at least the Jev budget at confidence >= 0.9.
+- Plan: the threshold is the largest cut of `plan_eval.CUTS` that satisfies the plan bar on development: coverage 0.70 or more, and 2.0 more components or less.
+- Triage has no threshold. Its figure is the top-1 rate.
+- The candidates for a "below" threshold are 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, and 0.5. The candidates for an "at" threshold are 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, and 1.0.
+- If no candidate satisfies the rule, the kind fails. If the selected threshold flags, suggests, or answers no development row, the kind fails.
+- At the selected threshold, each figure on holdout must be within 10 points of the same figure on development. This is the rule that the Jev thresholds obeyed.
+- A kind that fails is not available for OpenAI. `decision.thresholds("openai")` gives no value for it, and the command gives this result.
+
+The Jev rule for mis-fold, owner, sentence, flow, and governs is not recorded as a formula.
+The recorded data is the operating figure at each shipped threshold (`decision.JEV`).
+Thus this experiment uses the Jev false alarm figure (or the owner figure of correct answers) as the budget for OpenAI.
+
+### Commands
+
+The key comes from the keychain only for the command. No command writes the key.
+
+    OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s openai-api-key-systemap -w)" uv run --project bench/jev python bench/jev/run.py --provider openai owner sentence flowverify governs issues
+    OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s openai-api-key-systemap -w)" JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py --provider openai owner sentence flowverify governs issues
+    uv run --project bench/jev python bench/jev/provider_eval.py curve
+    SYSTEMAP_TRUST_MODEL_CODE=1 JEV_SET=holdout JEV_ROOT_SCORECARD=../scorecard JEV_ROOT_SYSTEMAP=<archive of 5704068> uv run --project bench/jev python bench/jev/provider_eval.py curve
+    uv run --project bench/jev python bench/jev/provider_eval.py verdict > bench/jev/results/openai/report.txt

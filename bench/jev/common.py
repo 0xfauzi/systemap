@@ -47,7 +47,15 @@ if SET not in ("dev", "holdout"):
 
 
 def _present(repos: dict[str, Path | None]) -> dict[str, Path]:
-    """Keep the repositories that are on this computer, and name each one that is not."""
+    """Keep the repositories that are on this computer, and name each one that is not.
+
+    `JEV_ROOT_<NAME>` replaces the root of one repository. For example, it gives the
+    systemap tree at the commit of its cached facts, or `../scorecard` from a worktree.
+    """
+    for name in repos:
+        override = os.environ.get(f"JEV_ROOT_{name.upper()}")
+        if override:
+            repos = {**repos, name: Path(override)}
     for name, root in repos.items():
         if root is None or not root.exists():
             print(
