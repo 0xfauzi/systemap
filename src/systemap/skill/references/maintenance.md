@@ -88,7 +88,7 @@ If the source or the claims change after that, the finding opens again.
 | `interface vanished` | The interface refers to a missing symbol. | Use an existing symbol or an empty interface value. |
 | `new crossing import` | An import crosses components without a flow. | Add a supported flow, change assignments, or record why no flow is necessary. |
 | `evidence lost` | The flow no longer has its recorded support. | Examine current source. Then correct or renew the claim. |
-| `source evidence lost` | Source records no longer support a claim with a current source review. | Examine references, direction, and artifact before renewal. |
+| `source evidence lost` | Source records no longer support a claim that had a current source review. | Examine references, direction, and artifact before renewal. |
 | `structural evidence lost` | An import or configured mechanism is missing. | Examine the flow against current source. |
 | `source review` | Component source or claims changed. | Examine all claims before renewal of `source_review`. |
 | `move candidate` | Removed and added modules have the same public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim. Then assign the added module. After that, no action is necessary for the line. |

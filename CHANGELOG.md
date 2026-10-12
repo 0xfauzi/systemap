@@ -19,7 +19,7 @@ A layer is a filtered view of the map.
 - A flow is `observed` only if at least one of its source records is in a module of its source
   component or its target component. For a flow with an actor end, a record must be in a module of
   the other end. If no record is in an endpoint module, the flow has the evidence state that its
-  imports or mechanism give, and judgement prints a `no endpoint source` finding.
+  imports or mechanism give. Judgement then prints a `no endpoint source` finding.
   No existing map in this repository, `bench/scratch`, or `tests/fixtures` has such a flow.
 
 - The page legend, the Details panel, the flow labels for screen readers, and `systemap describe`

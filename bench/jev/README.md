@@ -2079,3 +2079,66 @@ The test that passes on the base examines that the layout widths do not change.
 The sample page of `test_page_is_small_and_self_contained` is 326,739 bytes after the three merges.
 The limit is 329,728 bytes, so the page passes with 2,989 bytes of space.
 The label script and the Fit changes added 5,595 bytes.
+
+## Component review state and source records outside the flow endpoints (2026-10-12)
+
+This work gives each component one review state: `missing` (no `source_review`), `stale`
+(`source_review` is not the current digest), or `current`. It also makes a rule for flow source
+records: at least one source record must be in a module of the source component or the target component.
+Two census scripts measured the maps before the decisions. They are not in the repository:
+`review_census.py` counts the review states and the flows with source records outside their endpoints.
+`strict_compare.py` gives the `judgement --strict` result with the code of 7b29986 and with the changed code.
+
+Acceptance (written before the census):
+
+1. A map that passes `judgement --strict` with the code of 7b29986 fails it with the changed code only
+   if a review is stale. If a map that passes now has a component without `source_review`, then a
+   `missing` review is a count line, not a finding.
+2. If no reviewed flow on these maps has source records outside its endpoints, the rule can change
+   the evidence state and add a judgement finding without a migration of an existing map.
+
+The census used the stored facts of each map. The fixture has no stored facts, so the census made its facts in memory.
+
+| Map | Source components | current | stale | missing | `judgement --strict` at 7b29986 | Flows | With source records | Records outside the endpoints |
+|---|---|---|---|---|---|---|---|---|
+| Self-map at 7b29986 | 16 | 16 | 0 | 0 | pass, 6 answered | 76 | 61 | 0 |
+| `bench/scratch/cli-first-map-20261011T201433Z` (httpie) | 17 | 0 | 0 | 17 | pass, 73 answered | 34 | 0 | 0 |
+| `tests/fixtures/typescript-app` | 1 | 0 | 0 | 1 | fail, 6 open | 0 | 0 | 0 |
+
+No flow in these maps has source records and an actor end.
+
+Decisions:
+
+- A `missing` review is a count line, `source reviews: N current, N stale, N missing`, and not a finding.
+  The httpie map passes `judgement --strict` with 17 of 17 reviews missing.
+  As a finding, a missing review would add 17 open lines and make that map fail.
+- A `stale` review is a `stale source review` finding.
+- A flow with source records outside its endpoints is not `observed`, and judgement prints a `no endpoint source` finding.
+  The census found 0 such flows, so neither change has an effect on these maps.
+  The state change keeps the page from showing "current source review" for records that do not show the flow.
+  The finding gives the correct reason and action. The `flow review` and `declared flow` lines give a different reason.
+
+Result with the changed code (`strict_compare.py`):
+the self-map at 7b29986 passes with 6 answered and `source reviews: 16 current, 0 stale, 0 missing`.
+The httpie map passes with 73 answered and `source reviews: 0 current, 0 stale, 17 missing`.
+The fixture fails with the same 6 open lines as before.
+Acceptance 1 and acceptance 2 are met.
+
+The self-map after the source changes of this work (facts made again with `systemap refresh`, not committed):
+
+- `systemap check` passes.
+- `systemap judgement --strict` fails with 60 open lines:
+  8 `stale source review` lines (CLI, Config, ChangeDetector, Model, Schematic, Page, Judgement, Describe),
+  0 `no endpoint source` lines, 45 `flow review` lines, 1 `declared flow` line, and 6 `single module` lines with pending answers.
+- `systemap delta --base 7b29986` gives `source review` lines for the same 8 components.
+
+The 45 `flow review` lines, the `declared flow` line, and the 6 pending answers come from the new source hashes of the changed modules.
+Each source change has this effect. The maintainer renews the digests and the answers after the source review.
+
+A probe (`stale_probe.py`, not in the repository) wrote the two-card test map with one stale `source_review` value.
+Acceptance (written before the run): exit code 0 with the code of 7b29986, and exit code 1 with one
+`stale source review` line with the changed code.
+`judgement --strict` gave exit code 0 with the code of 7b29986 and exit code 1 with the changed code. Acceptance met.
+
+The sample page of `test_page_is_small_and_self_contained` is 326,741 bytes with the code of 7b29986 and
+326,810 bytes with the changed reader text. The limit is 329,728 bytes.
