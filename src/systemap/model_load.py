@@ -172,7 +172,9 @@ def _parse(path: Path, label: str, budget: _Budget) -> tuple[str, ast.Module]:
         raise ModelFileError(f"{label}: The file is not UTF-8 text: {exc.reason}.") from exc
     except SyntaxError as exc:
         raise ModelFileError(f"{label}:{exc.lineno or 0}: Python syntax error: {exc.msg}.") from exc
-    except (MemoryError, RecursionError, ValueError) as exc:
+    except ValueError as exc:
+        raise ModelFileError(f"{label}: Python syntax error: {exc}.") from exc
+    except (MemoryError, RecursionError) as exc:
         raise ModelFileError(
             f"{label}: The parser cannot read values that are nested this deeply. {NESTING}"
         ) from exc
