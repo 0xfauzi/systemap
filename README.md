@@ -343,6 +343,19 @@ dollars. The cost depends on the model and the repository size. Three pull
 requests from one repository form a small sample.
 [docs/benchmarks.md](docs/benchmarks.md) gives each run.
 
+## How do you see the map while the code changes?
+
+`systemap live` renders the map of the working tree and supplies it at `http://127.0.0.1:8765/`.
+Open this address in a browser.
+When a source, model, or configuration file changes, the command renders the map again.
+Then the browser loads the page again and keeps your view, layer, selection, and sequence step.
+The Changes view compares the working tree with `origin/main`, or with the ref of `--base`.
+It includes the edits that are not in a commit.
+The command does not write tracked files. It can add a cache file in `.systemap/facts/`.
+On this repository, the command takes about 7 to 8 seconds to render the map.
+`--json`, `GET /status`, and `POST /refresh` give the state to other programs.
+[docs/reference.md](docs/reference.md) gives the options and the HTTP requests.
+
 ## What other commands can you use?
 
 - **Read a finding's explanation.** Each printed finding kind has text about its meaning,

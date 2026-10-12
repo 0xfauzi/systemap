@@ -647,6 +647,68 @@ The command prints the URL.
 If the port is not available, the command exits 2.
 Then use `--port 0` to select an available port, or give a different port.
 
+### `systemap live [--port 8765] [--base REF] [--no-watch] [--json]`
+
+Renders the page of the working tree and supplies it through HTTP on the loopback address.
+The facts come from the source files in memory. The models come from the model files.
+The command writes the pages and `change.svg` into a temporary directory and deletes it when it stops.
+It does not write the output directory, the facts file, or a tracked file.
+For the comparison, it can add the facts of the merge base to the cache in `.systemap/facts/`,
+as `systemap render --base` does.
+
+Each time that the command renders the page, the page gets a new version number.
+The command renders one version at a time.
+If a request occurs while the command renders, the command renders one more version after the current version.
+If the command cannot render a version, the last page stays and the command gives the error.
+Examples are a model file that does not load, a source syntax error, and an extraction error.
+If the first version fails, the page gives the error.
+
+- `--base REF` sets the base of the Changes view.
+  The default is the first of `origin/HEAD`, `origin/main`, `main`, `origin/master`, and `master`
+  that has a merge base with HEAD. If no ref has one, the page has no revision comparison.
+  The Changes view compares the working tree with that merge base.
+  The comparison includes the commits since the merge base, the edits that are not in a commit,
+  and the untracked files that Git does not ignore.
+
+- Without `--no-watch`, the command scans the configuration files, the model files,
+  and the source and test files one time each second.
+  When a scan finds a change and the next scan finds no more change, the command renders the page again.
+
+- `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
+
+- `--json` writes one JSON object on a line for each event. Without it, the command writes short text lines.
+
+- `--port 0` selects an available port. If the port is not available, the command exits 2.
+
+The browser loads the page again after each version and keeps the view of the reader.
+DESIGN.md gives the parts of the view that the page keeps.
+
+| Request | Answer |
+|---|---|
+| `GET /` | The page of the top map. Nested maps are at `<map id>/index.html`. |
+| `GET /change.svg` | The change figure. If the comparison has no change, the system figure. |
+| `GET /events` | Server-sent events. `rendered` with `{"version": N}` after each version. `error` with `{"version": N, "text": "..."}` if the command cannot render a version. A new connection first gets `rendered` with the version of the page on disk. |
+| `POST /refresh` | Asks for a version. The answer is 202 with `{"queued": true}`. |
+| `GET /status` | The state as JSON: `version`, `state` (`rendering`, `ready`, or `error`), `seconds`, `updates`, `lines` (each with `text` and `action`), `components`, `error`, `url`, `svg`, `svg_bytes`, `base`, and `comparison_base`. |
+
+`version` in `GET /status` is the number of the last version that started.
+`updates` is the number of map update lines: the `systemap delta` lines that need an action,
+for the working tree and the merge base. `action` is the action of the line kind from `systemap explain`.
+`components` are the changed components of the top map.
+`svg` is the absolute path of `change.svg`. `seconds` is the time of the last good version.
+
+| JSON line | When |
+|---|---|
+| `{"event": "serving", "url": "...", "base": "...", "comparison_base": "..."}` | One time, when the server is ready. |
+| `{"event": "rendering", "version": N}` | When a version starts. |
+| `{"event": "rendered", "version": N, "seconds": S, "updates": K, "components": [...], "svg": "...", "svg_bytes": B}` | When a version is on the page. |
+| `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version. |
+| `{"event": "stopped"}` | When the command stops after Ctrl-C or SIGTERM. The exit code is 0. |
+
+On this repository, one version takes about 7 to 8 seconds.
+Thus the command waits until the files stop changing before it renders the page.
+[bench/jev/README.md](../bench/jev/README.md) gives the measurements.
+
 ### `systemap skill [--dir PATH] [--print]`
 
 Reinstalls the skill directory from `init`: `SKILL.md` and `references/`.
