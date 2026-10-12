@@ -81,7 +81,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="51e902a0f22daba713a34799a748bd2c414cbab492db6c4dab6fa964a0c1b43b",
+        source_review="192fe92509f0291d85430f20461ee1c9db61032ac8515edeeeec1f3ec85108c7",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -92,7 +92,7 @@ COMPONENTS = (
     ),
     Component(
         id="Scaffold",
-        source_review="5f4184556b89ddc66203de0dc746b492976b2d2bbfbd20446030adf80f68b491",
+        source_review="2a999092c46165aee4bb8728a4966fe0249cd7fa5106bd5081db6aa1e052773f",
         does="Writes the initial configuration, model, output directory and workflow. The model has regions on a grid with spaces between them. Does not replace files.",
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
@@ -104,7 +104,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="02a461fb2ff6efc3365e06910924398837f83e9317cf78ead2f15eac54f4faa0",
+        source_review="6a7d50be46a3688f733a4a984eb3cb65ad0311d24907b4d2b91a8e36c9bdb65e",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile. Reads model files as data and does not run their code. systemap convert writes a model file that needs code again with literal values.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -125,7 +125,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="76f377fb0d1a2a36255ff8643370357fab387c51bb6b201b036bb120d666d021",
+        source_review="efd0cc7e61d2af732294e9cdceca3968a23bc3a116a421494d19a68bd9ff84cf",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -150,7 +150,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="b1e3cd4e2730396b39fa3973c5e74d54d187c3c3ba744fd4cde294a9b4c32154",
+        source_review="b4bfc498c2c700e2e1e64ab9e11e56cb9377c0ef8407093d3b566a445befdfa2",
         does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With a page URL in the configuration, it writes a pull request comment with a link to the Changes view. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -171,7 +171,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="da8494ea3dfef2047e06fbd7a4fa8cf719f397141510b2152517a30e706bf7b4",
+        source_review="d0bced5f2b714285643c439e75e5fa29416456548eee2ccfc6550354ba693baa",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, model, placement)",
         implemented_by=("systemap.place",),
@@ -183,7 +183,7 @@ COMPONENTS = (
     # ---- mean: the judgement ----
     Component(
         id="Skill",
-        source_review="ee40079c45b308b155737bf5bd39b9d91e857ff602804283fedb72d79fe72977",
+        source_review="7bec2377b3eb28562efdcf82f795c7abb0fc6362ff50f48ea67711612ed08108",
         does="Gives the procedure for the agent: extraction, model draft, check, judgement, render and second examination. Gives completion conditions, output requirements and maintenance instructions. Stores text files and references in the package.",
         interface="files() -> the skill directory; write(dir) -> the installed SKILL.md",
         implemented_by=("systemap.skill",),
@@ -194,7 +194,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="5562ff68f44755bf3cba31416d73b6b7812c44573398cac4f69f9f65967f92cf",
+        source_review="a8bbef9012d4ca6999b34348fe5395cc42ef2cb1a881f891142bdb7a26e56756",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -245,7 +245,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="9273c0c8651c182092d00c9c63ef4c0e328e676292a90eb1a3ef25c4ae2b7381",
+        source_review="81254c386152c503bea4fe1f3b62f8e9bcdd7b56035a54546d17390f986be595",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -277,7 +277,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
-        source_review="a7c9a00fb63ababa6577de94f8ca94ad711ffc26cc620e0fb47ab346ca72bba4",
+        source_review="06afdeaf035f6665ca0a8a0a09d083553a4f00e244ce12acd2883237bfedc9d6",
         does="Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
@@ -289,7 +289,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="99810472ce61bd37198fa2baa676b7b7590c6ee02d44acbc21a51b4ba3ff9a20",
+        source_review="32f6fe683c95d538200019c4977b91b3a9208900f81ff6fdfad6ad155d87c508",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=("systemap.check", "systemap.extract_check"),
@@ -300,12 +300,13 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="dea94b8ac1104769c64c70113b9d90a19d90d50228d6690d5f8bd91488523227",
-        does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
+        source_review="6d47a3d556519a126e0618260828e6b5fb725f35a81e9f489c8eca6b99c09167",
+        does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints. With --strict, returns exit code 1 for findings without answers. With --json, writes the findings, answers and counts as one JSON object. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
             "systemap.judgement",
             "systemap.judgement_evidence",
+            "systemap.judgement_json",
             "systemap.journey_coverage",
             "systemap.suggest",
             "systemap.explain",
@@ -317,7 +318,7 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="1c8c8fb6329f9ddae5a759696560befa987e7b2980678a49aeb63b43e32da12a",
+        source_review="6a180b555f0f531eddb45982ec568bf7696f437fa4306a5893f4b367484059a5",
         does="Sends different questions about the map to Jev. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command. Does not control map checks.",
         interface="run(tree, facts, cfg, jev) -> lines; commands return 1 when an optional request fails",
         implemented_by=(
@@ -338,7 +339,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="9db9fa9ebfd5f782b5a8928252af252bf0b8a9de38d8c18a4e273980df53ab17",
+        source_review="59218f3a61c19b73d6597b052c3338aec478cff656c815359518a2c07814b762",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),

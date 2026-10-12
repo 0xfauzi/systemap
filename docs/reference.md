@@ -536,7 +536,7 @@ components that can become nested maps.
 - `--jev` uses Jev's module-pair answers instead of package groups.
   Set `TYPESAFE_API_KEY` for this option.
 
-### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]`
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json]`
 
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
@@ -555,6 +555,38 @@ The first finding of each kind has rows about its effect and necessary action.
 - `--verbose` prints imports below each crossing-import row.
 
 - `--brief` does not include the two explanation rows.
+
+- `--json` writes one JSON object to stdout for software, for example a CI step.
+  The object has no explanation text. `--brief` and `--verbose` do not change it.
+  The exit codes are the same as in the text mode, with and without `--strict`.
+  Notices for a person go to stderr.
+
+- With `--json`, `--kind KIND` selects the rows of `open`. The counts include all kinds.
+  For a model without components, the lists are empty and the exit code is 0.
+
+The JSON object has these fields:
+
+| Field | Type | Contents |
+|---|---|---|
+| `schema_version` | integer | The version of this schema. The value is 1. |
+| `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
+| `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
+| `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
+| `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
+| `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
+| `answered.count` | integer | The quantity of findings that accepted answers close. |
+| `answered.answers` | list of objects | One object for each accepted answer. |
+| `answered.answers[].answer` | string | The selector of the answer, as the stale-answer row gives it. |
+| `answered.answers[].items` | list of strings | The exact lines of an `item` or `items` answer. For a family answer, the list is empty. |
+| `answered.answers[].reason` | string | The `reason` of the answer. |
+| `answered.answers[].lines` | list of strings | The findings that the answer closes. |
+| `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
+| `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
+| `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
+
+The `evidence` digest is for an answer with one line.
+An `items` answer for more than one line has a different digest.
+The text report prints that digest in the pending-answer row.
 
 ### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]`
 
