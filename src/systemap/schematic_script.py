@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from systemap.schematic_labels import LABEL_JS
 from systemap.schematic_relations import RELATION_JS
 from systemap.theme import Palette
 
@@ -130,13 +131,18 @@ function el(name, attrs, text){
 var view = svg.querySelector('.view');
 var VB = svg.viewBox.baseVal;
 var ZMIN = 0.4, ZMAX = 2.5, ZCAP = 1.4, FRAME_PAD = 28, ANIM_MS = 300;
-var cur = {k:1, tx:0, ty:0};   // what is drawn now, mid-animation included
-var goal = {k:1, tx:0, ty:0};  // where the view is heading
-var saved = null;              // the view before the current framing chain
-var framed = false;            // the view on screen is one a frame() set
-var lastFrame = null;          // {rect, area, k}: what the last framing fitted where
-var anim = 0, booted = false, dragged = false;
-var stillQueue = [];           // work that waits until the camera stops
+// Fit on the page: the drawn map (`data-fit`, drawing units) whole in the part of
+// the map frame that the page does not cover, FIT_PAD screen pixels from its edges.
+// A figure keeps k = 1, t = 0: its viewBox.
+var FIT = (svg.getAttribute('data-fit') || '').split(' ').map(Number), FIT_PAD = 8, FIT_MAX = 1.5;
+// `fitted`: the last Fit view. `cur`: what is drawn now, mid-animation included.
+// `goal`: where the view is heading. `saved`: the view before the current framing
+// chain. `framed`: the view on screen is one a frame() set. `lastFrame`: {rect,
+// area, k}, what the last framing fitted where. `stillQueue`: work that waits
+// until the camera stops.
+var fitted = null, cur = {k:1, tx:0, ty:0}, goal = {k:1, tx:0, ty:0};
+var saved = null, framed = false, lastFrame = null;
+var anim = 0, booted = false, dragged = false, stillQueue = [];
 function flushStill(){
   var q = stillQueue;
   stillQueue = [];
@@ -169,9 +175,24 @@ function reduced(){
   return !set && !!(window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
+function fitView(){
+  var a = PAGE && FIT[2] > 0 ? visibleArea(null, true) : null, b = base();
+  var p = FIT_PAD / b, k = a ? Math.min(FIT_MAX / b, (a.w - 2 * p) / FIT[2],
+    (a.h - 2 * p) / FIT[3]) : 0;
+  if(!(k > 0)){ return {k:1, tx:0, ty:0}; }
+  return {k:k, tx:a.x + a.w / 2 - k * (FIT[0] + FIT[2] / 2),
+    ty:a.y + a.h / 2 - k * (FIT[1] + FIT[3] / 2)};
+}
 function isFit(v){
   v = v || goal;
-  return Math.abs(v.k - 1) < 1e-3 && Math.abs(v.tx) < 0.5 && Math.abs(v.ty) < 0.5;
+  var f = fitted || {k:1, tx:0, ty:0};
+  return Math.abs(v.k / f.k - 1) < 1e-3 && Math.abs(v.tx - f.tx) < 0.5
+    && Math.abs(v.ty - f.ty) < 0.5;
+}
+function fit(instant){
+  framed = false; saved = null;
+  fitted = fitView();
+  setView(fitted, instant, fitted.k);
 }
 function centre(){ return {x:VB.x + VB.width / 2, y:VB.y + VB.height / 2}; }
 function toVb(clientX, clientY){
@@ -236,37 +257,40 @@ function zoomAt(f, cx, cy, instant){
   var k = clampView({k:goal.k * f, tx:goal.tx, ty:goal.ty}).k, g = k / goal.k;
   userView({k:k, tx:cx - g * (cx - goal.tx), ty:cy - g * (cy - goal.ty)}, instant);
 }
-function aboveFoot(t, bt){
+function aboveFoot(t, bt, one){
   // On the page, the legend and the readout lie over the foot of the map.
-  // A framing keeps the selection above them, as a sequence step does.
+  // A framing keeps the selection 8 px above them, as a sequence step does.
+  // Fit (`one`) keeps the map above one line of them: a legend that wraps on
+  // a narrow window does not change Fit from one layer to the next.
   var top = bt;
   (PAGE ? ['map-legend', 'map-context'] : []).forEach(function(id){
     var n = document.getElementById(id), b = n && !n.hidden && n.getBoundingClientRect
       ? n.getBoundingClientRect() : null;
-    if(b && b.height > 0 && b.top > (t + bt) / 2 && b.top < top){ top = b.top - 8; }
+    var edge = b ? (one ? b.bottom - 24 : b.top - 8) : top;
+    if(b && b.height > 0 && b.top > (t + bt) / 2 && edge < top){ top = edge; }
   });
   return top;
 }
-function visibleArea(cover){
+function visibleArea(cover, fitting){
   // The part of the figure the reader can see, in viewBox units: the
-  // figure's box on screen clipped to the window, less the box the page
-  // lays over one side of it (`cover`: {rect, side}, the drawer), or the
-  // whole viewBox where the figure has no box yet. A figure wholly off
-  // screen is framed in its own box: the page scrolls it into view.
+  // figure's box on screen clipped to the window (not for Fit), less
+  // the box the page lays over one side of it (`cover`: {rect, side}, the
+  // drawer), or the whole viewBox where the figure has no box yet. A figure
+  // wholly off screen is framed in its own box: the page scrolls it into view.
   var whole = {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
   var s = svg.getBoundingClientRect ? svg.getBoundingClientRect() : null;
   if(!s || !(s.width > 0) || !(s.height > 0)){ return whole; }
   var ww = window.innerWidth || s.right, wh = window.innerHeight || s.bottom;
   var l = Math.max(s.left, 0), t = Math.max(s.top, 0);
   var r = Math.min(s.right, ww), bt = Math.min(s.bottom, wh);
-  if(r - l < 40 || bt - t < 40){ l = s.left; t = s.top; r = s.right; bt = s.bottom; }
+  if(fitting || r - l < 40 || bt - t < 40){ l = s.left; t = s.top; r = s.right; bt = s.bottom; }
   if(cover && cover.rect && cover.rect.width > 0
     && cover.rect.left < r && cover.rect.right > l
     && cover.rect.top < bt && cover.rect.bottom > t){
     if(cover.side === 'left'){ l = Math.max(l, cover.rect.right + 12); }
     else { r = Math.min(r, cover.rect.left - 12); }
   }
-  bt = aboveFoot(t, bt);
+  bt = aboveFoot(t, bt, fitting);
   var p = toVb(l, t), q = toVb(r, bt);
   // `meet` can leave unused space inside the CSS box. The native SVG
   // clips at the viewBox, so that space cannot hold framed content.
@@ -416,7 +440,16 @@ svg.addEventListener('click', function(e){
 Array.prototype.slice.call(svg.querySelectorAll('[data-zone]')).forEach(function(z){
   z.addEventListener('dblclick', function(e){ e.preventDefault(); frameRegion(z.dataset.zone); });
 });
+// The page opens at Fit. The panel, the window, the title and the legend change the
+// map frame: a view at Fit stays at Fit, and the zoom readout gets the new zoom.
+if(PAGE){ fit(true); }
+if(PAGE && window.ResizeObserver){
+  var sizes = new ResizeObserver(function(){
+    if(!anim){ if(isFit()){ fit(true); } else { apply(goal); } }
+  });
+  [svg, document.getElementById('map-legend')].forEach(function(n){ if(n){ sizes.observe(n); } });
+}
 
 """
 
-_INTERACTIVE_JS = _VIEW_JS + RELATION_JS
+_INTERACTIVE_JS = _VIEW_JS + RELATION_JS + LABEL_JS

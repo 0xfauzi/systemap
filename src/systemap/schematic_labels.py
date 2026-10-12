@@ -1,0 +1,132 @@
+"""Map labels that grow when the map is small on the screen.
+
+Below 100 percent, a flow label, a region label and a container label grow
+so that they show at 11 px on the screen. They do not get larger than the card
+descriptions: the SVG attribute `data-grow` gives that limit. The layout
+sizes do not change, so `systemap check` and `systemap place` give the same
+results.
+
+A region label or a container label grows about the corner of its box, as
+far as the space permits. A flow label moves along its own line to the
+nearest place where it touches no card, no other label and no line that it
+did not touch at its layout size. A flow label with no such place shows only
+for a pointer, keyboard focus or selection, as a label beside its line does.
+The readout counts these labels with the labels beside their lines.
+"""
+
+LABEL_JS = r"""
+// ---- labels that grow on a small map ------------------------------------------
+var GROW = +svg.getAttribute('data-grow') || 1, BESIDE = besideEdges.slice();
+var growKey = '', growSoon = 0, SEGS = [];
+function hits(a, b, pad){
+  return a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad
+    && b.y < a.y + a.h + pad;
+}
+function tf(g, s, x, y, dx, dy){
+  // Scale g by s about the point (x, y), then move it by (dx, dy).
+  dx = dx || 0; dy = dy || 0;
+  if(s === 1 && !dx && !dy){ g.removeAttribute('transform'); return; }
+  g.setAttribute('transform', 'matrix(' + s + ' 0 0 ' + s + ' ' + (x * (1 - s) + dx).toFixed(2)
+    + ' ' + (y * (1 - s) + dy).toFixed(2) + ')');
+}
+// Each line as one box for each horizontal or vertical run.
+flows.forEach(function(p){
+  var pts = pointsOf(p.getAttribute('d'));
+  for(var k = 1; k < pts.length; k++){
+    var a = pts[k - 1], b = pts[k];
+    SEGS.push({e:+p.dataset.edge, x:Math.min(a.x, b.x), y:Math.min(a.y, b.y),
+      w:Math.abs(a.x - b.x), h:Math.abs(a.y - b.y)});
+  }
+});
+function part(g, box, x, y, i){
+  // A label: its layout box, its anchor (x, y) and the lines through it at layout size.
+  var on = {};
+  SEGS.forEach(function(q){ if(hits(q, box, 0)){ on[q.e] = true; } });
+  return {g:g, box:box, x:x, y:y, i:i, base:on};
+}
+var HEADS = [].map.call(svg.querySelectorAll('.zone__h,.box__h'), function(g){
+  var at = (g.getAttribute('data-at') || '').split(' '), b = g.getBBox();
+  var h = part(g, {x:b.x, y:b.y, w:b.width, h:b.height}, +at[0], +at[1], -1);
+  h.end = +at[0] + +at[2] - 6;
+  return h;
+}).filter(function(h){ return h.box.w > 0; });
+var LABS = labels.map(function(l){
+  var r = l.querySelector('.flowlbl__hit'), i = +l.dataset.edge;
+  var box = {x:+r.getAttribute('x'), y:+r.getAttribute('y') + 6, w:+r.getAttribute('width'),
+    h:+r.getAttribute('height') - 12};
+  var b = part(l, box, box.x + box.w / 2, box.y + box.h / 2, i);
+  b.own = SEGS.filter(function(q){ return q.e === i && hits(q, {x:b.x, y:b.y, w:0, h:0}, 1); })[0];
+  return b;
+});
+function growth(){
+  // The label scale for 11 px on the screen, in steps of 0.02.
+  return Math.min(GROW, Math.max(1, Math.ceil(50 / (base() * cur.k) - 1e-6) / 50));
+}
+function free(r, ctx, b){
+  return !ctx.cards.some(function(c){ return hits(r, c, 2); })
+    && !ctx.taken.some(function(t){ return hits(r, t, 1); })
+    && !ctx.segs.some(function(q){ return !b.base[q.e] && hits(q, r, 0); });
+}
+function placeHead(h, s, ctx){
+  // The largest scale up to s at which the label has room in its box.
+  var t = s, r;
+  for(;; t = Math.max(1, t - 0.04)){
+    r = {x:h.x + (h.box.x - h.x) * t, y:h.y + (h.box.y - h.y) * t, w:h.box.w * t,
+      h:h.box.h * t};
+    if(t === 1 || (r.x + r.w <= h.end && free(r, ctx, h))){ break; }
+  }
+  tf(h.g, t, h.x, h.y);
+  ctx.taken.push(r);
+}
+function placeLabel(b, s, ctx){
+  // The nearest free place on the run of its own line, 2 units at a time.
+  if(s === 1){ tf(b.g, 1); ctx.taken.push(b.box); return true; }
+  var q = b.own, flat = q && !q.h, w = b.box.w * s, h = b.box.h * s;
+  for(var n = 0; n <= 240; n = n > 0 ? -n : 2 - n){
+    var dx = flat ? n : 0, dy = flat ? 0 : n;
+    var r = {x:b.x + dx - w / 2, y:b.y + dy - h / 2, w:w, h:h};
+    if(n && !(q && (flat ? r.x >= q.x + 4 && r.x + w <= q.x + q.w - 4
+      : r.y >= q.y + 4 && r.y + h <= q.y + q.h - 4))){ continue; }
+    if(free(r, ctx, b)){
+      ctx.taken.push(r);
+      tf(b.g, s, b.x, b.y, dx, dy);
+      return true;
+    }
+  }
+  tf(b.g, s, b.x, b.y);
+  return false;
+}
+function relabel(){
+  growSoon = 0;
+  var L = state.layer, s = growth(), j = state.journey, g = svg.querySelector('.seq-marks');
+  var key = L + s + svg.classList.contains('fg-on')
+    + (j ? (j.whole ? 'w' : j.edge) + (g ? g.childNodes.length : 0) : '');
+  if(key === growKey){ return; }
+  growKey = key;
+  function on(i){ return edgeIn(i, L) && !flowOf[i].classList.contains('fg-hide'); }
+  var ctx = {taken:[], cards:nodes.map(boxOf), segs:SEGS.filter(function(q){ return on(q.e); })};
+  var crowd = BESIDE.slice(), m = view.getScreenCTM(), k = m ? Math.hypot(m.a, m.b) : 0;
+  // The step numbers, tags and notes of a sequence, in drawing units.
+  [].forEach.call(j && g ? g.childNodes : [], function(c){
+    var r = c.getBoundingClientRect();
+    if(k && r.width){ ctx.taken.push({x:(r.left - m.e) / k, y:(r.top - m.f) / k,
+      w:r.width / k, h:r.height / k}); }
+  });
+  HEADS.forEach(function(h){ placeHead(h, s, ctx); });
+  LABS.forEach(function(b){
+    if(BESIDE.indexOf(b.i) >= 0 || !on(b.i)){ tf(b.g, s, b.x, b.y); }
+    else if(!placeLabel(b, s, ctx)){ crowd.push(b.i); }
+  });
+  for(var e in besideOf){ delete besideOf[e]; }
+  besideEdges.length = 0;
+  crowd.sort(function(a, b){ return a - b; })
+    .forEach(function(i){ besideOf[i] = true; besideEdges.push(i); });
+  paint();
+  if(svg.page && svg.page.syncFrame){ svg.page.syncFrame(); }
+}
+['systemap:view', 'systemap:layer', 'systemap:workspace'].forEach(function(name){
+  svg.addEventListener(name, function(){
+    if(!growSoon){ growSoon = requestAnimationFrame(relabel); } });
+});
+relabel();
+"""
