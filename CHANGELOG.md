@@ -9,6 +9,11 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+- The workflow from `systemap init` is advisory by default. A map finding gives a warning
+  annotation, and the job passes. The variable `SYSTEMAP_CI` in the workflow selects the mode.
+  `systemap init --strict-ci` writes `strict`: a map finding makes the job fail.
+  If systemap cannot run, the job fails in both modes. A workflow that exists does not change.
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.

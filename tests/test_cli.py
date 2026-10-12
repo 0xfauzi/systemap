@@ -139,9 +139,10 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
 
 
 def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path) -> None:
-    """The pull_request jobs: delta gives its lines in the log and fails if the map needs
-    an update. Only the link job can write a comment, and it runs only when delta wrote
-    one, which needs [delta] page_url. Nothing is expanded inside a run block."""
+    """The pull_request jobs: delta gives its lines in the log, and SYSTEMAP_CI decides if a
+    necessary map update fails the job. Only the link job can write a comment, and it runs
+    only when delta wrote one, which needs [delta] page_url. Nothing is expanded inside a
+    run block."""
     import re
 
     from systemap import delta_link
@@ -161,8 +162,8 @@ def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path
     assert "--format" not in workflow and "What this change does to the map" not in workflow
     # The delta job has no write permission and writes no comment.
     assert "permissions:" not in job and "gh api" not in job
-    assert job.rstrip().endswith('exit "$code"')
-    assert "::error title=Map delta::A map update is necessary." in job
+    assert 'if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi' in job
+    assert "::$level title=Map delta::A map update is necessary." in job
     # The link job: write permission on that job alone, only with a comment from delta.
     assert workflow.count("pull-requests: write") == 1
     assert "    permissions:\n      pull-requests: write" in link

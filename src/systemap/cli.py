@@ -116,7 +116,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     language, roots = init_language.language_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root)
-    say(*scaffold.write(root, name, package, roots, ci=not args.no_ci, language=language))
+    say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=language))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
@@ -800,7 +800,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "A map must have a configuration, a model, and a skill for the coding agent. "
             "This command writes these files and a GitHub workflow. The workflow gives map "
-            "changes and rejects stale maps. Use this command once in the project root."
+            "changes and warns about stale maps. Use this command once in the project root."
         ),
     )
     add_root(s)
@@ -812,9 +812,7 @@ def build_parser() -> argparse.ArgumentParser:
             "name, or root directory name."
         ),
     )
-    s.add_argument(
-        "--no-ci", action="store_true", help="Do not write .github/workflows/systemap.yml."
-    )
+    scaffold.add_ci_options(s)
     s.set_defaults(func=cmd_init)
 
     s = sub.add_parser(

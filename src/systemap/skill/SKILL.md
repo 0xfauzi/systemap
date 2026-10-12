@@ -183,7 +183,7 @@ Its actors represent adjacent components. Commands examine every nested map.
 
 | command | result |
 |---|---|
-| `systemap init` | Write missing configuration, initial model, skill, and CI workflow. With `--no-ci`, do not write the workflow. |
+| `systemap init` | Write missing configuration, initial model, skill, and CI workflow. With `--no-ci`, do not write the workflow. With `--strict-ci`, the workflow fails on a map finding. |
 | `systemap extract` | Write source facts. `--check` exits 1 for stale facts. |
 | `systemap facts` | Show one source view: `--modules`, `--docstrings`, `--module NAME`, `--names NAME`, `--entry-points`, `--external`, or `--imports NAME`. |
 | `systemap place` | Write positions for components without positions. `--all` keeps only pinned positions. `--keep-order` keeps region order. `--print` shows positions without file changes. |

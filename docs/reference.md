@@ -343,13 +343,19 @@ configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, `systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
-### `systemap init [--no-ci]`
+### `systemap init [--no-ci | --strict-ci]`
 
 Writes `systemap.toml`, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
 The command does not replace files.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
+
+The workflow has the variable `SYSTEMAP_CI`. Its default value is `advisory`:
+a map finding gives a warning annotation, and the job passes.
+With `--strict-ci`, the value is `strict`: a map finding makes the job fail.
+You can change the value in the workflow file later.
+If systemap cannot run (exit code 2 or more), the job fails with both values.
 
 If the repository has no Python package and a directory has a `tsconfig.json` file,
 `init` selects TypeScript.

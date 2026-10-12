@@ -126,7 +126,7 @@ These values come from the current model and recorded source data.
 Install systemap. Then write the initial files:
 
     uv tool install systemap        # or: uv add --dev systemap
-    systemap init                   # --no-ci writes no workflow
+    systemap init                   # --no-ci: no workflow. --strict-ci: findings fail CI.
 
 For a TypeScript repository, install the parser extra:
 
@@ -329,7 +329,9 @@ This example keeps finding identifiers from an earlier version:
 Its `entry` field shows a public name at which a reader can start.
 
 The workflow from `init` runs delta on each pull request. The job log gives each line
-and its action. CI rejects the pull request while it is necessary to update the map.
+and its action. By default, a necessary map update gives a warning, and the job passes.
+To reject the pull request while a map update is necessary, set `SYSTEMAP_CI: strict`
+in the workflow, or run `systemap init --strict-ci`.
 
 CI writes no comment by default. If your repository publishes the map page of each
 pull request, set `[delta] page_url` in `systemap.toml`. Then CI writes one comment
