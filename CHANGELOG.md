@@ -45,6 +45,28 @@ A layer is a filtered view of the map.
   show `observed` as "current source review". The stored value `observed` does not change.
   The `evidence lost` line of `systemap delta` now says "had a current source review" instead of "was observed".
 
+- Maps that users make use the `plain` writing profile by default.
+  The `[writing] profile` key in `systemap.toml` selects `plain` or `asd-ste100`.
+  A different value or key gives a configuration error.
+  The source-language key `language` does not change.
+
+  `plain` uses the common writing rules of the language policy.
+  These rules include sentence length, active voice, literal words, and one term for one concept.
+  A person or a program can examine them without a dictionary.
+  `asd-ste100` adds the full ASD-STE100 Issue 9 rules, which need the official ASD dictionary.
+
+  A configuration from an earlier version has no `[writing]` table, so its map uses `plain`.
+  To keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
+  `systemap init` writes the table with `profile = "plain"` and a comment for each value.
+
+  The skill reads the profile and applies it.
+  The language policy gives the common rules, the ASD-STE100 profile, and the glossary in separate sections.
+  `systemap journeys` puts the policy of the profile in each agent request.
+  The cache key contains the policy, so a request does not use an answer from an earlier version.
+  The instruction from `init` is now "Obey the systemap skill and its writing rules."
+
+  This repository keeps the `asd-ste100` profile for its map, interface text, and documentation.
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.

@@ -1,7 +1,7 @@
 """Write a draft sequence for entry points without a sequence.
 
 The configured agent examines source code from the entry point.
-It writes ordered steps under the mandatory ASD-STE100 language policy.
+It writes ordered steps under the language policy of the configured writing profile.
 systemap refuses steps with absent flows or unknown component identifiers.
 Accepted drafts have `drafted=True` until the maintainer examines them against source.
 
@@ -32,7 +32,7 @@ QUESTION = """Examine the repository and write one sequence for its system map.
 
 A sequence contains the ordered steps that start at an entry point.
 Each step shows the components that act and the artifact that moves.
-You must use ASD-STE100 Issue 9 for the identifier, label, and step sentences.
+Use the writing profile above for the identifier, label, and step sentences.
 Use the project glossary supplied in the language policy.
 
 Read the source code from the entry point below. Write only JSON with this shape:

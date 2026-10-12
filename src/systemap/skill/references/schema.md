@@ -18,7 +18,7 @@
 The model uses frozen dataclasses exported by `systemap`.
 `map/model.py` exports `MODEL` as a `Model` and `MEANING` as a `Meaning`.
 Default values identify optional fields.
-Use ASD-STE100 names and prose as specified in `references/language.md`.
+Use names and prose under the writing profile in `references/language.md`.
 Keep schema keys and source symbols exact.
 
 ## Model
@@ -85,7 +85,7 @@ Examples are `read(source) -> Request` and `Ledger.record / Ledger.history`.
 The checker reads the first identifier before `(`, `.`, `->`, or whitespace.
 For `Class.method`, both the class and its public method must exist.
 
-Keep literal signatures exact. Write any additional description in ASD-STE100.
+Keep literal signatures exact. Write any additional description under the writing profile.
 
 An empty package marker has no public names, internal imports, external imports, or top-level execution.
 The coverage check includes these markers without a manual exclusion.
@@ -249,7 +249,7 @@ A nonempty sequence covers only those identities.
 `acts` identifies the components that act.
 `measures` identifies components that monitor or record the step. If none applies, use `()`.
 `edge` is the `(src, dst)` pair of an existing flow.
-`say` gives one ASD-STE100 sentence about the action and result.
+`say` gives one sentence about the action and result, under the writing profile.
 
 ## Layer
 

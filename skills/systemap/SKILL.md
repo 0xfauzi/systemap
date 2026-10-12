@@ -1,6 +1,6 @@
 ---
 name: systemap
-description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model in ASD-STE100, gives positions to components, examines source claims, renders the map, and records answers to findings. Use systemap delta for source changes after the first map.
+description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model, gives positions to components, examines source claims, renders the map, and records answers to findings. The map text obeys the writing profile: plain or ASD-STE100. Use systemap delta for source changes after the first map.
 license: MIT
 compatibility: Python 3.11+ and the systemap package (uv tool install systemap). Delta and history use Git. Jev commands use TYPESAFE_API_KEY and network access.
 ---
@@ -20,15 +20,13 @@ If `systemap.toml` is missing, run `systemap init`.
 
 ## Mandatory language requirement
 
-You must use ASD-STE100 Issue 9 for all names and all text that a person reads.
-This requirement applies to every new map and every map update.
+Read `[writing] profile` in `systemap.toml`. If the key is missing, use `plain`.
+Apply the profile to all names and text that a person reads in every new map and every map update.
 It includes component names, artifacts, layers, sequences, steps, invariants, explanations, and recorded reasons.
-Before you write, read [references/language.md](references/language.md) and the official ASD rules and dictionary.
-Use approved meanings and parts of speech. Use technical terms only with their glossary meanings.
+Read [references/language.md](references/language.md) before you write. Do not change commands, schema keys, identifiers, or quoted source evidence.
 
-Do not change commands, schema keys, identifiers, or quoted source evidence.
-If the official reference is not available, tell the maintainer. Do not complete language acceptance.
-Do not use an automated word-list check as the only evidence that the text obeys the standard.
+- `plain`: the common rules and the glossary terms with their meanings. There is no dictionary step. Do not say that the text obeys ASD-STE100.
+- `asd-ste100`: also ASD-STE100 Issue 9, with the official ASD rules and dictionary. Use approved meanings and parts of speech. If the dictionary is not available, tell the maintainer. Do not give an ASD-STE100 acceptance result.
 
 ## Jev answers
 
@@ -218,7 +216,7 @@ Examined module assignments: <count>
 Open questions: <each assignment that the maintainer must examine>
 Recorded answers: <each answer in systemap.toml, with its reason>
 Evidence limits: <each recorded extractor, source, or Jev limit>
-Uncertainty: <each uncertain component assignment, source claim, or ASD-STE100 word>
+Uncertainty: <each uncertain component assignment, source claim, or word under the writing profile>
 Proposed rules: <each proposed invariant outside the invariant list>
 ```
 
@@ -228,7 +226,7 @@ Do not put code or test counts on map components. Keep relationships on flows. D
 
 ## References
 
-- `references/language.md`: mandatory ASD-STE100 rules, technical glossary, and language acceptance procedure. Read it before every text change.
+- `references/language.md`: the writing profiles, the common rules, the ASD-STE100 rules, the glossary, and the language acceptance procedure. Read it before every text change.
 - `references/schema.md`: dataclasses, fields, and structural checks. Read it before the draft.
 - `references/example.md`: a complete small model and configuration. Read it with the schema.
 - `references/layout.md`: automatic positions, pinned positions, routes, and descriptions. Read it before placement.

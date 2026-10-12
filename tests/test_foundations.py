@@ -78,7 +78,7 @@ def test_language_policy_reaches_the_agent_and_invalidates_old_answers(tmp_path:
     old_key = agent.cache_key("agent -p", "Write a sequence.", None)
     cache.entries[old_key] = {"prose": "An old answer without the language policy."}
     cache.save()
-    configured = agent.Agent("agent -p", tmp_path, cache, run_command=run)
+    configured = agent.Agent("agent -p", tmp_path, cache, run_command=run, profile="asd-ste100")
 
     assert configured.ask("Write a sequence.") == "The source supplies records."
     assert len(asked) == 1

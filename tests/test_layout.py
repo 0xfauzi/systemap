@@ -87,7 +87,7 @@ def test_starter_is_a_2x2_grid_with_corridors(tmp_path: Path) -> None:
     assert (ax, ay) == (cx, dy - (cy - ay)) or ax == cx
     assert by == ay and dx == bx and dy == cy
     assert "corridors" in text and "references/layout.md" in text
-    assert "ASD-STE100 Issue 9" in text
+    assert "[writing] profile" in text
     assert "from systemap import (" in text and "    Layer,\n" in text
     # The position tables are fenced from the formatter, with the reason
     # beside the fence; every schema name is imported and used.

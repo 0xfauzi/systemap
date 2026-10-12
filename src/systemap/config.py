@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap.delta_link import page_url
-from systemap.language_config import package_roots, tests_directories
+from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
 from systemap.root_check import checked_roots
 
@@ -57,6 +57,7 @@ KNOWN_KEYS = {
     "jev",
     "agent",
     "delta",
+    "writing",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
@@ -192,6 +193,7 @@ class Config:
     agent_timeout: float = 300.0
     # The URL of the published map page of a pull request, with {number}. Empty: no comment.
     delta_page_url: str = ""
+    writing_profile: str = "plain"  # the writing profile for map text
     source: str = ""
 
     @property
@@ -444,6 +446,7 @@ def load(root: Path) -> Config:
         roots = checked_roots(root, language, raw, roots, KNOWN_KEYS, where)
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
         delta_page_url = page_url(raw, where)
+        writing = writing_profile(raw.get("writing"), where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -473,6 +476,7 @@ def load(root: Path) -> Config:
         theme=theme,
         figures=_figures(raw, where),
         delta_page_url=delta_page_url,
+        writing_profile=writing,
         source=source,
     )
 

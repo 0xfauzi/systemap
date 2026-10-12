@@ -1,9 +1,15 @@
-"""The language configuration helpers validate settings shared by source adapters."""
+"""The language configuration helpers validate settings shared by source adapters.
+
+They also validate the writing profile for the map text that a person reads.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+
+# The writing profiles of the language policy. The first profile is the default.
+PROFILES = ("plain", "asd-ste100")
 
 
 def package_roots(
@@ -32,3 +38,20 @@ def tests_directories(value: Any, source: str) -> tuple[str, ...]:
     if isinstance(value, list) and all(isinstance(item, str) for item in value):
         return tuple(value)
     raise ValueError(f"{source}: tests_dir must be a directory or a list of directories.")
+
+
+def writing_profile(value: Any, source: str) -> str:
+    """This function validates the `[writing]` table and gives the writing profile.
+
+    Without the table or its profile key, the profile is "plain"."""
+    if value is None:
+        return PROFILES[0]
+    if not isinstance(value, dict):
+        raise ValueError(f"{source}: writing must be a table")
+    bad = sorted(set(value) - {"profile"})
+    if bad:
+        raise ValueError(f"{source}: writing has an unknown key: {', '.join(bad)}")
+    profile = value.get("profile", PROFILES[0])
+    if profile not in PROFILES:
+        raise ValueError(f'{source}: writing.profile must be "plain" or "asd-ste100"')
+    return str(profile)

@@ -1,7 +1,7 @@
 """Files that the init command writes for a new system map.
 
 The initial model has one container, four regions, and no components.
-The installed skill gives the source examination and ASD-STE100 language requirements.
+The installed skill gives the source examination and the writing rules of each writing profile.
 The agent writes components from source facts and calculates positions with the placement command.
 
 The optional CI workflow uses the released package version that made it.
@@ -28,6 +28,14 @@ out_dir = "docs/map"
 # Keep these keys above the table lines. A key after a table header is part of that table.
 {roots_note}
 {roots}
+
+# The writing profile selects the writing rules for the map text that a person reads.
+# "plain" selects the common writing rules of the installed skill. A person or a program
+# can examine these rules without a dictionary.
+# "asd-ste100" also selects the full ASD-STE100 Issue 9 rules. These rules need the
+# official ASD dictionary.
+[writing]
+profile = "plain"
 
 # Each source module must have a component assignment or a recorded ignore.
 # Each ignore must give an explanation.
@@ -67,9 +75,9 @@ interactive = false
 MODEL = '''# ruff: noqa: E501
 """The system map of {doc_name}.
 
-All reader text must use ASD-STE100 Issue 9.
+All reader text must obey the writing profile in systemap.toml ([writing] profile).
 Before you write names or sentences, read the language policy of the installed systemap skill.
-Use the official writing rules and dictionary. Use only the approved word meanings.
+The "plain" profile has no dictionary step. The "asd-ste100" profile needs the ASD dictionary.
 
 The extractor supplies source facts. This file records component purposes and flow claims.
 Each component identifies its source modules and an applicable public entry point.

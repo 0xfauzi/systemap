@@ -102,13 +102,13 @@ def _project(args: argparse.Namespace) -> Project:
 
 
 AGENT_SENTENCE = (
-    "Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9."
+    "Make a map of this repository with systemap. Obey the systemap skill and its writing rules."
 )
 # The sentence for a repository that already has a map: the skill's "the
 # code changed" path, with the ref the map is compared against.
 MAINTENANCE_SENTENCE = (
     "The code changed. Update the map with systemap. Obey the maintenance procedure "
-    "of the systemap skill and ASD-STE100 Issue 9. Use base {base}."
+    "of the systemap skill and its writing rules. Use base {base}."
 )
 
 

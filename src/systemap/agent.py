@@ -5,9 +5,10 @@ Set the agent command under `[agent]` in `systemap.toml`.
 The command reads its question from stdin and writes its answer to stdout.
 For a JSON answer, systemap reads the string in the `result` field.
 
-Every question includes the mandatory ASD-STE100 language policy.
+Every question includes the language policy of the configured writing profile.
+The "plain" profile gets the policy without its ASD-STE100 section.
 The cache key includes the command, policy, question, and context.
-A policy change makes old answers unavailable to new requests.
+A policy or profile change makes old answers unavailable to new requests.
 Without a configured agent, systemap shows facts and the missing configuration.
 """
 
@@ -32,6 +33,8 @@ OUTPUT_CAP = 200_000
 LANGUAGE_POLICY = (
     resources.files("systemap").joinpath("skill/references/language.md").read_text(encoding="utf-8")
 )
+# The policy section that only the "asd-ste100" writing profile uses.
+STRICT_SECTION = "## ASD-STE100 profile"
 NO_AGENT = (
     "No agent is configured. The output contains facts without an agent explanation. "
     'Set the command under [agent] in systemap.toml, for example command = "claude -p". '
@@ -41,6 +44,18 @@ NO_AGENT = (
 
 class AgentError(Exception):
     """A failure to start the agent or get its answer."""
+
+
+def policy(profile: str) -> str:
+    """Give the language policy for a writing profile, with the profile at the end.
+
+    The "plain" profile gets the policy without the ASD-STE100 section."""
+    text = LANGUAGE_POLICY
+    start = text.find(STRICT_SECTION)
+    if profile != "asd-ste100" and start >= 0:
+        end = text.find("\n## ", start)
+        text = text[:start] + (text[end + 1 :] if end >= 0 else "")
+    return f"{text.rstrip()}\n\nUse the `{profile}` writing profile for this request."
 
 
 def cache_key(command: str, question: str, context: Any) -> str:
@@ -116,10 +131,11 @@ class Agent:
     timeout: float = TIMEOUT
     run_command: Run = shell_run
     usage: Usage = field(default_factory=Usage)
+    profile: str = "plain"
 
     def ask(self, question: str, context: Any = None) -> str:
-        """Get an answer under the mandatory language policy."""
-        question = f"{LANGUAGE_POLICY}\n\n{question}"
+        """Get an answer under the language policy of the writing profile."""
+        question = f"{policy(self.profile)}\n\n{question}"
         key = cache_key(self.command, question, context)
         held = self.cache.entries.get(key)
         if isinstance(held, dict) and isinstance(held.get("prose"), str):
@@ -146,6 +162,7 @@ def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
         cache=Cache(cfg.agent_cache_path),
         timeout=cfg.agent_timeout,
         run_command=run_command or shell_run,
+        profile=cfg.writing_profile,
     )
 
 
