@@ -56,7 +56,7 @@ FLOWS = (
 MODEL = Model(canvas=(740, 440), containers=CONTAINERS, regions=REGIONS,
               components=COMPONENTS, flows=FLOWS, flow_kinds=())
 MEANING = Meaning(
-    plain={c.id: c.id.lower() for c in COMPONENTS},
+    plain={"Reader": "reader", "Writer": "writer", "Store": "store", "Audit": "audit"},
     relations={("Reader", "Writer"): "The reader gives the text.",
                ("Writer", "Store"): "The writer keeps the records.",
                ("Writer", "Audit"): "The writer asks the audit."},
