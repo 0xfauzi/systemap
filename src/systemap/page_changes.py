@@ -1,18 +1,20 @@
 """The Changes view: the change map, its toolbar and its panel.
 
 The page has a revision comparison only when `systemap render --base REF`
-makes it. The comparison uses the model and the stored source facts of this
-page for both revisions. It has no flow evidence for the base revision, so
+makes it. The source comparison uses the model and the stored source facts of
+this page for both revisions. It has no flow evidence for the base revision, so
 the toolbar offers Hold B (the map without change marks) and no base
 evidence control. The panel text comes from the comparison counts, the flow
-evidence in the change map detail. It does not claim more than these records
-show."""
+evidence in the change map detail, and the map changes of `page_changes_map`
+(the committed model at the base against the model of this page). It does not
+claim more than these records show."""
 
 from __future__ import annotations
 
 import html
 from typing import Any
 
+from systemap import page_changes_map
 from systemap.page_changes_script import EMPTY_SCRIPT as EMPTY_SCRIPT
 from systemap.page_changes_script import SCRIPT as SCRIPT
 from systemap.schematic_change import tests_only as tests_only
@@ -141,8 +143,7 @@ def _rows(ch: dict[str, Any]) -> str:
 def comparison_limits(ch: dict[str, Any]) -> str:
     """Give the limits of the comparison as paragraphs."""
     out = [
-        "<p>The comparison uses the model of this page for both revisions. It cannot show "
-        "a component, flow or sequence that the change added or removed.</p>",
+        page_changes_map.limit(ch.get("map")),
         "<p>Flow evidence comes from the stored source facts of this page. The page has no "
         "flow evidence for the base revision.</p>",
     ]
@@ -201,7 +202,8 @@ def panel(ch: dict[str, Any]) -> str:
         + "".join(_card(cid, parts[cid].get("modules", []), prefix) for cid in source)
         + _rows(ch)
         + "</section>"
-        '<section class="chg-sec" id="chg-flows" aria-label="Flows to examine" hidden></section>'
+        + page_changes_map.section(ch.get("map"))
+        + '<section class="chg-sec" id="chg-flows" aria-label="Flows to examine" hidden></section>'
         '<section class="chg-sec" id="chg-seqs" aria-label="Sequences" hidden></section>'
         '<section class="chg-limits" aria-label="Limits of the comparison">'
         '<h3 class="chg-cap">NOT IN THIS COMPARISON</h3>' + comparison_limits(ch) + "</section>"
@@ -233,7 +235,8 @@ def stage(ch: dict[str, Any], svg: str) -> str:
     return start + f'<div class="stage">{svg}</div></section>'
 
 
-CSS = r"""
+CSS = (
+    r"""
 /* ---- Changes view: toolbar -------------------------------------------- */
 .change-controls .chg-bar__k{font-size:12px;color:var(--ink-3)}
 .change-controls .chg-bar__k+.chg-ref~.chg-bar__k{font-size:13px}
@@ -384,3 +387,5 @@ CSS = r"""
 .change-view.chg-titled .change-empty{margin:200px 24px 0;padding:0}
 .change-empty p{color:var(--ink-2);font-size:13px;line-height:20px}
 """
+    + page_changes_map.CSS
+)

@@ -503,8 +503,12 @@ A component with changed source has a CHANGED tag. A component with only test ch
 A component that imports changed source has an IMPORTS tag.
 A flow that needs a new source review has a vermilion dashed line. Other cards and lines have low contrast.
 The marks show in a fixed order: the changed cards, the tagged cards, and then the flows.
-The panel gives a summary, the changed components, the flows to examine, the sequences with a changed step,
-and the limits of the comparison. The page does not show the judgement findings or the delta lines.
+The panel gives a summary, the changed components, the map changes, the flows to examine, the sequences with a changed step,
+and the limits of the comparison.
+Map changes compare the committed model at the merge base with the model of the page.
+They have a group each for components, flows, sequences, and rules. A row gives the item, its changed parts or the rule text,
+and the word added, removed, or changed in vermilion. A row for an item on the page selects it on the change map or starts the sequence.
+A removed item has a dashed border and no action. A group shows ten rows and the quantity of the other rows. The page does not show the judgement findings or the delta lines.
 `systemap judgement` and the CI log give them to the maintainer.
 
 ## Selection and evidence

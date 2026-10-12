@@ -240,7 +240,7 @@ def _render_page(p: Project, m: nest.Map, facts: dict[str, Any], args: argparse.
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
     if base:
-        ch = change.compute(p.cfg, m.model, base, facts, getattr(args, "head", "HEAD"))
+        ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"))
         ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
     return page.build(
         p.cfg,

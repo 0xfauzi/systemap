@@ -428,6 +428,11 @@ Writes the page from the facts and model.
 
 - `--base REF` adds a change map relative to that revision.
   The page link `#changes`, for example `index.html#changes`, opens the Changes view.
+  The Changes panel lists the map changes: the components, flows, sequences, and rules
+  that the change added, removed, or changed in the model.
+  The list compares the committed model at the merge base with the model on disk.
+  A new digest for the same cited module or symbol is not a flow change.
+  If the base model does not load, the panel gives the reason.
 
 ### `systemap check [--brief]`
 

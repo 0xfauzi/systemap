@@ -258,6 +258,7 @@ COMPONENTS = (
             "systemap.page_present",
             "systemap.page_changes",
             "systemap.page_changes_script",
+            "systemap.page_changes_map",
             "systemap.page_groups",
             "systemap.page_phone",
             "systemap.page_motion",

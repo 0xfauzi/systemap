@@ -16,6 +16,11 @@ A layer is a filtered view of the map.
   with a link to the Changes view of the published page. The workflow from `init` posts that comment
   and changes it after each push. If the map needs an update, the comment has one more line that says so.
 
+- The Changes view lists the map changes: the components, flows, sequences, and rules that the change
+  added, removed, or changed in the model. It compares the committed model at the merge base with the
+  model of the page. A row selects its item on the change map, or starts the sequence.
+  The page link `#changes` opens the Changes view.
+
 - Delta and judgement say what the reader must do. Delta says `The map needs an update (N):` or
   `The map is current.` Judgement says `N possible map errors to examine` or
   `No possible map error to examine`. The finding lines and the exit codes do not change.
