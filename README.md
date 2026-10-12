@@ -445,6 +445,27 @@ The map contains authored and examined flows. It does not contain all function
 calls or one component for each module. Systemap is not a UML tool.
 It uses one picture and one layout, with components, flows, and sequences.
 
+## What does systemap run and read?
+
+systemap reads the source files, `systemap.toml`, and the model files of the repository.
+The extractor parses the source files. It does not import them.
+systemap reads `map/model.py` and the model files that it imports as data.
+It does not run them.
+A model file can contain only literal values, calls of the model classes, and names that
+the file defines. For other code in a model file, the commands stop and give the file,
+the line, and the necessary change.
+
+If you know that the code in a repository is safe, you can set
+`SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command.
+Then systemap runs the model files as Python code, as version 2.0 did.
+The repository cannot give this permission. systemap does not read it from `systemap.toml`
+or from another file in the repository.
+
+systemap runs `git` to read the commits and revisions of the repository.
+`systemap journeys` runs the program that `[agent] command` in `systemap.toml` gives.
+Before you run `journeys` in a repository that you do not know, read that value.
+Commands that use Jev or an agent send source text and map text to that service.
+
 ## How do you develop systemap?
 
     uv sync

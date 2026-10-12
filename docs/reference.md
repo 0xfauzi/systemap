@@ -311,7 +311,8 @@ components. Two open nested maps.
 
 ## What does a model contain?
 
-The agent writes one Python module with frozen dataclasses.
+The agent writes one model file in Python syntax with the frozen dataclasses of `systemap`.
+systemap reads the file as data. It does not run the file as Python code.
 This example contains two components and one flow from the self-map.
 A model does not declare the standard flow kinds.
 The page derives standard layers.
@@ -347,6 +348,34 @@ The example has no `x` or `y` values.
 `systemap place` writes these positions.
 After component additions or removals, `systemap place --all` writes new
 positions. A component with `pinned=True` keeps its selected position.
+
+A model file can contain only these statements:
+
+- The module docstring and `from __future__ import annotations`.
+- `from systemap import ...` or `from systemap.model import ...` for the model classes
+  and for `AGENT_KINDS`, `KINDS`, and `STANDARD_KINDS`.
+- `import NAME` for the file `NAME.py` in the same directory, such as `import journeys`.
+  `NAME.VALUE` gives a value from that file. The same rules apply to that file.
+  systemap refuses a symbolic link to a file outside the directory, and an import cycle.
+- `NAME = value` and `NAME: annotation = value`. systemap does not read the annotation.
+- A type alias for annotations, such as `Steps = tuple[Step, ...]`.
+
+A value is a `str`, `int`, `float`, `bool`, or `None` constant, a minus sign before
+a number, or a `tuple`, `list`, `set`, or `dict` of values.
+A value can also be a call of a model class with positional and keyword values,
+or a name that an earlier statement in the same file defines.
+systemap refuses all other syntax before it makes a value. Examples are functions,
+classes, comprehensions, f-strings, operators, indexes, `**` and `*` in a call, and other imports.
+The message gives the file, the line, and the refused syntax.
+
+The reader also has limits: 512 KiB and 16 files for one model with the files that it imports,
+100,000 values, 32 levels of nested values, and 8,000,000 parts and characters in one value
+when each name in it is written out. Move a part of a larger map into a nested map.
+
+If you know that the code in a repository is safe, set `SYSTEMAP_TRUST_MODEL_CODE=1`
+in the environment of the command. Then systemap runs each model file as Python code,
+as version 2.0 did. Only the value `1` gives this permission.
+systemap does not read this permission from `systemap.toml`, because the repository controls that file.
 
 The full schema and examples are in
 [`SKILL.md`](src/systemap/skill/SKILL.md) and its
@@ -760,7 +789,7 @@ Unknown keys are rejected.
 | `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
-| `model` | `map/model.py` | The module that exports `MODEL` and `MEANING`. Its directory enters the import path during execution. Adjacent modules can contain sequences or region components (`import journeys`). Imported modules do not stay cached between executions. |
+| `model` | `map/model.py` | The model file that gives `MODEL` and `MEANING`. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (`import journeys`). [What does a model contain?](#what-does-a-model-contain) gives the permitted syntax. |
 | `out_dir` | `docs/map` | The directory for facts, pages, and figures. |
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. |
 | `spec_path` | none | A document with `##` headings that identify specification sections. |
@@ -776,6 +805,13 @@ Unknown keys are rejected.
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
+
+The environment of a command can set two values. A repository file cannot set them.
+
+| Variable | Meaning |
+|---|---|
+| `TYPESAFE_API_KEY` | The key for Jev questions. Without it, no question goes to Jev. |
+| `SYSTEMAP_TRUST_MODEL_CODE` | With the value `1`, systemap runs the model files as Python code. Without it, systemap reads them as data. Set it only for a repository with safe code. |
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
 The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.

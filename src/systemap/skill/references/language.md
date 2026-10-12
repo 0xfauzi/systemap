@@ -310,6 +310,11 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | exact match | A full identity comparison with no wildcard or substring matching. |
 | source pattern | A module name or wildcard expression used for component assignment. |
 | wildcard | A pattern symbol that matches a specified set of names. |
+| literal value | A value that source syntax gives directly: a `str`, `int`, `float`, `bool`, or `None` constant, or a `tuple`, `list`, `set`, or `dict` of such values. |
+| type alias | A source name for a type, such as `tuple[Step, ...]`, for use in annotations. |
+| annotation | The type text after a colon in a source assignment. |
+| environment variable | A named value that the environment of a command supplies to a program. |
+| symbolic link | A file system entry that refers to a different file. |
 
 | Term | Technical meaning |
 |---|---|

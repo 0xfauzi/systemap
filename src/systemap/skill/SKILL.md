@@ -11,7 +11,7 @@ A map has source facts and an authored model.
 `systemap extract` reads modules, exports, imports, and entry points from source code.
 The model gives component assignments for source modules and identifies each flow artifact.
 A maintainer must examine these claims against source code. A structural check without failures does not show that a claim is correct.
-The model is a Python module, usually `map/model.py`, with `MODEL` and `MEANING`.
+The model is a file in Python syntax, usually `map/model.py`, with `MODEL` and `MEANING`. systemap reads it as data and does not run it. Write only literal values and model class calls.
 
 Run commands from the repository root. Use `--root DIR` for another repository.
 If the `systemap` command is missing, tell the maintainer. `uv tool install systemap` or `uv add --dev systemap` installs it.
