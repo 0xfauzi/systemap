@@ -13,7 +13,7 @@ Examine each component assignment and flow claim against source.
 Include modules that have no judgement finding.
 A shared package, word, or import does not show a common component function.
 
-Use the language policy in `references/language.md` throughout this procedure.
+Use the language policy in `references/language.md` for all steps of this procedure.
 Keep exact finding identifiers when you record answers.
 
 ## Source examination procedure
@@ -24,51 +24,53 @@ Keep exact finding identifiers when you record answers.
    Do not leave unanswered lines.
 2. Examine every assigned module from `systemap facts --modules`.
    Compare its source description and public symbols with the component's `does`, `plain`, and `interface`.
-   Read the module source when the facts do not establish its function.
+   If the facts do not show its function, read the module source.
    If another component has the correct function, change the assignment.
    If both assignments are incorrect, correct the component definitions first.
    Record uncertain assignments and their source evidence for the maintainer.
 3. Examine every crossing import with `systemap judgement --verbose`.
-   Find the source import and identify the data transfer or call direction.
+   Find the source import. Identify the data transfer or call direction.
    Add a supported flow, record why no flow is necessary, or correct the component assignments.
    Type annotations and shared constants can be imports without a useful map flow.
 4. Examine every declared or structural flow.
    Find the source that gives its direction and artifact.
-   Correct module assignments if the import belongs to a different component.
+   If the import belongs to a different component, correct the module assignments.
    For a subprocess, queue, file, or HTTP operation, identify the mechanism in the relation sentence.
+
    A configured word in `[flows] observed_by` gives structural evidence only.
    Record current source references and a claim digest only after source examination.
    Remove unsupported flows and their relation sentences.
    If the extractor cannot see a real connection, record that specific limit.
    A judgement answer must not change the flow's evidence state.
-5. Examine each uncovered entry point.
+5. Examine each entry point without sequence coverage.
    Write a source-supported sequence or record why the sequence is not necessary.
    Use `references/journeys-and-invariants.md` for exact entry identities and step coverage.
 6. Examine each `model sdk` finding.
-   Use the repository's own agent definition when it exists.
+   When it exists, use the repository's own agent definition.
    Set `kind="agent"` for an agent or `calls_model=True` for another model-calling component.
    Add the applicable context and tool flows.
    If the import is a client capability, unused code, or a non-model framework module, record that evidence.
+
    Import prefixes also match framework tool and session modules.
    `[facts] model_sdks = ["-google.adk"]` removes that built-in prefix.
-   A `module_sdk = "google.adk"` policy answers matching findings without removal of the prefix.
+   A `module_sdk = "google.adk"` policy answers the findings for that import and keeps the prefix.
 7. Read the repository's rules beside the invariant list.
    Read README, AGENTS.md, CLAUDE.md, the documentation index, and the first level of docs/.
-   Stop further document reading when new rules apply only to source outside the repository.
+   If new rules apply only to source outside the repository, do not read more documents.
    Add each applicable rule with a source citation or record why it is not an invariant.
-8. Examine `docs/map/figures/structure.svg`, then `docs/map/figures/system.svg`.
-   Use `systemap serve` to open the page when a browser is available.
-   Examine near-crossing routes, misplaced labels, isolated regions, empty layers, and sequence gaps.
+8. Examine `docs/map/figures/structure.svg`. Then examine `docs/map/figures/system.svg`.
+   If a browser is available, use `systemap serve` to open the page.
+   Examine near-crossing routes, labels in incorrect positions, isolated regions, empty layers, and sequence gaps.
    Read each relation sentence from the source component.
    Correct generic sentences that do not give the actual action and result.
-9. Run `systemap check && systemap judgement --strict`, then `systemap refresh`.
-   A removed flow can reopen a crossing-import finding. Do the judgement check after every layout change.
+9. Run `systemap check && systemap judgement --strict`. Then run `systemap refresh`.
+   A removed flow can open a crossing-import finding again. Do the judgement check after every layout change.
 10. If the model changed, do this procedure again. Before completion, do the language acceptance procedure.
 
 ## Answer records
 
 Seven forms are available. Each table has one reason.
-These placeholders are illustrative. Replace each quoted line and digest with actual output after source examination.
+These values are examples. Replace each quoted line and digest with actual output after source examination.
 
 ```toml
 [judgement]
@@ -85,7 +87,7 @@ answered = [
 
 An exact answer must have the SHA-256 evidence digest for the current finding.
 A placeholder or old digest is not sufficient.
-A broad answer is a standing policy only with `policy = true`.
+A broad answer is a permanent policy only with `policy = true`.
 Use `reviewed = ["<printed line>", ...]` to record its examined baseline.
 The report counts current matches outside that baseline.
 Do not use a broad policy to avoid source examination.
@@ -101,19 +103,19 @@ An exact `item` answer includes that prefix.
 Broad forms such as `kind`, `crossing`, and `module_sdk` apply across maps.
 
 An import between two internal components belongs to their nested map.
-An import across its boundary belongs to the parent map's corresponding components.
+An import across its boundary belongs to the applicable components on the parent map.
 Entry points and SDK imports use the deepest map with the applicable source assignment.
 A sequence on any map can cover an exact entry identity.
 
 ## Completion conditions
 
-All of these conditions must hold:
+The work must agree with all of these conditions:
 
 - `systemap check` has complete coverage and no layout failures.
 - After `refresh`, there must be no `stale` finding.
 - `systemap judgement --strict` exits 0, with no unanswered findings or stale answers.
-- A complete source examination causes no further model changes.
-- Unread documentation has no rules for source in the repository.
+- A complete source examination causes no more model changes.
+- Documentation that you did not read has no rules for source in the repository.
 - The language acceptance procedure is complete for all changed names and sentences.
 
 Give the maintainer the completion report from SKILL.md, with the recorded answers and evidence limits.
@@ -130,9 +132,9 @@ Each answer is a question for source examination, not source evidence.
 | `jev owner` | Give the module a component assignment with source evidence or record a coverage exclusion. |
 | `jev sentence` | Compare the description with source. Correct it or record why it is correct. |
 | `jev flow` | Find the source call and artifact. Instance calls can be missing from Jev's input. |
-| `jev governs` | Examine whether a component change can break the invariant. Change `governs` only with source support. |
+| `jev governs` | Examine if a component change can make the invariant incorrect. Change `governs` only with source support. |
 
-The `jev flow` question is opt-in through `--kind "jev flow"`.
+The audit asks the `jev flow` question only with `--kind "jev flow"`.
 Its recorded experiment found fewer incorrect flows on maps not used for threshold selection.
 Use that limit when you examine its answers.
 Record audit answers under `[judgement] answered` with a reason.

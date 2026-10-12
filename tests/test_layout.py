@@ -426,7 +426,7 @@ def test_layout_reference_says_what_place_does_and_what_the_agent_decides() -> N
         "Use `pinned=True`",
         "keeps only positions with `pinned=True`",
         "one to three words",
-        "increase row spacing",
+        "increase the distance between rows",
         "systemap describe",
         "Pinned, stored",
         "actual gutter coordinates and occupancy",

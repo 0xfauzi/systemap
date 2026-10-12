@@ -28,8 +28,8 @@ Keep schema keys and source symbols exact.
 `canvas` gives `(width, height)` in SVG coordinate units.
 The other collections are tuples of the dataclasses below.
 `flow_kinds` contains custom kinds only.
-The standard kinds `data`, `control`, `context`, and `tool` have no declaration requirement.
-Use `()` when there are no custom kinds.
+A declaration is not necessary for the standard kinds `data`, `control`, `context`, and `tool`.
+If there are no custom kinds, use `()`.
 
 ## Container
 
@@ -45,7 +45,7 @@ Put actors in containers, not regions.
 
 `Region(id, label, box, container=None)`
 
-A region groups components by function, phase, or team within a container.
+A region is a component group for one function, phase, or team within a container.
 `container` identifies that parent container.
 The region box must stay inside its container.
 Components, stores, agents, tools, and context cards use regions.
@@ -82,13 +82,14 @@ An entry supplied by any kind still receives the normal source check.
 
 `interface` is optional. It starts with an existing public symbol or re-export.
 Examples are `read(source) -> Request` and `Ledger.record / Ledger.history`.
-The checker reads the leading identifier before `(`, `.`, `->`, or whitespace.
+The checker reads the first identifier before `(`, `.`, `->`, or whitespace.
 For `Class.method`, both the class and its public method must exist.
+
 Keep literal signatures exact. Write any additional description in ASD-STE100.
 
 An empty package marker has no public names, internal imports, external imports, or top-level execution.
 The coverage check includes these markers without a manual exclusion.
-An exclusion for markers alone is unnecessary and receives a finding.
+An exclusion for markers alone is not necessary and receives a finding.
 For actual exclusions, record a reason:
 
 ```toml
@@ -100,7 +101,7 @@ ignore = [
 ```
 
 `source_review` records a SHA-256 digest after source examination.
-Examine the description, interface, incident flows, sequences, and invariants before you write it.
+Examine the description, interface, connected flows, sequences, and invariants before you write it.
 Delta keeps a changed component under `The map needs an update` until the digest agrees with the current claims and source.
 Refresh does not write this digest. See `references/maintenance.md` for the procedure.
 
@@ -117,6 +118,7 @@ Refresh does not write this digest. See `references/maintenance.md` for the proc
 
 Source cards have the evidence state `built`. Actors show `outside`.
 This means the source identities exist. It does not show every authored description.
+
 `calls_model=True` identifies a model call without agent classification.
 Context flows can end there and tool flows can start there.
 The Context and Tools layers include those flows. The Agents layer does not include that component.
@@ -124,15 +126,16 @@ The flag also answers its `model sdk` finding.
 
 ### Positions and text
 
-`region` places a source component. `container` places an actor.
+`region` puts a source component in a region. `container` puts an actor in a container.
 `x` and `y` give the top-left corner.
 Card width is 150 units.
 Height is 56 units for components, agents, and tools, 52 for stores and context, and 44 for actors.
-Leave positions unset and run `systemap place`.
+
+Leave positions unset. Run `systemap place`.
 `pinned=True` keeps a position during `systemap place --all`.
 
 Card names and short descriptions have measured text limits.
-A component, agent, or tool can split a long CamelCase name into two lines.
+A component, agent, or tool can show a long CamelCase name on two lines.
 Other kinds use one name line.
 The short description uses two lines except for actors or a component with a two-line name.
 The checker gives the actual available dimensions when text does not fit.
@@ -148,14 +151,15 @@ A dot on the card also gives the note as hover text.
 The nested model exports `MODEL` and `MEANING`.
 Its internal components must cover exactly the parent's modules, each once.
 Symbol claims do not add module coverage. Empty package markers are excluded.
-Its actors use adjacent parent-map component identifiers.
+
+Its actors use the identifiers of adjacent components on the parent map.
 An actor cannot have a nested map.
 
 The parent card keeps its flows and shows a second card behind it.
 The inspector has a preview and an open button.
 Double-click or a second Enter also opens the nested map.
 `docs/map/Gateway/index.html` has a parent link.
-A further nested map can have identifier `Gateway/Routes`.
+A nested map can also have nested maps, with identifiers such as `Gateway/Routes`.
 See `references/layout.md` for thresholds and commands.
 
 ## Flow
@@ -165,18 +169,19 @@ See `references/layout.md` for thresholds and commands.
 A flow carries one artifact from component `src` to component `dst`.
 Use an artifact noun phrase of one to three words.
 Standard kinds are `data`, `control`, `context`, and `tool`.
-Other kinds must be declared in `flow_kinds`.
+Declare other kinds in `flow_kinds`.
+
 A context destination must be an agent or `calls_model` component.
 A tool source must be an agent or `calls_model` component.
 Every flow must have a relation sentence.
 
 One flow per ordered pair is permitted.
 The pair is the key for its sentence, direction verbs, and connection diagram.
-For multiple transfers in one direction, select the artifact that matters most to the reader.
+For multiple transfers in one direction, select the artifact that is most important to the reader.
 Represent the other direction as a separate flow with its own sentence.
 
 An import, common module, or configured mechanism gives `structural` evidence only.
-`observed` must have current `source_refs` and a matching `review_digest` for the flow and relation sentence.
+`observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
 A reference has the form `module[:symbol]@<source_sha256>`.
 The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
 It does not examine the claims for you. Examine the source before you record the values.
@@ -200,6 +205,7 @@ PY
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
 Digests identify recorded source and claims. They do not show the claim's meaning automatically.
+
 `external` has an actor endpoint. `declared` has no examined source or structural support.
 Structural and declared flows use dashed lines. Examine their source evidence.
 
@@ -208,7 +214,7 @@ Structural and declared flows use dashed lines. Examine their source evidence.
 observed_by = ["subprocess", "queue", "facts file"]
 ```
 
-These configured words classify structural mechanisms only. They do not establish observed evidence.
+These configured words classify structural mechanisms only. They do not give observed evidence.
 
 ## Invariant
 
@@ -225,7 +231,8 @@ The page and component inspector show the applicable rules.
 
 The schema term `Journey` represents a sequence of ordered steps.
 `id` is its stable identifier. `label` is the selector text.
-`starts` is an entry display label and an old-format migration hint.
+`starts` is a display label for the entry point and a migration hint for the old format.
+
 `covers` contains exact entry identities as JSON array strings in `[kind, module, target, name]` order.
 A nonempty sequence covers only those identities.
 `drafted=True` means the agent answer still has no source examination.
@@ -235,7 +242,7 @@ A nonempty sequence covers only those identities.
 `Step(acts, measures, edge, say)`
 
 `acts` identifies the components that act.
-`measures` identifies components that monitor or record the step. Use `()` when none applies.
+`measures` identifies components that monitor or record the step. If none applies, use `()`.
 `edge` is the `(src, dst)` pair of an existing flow.
 `say` gives one ASD-STE100 sentence about the action and result.
 
@@ -243,9 +250,10 @@ A nonempty sequence covers only those identities.
 
 `Layer(id, label, question="", sub="")`
 
-Declare only custom layers. Standard layer identifiers cannot be reused:
+Declare only custom layers. Do not use a standard layer identifier for a custom layer:
 `structure`, `system`, `data`, `control`, `agents`, `context`, `tools`, and `all`.
 The theme supplies layer colors. Custom layers use its palette in order.
+
 The page has the Ink and Paper themes. Their scheme keys are `dark` and `light`.
 The `scheme` field selects the palette for figures.
 The initial theme uses the device theme.
@@ -280,7 +288,7 @@ accent = "#1D1B17"
 
 The checker rejects these conditions:
 
-- Missing positions, overlapping cards, and components outside their region or container.
+- Missing positions, cards that overlap, and components outside their region or container.
 - Unknown flow endpoints, invalid kinds, duplicate ordered pairs, and invalid context or tool endpoints.
 - Unknown invariant components and duplicate invariant numbers.
 - Routes through unrelated cards or regions.
@@ -288,14 +296,14 @@ The checker rejects these conditions:
 - Text that exceeds its box or is below the minimum type size of 11 units.
 - Missing relation sentences, plain names, or layer assignments.
 - Unknown sequence components or edges and invalid overrides.
-- Unassigned or multiply assigned modules and stale or unnecessary coverage exclusions.
-- Missing source modules, public entries, interface symbols, or required source claims.
+- Unassigned or multiply assigned modules, and coverage exclusions that are stale or not necessary.
+- Missing source modules, public entries, interface symbols, or necessary source claims.
 - Nested-map coverage differences, invalid external actors, or nested maps on actors.
 - Stale facts, pages, or configured figures.
 
 The inspector has one selection control for each flow connected to the component.
 Each control shows the artifact, direction, layer, and evidence state.
-Passing these checks does not show source meaning or language compliance.
+Structural checks without failures do not show source meaning or that the text obeys the language policy.
 
 ## The facts file
 
