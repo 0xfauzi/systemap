@@ -11,7 +11,11 @@ A layer is a filtered view of the map.
 
 - CI writes no map report comment on a pull request by default.
   The delta job gives each line and its action in the job log. The job fails while it is necessary to update the map.
+
   `systemap delta --format markdown` and its Mermaid diagram are removed.
+  A workflow from `systemap init` 1.2.0 or earlier uses this option, and `init` keeps a workflow file that exists.
+  To use the new workflow, remove `.github/workflows/systemap.yml`. Then run `systemap init` again.
+  If you changed the old workflow, compare it with the new file.
 
   With `[delta] page_url` in `systemap.toml`, `systemap delta --comment FILE --pr N` writes one comment
   with a link to the Changes view of the published page. The workflow from `init` posts that comment
