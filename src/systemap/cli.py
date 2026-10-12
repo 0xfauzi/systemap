@@ -13,6 +13,7 @@ error. Commands that read the model include nested maps. Nested lines have a map
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +21,6 @@ from typing import Any
 
 from systemap import (
     __version__,
-    audit,
     change,
     check,
     config,
@@ -38,6 +38,7 @@ from systemap import (
     jev,
     jev_cli,
     judgement,
+    judgement_json,
     model_convert,
     nest,
     page,
@@ -501,31 +502,56 @@ def cmd_judgement(args: argparse.Namespace) -> int:
 
     Exact answers must have the printed line and correct evidence. Family answers must
     have an explicit policy. The command gives stale answers but does not reject them.
-    With `--strict`, an open line gives exit code 1.
+    With `--strict`, an open line gives exit code 1. `--json` writes one JSON object.
     """
     p = _project(args)
+    return (_judgement_json if args.json else _judgement_text)(p, args)
+
+
+def _no_facts(p: Project) -> str:
+    return (
+        f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}. The report uses only the model."
+    )
+
+
+STRICT_ACTION = (
+    "Answer each line in [judgement] answered in systemap.toml, or do the specified action."
+)
+
+
+def _judgement_text(p: Project, args: argparse.Namespace) -> int:
+    """Print the judgement report as text for a person."""
     if _empty(p):
         return OK
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
-        say(
-            f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}. The report uses "
-            f"only the model."
-        )
-    lines = judgement.run_tree(
-        p.tree, facts, judgement.sdk_list(p.cfg.model_sdks), p.cfg.observed_by
-    )
-    mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
-    current_evidence = judgement.evidence_for_tree(p.tree, facts, p.cfg.root, lines)
-    result = judgement.apply_answers(lines, mine, current_evidence)
+        say(_no_facts(p))
+    result = judgement_json.evaluate(p.tree, facts, p.cfg).result
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
     say(*judgement.review_counts(p.tree, facts))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
-        say(
-            "Answer each line in [judgement] answered in systemap.toml, or do the specified action."
-        )
+        say(STRICT_ACTION)
+        return STALE
+    return OK
+
+
+def _judgement_json(p: Project, args: argparse.Namespace) -> int:
+    """Write the judgement report as one JSON object. Notices for a person go to stderr."""
+    if not p.model.components:
+        warn(NO_COMPONENTS)
+        say(json.dumps(judgement_json.empty(), indent=2))
+        return OK
+    facts = extract.read_facts(p.cfg.facts_path)
+    if not facts:
+        warn(_no_facts(p))
+    judged = judgement_json.evaluate(p.tree, facts, p.cfg)
+    detail = judgement.crossing_detail_tree(p.tree, facts)
+    reviews = judgement.review_states(p.tree, facts)
+    say(json.dumps(judgement_json.payload(judged, detail, reviews, args.kind or ""), indent=2))
+    if args.strict and judged.result.open:
+        warn(STRICT_ACTION)
         return STALE
     return OK
 
@@ -1040,6 +1066,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--brief",
         action="store_true",
         help="Print diagnostic lines only. Use systemap explain KIND for the full explanation.",
+    )
+    s.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Write one JSON object with the open lines, answers, and counts. "
+            "The object has no explanation text."
+        ),
     )
     s.set_defaults(func=cmd_judgement)
 

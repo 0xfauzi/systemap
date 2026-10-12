@@ -694,7 +694,7 @@ components that can become nested maps.</p>
 <li><code>--jev</code> uses Jev's module-pair answers instead of package groups.
 Set <code>TYPESAFE_API_KEY</code> for this option.</li>
 </ul>
-<h3 id="systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></h3>
+<h3 id="systemap-judgement-strict-kind-kind-verbose-brief-json"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json]</code></h3>
 <p>Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
 sentences, thin layers, uncovered entry points, crossing imports, unreviewed
@@ -717,7 +717,109 @@ The first finding of each kind has rows about its effect and necessary action.</
 <li>
 <p><code>--brief</code> does not include the two explanation rows.</p>
 </li>
+<li>
+<p><code>--json</code> writes one JSON object to stdout for software, for example a CI step.
+The object has no explanation text. <code>--brief</code> and <code>--verbose</code> do not change it.
+The exit codes are the same as in the text mode, with and without <code>--strict</code>.
+Notices for a person go to stderr.</p>
+</li>
+<li>
+<p>With <code>--json</code>, <code>--kind KIND</code> selects the rows of <code>open</code>. The counts include all kinds.
+For a model without components, the lists are empty and the exit code is 0.</p>
+</li>
 </ul>
+<p>The JSON object has these fields:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-judgement-strict-kind-kind-verbose-brief-json">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schema_version</code></td>
+<td>integer</td>
+<td>The version of this schema. The value is 1.</td>
+</tr>
+<tr>
+<td><code>open</code></td>
+<td>list of objects</td>
+<td>One object for each finding that has no accepted answer. The sequence is the sequence of the text report.</td>
+</tr>
+<tr>
+<td><code>open[].line</code></td>
+<td>string</td>
+<td>The full finding line. It is the identifier for <code>item</code> in <code>[judgement] answered</code>.</td>
+</tr>
+<tr>
+<td><code>open[].kind</code></td>
+<td>string</td>
+<td>The kind of the finding, for example <code>single module</code>. The value is an empty string if the kind is not known.</td>
+</tr>
+<tr>
+<td><code>open[].detail</code></td>
+<td>list of strings</td>
+<td>The imports of a crossing-import finding, as <code>--verbose</code> prints them. For other kinds, the list is empty.</td>
+</tr>
+<tr>
+<td><code>open[].evidence</code></td>
+<td>string or null</td>
+<td>The digest that an exact answer for this one line must have in <code>evidence</code>. The value is null if the evidence is not available.</td>
+</tr>
+<tr>
+<td><code>answered.count</code></td>
+<td>integer</td>
+<td>The quantity of findings that accepted answers close.</td>
+</tr>
+<tr>
+<td><code>answered.answers</code></td>
+<td>list of objects</td>
+<td>One object for each accepted answer.</td>
+</tr>
+<tr>
+<td><code>answered.answers[].answer</code></td>
+<td>string</td>
+<td>The selector of the answer, as the stale-answer row gives it.</td>
+</tr>
+<tr>
+<td><code>answered.answers[].items</code></td>
+<td>list of strings</td>
+<td>The exact lines of an <code>item</code> or <code>items</code> answer. For a family answer, the list is empty.</td>
+</tr>
+<tr>
+<td><code>answered.answers[].reason</code></td>
+<td>string</td>
+<td>The <code>reason</code> of the answer.</td>
+</tr>
+<tr>
+<td><code>answered.answers[].lines</code></td>
+<td>list of strings</td>
+<td>The findings that the answer closes.</td>
+</tr>
+<tr>
+<td><code>stale_answers</code></td>
+<td>list of strings</td>
+<td>Each exact item or family selector that agrees with no finding.</td>
+</tr>
+<tr>
+<td><code>source_reviews</code></td>
+<td>object or null</td>
+<td>The keys <code>current</code>, <code>stale</code>, and <code>missing</code>, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists.</td>
+</tr>
+<tr>
+<td><code>kinds</code></td>
+<td>object</td>
+<td>One key for each finding kind. Each value has <code>open</code> and <code>answered</code>, with the quantity of findings of that kind.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <code>evidence</code> digest is for an answer with one line.
+An <code>items</code> answer for more than one line has a different digest.
+The text report prints that digest in the pending-answer row.</p>
 <h3 id="systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></h3>
 <p>Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
@@ -1171,7 +1273,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
