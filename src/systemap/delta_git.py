@@ -1,4 +1,4 @@
-"""Read committed source trees and figure links from Git for `systemap delta`.
+"""Read committed source trees and models from Git for `systemap delta` and the page.
 
 `facts_at` writes the blobs of a commit into a temporary directory and extracts
 facts there. It reads the tree with `git ls-tree` and `git cat-file`, so the files
@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-import re
 import subprocess
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -155,37 +154,3 @@ def model_at(cfg: Config, sha: str) -> nest.Tree | str:
             return nest.load(dataclasses.replace(cfg, root=into))
         except ConfigError as exc:
             return f"the model at {sha[:7]} does not load: {exc}"
-
-
-def remote_repository(repo: Path) -> str:
-    """This function gets owner/name from a GitHub origin remote, or gives an empty string."""
-    proc = _git(repo, "remote", "get-url", "origin")
-    if proc.returncode != 0:
-        return ""
-    url = proc.stdout.decode("utf-8", "replace").strip()
-    found = re.search(r"github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", url)
-    return f"{found.group(1)}/{found.group(2)}" if found else ""
-
-
-def committed_figure(cfg: Config, sha: str) -> str:
-    """This function gives the path of the committed full-map SVG figure, or an empty string."""
-    svgs = [f for f in cfg.figures if f.out.endswith(".svg")]
-    whole = [f for f in svgs if not f.layer]
-    for fig in whole + svgs:
-        path = f"{cfg.out_dir}/{fig.out}"
-        if _git(cfg.root, "cat-file", "-e", f"{sha}:{path}").returncode == 0:
-            return path
-    return ""
-
-
-def figure_url(cfg: Config, sha: str, path: str | None = None) -> str:
-    """This function gives a URL for the committed full-map figure, or an empty string.
-
-    A comment must have an absolute URL to show a repository image. Only a GitHub
-    origin remote gives one.
-    """
-    owner = remote_repository(cfg.root)
-    found = committed_figure(cfg, sha) if path is None else path
-    if not owner or not found:
-        return ""
-    return f"https://github.com/{owner}/blob/{sha}/{found}?raw=true"

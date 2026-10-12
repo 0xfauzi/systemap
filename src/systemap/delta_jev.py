@@ -219,15 +219,3 @@ def text(asked: Asked, teach: bool = True) -> list[str]:
             taught.add(kind)
             out += explain.rows(kind)
     return out + list(asked.errors)
-
-
-def markdown(asked: Asked) -> str:
-    """Give the suggestions and the reasons for a pull request comment, each under a heading."""
-    out: list[str] = []
-    if asked.lines:
-        out += ["", f"**{HEAD} ({len(asked.lines)})**", ""]
-        out += [f"- `{line}`" for line in asked.lines]
-    if asked.errors:
-        out += ["", "**Jev did not answer**", ""]
-        out += [f"- {line}" for line in asked.errors]
-    return "\n".join(out) + "\n" if out else ""

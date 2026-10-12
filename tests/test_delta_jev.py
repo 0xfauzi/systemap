@@ -266,19 +266,15 @@ def test_unclaimed_modules_come_from_the_delta_lines_not_their_text(renamed: Pat
 # ---- finding 11 and 17: the reasons for no answer, and no message without a question --
 
 
-def test_the_comment_puts_the_reason_for_no_answer_under_its_own_heading(
-    renamed: Path, capsys: pytest.CaptureFixture[str]
+def test_the_text_report_gives_the_reason_for_no_answer(
+    renamed: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code = main(
-        ["--root", str(renamed), "delta", "--base", "HEAD~1", "--jev", "--format", "markdown"]
-    )
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    code = main(["--root", str(renamed), "delta", "--base", "HEAD~1", "--jev"])
     out = capsys.readouterr().out
     assert code == 1
-    assert "**Jev on the unclaimed modules**" not in out
-    assert (
-        "**Jev did not answer**\n\n- delta --jev: set TYPESAFE_API_KEY to call Jev. No data was sent"
-        in out
-    )
+    assert "delta --jev: set TYPESAFE_API_KEY to call Jev. No data was sent" in out
+    assert "Jev suggestions." not in out
 
 
 def test_delta_jev_with_nothing_to_ask_sends_nothing_and_says_nothing(

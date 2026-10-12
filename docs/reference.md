@@ -490,7 +490,7 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - `--brief` does not include the two explanation rows.
 
-### `systemap delta --base REF [--head REF] [--format markdown] [--jev | --no-jev]`
+### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]`
 
 Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
@@ -506,42 +506,23 @@ An answer for a new crossing import must agree with the `judgement` rule:
 an exact answer needs the current evidence digest, and a family answer needs `policy = true`.
 The exit code is 0 if the map is current, or 1 if the map needs an update.
 
-The text report ends with adjacent components.
+The lines that need an action come first, under `The map needs an update (N):`.
+The lines that need no action follow.
+If no line needs an action, the last line starts with `The map is current.`
+If not, the last line tells you to do the actions and gives the next command.
+
+Before its last line, the text report gives adjacent components.
 These have flows to the component with the most changes.
 This list gives context, not a finding.
 The list does not print if the seed component connects to more than one-third of
 the map.
 
-- `--format markdown` prints the pull-request comment.
-  The comment parts follow this order:
-
-  1. The decision. If a decision is necessary, each open line and its action follows.
-  2. One row each for components, flows, sequences, and invariants.
-  3. A Mermaid diagram of the changed flows. GitHub shows the diagram in the comment.
-  4. A closed section with the lines for which no action is necessary.
-  5. The URL of the committed full map figure, if there is one.
-
-  The rows compare the model at the common Git ancestor of the two commits with the model at the head commit.
-  Delta loads the two models from the committed files, as `check` loads the model on disk.
-  In CI, the model on disk can contain changes from the base branch that are not in the pull request.
-  If the head model does not load, the rows use the model on disk, and the comment gives the reason.
-  A component row gives added and removed components.
-  It gives components with changed claims, with the names of the changed fields.
-  It also gives components with changed source and no changed claim.
-  A flow row gives added, removed, and changed flows.
-  A changed flow has a changed artifact, kind, relation sentence, cited source, or evidence state.
-  A new digest for the same cited module or symbol is not a change.
-  A sequence row gives added, removed, and changed sequences, and the sequences that go through a changed flow or component.
-  The count in brackets gives the steps that have a changed flow, or a flow that connects to a changed component.
-  An invariant row gives added, removed, and changed invariants, and the invariants for a changed component.
-  A closed section gives the text of each invariant that the row identifies.
-  Each group shows a maximum of ten names. For the other items, the group gives only their quantity.
-  The diagram shows a maximum of 30 flows.
-  If more flows changed, the diagram shows only the added and removed flows.
-  If there are no added or removed flows, or more than 30, the comment has no diagram.
-  If the base model does not load, the rows give only changed source, and the comment gives the reason.
-  The comment shows a full commit ID as its first seven characters.
-  The comparison does not change the delta lines, the decisions, or the exit code.
+- `--comment FILE --pr N` writes the pull-request comment to `FILE` if `[delta] page_url` is set.
+  The comment has one link to the Changes view of the page for pull request `N`.
+  If the map needs an update, one more line says so and gives the number of lines.
+  The first comment line is `<!-- systemap delta -->`. CI finds the comment with it and changes that comment.
+  Without `page_url`, the command writes no file.
+  The comment does not change the delta lines or the exit code.
 
 - `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change

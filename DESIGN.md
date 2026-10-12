@@ -503,8 +503,8 @@ A component that imports changed source has an IMPORTS tag.
 A flow that needs a new source review has a vermilion dashed line. Other cards and lines have low contrast.
 The marks show in a fixed order: the changed cards, the tagged cards, and then the flows.
 The panel gives a summary, the changed components, the flows to examine, the sequences with a changed step,
-and the limits of the comparison. The page does not show the judgement decisions.
-`systemap judgement` and the pull request give them to the maintainer.
+and the limits of the comparison. The page does not show the judgement findings or the delta lines.
+`systemap judgement` and the CI log give them to the maintainer.
 
 ## Selection and evidence
 

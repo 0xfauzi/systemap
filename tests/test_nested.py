@@ -773,18 +773,6 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
     assert "The map needs an update (" in out
     assert "source review:" in out
     assert "4 of 9 components specified" in out
-    assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1
-    out = capsys.readouterr().out
-    assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in out
-    # The map changes name a nested component with its map id.
-    assert (
-        "- **Components**: Changed source: Gateway, Style, Gateway/App and Gateway/Store.\n" in out
-    )
-    assert (
-        "- **Flows**: Changed: `Gateway: App -> Store (record)` (evidence structural to "
-        "declared).\n" in out
-    )
-    assert '  n0["Gateway/App (changed source)"]\n' in out
 
 
 def test_suggest_reads_the_tree_from_the_command(

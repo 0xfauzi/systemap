@@ -150,12 +150,11 @@ COMPONENTS = (
     Component(
         id="ChangeDetector",
         source_review="b15c6e53ab5d1180eff2f73f913effbbcfadda58c441a9aabddb06cfb84d8d5f",
-        does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions, and a pull request comment with the changed components, flows, sequences and invariants and a diagram of the changed flows. systemap history shows changes to the software structure through time.",
+        does="Compares source revisions. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With a page URL in the configuration, it writes a pull request comment with a link to the Changes view. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
             "systemap.change",
             "systemap.delta",
-            "systemap.delta_diagram",
             "systemap.delta_git",
             "systemap.delta_link",
             "systemap.delta_model",

@@ -1,4 +1,4 @@
-"""The operational map preserves source evidence and shows no maintainer decisions.
+"""The operational map preserves source evidence and shows no judgement findings.
 
 Acceptance: no substituted findings, no missing authored steps, and the sample
 stays within the existing self-contained 300 KiB page limit (test_render.py).
@@ -29,11 +29,11 @@ def payload(html: str) -> dict[str, Any]:
     return json.loads(found[1])  # type: ignore[no-any-return]
 
 
-def test_the_page_shows_no_maintainer_decisions(sample: Sample) -> None:
+def test_the_page_shows_no_judgement_findings(sample: Sample) -> None:
     """Acceptance: zero judgement finding lines and answer reasons on the page.
 
-    The decisions are for the map maintainer. `systemap judgement` and the pull
-    request give them."""
+    The findings are for the map maintainer. `systemap judgement` and the CI log
+    give them."""
     lines = judgement.run(sample.model, sample.meaning, sample.facts)
     answer = Answer(items=(lines[0],), reason="This part has a separate responsibility.")
     cfg = dataclasses.replace(sample.cfg, judgement_answered=(answer,))

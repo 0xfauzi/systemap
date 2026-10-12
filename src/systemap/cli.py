@@ -26,6 +26,7 @@ from systemap import (
     config,
     delta,
     delta_jev,
+    delta_link,
     describe,
     explain,
     extract,
@@ -536,7 +537,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     """Print map changes from the facts at two Git commits.
 
     The command reads committed trees and uses the model on disk. If the map needs an
-    update, the exit code is 1. The `--format markdown` option gives a pull request comment.
+    update, the exit code is 1. `--comment` writes the link comment if `page_url` is set.
     """
     p = _project(args)
     _require_roots(p)
@@ -553,10 +554,9 @@ def cmd_delta(args: argparse.Namespace) -> int:
     asked = delta_jev.NOTHING
     if jev_cli.uses_jev(p.cfg, args.jev):
         asked = delta_jev.ask(p.cfg, p.tree, base, head, d)
-    if args.format == "markdown":
-        sys.stdout.write(delta.comment(p.cfg, p.tree, d, base, head) + delta_jev.markdown(asked))
-    else:
-        say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
+    say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
+    if args.comment:
+        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
     if args.jev is None and d.added and d.removed:
         jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
     return STALE if d.open else OK
@@ -1061,11 +1061,11 @@ def build_parser() -> argparse.ArgumentParser:
     add_root(s)
     s.add_argument("--base", required=True, help="Set the base commit, branch, or tag.")
     s.add_argument("--head", default="HEAD", help="Set the head commit. The default is HEAD.")
+    s.add_argument("--pr", type=delta_link.number, default=0, help="Set the pull request number.")
     s.add_argument(
-        "--format",
-        choices=["text", "markdown"],
-        default="text",
-        help="Use markdown for a pull request comment with the map changes and a diagram.",
+        "--comment",
+        metavar="FILE",
+        help="Write the pull request comment to FILE. Without [delta] page_url, write no file.",
     )
     s.add_argument(
         "--jev",

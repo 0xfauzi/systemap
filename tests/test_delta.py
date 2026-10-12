@@ -13,7 +13,6 @@ from conftest import write_tree
 
 from systemap import card_review, config, delta, nest
 from systemap.cli import main
-from systemap.delta_model import MapChange
 from systemap.model import Invariant, Journey, Meaning, Model, Step
 from systemap.moves import find as find_moves
 
@@ -272,41 +271,6 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     )
 
 
-def test_markdown_is_the_comment_with_a_link_to_the_committed_figure(
-    repo: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    git(repo, "remote", "add", "origin", "https://github.com/acme/demo.git")
-    head = git(repo, "rev-parse", "HEAD")
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--format", "markdown"]) == 1
-    out = capsys.readouterr().out
-    lines = out.splitlines()
-    assert lines[0] == delta.MARKER
-    assert lines[1] == "## What this change does to the map"
-    assert lines[3] == (
-        "**A decision is necessary (14).** Do the action in each line. Then use "
-        "`systemap refresh && systemap check && systemap judgement --strict`."
-    )
-    assert "<details><summary>No action is necessary for these changes (6)</summary>" in lines
-    assert "- `added: pkg.fresh, No component has a claim for it. " in out
-    assert f"> {delta.FULL_LOOP}" in lines
-    # The comment links the full map. It does not show it as the picture of the change.
-    url = f"https://github.com/acme/demo/blob/{head}/docs/map/figures/system.svg?raw=true"
-    assert out.endswith(f"The full map at `{head[:7]}`: [docs/map/figures/system.svg]({url}).\n")
-    assert "![" not in out
-    # Without a GitHub remote there is no URL to give. The figure is committed, and
-    # the comment gives its path.
-    git(repo, "remote", "set-url", "origin", "https://git.example.com/acme/demo.git")
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~1", "--format", "markdown"]) == 1
-    out = capsys.readouterr().out
-    assert out.endswith(f"The full map at `{head[:7]}` is in `docs/map/figures/system.svg`.\n")
-    # Without a committed figure, the comment has no full map line.
-    git(repo, "remote", "remove", "origin")
-    git(repo, "rm", "-q", "docs/map/figures/system.svg")
-    git(repo, "commit", "-q", "-m", "no figure")
-    assert main(["--root", str(repo), "delta", "--base", "HEAD~2", "--format", "markdown"]) == 1
-    assert "The full map" not in capsys.readouterr().out
-
-
 def test_nothing_to_do_and_no_change_exit_zero(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -324,8 +288,6 @@ def test_nothing_to_do_and_no_change_exit_zero(
     out = capsys.readouterr().out
     assert out.startswith("delta: no module changed between HEAD (")
     assert "The map has no source-fact change" in out
-    assert main(["--root", str(repo), "delta", "--base", "HEAD", "--format", "markdown"]) == 0
-    assert "No module changed" in capsys.readouterr().out
 
 
 def test_source_review_attests_to_current_source_and_claims(repo: Path) -> None:
@@ -523,19 +485,6 @@ def test_the_cards_next_to_the_change_are_printed_as_context(
     assert "Use this information as context." in out, "the teaching is under it"
 
 
-def test_the_context_is_in_the_text_report_not_in_the_comment(repo: Path) -> None:
-    """The comment gives the changed components and flows, so it needs no context list."""
-    cfg = config.load(repo)
-    top = nest.load(cfg).top
-    base = delta.facts_at(cfg, delta.resolve(repo, "HEAD~1"))
-    head = delta.facts_at(cfg, delta.resolve(repo, "HEAD"))
-    d = delta.compute(cfg, top.model, top.meaning, base, head, "HEAD~1", "HEAD")
-    assert "Its connected components are Ledger" in "\n".join(delta.report(d))
-    text = delta.markdown(d)
-    assert "Components connected to the change" not in text
-    assert "Its connected components" not in text
-
-
 def test_a_card_joined_to_a_third_of_the_map_names_none() -> None:
     """A hub has no neighbourhood: the list would be the map, so it is not printed."""
     d = delta.Delta(
@@ -548,21 +497,6 @@ def test_a_card_joined_to_a_third_of_the_map_names_none() -> None:
         "Hub has the most changed modules. It has flows to 3 of the 6 components, so the list gives no useful context."
     )
     assert not any("why:" in line for line in lines), "nothing to teach when nothing is named"
-
-
-def test_the_comment_ends_each_sentence_with_one_full_stop() -> None:
-    d = delta.Delta(
-        base="a", head="b", base_ref="HEAD~1", head_ref="HEAD",
-        changed=1, added=0, removed=0, moved=0, cards=6,
-        lines=(
-            delta.Line("source review", "source review: A", cards=("A", "B", "C"), decide=True),
-        ),
-        seed="Hub", near=("A", "B", "C"),
-    )  # fmt: skip
-    text = delta.markdown(d, MapChange(error="the model at a does not load: no MODEL."))
-    assert "maintenance procedure." in text
-    assert "because the model at a does not load: no MODEL." in text
-    assert ".." not in text
 
 
 def test_the_seed_is_the_card_with_the_most_changed_modules() -> None:

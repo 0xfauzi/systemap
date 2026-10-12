@@ -258,7 +258,7 @@ JOURNEYS = (
                 acts=("Check",),
                 measures=("CI",),
                 edge=("Check", "CI"),
-                say="The CI job rejects the change if a finding has no decision. The comment gives necessary actions for the map.",
+                say="The CI job rejects the change if a finding has no answer or the map needs an update. The job log gives the necessary actions for the map.",
             ),
             Step(
                 acts=("Agent",),

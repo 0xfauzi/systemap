@@ -101,14 +101,11 @@ See `bench/jev/README.md` in the systemap source repository for methods and limi
 
 ## Pull request workflow
 
-The generated workflow runs `delta --base <base commit> --format markdown` for each pull request.
-It writes one comment and updates that comment after each push.
-The job fails while a line has an unanswered decision.
-The comment first gives the decision and the action for each open line.
-Then it gives the components, flows, sequences, and invariants that changed since the base commit.
-A Mermaid diagram shows only the changed flows.
-A closed section contains the lines for which no action is necessary.
-To see the comment before a push, run `systemap delta --base REF --format markdown`.
+The generated workflow runs `delta --base <base commit> --head <head commit>` for each pull request.
+The job log gives each line and its action. The job fails while the map needs an update.
+Without `[delta] page_url` in `systemap.toml`, the workflow writes no comment.
+With `page_url`, it writes one comment with a link to the Changes view of the page for the pull request.
+The page shows the map changes. Make that page with `systemap render --base REF`.
 
 ## Completion
 

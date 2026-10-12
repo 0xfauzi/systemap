@@ -21,7 +21,6 @@ from typing import Any
 from systemap import (
     card_review,
     delta_git,
-    delta_model,
     delta_report,
     evidence,
     extract,
@@ -47,9 +46,7 @@ from systemap.model import (
 # Keep the public delta API while rendering lives in its own module.
 FULL_LOOP = delta_report.FULL_LOOP
 FULL_LOOP_SHARE = delta_report.FULL_LOOP_SHARE
-MARKER = delta_report.MARKER
 NEXT = delta_report.NEXT
-markdown = delta_report.markdown
 near_lines = delta_report.near_lines
 report = delta_report.report
 # Keep the public delta API while Git reading lives in its own module.
@@ -57,7 +54,6 @@ DeltaError = delta_git.DeltaError
 resolve = delta_git.resolve
 merge_base = delta_git.merge_base
 facts_at = delta_git.facts_at
-figure_url = delta_git.figure_url
 
 # Every kind of line this module prints, for the teaching in `systemap.explain`.
 KINDS = (
@@ -72,23 +68,6 @@ KINDS = (
     "source review",
     "move candidate",
 )
-
-
-def comment(
-    cfg: Config, tree: nest.Tree, d: Delta, base: dict[str, Any], head: dict[str, Any]
-) -> str:
-    """This function gives the pull request comment.
-
-    The comment compares the model at the base commit with the model at the head commit.
-    If the head commit has no model that loads, it uses the model on disk. The comparison
-    does not change the delta lines or the exit code.
-    """
-    head_sha = head.get("built_at_commit", "")
-    at_base = delta_git.model_at(cfg, base.get("built_at_commit", ""))
-    at_head = delta_git.model_at(cfg, head_sha)
-    change = delta_model.compare_commits(at_base, at_head, tree, base, head, cfg.observed_by)
-    path = delta_git.committed_figure(cfg, head_sha)
-    return markdown(d, change, delta_git.figure_url(cfg, head_sha, path), path)
 
 
 # ---- the comparison --------------------------------------------------------------

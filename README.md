@@ -18,7 +18,7 @@ you can forget parts of your Python or TypeScript system.
 
 **systemap gives you one page that shows the parts of your system and their
 connections.** Your coding agent writes the map from your code. Commands find
-changes that make the map incorrect. A pull-request report shows changed parts
+changes that make the map incorrect. The Changes view shows changed parts
 and connections before you merge the code.
 
 This page gives the map terms, the installation procedure, and the commands
@@ -310,13 +310,12 @@ This example keeps finding identifiers from an earlier version:
 `Gateway` is a component. Its `implemented_by` field contains the claimed modules.
 Its `entry` field shows a public name at which a reader can start.
 
-The workflow from `init` writes one report comment on the pull request.
-New pushes update that comment. The comment first shows if a decision is necessary.
-For each open line, it gives the action.
-Then it gives the components, flows, sequences, and invariants that the change added,
-removed, or changed. Delta compares the model at the base commit with the model at the head commit.
-A Mermaid diagram shows only the changed flows. GitHub shows the diagram in the comment.
-CI rejects the pull request while the report contains an open decision.
+The workflow from `init` runs delta on each pull request. The job log gives each line
+and its action. CI rejects the pull request while the map needs an update.
+CI writes no comment by default. If your repository publishes the map page of each
+pull request, set `[delta] page_url` in `systemap.toml`. Then CI writes one comment
+with a link to the Changes view of that page, and changes it after each push.
+The Changes view of that page shows the changed parts on the map.
 
 The agent can correct these findings without a full new map.
 Three merged pull requests from one 111-module repository cost 2.31, 4.39, and

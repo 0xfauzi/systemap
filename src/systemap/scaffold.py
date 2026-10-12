@@ -174,7 +174,9 @@ WORKFLOW = """name: systemap
 # The committed map must match the source facts and renderer.
 # This workflow uses the package version that made it.
 # Change the package pin when you install a new systemap version.
-# Only the delta job has permission to write a pull request comment.
+# The delta job fails if the map needs an update. Its log gives each action.
+# Only the link job can write a pull request comment. It runs only if
+# [delta] page_url in systemap.toml gives the map page of each pull request.
 
 
 on:
@@ -236,9 +238,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write # this job posts or updates the delta comment
+    outputs:
+      comment: ${{ steps.delta.outputs.comment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -252,38 +253,55 @@ jobs:
           enable-cache: true
 
       - name: Map change results
+        id: delta
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           code=0
-          uvx --from "systemap==__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
+          uvx --from "systemap==__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --pr "$PR" --comment comment.md || code=$?
           echo "$code" > delta.code
-          if [ ! -s delta.md ]; then
-            printf '<!-- systemap delta -->\\n## Map change results\\n\\nsystemap delta could not run (exit %s). Examine the workflow log.\\n' "$code" > delta.md
+          if [ -s comment.md ]; then
+            {
+              echo "comment<<SYSTEMAP_COMMENT"
+              cat comment.md
+              echo "SYSTEMAP_COMMENT"
+            } >> "$GITHUB_OUTPUT"
           fi
-          cat delta.md
 
-      - name: Write the delta comment
+      - name: Map is current
+        run: |
+          code="$(cat delta.code)"
+          if [ "$code" = "1" ]; then
+            echo "::error title=Map delta::The map needs an update. Do the action in each line of the Map change results step. Then run the command in its last line."
+          elif [ "$code" != "0" ]; then
+            echo "::error title=Map delta::systemap delta could not run (exit $code). The Map change results step gives the reason."
+          fi
+          exit "$code"
+
+  # This job runs only if [delta] page_url in systemap.toml gives the map page of each pull request.
+  link:
+    needs: delta
+    if: ${{ !cancelled() && needs.delta.outputs.comment != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # this job posts or updates the link comment
+    steps:
+      - name: Link to the Changes view
         env:
+          BODY: ${{ needs.delta.outputs.comment }}
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
           existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.body | startswith("<!-- systemap delta -->"))) | first | .id // empty' | head -n 1)"
           if [ -n "$existing" ]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@delta.md > /dev/null
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -f body="$BODY" > /dev/null
           else
-            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@delta.md > /dev/null
-          fi || echo "::warning title=Map delta::The command could not write the comment. A fork pull request has a read-only token. The preceding step contains the delta."
-
-      - name: Delta findings answered
-        run: |
-          code="$(cat delta.code)"
-          if [ "$code" != "0" ]; then
-            echo "::error title=Map delta::The change has unanswered map findings. Examine the pull request comment, answer each finding, then run systemap refresh."
-          fi
-          exit "$code"
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$BODY" > /dev/null
+          fi || echo "::warning title=Map link::The job could not write the comment. A fork pull request has a read-only token."
 """
 
 
