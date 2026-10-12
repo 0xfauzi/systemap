@@ -497,6 +497,7 @@ The steps are an authored order. They do not record a run of the program.
 ## Changes
 
 Changes compares two revisions on the map.
+The page link `#changes` opens the Changes view. The address keeps `#changes` while the view is open.
 The toolbar gives the base and the head revisions. Hold the B key or the Hold B button to show the map without change marks.
 A component with changed source has a CHANGED tag. A component with only test changes has a TESTS tag.
 A component that imports changed source has an IMPORTS tag.

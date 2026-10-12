@@ -529,5 +529,19 @@ JS = r"""
   showZoom(A.view.zoom(), A.view.isFit());
   if(A.state.focus){ opened = A.state.focus; sourceRows(A.state.focus); }
   setMode('understand');
+
+  // ---- the view link: #changes opens Changes, and Changes keeps it --------
+  // The Changes panel heading has the id. A component "changes" keeps its link.
+  function viewLink(){
+    if(location.hash === '#changes' && mode !== 'change' && !A.detail.changes){
+      setMode('change'); }
+  }
+  svg.addEventListener('systemap:mode', function(e){
+    var on = e.detail.mode === 'change';
+    if(on !== (location.hash === '#changes') && !A.detail.changes){
+      history.replaceState(null, '', on ? '#changes' : location.pathname + location.search); }
+  });
+  window.addEventListener('hashchange', viewLink);
+  viewLink();
 })();
 """

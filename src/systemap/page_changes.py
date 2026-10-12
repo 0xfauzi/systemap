@@ -183,7 +183,7 @@ def panel(ch: dict[str, Any]) -> str:
     start = '<aside class="change-panel" id="change-panel" aria-label="Changes" hidden>'
     if not has_comparison(ch):
         return (
-            start + '<p class="chg-cap">CHANGES</p>'
+            start + '<p class="chg-cap" id="changes">CHANGES</p>'
             '<p class="chg-note">This page has no revision comparison.</p></aside>'
         )
     parts, source = _parts(ch), _source(ch)
@@ -191,7 +191,7 @@ def panel(ch: dict[str, Any]) -> str:
     base, head = _short(ch.get("base_revision", "")), _short(ch.get("head_revision", ""))
     title = (ch.get("pr") or {}).get("title", "")
     return (
-        start + '<div class="chg-head"><h2 class="chg-cap">CHANGES</h2>'
+        start + '<div class="chg-head"><h2 class="chg-cap" id="changes">CHANGES</h2>'
         f'<span class="chg-range" aria-label="{esc(base)} to {esc(head)}">'
         f"{esc(base)} → {esc(head)}</span></div>"
         + (f'<p class="chg-pr">{esc(title)}</p>' if title else "")

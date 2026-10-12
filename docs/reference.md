@@ -427,6 +427,7 @@ Writes the page from the facts and model.
 - `--check` exits 1 if the page is stale.
 
 - `--base REF` adds a change map relative to that revision.
+  The page link `#changes`, for example `index.html#changes`, opens the Changes view.
 
 ### `systemap check [--brief]`
 
