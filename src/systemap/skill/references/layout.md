@@ -52,7 +52,7 @@ With pinned components, placement uses free positions in the existing boxes.
 Without pinned components, `--all` can change boxes and the canvas.
 A position without the flag can move during `--all`.
 
-Write each artifact as an ASD-STE100 noun phrase of one to three words.
+Write each artifact as a noun phrase of one to three words under the writing profile.
 If a label has no free position in a gutter, move a component or increase the distance between rows.
 If a label is wider than its route segment, make the artifact shorter without a change to its meaning.
 Use the actual dimensions printed by the checker.

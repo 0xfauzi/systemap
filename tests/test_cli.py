@@ -38,7 +38,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert "wrote .claude/skills/systemap/ (SKILL.md and 9 references)" in out
     assert "SKILL.md\n" not in out.replace("(SKILL.md and 9 references)\n", "")
     assert out.rstrip().endswith(
-        "Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9."
+        "Make a map of this repository with systemap. Obey the systemap skill and its writing rules."
     )
     # One note names the two gates a strict repository runs, with the exact
     # pyproject lines deptry needs; mypy is answered in the file itself.
@@ -50,7 +50,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     )
     model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
-    assert "ASD-STE100 Issue 9" in model
+    assert "[writing] profile" in model
     assert "language policy of the installed systemap skill" in model
 
     # The starter model is empty: the check has one line to say, and says only that.

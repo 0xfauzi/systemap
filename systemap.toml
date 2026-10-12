@@ -14,6 +14,10 @@ ignore = []
 [flows]
 observed_by = ["facts file"]
 
+# This repository uses the full ASD-STE100 Issue 9 rules (AGENTS.md, Language requirement).
+[writing]
+profile = "asd-ste100"
+
 [[figures]]
 out = "figures/structure.svg"
 mode = "system"

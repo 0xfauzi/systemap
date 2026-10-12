@@ -215,6 +215,12 @@ def test_language_policy_is_mandatory_and_installed(tmp_path: Path) -> None:
         "component names, artifacts, layers, sequences, steps, invariants",
     ):
         assert phrase in text
+    # The agent reads the writing profile, and only the strict profile has a dictionary step.
+    assert (
+        "Read `[writing] profile` in `systemap.toml`. If the key is missing, use `plain`." in text
+    )
+    assert "There is no dictionary step. Do not say that the text obeys ASD-STE100." in text
+    assert "The `plain` profile has no dictionary step." in policy
     assert "Procedural sentences must not exceed 20 words" in policy
     assert "Descriptive sentences must not exceed 25 words" in policy
     assert "Do not add an ordinary word to the glossary" in policy

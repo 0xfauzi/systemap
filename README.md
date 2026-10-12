@@ -193,7 +193,7 @@ application modules. If only the package directories of a workspace have a
 The `init` command writes the configuration, an empty map, the skill
 instructions, and a CI workflow. The command then prints this instruction:
 
-> Make a map of this repository with systemap. Obey the systemap skill and ASD-STE100 Issue 9.
+> Make a map of this repository with systemap. Obey the systemap skill and its writing rules.
 
 Give the instruction to your agent. The agent reads the code, selects a component
 for each module, writes flows, and does the checks. A second examination finds missing claims.
@@ -208,8 +208,14 @@ For Claude Code, use the repository's plugin marketplace:
 
 Other agents can use the same instructions if they can read files and execute commands.
 
-All map names, sequence steps, interface text, and documentation must use ASD-STE100 Issue 9.
-The [language policy](src/systemap/skill/references/language.md) gives the official reference, the glossary, and the necessary examination procedure.
+The writing profile in `systemap.toml` sets the writing rules for map names, sequence steps, and other map text.
+The default profile is `plain`. Its rules limit the sentence length and require literal words and one term for each concept.
+A person or a program can examine these rules without a dictionary.
+
+To use the full ASD-STE100 Issue 9 rules, set `profile = "asd-ste100"` in the `[writing]` table.
+These rules need the official ASD dictionary.
+The [language policy](src/systemap/skill/references/language.md) gives the two profiles, the glossary, and the examination procedure.
+This repository uses the `asd-ste100` profile for its map, its interface text, and its documentation.
 
 ### TypeScript example
 
