@@ -194,7 +194,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="be0750e55851087687c05124949ee40278a548b8f183abcbc06290ec108f00fc",
+        source_review="5562ff68f44755bf3cba31416d73b6b7812c44573398cac4f69f9f65967f92cf",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(

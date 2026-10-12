@@ -7,7 +7,23 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
-## Unreleased
+## 3.0.0 - 2026-10-12
+
+This version changes four behaviors. Each change can stop a command or change a CI result.
+
+- systemap reads a model file as data, and it refuses a model file that needs code.
+  To write such a file with literal values, run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
+  Set this value only if you trust the code in the repository.
+- The workflow from `systemap init` is advisory by default. A workflow file that exists does not change.
+- Maps use the `plain` writing profile by default.
+  To keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
+- `systemap judgement --strict` fails on a stale source review.
+
+The changes:
+
+- The website at <https://0xfauzi.github.io/systemap/> has a landing page, eight guide pages,
+  the reference, and the benchmarks. `site/build.py` makes the pages in `docs/` from `site/pages/`,
+  `docs/reference.md`, and `docs/benchmarks.md`. The pages make no requests to other sites.
 
 - `systemap serve` and `systemap live` answer only a request whose Host header is `127.0.0.1` or
   `localhost` with the server port. A web page that makes its own domain name point at 127.0.0.1
