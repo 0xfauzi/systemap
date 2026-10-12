@@ -82,7 +82,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="f880ec2f2a745d3fd6ea32af654b854b0935fe5f2cbfa98ab52bbecfab10c8ee",
+        source_review="23dcf5ad343c9f89a3c1239522b56ae766067db76773c9ad91747108a0bbb3ae",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -93,7 +93,7 @@ COMPONENTS = (
     ),
     Component(
         id="Scaffold",
-        source_review="85052af53963a3d7c309d8183fca1dea94f87db86905f8260d0e7e38816157ef",
+        source_review="605d70efb1ba50d0725786405964905c8c60125b8ae12d0ed446ac0d47c7aa2c",
         does="Writes the initial configuration, model, output directory and workflow. The model has regions on a grid with spaces between them. Does not replace files.",
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
@@ -193,7 +193,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="5417a7755d420cd288d76ead3bc14fa0ccd25c5812d62a2f1b5e98c05f885594",
+        source_review="32c1749e5cb0c696065e85c90466dffdc81b697dbf6521eb997412e4e67d201a",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -379,7 +379,7 @@ _SOURCE_SHA = {
     'systemap.page_sequences': 'ca925d2d726d3c8ce6bef25d7fb31b8beb0716e79ec0a543b772b21c0bdc59bf',
     'systemap.place': '7cfe0e6520d7d86b8c835b2ef0fbf35b22660c7005eeee4bec5b0f780f64c016',
     'systemap.route': 'd1c63831efae5150cc529347b971125168bd02e31016fc89608df466cd6b00f5',
-    'systemap.scaffold': '1d5ed37901f533686296a1465aafe5844d7f71bb8a698a54511947e81411226a',
+    'systemap.scaffold': '6437e7e4da93498c862f2843521faa30e016f01b4f5550e1a5187bd077065215',
     'systemap.schematic': '5121436af138f45a1fe38011d5bf0b10809483d3019d7949a4cf57ae95671466',
     'systemap.skill': '71bde7489e07dd6f2555e01b059e52a53c1742fb3e962c581f52a8dec64d901e',
     'systemap.page_data': '696552bab4cc5b4c2004221e6e13b7af8a34d1acbf17292b962aac46f39b8d3f',
