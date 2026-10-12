@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 from conftest import write_tree
 from test_live_change import git, make_repo
+from test_nested import nested  # noqa: F401 - a fixture
 
 from systemap import change, config, explain, extract, figure, nest, page_live, serve
 from systemap.cli import main
@@ -107,6 +108,21 @@ def test_a_render_gives_the_pages_the_figure_and_the_map_updates(
     assert state["svg_bytes"] == len(svg.read_bytes())
     assert events.names() == ["rendering", "rendered"]
     assert events.items[1]["components"] == ["Audit"]
+
+
+def test_nested_maps_get_the_pages_that_systemap_render_writes(nested: Path) -> None:  # noqa: F811
+    rendered = serve.render_tree(nested, "")
+    assert sorted(rendered.files) == [
+        "Gateway/index.html",
+        "Style/index.html",
+        serve.FIGURE,
+        "index.html",
+    ]
+    assert main(["--root", str(nested), "render"]) == 0
+    for name in ("index.html", "Gateway/index.html", "Style/index.html"):
+        written = (nested / "docs/map" / name).read_text(encoding="utf-8")
+        assert rendered.files[name] == written, name
+    assert [path.name for path in rendered.models] == ["model.py", "gateway.py", "style.py"]
 
 
 def test_without_a_change_the_figure_is_the_system_figure(repo: Path, tmp_path: Path) -> None:

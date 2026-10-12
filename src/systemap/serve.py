@@ -484,7 +484,8 @@ def watched(root: Path, models: Iterable[Path] = ()) -> list[Path]:
     suffixes = (".py",) if cfg.language == extract.PYTHON.name else SOURCE_SUFFIXES
     for folder in {cfg.model_path.parent, *(path.parent for path in models)}:
         found += sorted(folder.glob("*.py"))
-    folders = [package for package, _name in cfg.roots] + [root / rel for rel in cfg.test_dirs]
+    tests = [root / rel for rel in cfg.test_dirs if rel]
+    folders = [package for package, _name in cfg.roots] + tests
     for folder in folders:
         found += _files(folder, suffixes)
     return found
