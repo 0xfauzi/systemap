@@ -1770,7 +1770,8 @@ Acceptance:
 - Map text with a measured width keeps its font, unless Inter fits the width rule for each character of the subset.
   Thus no card description wraps differently, and no placement result changes.
 - At 1440, 1024, 800, and 390 pixels, no text in an HTML control gets more lines or becomes clipped.
-- The sample page limit rises by the measured cost of the font and a margin of 4 KiB or less, as a whole number of KiB.
+- The sample page limit increases by the measured cost of the font and not more than 4 KiB of additional space.
+  The limit is a whole number of KiB.
 
 Method: Chromium 141.0.7390.37 (Playwright), Ink and Paper, 1440 by 900 and 390 by 844 pixels for the screenshots.
 fontTools 4.66.1 with brotli 1.2.0 made and measured the fonts.
@@ -1866,7 +1867,8 @@ The difference is probably in how the renderer aligns hinted glyphs. A compariso
 The font costs 18,452 bytes on each page: 18,256 bytes for the `@font-face` rule, 68 bytes for the font name in the four
 `--fs` values, and 128 bytes for the rule of the map text with a measured width.
 The limit of `test_page_is_small_and_self_contained` was 300 KiB (307,200 bytes). It is now 322 KiB (329,728 bytes).
-The rise is 22,528 bytes: the font cost and a margin of 4,076 bytes. The sample page passes with 9,757 bytes of space.
+The limit increases by 22,528 bytes: the font cost and 4,076 bytes of additional space.
+The sample page passes with 9,757 bytes of space.
 
 The new tests in `tests/test_typography.py` gave 3 failures and 15 passes on the base with only `page_font.py`
 and the license file added, and 18 passes after the change.

@@ -17,7 +17,7 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     html = page.build(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {"has_change": False}
     )
-    # 300 KiB, plus the embedded Inter subset (18,452 bytes) and a margin of 4,076 bytes.
+    # 300 KiB, the Inter subset in the page (18,452 bytes) and 4,076 bytes of additional space.
     # bench/jev/README.md "Map page font" gives the measurements and the decision.
     assert len(html.encode("utf-8")) < 322 * 1024
     assert "<script src" not in html
