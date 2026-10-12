@@ -525,7 +525,7 @@ components that can become nested maps.
 - `--jev` uses Jev's module-pair answers instead of package groups.
   Set `TYPESAFE_API_KEY` for this option.
 
-### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json]`
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]`
 
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
@@ -553,6 +553,31 @@ The first finding of each kind has rows about its effect and necessary action.
 - With `--json`, `--kind KIND` selects the rows of `open`. The counts include all kinds.
   For a model without components, the lists are empty and the exit code is 0.
 
+- `--order-by-drift` sends one Jev question for each open `stale source review` line.
+  The answer is the drift score: the probability that the claims of the component agree with its changed source.
+  The report puts the stale lines in sequence from the lowest drift score.
+  The other lines do not move.
+  A `drift score:` row below each stale line gives the score.
+  With `--json`, each stale row has `drift`, and the object has `drift_order`.
+
+  The option does not close a line, and it does not change a source review or an answer.
+  The open lines and the exit code are the same with and without the option.
+  The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
+  Examine each stale component, also the components at the end of the sequence.
+  Set `TYPESAFE_API_KEY` for this option. Without the option, `judgement` sends no request.
+
+  The question gives the claims that the `source_review` digest contains, and one part of the source.
+  Git finds the last commit that added the recorded `source_review` digest below the folder of the model file.
+  The source part is the diff of the module files of the component, from that commit to the working tree.
+  If Git cannot find the commit, or the diff is empty, the source part is the current text of the module files.
+  Each source part has a limit of 12,000 characters.
+  A new file that is not in Git is not in the diff.
+
+  A refusal or a request error gives `no score`. A line without a score goes to the end of the stale lines.
+  A `drift sequence:` row gives the quantity of questions without a score and the cause.
+  The answers go into the Jev cache. Thus, the next command sends no question.
+  It reads the model list one time, as each Jev command does.
+
 The JSON object has these fields:
 
 | Field | Type | Contents |
@@ -563,6 +588,7 @@ The JSON object has these fields:
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
 | `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
+| `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |
 | `answered.answers[].answer` | string | The selector of the answer, as the stale-answer row gives it. |
@@ -572,6 +598,7 @@ The JSON object has these fields:
 | `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
 | `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
+| `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
 
 The `evidence` digest is for an answer with one line.
 An `items` answer for more than one line has a different digest.
