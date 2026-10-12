@@ -182,8 +182,9 @@ class Config:
     observed_by: tuple[str, ...] = ()
     jev_model: str = "jev-latest"
     jev_cache: str = ".systemap/jev-cache.json"
-    # false: delta does not ask Jev on its own, and no command says what Jev would add
-    jev_enabled: bool = True
+    # None: no explicit value. Only true makes delta ask Jev without --jev.
+    # false also stops the hints that tell what Jev can add.
+    jev_enabled: bool | None = None
     # The command that writes the prose systemap asks for; none by default, and
     # then the commands that would ask print their structure and say so.
     agent_command: str = ""
@@ -591,8 +592,8 @@ def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
     cache = _str(jev, "cache", ".systemap/jev-cache.json", f"{where}: jev").strip()
     if not model or not cache:
         raise ConfigError(f"{where}: jev.model and jev.cache must not be empty")
-    enabled = jev.get("enabled", True)
-    if not isinstance(enabled, bool):
+    enabled = jev.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
         raise ConfigError(f"{where}: jev.enabled must be true or false")
     return {"jev_model": model, "jev_cache": cache, "jev_enabled": enabled}
 

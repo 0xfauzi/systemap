@@ -21,7 +21,8 @@ The language policy in `references/language.md` applies to every changed name an
    It compares the changes with the map claims.
 
    Exit 0 means that the map is current. Exit 1 means that you must update the map.
-   With `TYPESAFE_API_KEY`, Jev can identify rewritten moves and suggest owners for unclaimed modules.
+   With `--jev` and `TYPESAFE_API_KEY`, Jev can identify rewritten moves and suggest owners for unclaimed modules.
+   A key alone sends no question. `[jev] enabled = true` in `systemap.toml` selects Jev without `--jev`.
    Before you accept a suggested move, read both source files.
 2. Act on the lines under `The map needs an update` in `map/model.py` and `systemap.toml`.
    Keep unaffected component assignments and positions.

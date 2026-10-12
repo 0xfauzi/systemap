@@ -1,8 +1,8 @@
-"""When systemap asks Jev without being told to, and what it says when it cannot.
+"""When delta sends questions to Jev, and the hints that tell what Jev can add.
 
-delta asks Jev on its own when a key is set; judgement and delta say, on
-stderr, what Jev would add when none is. `[jev] enabled = false` turns off
-both, and check and judgement never ask.
+delta sends questions to Jev only with --jev, or with `[jev] enabled = true` and a
+key. A key alone sends nothing. judgement and delta print hints on stderr.
+`[jev] enabled = false` stops the hints. check and judgement never send a question.
 """
 
 from __future__ import annotations
@@ -33,14 +33,25 @@ def disable(root: Path) -> None:
     )
 
 
-def test_delta_asks_jev_when_a_key_is_set_unless_told_not_to(
+def test_delta_asks_jev_only_when_jev_is_selected(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg = load_config(project)
+    assert cfg.jev_enabled is None
     assert not jev_cli.uses_jev(cfg, None)
     monkeypatch.setenv(jev.KEY_ENV, "a key")
-    assert jev_cli.uses_jev(cfg, None)
+    # A key alone does not select Jev.
+    assert not jev_cli.uses_jev(cfg, None)
     assert not jev_cli.uses_jev(cfg, False)
+    assert jev_cli.uses_jev(cfg, True)
+    toml = project / "systemap.toml"
+    before = toml.read_text(encoding="utf-8")
+    toml.write_text(before + "\n[jev]\nenabled = true\n", encoding="utf-8")
+    assert jev_cli.uses_jev(load_config(project), None)
+    assert not jev_cli.uses_jev(load_config(project), False)
+    monkeypatch.delenv(jev.KEY_ENV)
+    assert not jev_cli.uses_jev(load_config(project), None)
+    toml.write_text(before, encoding="utf-8")
     disable(project)
     assert not jev_cli.uses_jev(load_config(project), None)
     # an explicit --jev still asks, and says so when it cannot

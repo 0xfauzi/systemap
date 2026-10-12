@@ -551,14 +551,13 @@ def cmd_delta(args: argparse.Namespace) -> int:
     base = delta.facts_at(p.cfg, compared)
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
     # Jev answers are suggestions: they never change the lines or the exit code.
-    asked = delta_jev.NOTHING
-    if jev_cli.uses_jev(p.cfg, args.jev):
-        asked = delta_jev.ask(p.cfg, p.tree, base, head, d)
+    selected = jev_cli.uses_jev(p.cfg, args.jev)
+    asked = delta_jev.ask(p.cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
-    if args.jev is None and d.added and d.removed:
-        jev_cli.hint(p.cfg, jev_cli.DELTA_HINT)
+    if args.jev is None and not selected and d.added and d.removed:
+        jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
 
 
@@ -1069,8 +1068,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Ask Jev for possible module moves and owners of modules without components. "
             "The answers are suggestions. They do not change the delta lines or the exit code. "
-            "Use --no-jev to send no request. The default is enabled if TYPESAFE_API_KEY "
-            "is set and [jev] enabled is not false."
+            "Use --no-jev to send no request. Without --jev, delta sends questions to Jev "
+            "only if systemap.toml sets [jev] enabled = true and TYPESAFE_API_KEY is set."
         ),
     )
     s.add_argument(

@@ -68,24 +68,28 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
 
 # ---- when a command asks Jev on its own, and what it says when it cannot ---------
 
-# What the commands that stay offline say Jev would add, when no key is set.
+# What Jev can add, for a command that sends no Jev request.
 JUDGEMENT_HINT = (
     "hint: Set TYPESAFE_API_KEY to use systemap audit. Then Jev reads each module and "
     "its component. It gives a list of the modules that are probably in an incorrect "
     "component. Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
-    "hint: Set TYPESAFE_API_KEY to receive Jev suggestions for moved modules and for "
-    "modules without a component. The suggestions do not change the delta result. "
+    "hint: To receive Jev suggestions for moved modules and for modules without a "
+    "component, give --jev or set [jev] enabled = true in systemap.toml. Jev must have "
+    "TYPESAFE_API_KEY. The suggestions do not change the delta result. "
     "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 
 
 def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
-    """Use an explicit flag, or the configured Jev policy and available API key."""
+    """Use an explicit flag, or an explicit `[jev] enabled = true` and an API key.
+
+    A key alone does not select Jev. Thus a key in the environment sends no source.
+    """
     if flag is not None:
         return flag
-    return cfg.jev_enabled and jev.has_key()
+    return cfg.jev_enabled is True and jev.has_key()
 
 
 def usage_to_stderr(client: jev.Jev) -> None:
@@ -95,9 +99,15 @@ def usage_to_stderr(client: jev.Jev) -> None:
 
 
 def hint(cfg: config.Config, text: str) -> None:
-    """Print a Jev hint to stderr when enabled without an API key."""
-    if cfg.jev_enabled and not jev.has_key():
+    """Print a Jev hint to stderr without an API key, unless `[jev] enabled = false`."""
+    if cfg.jev_enabled is not False and not jev.has_key():
         print(text, file=sys.stderr)
+
+
+def delta_hint(cfg: config.Config) -> None:
+    """Print the delta hint to stderr, with or without a key, unless `[jev] enabled = false`."""
+    if cfg.jev_enabled is not False:
+        print(DELTA_HINT, file=sys.stderr)
 
 
 # ---- audit -------------------------------------------------------------------------

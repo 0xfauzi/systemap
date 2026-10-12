@@ -388,9 +388,12 @@ An answer with the earlier line text matches the current line, with the same evi
 issue fix. The report includes their modules and adjacent components.
 On 80 closed issues from two repositories, the component of the pull request with the fix was first
 in 80% of predictions. It was in the first three in 88%.</p>
-<p>With the key set, <code>delta</code> automatically sends questions to Jev.
-<code>--jev</code> explicitly sends questions and gives a reason if the request cannot complete.
-<code>--no-jev</code> sends nothing.
+<p><code>delta</code> sends questions to Jev only when you select Jev.
+To select Jev, give <code>--jev</code>, or set <code>[jev] enabled = true</code> in <code>systemap.toml</code>.
+<code>[jev] enabled = true</code> also must have <code>TYPESAFE_API_KEY</code>.
+A key alone does not select Jev. Without a selection, <code>delta</code> sends no data to Jev.
+If the request cannot complete, <code>--jev</code> gives the cause.
+<code>--no-jev</code> sends nothing, also with <code>[jev] enabled = true</code>.
 If delta has no question for Jev, it sends nothing and prints no Jev line.</p>
 <p>Jev answers are suggestions for source examination. They are not evidence.
 They do not change the delta lines or the exit code.
@@ -417,9 +420,10 @@ They were not better on the other two.
 The measured first-map run saved no turns.
 Thus, the command stays optional.</p>
 <p>Without a key, <code>judgement</code> prints an audit hint to stderr.
-<code>delta</code> prints a hint when a module was removed and another was added.
+<code>delta</code> prints a hint when a module was removed, a different module was added, and Jev is not selected.
+The <code>delta</code> hint tells how to select Jev. It prints with a key and without a key.
 Each hint gives a result that was measured with earlier prompts on Python repositories.
-<code>[jev] enabled = false</code> stops the hints and automatic delta questions.</p>
+<code>[jev] enabled = false</code> stops the hints.</p>
 <h2 id="what-do-you-do-above-forty-components">What do you do above forty components?</h2>
 <p>A large repository can exceed the capacity of one readable canvas.
 Above approximately forty components, each layer can contain almost all
@@ -750,9 +754,10 @@ Without <code>page_url</code>, the command writes no file.
 The comment does not change the delta lines or the exit code.</p>
 </li>
 <li>
-<p><code>TYPESAFE_API_KEY</code> or <code>--jev</code> enables Jev suggestions for modules with changed
+<p><code>--jev</code> enables Jev suggestions for modules with changed
 names and content, and for unclaimed modules. The suggestions do not change
-the delta lines or the exit code.</p>
+the delta lines or the exit code. <code>[jev] enabled = true</code> in <code>systemap.toml</code>
+and <code>TYPESAFE_API_KEY</code> also enable them. A key alone does not enable them.</p>
 </li>
 <li>
 <p><code>--no-jev</code> sends nothing.</p>
@@ -1086,8 +1091,8 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[jev]</code></td>
-<td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled = true</code></td>
-<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --jev</code>. <code>enabled = false</code> stops automatic delta questions and hints.</td>
+<td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled</code> unset</td>
+<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --jev</code>. With <code>enabled = true</code> and <code>TYPESAFE_API_KEY</code>, <code>delta</code> sends questions to Jev without <code>--jev</code>. With <code>enabled</code> unset, <code>delta</code> sends no question without <code>--jev</code>, also with a key. <code>enabled = false</code> stops the hints.</td>
 </tr>
 <tr>
 <td><code>[agent]</code></td>

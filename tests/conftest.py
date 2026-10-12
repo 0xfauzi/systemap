@@ -28,8 +28,8 @@ from systemap.model import (
 
 @pytest.fixture(autouse=True)
 def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No test sends to Jev: delta asks it on its own when a key is set, so the
-    maintainer's key is removed; a test that means to ask sets its own and a
+    """No test sends to Jev: the maintainer's key is removed, because `audit --dry-run`
+    and `[jev] enabled = true` use it. A test that means to ask sets its own key and a
     recorded transport (jev_replay reads the real key at import, for recording)."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
 

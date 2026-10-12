@@ -219,9 +219,12 @@ issue fix. The report includes their modules and adjacent components.
 On 80 closed issues from two repositories, the component of the pull request with the fix was first
 in 80% of predictions. It was in the first three in 88%.
 
-With the key set, `delta` automatically sends questions to Jev.
-`--jev` explicitly sends questions and gives a reason if the request cannot complete.
-`--no-jev` sends nothing.
+`delta` sends questions to Jev only when you select Jev.
+To select Jev, give `--jev`, or set `[jev] enabled = true` in `systemap.toml`.
+`[jev] enabled = true` also must have `TYPESAFE_API_KEY`.
+A key alone does not select Jev. Without a selection, `delta` sends no data to Jev.
+If the request cannot complete, `--jev` gives the cause.
+`--no-jev` sends nothing, also with `[jev] enabled = true`.
 If delta has no question for Jev, it sends nothing and prints no Jev line.
 
 Jev answers are suggestions for source examination. They are not evidence.
@@ -254,9 +257,10 @@ The measured first-map run saved no turns.
 Thus, the command stays optional.
 
 Without a key, `judgement` prints an audit hint to stderr.
-`delta` prints a hint when a module was removed and another was added.
+`delta` prints a hint when a module was removed, a different module was added, and Jev is not selected.
+The `delta` hint tells how to select Jev. It prints with a key and without a key.
 Each hint gives a result that was measured with earlier prompts on Python repositories.
-`[jev] enabled = false` stops the hints and automatic delta questions.
+`[jev] enabled = false` stops the hints.
 
 ## What do you do above forty components?
 
@@ -591,9 +595,10 @@ than one-third of the map.
   Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
 
-- `TYPESAFE_API_KEY` or `--jev` enables Jev suggestions for modules with changed
+- `--jev` enables Jev suggestions for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change
-  the delta lines or the exit code.
+  the delta lines or the exit code. `[jev] enabled = true` in `systemap.toml`
+  and `TYPESAFE_API_KEY` also enable them. A key alone does not enable them.
 
 - `--no-jev` sends nothing.
 
@@ -816,7 +821,7 @@ Unknown keys are rejected.
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A `-` at the start removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
-| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--jev`. With `enabled` unset, `delta` sends no question without `--jev`, also with a key. `enabled = false` stops the hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
