@@ -461,6 +461,10 @@ Then systemap runs the model files as Python code, as version 2.0 did.
 The repository cannot give this permission. systemap does not read it from `systemap.toml`
 or from another file in the repository.
 
+To change a model file from an earlier version to literal values, examine its code first.
+Then run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
+The command writes the same model with literal values only, and makes sure that systemap reads it to the same model.
+
 systemap runs `git` to read the commits and revisions of the repository.
 `systemap journeys` runs the program that `[agent] command` in `systemap.toml` gives.
 Before you run `journeys` in a repository that you do not know, read that value.

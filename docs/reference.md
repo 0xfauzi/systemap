@@ -376,6 +376,7 @@ If you know that the code in a repository is safe, set `SYSTEMAP_TRUST_MODEL_COD
 in the environment of the command. Then systemap runs each model file as Python code,
 as version 2.0 did. Only the value `1` gives this permission.
 systemap does not read this permission from `systemap.toml`, because the repository controls that file.
+To write a model file with code again as literal values, use `systemap convert`.
 
 The full schema and examples are in
 [`SKILL.md`](src/systemap/skill/SKILL.md) and its
@@ -695,6 +696,19 @@ TypeScript samples include `.ts`, `.tsx`, tests, and package entry points.
 Prints one finding kind's meaning, effect on the map, and necessary action.
 With no kind, it lists all printed kinds and their one-line meanings.
 An unknown kind causes exit 1.
+
+### `systemap convert`
+
+Writes each model file that systemap refuses again, with literal values only.
+The command must run each refused file one time, so it needs `SYSTEMAP_TRUST_MODEL_CODE=1`.
+Examine the code of the model files before you set this value.
+Without the value, the command writes nothing and exits 2 if a model file is refused.
+If all model files have literal values only, it writes nothing and exits 0.
+
+For each refused file, the command reads the new text with the reader that runs no code.
+It writes the file only if that reader gives the same model as the old file.
+Fields with their default values are not in the new text.
+If the old file imported a file beside it, the command names that file. The new file does not import it.
 
 ### `systemap serve [--port 8765]`
 

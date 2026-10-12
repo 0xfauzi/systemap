@@ -38,6 +38,7 @@ from systemap import (
     jev,
     jev_cli,
     judgement,
+    model_convert,
     nest,
     page,
     place,
@@ -1185,6 +1186,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_skill)
     jev_cli.add_parsers(sub, add_root)
     serve.add_parsers(sub, add_root)
+    model_convert.add_parsers(sub, add_root)
     return parser
 
 

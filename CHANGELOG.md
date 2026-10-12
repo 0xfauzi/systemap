@@ -98,6 +98,8 @@ A layer is a filtered view of the map.
   A model file with functions, comprehensions, indexes, or other imports does not load in this version.
   Write the values as literal values. If you know that the code in a repository is safe, set
   `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command to run the model file as in 2.0.0.
+  `systemap convert` writes such a model file again with literal values only. It needs this value,
+  because it runs the old file one time. It writes the file only if systemap reads the new text to the same model.
   The base revision of `render --base` uses the same rule. For a base model with code, the Changes view
   gives the refusal, unless the environment sets this value.
 

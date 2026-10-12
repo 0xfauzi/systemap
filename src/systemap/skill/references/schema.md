@@ -43,6 +43,7 @@ If systemap refuses a statement, write the value as a literal value.
 
 The maintainer can set `SYSTEMAP_TRUST_MODEL_CODE=1` to run model code in a repository with safe code.
 Do not set this value to make a refused model file load.
+For a model file from an earlier version, tell the maintainer about `systemap convert`. It writes the same model with literal values only.
 
 ## Model
 
