@@ -300,38 +300,38 @@ Passing these checks does not show source meaning or language compliance.
 ## The facts file
 
 `systemap extract` writes `docs/map/map.json` by default.
-The following fields come from `systemap.extract.FIELDS`.
+These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
 - `version`: The facts format is 4, with portable syntax hashes and compiler provenance. `extract --check` marks older formats stale.
-- `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction precedes the commit recording facts.
+- `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
-- `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory named `tests` or `test`.
+- `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory with the name `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
-- `entry_points`: One record per entry point, with the fields below.
-- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. Empty if there are none.
-- `test_file_issues`: TypeScript test files with unresolved imports or names after a parse error. Empty if there are none.
-- `config_issues`: TypeScript npm tsconfig packages in `extends` that cannot be read. Empty if there are none.
-- `components`: One module record per dotted name, with the fields below.
+- `entry_points`: One record for each entry point, with the fields below.
+- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. The list is empty if there are none.
+- `test_file_issues`: TypeScript test files with unresolved imports or names after a parse error. The list is empty if there are none.
+- `config_issues`: TypeScript npm tsconfig packages in `extends` that cannot be read. The list is empty if there are none.
+- `components`: One module record for each dotted name, with the fields below.
 
 **Each module, under `components`**
 
 - `id`: The dotted module name.
 - `file`: The root-relative source path.
 - `package`: The first module-name segment.
-- `plane`: The second module-name segment if `planes` includes it. If not, `core`.
+- `plane`: The second module-name segment if `planes` includes it, or `core`.
 - `loc`: The file line count.
 - `sha`: The first twelve hex digits of the source SHA-1. This is the change-detector key.
 - `source_sha256`: The full SHA-256 of UTF-8 source text with normalized newlines, for source references.
-- `syntax_sha`: The parsed-syntax digest, without comments or formatting, for source review.
+- `syntax_sha`: The parsed-syntax digest for source review. Comments and text format do not change it.
 - `docstring`: The first module-docstring paragraph, with a length limit.
 - `functions`: Public functions with `name` and `signature`.
-- `classes`: Public classes excluding errors, with `name` and public method signatures in `methods`.
+- `classes`: Public classes other than errors, with `name` and public method signatures in `methods`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
 - `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
-- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports with `reexport_of` and their defining kind. A full-module import uses kind `module`. `entry` and `interface` can use these names.
+- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. `entry` and `interface` can use these names.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
 - `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
@@ -340,25 +340,26 @@ The following fields come from `systemap.extract.FIELDS`.
 - `imported_by`: Local modules that import this module.
 - `external`: Third-party dotted import names, such as `anthropic` or `google.adk`. Standard-library and local-package imports are excluded. `model sdk` findings read this field.
 - `tests_total`: The number of test functions with an import reference to this module.
-- `tests_primary`: The number of those functions in a file named for this module.
+- `tests_primary`: The number of those functions in a file with the module name.
 - `tests`: Up to 25 test names, with primary tests first.
-- `tests_digest`: A digest of every qualified test identity, including hidden identities.
+- `tests_digest`: A digest of every qualified test identity. It also includes hidden identities.
 - `parse_error`: Python source read or parse errors, with line and parser version.
 
 **Each entry point, under `entry_points`**
 
 - `kind`: `console_script`, `main_module`, `main_function`, `subcommand`, or `public_function`.
 - `name`: The script name, `python -m` command, `main`, subcommand name, or function name.
-- `module`: The defining module.
-- `target`: The console-script function, or the console script for a subcommand. Empty for other kinds.
+- `module`: The module that defines the entry point.
+- `target`: The console-script function, or the console script for a subcommand. It is empty for other kinds.
 
 **The extract summary**
 
-The quantities from `systemap extract` describe source facts.
-They do not describe component functions on the map.
+The numbers from `systemap extract` describe source facts.
+They do not describe the purposes of the map components.
 `modules` counts records under `components`.
-`functions`, `classes`, and `errors` sum the module fields with those names.
-`tests` sums `tests_total`. The count for same-name test files sums `tests_primary`.
+`functions`, `classes`, and `errors` give the sums of those module fields.
+`tests` gives the sum of `tests_total`. The count for test files with the module
+name gives the sum of `tests_primary`.
 
 `empty package markers` counts `__init__` records without public `names`,
 `imports`, or `external` entries. Coverage automatically excludes these records.

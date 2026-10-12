@@ -736,7 +736,8 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
         "facts",
         "built_at_commit",
         "The commit read during extraction (`HEAD`), or empty outside Git. "
-        "The page prints `facts from <sha>`. Extraction precedes the commit recording facts",
+        "The page prints `facts from <sha>`. Extraction occurs before the commit that records "
+        "the facts",
     ) in FIELDS
 
 
