@@ -1,6 +1,6 @@
 {
   "name": "systemap",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "The systemap skill makes a system map from source facts and examined claims. All reader text must use ASD-STE100.",
   "author": {
     "name": "0xfauzi",

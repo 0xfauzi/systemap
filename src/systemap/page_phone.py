@@ -240,9 +240,8 @@ SCRIPT = r"""
       return (Math.round(p.y / 24) - Math.round(q.y / 24)) || (p.x - q.x);
     });
   }
-  function frameIds(ids, pad, edge){
-    // Fit the cards (and the line of `edge`) in the map frame, as a framing of the
-    // map script does, with `pad` drawing units around them.
+  function around(ids, edge, pad){
+    // The rect round the cards (and the line of `edge`), `pad` drawing units out.
     var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     function add(b){
       x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
@@ -254,12 +253,27 @@ SCRIPT = r"""
       var bb = line.getBBox();
       if(bb.width || bb.height){ add({x:bb.x, y:bb.y, w:bb.width, h:bb.height}); }
     }
-    var area = A.view.visibleArea(null), m = svg.getScreenCTM(), base = m && m.a ? m.a : 1;
-    if(x0 === Infinity || !(area.w > 0) || !(area.h > 0)){ A.view.fit(); return; }
-    var r = {x:x0 - pad, y:y0 - pad, w:x1 - x0 + 2 * pad, h:y1 - y0 + 2 * pad};
+    return x0 === Infinity ? null
+      : {x:x0 - pad, y:y0 - pad, w:x1 - x0 + 2 * pad, h:y1 - y0 + 2 * pad};
+  }
+  function clamp(v, lo, hi){ return lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v)); }
+  function frameIds(ids, pad, edge, keep){
+    // Fit the cards (and the line of `edge`) in the map frame, as a framing of the
+    // map script does. The zoom stays at or above the zoom at which card text is
+    // readable (`data-read`). Then the frame keeps the cards of `keep` in view,
+    // as near to the middle of the step as it can.
+    var r = around(ids, edge, pad), area = A.view.visibleArea(null), m = svg.getScreenCTM();
+    var base = m && m.a ? m.a : 1;
+    if(!r || !(area.w > 0) || !(area.h > 0)){ A.view.fit(); return; }
     var k = Math.min(1.4 / base, area.w / r.w, area.h / r.h);
-    A.view.restore({k:k, tx:area.x + area.w / 2 - k * (r.x + r.w / 2),
-      ty:area.y + area.h / 2 - k * (r.y + r.h / 2)});
+    var c = {x:r.x + r.w / 2, y:r.y + r.h / 2}, b = keep && around(keep, -1, pad);
+    var read = (+svg.getAttribute('data-read') || 0) / base;
+    if(b && k < read){
+      k = Math.min(read, 1.4 / base);
+      var hw = area.w / k / 2, hh = area.h / k / 2;
+      c = {x:clamp(c.x, b.x + b.w - hw, b.x + hw), y:clamp(c.y, b.y + b.h - hh, b.y + hh)};
+    }
+    A.view.restore({k:k, tx:area.x + area.w / 2 - k * c.x, ty:area.y + area.h / 2 - k * c.y});
   }
 
   // ---- what the layer shows --------------------------------------------------
@@ -549,11 +563,14 @@ SCRIPT = r"""
   }
   function frameStep(){
     // Board 8 frames the step closely: its two cards and the line between them.
+    // When they do not fit at a readable zoom, the acting card stays in view.
     var st = A.state.journey, e = st ? A.edges[st.edge] : null;
     if(!st || st.whole || body.dataset.phone !== 'step'){ return; }
     var ids = (st.acts || []).concat(st.measures || []);
+    var keep = (st.acts || []).length ? st.acts : (st.measures || []).length ? st.measures
+      : (e ? [e.from] : []);
     if(e){ ids.push(e.from, e.to); }
-    frameIds(ids, 10, e ? st.edge : -1);
+    frameIds(ids, 10, e ? st.edge : -1, keep);
   }
   function reframeStep(){
     if(P.journey.active() && A.state.journey){ A.setJourney(A.state.journey); frameStep(); }

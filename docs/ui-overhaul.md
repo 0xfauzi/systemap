@@ -25,17 +25,17 @@ A component contains modules that have one function.
 A flow shows something that goes between components.
 A layer selects the relationships that answer one question.
 A sequence gives the steps of an authored operation.
-The page's map-reading disclosure gives these terms.
+The page gives these terms in a disclosure about how to read the map.
 
 The map keeps authored positions.
 A selected relationship keeps its direction, artifact, layer, and evidence
 through endpoint navigation. Declared relationships keep their declared label.
 Structural evidence and source review keep their specified evidence states.
 The inspector shows unresolved references and changed claims.
-It also shows incoming and outgoing rows, source records, governing rules, and
-recorded decisions.
+It also shows rows for the relationships that come in and go out, source records,
+the rules that apply, and recorded decisions.
 
-Only the selected relationship has a moving cue.
+Only the selected relationship has a cue that moves.
 Its solid route stays visible.
 Each evidence state keeps its specified pattern.
 System reduced motion and the page's Reduce control remove movement.
@@ -44,7 +44,7 @@ Other relationships keep their evidence patterns and readable labels.
 Sequence state stays unchanged through inspection, Fit, Back, and header
 navigation. At the end of a sequence, the prior selection and layer are active
 again. Nested maps keep their parent context.
-Focus goes back to the opening control.
+Focus goes back to the control that opened the nested map.
 The finder shows matches by component, function, or module.
 It also shows an empty search result.
 
@@ -73,10 +73,10 @@ Malformed links show recovery feedback.
 | Source and comparison payload | `src/systemap/page_data.py` |
 | Finder, sequences, nested maps, and details | `src/systemap/page_script.py` |
 | SVG scene and metadata | `src/systemap/schematic.py` |
-| Component geometry and styling | `src/systemap/schematic_cards.py`, `schematic_style.py` |
+| Component geometry and style | `src/systemap/schematic_cards.py`, `schematic_style.py` |
 | Selection, directed flows, and focus | `src/systemap/schematic_relations.py` |
 | Camera, framing, and serialized scene | `src/systemap/schematic_script.py` |
-| Comparison error handling | `src/systemap/change.py`, `cli.py` |
+| Comparison errors | `src/systemap/change.py`, `cli.py` |
 
 `map/model.py` gives each new production module a component claim.
 DESIGN.md and `.impeccable/design.json` record the implemented colors,
@@ -108,12 +108,12 @@ Visible phone HTML controls meet the 44-pixel target.
 The fitted SVG gives an overview.
 Text view gives the detailed alternative.
 
-The rendered contrast probe examined 281 text records per theme.
+The rendered contrast probe examined 281 text records for each theme.
 The minimum ratios were 5.34:1 for Warm, 4.56:1 for Graphite, and 5.00:1 for
 Paper. The probe includes selected components and warnings.
 The local raw results are in
 `output/playwright/ui-audit/rendered-contrast.json`.
-The PR does not include these results.
+The pull request does not include these results.
 
 The independent visual inspection found a camera defect.
 The SVG's CSS rectangle included unused space outside its drawable viewBox.
@@ -159,7 +159,7 @@ See the [metric definition](https://web.dev/articles/inp).
 These observations came before the final framing corrections, provenance-font
 corrections, and integration with main.
 Local inputs, scripts, and results are in `output/playwright/ui-audit/`.
-The PR does not include these files.
+The pull request does not include these files.
 The 300 KiB sample-page limit does not apply to the larger self-map.
 
 ## Checks and limits
@@ -178,14 +178,15 @@ Regression tests include these cases:
 
 Browser captures include desktop, tablet, phone map, phone reading, and the
 native app viewport. The local captures are in `output/playwright/ui-audit/`.
-The PR does not include them.
+The pull request does not include them.
 
 The final integration run completed with 540 successful tests and one skipped
 test. Mypy found no issues in 53 source files.
 Pre-commit checks include staged changes and tracked files.
+
 Refresh completed. Check found all 53 modules mapped and routes with no
 geometry findings. Strict judgement had no open findings and seven answered
-findings. Extraction and rendering checks found the output current.
+findings. The checks of the extracted and rendered output found the output current.
 
 Three independent agents examined the main integration, flow evidence, and
 recorded single-module reasons. They found that an audit-family policy can
@@ -194,7 +195,7 @@ mechanical family kinds. Regression cases compare accepted reasons, open
 findings, and review notices with the CLI's decisions.
 
 The team renewed source reviews only for examined claims.
-The obsolete single-module answer for Page was removed after the module split.
+The team removed the obsolete single-module answer for Page after the module split.
 The modules have different responsibilities.
 
 The first CI run completed all Linux and macOS test jobs and all six
@@ -213,7 +214,7 @@ The cyclomatic-complexity ratchet accepts the changes.
 
 The design detector gives palette, compact-heading, and map-inset
 advisories. These items follow the selected design.
-Its stroke-width warning concerns SVG styling.
+Its stroke-width warning is about SVG style.
 The independent reviewer did not request changes to those items.
 
 Native browser zoom, text enlargement, spoken screen-reader operation, and

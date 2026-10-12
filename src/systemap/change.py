@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from systemap import extract, history
+from systemap import delta_model, extract, history, nest
 from systemap.config import Config
 from systemap.extract import WHOLE_MODULE
 from systemap.language import LanguageAdapter
@@ -443,3 +443,16 @@ def compute(
         "reach_known": reach_known,
         "unparsed": sorted(unparsed),
     }
+
+
+def for_page(
+    cfg: Config, m: nest.Map, base: str, facts: dict[str, Any], head: str = "HEAD"
+) -> dict[str, Any]:
+    """This function gives the change-view data of one map page, with its map changes.
+
+    The map changes compare the committed model at the comparison base with the model
+    of the page.
+    """
+    ch = compute(cfg, m.model, base, facts, head)
+    ch["map"] = delta_model.for_page(cfg, m.id, m.model, m.meaning, ch["comparison_base"])
+    return ch

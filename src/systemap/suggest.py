@@ -25,7 +25,7 @@ HEADER = (
         "  The package structure gives one group for each package with two or more "
         "modules. The import graph gives connections between groups. If a group has "
         "two tasks, divide it. If two groups have one task, combine them. The "
-        "suggested size is three to ten modules per component, or N/10 to N/3 "
+        "suggested size is three to ten modules for each component, or N/10 to N/3 "
         "components for N modules."
     ),
 )
@@ -156,7 +156,8 @@ def nesting_lines(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
             out.append(
                 f"nesting: {name} has {n} components, more than {nest.CARDS_PER_MAP}. A nested "
                 f"map can reduce the component count. Open a map in a component with many "
-                f'modules (set map="map/<card>.py". Use the same module set in the nested map):'
+                f'modules. Set map="map/<card>.py" in that component. Use the same module set '
+                f"in the nested map:"
             )
             out += [f"  {cid}: {held[cid]} modules" for cid in candidates]
             continue

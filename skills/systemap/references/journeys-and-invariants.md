@@ -17,19 +17,20 @@ The extractor reads these source forms:
 - `__main__` modules and `main` functions.
 - Argparse subcommands with a literal `add_parser("name", ...)` value.
 - Public functions exported by the package root.
-- Framework routes, including `@app.get`, Flask `@app.route`, and Django `urlpatterns`.
+- Framework routes, for example `@app.get`, Flask `@app.route`, and Django `urlpatterns`.
 - Click and Typer commands, Cleo command classes, and Django `management/commands/*`.
 - Background tasks with `@shared_task` or `@app.task`.
 
-Write one sequence for each entry point that matters to a reader.
+Write one sequence for each entry point that is important to a reader.
 Start with the actor and the component that receives the input.
 Then show the flows and the destination of the result.
 Each `Step` contains `acts`, `measures`, `edge`, and `say`.
-Use an empty tuple for `measures` when no component records or monitors the step.
-Use `starts` as the entry point display label.
+If no component records or monitors the step, use an empty tuple for `measures`.
+
+Use `starts` as the display label of the entry point.
 After source examination, add the exact entry identities to `covers`.
 `systemap facts --entry-points` shows the available identities.
-A label, sentence, or old `starts` value does not establish coverage.
+A label, sentence, or old `starts` value does not give coverage.
 
 A console script and its imported `main` or `__main__` can have the same entry identity.
 For many entry points of one kind in one component, use one sequence for the common operation.
@@ -42,12 +43,13 @@ The agent reads one entry point or two or three entries from a group.
 The prompt makes ASD-STE100 mandatory for the identifier, label, and step sentences.
 The command rejects steps with unknown components or missing flows.
 Accepted drafts have `drafted=True` and a `drafted journey` finding.
+
 Examine each step against the source. Correct errors before removal of the draft flag.
 
 A sequence is not necessary for some entry points.
 Examples include a debug hook, a test-only function, or a version command.
 Record the reason under `[judgement] answered`.
-If an entry point cannot be explained from source, tell the maintainer.
+If you cannot explain an entry point from source, tell the maintainer.
 Do not invent a sequence.
 
 For a model-calling system, write one sequence per agent turn when applicable.
@@ -67,7 +69,7 @@ Use these sources in this order:
    Cite the test file.
 
 Write the rule in ASD-STE100 without a change to its meaning.
-Keep an exact external quotation when its identity is necessary.
+If the identity of an external quotation is necessary, keep the exact quotation.
 Put the citation in the invariant text.
 List directly affected component identifiers in `governs`.
 A proposed rule is not an existing invariant. Put proposals in the completion report.
@@ -76,6 +78,6 @@ A proposed rule is not an existing invariant. Put proposals in the completion re
 
 The check rejects sequence steps with missing flows or unknown component identifiers.
 It also rejects invariants that refer to unknown components.
-It cannot establish that a sequence is useful or that an invariant is true.
+It cannot show that a sequence is useful or that an invariant is true.
 The source examination procedure compares these claims with code and documentation.
 Complete language acceptance only after that examination.

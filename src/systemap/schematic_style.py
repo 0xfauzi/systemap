@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from systemap.schematic_cards import PLAIN_FONT
-from systemap.theme import Palette
+from systemap.theme import SYSTEM_SANS, Palette
 
 # The stroke pattern of each evidence state, the same on the map and in the
 # inspector swatches. A dash shows evidence and nothing else.
@@ -106,6 +106,19 @@ def _flow_style(s: str, t: Palette, base: bool) -> str:
     )
 
 
+def _measured_text(s: str, t: Palette) -> str:
+    """Keep the system sans font for map text with a measured width.
+
+    The renderer gives each character of a flow label and of a container description
+    a fixed width. Inter is wider than that width for most characters, so this text
+    keeps the font of the computer. On the page, a text class gets its sans font from
+    `--fs`, so the rule sets `--fs` on these text elements only. The monospace labels
+    use `--fm` and do not change. A separate figure does not contain Inter."""
+    if not t.variables:
+        return ""
+    return f"{s} .box__h text,{s} .flowlbl text{{--fs:{SYSTEM_SANS}}}"
+
+
 def _svg_style(svg_id: str, t: Palette) -> str:
     """Give the card states, the selection, the preview and the direction cue.
 
@@ -116,6 +129,7 @@ def _svg_style(svg_id: str, t: Palette) -> str:
     return (
         "<style>"
         + _node_style(s, t)
+        + _measured_text(s, t)
         + _flow_style(s, t, svg_id != "changemap")
         + f"{s}{{width:100%;height:auto;display:block;overflow:hidden;touch-action:none;"
         "cursor:grab}"

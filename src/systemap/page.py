@@ -12,6 +12,7 @@ from systemap import (
     nest,
     page_changes,
     page_data,
+    page_font,
     page_groups,
     page_guide,
     page_icons,
@@ -128,6 +129,7 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
         observed_by=cfg.observed_by,
         variables=True,
     )
+    svg = _no_tooltips(svg)
     return svg
 
 
@@ -437,11 +439,23 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         f"if(localStorage.getItem({json.dumps(MOTION_KEY)})==='true'){{m='true'}}}}catch(e){{}}"
         "document.documentElement.setAttribute('data-reduce-motion',m)})();</script>"
         "<style>"
+        + page_font.FACE
         + _compact_css(
             panel_css(t, variables=True) + CSS.replace("{ROOT}", theme_mod.root_css(t)) + extra_css
         )
         + "</style></head>"
     )
+
+
+# A <title> in an inline SVG is a browser tooltip on every shape under it, and the
+# map's titles only repeat its name ("System map"). The SVG keeps its aria-label for
+# screen readers; the panel and the legend explain notes and inner maps on screen.
+_SVG_TITLE = re.compile(r"<title>[^<]*</title>")
+
+
+def _no_tooltips(svg: str) -> str:
+    """Remove the SVG titles that a browser shows as tooltips on the map."""
+    return _SVG_TITLE.sub("", svg)
 
 
 def build(
@@ -465,6 +479,7 @@ def build(
         opens=nesting.opens,
         variables=True,
     )
+    system_svg = _no_tooltips(system_svg)
     payload: dict[str, Any] = {
         "sources": page_data.sources(model, facts),
         "comparison": page_data.comparison(ch),
@@ -480,6 +495,7 @@ def build(
         "sequences": page_sequences.data(model, meaning, facts),
     }
     change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch)
+    change_svg = _no_tooltips(change_svg)
     extra_css = (
         page_guide.CSS
         + page_sequences.CSS

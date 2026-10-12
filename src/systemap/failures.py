@@ -12,7 +12,7 @@ import argparse
 import sys
 from collections.abc import Callable
 
-from systemap import change, delta, figure, place
+from systemap import change, delta, delta_link, figure, place
 from systemap.config import ArgumentError, ConfigError
 
 STALE, BAD_CONFIG = 1, 2
@@ -27,6 +27,7 @@ TSCONFIG_READER = "systemap.typescript_config"
 # A subclass comes before its base class.
 FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (ArgumentError, OPTION_FIX, BAD_CONFIG),
+    (delta_link.LinkError, OPTION_FIX, BAD_CONFIG),
     (ConfigError, CONFIG_FIX, BAD_CONFIG),
     (figure.FigureError, "", STALE),
     (place.PlaceError, "", STALE),

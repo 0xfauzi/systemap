@@ -33,7 +33,7 @@ Do not change finding identifiers without an explicit migration.
 For each new finding kind, add three sentences to `explain.py`:
 
 - What the finding tells the reader.
-- Why the finding matters to the map.
+- Why the finding is important to the map.
 - What the reader must do.
 
 The `--brief` option removes these explanations.
@@ -41,9 +41,11 @@ The `--brief` option removes these explanations.
 ## Measurements and failures
 
 Use `uv` for all Python commands. Keep dependencies in `pyproject.toml`.
+
 Before an experiment, write its acceptance value in its docstring.
 Record all results in `bench/jev/README.md`, including failures.
 Do not invent measurements. When a value is unknown, say that a measurement is necessary.
+
 If a command cannot do the specified work, show the failure and stop.
 Do not silently substitute a different answer.
 
@@ -64,6 +66,7 @@ New or increased cognitive complexity must not exceed 15.
 Cyclomatic complexity must not increase.
 Python files must not exceed 800 lines. `SKILL.md` must not exceed 240 lines.
 The three skill directories must have identical contents.
+
 Add each new source module to a component.
 
 Jev is the TypeSafe model for decisions that source facts cannot give.

@@ -1759,3 +1759,323 @@ With this table, five placement tests failed, because the Config description of 
 
 The new tests in `tests/test_typography.py` gave 6 failures and 1 pass on the base and 7 passes after the change.
 The full test suite gave 767 passes and 1 skipped test.
+
+## Map page size and time with the map changes in the Changes view (2026-10-12)
+
+Acceptance: the sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+The change adds the `#changes` link script to the page shell, and the map changes style rules and section to the Changes view.
+The map changes section and the rules of a selected component are only in a page with a revision comparison.
+
+| Page | Bytes |
+|---|---|
+| Sample page, base (bf3a3f8) | 301,986 |
+| Sample page, with the `#changes` link | 302,425 |
+| Sample page, with the map changes styles | 302,691 |
+| Sample page, with the rules of a selected component | 302,692 |
+| Self-map page, no comparison, base code | 636,231 |
+| Self-map page, no comparison, new code | 636,937 |
+| Self-map page, comparison with 9defc3d, base code | 915,195 |
+| Self-map page, comparison with 9defc3d, new code | 917,834 |
+
+The self-map rows use the model and the facts of the worktree for the base code and the new code,
+so each pair compares only the page code. The self-map page contains the pages of its nested maps.
+The sample page passes with 4,508 bytes of space.
+
+The map comparison loads the committed model at the merge base for each render with `--base`.
+For this repository against 9defc3d, two runs gave 0.19 s and 0.20 s for the map comparison,
+and 1.09 s and 1.16 s for the source comparison that the page had before this change.
+
+## Map page font (2026-10-12)
+
+The maintainer decided to embed the font. This change puts a subset of Inter in the map page.
+
+Acceptance:
+
+- The page stays one file with no external requests. The font is a data URI in an `@font-face` rule.
+- Map text with a measured width keeps its font, unless Inter fits the width rule for each character of the subset.
+  Thus no card description wraps differently, and no placement result changes.
+- At 1440, 1024, 800, and 390 pixels, no text in an HTML control gets more lines or becomes clipped.
+- The sample page limit increases by the measured cost of the font and not more than 4 KiB of additional space.
+  The limit is a whole number of KiB.
+
+Method: Chromium 141.0.7390.37 (Playwright), Ink and Paper, 1440 by 900 and 390 by 844 pixels for the screenshots.
+fontTools 4.66.1 with brotli 1.2.0 made and measured the fonts.
+In this container, `system-ui` gives Inter 4.000 from the Debian package fonts-inter 4.0+ds-1.
+SF Pro and Segoe UI are not available here. A measurement with these fonts is necessary.
+
+### Source font
+
+`scripts/inter_subset.py` downloads the npm package inter-ui 4.1.1 and compares its SHA-512 value with the recorded value.
+It uses `package/variable/InterVariable.woff2`, "Version 4.001;git-9221beed3".
+The earlier option used `inter-latin-opsz-normal.woff2` of @fontsource-variable/inter 5.3.0, "Version 4.001;git-66647c0bb".
+The two files have the same ASCII advances at the weights 400, 500, 600, and 700.
+They have the same `hhea` and `OS/2` typo metrics. Only `usWinAscent` and `usWinDescent` are different (2269 and 660 against 1984 and 494).
+The fontsource file has no U+2190, U+2192, U+21C4, U+22EF, or U+2318.
+Thus the subset of the earlier option had only the ASCII characters and U+00B7 (96 codes), not 5 symbols.
+
+The page shows U+00B7, U+2192, and U+2212 in sans text. It shows U+2190, U+2191, U+2193, and U+2318 only in keyboard keys,
+which use the monospace font. Inter has no U+21C4. The system sans font shows it.
+
+The script did not give the same file two times at first: fontTools writes the current time in the `head` table.
+The script now keeps the time of the source font. Three runs then gave the same SHA-256 value.
+
+### Subset sizes
+
+All rows use the optical size 14 and the name records 0, 1, 2, 5, 13, and 14, except the last row.
+The name records 5 and 13 (version and license description) add 208 WOFF2 bytes.
+
+| Characters | Weights | Features | WOFF2 bytes | base64 bytes |
+|---|---|---|---|---|
+| ASCII and 7 symbols | 400 to 700 | kern, tnum | 15,028 | 20,040 |
+| ASCII and 7 symbols | 400 to 700 | kern | 14,292 | 19,056 |
+| ASCII, U+00B7, U+2192, U+2212 (the page) | 400 to 700 | kern | 13,596 | 18,128 |
+| ASCII, U+00B7, U+2192, U+2212 | 400 to 650 | kern | 13,312 | 17,752 |
+| ASCII, U+00B7, U+2192, U+2212 | 400 to 600 | kern | 13,076 | 17,436 |
+| ASCII and U+00B7, name records 0, 1, 2, and 14 | 400 to 600 | kern, tnum | 13,532 | 18,044 |
+
+No page rule uses tabular figures, so the subset does not keep `tnum`.
+The page uses the weights 400, 500, 600, and 650 in sans text. The weight axis goes to 700 for bold text.
+
+### Width rules of the map
+
+The values are the advances of Inter 4.001 at the optical size 14, for each of the 98 characters of the subset.
+
+| Map text | Width rule | Inter | Characters wider than the rule | Largest |
+|---|---|---|---|---|
+| Flow label | 6.1 units for each character at 11 units | 500 | 65 of 98 | W, 11.03 |
+| Flow label under a selection | 6.1 units at 11 units | 600 | 65 of 98 | W, 11.22 |
+| Container description | 5.6 units at 11 units | 400 | 67 of 98 | W, 10.84 |
+| Card description | the Arial table | 400 | 78 of 95 ASCII characters | |
+
+The sum of the ASCII advances of Inter 400 is 1.066 times the sum of the Arial table.
+Card names, region labels, and container labels use the monospace font. The monospace font does not change.
+Thus flow labels and container descriptions keep the system sans font, and card descriptions keep Arial.
+On the page, a rule sets `--fs` to the system sans font on these SVG text elements.
+
+`CSS.getPlatformFontsForNode` gave these fonts on the self-map page after the change:
+
+| Text | Font |
+|---|---|
+| Project name, view buttons, layer segments, Find, question, panel title, legend, sequence button | Inter Variable (embedded) |
+| Step labels of a sequence on the map | Inter Variable (embedded) |
+| Flow labels and container descriptions | Inter Medium and Inter (the system font in this container) |
+| Card names, container labels, region labels, step numbers | DejaVu Sans Mono |
+| Card descriptions | Liberation Sans |
+
+At `DOMContentLoaded`, `document.fonts.status` was `loaded` and `document.fonts.check('13px "systemap Inter"')` was true.
+
+### Fit of the controls
+
+An audit read each visible element with its own text in 10 states at 1440, 1024, 800, and 390 pixels:
+the Map view, the All layer, a selected component, a selected flow, Find, the keyboard keys, the source panel of the commit,
+the sequence list, a sequence step, and the first-visit guide.
+Before and after the change, the audit found the same 2,467 elements.
+No element got more lines. No element became clipped.
+The 278 clipped boxes before and after are the same: screen reader text and rows with an ellipsis.
+These rows are in Find, in the sequence list, and in the group list.
+The canvas text widths of the view buttons, the layer segments, and Find were the same before and after.
+In this container the base page also used Inter widths, because `system-ui` gives Inter 4.000.
+
+The layout boxes of the text were the same before and after, at device scales of 1 and 2.
+At a device scale of 1, the glyphs in the screenshots were on the same pixel rows.
+At a device scale of 2, the 13px text of the panel was 2 device pixels lower. The 19px title and the Clear button did not move.
+The installed font has CFF outlines with hint values. The subset has TrueType outlines and no hint tables.
+The difference is probably in how the renderer aligns hinted glyphs. A comparison with SF Pro on a macOS screen is necessary.
+
+### Page size
+
+| Page | Before (f70c3e8) | After |
+|---|---|---|
+| Sample page, no comparison | 301,519 | 319,971 |
+| Self-map page, no comparison, scratch build | 637,718 | 656,170 |
+
+The font costs 18,452 bytes on each page: 18,256 bytes for the `@font-face` rule, 68 bytes for the font name in the four
+`--fs` values, and 128 bytes for the rule of the map text with a measured width.
+The limit of `test_page_is_small_and_self_contained` was 300 KiB (307,200 bytes). It is now 322 KiB (329,728 bytes).
+The limit increases by 22,528 bytes: the font cost and 4,076 bytes of additional space.
+The sample page passes with 9,757 bytes of space.
+
+The new tests in `tests/test_typography.py` gave 3 failures and 15 passes on the base with only `page_font.py`
+and the license file added, and 18 passes after the change.
+The full test suite gave 790 passes and 1 skipped test.
+
+After the merge with the map changes in the Changes view, the sample page is 321,144 bytes.
+It passes with 8,584 bytes of space.
+
+## Map text at Fit (2026-10-11)
+
+"Map page type" found that at Fit the map text was smaller than the page type rule:
+running text 12px or more, and labels 11px or more. The maintainer agreed to a change.
+The acceptance values were written before the change:
+
+- At Fit on a 1440 x 900 screen with the panel open, the self map shows card names at 12 px or more,
+  card descriptions at 11 px or more, and flow labels, region labels and container labels at 11 px or more.
+- At the same size, the tags, the step numbers and the step note of a Sequences step show at 11 px or more.
+- On a 390 x 844 phone, the map frame of each sequence step shows card names at 12 px or more
+  and card descriptions at 11 px or more. The acting component of the step is on the screen.
+- In each state of the tables, these counts do not increase: labels on labels, labels on cards,
+  labels on lines other than their own line, card text outside its card, and map text under the
+  title, the legend, the readout or the zoom controls.
+- The self map and the sample map keep their `systemap check` result and their layout geometry:
+  the card boxes, the label boxes, the flow paths and the collisions that the render reports.
+- The sample page of `test_page_is_small_and_self_contained` stays smaller than 300 KiB (307,200 bytes).
+- Fit, the zoom value (100 percent), zoom in and zoom out keep their functions. Each motion obeys Reduce motion.
+
+Method: Chromium 141.0.7390.37 (Playwright), device scale 1, Ink, Reduce motion on, the first-visit guide closed.
+The pages are scratch builds of the self map and of the sample map of the tests.
+For each visible SVG text element, the size on the screen is its CSS font size multiplied by the scale of its screen transform.
+A table cell gives the smallest size of the role in CSS pixels. A dash shows that the state has no text of that role.
+The overlap counts use the screen bounding boxes of the text elements, the card boxes and the line segments, with a 1 px tolerance.
+A tag on its own card is not an overlap.
+
+Before the change (f70c3e8):
+
+| Map | State | Zoom (percent) | Card name | Card description | Flow label | Region label | Container label | Tag | Step number and words | Step note |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Self map | 1440 x 900, panel open | 75 | 11.0 | 10.1 | 8.2 | 8.2 | 8.2 | - | - | - |
+| Self map | 1440 x 900, panel closed | 75 | 11.0 | 10.1 | 8.2 | 8.2 | 8.2 | - | - | - |
+| Self map | 1440 x 900, Sequences step 1 | 75 | 11.0 | 10.1 | - | 8.2 | 8.2 | 8.5 | 9.3 | 9.3 |
+| Self map | 1024 x 768, panel open | 60 | 8.8 | 8.1 | 6.6 | 6.6 | 6.6 | - | - | - |
+| Self map | 1024 x 768, panel closed | 61 | 8.9 | 8.2 | 6.7 | 6.7 | 6.7 | - | - | - |
+| Self map | 800 x 600 | 43 | 6.3 | 5.8 | 4.7 | 4.7 | 4.7 | - | - | - |
+| Self map | 390 x 844, phone full map | 31 | 4.6 | 4.2 | 3.4 | 3.4 | 3.4 | - | - | - |
+| Self map | 390 x 844, phone step (smallest / median of 46 steps) | 35 / 60 | 5.1 / 8.8 | 4.7 / 8.2 | - | 3.8 / 6.6 | 3.8 / 5.9 | 4.0 / 6.8 | 4.3 / 7.5 | - |
+| Sample map | 1440 x 900, panel open | 109 | 16.1 | 14.9 | 12.0 | 12.0 | 12.0 | - | - | - |
+| Sample map | 1440 x 900, panel closed | 151 | 22.3 | 20.6 | 16.6 | 16.6 | 16.6 | - | - | - |
+| Sample map | 1440 x 900, Sequences step 1 | 109 | 16.1 | 14.9 | - | 12.0 | 12.0 | 12.4 | 13.7 | 13.7 |
+| Sample map | 1024 x 768, panel open | 72 | 10.6 | 9.8 | 7.9 | 7.9 | 7.9 | - | - | - |
+| Sample map | 1024 x 768, panel closed | 108 | 15.9 | 14.6 | 11.8 | 11.8 | 11.8 | - | - | - |
+| Sample map | 800 x 600 | 84 | 12.4 | 11.4 | 9.2 | 9.2 | 9.2 | - | - | - |
+| Sample map | 390 x 844, phone full map | 37 | 5.5 | 5.1 | 4.1 | 4.1 | 4.1 | - | - | - |
+| Sample map | 390 x 844, phone step (smallest / median of 4 steps) | 72 / 93 | 10.6 / 13.8 | 9.7 / 12.7 | - | 9.7 / 10.3 | 9.7 / 10.3 | 8.2 / 10.6 | 8.9 / 10.7 | - |
+
+Overlap counts before the change, for each layer of the self map. Each cell gives
+labels on other lines / map text or cards under the page controls. The other counts were 0.
+
+| Self map layer | 1440 x 900, panel open | 1024 x 768, panel open | 800 x 600 |
+|---|---|---|---|
+| System context | 15 / 0 | 15 / 3 | 15 / 4 |
+| Structure | 0 / 0 | 0 / 0 | 0 / 0 |
+| Data flow | 0 / 0 | 0 / 3 | 0 / 2 |
+| Control flow | 10 / 0 | 10 / 3 | 10 / 2 |
+| Map review | 3 / 0 | 3 / 3 | 3 / 2 |
+| All | 0 / 0 | 0 / 4 | 0 / 4 |
+
+At 1024 x 768 and 800 x 600, the legend covers a part of the Describe card at the bottom of the map. The sample map has no overlaps.
+On the phone, the 46 steps of the self map have 23 overlaps between tags and step numbers.
+These overlaps are in the Sequences marks and do not change with the zoom.
+
+`systemap check` on the self map before the change: "map layout: has no errors (20 components,
+76 orthogonal labeled edges, no text size less than 11px)". The layout digest of the render
+(card boxes, label boxes, paths, collisions, notes and headers) was `c234e180810b1631` for the self map
+and `37a8ed23f412ee50` for the sample map.
+
+### Options
+
+The measurements of each option use the self map at 1440 x 900 with the panel open, where the base zoom is 75 percent.
+Card names need 81.4 percent for 12 px, card descriptions 80.9 percent for 11 px, and 11-unit labels 100 percent for 11 px.
+
+| Option | Measurement | Result |
+|---|---|---|
+| (a) Labels that become larger below 100 percent, with collision handling | A test script in Chromium, with the text boxes. Labels scaled about their centre, no move: at a scale of 1.32, 7 of 13 System context labels, 3 of 14 Control flow labels and 6 of 7 Map review labels touch a card, a label or a new line. With a move along the own line, 2 of 13, 0 of 14 and 2 of 7 at 1.2, and 3, 0 and 3 at 1.32 | Used. The card text cannot become larger: the cards have a fixed size |
+| (b) A smaller page frame | A test script that adds CSS in Chromium. The map is limited by its height at 1440 x 900: the zoom is 75 percent with the panel open and with the panel closed. A narrower panel does not help. The title block on two compact lines gave 78.6 percent, on one line 79.8 percent, with an 8 px margin and the legend gap of the framing | Used, with the one-line title block and smaller gaps: 82.1 percent |
+| (c) Fit of the cards and regions only | The cards and regions are 776 units high, and the containers 860 units. In the 706 px high frame of the final page, the zoom would be 91 percent (calculated, not measured) | Not used: the container labels go off the screen at Fit |
+| (d) Larger label size in the layout | "Flow label size on the map page": at a scale of 1.10, 5 label collisions | Not used: it changes the check result |
+| (e) A phone step frame at a zoom at which the card text is 11 px or more | The zoom is 81.4 percent or more. The acting card is on the screen in 46 of 46 steps. Both ends of the line are on the screen in fewer steps (see below) | Used |
+
+Fit now fits the drawn bounds of the map (`data-fit`), not the viewBox with its 26-unit margin.
+It keeps the map 8 px from the frame and above one line of the legend. With a measured legend top, the zoom of the
+self map changed from layer to layer at 1024 x 768 and 800 x 600, because the legend has two lines on a narrow window
+for some layers. Thus Fit uses one line of the legend. The title block on one line had the same problem when the
+question went onto a second line: a window of 1259 px or less now shows only the question.
+
+### After the change
+
+| Map | State | Zoom (percent) | Card name | Card description | Flow label | Region label | Container label | Tag | Step number and words | Step note |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Self map | 1440 x 900, panel open | 82 | 12.1 | 11.2 | 11.0 | 11.0 | 10.7 | - | - | - |
+| Self map | 1440 x 900, panel closed | 82 | 12.1 | 11.2 | 11.0 | 11.0 | 10.7 | - | - | - |
+| Self map | 1440 x 900, Sequences step 1 | 82 | 12.1 | 11.2 | - | 11.0 | 10.7 | 11.2 | 11.2 | 11.2 |
+| Self map | 1024 x 768, panel open | 62 | 9.2 | 8.4 | 8.4 | 8.4 | 7.9 | - | - | - |
+| Self map | 1024 x 768, panel closed | 67 | 9.8 | 9.1 | 9.1 | 9.1 | 8.5 | - | - | - |
+| Self map | 800 x 600 | 48 | 7.0 | 6.5 | 6.5 | 6.5 | 6.0 | - | - | - |
+| Self map | 390 x 844, phone full map | 32 | 4.7 | 4.3 | 4.3 | 4.3 | 4.0 | - | - | - |
+| Self map | 390 x 844, phone step (smallest / median of 46 steps) | 81 / 81 | 12.0 / 12.0 | 11.1 / 11.1 | - | 8.9 / 11.1 | 10.3 / 10.3 | 11.1 / 11.1 | 11.1 / 11.1 | - |
+| Sample map | 1440 x 900, panel open | 118 | 17.4 | 16.0 | 13.0 | 13.0 | 13.0 | - | - | - |
+| Sample map | 1440 x 900, panel closed | 150 | 22.1 | 20.4 | 16.5 | 16.5 | 16.5 | - | - | - |
+| Sample map | 1440 x 900, Sequences step 1 | 118 | 17.4 | 16.0 | - | 13.0 | 13.0 | 16.0 | 16.0 | 16.0 |
+| Sample map | 1024 x 768, panel open | 77 | 11.3 | 10.5 | 10.5 | 8.5 | 10.5 | - | - | - |
+| Sample map | 1024 x 768, panel closed | 116 | 17.1 | 15.8 | 12.8 | 12.8 | 12.8 | - | - | - |
+| Sample map | 800 x 600 | 90 | 13.3 | 12.3 | 11.1 | 9.9 | 11.1 | - | - | - |
+| Sample map | 390 x 844, phone full map | 39 | 5.8 | 5.3 | 5.3 | 4.3 | 5.3 | - | - | - |
+| Sample map | 390 x 844, phone step (smallest / median of 4 steps) | 81 / 93 | 12.0 / 13.8 | 11.1 / 12.7 | - | 9.7 / 10.4 | 11.1 / 11.1 | 11.1 / 12.7 | 11.1 / 12.3 | - |
+
+Result for each acceptance value:
+
+- 1440 x 900 with the panel open: card names 12.1 px, card descriptions 11.2 px, flow labels and region labels 11.0 px. Pass.
+  The container label OUTSIDE THE PACKAGE is 10.7 px: its box is 190 units wide, and the label stops 6 units before its right edge.
+  This value fails the acceptance value of 11 px. A wider label needs a wider container, which is a layout change.
+- Sequences step at 1440 x 900: tags, step numbers and the step note at 11.2 px. Pass.
+- Phone step: card names 12.0 px and card descriptions 11.1 px in each of the 46 steps. The acting card is on the screen in 46 of 46 steps. Pass.
+  The cost: the source card of the step line is on the screen in 39 of 46 steps (before: 46), and the target card in 25 of 46 (before: 46).
+  The step note under the map gives both ends. A region label that has no room next to a step number keeps 11 units: 8.9 px.
+- Overlaps: no count increased, in any state of the tables or in the 6 phone region frames. The probe counts an item only
+  when more than 1 px of it is in the map frame. Each cell gives labels on other lines / map text or cards under the
+  page controls. The other counts were 0 before and after on the desktop.
+
+| Self map layer | 1440 x 900, panel open | 1024 x 768, panel open | 800 x 600 |
+|---|---|---|---|
+| System context | 13 / 0 (before 15 / 0) | 13 / 0 (before 15 / 3) | 13 / 2 (before 15 / 4) |
+| Structure | 0 / 0 (before 0 / 0) | 0 / 0 (before 0 / 0) | 0 / 0 (before 0 / 0) |
+| Data flow | 0 / 0 (before 0 / 0) | 0 / 0 (before 0 / 3) | 0 / 0 (before 0 / 2) |
+| Control flow | 9 / 0 (before 10 / 0) | 9 / 0 (before 10 / 3) | 9 / 0 (before 10 / 2) |
+| Map review | 2 / 0 (before 3 / 0) | 2 / 0 (before 3 / 3) | 2 / 0 (before 3 / 2) |
+| All | 0 / 0 (before 0 / 0) | 0 / 3 (before 0 / 4) | 0 / 2 (before 0 / 4) |
+
+  The labels on other lines decreased because a label that has no free place at its larger size is now in the list.
+  At Fit on 1440 x 900, the readout gives these labels in the list: System context 4 (before: 2), Control flow 2 (before: 2),
+  and Map review 4 (before: 2). Thus 2 labels of System context and 2 of the 9 labels of Map review show only for a pointer,
+  keyboard focus or selection at Fit. At 100 percent and more, the labels have their layout size, and only the labels beside their lines are in the list.
+  On the phone, the overlaps between tags, step numbers and region labels went from 23 to 0, because the step numbers now keep off the region and container labels.
+  The sample map has no overlaps before and after.
+- `systemap check` gives the same layout line: "map layout: has no errors (20 components, 76 orthogonal labeled edges,
+  no text size less than 11px)". The layout digests are the same: `c234e180810b1631` and `37a8ed23f412ee50`.
+  In a scratch worktree, `systemap refresh` and then `systemap check` gave "coverage: 84 of 84 modules mapped" and the same layout line.
+  The other check lines are stale source records, which the maintainer renews after the merge.
+- Page size: the sample page is 307,114 bytes (before: 301,519), 86 bytes under the limit. The self-map page is 643,467 bytes (before: 637,718).
+  The label script is 4,561 bytes of the 5,595. The change removes an unused camera function (`fracOf`) and a second legend
+  calculation in the sequence script. A further addition to the page can exceed the limit.
+- The zoom controls: in Chromium, Fit, the zoom value (100 percent), zoom in and zoom out (1.25), the wheel, a selection frame,
+  Escape back to Fit, full screen and the panel button all gave the expected zoom and pressed state. A view at Fit stays at Fit
+  when the panel opens or closes. The zoom value now shows the new zoom when the frame changes size. Before, the sample page
+  at 1024 x 768 showed 108% at a zoom of 72 percent after the panel opened.
+  The first-visit guide moves the map after the panel opens, so the map stays in the frame.
+  The Changes view opens at Fit (77 percent on the self map with a comparison). No page error occurred.
+  The label sizes have no motion. The camera keeps its 300 ms motion and obeys Reduce motion.
+
+Frame times during a zoom (no acceptance value was written before this run; the earlier sections use 20 percent):
+120 frames, one new zoom in each frame from 40 to 140 percent and back, 1440 x 900, Ink, headless Chromium. The first 5 frames are not counted.
+The first runs of an earlier version, which painted the map at each label scale, gave increases up to 25.8 percent in one of eight runs.
+The final version paints only when the list of labels changes:
+
+| Layer | Run | Before (mean / p95 ms) | After (mean / p95 ms) |
+|---|---|---|---|
+| Control flow | 1 | 20.61 / 33.4 | 21.78 / 33.4 |
+| Control flow | 2 | 17.98 / 33.3 | 19.88 / 33.4 |
+| Control flow | 3 | 19.44 / 33.4 | 21.49 / 33.4 |
+| Control flow | 4 | 19.00 / 33.3 | 20.61 / 33.4 |
+| All | 1 | 20.76 / 33.4 | 22.66 / 33.4 |
+| All | 2 | 20.17 / 33.4 | 21.64 / 33.4 |
+| All | 3 | 20.17 / 33.4 | 22.51 / 33.4 |
+| All | 4 | 22.08 / 33.4 | 21.05 / 33.4 |
+
+The largest increase of the mean is 11.6 percent. The differences between runs of one page are almost as large.
+
+The new tests in `tests/test_map_text.py` gave 6 failures and 1 pass on the base (acd31f5) and 7 passes after the change.
+The test that passes on the base examines that the layout widths do not change.
+
+## Map page size after the font, map changes and label merges (2026-10-12)
+
+The sample page of `test_page_is_small_and_self_contained` is 326,739 bytes after the three merges.
+The limit is 329,728 bytes, so the page passes with 2,989 bytes of space.
+The label script and the Fit changes added 5,595 bytes.

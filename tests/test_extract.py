@@ -360,17 +360,17 @@ def test_zero_tests_is_said_in_one_line_naming_the_directories(tmp_path: Path) -
     facts = extract.build(config.load(tmp_path))
     assert facts["tests_dirs"] == ["tests"]
     lines = extract.summary(facts)
-    assert "  tests:            none import a module; searched tests" in lines
+    assert "  tests:            none import a module. The extractor searched tests" in lines
     (tmp_path / "tests").rmdir()
     facts = extract.build(config.load(tmp_path))
     assert facts["tests_dirs"] == []
     assert (
-        "  tests:            none import a module; no directory named tests or test was found"
+        "  tests:            none import a module. The extractor found no tests or test directory"
         in extract.summary(facts)
     )
     write_tree(tmp_path, TINY_PACKAGE)
     assert (
-        "  tests:            3 test functions import a module, 2 in a file named after it"
+        "  tests:            3 test functions import a module, 2 in a file with its name"
         in extract.summary(extract.build(config.load(tmp_path)))
     )
 

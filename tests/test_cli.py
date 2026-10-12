@@ -51,7 +51,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
     assert "ASD-STE100 Issue 9" in model
-    assert "installed systemap skill language policy" in model
+    assert "language policy of the installed systemap skill" in model
 
     # The starter model is empty: the check has one line to say, and says only that.
     assert run("--root", str(tmp_path), "check") == 1
@@ -138,33 +138,44 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     assert workflow.index("persist-credentials") < workflow.index("setup-uv")
 
 
-def test_init_workflow_posts_the_delta_on_a_pull_request(tmp_path: Path) -> None:
-    """The pull_request job: delta in markdown, one comment posted or updated,
-    write permission on that job alone, nothing expanded inside a run block."""
+def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path) -> None:
+    """The pull_request jobs: delta gives its lines in the log and fails if the map needs
+    an update. Only the link job can write a comment, and it runs only when delta wrote
+    one, which needs [delta] page_url. Nothing is expanded inside a run block."""
     import re
 
-    from systemap import delta
+    from systemap import delta_link
 
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
     workflow = (tmp_path / ".github/workflows/systemap.yml").read_text(encoding="utf-8")
-    assert workflow.count("\n  delta:\n") == 1
-    job = workflow[workflow.index("\n  delta:\n") :]
+    assert workflow.count("\n  delta:\n") == 1 and workflow.count("\n  link:\n") == 1
+    job = workflow[workflow.index("\n  delta:\n") : workflow.index("\n  # This job runs only")]
+    link = workflow[workflow.index("\n  link:\n") :]
     assert "if: github.event_name == 'pull_request'" in job
-    assert workflow.count("pull-requests: write") == 1 and "pull-requests: write" in job
-    assert "    permissions:\n      contents: read\n      pull-requests: write" in job
     assert "persist-credentials: false" in job and "fetch-depth: 0" in job
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in job
     assert "HEAD: ${{ github.event.pull_request.head.sha }}" in job
     pin = f'uvx --from "systemap=={__version__}" systemap'
-    assert f'{pin} delta --base "$BASE" --head "$HEAD" --format markdown > delta.md' in job
-    # One comment: found by the marker delta prints first, then edited in place.
-    assert f'startswith("{delta.MARKER}")' in job
-    assert "-X PATCH" in job and "-X POST" in job and "-F body=@delta.md" in job
-    assert "GH_TOKEN: ${{ github.token }}" in job
+    assert f'{pin} delta --base "$BASE" --head "$HEAD" --pr "$PR" --comment comment.md' in job
+    assert "--format" not in workflow and "What this change does to the map" not in workflow
+    # The delta job has no write permission and writes no comment.
+    assert "permissions:" not in job and "gh api" not in job
     assert job.rstrip().endswith('exit "$code"')
+    assert "::error title=Map delta::A map update is necessary." in job
+    # The link job: write permission on that job alone, only with a comment from delta.
+    assert workflow.count("pull-requests: write") == 1
+    assert "    permissions:\n      pull-requests: write" in link
+    assert "    needs: delta\n" in link
+    assert "if: ${{ !cancelled() && needs.delta.outputs.comment != '' }}" in link
+    assert "comment: ${{ steps.delta.outputs.comment }}" in job
+    # One comment: found by the marker delta writes first, then edited in place.
+    assert f'startswith("{delta_link.MARKER}")' in link
+    assert "-X PATCH" in link and "-X POST" in link and '-f body="$BODY"' in link
+    assert "BODY: ${{ needs.delta.outputs.comment }}" in link
+    assert "GH_TOKEN: ${{ github.token }}" in link
     # Every expression reaches a command through env, never through the template.
-    for block in re.findall(r"run: \|\n((?:          .*\n)+)", job):
+    for block in re.findall(r"run: \|\n((?:          .*\n)+)", job + link):
         assert "${{" not in block, block
 
 

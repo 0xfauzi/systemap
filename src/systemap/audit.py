@@ -517,7 +517,8 @@ def _audit_policy_line(answer: Answer, matches: list[str]) -> str:
     reviewed = {migrated(line) for line in answer.reviewed}
     new = sum(line not in reviewed for line in matches)
     return (
-        f"{answer.label} covers {len(matches)} current lines; {new} outside its reviewed baseline"
+        f"{answer.label} covers {len(matches)} lines at this snapshot. {new} lines are "
+        f"outside the source-review baseline."
     )
 
 
@@ -531,10 +532,12 @@ def reviewed_answer_issue(
         digest = answer_digest(answer.items, evidence)
         if answer.evidence and answer.evidence == digest and digest != "unavailable":
             return None
-        return f"'{answer.label}' needs renewed review; current evidence = \"{digest}\""
+        return (
+            f"'{answer.label}' must have a new source review. The evidence digest is \"{digest}\""
+        )
     if answer.policy:
         return None
-    return f"'{answer.label}' needs policy = true to cover a family of lines"
+    return f"'{answer.label}' must have policy = true for a family of lines."
 
 
 def report(
@@ -618,8 +621,8 @@ def dry_run(plan: Plan, pending: int | str | None) -> list[str]:
         f"audit --dry-run: {len(plan.asks)} questions ({sent}), {chars:,} characters of state "
         "and questions",
         "  by type: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())),
-        "  outgoing data: module names, docstrings (600 characters at most), public "
-        "names, internal imports, component ids and sentences, invariants, flow sentences, and "
-        "source lines with imports between components (30 lines per flow at most)",
+        "  outgoing data: module names, docstrings, public names, internal imports, component "
+        "ids and sentences, invariants, flow sentences, and source lines with imports between "
+        "components. A docstring has 600 characters at most. A flow has 30 source lines at most.",
         *unasked_lines(plan.unasked),
     ]

@@ -308,10 +308,10 @@ def test_the_check_runs_on_every_map_and_counts_coverage_once(
     assert out.count("coverage:") == 1
     assert "coverage: 10 of 10 modules mapped, 1 an empty package marker" in out
     assert "claimed twice" not in out
-    assert "map layout: has no errors (5 components, 4 orthogonal labeled edges" in out
-    assert "Gateway: map layout: has no errors (5 components, 4 orthogonal labeled edges" in out
-    assert "Style: map layout: has no errors (4 components, 3 orthogonal labeled edges" in out
-    assert "Gateway: map routes: 0 edges across components other than its endpoints" in out
+    assert "map layout: has no errors (5 components, 4 orthogonal flow paths with labels" in out
+    assert "Gateway: map layout: has no errors (5 components, 4 orthogonal flow paths" in out
+    assert "Style: map layout: has no errors (4 components, 3 orthogonal flow paths" in out
+    assert "Gateway: map routes: 0 flow paths across components other than their endpoints" in out
     assert "nesting" not in out
     for rel in ("index.html", "Gateway/index.html", "Style/index.html"):
         assert f"docs/map/{rel} has no rendered output." in out, rel
@@ -736,7 +736,8 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
         "facts",
         "built_at_commit",
         "The commit read during extraction (`HEAD`), or empty outside Git. "
-        "The page prints `facts from <sha>`. Extraction precedes the commit recording facts",
+        "The page prints `facts from <sha>`. Extraction occurs before the commit that records "
+        "the facts",
     ) in FIELDS
 
 
@@ -770,21 +771,9 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
         "Add it to a component implemented_by in map/style.py, "
         "the map inside Style has the same module claims as Style\n"
     ) in out
-    assert "A decision is necessary (" in out
+    assert "The map needs an update (" in out
     assert "source review:" in out
     assert "4 of 9 components specified" in out
-    assert run("--root", str(nested), "delta", "--base", "HEAD~1", "--format", "markdown") == 1
-    out = capsys.readouterr().out
-    assert "- `Gateway: moved: pkg.gateway.store -> pkg.gateway.db" in out
-    # The map changes name a nested component with its map id.
-    assert (
-        "- **Components**: Changed source: Gateway, Style, Gateway/App and Gateway/Store.\n" in out
-    )
-    assert (
-        "- **Flows**: Changed: `Gateway: App -> Store (record)` (evidence structural to "
-        "declared).\n" in out
-    )
-    assert '  n0["Gateway/App (changed source)"]\n' in out
 
 
 def test_suggest_reads_the_tree_from_the_command(

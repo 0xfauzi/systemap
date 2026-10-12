@@ -77,6 +77,10 @@ CSS = r"""
 body:not([data-mode="understand"]) .layer-controls,
 body[data-phone] .layer-controls{display:none}
 .seq-seg button:focus-visible{outline-offset:-3px}
+/* The title block is one line: the label, then the question on the same baseline.
+   A window of 1259px or less shows only the question, so that the question does not
+   go onto a second line and a layer change does not change Fit. */
+@media(max-width:1259px){.mapbar__label{display:none}}
 .lay{display:flex;flex-direction:column;gap:14px}
 .readpanel .lay-text{margin:0;font:13px/20px var(--fs);color:var(--ink-2)}
 .lay-card{color:var(--ink-2)}
@@ -240,7 +244,9 @@ SCRIPT = r"""
   P.readers.push(reader);
 
   // ---- the panel opens with the page on a wide window --------------------------
-  if(window.innerWidth > 820 && P.mode() === 'understand'){ P.openPanel(); }
+  // Fit then gets the width that the panel leaves, and the guide can move the map.
+  if(window.innerWidth > 820 && P.mode() === 'understand'){ P.openPanel(); A.view.fit(true); }
+  if(P.afterBoot){ P.afterBoot(); }
   eyebrow();
   if(P.renderRead){ P.renderRead(); }
 })();

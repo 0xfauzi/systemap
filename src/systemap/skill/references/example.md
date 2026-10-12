@@ -7,11 +7,11 @@
 
 ## The model file
 
-This illustrative model shows an input sequence with a reader, parser, writer, and record store.
+This example model shows an input sequence with a reader, parser, writer, and record store.
 The modules are `pkg.reader`, `pkg.parser`, `pkg.writer`, and `pkg.ledger`.
 The tests do the model checks against a source fixture with these modules.
 The example gives the positions so that the example is a complete file.
-For an initial model, omit `x` and `y`. Then run `systemap place`.
+For an initial model, do not write `x` and `y`. Then run `systemap place`.
 
 ```python
 """The system map of pkg and its component connections."""
@@ -43,7 +43,7 @@ CONTAINERS = (
 )
 
 REGIONS = (
-    # One region contains processing components. The other contains the record store.
+    # One region contains the components that do the work. The other contains the record store.
     Region("work", "WORK", (240, 50, 626, 130), container="system"),
     Region("keep", "KEEP", (240, 210, 626, 130), container="system"),
 )
@@ -198,8 +198,8 @@ MEANING = Meaning(
 
 An empty `pkg/__init__.py` is a package marker in this example.
 The extractor records that module. Coverage includes the marker without a component claim.
-If a module with source code is outside the map, record a coverage ignore with an explanation.
-The following configuration is illustrative:
+If a module with source code is outside the map, record a coverage exclusion with an explanation.
+The following configuration is an example:
 
 ```toml
 [coverage]

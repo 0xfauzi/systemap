@@ -72,7 +72,10 @@ def test_the_workflow_runs_the_suite_and_the_wheel_on_three_operating_systems() 
     assert text.count('python: ["3.11", "3.13"]') == 2
     assert "UV_PYTHON: ${{ matrix.python }}" in text
     install = text.split("\n  install:\n", 1)[1].split("\n  plugin:\n", 1)[0]
-    assert "uv build --wheel" in install
+    # The release workflow makes the wheel from the source archive. This job does the same,
+    # so a file that the archive leaves out also makes this job fail.
+    assert "run: uv build\n" in install
+    assert "uv build --wheel" not in install
     assert "uv venv --seed venv" in install
     assert "pip install --no-deps dist/systemap-*.whl" in install
     for command in (

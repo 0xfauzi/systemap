@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories
 from systemap.model import Meaning, Model
 from systemap.root_check import checked_roots
@@ -55,6 +56,7 @@ KNOWN_KEYS = {
     "flows",
     "jev",
     "agent",
+    "delta",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
@@ -120,7 +122,7 @@ class Ignore:
 
 @dataclass(frozen=True)
 class Answer:
-    """This record gives a maintainer decision for exact diagnostic lines or a family of
+    """This record gives a maintainer answer for exact diagnostic lines or a family of
     lines.
 
     Exact items contain the full printed line without the two-space indent. Family
@@ -186,6 +188,8 @@ class Config:
     agent_command: str = ""
     agent_cache: str = ".systemap/agent-cache.json"
     agent_timeout: float = 300.0
+    # The URL of the published map page of a pull request, with {number}. Empty: no comment.
+    delta_page_url: str = ""
     source: str = ""
 
     @property
@@ -437,6 +441,7 @@ def load(root: Path) -> Config:
         roots = package_roots(root, language, raw.get("package_roots"), where)
         roots = checked_roots(root, language, raw, roots, KNOWN_KEYS, where)
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
+        delta_page_url = page_url(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -465,6 +470,7 @@ def load(root: Path) -> Config:
         outside_label=_str(raw, "outside_label", "EXTERNAL COMPONENTS", where),
         theme=theme,
         figures=_figures(raw, where),
+        delta_page_url=delta_page_url,
         source=source,
     )
 

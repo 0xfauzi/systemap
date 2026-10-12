@@ -1,6 +1,6 @@
 [project]
 name = "systemap"
-version = "1.2.0"
+version = "2.0.0"
 description = "A system map with source facts, examined claims, and ordered sequences."
 readme = "README.md"
 license = "MIT"
@@ -52,6 +52,10 @@ dev = [
     "tree-sitter>=0.25,<0.26",
     "tree-sitter-typescript>=0.23,<0.24",
 ]
+# scripts/inter_subset.py makes the Inter subset of the map page with these packages.
+fonts = [
+    "fonttools[woff]==4.66.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -90,4 +94,8 @@ paths = ['src']
 ignore-words-list = "nam,nd,raed,recrod"
 # bench/jev/results holds captured commit subjects and model answers: another
 # project's typo in a commit message is evidence, not something to correct.
-skip = "uv.lock,*/package-lock.json,.git,bench/jev/results,bench/jev/data"
+# src/systemap/page_font.py holds a font as base64 text, which can contain word-like parts.
+skip = "uv.lock,*/package-lock.json,.git,bench/jev/results,bench/jev/data,src/systemap/page_font.py"
+# The map page embeds the same font as a base64 data URI. The pattern skips only that data,
+# so codespell still reads the text of the generated page.
+ignore-regex = "base64,[A-Za-z0-9+/=]+"

@@ -17,7 +17,7 @@ It is also a requirement for documentation and user interface text.
 
 ASD publishes the [official standard](https://www.asd-ste100.org/STE_downloads.html).
 Use the writing rules in part 1 and the dictionary in part 2.
-Do not substitute a general English dictionary or a summary of plain English.
+Do not use a general English dictionary or a summary of plain English instead.
 Do not put a copy of the ASD dictionary in the repository.
 
 Before you write, make sure that the official reference is available.
@@ -32,7 +32,7 @@ Use ASD-STE100 for these fields and outputs:
 - Container and region names and descriptions.
 - Layer names, questions, and descriptions.
 - Sequence names, labels, and step sentences.
-- Invariants and the reasons for recorded decisions.
+- Invariants and the reasons for recorded answers.
 - New identifiers that are also names for the reader.
 - Agent answers, command help, errors, explanations, and documentation.
 
@@ -58,6 +58,7 @@ Use active voice and the permitted simple verb forms.
 Use an imperative verb for an instruction.
 Put a necessary condition before the instruction.
 Use one instruction per sentence unless the actions occur at the same time.
+
 Procedural sentences must not exceed 20 words.
 Descriptive sentences must not exceed 25 words.
 Use the word-count rules in section 8 of the standard.
@@ -79,7 +80,7 @@ Do not change these values:
 
 These values are technical identities or quoted evidence.
 This exception does not apply to new explanations or labels around them.
-Do not rename a recorded identifier without a migration of every reference.
+Do not change a recorded identifier without a migration of every reference.
 Do not rewrite recorded evidence as if the new words were the original result.
 
 ## Project glossary
@@ -359,4 +360,4 @@ Before you complete a map or documentation update:
 If a necessary technical term is missing, add its meaning and category before use.
 Do not add an ordinary word to the glossary to avoid its dictionary rule.
 An automated word list cannot show correct meanings, parts of speech, or source claims.
-Do not use an automated check as the only evidence of language compliance.
+Do not use an automated check as the only evidence that the text obeys the standard.

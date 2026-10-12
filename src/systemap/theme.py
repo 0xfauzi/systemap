@@ -36,16 +36,21 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap.model import Layer
+from systemap.page_font import FAMILY
 
 # The marks a card may carry for its kind. A ring is a second border inside
 # the first; a notch is a filled corner; dotted is the border itself.
 MARKS = ("ring", "notch", "dotted")
 KIND_MARKS: dict[str, str] = {"agent": "ring", "tool": "notch", "context": "dotted"}
 
-# The page uses the fonts of the computer and loads no font files. `system-ui`
-# gives SF Pro on macOS, Segoe UI on Windows and the desktop font on Linux.
-# Card descriptions use the measured font in `schematic_cards.PLAIN_FONT`.
-SANS = 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+# The page contains one font: the Inter subset of `page_font`, with the family
+# name "systemap Inter". SANS shows the text of the page interface.
+# Map text with a measured width keeps its font. Flow labels and container
+# descriptions use SYSTEM_SANS. Card descriptions use `schematic_cards.PLAIN_FONT`.
+# `system-ui` gives SF Pro on macOS, Segoe UI on Windows and the desktop font on Linux.
+# A separate figure does not contain the Inter subset, so SYSTEM_SANS shows its sans text.
+SYSTEM_SANS = 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'
+SANS = f"{FAMILY},{SYSTEM_SANS}"
 MONO = 'ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace'
 
 # ---- Ink (scheme `dark`, the default) -----------------------------------------

@@ -1,8 +1,8 @@
 name: systemap
 
 # CI compares committed map output with source and tests the package on three operating systems.
-# Delta writes one pull-request comment and changes that comment after each push.
-# Fork tokens can prevent comments. The log still contains the delta report.
+# Delta gives the necessary map updates in the job log. The job fails if the map needs an update.
+# This repository publishes no map page for each pull request, so no job writes a comment.
 # Installation uses an empty environment and a map copy outside the source checkout.
 # Plugin validation rejects all errors and warnings except the documented root CLAUDE.md warning.
 
@@ -70,9 +70,6 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write # this job posts or updates the delta comment
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,31 +91,11 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           code=0
-          uv run systemap delta --base "$BASE" --head "$HEAD" --format markdown > delta.md || code=$?
-          echo "$code" > delta.code
-          if [ ! -s delta.md ]; then
-            printf '<!-- systemap delta -->\n## What this change does to the map\n\nsystemap delta could not run (exit %s). See the workflow log.\n' "$code" > delta.md
-          fi
-          cat delta.md
-
-      - name: Write the report comment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.body | startswith("<!-- systemap delta -->"))) | first | .id // empty' | head -n 1)"
-          if [ -n "$existing" ]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@delta.md > /dev/null
-          else
-            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@delta.md > /dev/null
-          fi || echo "::warning title=Map delta::The report comment could not be written. A fork has a read-only token. See the delta in the step above."
-
-      - name: Reject open map decisions
-        run: |
-          code="$(cat delta.code)"
-          if [ "$code" != "0" ]; then
-            echo "::error title=Map delta::The map has open decisions. See the pull-request comment. Act on each line, then run systemap refresh."
+          uv run systemap delta --base "$BASE" --head "$HEAD" || code=$?
+          if [ "$code" = "1" ]; then
+            echo "::error title=Map delta::The map needs an update. Do the action in each line above. Then run the command in the last line."
+          elif [ "$code" != "0" ]; then
+            echo "::error title=Map delta::systemap delta could not run (exit $code). The lines above give the reason."
           fi
           exit "$code"
 
@@ -185,8 +162,9 @@ jobs:
         with:
           version: latest
 
-      - name: Make the wheel
-        run: uv build --wheel
+      # The release makes the wheel from the source archive, so this job does the same.
+      - name: Make the wheel from the source archive
+        run: uv build
 
       - name: Install the wheel in an empty environment
         run: |

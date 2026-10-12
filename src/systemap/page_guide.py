@@ -265,7 +265,8 @@ SCRIPT = r"""
   });
   P.renderRead = render;
   if(card && STEPS.length && !seen() && P.mode() === 'understand'){
-    card.hidden = false; renderCard(); clearOfCard();
+    // The map moves after the Map view opens the panel: the frame then has its width.
+    card.hidden = false; renderCard(); P.afterBoot = clearOfCard;
   }
   render();
 })();
