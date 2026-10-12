@@ -436,7 +436,7 @@ def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(
     service = facts["components"]["acme.web.service"]
     assert service["uses"] == {"acme.web.client": ["User", "fetchUser"]}
     assert service["external"] == ["zod"]
-    assert service["tests"] == ["tests/service.test.ts::serves a user"]
+    assert service["tests"] == ["tests/service.spec.ts::serves a user"]
     assert facts["components"]["acme.web.view"]["functions"] == [
         {"name": "UserView", "signature": "function UserView(): JSX.Element"}
     ]
@@ -482,7 +482,7 @@ def test_typescript_delta_and_history_read_committed_trees(
                 'import { fetchUser, type User } from "@/client";\n'
                 "export function serve(id: number): User { return fetchUser(String(id)); }\n"
             ),
-            "tests/service.test.ts": (
+            "tests/service.spec.ts": (
                 'import { serve } from "@/service";\n'
                 'test("serves a user", () => serve(1));\n'
                 'test("serves another user", () => serve(2));\n'
@@ -504,8 +504,8 @@ def test_typescript_delta_and_history_read_committed_trees(
         "function serve(id: number): User"
     )
     assert head_facts["components"]["acme.web.service"]["tests"] == [
-        "tests/service.test.ts::serves a user",
-        "tests/service.test.ts::serves another user",
+        "tests/service.spec.ts::serves a user",
+        "tests/service.spec.ts::serves another user",
     ]
     assert head_facts["entry_points"][0]["module"] == "acme.web.command"
     assert list(history.cache_dir(cfg).glob(f"{head}-*.json"))
@@ -520,7 +520,9 @@ def test_typescript_delta_and_history_read_committed_trees(
 def test_typescript_change_attributes_changed_tsx_tests(tmp_path: Path) -> None:
     fixture = Path(__file__).parent / "fixtures" / "typescript-app"
     shutil.copytree(fixture, tmp_path, dirs_exist_ok=True)
-    test_path = tmp_path / "tests/service.test.ts"
+    # The test file of the fixture is service.spec.ts. `claude plugin test .` runs
+    # each *.test.ts file in the repository, and this file is not a plugin test.
+    test_path = tmp_path / "tests/service.spec.ts"
     tsx_path = test_path.with_suffix(".tsx")
     test_path.rename(tsx_path)
     tsx_path.write_text(
@@ -543,7 +545,7 @@ def test_typescript_change_attributes_changed_tsx_tests(tmp_path: Path) -> None:
     found = change.compute(cfg, nest.load(cfg).top.model, "HEAD~1", extract.build(cfg))
     assert found["direct"] == {"Application"}
     assert found["per_component"]["Application"]["surface"]["tests_added"] == [
-        "tests/service.test.tsx::serves another user"
+        "tests/service.spec.tsx::serves another user"
     ]
 
 
