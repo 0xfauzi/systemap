@@ -2357,3 +2357,76 @@ occur or messages without the line. The 6 tests that passed examine files that b
 accept, and the annotation test: the 2.0.0 loader also did not evaluate annotations, because
 `compile` received `from __future__ import annotations` from `config.py`.
 With the safe reader, all 43 tests pass.
+
+## Can a different code context make the flow question stable on the holdout maps? (2026-10-13)
+
+The `jev flow` question gives the probability that the code agrees with a flow sentence.
+The code is the context that `audit_code.code_between` selects.
+This context is the source lines that use a name imported from the other component, at most 30 lines.
+It does not include adjacent lines, or instance calls such as `ledger.record(parts)`.
+
+In the recorded results, the question caught 53 of 80 incorrect claims (66%) on development, and flagged 2 of 80 correct claims.
+On holdout, it caught 26 of 48 (54%) and flagged 2 of 48 (4.2%).
+The catch rate changed by more than 10 points. Thus `jev flow` is not in `DEFAULT_KINDS`.
+This experiment compares four context selectors on the same rows.
+`flow_context.py` has the method and the acceptance value in its docstring.
+
+### Method
+
+The rows are the recorded rows of `data/flowverify.jsonl` (5 development maps, 160 rows) and `data/holdout/flowverify.jsonl` (3 holdout maps, 96 rows).
+Each map gives 16 flows.
+Each flow gives one row with its own claim, and one row with the claim of a different flow from the same source component.
+Each arm uses the same ids, claims, and labels.
+Each arm sends the shipped question (`audit.VERIFY_Q`) and the shipped `ends` (`audit.card_brief`). Only the `code` text is different.
+
+The source of each map must be the source of its cached facts.
+The `flow_context.py build` command compares the hash of each source file with the facts. It stops if a hash is different.
+
+The holdout systemap source is an archive of commit `5704068`, the commit of its facts.
+Its map contains a comprehension. Thus the command must have `SYSTEMAP_TRUST_MODEL_CODE=1`.
+The scorecard source is `../scorecard` at commit `ae1f309`. `JEV_ROOT_SCORECARD` gives its location.
+
+With these sources, `build_flows.code_between` made the recorded code of all 256 rows again.
+The table gives the code text of each arm:
+
+| arm | code text | limit |
+|---|---|---|
+| `base` | the shipped `code_between` | 30 lines |
+| `around` | the shipped lines, then 1 and then 2 adjacent lines before and after each line | 60 lines |
+| `calls` | the shipped lines, then the lines that use a name bound to an imported name (`x = Ledger(...)` or `x: Ledger`, then `x.record(...)`), then the `def`, `class`, or `function` line before each of these lines | 60 lines |
+| `targets` | the lines of `calls`, then the facts signature of each imported function, class, or method in these lines, then the first sentence of each target module docstring | 60 lines and 12 target lines |
+
+Each line has 160 characters at most.
+The median code length on development is 606 characters for `base`, 1,755 for `around`, 1,202 for `calls`, and 1,407 for `targets`.
+
+### Acceptance value
+
+The acceptance value was written before the first Jev call:
+
+- The development set gives the threshold of each arm. The holdout set does not.
+  The candidate thresholds are 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, and 0.5.
+  The threshold is the largest candidate that flags at most 2.5% of the correct development claims.
+  The recorded development figure is 2 of 80 (2.5%).
+- At that threshold, the development catch rate must be 50% or more.
+- At that threshold, the difference between the holdout catch rate and the development catch rate must be 10 points or less.
+- At that threshold, the arm can flag at most 4.2% of the correct holdout claims.
+  The recorded holdout figure "4%" is 2 of 48 (4.2%).
+- If more than one arm satisfies the value, the arm with the highest development catch rate replaces `code_between`.
+  If two arms have the same rate, the arm with the shorter median code wins.
+- If an arm satisfies the value, `jev flow` can go into `DEFAULT_KINDS`. If no arm satisfies it, `src/` does not change.
+
+The `calls` and `targets` arms use text patterns for Python and TypeScript syntax: `def`, `function`, `self.`, `this.`, and `const`.
+Shared code must not contain language syntax. Thus only `base` and `around` can change `src/` in this work.
+If only `calls` or `targets` satisfies the value, `src/` does not change.
+Then a call-site fact from each language adapter is necessary.
+
+All the repositories in the two sets are Python repositories.
+Thus the result does not show the behavior on TypeScript.
+
+### Commands
+
+    uv run --project bench/jev python bench/jev/flow_context.py build
+    uv run --project bench/jev python bench/jev/run.py flowctx_base flowctx_around flowctx_calls flowctx_targets
+    SYSTEMAP_TRUST_MODEL_CODE=1 JEV_SET=holdout JEV_ROOT_SCORECARD=../scorecard uv run --project bench/jev python bench/jev/flow_context.py build
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py flowctx_base flowctx_around flowctx_calls flowctx_targets
+    uv run --project bench/jev python bench/jev/flow_context.py score > bench/jev/results/flowctx-report.txt
