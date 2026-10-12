@@ -244,7 +244,9 @@ SCRIPT = r"""
   P.readers.push(reader);
 
   // ---- the panel opens with the page on a wide window --------------------------
-  if(window.innerWidth > 820 && P.mode() === 'understand'){ P.openPanel(); }
+  // Fit then gets the width that the panel leaves, and the guide can move the map.
+  if(window.innerWidth > 820 && P.mode() === 'understand'){ P.openPanel(); A.view.fit(true); }
+  if(P.afterBoot){ P.afterBoot(); }
   eyebrow();
   if(P.renderRead){ P.renderRead(); }
 })();
