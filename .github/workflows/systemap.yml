@@ -5,6 +5,7 @@ name: systemap
 # This repository publishes no map page for each pull request, so no job writes a comment.
 # Installation uses an empty environment and a map copy outside the source checkout.
 # Plugin validation rejects all errors and warnings except the documented root CLAUDE.md warning.
+# The plugin tests run the hooks module of the live map with a fake systemap live process.
 
 
 on:
@@ -199,8 +200,12 @@ jobs:
         with:
           node-version: 22
 
+      # 2.1.286 is the lowest version that does all steps of this job with the hooks module.
+      # Versions 2.1.278 to 2.1.285 have no `claude plugin test` command. The manifest check of
+      # 2.1.278 and 2.1.280 also refuses `update($, ...)`, a state function from claude-code.
+      # See "Claude Code version for the plugin job" in bench/jev/README.md.
       - name: Install the Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code@2.1.278 # zizmor: ignore[adhoc-packages]
+        run: npm install -g @anthropic-ai/claude-code@2.1.286 # zizmor: ignore[adhoc-packages]
 
       - name: Do the plugin manifest check
         run: python3 scripts/check_plugin_manifest.py .claude-plugin/plugin.json
@@ -210,6 +215,9 @@ jobs:
 
       - name: Do the skill check
         run: claude plugin validate skills --strict
+
+      - name: Run the plugin tests
+        run: claude plugin test .
 
       - name: Install the plugin from the checkout marketplace
         env:
