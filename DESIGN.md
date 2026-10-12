@@ -508,7 +508,8 @@ and the limits of the comparison.
 Map changes compare the committed model at the merge base with the model of the page.
 They have a group each for components, flows, sequences, and rules. A row gives the item, its changed parts or the rule text,
 and the word added, removed, or changed in vermilion. A row for an item on the page selects it on the change map or starts the sequence.
-A removed item has a dashed border and no action. A group shows ten rows and the quantity of the other rows. The page does not show the judgement findings or the delta lines.
+A removed item has a dashed border and no action. A group shows ten rows and the quantity of the other rows.
+A selected component with changed source shows its source changes and then its rules, because the change must keep them. The page does not show the judgement findings or the delta lines.
 `systemap judgement` and the CI log give them to the maintainer.
 
 ## Selection and evidence

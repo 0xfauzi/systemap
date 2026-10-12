@@ -112,5 +112,5 @@ CSS = r"""
 .chg-mc__what{display:block;font-size:12px;line-height:18px;color:var(--ink-3)}
 .chg-mc--still{cursor:default}
 .chg-mc--gone{border-style:dashed}
-.chg-mc+.chg-h4{margin-top:8px}
+.chg-h4~.chg-h4{margin-top:10px}
 """

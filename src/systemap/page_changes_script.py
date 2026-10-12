@@ -216,6 +216,16 @@ SCRIPT = r"""
         }); }); });
     return h;
   }
+  // The rules for a component with changed source: the change must keep them.
+  function rulesOf(id){
+    if(MARK[id] !== 'changed'){ return ''; }
+    var h = '';
+    (META.rules || []).forEach(function(r){
+      if((r.ids || []).indexOf(id) >= 0){
+        h += '<p class="rule-row"><b>' + r.n + '</b>' + esc(r.text) + '</p>'; }
+    });
+    return h ? '<h4 class="chg-h4">Rules for this component</h4>' + h : '';
+  }
   var TAG = {changed:'CHANGED', tests:'TESTS', imports:'IMPORTS'};
   var SAYS = {changed:'changed source', tests:'only tests changed',
     imports:'imports changed source'};
@@ -242,7 +252,7 @@ SCRIPT = r"""
       card.setAttribute('aria-current', on ? 'true' : 'false');
       card.querySelector('.chg-card__head').setAttribute('aria-pressed', on ? 'true' : 'false');
       var detail = card.querySelector('.chg-card__detail');
-      detail.hidden = !on; detail.innerHTML = on ? sourceChanges(id) : '';
+      detail.hidden = !on; detail.innerHTML = on ? sourceChanges(id) + rulesOf(id) : '';
       detail.classList.toggle('comparison-source', on);
       if(on && card.scrollIntoView){ card.scrollIntoView({block:'nearest'}); }
     });
@@ -261,7 +271,8 @@ SCRIPT = r"""
     card.innerHTML = '<div class="chg-card__head"><span class="chg-tag chg-tag--'
       + (TAG[mark] ? mark : 'none') + '">' + (TAG[mark] || 'NO CHANGE') + '</span><b>'
       + esc(id) + '</b></div><p class="chg-card__note">' + esc(d.plain || '') + '</p>'
-      + '<div class="chg-card__detail comparison-source">' + sourceChanges(id) + '</div>';
+      + '<div class="chg-card__detail comparison-source">' + sourceChanges(id) + rulesOf(id)
+      + '</div>';
     return card;
   }
 

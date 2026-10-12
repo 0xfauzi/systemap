@@ -34,6 +34,15 @@ function viewlink(page) {
 }
 """
 
+RULES = r"""
+function rules(page) {
+  const {doc} = page, A = doc.getElementById('changemap').systemap;
+  const panel = doc.getElementById('change-panel'), report = {};
+  ['Writer', 'Ledger', 'Reader'].forEach(id => { A.select(id); report[id] = panel.textContent; });
+  return report;
+}
+"""
+
 COMPARISON: dict[str, Any] = {
     "has_change": True,
     "base": "main",
@@ -49,7 +58,9 @@ COMPARISON: dict[str, Any] = {
 }
 
 
-def drive(html: str, tmp_path: Path, hash_: str) -> dict[str, Any]:
+def drive(
+    html: str, tmp_path: Path, hash_: str, name: str = "viewlink", scenario: str = SCENARIO
+) -> dict[str, Any]:
     """Run the page scripts under the Node DOM harness with a link fragment."""
     node = shutil.which("node")
     if node is None:
@@ -62,12 +73,12 @@ def drive(html: str, tmp_path: Path, hash_: str) -> dict[str, Any]:
     driver = driver.replace(start, f"location: {{hash: {json.dumps(hash_)},")
     driver = driver.replace(
         "const scenarios = {keyboard, framing, submap, theme, workspace};",
-        "const scenarios = {keyboard, framing, submap, theme, workspace, viewlink};",
+        f"const scenarios = {{keyboard, framing, submap, theme, workspace, {name}}};",
     )
-    harness = tmp_path / "viewlink.js"
-    harness.write_text(driver + SCENARIO, encoding="utf-8")
+    harness = tmp_path / f"{name}.js"
+    harness.write_text(driver + scenario, encoding="utf-8")
     result = subprocess.run(
-        [node, str(harness), str(out), "--scenario", "viewlink"],
+        [node, str(harness), str(out), "--scenario", name],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -100,6 +111,25 @@ def test_without_the_link_the_page_opens_the_map(sample: Sample, tmp_path: Path)
     report = drive(html, tmp_path, "")
     assert report["mode"] == "understand"
     assert report["hash"] == ""
+
+
+def test_a_selected_component_with_changed_source_gives_its_rules(
+    sample: Sample, tmp_path: Path
+) -> None:
+    """The change must keep the rules of a component with changed source."""
+    ch = {**COMPARISON, "direct": {"Reader", "Writer"}}
+    ch["per_component"] = {
+        **COMPARISON["per_component"],
+        "Writer": {"modules": ["pkg.writer"], "gained": {}, "surface": {}},
+    }
+    html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, ch)
+    report = drive(html, tmp_path, "#changes", "rules", RULES)
+    assert "Rules for this component" in report["Writer"]
+    assert "1The writer never reads the input itself." in report["Writer"]
+    assert "2Every record is written once." in report["Writer"]
+    # A component without changed source, or without rules, gives no rules.
+    assert "Rules for this component" not in report["Ledger"]
+    assert "Rules for this component" not in report["Reader"]
 
 
 # ---- the map changes: the model at the comparison base against the page model ---------
