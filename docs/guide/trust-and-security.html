@@ -131,11 +131,10 @@ Each action in the workflow has a fixed commit, with its version in a comment.
 <h2 id="the-local-servers">The local servers</h2>
 <p><code>systemap serve</code> and <code>systemap live</code> listen only on 127.0.0.1.
 They answer only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port:</p>
-<pre><code class="language-text">$ curl -s -o /dev/null -w &quot;%{http_code}\n&quot; http://127.0.0.1:8765/
-200
-$ curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Host: evil.example:8765&quot; http://127.0.0.1:8765/
-403
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">curl</span> <span class="a">-s</span> <span class="a">-o</span> /dev/null <span class="a">-w</span> <span class="s">"%{http_code}\n"</span> http://127.0.0.1:8765/</span>
+<span class="ln" style="--i:0">200</span>
+<span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">curl</span> <span class="a">-s</span> <span class="a">-o</span> /dev/null <span class="a">-w</span> <span class="s">"%{http_code}\n"</span> <span class="a">-H</span> <span class="s">"Host: evil.example:8765"</span> http://127.0.0.1:8765/</span>
+<span class="ln" style="--i:0">403</span></code></pre>
 <p>Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
 The servers have no other access control.
 Other programs on the same computer can read the map, and they can send <code>POST /refresh</code> to <code>systemap live</code>.</p>

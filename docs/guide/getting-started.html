@@ -54,32 +54,29 @@ All command output on this page comes from that example project.</p>
 </ul>
 <h2 id="install-systemap">Install systemap</h2>
 <p>Install the command as a uv tool:</p>
-<pre><code class="language-sh">uv tool install systemap
-</code></pre>
+<pre class="code"><code class="language-sh"><span class="k">uv</span> tool install systemap</code></pre>
 <p>You can also add systemap to the development dependencies of your project with <code>uv add --dev systemap</code>.
 Then run each command with <code>uv run systemap</code>.</p>
 <p>For a TypeScript repository, install the parser extra:</p>
-<pre><code class="language-sh">uv tool install 'systemap[typescript]'
-</code></pre>
+<pre class="code"><code class="language-sh"><span class="k">uv</span> tool install <span class="s">'systemap[typescript]'</span></code></pre>
 <p>The systemap package has no required dependencies. The <code>typescript</code> extra adds the tree-sitter parser.</p>
 <h2 id="write-the-initial-files">Write the initial files</h2>
 <p>Go to the root of your repository. Then run <code>systemap init</code>:</p>
-<pre><code class="language-text">$ systemap init
-wrote systemap.toml
-wrote map/model.py
-wrote docs/map/.gitkeep
-wrote .github/workflows/systemap.yml
-The command wrote .claude/skills/systemap/ (SKILL.md and 9 references)
-note: map/model.py imports the systemap tool package:
-  mypy --strict: the import has # type: ignore[import-not-found, unused-ignore]
-  deptry: add these lines to pyproject.toml
-    [tool.deptry.per_rule_ignores]
-    DEP001 = [&quot;systemap&quot;]
-    DEP003 = [&quot;systemap&quot;]
-  run all repository CI commands on the map files
-Next, give this instruction to your coding agent:
-  Make a map of this repository with systemap. Obey the systemap skill and its writing rules.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> init</span>
+<span class="ln" style="--i:0">wrote systemap.toml</span>
+<span class="ln" style="--i:0">wrote map/model.py</span>
+<span class="ln" style="--i:0">wrote docs/map/.gitkeep</span>
+<span class="ln" style="--i:0">wrote .github/workflows/systemap.yml</span>
+<span class="ln" style="--i:0">The command wrote .claude/skills/systemap/ (SKILL.md and 9 references)</span>
+<span class="ln" style="--i:0"><span class="l">note:</span> map/model.py imports the systemap tool package:</span>
+<span class="ln" style="--i:2">  <span class="l">mypy --strict:</span> the import has # type: ignore[import-not-found, unused-ignore]</span>
+<span class="ln" style="--i:2">  <span class="l">deptry:</span> add these lines to pyproject.toml</span>
+<span class="ln" style="--i:4">    [tool.deptry.per_rule_ignores]</span>
+<span class="ln" style="--i:4">    DEP001 = ["systemap"]</span>
+<span class="ln" style="--i:4">    DEP003 = ["systemap"]</span>
+<span class="ln" style="--i:2">  run all repository CI commands on the map files</span>
+<span class="ln" style="--i:0">Next, give this instruction to your coding agent:</span>
+<span class="ln" style="--i:2">  Make a map of this repository with systemap. Obey the systemap skill and its writing rules.</span></code></pre>
 <div class="table" role="region" tabindex="0" aria-labelledby="write-the-initial-files">
 <table>
 <thead>
@@ -135,60 +132,54 @@ Correct each claim that you do not agree with.</p>
 <h2 id="what-the-agent-writes">What the agent writes</h2>
 <p>The example project has three modules, an empty package marker, and one test file.
 Its <code>pyproject.toml</code> file declares the console script <code>shop = &quot;shop.cli:main&quot;</code>.</p>
-<pre><code class="language-text">src/shop/__init__.py
-src/shop/cli.py
-src/shop/orders.py
-src/shop/store.py
-tests/test_orders.py
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">src/shop/__init__.py</span>
+<span class="ln" style="--i:0">src/shop/cli.py</span>
+<span class="ln" style="--i:0">src/shop/orders.py</span>
+<span class="ln" style="--i:0">src/shop/store.py</span>
+<span class="ln" style="--i:0">tests/test_orders.py</span></code></pre>
 <p><code>systemap extract</code> reads the source files and writes the facts to <code>docs/map/map.json</code>.
 <code>systemap facts</code> prints the facts one view at a time:</p>
-<pre><code class="language-text">$ systemap facts --modules
-modules: 4. Each line gives the first docstring sentence and the public name, import, and test counts.
-  shop: empty package marker
-  shop.cli: The command line reads an order and prints the total. (1 name, 2 imports, 0 tests)
-  shop.orders: Order arithmetic. (1 name, 0 imports, 1 test)
-  shop.store: The order store reads order files. (1 name, 0 imports, 0 tests)
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> facts <span class="a">--modules</span></span>
+<span class="ln" style="--i:0"><span class="l">modules:</span> 4. Each line gives the first docstring sentence and the public name, import, and test counts.</span>
+<span class="ln" style="--i:2">  <span class="l">shop:</span> empty package marker</span>
+<span class="ln" style="--i:2">  <span class="l">shop.cli:</span> The command line reads an order and prints the total. (1 name, 2 imports, 0 tests)</span>
+<span class="ln" style="--i:2">  <span class="l">shop.orders:</span> Order arithmetic. (1 name, 0 imports, 1 test)</span>
+<span class="ln" style="--i:2">  <span class="l">shop.store:</span> The order store reads order files. (1 name, 0 imports, 0 tests)</span></code></pre>
 <p>The agent gives each module a component in <code>map/model.py</code>.
 The example model has three components, one actor, three flows, and one sequence. This is one of the components:</p>
-<pre><code class="language-python">Component(
-    id=&quot;Orders&quot;,
-    does=&quot;Calculates the total of the order lines.&quot;,
-    interface=&quot;total(order) -&gt; float&quot;,
-    implemented_by=(&quot;shop.orders&quot;,),
-    entry=&quot;total&quot;,
-    region=&quot;run&quot;,
+<pre class="code"><code class="language-python"><span class="f">Component</span><span class="p">(
+    </span><span class="a">id</span><span class="p">=</span><span class="s">"Orders"</span><span class="p">,
+    </span><span class="a">does</span><span class="p">=</span><span class="s">"Calculates the total of the order lines."</span><span class="p">,
+    </span><span class="a">interface</span><span class="p">=</span><span class="s">"total(order) -&gt; float"</span><span class="p">,
+    </span><span class="a">implemented_by</span><span class="p">=(</span><span class="s">"shop.orders"</span><span class="p">,),
+    </span><span class="a">entry</span><span class="p">=</span><span class="s">"total"</span><span class="p">,
+    </span><span class="a">region</span><span class="p">=</span><span class="s">"run"</span><span class="p">,
 ),
-</code></pre>
+</span></code></pre>
 <p>The agent does not write <code>x</code> and <code>y</code> values. <code>systemap place</code> calculates the positions:</p>
-<pre><code class="language-text">$ systemap place
-place: The command wrote map/model.py: 4 components placed, 0 kept. The command set all boxes and the canvas
-  region order: run, keep. 2 bends, 210 units. 2 orders examined, 2 routed
-run: systemap check
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> place</span>
+<span class="ln" style="--i:0"><span class="l">place:</span> The command wrote map/model.py: 4 components placed, 0 kept. The command set all boxes and the canvas</span>
+<span class="ln" style="--i:2">  <span class="l">region order:</span> run, keep. 2 bends, 210 units. 2 orders examined, 2 routed</span>
+<span class="ln" style="--i:0"><span class="k">run:</span> systemap check</span></code></pre>
 <p><a href="concepts.html">Concepts</a> gives the meaning of each model term.
 The <a href="reference.html#what-does-a-model-contain">reference</a> gives a complete small model.</p>
 <h2 id="run-the-first-refresh">Run the first refresh</h2>
 <p><code>systemap refresh</code> extracts the facts and does the checks.
 Then it renders the page and the configured figures:</p>
-<pre><code class="language-text">$ systemap refresh
-map: The refresh uses the working tree.
-map: The command updated docs/map/map.json, docs/map/index.html, docs/map/figures/structure.svg, docs/map/figures/system.svg
-map: Commit docs/map/ to record this system state.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> refresh</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> The refresh uses the working tree.</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> The command updated docs/map/map.json, docs/map/index.html, docs/map/figures/structure.svg, docs/map/figures/system.svg</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> Commit docs/map/ to record this system state.</span></code></pre>
 <p>Before the agent writes components, the refresh stops with exit code 1:</p>
-<pre><code class="language-text">$ systemap refresh
-The model has no components. Read the skill instructions.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> refresh</span>
+<span class="ln" style="--i:0">The model has no components. Read the skill instructions.</span></code></pre>
 <h2 id="run-the-checks">Run the checks</h2>
 <p><code>systemap check</code> compares the map with the code.
 It rejects contradictions, such as a module without a component or a route across an unrelated component:</p>
-<pre><code class="language-text">$ systemap check
-map routes: 0 flow paths across components other than their endpoints, 0 across regions other than their endpoint regions.
-coverage: 4 of 4 modules mapped, 1 an empty package marker
-map layout: has no errors (4 components, 3 orthogonal flow paths with labels, no text size less than 11px)
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> check</span>
+<span class="ln" style="--i:0"><span class="l">map routes:</span> 0 flow paths across components other than their endpoints, 0 across regions other than their endpoint regions.</span>
+<span class="ln" style="--i:0"><span class="l">coverage:</span> 4 of 4 modules mapped, 1 an empty package marker</span>
+<span class="ln" style="--i:0"><span class="l">map layout:</span> has no errors (4 components, 3 orthogonal flow paths with labels, no text size less than 11px)</span></code></pre>
 <div class="table" role="region" tabindex="0" aria-labelledby="run-the-checks">
 <table>
 <thead>
@@ -214,47 +205,44 @@ map layout: has no errors (4 components, 3 orthogonal flow paths with labels, no
 </table>
 </div>
 <p><code>systemap judgement</code> prints possible map errors. A person or an agent must examine each one:</p>
-<pre><code class="language-text">$ systemap judgement
-judgement: 8 possible map errors to examine
-  single module: CommandLine contains only shop.cli
-      why: A component for each file gives no information that the file tree does not give.
-      do:  Keep the component if it has a different task. Otherwise, put the module in the component for its task.
-  single module: Orders contains only shop.orders
-  single module: OrderFiles contains only shop.store
-  thin layer: control shows 0 components
-      why: A layer with one component gives little information about the connections in the system.
-      do:  Add the flows for this layer, or give the reason that this layer is not necessary.
-  entry point shop (console script) has no sequence (component CommandLine)
-      why: An entry point starts a system operation. Without a sequence, the map does not give the steps of this operation.
-      do:  Write the sequence from the entry point to the result. Or give the reason that no sequence is necessary.
-  journey start: print-total uses a legacy start. Examine the source. Then set covers=('[&quot;console_script&quot;,&quot;shop.cli&quot;,&quot;main&quot;,&quot;shop&quot;]',)
-      why: If an entry point name is incorrect, the map cannot show which entry points have sequences.
-      do:  Use the entry point name from `systemap facts --entry-points`, or leave `starts` empty.
-  flow review: OrderFiles -&gt; CommandLine (order) has structural evidence but no source review. Give source references for direction and artifact, or change the flow.
-      why: This structure does not give evidence of the direction, data, or runtime behavior. Source references must agree with the source and claim.
-      do:  Read the source. Record the source references with correct digests. If the claim is incorrect, change the flow.
-  flow review: CommandLine -&gt; Orders (order) has structural evidence but no source review. Give source references for direction and artifact, or change the flow.
-source reviews: 0 current, 0 stale, 3 missing
-hint: Set TYPESAFE_API_KEY to use systemap audit. Then Jev reads each module and its component. It gives a list of the modules that are probably in an incorrect component. Set [jev] enabled = false in systemap.toml to stop this hint.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> judgement</span>
+<span class="ln" style="--i:0"><span class="l">judgement:</span> 8 possible map errors to examine</span>
+<span class="ln" style="--i:2">  <span class="bad">single module:</span> CommandLine contains only shop.cli</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> A component for each file gives no information that the file tree does not give.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Keep the component if it has a different task. Otherwise, put the module in the component for its task.</span>
+<span class="ln" style="--i:2">  <span class="bad">single module:</span> Orders contains only shop.orders</span>
+<span class="ln" style="--i:2">  <span class="bad">single module:</span> OrderFiles contains only shop.store</span>
+<span class="ln" style="--i:2">  <span class="l">thin layer:</span> control shows 0 components</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> A layer with one component gives little information about the connections in the system.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Add the flows for this layer, or give the reason that this layer is not necessary.</span>
+<span class="ln" style="--i:2">  entry point shop (console script) has no sequence (component CommandLine)</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> An entry point starts a system operation. Without a sequence, the map does not give the steps of this operation.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Write the sequence from the entry point to the result. Or give the reason that no sequence is necessary.</span>
+<span class="ln" style="--i:2">  <span class="l">journey start:</span> print-total uses a legacy start. Examine the source. Then set covers=('["console_script","shop.cli","main","shop"]',)</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> If an entry point name is incorrect, the map cannot show which entry points have sequences.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Use the entry point name from `systemap facts --entry-points`, or leave `starts` empty.</span>
+<span class="ln" style="--i:2">  <span class="l">flow review:</span> OrderFiles -&gt; CommandLine (order) has structural evidence but no source review. Give source references for direction and artifact, or change the flow.</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> This structure does not give evidence of the direction, data, or runtime behavior. Source references must agree with the source and claim.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Read the source. Record the source references with correct digests. If the claim is incorrect, change the flow.</span>
+<span class="ln" style="--i:2">  <span class="l">flow review:</span> CommandLine -&gt; Orders (order) has structural evidence but no source review. Give source references for direction and artifact, or change the flow.</span>
+<span class="ln" style="--i:0"><span class="l">source reviews:</span> 0 current, 0 stale, 3 missing</span>
+<span class="ln" style="--i:0"><span class="k">hint:</span> Set TYPESAFE_API_KEY to use systemap audit. Then Jev reads each module and its component. It gives a list of the modules that are probably in an incorrect component. Set [jev] enabled = false in systemap.toml to stop this hint.</span></code></pre>
 <p>For each line, change the map, or record an answer under <code>[judgement] answered</code> in <code>systemap.toml</code>.
 <a href="concepts.html#findings-and-answers">Concepts</a> tells how to record an answer.
 Without <code>--strict</code>, the command exits 0. With <code>--strict</code>, it exits 1 while a line stays open.</p>
 <p>In the example, the agent recorded source records for the two internal flows and set <code>covers</code> on the sequence.
 It recorded answers for the other lines. Then the strict command passed:</p>
-<pre><code class="language-text">$ systemap judgement --strict
-judgement: No possible map error to examine, 4 answered
-  policy answer: kind = &quot;thin layer&quot; covers 1 lines at this snapshot. 1 lines are outside the source-review baseline.
-source reviews: 0 current, 0 stale, 3 missing
-hint: Set TYPESAFE_API_KEY to use systemap audit. Then Jev reads each module and its component. It gives a list of the modules that are probably in an incorrect component. Set [jev] enabled = false in systemap.toml to stop this hint.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> judgement <span class="a">--strict</span></span>
+<span class="ln" style="--i:0"><span class="l">judgement:</span> No possible map error to examine, 4 answered</span>
+<span class="ln" style="--i:2">  <span class="l">policy answer:</span> kind = "thin layer" covers 1 lines at this snapshot. 1 lines are outside the source-review baseline.</span>
+<span class="ln" style="--i:0"><span class="l">source reviews:</span> 0 current, 0 stale, 3 missing</span>
+<span class="ln" style="--i:0"><span class="k">hint:</span> Set TYPESAFE_API_KEY to use systemap audit. Then Jev reads each module and its component. It gives a list of the modules that are probably in an incorrect component. Set [jev] enabled = false in systemap.toml to stop this hint.</span></code></pre>
 <p>A result without open findings does not show that each claim is correct.
 <a href="limits.html">Limits</a> tells what the checks do not show.</p>
 <h2 id="open-the-page">Open the page</h2>
 <p><code>systemap serve</code> supplies the output directory on the loopback address:</p>
-<pre><code class="language-text">$ systemap serve
-The server serves docs/map at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> serve</span>
+<span class="ln" style="--i:0">The server serves docs/map at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.</span></code></pre>
 <p>Open the URL in a browser. <a href="reading-the-map.html">Read the map</a> tells how to use the page.
 The <a href="../map/">live example</a> is the map of systemap itself.</p>
 <p>If port 8765 is not available, the command exits 2. Then use <code>--port 0</code> to select an available port.</p>

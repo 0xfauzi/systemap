@@ -1,0 +1,9 @@
+map routes: 0 flow paths across components other than their endpoints, 0 across regions other than their endpoint regions.
+coverage: 89 of 90 modules mapped
+  unmapped: systemap.notify (no component has this module claim)
+  fix: Give each module a component in map/model.py, or give a reason to ignore it in [coverage] in the configuration. Remove each ignore entry that a line identifies as not necessary or missing from the facts.
+map layout: has no errors (20 components, 76 orthogonal flow paths with labels, no text size less than 11px)
+stale: 1 problem
+  docs/map/index.html differs from the rendered output.
+  fix: Use systemap refresh. Then commit the output directory.
+Give each module a component in map/model.py, or give a reason to ignore it in [coverage]. Then use systemap check.

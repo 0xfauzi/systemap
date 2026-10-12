@@ -48,12 +48,11 @@
 The browser loads each new page and keeps your view. The command writes no tracked file.</p>
 <h2 id="start-the-live-map">Start the live map</h2>
 <p>Run the command in the repository. Then open the URL in a browser:</p>
-<pre><code class="language-text">$ systemap live
-map: The live map is at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.
-map: The Changes view compares the working tree with main at the merge base 5e0837b.
-map: The command renders version 1.
-map: Version 1 is on the page (0.1 s). Map updates: 0. Changed components: CommandLine, OrderFiles, Orders.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> live</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> The live map is at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> The Changes view compares the working tree with main at the merge base 5e0837b.</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> The command renders version 1.</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> Version 1 is on the page (0.1 s). Map updates: 0. Changed components: CommandLine, OrderFiles, Orders.</span></code></pre>
 <p>Each render makes a new version of the page.
 A map update is a <code>systemap delta</code> line that needs an action, for the working tree and the merge base.
 Ctrl-C or SIGTERM stops the command with exit code 0. On Windows, use Ctrl-Break in place of SIGTERM.</p>
@@ -102,16 +101,14 @@ Git shows this directory as untracked unless <code>.gitignore</code> contains it
 <p>Without <code>--no-watch</code>, the command scans the files one time each second.
 It scans the configuration files, the model files, and the source and test files.
 When a scan finds a change and the next scan finds no more change, the command renders the page again:</p>
-<pre><code class="language-text">map: The command renders version 2.
-map: Version 2 is on the page (0.1 s). Map updates: 1. Changed components: CommandLine, OrderFiles, Orders.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">map:</span> The command renders version 2.</span>
+<span class="ln" style="--i:0"><span class="l">map:</span> Version 2 is on the page (0.1 s). Map updates: 1. Changed components: CommandLine, OrderFiles, Orders.</span></code></pre>
 <p>The command renders one version at a time.
 A request during a render causes one more version after the current version.</p>
 <p>If the command cannot render a version, the last page stays, and the command gives the error.
 Examples are a model file that does not load, a source syntax error, and an extraction error:</p>
-<pre><code class="language-text">map: The command could not render version 1. The page does not change.
-map/model.py could not import: NameError: name 'Meanin' is not defined
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">map:</span> The command could not render version 1. The page does not change.</span>
+<span class="ln" style="--i:0">map/model.py could not import: NameError: name 'Meanin' is not defined</span></code></pre>
 <p>If the first version fails, the page gives the error. When you correct the error, the page shows the map.</p>
 <h2 id="the-reload-that-keeps-your-view">The reload that keeps your view</h2>
 <p><code>systemap live</code> adds one script to each page that it supplies. The page from <code>systemap render</code> does not have this script.
@@ -164,39 +161,38 @@ If the connection to the command breaks, the script stops. The page does not loa
 </div>
 <p><code>POST</code> to another path gives 404 with <code>{&quot;error&quot;: &quot;Use POST /refresh.&quot;}</code>.
 This is a <code>GET /status</code> answer from the example project, with two of its four lines:</p>
-<pre><code class="language-json">{
-    &quot;version&quot;: 1,
-    &quot;state&quot;: &quot;ready&quot;,
-    &quot;seconds&quot;: 0.13,
-    &quot;updates&quot;: 4,
-    &quot;lines&quot;: [
+<pre class="code"><code class="language-json"><span class="p">{
+    </span>"version"<span class="p">: </span><span class="n">1</span><span class="p">,
+    </span>"state"<span class="p">: </span><span class="s">"ready"</span><span class="p">,
+    </span>"seconds"<span class="p">: </span><span class="n">0.13</span><span class="p">,
+    </span>"updates"<span class="p">: </span><span class="n">4</span><span class="p">,
+    </span>"lines"<span class="p">: [
         {
-            &quot;text&quot;: &quot;moved: shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py&quot;,
-            &quot;action&quot;: &quot;Change the module claim to the new name. Or put the module in the component for its task at this snapshot.&quot;
-        },
+            </span>"text"<span class="p">: </span><span class="s">"moved: shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py"</span><span class="p">,
+            </span>"action"<span class="p">: </span><span class="s">"Change the module claim to the new name. Or put the module in the component for its task at this snapshot."
+        </span><span class="p">},
         {
-            &quot;text&quot;: &quot;added: shop.discounts, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]&quot;,
-            &quot;action&quot;: &quot;Add the module to the component for its task, or give a reason to ignore it in `[coverage]`.&quot;
-        }
+            </span>"text"<span class="p">: </span><span class="s">"added: shop.discounts, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]"</span><span class="p">,
+            </span>"action"<span class="p">: </span><span class="s">"Add the module to the component for its task, or give a reason to ignore it in `[coverage]`."
+        </span><span class="p">}
     ],
-    &quot;components&quot;: [
-        &quot;CommandLine&quot;,
-        &quot;OrderFiles&quot;
-    ],
-    &quot;error&quot;: &quot;&quot;,
-    &quot;url&quot;: &quot;http://127.0.0.1:8790/&quot;,
-    &quot;svg&quot;: &quot;/tmp/systemap-live-aq122e_r/change.svg&quot;,
-    &quot;svg_bytes&quot;: 14636,
-    &quot;base&quot;: &quot;main&quot;,
-    &quot;comparison_base&quot;: &quot;5e0837b07a17f92ea02b1602ec4f0d134e8cfd6c&quot;
-}
-</code></pre>
+    </span>"components"<span class="p">: [
+        </span><span class="s">"CommandLine"</span><span class="p">,
+        </span><span class="s">"OrderFiles"
+    </span><span class="p">],
+    </span>"error"<span class="p">: </span><span class="s">""</span><span class="p">,
+    </span>"url"<span class="p">: </span><span class="s">"http://127.0.0.1:8790/"</span><span class="p">,
+    </span>"svg"<span class="p">: </span><span class="s">"/tmp/systemap-live-aq122e_r/change.svg"</span><span class="p">,
+    </span>"svg_bytes"<span class="p">: </span><span class="n">14636</span><span class="p">,
+    </span>"base"<span class="p">: </span><span class="s">"main"</span><span class="p">,
+    </span>"comparison_base"<span class="p">: </span><span class="s">"5e0837b07a17f92ea02b1602ec4f0d134e8cfd6c"
+</span><span class="p">}
+</span></code></pre>
 <p>With <code>--json</code>, the command writes the same events on standard output:</p>
-<pre><code class="language-text">{&quot;event&quot;: &quot;serving&quot;, &quot;url&quot;: &quot;http://127.0.0.1:8765/&quot;, &quot;base&quot;: &quot;main&quot;, &quot;comparison_base&quot;: &quot;5e0837b07a17f92ea02b1602ec4f0d134e8cfd6c&quot;}
-{&quot;event&quot;: &quot;rendering&quot;, &quot;version&quot;: 1}
-{&quot;event&quot;: &quot;rendered&quot;, &quot;version&quot;: 1, &quot;seconds&quot;: 0.11, &quot;updates&quot;: 0, &quot;components&quot;: [&quot;CommandLine&quot;, &quot;OrderFiles&quot;, &quot;Orders&quot;], &quot;svg&quot;: &quot;/tmp/systemap-live-79fpemzx/change.svg&quot;, &quot;svg_bytes&quot;: 15042}
-{&quot;event&quot;: &quot;stopped&quot;}
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">{"event": "serving", "url": "http://127.0.0.1:8765/", "base": "main", "comparison_base": "5e0837b07a17f92ea02b1602ec4f0d134e8cfd6c"}</span>
+<span class="ln" style="--i:0">{"event": "rendering", "version": 1}</span>
+<span class="ln" style="--i:0">{"event": "rendered", "version": 1, "seconds": 0.11, "updates": 0, "components": ["CommandLine", "OrderFiles", "Orders"], "svg": "/tmp/systemap-live-79fpemzx/change.svg", "svg_bytes": 15042}</span>
+<span class="ln" style="--i:0">{"event": "stopped"}</span></code></pre>
 <h2 id="update-time">Update time</h2>
 <p>In the small example project above, each version took about 0.1 s. The systemap repository is larger.
 <code>bench/jev/README.md</code> records measurements on the systemap repository: 86 modules at commit 7b29986, 87 with the live page module, 4 processors, and CPython 3.11.17.</p>

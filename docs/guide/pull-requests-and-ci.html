@@ -84,10 +84,9 @@ When you install a new systemap version, change the version in the workflow file
 The <code>link</code> job checks out no code. It is the only job with the <code>pull-requests: write</code> permission.</p>
 <h2 id="advisory-and-strict">Advisory and strict</h2>
 <p>The variable <code>SYSTEMAP_CI</code> in the workflow sets what a map finding does:</p>
-<pre><code class="language-yaml">env:
+<pre class="code"><code class="language-yaml">env:
   # advisory: a map finding gives a warning. strict: a map finding makes the job fail.
-  SYSTEMAP_CI: advisory
-</code></pre>
+  SYSTEMAP_CI: advisory</code></pre>
 <div class="table" role="region" tabindex="0" aria-labelledby="advisory-and-strict">
 <table>
 <thead>
@@ -124,37 +123,35 @@ If the workflow file exists, <code>init</code> does not change it.</p>
 It reads the committed files at the two commits, and it uses the model on disk.
 Each line gives a map change and its necessary action.</p>
 <p>In the example project of <a href="getting-started.html">Get started</a>, a branch added a module and renamed another one:</p>
-<pre><code class="language-text">$ systemap delta --base main
-delta: main (5e0837b) -&gt; HEAD (3e4b6a9): 1 module changed, 1 added, 0 removed, 1 moved. 2 of 3 components specified
-The map needs an update (4):
-  moved: shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py
-      why: A component with the previous path no longer contains the module.
-      do:  Change the module claim to the new name. Or put the module in the component for its task at this snapshot.
-  added: shop.discounts, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]
-      why: Without a component for the module, the map omits part of the system.
-      do:  Add the module to the component for its task, or give a reason to ignore it in `[coverage]`.
-  source review: CommandLine has changed code in shop.cli. Compare its description, flows, sequences, and invariants with the new source.
-      why: Imports and public signatures do not give all behavior changes. The component description and related claims can now be incorrect.
-      do:  Read the changed source. Correct the claims. Then record the `source_review` digest as the maintenance guide specifies.
-  source review: OrderFiles has changed code in shop.store. Compare its description, flows, sequences, and invariants with the new source.
-next to the change:
-  CommandLine has the most changed modules. It has flows to 3 of the 3 components, so the list gives no useful context.
-The change includes more than one third of the components. Use the full skill maintenance procedure.
-Do the action in each line under &quot;The map needs an update&quot;. Then run systemap refresh &amp;&amp; systemap check &amp;&amp; systemap judgement --strict
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main</span>
+<span class="ln" style="--i:0"><span class="l">delta:</span> main (5e0837b) -&gt; HEAD (3e4b6a9): 1 module changed, 1 added, 0 removed, 1 moved. 2 of 3 components specified</span>
+<span class="ln" style="--i:0"><span class="bad">The map needs an update (4):</span></span>
+<span class="ln" style="--i:2">  <span class="ok">moved:</span> shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> A component with the previous path no longer contains the module.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Change the module claim to the new name. Or put the module in the component for its task at this snapshot.</span>
+<span class="ln" style="--i:2">  <span class="ok">added:</span> shop.discounts, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> Without a component for the module, the map omits part of the system.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Add the module to the component for its task, or give a reason to ignore it in `[coverage]`.</span>
+<span class="ln" style="--i:2">  <span class="bad">source review:</span> CommandLine has changed code in shop.cli. Compare its description, flows, sequences, and invariants with the new source.</span>
+<span class="ln" style="--i:6">      <span class="l">why:</span> Imports and public signatures do not give all behavior changes. The component description and related claims can now be incorrect.</span>
+<span class="ln" style="--i:6">      <span class="l">do:</span>  Read the changed source. Correct the claims. Then record the `source_review` digest as the maintenance guide specifies.</span>
+<span class="ln" style="--i:2">  <span class="bad">source review:</span> OrderFiles has changed code in shop.store. Compare its description, flows, sequences, and invariants with the new source.</span>
+<span class="ln" style="--i:0">next to the change:</span>
+<span class="ln" style="--i:2">  CommandLine has the most changed modules. It has flows to 3 of the 3 components, so the list gives no useful context.</span>
+<span class="ln" style="--i:0">The change includes more than one third of the components. Use the full skill maintenance procedure.</span>
+<span class="ln" style="--i:0">Do the action in each line under "The map needs an update". Then run systemap refresh &amp;&amp; systemap check &amp;&amp; systemap judgement --strict</span></code></pre>
 <p>The exit code is 1 while the map needs an update.
 The agent changed the claims in <code>map/model.py</code>, examined the changed source, and recorded the <code>source_review</code> digests.
 Then the same command gave exit code 0:</p>
-<pre><code class="language-text">$ systemap delta --base main --brief
-delta: main (5e0837b) -&gt; HEAD (5920aaf): 1 module changed, 1 added, 0 removed, 1 moved. 2 of 3 components specified
-No action is necessary for these changes (2):
-  moved: shop.store -&gt; shop.storage (same content), with a claim in OrderFiles
-  added: shop.discounts, with a claim in Orders
-next to the change:
-  CommandLine has the most changed modules. It has flows to 3 of the 3 components, so the list gives no useful context.
-The change includes more than one third of the components. Use the full skill maintenance procedure.
-The map is current. Run systemap refresh to write the facts and the page again.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main <span class="a">--brief</span></span>
+<span class="ln" style="--i:0"><span class="l">delta:</span> main (5e0837b) -&gt; HEAD (5920aaf): 1 module changed, 1 added, 0 removed, 1 moved. 2 of 3 components specified</span>
+<span class="ln" style="--i:0"><span class="ok">No action is necessary for these changes (2):</span></span>
+<span class="ln" style="--i:2">  <span class="ok">moved:</span> shop.store -&gt; shop.storage (same content), with a claim in OrderFiles</span>
+<span class="ln" style="--i:2">  <span class="ok">added:</span> shop.discounts, with a claim in Orders</span>
+<span class="ln" style="--i:0">next to the change:</span>
+<span class="ln" style="--i:2">  CommandLine has the most changed modules. It has flows to 3 of the 3 components, so the list gives no useful context.</span>
+<span class="ln" style="--i:0">The change includes more than one third of the components. Use the full skill maintenance procedure.</span>
+<span class="ln" style="--i:0">The map is current. Run systemap refresh to write the facts and the page again.</span></code></pre>
 <p>Other line kinds include <code>removed</code>, <code>entry vanished</code>, <code>interface vanished</code>, <code>new crossing import</code>, and <code>evidence lost</code>.
 <code>systemap explain &quot;&lt;kind&gt;&quot;</code> gives the meaning and the action of each kind.
 The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev">reference</a> gives all options.</p>
@@ -168,27 +165,25 @@ A link to the page that ends in <code>#changes</code> opens the Changes view.
 It compares the committed model at the merge base with the model on disk.</p>
 <p>Do not commit this page into the output directory.
 The checks compare the committed page with a page without a comparison, so the page is stale for them:</p>
-<pre><code class="language-text">$ systemap render --base main
-The command wrote docs/map/index.html (398 KB)
-$ systemap render --check
-docs/map/index.html is stale: it differs from the rendered output.
-run: systemap refresh
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> render <span class="a">--base</span> main</span>
+<span class="ln" style="--i:0">The command wrote docs/map/index.html (398 KB)</span>
+<span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> render <span class="a">--check</span></span>
+<span class="ln" style="--i:0">docs/map/index.html is stale: it differs from the rendered output.</span>
+<span class="ln" style="--i:0"><span class="k">run:</span> systemap refresh</span></code></pre>
 <p>Publish the page of each pull request at a different place, or use <a href="live-map.html">the live map</a> on your computer.</p>
 <h2 id="the-link-comment">The link comment</h2>
 <p>CI writes no comment by default.
 If your repository publishes the map page of each pull request, set its URL in <code>systemap.toml</code>:</p>
-<pre><code class="language-toml">[delta]
-page_url = &quot;https://example.org/pr-{number}/&quot;
-</code></pre>
+<pre class="code"><code class="language-toml"><span class="k">[delta]
+</span><span class="a">page_url </span><span class="p">= </span><span class="s">"https://example.org/pr-{number}/"
+</span></code></pre>
 <p>The URL must start with <code>https://</code> or <code>http://</code> and contain <code>{number}</code>. It must not contain <code>#</code> or a space.
 The pull request number replaces <code>{number}</code>.
 With this value, <code>systemap delta --comment FILE --pr N</code> writes the comment to <code>FILE</code>:</p>
-<pre><code class="language-text">&lt;!-- systemap delta --&gt;
-[Open the Changes view of the map](https://example.org/pr-7/#changes)
-
-A map update is necessary (4 lines). The log of the delta job gives the action for each line.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">&lt;!-- systemap delta --&gt;</span>
+<span class="ln" style="--i:0">[Open the Changes view of the map](https://example.org/pr-7/#changes)</span>
+<span class="ln" style="--i:0"></span>
+<span class="ln" style="--i:0">A map update is necessary (4 lines). The log of the delta job gives the action for each line.</span></code></pre>
 <p>Without <code>page_url</code>, the command writes no file. The comment does not change the delta lines or the exit code.
 systemap does not publish the page. Your repository must publish it at that URL.</p>
 <p>The <code>link</code> job posts the comment, and changes the same comment after each push.
@@ -200,10 +195,9 @@ The delta job runs the code of the pull request, and the code and the settings o
 Version 2.0.0 removed this option.
 The workflow uses the version in its file.
 If you change that version to 2.0.0 or later, <code>systemap delta</code> stops with exit code 2, and the delta job fails:</p>
-<pre><code class="language-text">$ systemap delta --base main --format markdown
-usage: systemap [-h] [--version] [--root ROOT] command ...
-systemap: error: unrecognized arguments: --format markdown
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main <span class="a">--format</span> markdown</span>
+<span class="ln" style="--i:0"><span class="l">usage:</span> systemap [-h] [--version] [--root ROOT] command ...</span>
+<span class="ln" style="--i:0"><span class="l">systemap:</span> error: unrecognized arguments: --format markdown</span></code></pre>
 <p><code>init</code> does not change a workflow file that exists. To get the new workflow, do these steps:</p>
 <ol>
 <li>Remove <code>.github/workflows/systemap.yml</code>.</li>

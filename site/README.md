@@ -34,7 +34,11 @@ The build also stops if a page loads a file from a different site.
 | `src/systemap/page_font.py` | `docs/assets/inter.woff2` |
 | `src/systemap/fonts/Inter-OFL.txt` | `docs/assets/Inter-OFL.txt` |
 | `src/systemap/page.py` (`MARK`), `theme.py` | `docs/assets/mark.svg`, the icon of the browser tab |
-| `site/delta.txt` | the recorded `systemap delta` output on the landing page |
+| `site/delta.txt`, `site/check.txt` | the recorded `systemap delta` and `systemap check` output on the landing page |
+| `docs/screenshots/view-*.webp` | the three views on the landing page, in Ink and Paper, for a wide window and a phone |
+
+The two `.txt` files keep the full output. The landing page shows the lines from `delta:` to the line
+before `next to the change:`, and from `coverage:` to the line before `  fix:`.
 
 The build owns `docs/index.html`, `docs/.nojekyll`, `docs/guide/`, and `docs/assets/`.
 It does not change `docs/map/`, `docs/screenshots/`, or the `.md` files in `docs/`.
@@ -97,3 +101,23 @@ The font is the Inter subset of the map page.
 The site keeps the theme selection in the browser under the key of the map page, `systemap-theme`.
 Thus one selection applies to the site and to the map page.
 The site obeys the reduced motion setting of the browser.
+
+Each section of the landing page has one flow kind color of the map page.
+In Paper, the rose kind color has less than 4.5:1 on the page, so the section labels are ink there.
+
+## Code blocks
+
+`site/highlight.py` gives a color to each part of a fenced code block with a language.
+Python, TOML, JSON, and TypeScript use the Pygments lexers.
+`sh` gives the command, the options, the strings, and the comments.
+`text` and `console` are command output: a line that starts with `$ ` is a command,
+and the words at the start of a systemap line get a color, for example `unmapped:` and `added:`.
+A code block has the Ink colors in both themes.
+Each text color has 4.5:1 or more on the code background. `tests/test_site.py` measures the ratios.
+
+## The view images
+
+The Map and Sequences images are of `docs/map/index.html`.
+The Changes images are of the page that `systemap render --base d6161f8^` makes at commit d6161f8.
+Headless Chromium made them at 1600 by 900 pixels, and at 390 by 760 pixels at scale 2 for a phone.
+The repository has no script for these images. After a large change to the map page, make them again.

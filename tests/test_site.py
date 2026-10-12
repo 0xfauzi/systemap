@@ -39,7 +39,7 @@ def fixture_site(site: ModuleType, tmp_path_factory: pytest.TempPathFactory) -> 
     # The landing page links to the guide pages of the site. The test pages have other
     # names, so the test build uses a landing page with links to the docs home.
     site_dir = tmp_path_factory.mktemp("site")
-    for name in ("site.css", "site.js", "delta.txt", "index.html"):
+    for name in ("site.css", "site.js", "delta.txt", "check.txt", "index.html"):
         text = (ROOT / "site" / name).read_text(encoding="utf-8")
         if name == "index.html":
             text = re.sub(r'href="guide/[a-z0-9-]+\.html"', 'href="guide/"', text)
@@ -176,3 +176,60 @@ def test_the_site_uses_the_tokens_and_the_font_of_the_map_page(
     font = site.build()["assets/inter.woff2"]
     assert hashlib.sha256(font).hexdigest() == page_font.WOFF2_SHA256
     assert f"Version <code>{__version__}</code>" in fixture_site["index.html"]
+
+
+# ---- the code colors and the landing page ---------------------------------------
+
+
+def _contrast(a: str, b: str) -> float:
+    def lum(colour: str) -> float:
+        parts = [int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+        r, g, b_ = (c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in parts)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b_
+
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_each_code_text_color_has_4_5_to_1_on_the_code_background(site: ModuleType) -> None:
+    colours = site.code_colours()
+    background = colours.pop("--code-bg")
+    colours.pop("--code-line")
+    assert colours, "no code text colors"
+    for name, value in colours.items():
+        assert _contrast(value, background) >= 4.5, (name, value)
+
+
+def test_code_blocks_get_classes_and_keep_their_text(site: ModuleType) -> None:
+    from highlight import highlight, highlight_blocks
+
+    python = highlight('Flow("A", "B", "x < y", "data"),\nComponent(id="A")\n', "python")
+    assert '<span class="f">Flow</span>' in python
+    assert '<span class="s">"x &lt; y"</span>' in python
+    assert '<span class="a">id</span>' in python
+    shell = highlight("X=1 systemap check --brief  # one\n", "sh")
+    assert '<span class="f">X=1</span> <span class="k">systemap</span> check' in shell
+    assert '<span class="a">--brief</span>' in shell and '<span class="c"># one</span>' in shell
+    out = highlight("$ systemap check\n  unmapped: a.b (x)\nmap: ok\n", "text")
+    assert '<span class="pr">$ </span><span class="k">systemap</span>' in out
+    assert (
+        '<span class="ln" style="--i:2">  <span class="bad">unmapped:</span> a.b (x)</span>' in out
+    )
+    assert '<span class="l">map:</span> ok' in out
+    page = highlight_blocks('<pre><code class="language-text">a &amp; b</code></pre>')
+    assert page == (
+        '<pre class="out"><code class="language-text">'
+        '<span class="ln" style="--i:0">a &amp; b</span></code></pre>'
+    )
+    assert highlight("<b>", "unknown") == "&lt;b&gt;"
+
+
+def test_the_landing_page_shows_recorded_output(fixture_site: dict[str, str]) -> None:
+    landing = fixture_site["index.html"]
+    assert "unmapped:</span> systemap.notify" in landing
+    assert "The map needs an update (2):</span>" in landing
+    assert "next to the change" not in landing and "  fix:" not in landing
+    for name in ("map", "sequence", "changes"):
+        for scheme in ("dark", "light"):
+            assert f"screenshots/view-{name}-{scheme}.webp" in landing
+            assert f"screenshots/view-{name}-phone-{scheme}.webp" in landing

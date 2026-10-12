@@ -55,15 +55,14 @@ The writing profile sets the writing rules for the map text.</p>
 <p>Make a map of this repository with systemap. Obey the systemap skill and its writing rules.</p>
 </blockquote>
 <p>The skill tells the agent to do these steps, and to mark each step when it is complete:</p>
-<pre><code class="language-text">- [ ] 1 extract: The facts are current.
-- [ ] 2 draft: Each nonempty module has a component assignment. All components have positions.
-- [ ] 3 check: The check has no failures. A `stale` finding can stay until step 5.
-- [ ] 4 judgement: No judgement line or `jev` line stays without an action or an answer.
-- [ ] 5 render: The page and figures are current, and you examined both figures.
-- [ ] 6 source review: A complete source examination causes no model changes.
-- [ ] 7 stop: The work agrees with each stop condition.
-- [ ] 8 completion: The maintainer has the completion report.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">- [ ] 1 extract: The facts are current.</span>
+<span class="ln" style="--i:0">- [ ] 2 draft: Each nonempty module has a component assignment. All components have positions.</span>
+<span class="ln" style="--i:0">- [ ] 3 check: The check has no failures. A `stale` finding can stay until step 5.</span>
+<span class="ln" style="--i:0">- [ ] 4 judgement: No judgement line or `jev` line stays without an action or an answer.</span>
+<span class="ln" style="--i:0">- [ ] 5 render: The page and figures are current, and you examined both figures.</span>
+<span class="ln" style="--i:0">- [ ] 6 source review: A complete source examination causes no model changes.</span>
+<span class="ln" style="--i:0">- [ ] 7 stop: The work agrees with each stop condition.</span>
+<span class="ln" style="--i:0">- [ ] 8 completion: The maintainer has the completion report.</span></code></pre>
 <p>The skill also tells the agent:</p>
 <ul>
 <li>to read <code>[writing] profile</code> before it writes a name or a sentence,</li>
@@ -75,17 +74,16 @@ The writing profile sets the writing rules for the map text.</p>
 <li>not to complete the work while a check fails or <code>judgement --strict</code> does not exit 0.</li>
 </ul>
 <p>At the end, the agent gives the maintainer a completion report:</p>
-<pre><code class="language-text">Check: &lt;final systemap check result, with its coverage result&gt;
-Judgement: &lt;final systemap judgement --strict result&gt;
-Audit: &lt;final systemap audit result, or &quot;Jev not available&quot;&gt;
-Procedure: &lt;Jev or source examination, and each Jev failure&gt;
-Examined module assignments: &lt;count&gt;
-Open questions: &lt;each assignment that the maintainer must examine&gt;
-Recorded answers: &lt;each answer in systemap.toml, with its reason&gt;
-Evidence limits: &lt;each recorded extractor, source, or Jev limit&gt;
-Uncertainty: &lt;each uncertain component assignment, source claim, or word under the writing profile&gt;
-Proposed rules: &lt;each proposed invariant outside the invariant list&gt;
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">Check: &lt;final systemap check result, with its coverage result&gt;</span>
+<span class="ln" style="--i:0">Judgement: &lt;final systemap judgement --strict result&gt;</span>
+<span class="ln" style="--i:0">Audit: &lt;final systemap audit result, or "Jev not available"&gt;</span>
+<span class="ln" style="--i:0">Procedure: &lt;Jev or source examination, and each Jev failure&gt;</span>
+<span class="ln" style="--i:0">Examined module assignments: &lt;count&gt;</span>
+<span class="ln" style="--i:0">Open questions: &lt;each assignment that the maintainer must examine&gt;</span>
+<span class="ln" style="--i:0">Recorded answers: &lt;each answer in systemap.toml, with its reason&gt;</span>
+<span class="ln" style="--i:0">Evidence limits: &lt;each recorded extractor, source, or Jev limit&gt;</span>
+<span class="ln" style="--i:0">Uncertainty: &lt;each uncertain component assignment, source claim, or word under the writing profile&gt;</span>
+<span class="ln" style="--i:0">Proposed rules: &lt;each proposed invariant outside the invariant list&gt;</span></code></pre>
 <p>With <code>TYPESAFE_API_KEY</code>, the skill also tells the agent to use <code>systemap suggest --jev</code> and <code>systemap audit</code>.
 Without the key, the agent uses only the source examination procedure. The completion report tells which procedure it used.</p>
 <p>For a map that is already in use, the skill tells the agent to start with <code>systemap delta --base REF</code>.
@@ -94,20 +92,17 @@ If <code>delta</code> identifies more than one third of the components, the agen
 <p>To read the skill, run <code>systemap skill --print</code>. The <a href="reference.html#systemap-skill-dir-path-print">reference</a> gives the options.</p>
 <h2 id="the-claude-code-plugin">The Claude Code plugin</h2>
 <p>The systemap GitHub repository is also a Claude Code plugin marketplace. In Claude Code, type these two commands:</p>
-<pre><code class="language-text">/plugin marketplace add 0xfauzi/systemap
-/plugin install systemap@systemap
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">/plugin marketplace add 0xfauzi/systemap</span>
+<span class="ln" style="--i:0">/plugin install systemap@systemap</span></code></pre>
 <p>The plugin supplies the skill and the live map. The live map runs the <code>systemap</code> command, so install systemap first.</p>
 <h2 id="the-live-map-in-claude-code">The live map in Claude Code</h2>
 <p>In a repository with <code>systemap.toml</code>, or with <code>[tool.systemap]</code> in <code>pyproject.toml</code>, the plugin shows one line above the prompt:</p>
-<pre><code class="language-text">map: not started · Start live map
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">map:</span> not started · Start live map</span></code></pre>
 <p>The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.
 <a href="trust-and-security.html">Trust and security</a> tells what systemap reads and runs.</p>
 <p>To start the live map, select <code>Start live map</code>, or type <code>/map</code>.
 The plugin then runs this command in the repository:</p>
-<pre><code class="language-sh">systemap live --port 0 --json --no-watch
-</code></pre>
+<pre class="code"><code class="language-sh"><span class="k">systemap</span> live <span class="a">--port</span> 0 <span class="a">--json</span> <span class="a">--no-watch</span></code></pre>
 <p>After a turn that called a tool that can change files, the plugin asks <code>systemap live</code> to render the map again.
 These tools are Edit, Write, MultiEdit, NotebookEdit, and Bash. A read-only Bash call does not count.
 The line above the prompt then shows the state of the live map:</p>
@@ -179,16 +174,15 @@ If the figure has more than 131,072 characters, the pane shows the link and no f
 <h2 id="other-agents">Other agents</h2>
 <p>The skill is Markdown text. An agent that can read files and run commands can use it.
 Write the skill to the directory that your agent reads:</p>
-<pre><code class="language-sh">systemap skill --dir path/to/skills/systemap
-</code></pre>
+<pre class="code"><code class="language-sh"><span class="k">systemap</span> skill <span class="a">--dir</span> path/to/skills/systemap</code></pre>
 <p>Then give the agent the instruction from <code>init</code>.
 The plugin and the live map line work only in Claude Code. <code>systemap live</code> works with each agent and each browser.</p>
 <h2 id="sequence-drafts-from-an-agent-command">Sequence drafts from an agent command</h2>
 <p><code>systemap journeys</code> can ask a coding agent for draft sequences.
 Set the command under <code>[agent]</code> in <code>systemap.toml</code>. The command reads the question from its standard input:</p>
-<pre><code class="language-toml">[agent]
-command = &quot;claude -p --output-format json&quot;
-</code></pre>
+<pre class="code"><code class="language-toml"><span class="k">[agent]
+</span><span class="a">command </span><span class="p">= </span><span class="s">"claude -p --output-format json"
+</span></code></pre>
 <p>Each question contains the language policy of the writing profile.
 The command rejects a step that has no authored flow. It writes the accepted sequences with <code>drafted=True</code>.
 <code>systemap judgement</code> prints a <code>drafted journey</code> finding until a person examines the sequence and removes the mark.
@@ -197,9 +191,9 @@ The <a href="reference.html#systemap-journeys-limit-n-dry-run">reference</a> giv
 <p>The writing profile sets the writing rules for the map text that a person reads.
 This text includes component names and descriptions, flow artifacts and sentences, layers, sequences, invariants, and the reasons of recorded answers.
 Set the profile in <code>systemap.toml</code>. In <code>pyproject.toml</code>, use the <code>[tool.systemap.writing]</code> table.</p>
-<pre><code class="language-toml">[writing]
-profile = &quot;plain&quot;
-</code></pre>
+<pre class="code"><code class="language-toml"><span class="k">[writing]
+</span><span class="a">profile </span><span class="p">= </span><span class="s">"plain"
+</span></code></pre>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-writing-profile">
 <table>
 <thead>
@@ -226,10 +220,9 @@ Under <code>plain</code>, the agent must not say that the text obeys ASD-STE100.
 Under <code>asd-ste100</code>, an agent without the official dictionary must tell the maintainer, and give no acceptance result.</p>
 <p>The skill reads the profile. <code>systemap journeys</code> puts the policy of the profile in each agent question.
 A different value gives a configuration error and exit code 2:</p>
-<pre><code class="language-text">$ systemap check
-systemap: systemap.toml: writing.profile must be &quot;plain&quot; or &quot;asd-ste100&quot;
-Correct systemap.toml or the model module. Then run the command again.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> check</span>
+<span class="ln" style="--i:0"><span class="l">systemap:</span> systemap.toml: writing.profile must be "plain" or "asd-ste100"</span>
+<span class="ln" style="--i:0">Correct systemap.toml or the model module. Then run the command again.</span></code></pre>
 <p>The profile does not change commands, schema keys, identifiers, or quoted source evidence.
 This repository uses the <code>asd-ste100</code> profile for its map, its interface text, and its documentation.
 The language policy is in the skill, at <code>references/language.md</code>.</p>

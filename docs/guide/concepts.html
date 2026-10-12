@@ -113,8 +113,8 @@ A card on the map shows one component.</p>
 <p>A <strong>flow</strong> is a directed relation with one artifact and two component endpoints.
 The <strong>artifact</strong> is the named data or control item that the flow carries.
 This flow carries the artifact <code>order</code> from <code>OrderFiles</code> to <code>CommandLine</code>:</p>
-<pre><code class="language-python">Flow(&quot;OrderFiles&quot;, &quot;CommandLine&quot;, &quot;order&quot;, &quot;data&quot;)
-</code></pre>
+<pre class="code"><code class="language-python"><span class="f">Flow</span><span class="p">(</span><span class="s">"OrderFiles"</span><span class="p">, </span><span class="s">"CommandLine"</span><span class="p">, </span><span class="s">"order"</span><span class="p">, </span><span class="s">"data"</span><span class="p">)
+</span></code></pre>
 <p>The standard flow kinds are <code>data</code>, <code>control</code>, <code>context</code>, and <code>tool</code>.
 A model declares each other kind in <code>flow_kinds</code> and gives it a layer.
 A map has one flow, or no flow, for each ordered pair of components.
@@ -122,27 +122,26 @@ Each flow has one relation sentence in <code>MEANING.relations</code>, written f
 <h2 id="sequence-and-entry-point">Sequence and entry point</h2>
 <p>An <strong>entry point</strong> is a command, route, or public symbol where a run can start.
 Extraction finds console scripts, <code>python -m</code> modules, <code>main</code> functions, subcommands, and the public functions of a package root:</p>
-<pre><code class="language-text">$ systemap facts --entry-points
-entry points: 2. A sequence specifies each applicable entry point. The target is a console-script function or a subcommand script.
-  shop (console script): shop.cli, target main
-  main() in shop.cli: shop.cli, target main
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> facts <span class="a">--entry-points</span></span>
+<span class="ln" style="--i:0"><span class="l">entry points:</span> 2. A sequence specifies each applicable entry point. The target is a console-script function or a subcommand script.</span>
+<span class="ln" style="--i:2">  shop (console script): shop.cli, target main</span>
+<span class="ln" style="--i:2">  main() in shop.cli: shop.cli, target main</span></code></pre>
 <p>A <strong>sequence</strong> is the ordered set of steps that starts at an entry point.
 The schema uses the names <code>Journey</code> and <code>journeys</code> for a sequence.
 Each step gives the acting components (<code>acts</code>), the measurement components (<code>measures</code>), one flow (<code>edge</code>), and one sentence (<code>say</code>).
 The <code>covers</code> field gives the exact entry points that the sequence covers.</p>
-<pre><code class="language-python">Journey(
-    id=&quot;print-total&quot;,
-    label=&quot;Print the total of an order&quot;,
-    starts=&quot;shop&quot;,
-    covers=('[&quot;console_script&quot;,&quot;shop.cli&quot;,&quot;main&quot;,&quot;shop&quot;]',),
-    steps=(
-        Step((&quot;Person&quot;,), (), (&quot;Person&quot;, &quot;CommandLine&quot;), &quot;The person gives an order path.&quot;),
-        Step((&quot;OrderFiles&quot;,), (), (&quot;OrderFiles&quot;, &quot;CommandLine&quot;), &quot;The store reads the order.&quot;),
-        Step((&quot;Orders&quot;,), (), (&quot;CommandLine&quot;, &quot;Orders&quot;), &quot;The command calculates the total.&quot;),
+<pre class="code"><code class="language-python"><span class="f">Journey</span><span class="p">(
+    </span><span class="a">id</span><span class="p">=</span><span class="s">"print-total"</span><span class="p">,
+    </span><span class="a">label</span><span class="p">=</span><span class="s">"Print the total of an order"</span><span class="p">,
+    </span><span class="a">starts</span><span class="p">=</span><span class="s">"shop"</span><span class="p">,
+    </span><span class="a">covers</span><span class="p">=(</span><span class="s">'["console_script","shop.cli","main","shop"]'</span><span class="p">,),
+    </span><span class="a">steps</span><span class="p">=(
+        </span><span class="f">Step</span><span class="p">((</span><span class="s">"Person"</span><span class="p">,), (), (</span><span class="s">"Person"</span><span class="p">, </span><span class="s">"CommandLine"</span><span class="p">), </span><span class="s">"The person gives an order path."</span><span class="p">),
+        </span><span class="f">Step</span><span class="p">((</span><span class="s">"OrderFiles"</span><span class="p">,), (), (</span><span class="s">"OrderFiles"</span><span class="p">, </span><span class="s">"CommandLine"</span><span class="p">), </span><span class="s">"The store reads the order."</span><span class="p">),
+        </span><span class="f">Step</span><span class="p">((</span><span class="s">"Orders"</span><span class="p">,), (), (</span><span class="s">"CommandLine"</span><span class="p">, </span><span class="s">"Orders"</span><span class="p">), </span><span class="s">"The command calculates the total."</span><span class="p">),
     ),
 )
-</code></pre>
+</span></code></pre>
 <p>A person or an agent writes the steps. A sequence does not record a run of the program.</p>
 <h2 id="layer">Layer</h2>
 <p>A <strong>layer</strong> is a map view that shows a specified set of components and flows.
@@ -192,8 +191,8 @@ Actors are in containers, not in regions.
 <h2 id="invariant">Invariant</h2>
 <p>An <strong>invariant</strong> is a source-supported rule that applies to specified components.
 Its text cites the source of the rule, such as a file and line or a document heading.</p>
-<pre><code class="language-python">Invariant(1, &quot;The writer records each result once (docs/ledger.md).&quot;, governs=(&quot;Writer&quot;, &quot;Ledger&quot;))
-</code></pre>
+<pre class="code"><code class="language-python"><span class="f">Invariant</span><span class="p">(</span><span class="n">1</span><span class="p">, </span><span class="s">"The writer records each result once (docs/ledger.md)."</span><span class="p">, </span><span class="a">governs</span><span class="p">=(</span><span class="s">"Writer"</span><span class="p">, </span><span class="s">"Ledger"</span><span class="p">))
+</span></code></pre>
 <p>The page shows the invariants as rules in the Details panel. The panel of a component gives its rules.</p>
 <h2 id="evidence-states">Evidence states</h2>
 <p>Each flow has one evidence state. The renderer and the checks calculate it from the stored source snapshot.</p>
@@ -235,8 +234,7 @@ The page legend, the Details panel, and <code>systemap describe</code> use the w
 A current source review is a recorded source review whose source records still agree with the stored source snapshot.</p>
 <p>Structural evidence does not show the direction or the artifact of a flow. No evidence state records a run of the program.
 <code>systemap describe</code> counts the states:</p>
-<pre><code class="language-text">evidence: 2 observed (current source review), 0 structural (an import, a shared module, or a configured mechanism), 1 external (an actor endpoint), 0 declared (no source review or structural evidence)
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">evidence:</span> 2 observed (current source review), 0 structural (an import, a shared module, or a configured mechanism), 1 external (an actor endpoint), 0 declared (no source review or structural evidence)</span></code></pre>
 <p>The <a href="reference.html#what-does-systemap-check-reject">reference</a> gives the source record format and the command that prints the digests.</p>
 <h2 id="review-states">Review states</h2>
 <p>A component can record a <code>source_review</code> digest after a person or an agent examines its source and its claims.
@@ -278,12 +276,11 @@ A missing review is not a finding.
 </ul>
 <p>Under the first finding of each kind, a <code>why</code> row and a <code>do</code> row explain it. The <code>--brief</code> option removes these rows.
 <code>systemap explain</code> prints the full explanation of a kind:</p>
-<pre><code class="language-text">$ systemap explain &quot;crossing import&quot;
-crossing import
-  meaning: A module of one component imports a module of another component. No flow connects these components.
-  importance: The code has a connection that the map does not show. This connection can affect a change to the system.
-  action: Add the flow and its description. Or put the modules in one component, or record why the import does not make a flow necessary.
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> explain <span class="s">"crossing import"</span></span>
+<span class="ln" style="--i:0">crossing import</span>
+<span class="ln" style="--i:2">  <span class="l">meaning:</span> A module of one component imports a module of another component. No flow connects these components.</span>
+<span class="ln" style="--i:2">  <span class="l">importance:</span> The code has a connection that the map does not show. This connection can affect a change to the system.</span>
+<span class="ln" style="--i:2">  <span class="l">action:</span> Add the flow and its description. Or put the modules in one component, or record why the import does not make a flow necessary.</span></code></pre>
 <p>For a <code>judgement</code> finding, change the map, or record an answer under <code>[judgement] answered</code> in <code>systemap.toml</code>.
 Each answer has a reason. A finding line is also an identifier, so an exact answer quotes the full line.</p>
 <ul>
@@ -291,23 +288,21 @@ Each answer has a reason. A finding line is also an identifier, so an exact answ
 <li>A <strong>family answer</strong> uses <code>kind</code>, <code>crossing</code>, <code>crossing_into</code>, <code>crossing_from</code>, or <code>module_sdk</code>. It must have <code>policy = true</code>.</li>
 </ul>
 <p>An exact answer without its digest stays pending. The command prints the current digest:</p>
-<pre><code class="language-text">  pending answer: 'single module: CommandLine contains only shop.cli' must have a new source review. The evidence digest is &quot;fc793b1d03fd7039044613f8fee204af0bb50731369b21320091473a6951982e&quot;
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:2">  <span class="bad">pending answer:</span> 'single module: CommandLine contains only shop.cli' must have a new source review. The evidence digest is "fc793b1d03fd7039044613f8fee204af0bb50731369b21320091473a6951982e"</span></code></pre>
 <p>Examine the source before you copy the digest into the answer:</p>
-<pre><code class="language-toml">[judgement]
-answered = [
-    { item = &quot;single module: CommandLine contains only shop.cli&quot;, reason = &quot;The command line is a separate part: it reads the arguments and prints the result.&quot;, evidence = &quot;fc793b1d03fd7039044613f8fee204af0bb50731369b21320091473a6951982e&quot; },
-    { kind = &quot;thin layer&quot;, policy = true, reason = &quot;This small program has no control flows.&quot; },
+<pre class="code"><code class="language-toml"><span class="k">[judgement]
+</span><span class="a">answered </span><span class="p">= [
+    { </span><span class="a">item </span><span class="p">= </span><span class="s">"single module: CommandLine contains only shop.cli"</span><span class="p">, </span><span class="a">reason </span><span class="p">= </span><span class="s">"The command line is a separate part: it reads the arguments and prints the result."</span><span class="p">, </span><span class="a">evidence </span><span class="p">= </span><span class="s">"fc793b1d03fd7039044613f8fee204af0bb50731369b21320091473a6951982e" </span><span class="p">},
+    { </span><span class="a">kind </span><span class="p">= </span><span class="s">"thin layer"</span><span class="p">, </span><span class="a">policy </span><span class="p">= </span><span class="n">true</span><span class="p">, </span><span class="a">reason </span><span class="p">= </span><span class="s">"This small program has no control flows." </span><span class="p">},
 ]
-</code></pre>
+</span></code></pre>
 <p>When the source evidence changes, the digest changes and the finding opens again.
 An answer that matches no finding is stale. <code>judgement</code> reports it, but the exit code does not change:</p>
-<pre><code class="language-text">$ systemap judgement --strict
-judgement: No possible map error to examine, 4 answered, 1 stale
-  stale answer: 'single module: Reports contains only shop.reports' is now missing. Remove it from [judgement] answered.
-  policy answer: kind = &quot;thin layer&quot; covers 1 lines at this snapshot. 1 lines are outside the source-review baseline.
-source reviews: 0 current, 0 stale, 3 missing
-</code></pre>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> judgement <span class="a">--strict</span></span>
+<span class="ln" style="--i:0"><span class="l">judgement:</span> No possible map error to examine, 4 answered, 1 stale</span>
+<span class="ln" style="--i:2">  <span class="l">stale answer:</span> 'single module: Reports contains only shop.reports' is now missing. Remove it from [judgement] answered.</span>
+<span class="ln" style="--i:2">  <span class="l">policy answer:</span> kind = "thin layer" covers 1 lines at this snapshot. 1 lines are outside the source-review baseline.</span>
+<span class="ln" style="--i:0"><span class="l">source reviews:</span> 0 current, 0 stale, 3 missing</span></code></pre>
 <p>An answer does not change the map. It records the reason that the map stays as it is.
 The <a href="reference.html#what-does-the-second-pass-find">reference</a> gives each <code>judgement</code> finding and each answer form.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="getting-started.html" rel="prev"><span class="kicker">Previous</span><span>Get started</span></a><a class="pager__a pager__next" href="reading-the-map.html" rel="next"><span class="kicker">Next</span><span>Read the map</span></a></nav>

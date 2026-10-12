@@ -777,6 +777,7 @@ dev = [
     { name = "markdown-it-py" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pygments" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "tree-sitter" },
@@ -787,6 +788,7 @@ fonts = [
 ]
 site = [
     { name = "markdown-it-py" },
+    { name = "pygments" },
 ]
 
 [package.metadata]
@@ -801,13 +803,17 @@ dev = [
     { name = "markdown-it-py", specifier = "==4.2.0" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "pre-commit", specifier = ">=4,<5" },
+    { name = "pygments", specifier = "==2.21.0" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.5" },
     { name = "tree-sitter", specifier = ">=0.25,<0.26" },
     { name = "tree-sitter-typescript", specifier = ">=0.23,<0.24" },
 ]
 fonts = [{ name = "fonttools", extras = ["woff"], specifier = "==4.66.1" }]
-site = [{ name = "markdown-it-py", specifier = "==4.2.0" }]
+site = [
+    { name = "markdown-it-py", specifier = "==4.2.0" },
+    { name = "pygments", specifier = "==2.21.0" },
+]
 
 [[package]]
 name = "tree-sitter"

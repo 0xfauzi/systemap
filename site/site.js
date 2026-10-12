@@ -1,5 +1,5 @@
 // The script of the systemap website: the theme, the docs menu on a phone,
-// the current section in "On this page", and the Copy button.
+// the current section in "On this page", the views tabs, and the Copy button.
 // The page head sets data-theme before the page shows. The theme key and values
 // are those of the map page, so the site and the map page keep one selection.
 (function(){
@@ -14,11 +14,13 @@
   function each(selector, fn){ Array.prototype.forEach.call(document.querySelectorAll(selector), fn); }
 
   // A <picture> shows the image of the device theme. After a selection on the
-  // page, each source with data-scheme shows only in its own theme.
+  // page, each source with data-scheme shows only in its own theme. A source
+  // with data-width shows only in a window of that width.
   function pictures(){
     var theme = current();
     each('source[data-scheme]', function(s){
-      s.media = s.getAttribute('data-scheme') === theme ? 'all' : 'not all';
+      var mine = s.getAttribute('data-scheme') === theme;
+      s.media = mine ? (s.getAttribute('data-width') || 'all') : 'not all';
     });
   }
   function label(){
@@ -94,6 +96,33 @@
     mark();
   }
 
+  // The views window of the landing page shows one tab panel at a time.
+  // The arrow keys, Home and End move between the tabs, as in a tab list.
+  function tabs(){
+    each('[data-tabs]', function(box){
+      var list = Array.prototype.slice.call(box.querySelectorAll('[role="tab"]'));
+      function select(tab, focus){
+        list.forEach(function(t){
+          var on = t === tab;
+          var panel = document.getElementById(t.getAttribute('aria-controls'));
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+          t.tabIndex = on ? 0 : -1;
+          if(panel){ panel.hidden = !on; }
+        });
+        if(focus){ tab.focus(); }
+      }
+      list.forEach(function(tab, i){
+        tab.addEventListener('click', function(){ select(tab, false); });
+        tab.addEventListener('keydown', function(e){
+          var to = {ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: list.length - 1}[e.key];
+          if(to === undefined){ return; }
+          e.preventDefault();
+          select(list[(to + list.length) % list.length], true);
+        });
+      });
+    });
+  }
+
   function copies(){
     if(!navigator.clipboard || !window.isSecureContext){ return; }
     each('[data-copy]', function(b){
@@ -110,5 +139,6 @@
   themes();
   menu();
   sections();
+  tabs();
   copies();
 })();
