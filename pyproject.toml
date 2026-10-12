@@ -61,6 +61,7 @@ fonts = [
 # site/build.py makes the website in docs/ with these packages.
 site = [
     "markdown-it-py==4.2.0",
+    "pygments==2.21.0",
 ]
 
 [tool.pytest.ini_options]

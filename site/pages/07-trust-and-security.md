@@ -1,84 +1,53 @@
 # Trust and security
 
-This page tells what systemap reads, what it runs, what it sends over the network, and what it writes.
+This page tells what systemap reads, runs, sends, and writes.
 Read it before you run systemap on a repository that another person controls.
 
 ## What systemap reads
 
-systemap reads the source files under the package roots, the test files, and the configuration files:
-`systemap.toml`, `pyproject.toml`, `package.json`, and `tsconfig.json`.
-For `delta`, `history`, `render --base`, and `live`, it also reads committed files from Git.
+systemap reads the source files under the package roots, the test files, `systemap.toml`, `pyproject.toml`, `package.json`, and `tsconfig.json`.
+`delta`, `history`, `render --base`, and `live` also read committed files from Git.
+Extraction parses the source files but does not import or run them.
 
-Extraction parses the source files. It does not import or run them.
-Python source goes to the Python `ast` parser. TypeScript source goes to the tree-sitter parser.
+## What systemap runs
 
-## The model file is data
+systemap reads the model, usually `map/model.py`, with a [reader that runs no code](reference.html#what-does-a-model-contain).
+If the file needs code, the command stops and gives the file and the line.
 
-systemap reads the model, usually `map/model.py`, with a reader that runs no code.
-The reader accepts literal values, calls of the model classes, names that the file defines, and imports of files beside the model file.
-For other syntax, the command stops and gives the file, the line, and the refused syntax.
-[What does a model contain?](reference.html#what-does-a-model-contain) gives the full list and the limits.
-
-The person who runs a command can set `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command.
-Then systemap runs the model files as Python code, as version 2.0 did.
-A repository cannot give this permission, because systemap does not read it from a file in the repository.
-Set this value only for a repository whose code you trust.
-
-`systemap convert` writes a model file that needs code again with literal values only.
-The command runs the old file one time, so it needs the same value.
-It writes the new file only if the reader that runs no code gives the same model.
-
-`render --base`, `figure --base`, and `live` read the committed model files of the merge base with the same reader.
-If a base model file needs code, the Changes view gives the refusal.
-The live map in Claude Code uses the same reader. [Coding agents](coding-agents.html#the-live-map-in-claude-code) tells when the plugin starts it.
+- `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment makes systemap run the model files as Python code.
+  systemap does not read this value from a repository file. Set it only for code that you trust.
+- [`systemap convert`](reference.html#systemap-convert) runs each refused model file one time with this value.
+  Then it writes the file again with literal values only.
+- The base models of `render --base`, `figure --base`, and `live` use the same reader.
 
 ## The agent command
 
-`systemap journeys` runs the command under `[agent] command` in `systemap.toml`.
-It sends the question on the standard input of the command. It does not use a shell.
-A repository can set this command in its own `systemap.toml`. Examine the value before you run `systemap journeys`.
-No other command runs it.
+`systemap journeys` runs the command under `[agent] command` in `systemap.toml`, without a shell. No other command runs it.
+A repository can set this command. Examine the value before you run `systemap journeys`.
 
-## Jev
+## What systemap sends
 
-Jev is the TypeSafe model for questions that imports and names cannot answer.
-Without `TYPESAFE_API_KEY`, no question goes to Jev.
-`systemap check` and `systemap judgement` make no network requests.
+Jev is the TypeSafe model at `https://api.typesafe.ai/v1`. `TYPESAFE_BASE_URL` selects a different server.
+No question goes to Jev without `TYPESAFE_API_KEY`.
 
-With the key, these commands can send questions to Jev:
-
-| Command | When |
-|---|---|
-| `systemap audit` | Each run, except with `--dry-run`. |
-| `systemap suggest --jev` | Each run. |
-| `systemap plan "<task>"` | Each run. `plan --check` sends nothing. |
-| `systemap triage` | Each run. |
-| `systemap delta` | Each run, unless you use `--no-jev` or set `[jev] enabled = false`. |
-
+With the key, `audit`, `suggest --jev`, `plan`, `triage`, and `delta` can send questions.
+`plan --check` and `delta --no-jev` send no question.
 The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
-`systemap audit --dry-run` shows the data that it would send.
-With a key, the dry run gets the model list from the server, but it sends no map data.
+`systemap audit --dry-run` shows this data. With a key, it gets the model list but sends no map data.
 
-The server is `https://api.typesafe.ai/v1`. The environment variable `TYPESAFE_BASE_URL` selects a different server.
-Answers go into the cache `.systemap/jev-cache.json`.
-Jev answers are suggestions for source examination. They are not evidence, and they do not change the `delta` lines or the exit code.
+`systemap check` and `systemap judgement` make no network requests.
+The rendered page loads no files from other servers.
 
 ## The CI link job
 
-The workflow from `init` has one job that can write to the pull request: the `link` job.
-Only this job has the `pull-requests: write` permission.
-It runs only if these two conditions are true:
+In the workflow from `init`, only the `link` job has `pull-requests: write`. It runs only if:
 
-- `systemap delta` wrote a comment. This occurs only with `[delta] page_url` in `systemap.toml`.
+- `systemap delta` wrote a comment, which needs `[delta] page_url`.
 - The pull request comes from a branch of the same repository.
 
-The `delta` job writes the comment text. That job runs the model code of the pull request.
-The code and the settings of a pull request from a fork can thus change the comment text.
-For this reason, the `link` job does not run for a pull request from a fork.
-
-The other jobs have only the `contents: read` permission. They check out the code without stored credentials.
-Each action in the workflow has a fixed commit, with its version in a comment.
-[Pull requests and CI](pull-requests-and-ci.html) gives the jobs.
+The code and the settings of a fork can change the comment text, so the `link` job does not run for a fork.
+The other jobs have only `contents: read`. They check out the code without stored credentials.
+Each action has a fixed commit.
 
 ## The local servers
 
@@ -94,29 +63,10 @@ $ curl -s -o /dev/null -w "%{http_code}\n" -H "Host: evil.example:8765" http://1
 
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
 The servers have no other access control.
-Other programs on the same computer can read the map, and they can send `POST /refresh` to `systemap live`.
-
-## The page
-
-The page that systemap renders contains its styles, its scripts, and its font. It loads no files from other servers.
-A test of the renderer examines a sample page: its only URL is the SVG namespace.
-
-The page keeps a few settings in the storage of your browser: the theme, Reduce motion, and the end of the first-visit guide.
-The live map also keeps your view in the session storage before it loads a new version.
+Other programs on the computer can read the map and send `POST /refresh` to `systemap live`.
 
 ## What systemap writes
 
-| Command | Files |
-|---|---|
-| `init` | `systemap.toml`, `map/model.py`, `docs/map/.gitkeep`, the workflow, and the skill directory. It keeps a configuration, model, or workflow file that exists. |
-| `skill` | The skill directory. |
-| `extract` | The facts file, `docs/map/map.json` by default. |
-| `render` | The page of each map in the output directory. |
-| `refresh` | The facts, the page of each map, and the configured figures. |
-| `figure --out FILE` | One figure. |
-| `place` | The positions in the model files. |
-| `journeys` | The sequences in the model file, and the cache `.systemap/agent-cache.json`. |
-| `delta --comment FILE` | The comment file, only with `[delta] page_url`. |
-| `history`, `render --base`, `live` | Cached facts in `.systemap/facts/`. |
-| Jev commands | `.systemap/jev-cache.json`. `plan` also writes `.systemap/plans/`. |
-| `live` | A temporary directory that it deletes when it stops. |
+systemap writes the map files, the model files (`place` and `journeys`), and caches in `.systemap/`.
+`init` and `skill` write the skill directory.
+[Which command do you use?](reference.html#which-command-do-you-use) gives the files of each command.

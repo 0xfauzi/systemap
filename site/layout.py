@@ -246,27 +246,30 @@ def docs_home(guide: Sequence[Page], refs: Sequence[Page]) -> str:
 PLACEHOLDER = re.compile(r"\{\{([a-z-]+)\}\}")
 
 
-def terminal(text: str) -> str:
-    """Give recorded command output as lines. A long line wraps under its own indent."""
-    rows = []
-    for line in text.rstrip("\n").split("\n"):
-        indent = len(line) - len(line.lstrip(" "))
-        rows.append(f'<span class="out__l" style="--i:{indent}">{esc(line)}</span>')
-    return "\n".join(rows)
+def excerpt(text: str, first: str, stop: str, source: str) -> str:
+    """Give the lines of recorded output from the line that starts with `first` to the
+    line before the next line that starts with `stop`. The file keeps the full output."""
+    lines = text.rstrip("\n").split("\n")
+    starts = [i for i, line in enumerate(lines) if line.startswith(first)]
+    if not starts:
+        raise SiteError(f"{source}: no line starts with {first!r}.")
+    ends = [i for i, line in enumerate(lines) if i > starts[0] and line.startswith(stop)]
+    return "\n".join(lines[starts[0] : ends[0] if ends else len(lines)])
 
 
-def landing(template: str, delta: str) -> str:
+def landing(template: str, delta: str, check: str) -> str:
     values = {
         "head": head(
-            "systemap: a map of a software system, made from its source",
-            "systemap makes a map of a software system from its source code. A coding agent "
-            "writes the map. The checks compare it with the code at each change.",
+            "systemap: see what your coding agents are building",
+            "Your coding agent draws a map of your system from the code. CI checks the map "
+            "against the code. Each pull request shows what changed in the system.",
             "",
             "home",
         ),
         "header": header("", "home"),
         "footer": footer(""),
-        "delta": terminal(delta),
+        "delta": esc(excerpt(delta, "delta:", "next to the change:", "site/delta.txt")),
+        "check": esc(excerpt(check, "coverage:", "  fix:", "site/check.txt")),
         "version": esc(__version__),
     }
 

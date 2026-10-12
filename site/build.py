@@ -34,10 +34,11 @@ from typing import Any
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
-from systemap import page, page_font, theme
+from systemap import page, page_font, page_motion, theme
 
 # site/ is not a package. The page parts are in site/layout.py, next to this file.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from highlight import highlight_blocks  # noqa: E402
 from layout import (  # noqa: E402
     REPO,
     Page,
@@ -89,7 +90,24 @@ SITE_TOKENS = (
     "hl_soft",
     "brand",
     "region",
+    "change",
+    "accent_soft",
+    "grid",
 )
+# The flow kind colors of the map page. The landing page gives one to each section.
+SITE_KINDS = ("data", "control", "context", "tools")
+# A code block has the Ink colors in both themes. Each text color has 4.5:1 or more
+# on the Ink surface. tests/test_site.py measures the ratios.
+CODE_TOKENS: dict[str, str] = {
+    "bg": "surface",
+    "line": "line_2",
+    "ink": "ink",
+    "ink-2": "ink_2",
+    "ink-3": "ink_3",
+    "k": "accent",
+    "n": "change",
+}
+CODE_KINDS: dict[str, str] = {"s": "data", "f": "context", "a": "control"}
 
 # The DESIGN.md front matter values that the site uses.
 DESIGN_KEYS: dict[str, tuple[str, ...]] = {
@@ -359,7 +377,26 @@ def design_css(design: dict[str, dict[str, Any]]) -> str:
 def colour_css(table: dict[str, Any]) -> str:
     out = [f"color-scheme:{table['color_scheme']};"]
     out += [f"{theme.CSS_NAMES[key]}:{table[key]};" for key in SITE_TOKENS]
+    out += [f"--k-{kind}:{table['layers'][kind]};" for kind in SITE_KINDS]
+    # The first custom kind color. On the self-map, it is the color of "judge".
+    out.append(f"--k-custom-1:{table['layer_palette'][0]};")
     return "".join(out)
+
+
+def grain() -> str:
+    """Give the film grain of the Ink map surface, from the CSS of the map page."""
+    found = re.search(r'url\("([^"]+)"\)', page_motion.SURFACE_CSS)
+    if not found:
+        raise SiteError("src/systemap/page_motion.py: the map surface has no grain image.")
+    return found[1]
+
+
+def code_colours() -> dict[str, str]:
+    """Give the colors of a code block by CSS name: the Ink palette."""
+    ink = theme.SCHEMES[theme.DEFAULT_SCHEME]
+    out = {f"--code-{name}": ink[key] for name, key in CODE_TOKENS.items()}
+    out |= {f"--code-{name}": ink["layers"][kind] for name, kind in CODE_KINDS.items()}
+    return out
 
 
 def site_css(source: str, design: dict[str, dict[str, Any]]) -> str:
@@ -369,7 +406,10 @@ def site_css(source: str, design: dict[str, dict[str, Any]]) -> str:
         "DESIGN.md. Do not edit it. */\n"
         f'@font-face{{font-family:{page_font.FAMILY};src:url(inter.woff2) format("woff2");'
         "font-weight:400 700;font-display:swap}\n"
-        f":root{{{colour_css(dark)}--fs:{theme.SANS};--fm:{theme.MONO};{design_css(design)}}}\n"
+        f":root{{{colour_css(dark)}--fs:{theme.SANS};--fm:{theme.MONO};{design_css(design)}"
+        + "".join(f"{name}:{value};" for name, value in code_colours().items())
+        + f'--grain:url("{grain()}");'
+        + "}\n"
         f':root[data-theme="light"]{{{colour_css(light)}}}\n'
         "@media (prefers-color-scheme:light){:root:not([data-theme])"
         f"{{{colour_css(light)}}}}}\n" + source
@@ -452,6 +492,7 @@ def build(inputs: Inputs | None = None) -> dict[str, bytes]:
         "index.html": landing(
             (inputs.site_dir / "index.html").read_text(encoding="utf-8"),
             (inputs.site_dir / "delta.txt").read_text(encoding="utf-8"),
+            (inputs.site_dir / "check.txt").read_text(encoding="utf-8"),
         ),
         "guide/index.html": docs_home(guide, refs),
         "assets/site.css": site_css(
@@ -465,6 +506,9 @@ def build(inputs: Inputs | None = None) -> dict[str, bytes]:
     }
     for p in [*guide, *refs]:
         files[f"guide/{p.href}"] = doc_page(p, guide, refs)
+    for name, value in files.items():
+        if name.endswith(".html") and isinstance(value, str):
+            files[name] = highlight_blocks(value)
     out = {k: v.encode("utf-8") if isinstance(v, str) else v for k, v in files.items()}
     problems = broken_links(out, exists)
     if problems:
