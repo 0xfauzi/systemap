@@ -1,21 +1,24 @@
-"""Map labels that grow when the map is small on the screen.
+"""Map labels that become larger when the map is small on the screen.
 
-Below 100 percent, a flow label, a region label and a container label grow
-so that they show at 11 px on the screen. They do not get larger than the card
-descriptions: the SVG attribute `data-grow` gives that limit. The layout
-sizes do not change, so `systemap check` and `systemap place` give the same
-results.
+When the zoom is less than 100 percent, flow labels, region labels and
+container labels become larger, so that they show at 11 px on the screen.
+They do not become larger than the card descriptions: the SVG attribute
+`data-grow` gives that limit. The layout sizes do not change, so
+`systemap check` and `systemap place` give the same results.
 
-A region label or a container label grows about the corner of its box, as
-far as the space permits. A flow label moves along its own line to the
-nearest place where it touches no card, no other label and no line that it
-did not touch at its layout size. A flow label with no such place shows only
-for a pointer, keyboard focus or selection, as a label beside its line does.
-The readout counts these labels with the labels beside their lines.
+A container label becomes larger from the top left corner of its container.
+A region label becomes larger from the left edge of its region, at the middle
+of its number ring. Each label stays in its box and keeps off cards, lines
+and the step numbers and tags of a sequence. A flow label moves along the
+nearest part of its own line to the nearest place where its text touches no
+card, no other label and no line that it did not touch at its layout size.
+A flow label with no such place shows only for a pointer, keyboard focus or
+selection, as a label beside its line does. The readout counts these labels
+with the labels beside their lines.
 """
 
 LABEL_JS = r"""
-// ---- labels that grow on a small map ------------------------------------------
+// ---- labels that become larger on a small map ---------------------------------
 var GROW = +svg.getAttribute('data-grow') || 1, BESIDE = besideEdges.slice();
 var growKey = '', growSoon = 0, SEGS = [];
 function hits(a, b, pad){

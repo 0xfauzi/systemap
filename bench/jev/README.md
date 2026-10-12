@@ -1827,3 +1827,107 @@ These overlaps are in the Sequences marks and do not change with the zoom.
 76 orthogonal labeled edges, no text size less than 11px)". The layout digest of the render
 (card boxes, label boxes, paths, collisions, notes and headers) was `c234e180810b1631` for the self map
 and `37a8ed23f412ee50` for the sample map.
+
+### Options
+
+The measurements of each option use the self map at 1440 x 900 with the panel open, where the base zoom is 75 percent.
+Card names need 81.4 percent for 12 px, card descriptions 80.9 percent for 11 px, and 11-unit labels 100 percent for 11 px.
+
+| Option | Measurement | Result |
+|---|---|---|
+| (a) Labels that become larger below 100 percent, with collision handling | A prototype in Chromium with the text boxes. Labels scaled about their centre, no move: at a scale of 1.32, 7 of 13 System context labels, 3 of 14 Control flow labels and 6 of 7 Map review labels touch a card, a label or a new line. With a move along the own line, 2 of 13, 0 of 14 and 2 of 7 at 1.2, and 3, 0 and 3 at 1.32 | Used. The card text cannot become larger: the cards have a fixed size |
+| (b) A smaller page frame | A prototype with CSS changes in Chromium. The map is limited by its height at 1440 x 900: the zoom is 75 percent with the panel open and with the panel closed. A narrower panel does not help. The title block on two compact lines gave 78.6 percent, on one line 79.8 percent, with an 8 px margin and the legend gap of the framing | Used, with the one-line title block and smaller gaps: 82.1 percent |
+| (c) Fit of the cards and regions only | The cards and regions are 776 units high, and the containers 860 units. In the 706 px high frame of the final page, the zoom would be 91 percent (calculated, not measured) | Not used: the container labels go off the screen at Fit |
+| (d) Larger label size in the layout | "Flow label size on the map page": at a scale of 1.10, 5 label collisions | Not used: it changes the check result |
+| (e) A phone step frame at a zoom at which the card text is 11 px or more | The zoom is 81.4 percent or more. The acting card is on the screen in 46 of 46 steps. Both ends of the line are on the screen in fewer steps (see below) | Used |
+
+Fit now fits the drawn bounds of the map (`data-fit`), not the viewBox with its 26-unit margin.
+It keeps the map 8 px from the frame and above one line of the legend. With a measured legend top, the zoom of the
+self map changed from layer to layer at 1024 x 768 and 800 x 600, because the legend has two lines on a narrow window
+for some layers. Thus Fit uses one line of the legend. The title block on one line had the same problem when the
+question went onto a second line: a map narrower than 860 px now shows only the question.
+
+### After the change
+
+| Map | State | Zoom (percent) | Card name | Card description | Flow label | Region label | Container label | Tag | Step number and words | Step note |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Self map | 1440 x 900, panel open | 82 | 12.1 | 11.2 | 11.0 | 11.0 | 10.7 | - | - | - |
+| Self map | 1440 x 900, panel closed | 82 | 12.1 | 11.2 | 11.0 | 11.0 | 10.7 | - | - | - |
+| Self map | 1440 x 900, Sequences step 1 | 82 | 12.1 | 11.2 | - | 11.0 | 10.7 | 11.2 | 11.2 | 11.2 |
+| Self map | 1024 x 768, panel open | 62 | 9.2 | 8.4 | 8.4 | 8.4 | 7.9 | - | - | - |
+| Self map | 1024 x 768, panel closed | 67 | 9.8 | 9.1 | 9.1 | 9.1 | 8.5 | - | - | - |
+| Self map | 800 x 600 | 48 | 7.0 | 6.5 | 6.5 | 6.5 | 6.0 | - | - | - |
+| Self map | 390 x 844, phone full map | 32 | 4.7 | 4.3 | 4.3 | 4.3 | 4.0 | - | - | - |
+| Self map | 390 x 844, phone step (smallest / median of 46 steps) | 81 / 81 | 12.0 / 12.0 | 11.1 / 11.1 | - | 8.9 / 11.1 | 10.3 / 10.3 | 11.1 / 11.1 | 11.1 / 11.1 | - |
+| Sample map | 1440 x 900, panel open | 118 | 17.4 | 16.0 | 13.0 | 13.0 | 13.0 | - | - | - |
+| Sample map | 1440 x 900, panel closed | 150 | 22.1 | 20.4 | 16.5 | 16.5 | 16.5 | - | - | - |
+| Sample map | 1440 x 900, Sequences step 1 | 118 | 17.4 | 16.0 | - | 13.0 | 13.0 | 16.0 | 16.0 | 16.0 |
+| Sample map | 1024 x 768, panel open | 77 | 11.3 | 10.5 | 10.5 | 8.5 | 10.5 | - | - | - |
+| Sample map | 1024 x 768, panel closed | 116 | 17.1 | 15.8 | 12.8 | 12.8 | 12.8 | - | - | - |
+| Sample map | 800 x 600 | 90 | 13.3 | 12.3 | 11.1 | 9.9 | 11.1 | - | - | - |
+| Sample map | 390 x 844, phone full map | 39 | 5.8 | 5.3 | 5.3 | 4.3 | 5.3 | - | - | - |
+| Sample map | 390 x 844, phone step (smallest / median of 4 steps) | 81 / 93 | 12.0 / 13.8 | 11.1 / 12.7 | - | 9.7 / 10.4 | 11.1 / 11.1 | 11.1 / 12.7 | 11.1 / 12.3 | - |
+
+Result for each acceptance value:
+
+- 1440 x 900 with the panel open: card names 12.1 px, card descriptions 11.2 px, flow labels and region labels 11.0 px. Pass.
+  The container label OUTSIDE THE PACKAGE is 10.7 px: its box is 190 units wide, and the label stops 6 units before its right edge.
+  This value fails the acceptance value of 11 px. A wider label needs a wider container, which is a layout change.
+- Sequences step at 1440 x 900: tags, step numbers and the step note at 11.2 px. Pass.
+- Phone step: card names 12.0 px and card descriptions 11.1 px in each of the 46 steps. The acting card is on the screen in 46 of 46 steps. Pass.
+  The cost: the source card of the step line is on the screen in 39 of 46 steps (before: 46), and the target card in 25 of 46 (before: 46).
+  The step note under the map gives both ends. A region label that has no room next to a step number keeps 11 units: 8.9 px.
+- Overlaps: no count increased, in any state of the tables or in the 6 phone region frames. The probe counts an item only
+  when more than 1 px of it is in the map frame. Each cell gives labels on other lines / map text or cards under the
+  page controls. The other counts were 0 before and after on the desktop.
+
+| Self map layer | 1440 x 900, panel open | 1024 x 768, panel open | 800 x 600 |
+|---|---|---|---|
+| System context | 13 / 0 (before 15 / 0) | 13 / 0 (before 15 / 3) | 13 / 2 (before 15 / 4) |
+| Structure | 0 / 0 (before 0 / 0) | 0 / 0 (before 0 / 0) | 0 / 0 (before 0 / 0) |
+| Data flow | 0 / 0 (before 0 / 0) | 0 / 0 (before 0 / 3) | 0 / 0 (before 0 / 2) |
+| Control flow | 9 / 0 (before 10 / 0) | 9 / 0 (before 10 / 3) | 9 / 0 (before 10 / 2) |
+| Map review | 2 / 0 (before 3 / 0) | 2 / 0 (before 3 / 3) | 2 / 0 (before 3 / 2) |
+| All | 0 / 0 (before 0 / 0) | 0 / 3 (before 0 / 4) | 0 / 2 (before 0 / 4) |
+
+  The labels on other lines decreased because a label that has no free place at its larger size is now in the list.
+  At Fit on 1440 x 900, the readout gives these labels in the list: System context 4 (before: 2), Control flow 2 (before: 2),
+  and Map review 4 (before: 2). Thus 2 labels of System context and 2 of the 9 labels of Map review show only for a pointer,
+  keyboard focus or selection at Fit. At 100 percent and more, the labels have their layout size, and only the labels beside their lines are in the list.
+  On the phone, the overlaps between tags, step numbers and region labels went from 23 to 0, because the step numbers now keep off the region and container labels.
+  The sample map has no overlaps before and after.
+- `systemap check` gives the same layout line: "map layout: has no errors (20 components, 76 orthogonal labeled edges,
+  no text size less than 11px)". The layout digests are the same: `c234e180810b1631` and `37a8ed23f412ee50`.
+  In a scratch worktree, `systemap refresh` and then `systemap check` gave "coverage: 84 of 84 modules mapped" and the same layout line.
+  The other check lines are stale source records, which the maintainer renews after the merge.
+- Page size: the sample page is 307,150 bytes (before: 301,519), 50 bytes under the limit. The self-map page is 643,503 bytes (before: 637,718).
+  The label script is 4,561 bytes of the 5,631. The change removes an unused camera function (`fracOf`) and a second legend
+  calculation in the sequence script. A further addition to the page can exceed the limit.
+- The zoom controls: in Chromium, Fit, the zoom value (100 percent), zoom in and zoom out (1.25), the wheel, a selection frame,
+  Escape back to Fit, full screen and the panel button all gave the expected zoom and pressed state. A view at Fit stays at Fit
+  when the panel opens or closes. The zoom value now shows the new zoom when the frame changes size. Before, the sample page
+  at 1024 x 768 showed 108% at a zoom of 72 percent after the panel opened.
+  The first-visit guide moves the map after the panel opens, so the map stays in the frame.
+  The Changes view opens at Fit (77 percent on the self map with a comparison). No page error occurred.
+  The label sizes have no motion. The camera keeps its 300 ms motion and obeys Reduce motion.
+
+Frame times during a zoom (no acceptance value was written before this run; the earlier sections use 20 percent):
+120 frames, one new zoom in each frame from 40 to 140 percent and back, 1440 x 900, Ink, headless Chromium. The first 5 frames are not counted.
+The first runs of an earlier version, which painted the map at each label scale, gave increases up to 25.8 percent in one of eight runs.
+The final version paints only when the list of labels changes:
+
+| Layer | Run | Before (mean / p95 ms) | After (mean / p95 ms) |
+|---|---|---|---|
+| Control flow | 1 | 20.61 / 33.4 | 21.78 / 33.4 |
+| Control flow | 2 | 17.98 / 33.3 | 19.88 / 33.4 |
+| Control flow | 3 | 19.44 / 33.4 | 21.49 / 33.4 |
+| Control flow | 4 | 19.00 / 33.3 | 20.61 / 33.4 |
+| All | 1 | 20.76 / 33.4 | 22.66 / 33.4 |
+| All | 2 | 20.17 / 33.4 | 21.64 / 33.4 |
+| All | 3 | 20.17 / 33.4 | 22.51 / 33.4 |
+| All | 4 | 22.08 / 33.4 | 21.05 / 33.4 |
+
+The largest increase of the mean is 11.6 percent. The differences between runs of one page are almost as large.
+
+The new tests in `tests/test_map_text.py` gave 6 failures and 1 pass on the base (acd31f5) and 7 passes after the change.
+The test that passes on the base examines that the layout widths do not change.
