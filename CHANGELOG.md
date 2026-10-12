@@ -9,6 +9,12 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+## 2.0.0 - 2026-10-12
+
+This version removes `systemap delta --format markdown`.
+A workflow from an earlier `systemap init` uses this option.
+The first item gives the procedure to change that workflow.
+
 - CI writes no map report comment on a pull request by default.
   The delta job gives each line and its action in the job log. The job fails while it is necessary to update the map.
 
