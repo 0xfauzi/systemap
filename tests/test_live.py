@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -356,26 +356,37 @@ def test_the_scan_requests_one_render_after_the_changes_stop(repo: Path) -> None
         def request(self) -> None:
             self.count += 1
 
-    requests, stop = Requests(), threading.Event()
-    thread = threading.Thread(
-        target=serve.watch,
-        args=(requests, lambda: serve.watched(repo), stop, 0.05),
-        daemon=True,
-    )
-    thread.start()
-    time.sleep(0.2)
-    assert requests.count == 0
+    class Ticks:
+        """The stop event of the scan, without a clock. Each wait() is one scan interval:
+        it does the next action, and then the scan runs. A test with real time failed on
+        a slow runner: a long gap between two writes let one scan see no change."""
+
+        def __init__(self, *actions: Callable[[], None]) -> None:
+            self.actions = list(actions)
+
+        def wait(self, _seconds: float) -> bool:
+            if not self.actions:
+                return True
+            self.actions.pop(0)()
+            return False
+
+    requests, seen = Requests(), []
     source = repo / "pkg/reader.py"
-    for n in range(3):
-        source.write_text(f"def read() -> str:\n    return '{n}'\n", encoding="utf-8")
-        os.utime(source, ns=(n * 10**9, n * 10**9))
-        time.sleep(0.02)
-    deadline = time.monotonic() + 5
-    while requests.count == 0 and time.monotonic() < deadline:
-        time.sleep(0.02)
-    time.sleep(0.3)
-    stop.set()
-    thread.join(5)
+
+    def write(n: int) -> Callable[[], None]:
+        def act() -> None:
+            source.write_text(f"def read() -> str:\n    return '{n}'\n", encoding="utf-8")
+            os.utime(source, ns=(n * 10**9, n * 10**9))
+
+        return act
+
+    def quiet() -> None:
+        seen.append(requests.count)
+
+    ticks = Ticks(quiet, quiet, write(0), write(1), write(2), quiet, quiet, quiet)
+    serve.watch(requests, lambda: serve.watched(repo), ticks, 0)
+    # No request before a change, one request after the changes stop, and no more.
+    assert seen == [0, 0, 0, 1, 1]
     assert requests.count == 1
 
 

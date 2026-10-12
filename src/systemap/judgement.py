@@ -457,13 +457,14 @@ def stale_source_reviews(model: Model, meaning: Meaning, facts: dict[str, Any]) 
     ]
 
 
-def review_counts(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
+def review_states(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int] | None:
     """This function counts the review states of the source components in all maps.
 
     A missing review is a count, not a finding, so that a map without reviews can pass.
+    The result is None if the facts are not available or no source component exists.
     """
     if not facts.get("components"):
-        return []
+        return None
     found = [
         card_review.state(card, m.model, m.meaning, facts)
         for m in tree.maps
@@ -471,9 +472,16 @@ def review_counts(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
         if card.kind != "actor"
     ]
     if not found:
+        return None
+    return {state: found.count(state) for state in card_review.STATES}
+
+
+def review_counts(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
+    """This function gives the review counts as one line of the text report."""
+    states = review_states(tree, facts)
+    if states is None:
         return []
-    counts = ", ".join(f"{found.count(state)} {state}" for state in card_review.STATES)
-    return [f"source reviews: {counts}"]
+    return ["source reviews: " + ", ".join(f"{n} {state}" for state, n in states.items())]
 
 
 def run_tree(
@@ -596,7 +604,7 @@ def answers(answer: Answer, line: str) -> bool:
 @dataclass(frozen=True)
 class Answered:
     """This record contains open diagnostics, accepted counts, stale answers, pending
-    reviews, and policy notices.
+    reviews, policy notices, and the accepted answers.
     """
 
     open: list[str]
@@ -604,6 +612,7 @@ class Answered:
     stale: list[str]
     pending: list[str] = field(default_factory=list)
     policies: list[str] = field(default_factory=list)
+    accepted: list[Answer] = field(default_factory=list)
 
 
 def apply_answers(
@@ -622,6 +631,7 @@ def apply_answers(
         stale=stale,
         pending=pending,
         policies=policies,
+        accepted=accepted,
     )
 
 

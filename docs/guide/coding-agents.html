@@ -44,73 +44,38 @@
 <p class="kicker doc__k">Guide · 4 of 8</p>
 <h1>Coding agents</h1>
 <p class="lead">A coding agent writes the map with the systemap skill. The Claude Code plugin supplies the skill and a live map above the prompt.</p>
-<p>Other agents can use the same skill files if they can read files and run commands.
-The writing profile sets the writing rules for the map text.</p>
 <h2 id="the-skill">The skill</h2>
-<p>The skill is a directory with a <code>SKILL.md</code> file and nine reference files.
-<code>systemap init</code> writes it to <code>.claude/skills/systemap/</code>.
-<code>systemap skill</code> writes it again, for example after you install a new systemap version.</p>
-<p>The instruction from <code>init</code> tells the agent to use the skill:</p>
+<p><code>systemap init</code> writes the skill to <code>.claude/skills/systemap/</code>.
+After you install a new systemap version, run <code>systemap skill</code> to write it again.
+To read the skill, run <code>systemap skill --print</code>.
+Give the agent the instruction from <code>init</code>:</p>
 <blockquote>
 <p>Make a map of this repository with systemap. Obey the systemap skill and its writing rules.</p>
 </blockquote>
-<p>The skill tells the agent to do these steps, and to mark each step when it is complete:</p>
-<pre><code class="language-text">- [ ] 1 extract: The facts are current.
-- [ ] 2 draft: Each nonempty module has a component assignment. All components have positions.
-- [ ] 3 check: The check has no failures. A `stale` finding can stay until step 5.
-- [ ] 4 judgement: No judgement line or `jev` line stays without an action or an answer.
-- [ ] 5 render: The page and figures are current, and you examined both figures.
-- [ ] 6 source review: A complete source examination causes no model changes.
-- [ ] 7 stop: The work agrees with each stop condition.
-- [ ] 8 completion: The maintainer has the completion report.
-</code></pre>
-<p>The skill also tells the agent:</p>
+<p>The skill tells the agent to:</p>
 <ul>
-<li>to read <code>[writing] profile</code> before it writes a name or a sentence,</li>
-<li>to read the facts with <code>systemap facts</code>, not the full facts file,</li>
-<li>to write components and flows without positions, and then to run <code>systemap place</code>,</li>
-<li>to act on each <code>judgement</code> line, or to record an answer with a reason,</li>
-<li>to examine each module assignment, crossing import, declared flow, and entry point against the source in a second pass,</li>
-<li>not to record a digest without an examination of the source,</li>
-<li>not to complete the work while a check fails or <code>judgement --strict</code> does not exit 0.</li>
+<li>read <code>[writing] profile</code> before it writes a name or a sentence,</li>
+<li>write the components and flows without positions, and then run <code>systemap place</code>,</li>
+<li>act on each <code>judgement</code> line, or record an answer with a reason,</li>
+<li>continue until no check fails and <code>judgement --strict</code> exits 0,</li>
+<li>examine the module assignments, crossing imports, declared flows, and entry points against the source in a second pass,</li>
+<li>give the maintainer a completion report: the check results, the recorded answers, the open questions, and the uncertain claims.</li>
 </ul>
-<p>At the end, the agent gives the maintainer a completion report:</p>
-<pre><code class="language-text">Check: &lt;final systemap check result, with its coverage result&gt;
-Judgement: &lt;final systemap judgement --strict result&gt;
-Audit: &lt;final systemap audit result, or &quot;Jev not available&quot;&gt;
-Procedure: &lt;Jev or source examination, and each Jev failure&gt;
-Examined module assignments: &lt;count&gt;
-Open questions: &lt;each assignment that the maintainer must examine&gt;
-Recorded answers: &lt;each answer in systemap.toml, with its reason&gt;
-Evidence limits: &lt;each recorded extractor, source, or Jev limit&gt;
-Uncertainty: &lt;each uncertain component assignment, source claim, or word under the writing profile&gt;
-Proposed rules: &lt;each proposed invariant outside the invariant list&gt;
-</code></pre>
-<p>With <code>TYPESAFE_API_KEY</code>, the skill also tells the agent to use <code>systemap suggest --jev</code> and <code>systemap audit</code>.
-Without the key, the agent uses only the source examination procedure. The completion report tells which procedure it used.</p>
-<p>For a map that is already in use, the skill tells the agent to start with <code>systemap delta --base REF</code>.
-If <code>delta</code> identifies more than one third of the components, the agent does the full procedure again.
-<a href="pull-requests-and-ci.html">Pull requests and CI</a> gives the <code>delta</code> lines.</p>
-<p>To read the skill, run <code>systemap skill --print</code>. The <a href="reference.html#systemap-skill-dir-path-print">reference</a> gives the options.</p>
+<p>With <code>TYPESAFE_API_KEY</code>, the agent also uses <code>systemap suggest --jev</code> and <code>systemap audit</code>.
+For a map that is already in use, the agent starts with <a href="pull-requests-and-ci.html#systemap-delta"><code>systemap delta</code></a>.</p>
 <h2 id="the-claude-code-plugin">The Claude Code plugin</h2>
-<p>The systemap GitHub repository is also a Claude Code plugin marketplace. In Claude Code, type these two commands:</p>
-<pre><code class="language-text">/plugin marketplace add 0xfauzi/systemap
-/plugin install systemap@systemap
-</code></pre>
-<p>The plugin supplies the skill and the live map. The live map runs the <code>systemap</code> command, so install systemap first.</p>
+<p><a href="getting-started.html#install-systemap">Install systemap</a> first, because the plugin runs the <code>systemap</code> command.
+Then, in Claude Code, type:</p>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">/plugin marketplace add 0xfauzi/systemap</span>
+<span class="ln" style="--i:0">/plugin install systemap@systemap</span></code></pre>
 <h2 id="the-live-map-in-claude-code">The live map in Claude Code</h2>
 <p>In a repository with <code>systemap.toml</code>, or with <code>[tool.systemap]</code> in <code>pyproject.toml</code>, the plugin shows one line above the prompt:</p>
-<pre><code class="language-text">map: not started · Start live map
-</code></pre>
-<p>The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.
-<a href="trust-and-security.html">Trust and security</a> tells what systemap reads and runs.</p>
-<p>To start the live map, select <code>Start live map</code>, or type <code>/map</code>.
-The plugin then runs this command in the repository:</p>
-<pre><code class="language-sh">systemap live --port 0 --json --no-watch
-</code></pre>
-<p>After a turn that called a tool that can change files, the plugin asks <code>systemap live</code> to render the map again.
-These tools are Edit, Write, MultiEdit, NotebookEdit, and Bash. A read-only Bash call does not count.
-The line above the prompt then shows the state of the live map:</p>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">map:</span> not started · Start live map</span></code></pre>
+<p>To start the <a href="live-map.html">live map</a>, select <code>Start live map</code>, or type <code>/map</code>.
+The plugin runs <code>systemap live --port 0 --json --no-watch</code> in the repository.
+The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.</p>
+<p>After a turn that called Edit, Write, MultiEdit, NotebookEdit, or Bash, the plugin asks <code>systemap live</code> to render the map again.
+A read-only Bash call does not count. The line then shows the state:</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-live-map-in-claude-code">
 <table>
 <thead>
@@ -121,20 +86,16 @@ The line above the prompt then shows the state of the live map:</p>
 </thead>
 <tbody>
 <tr>
-<td><code>map: rendering</code></td>
-<td>systemap renders the map now.</td>
-</tr>
-<tr>
 <td><code>map: live · 3 map updates · Open map · Show</code></td>
-<td>The map shows the current files. A map update is a <code>systemap delta</code> line that needs an action.</td>
+<td>The map shows the current files. A map update is a <code>systemap delta</code> line with a necessary action.</td>
 </tr>
 <tr>
 <td><code>map: not updated: ...</code></td>
-<td>systemap could not render the map. The text gives the first line of the error. The page keeps the last correct map.</td>
+<td>systemap could not render the map. The page keeps the last correct map.</td>
 </tr>
 <tr>
 <td><code>map: The command &quot;systemap live&quot; did not start: ...</code></td>
-<td>The command could not start. The line tells you to set the <code>command</code> option.</td>
+<td>Set the <code>command</code> option.</td>
 </tr>
 <tr>
 <td><code>map: The live map stopped: ...</code></td>
@@ -143,14 +104,10 @@ The line above the prompt then shows the state of the live map:</p>
 </tbody>
 </table>
 </div>
-<p><code>Open map</code> opens the full page in a browser, at a <code>http://localhost</code> address.
-<code>Show</code> and <code>/map</code> open a pane. In a terminal, the pane shows the map update lines and the link.
-On other surfaces, the pane also shows the change figure.
-If the figure has more than 131,072 characters, the pane shows the link and no figure.</p>
-<p>In a directory without systemap configuration, the plugin shows nothing.
-<a href="live-map.html">The live map</a> tells what <code>systemap live</code> does.</p>
+<p><code>Open map</code> opens the page in a browser.
+<code>Show</code> and <code>/map</code> open a pane with the map update lines and the link. Outside a terminal, the pane also shows the change figure.</p>
 <h2 id="plugin-options">Plugin options</h2>
-<p>The plugin has two options. Set them with <code>/plugin configure systemap@systemap</code> or in <code>/config</code>.</p>
+<p>Set the options with <code>/plugin configure systemap@systemap</code> or in <code>/config</code>.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="plugin-options">
 <table>
 <thead>
@@ -169,37 +126,23 @@ If the figure has more than 131,072 characters, the pane shows the link and no f
 <tr>
 <td><code>autostart</code></td>
 <td><code>false</code></td>
-<td>If true, the live map starts when a session starts in a systemap repository.</td>
+<td>If true, the live map starts when a session starts in a systemap repository. The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>The plugin describes <code>autostart</code> with this sentence:
-&quot;The live map reads map/model.py without running its code, unless SYSTEMAP_TRUST_MODEL_CODE=1 is in the environment of Claude Code.&quot;</p>
 <h2 id="other-agents">Other agents</h2>
-<p>The skill is Markdown text. An agent that can read files and run commands can use it.
-Write the skill to the directory that your agent reads:</p>
-<pre><code class="language-sh">systemap skill --dir path/to/skills/systemap
-</code></pre>
+<p>An agent that can read files and run commands can use the skill. Write the skill to the directory that your agent reads:</p>
+<pre class="code"><code class="language-sh"><span class="k">systemap</span> skill <span class="a">--dir</span> path/to/skills/systemap</code></pre>
 <p>Then give the agent the instruction from <code>init</code>.
-The plugin and the live map line work only in Claude Code. <code>systemap live</code> works with each agent and each browser.</p>
-<h2 id="sequence-drafts-from-an-agent-command">Sequence drafts from an agent command</h2>
-<p><code>systemap journeys</code> can ask a coding agent for draft sequences.
-Set the command under <code>[agent]</code> in <code>systemap.toml</code>. The command reads the question from its standard input:</p>
-<pre><code class="language-toml">[agent]
-command = &quot;claude -p --output-format json&quot;
-</code></pre>
-<p>Each question contains the language policy of the writing profile.
-The command rejects a step that has no authored flow. It writes the accepted sequences with <code>drafted=True</code>.
-<code>systemap judgement</code> prints a <code>drafted journey</code> finding until a person examines the sequence and removes the mark.
-The <a href="reference.html#systemap-journeys-limit-n-dry-run">reference</a> gives the options.</p>
+The plugin works only in Claude Code. <code>systemap live</code> works with each agent and each browser.
+<code>systemap journeys</code> can ask an agent for <a href="reference.html#systemap-journeys-limit-n-dry-run">draft sequences</a> through <code>[agent] command</code>.</p>
 <h2 id="the-writing-profile">The writing profile</h2>
-<p>The writing profile sets the writing rules for the map text that a person reads.
-This text includes component names and descriptions, flow artifacts and sentences, layers, sequences, invariants, and the reasons of recorded answers.
-Set the profile in <code>systemap.toml</code>. In <code>pyproject.toml</code>, use the <code>[tool.systemap.writing]</code> table.</p>
-<pre><code class="language-toml">[writing]
-profile = &quot;plain&quot;
-</code></pre>
+<p>The writing profile sets the rules for the map text that a person reads.
+The skill gives the rules in <code>references/language.md</code>. Set the profile in <code>systemap.toml</code>:</p>
+<pre class="code"><code class="language-toml"><span class="k">[writing]
+</span><span class="a">profile </span><span class="p">= </span><span class="s">"plain"
+</span></code></pre>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-writing-profile">
 <table>
 <thead>
@@ -211,31 +154,18 @@ profile = &quot;plain&quot;
 <tbody>
 <tr>
 <td><code>plain</code></td>
-<td>The common rules and the project glossary of the language policy. This is the default, and <code>init</code> writes it.</td>
+<td>The common rules (sentence length, active voice, literal words, one term for each concept) and the project glossary. This is the default.</td>
 </tr>
 <tr>
 <td><code>asd-ste100</code></td>
-<td>The common rules, the glossary, and the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary.</td>
+<td>The common rules, the glossary, and the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. Without it, the agent tells the maintainer and gives no acceptance result.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>The common rules limit the sentence length and require the active voice, literal words, and one term for each concept.
-A person or a program can examine them without a dictionary.
-Under <code>plain</code>, the agent must not say that the text obeys ASD-STE100.
-Under <code>asd-ste100</code>, an agent without the official dictionary must tell the maintainer, and give no acceptance result.</p>
-<p>The skill reads the profile. <code>systemap journeys</code> puts the policy of the profile in each agent question.
-A different value gives a configuration error and exit code 2:</p>
-<pre><code class="language-text">$ systemap check
-systemap: systemap.toml: writing.profile must be &quot;plain&quot; or &quot;asd-ste100&quot;
-Correct systemap.toml or the model module. Then run the command again.
-</code></pre>
-<p>The profile does not change commands, schema keys, identifiers, or quoted source evidence.
-This repository uses the <code>asd-ste100</code> profile for its map, its interface text, and its documentation.
-The language policy is in the skill, at <code>references/language.md</code>.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="reading-the-map.html" rel="prev"><span class="kicker">Previous</span><span>Read the map</span></a><a class="pager__a pager__next" href="pull-requests-and-ci.html" rel="next"><span class="kicker">Next</span><span>Pull requests and CI</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-skill">The skill</a></li><li class="toc__l2"><a href="#the-claude-code-plugin">The Claude Code plugin</a></li><li class="toc__l2"><a href="#the-live-map-in-claude-code">The live map in Claude Code</a></li><li class="toc__l2"><a href="#plugin-options">Plugin options</a></li><li class="toc__l2"><a href="#other-agents">Other agents</a></li><li class="toc__l2"><a href="#sequence-drafts-from-an-agent-command">Sequence drafts from an agent command</a></li><li class="toc__l2"><a href="#the-writing-profile">The writing profile</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-skill">The skill</a></li><li class="toc__l2"><a href="#the-claude-code-plugin">The Claude Code plugin</a></li><li class="toc__l2"><a href="#the-live-map-in-claude-code">The live map in Claude Code</a></li><li class="toc__l2"><a href="#plugin-options">Plugin options</a></li><li class="toc__l2"><a href="#other-agents">Other agents</a></li><li class="toc__l2"><a href="#the-writing-profile">The writing profile</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
