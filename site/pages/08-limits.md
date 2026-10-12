@@ -2,18 +2,18 @@
 
 A map without open findings agrees with the mechanical rules of systemap. It does not prove that each claim is correct.
 
-A clean map does not prove that each component assignment, flow direction, or artifact is correct.
+Such a map can still have an incorrect component assignment, flow direction, or artifact.
 This page tells what the checks show, what they do not show, and the measured limits.
 
-## What a clean map shows
+## What a map without findings shows
 
-| Command | What a clean result shows |
+| Command | What a result without findings shows |
 |---|---|
 | `systemap check` | Each module that is not an empty package marker has one component, or an ignore with a reason. Entry and interface names exist in the claimed modules. Routes and labels obey the layout rules. The facts, the page, and the figures are current. |
 | `systemap judgement --strict` | Each possible map error has a change in the map, or an answer with a reason. Each exact answer has the current evidence digest. |
 | `systemap delta` | The component claims agree with the moved, added, and removed modules. Each changed component has a current source review. |
 
-## What a clean map does not show
+## What a map without findings does not show
 
 - The rules use names and imports. A module in an incorrect component can pass all of them.
 - An import does not show the direction of a flow or its artifact.
@@ -45,7 +45,7 @@ systemap uses digests to find changes in recorded evidence:
 When the source or the claim changes, the digest changes, and the finding opens again.
 A digest identifies the recorded source and claims. It does not show that the claim is correct.
 A person or an agent can record a current digest without an examination of the source.
-The skill forbids this, but no program can find it.
+The skill tells the agent not to do this, but no program can find it.
 
 ## Languages
 

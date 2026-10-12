@@ -70,7 +70,7 @@ The Details panel of a component gives:
 - the rules that apply to it,
 - the source modules that it contains.
 
-Point to a line, or move the keyboard focus to it, to see a preview of that flow.
+Move the pointer or the keyboard focus to a line to see a preview of that flow.
 Select a line to see its artifact, its direction, its evidence state, and its source records.
 Press Escape to clear the selection.
 
@@ -81,7 +81,7 @@ On a window wider than 820 pixels, the Map view opens the panel with the page.
 
 With no selection, the panel shows the current layer.
 It gives one card for each flow, actor, or region of the layer, and then the guide steps.
-Two more sections open on a click:
+Two more sections open when you select them:
 
 - **Lines and cards** tells how to read the line patterns, the card marks, and the evidence states.
 - **Rules** gives all the invariants of the system. Each rule has a button for each component to which it applies.
