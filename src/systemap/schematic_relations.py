@@ -653,7 +653,6 @@ svg.systemap = {
     frameRegion: frameRegion,
     frame: function(){ return lastFrame; },
     visibleArea: visibleArea,
-    fracOf: fracOf,
     whenStill: whenStill,
     back: back
   },

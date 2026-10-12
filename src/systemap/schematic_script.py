@@ -363,15 +363,6 @@ function back(){
   saved = null; framed = false;
   setView(v);
 }
-function fracOf(id){
-  // Where the card's centre sits across the visible area (the last framing's,
-  // else the viewport), 0 to 1, once the view arrives. The page docks its
-  // drawer on the other side.
-  var n = nodeOf[id];
-  if(!n){ return 0.5; }
-  var b = boxOf(n), a = lastFrame ? lastFrame.area : {x:VB.x, w:VB.width};
-  return (goal.k * (b.x + b.w / 2) + goal.tx - a.x) / a.w;
-}
 
 // Wheel (and trackpad pinch, which arrives as ctrl+wheel) zooms about the
 // pointer. A drag pans; under 4px of movement it is a click and the cards

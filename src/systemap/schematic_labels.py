@@ -24,10 +24,9 @@ function hits(a, b, pad){
 }
 function tf(g, s, x, y, dx, dy){
   // Scale g by s about the point (x, y), then move it by (dx, dy).
-  dx = dx || 0; dy = dy || 0;
   if(s === 1 && !dx && !dy){ g.removeAttribute('transform'); return; }
-  g.setAttribute('transform', 'matrix(' + s + ' 0 0 ' + s + ' ' + (x * (1 - s) + dx).toFixed(2)
-    + ' ' + (y * (1 - s) + dy).toFixed(2) + ')');
+  g.setAttribute('transform', 'matrix(' + s + ' 0 0 ' + s + ' ' + (x * (1 - s) + (dx || 0))
+    .toFixed(2) + ' ' + (y * (1 - s) + (dy || 0)).toFixed(2) + ')');
 }
 // Each line as one box for each horizontal or vertical run.
 flows.forEach(function(p){
@@ -54,8 +53,12 @@ var LABS = labels.map(function(l){
   var r = l.querySelector('.flowlbl__hit'), i = +l.dataset.edge;
   var box = {x:+r.getAttribute('x'), y:+r.getAttribute('y') + 6, w:+r.getAttribute('width'),
     h:+r.getAttribute('height') - 12};
-  var b = part(l, box, box.x + box.w / 2, box.y + box.h / 2, i);
-  b.own = SEGS.filter(function(q){ return q.e === i && hits(q, {x:b.x, y:b.y, w:0, h:0}, 1); })[0];
+  var b = part(l, box, box.x + box.w / 2, box.y + box.h / 2, i), near = box.w / 2 + 8;
+  // The run of its own line nearest to the label: under it, or beside it.
+  SEGS.forEach(function(q){
+    var d = Math.max(q.x - b.x, b.x - q.x - q.w, 0) + Math.max(q.y - b.y, b.y - q.y - q.h, 0);
+    if(q.e === i && d < near){ near = d; b.own = q; }
+  });
   return b;
 });
 function growth(){
@@ -65,7 +68,7 @@ function growth(){
 function free(r, ctx, b){
   return !ctx.cards.some(function(c){ return hits(r, c, 2); })
     && !ctx.taken.some(function(t){ return hits(r, t, 1); })
-    && !ctx.segs.some(function(q){ return !b.base[q.e] && hits(q, r, 0); });
+    && !ctx.segs.some(function(q){ return q.e !== b.i && !b.base[q.e] && hits(q, r, 0); });
 }
 function placeHead(h, s, ctx){
   // The largest scale up to s at which the label has room in its box.
@@ -119,8 +122,7 @@ function relabel(){
   });
   for(var e in besideOf){ delete besideOf[e]; }
   besideEdges.length = 0;
-  crowd.sort(function(a, b){ return a - b; })
-    .forEach(function(i){ besideOf[i] = true; besideEdges.push(i); });
+  crowd.forEach(function(i){ besideOf[i] = true; besideEdges.push(i); });
   paint();
   if(svg.page && svg.page.syncFrame){ svg.page.syncFrame(); }
 }
