@@ -584,7 +584,7 @@ Map changes compare the committed model at the merge base with the model of the 
 They have a group each for components, flows, sequences, and rules.
 
 A row gives the item, its changed parts or the rule text,
-and the word added, removed, or changed in vermilion. A row for an item on the page selects it on the change map or starts the sequence.
+and the word Added, Removed, or Changed in vermilion. A row for an item on the page selects it on the change map or starts the sequence.
 A removed item has a dashed border and no action. A group shows ten rows and the quantity of the other rows.
 
 A selected component with changed source shows its source changes and then its rules, because the change must keep them. The page does not show the judgement findings or the delta lines.
@@ -635,9 +635,10 @@ For this reason, Reduce motion is an icon in the header. The reader can find it 
 
 A figure outside the page has no page setting. A figure obeys the system setting.
 
-The source modules are `page.py`, `page_assets.py`, `page_script.py`, `page_workspace.py`, `page_guide.py`,
-`page_palette.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`, `page_present.py`,
-`page_changes.py`, `page_changes_script.py`, `page_phone.py`, `page_motion.py`, `page_mapview.py`,
-`page_icons.py`, `page_font.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
+The source modules are `page.py`, `page_assets.py`, `page_data.py`, `page_script.py`, `page_workspace.py`,
+`page_guide.py`, `page_palette.py`, `page_groups.py`, `page_sequences.py`, `page_sequence_script.py`,
+`page_present.py`, `page_changes.py`, `page_changes_map.py`, `page_changes_script.py`, `page_phone.py`,
+`page_motion.py`, `page_mapview.py`, `page_icons.py`, `page_font.py`, `schematic.py`, `schematic_cards.py`,
+`schematic_change.py`, `schematic_style.py`, `schematic_script.py`, and `schematic_relations.py`.
 The build removes the comments, line breaks, and indentation from the page styles and scripts.
 The browser measurements and test results are in `bench/jev/README.md`.
