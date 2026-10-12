@@ -17,11 +17,11 @@ Each module that is not an empty package marker must have exactly one component,
 | `kind` | Meaning | Card mark |
 |---|---|---|
 | `component` | A system part that does work. | Standard border. |
-| `store` | Stored software data. | A line below its name. |
+| `store` | Stored software data. | A second line at the bottom of the card. |
 | `actor` | A person or system outside the mapped source. | Dashed border. |
 | `agent` | A part that calls a model and acts on the output. | Inner ring. |
 | `tool` | A capability that an agent calls. | Notched corner. |
-| `context` | Stored content for the input of a model. | Dotted border. |
+| `context` | Stored content for the input of a model. | Dotted border and a second line at the bottom of the card. |
 
 ## Flow and artifact
 

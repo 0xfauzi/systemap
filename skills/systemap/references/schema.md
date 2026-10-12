@@ -135,11 +135,11 @@ Refresh does not write this digest. See `references/maintenance.md` for the proc
 | kind | function | card mark |
 |---|---|---|
 | `component` | A system part that does work. | Standard outline. |
-| `store` | Stored software data. | A line below its name. |
+| `store` | Stored software data. | A second line at the bottom of the card. |
 | `actor` | A person or system outside the mapped source. | Dashed outline. |
 | `agent` | A model-calling part that acts on model output. | Inner ring. |
 | `tool` | A capability that an agent calls. | Notched corner. |
-| `context` | Stored content that enters a model context window. | Dotted outline. |
+| `context` | Stored content that enters a model context window. | Dotted outline and a second line at the bottom of the card. |
 
 Source cards have the evidence state `built`. Actors show `outside`.
 This means the source identities exist. It does not show every authored description.

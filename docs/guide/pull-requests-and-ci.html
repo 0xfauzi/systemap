@@ -44,11 +44,8 @@
 <p class="kicker doc__k">Guide · 5 of 8</p>
 <h1>Pull requests and CI</h1>
 <p class="lead">The workflow from <code>systemap init</code> compares the map with the source in CI. On a pull request, <code>systemap delta</code> gives the map changes.</p>
-<p>The workflow runs on each push to <code>main</code> and on each pull request.
-Each <code>delta</code> line gives a map change and the necessary action.
-By default, a map finding gives a warning, and the job passes.</p>
 <h2 id="the-workflow-from-init">The workflow from init</h2>
-<p><code>systemap init</code> writes <code>.github/workflows/systemap.yml</code>. It has three jobs:</p>
+<p><code>systemap init</code> writes <code>.github/workflows/systemap.yml</code> with three jobs:</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-workflow-from-init">
 <table>
 <thead>
@@ -61,32 +58,28 @@ By default, a map finding gives a warning, and the job passes.</p>
 <tbody>
 <tr>
 <td><code>systemap</code></td>
-<td>Each push to <code>main</code> and each pull request.</td>
+<td>Each push to <code>main</code> and each pull request</td>
 <td>Runs <code>extract --check</code>, <code>check</code>, <code>judgement --strict</code>, and <code>render --check</code>.</td>
 </tr>
 <tr>
 <td><code>delta</code></td>
-<td>Each pull request.</td>
-<td>Runs <code>delta</code> from the base commit to the head commit of the pull request.</td>
+<td>Each pull request</td>
+<td>Runs <code>delta</code> from the base commit to the head commit.</td>
 </tr>
 <tr>
 <td><code>link</code></td>
-<td>A pull request, if <code>delta</code> wrote a comment.</td>
+<td>If <code>delta</code> wrote a comment</td>
 <td>Posts or changes one comment with a link to the Changes view.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>The workflow runs the released package with <code>uvx --from &quot;systemap==&lt;version&gt;&quot;</code>.
-The version is the version that wrote the file, so your project needs no dependency on systemap.
+<p>The workflow runs <code>uvx --from &quot;systemap==&lt;version&gt;&quot;</code> with the version that wrote the file.
+It does not set <code>TYPESAFE_API_KEY</code>, so no question goes to Jev.
 When you install a new systemap version, change the version in the workflow file.</p>
-<p>The <code>systemap</code> and <code>delta</code> jobs have only the <code>contents: read</code> permission. They check out the code without stored credentials.
-The <code>link</code> job checks out no code. It is the only job with the <code>pull-requests: write</code> permission.</p>
 <h2 id="advisory-and-strict">Advisory and strict</h2>
-<p>The variable <code>SYSTEMAP_CI</code> in the workflow sets what a map finding does:</p>
-<pre class="code"><code class="language-yaml">env:
-  # advisory: a map finding gives a warning. strict: a map finding makes the job fail.
-  SYSTEMAP_CI: advisory</code></pre>
+<p>The variable <code>SYSTEMAP_CI</code> in the workflow sets what a map finding does.
+<code>systemap init</code> writes <code>advisory</code>. <code>systemap init --strict-ci</code> writes <code>strict</code>. You can change the value later.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="advisory-and-strict">
 <table>
 <thead>
@@ -115,97 +108,51 @@ The <code>link</code> job checks out no code. It is the only job with the <code>
 </tbody>
 </table>
 </div>
-<p><code>systemap init</code> writes <code>advisory</code>. <code>systemap init --strict-ci</code> writes <code>strict</code>.
-You can change the value in the workflow file later.
-If the workflow file exists, <code>init</code> does not change it.</p>
 <h2 id="systemap-delta">systemap delta</h2>
 <p><code>systemap delta --base REF</code> compares the facts at the merge base of <code>REF</code> and <code>HEAD</code> with the facts at <code>HEAD</code>.
-It reads the committed files at the two commits, and it uses the model on disk.
-Each line gives a map change and its necessary action.</p>
-<p>In the example project of <a href="getting-started.html">Get started</a>, a branch added a module and renamed another one:</p>
+It uses the committed files at the two commits and the model on disk.</p>
+<p>In the <a href="getting-started.html">Get started</a> project, a branch added a module and renamed another one.
+These are the first lines of the output:</p>
 <pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main</span>
 <span class="ln" style="--i:0"><span class="l">delta:</span> main (5e0837b) -&gt; HEAD (3e4b6a9): 1 module changed, 1 added, 0 removed, 1 moved. 2 of 3 components specified</span>
 <span class="ln" style="--i:0"><span class="bad">The map needs an update (4):</span></span>
-<span class="ln" style="--i:2">  <span class="ok">moved:</span> shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py</span>
-<span class="ln" style="--i:6">      <span class="l">why:</span> A component with the previous path no longer contains the module.</span>
-<span class="ln" style="--i:6">      <span class="l">do:</span>  Change the module claim to the new name. Or put the module in the component for its task at this snapshot.</span>
-<span class="ln" style="--i:2">  <span class="ok">added:</span> shop.discounts, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]</span>
-<span class="ln" style="--i:6">      <span class="l">why:</span> Without a component for the module, the map omits part of the system.</span>
-<span class="ln" style="--i:6">      <span class="l">do:</span>  Add the module to the component for its task, or give a reason to ignore it in `[coverage]`.</span>
-<span class="ln" style="--i:2">  <span class="bad">source review:</span> CommandLine has changed code in shop.cli. Compare its description, flows, sequences, and invariants with the new source.</span>
-<span class="ln" style="--i:6">      <span class="l">why:</span> Imports and public signatures do not give all behavior changes. The component description and related claims can now be incorrect.</span>
-<span class="ln" style="--i:6">      <span class="l">do:</span>  Read the changed source. Correct the claims. Then record the `source_review` digest as the maintenance guide specifies.</span>
-<span class="ln" style="--i:2">  <span class="bad">source review:</span> OrderFiles has changed code in shop.store. Compare its description, flows, sequences, and invariants with the new source.</span>
-<span class="ln" style="--i:0">next to the change:</span>
-<span class="ln" style="--i:2">  CommandLine has the most changed modules. It has flows to 3 of the 3 components, so the list gives no useful context.</span>
-<span class="ln" style="--i:0">The change includes more than one third of the components. Use the full skill maintenance procedure.</span>
-<span class="ln" style="--i:0">Do the action in each line under "The map needs an update". Then run systemap refresh &amp;&amp; systemap check &amp;&amp; systemap judgement --strict</span></code></pre>
+<span class="ln" style="--i:2">  <span class="ok">moved:</span> shop.store -&gt; shop.storage (same content). OrderFiles specifies shop.store in implemented_by. Change this claim to shop.storage in map/model.py</span></code></pre>
 <p>The exit code is 1 while the map needs an update.
-The agent changed the claims in <code>map/model.py</code>, examined the changed source, and recorded the <code>source_review</code> digests.
-Then the same command gave exit code 0:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main <span class="a">--brief</span></span>
-<span class="ln" style="--i:0"><span class="l">delta:</span> main (5e0837b) -&gt; HEAD (5920aaf): 1 module changed, 1 added, 0 removed, 1 moved. 2 of 3 components specified</span>
-<span class="ln" style="--i:0"><span class="ok">No action is necessary for these changes (2):</span></span>
-<span class="ln" style="--i:2">  <span class="ok">moved:</span> shop.store -&gt; shop.storage (same content), with a claim in OrderFiles</span>
-<span class="ln" style="--i:2">  <span class="ok">added:</span> shop.discounts, with a claim in Orders</span>
-<span class="ln" style="--i:0">next to the change:</span>
-<span class="ln" style="--i:2">  CommandLine has the most changed modules. It has flows to 3 of the 3 components, so the list gives no useful context.</span>
-<span class="ln" style="--i:0">The change includes more than one third of the components. Use the full skill maintenance procedure.</span>
-<span class="ln" style="--i:0">The map is current. Run systemap refresh to write the facts and the page again.</span></code></pre>
-<p>Other line kinds include <code>removed</code>, <code>entry vanished</code>, <code>interface vanished</code>, <code>new crossing import</code>, and <code>evidence lost</code>.
-<code>systemap explain &quot;&lt;kind&gt;&quot;</code> gives the meaning and the action of each kind.
-The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev">reference</a> gives all options.</p>
-<p>With <code>TYPESAFE_API_KEY</code> set, <code>delta</code> also asks Jev for possible module moves. <code>--no-jev</code> sends nothing.
-Jev answers do not change the delta lines or the exit code. The workflow from <code>init</code> does not set the key.</p>
+After the agent did the four actions, the exit code was 0.</p>
+<p><code>systemap explain &quot;&lt;kind&gt;&quot;</code> gives the meaning and the action of a line kind.
+The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev">reference</a> gives the options.</p>
 <h2 id="the-changes-view">The Changes view</h2>
 <p><code>systemap render --base REF</code> writes a page with a revision comparison.
-A link to the page that ends in <code>#changes</code> opens the Changes view.
-<a href="reading-the-map.html#changes">Read the map</a> tells what the view shows.</p>
-<p>The Changes panel lists the map changes.
-It compares the committed model at the merge base with the model on disk.</p>
-<p>Do not commit this page into the output directory.
-The checks compare the committed page with a page without a comparison, so the page is stale for them:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> render <span class="a">--base</span> main</span>
-<span class="ln" style="--i:0">The command wrote docs/map/index.html (398 KB)</span>
-<span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> render <span class="a">--check</span></span>
-<span class="ln" style="--i:0">docs/map/index.html is stale: it differs from the rendered output.</span>
-<span class="ln" style="--i:0"><span class="k">run:</span> systemap refresh</span></code></pre>
-<p>Publish the page of each pull request at a different place, or use <a href="live-map.html">the live map</a> on your computer.</p>
+A link that ends in <code>#changes</code> opens the Changes view. <a href="reading-the-map.html#changes">Read the map</a> tells what it shows.</p>
+<p>Do not commit this page into the output directory, because <code>systemap render --check</code> finds it stale.
+Publish the page of each pull request at a different place, or use <a href="live-map.html">the live map</a> on your computer.</p>
 <h2 id="the-link-comment">The link comment</h2>
-<p>CI writes no comment by default.
-If your repository publishes the map page of each pull request, set its URL in <code>systemap.toml</code>:</p>
+<p>If your repository publishes the map page of each pull request, set its URL in <code>systemap.toml</code>:</p>
 <pre class="code"><code class="language-toml"><span class="k">[delta]
 </span><span class="a">page_url </span><span class="p">= </span><span class="s">"https://example.org/pr-{number}/"
 </span></code></pre>
-<p>The URL must start with <code>https://</code> or <code>http://</code> and contain <code>{number}</code>. It must not contain <code>#</code> or a space.
-The pull request number replaces <code>{number}</code>.
-With this value, <code>systemap delta --comment FILE --pr N</code> writes the comment to <code>FILE</code>:</p>
+<p>The <a href="reference.html#what-can-you-configure">reference</a> gives the rules for the URL.
+Then <code>systemap delta --comment FILE --pr N</code> writes the comment to <code>FILE</code>:</p>
 <pre class="out"><code class="language-text"><span class="ln" style="--i:0">&lt;!-- systemap delta --&gt;</span>
 <span class="ln" style="--i:0">[Open the Changes view of the map](https://example.org/pr-7/#changes)</span>
 <span class="ln" style="--i:0"></span>
 <span class="ln" style="--i:0">A map update is necessary (4 lines). The log of the delta job gives the action for each line.</span></code></pre>
-<p>Without <code>page_url</code>, the command writes no file. The comment does not change the delta lines or the exit code.
-systemap does not publish the page. Your repository must publish it at that URL.</p>
-<p>The <code>link</code> job posts the comment, and changes the same comment after each push.
-It runs only for a pull request from a branch of the same repository.
-The delta job runs the code of the pull request, and the code and the settings of a fork can change the comment text.
-<a href="trust-and-security.html#the-ci-link-job">Trust and security</a> gives the details.</p>
+<p>systemap does not publish the page.
+The <code>link</code> job posts the comment, and changes the same comment after each push.
+It runs only for a pull request from a branch of the same repository. <a href="trust-and-security.html#the-ci-link-job">Trust and security</a> tells why.</p>
 <h2 id="upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</h2>
 <p>A workflow from <code>systemap init</code> 1.2.0 or earlier runs <code>systemap delta --format markdown</code>.
-Version 2.0.0 removed this option.
-The workflow uses the version in its file.
-If you change that version to 2.0.0 or later, <code>systemap delta</code> stops with exit code 2, and the delta job fails:</p>
+Version 2.0.0 removed this option, so with 2.0.0 or later the delta job fails with exit code 2:</p>
 <pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main <span class="a">--format</span> markdown</span>
 <span class="ln" style="--i:0"><span class="l">usage:</span> systemap [-h] [--version] [--root ROOT] command ...</span>
 <span class="ln" style="--i:0"><span class="l">systemap:</span> error: unrecognized arguments: --format markdown</span></code></pre>
-<p><code>init</code> does not change a workflow file that exists. To get the new workflow, do these steps:</p>
+<p><code>init</code> does not change a workflow file that exists. To get the new workflow:</p>
 <ol>
 <li>Remove <code>.github/workflows/systemap.yml</code>.</li>
-<li>Run <code>systemap init</code>. It keeps your configuration and your model, and it writes the skill directory again.</li>
+<li>Run <code>systemap init</code>. It keeps your configuration and your model.</li>
 <li>If you changed the old workflow, compare it with the new file.</li>
 </ol>
-<p>Use the same steps to get the advisory mode in a workflow from 2.0.0.
-In that workflow, each map finding makes the job fail.</p>
+<p>In a workflow from 2.0.0, each map finding makes the job fail. For the advisory mode, do the same steps.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="coding-agents.html" rel="prev"><span class="kicker">Previous</span><span>Coding agents</span></a><a class="pager__a pager__next" href="live-map.html" rel="next"><span class="kicker">Next</span><span>The live map</span></a></nav>
 </main>
 <aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-link-comment">The link comment</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>

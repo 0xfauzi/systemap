@@ -44,27 +44,14 @@
 <p class="kicker doc__k">Guide · 2 of 8</p>
 <h1>Concepts</h1>
 <p class="lead">This page gives the terms of a systemap map and their meanings in this project.</p>
-<p>A map has two parts: source facts that a program extracts, and a model that a person or an agent writes.
-The examples come from the small project in <a href="getting-started.html">Get started</a>.</p>
 <h2 id="facts-and-model">Facts and model</h2>
-<p>The <strong>facts</strong> are records that <code>systemap extract</code> makes from the source files.
-They contain modules, public names, imports, test references, and entry points.
-The command writes them to <code>docs/map/map.json</code>.
-The facts do not show which modules together do one task. They also do not show the direction of a connection.</p>
-<p>The <strong>model</strong> is a Python module, usually <code>map/model.py</code>.
-It exports <code>MODEL</code> and <code>MEANING</code>. A person or a coding agent writes it.
-The model gives the components, the flows, the sequences, and the invariants.</p>
-<p>The renderer makes the page and the figures from the facts and the model.
-The checks compare the model with the facts.</p>
-<h2 id="component">Component</h2>
-<p>A <strong>component</strong> is the system part that a map assigns to source modules or symbols.
-A card on the map shows one component.</p>
 <ul>
-<li><code>implemented_by</code> gives the source of the component: a module (<code>&quot;shop.orders&quot;</code>), a package pattern (<code>&quot;shop.ui.*&quot;</code>), or a symbol (<code>&quot;shop.cli:main&quot;</code>).</li>
-<li><code>entry</code> gives one public symbol of those modules.</li>
-<li><code>does</code> gives the task of the component in one or two sentences.</li>
-<li><code>MEANING.plain</code> gives a short name that the card shows below the identifier.</li>
+<li><strong>Facts</strong>: records that <code>systemap extract</code> makes from the source files. They give modules, public names, imports, test references, and entry points. They do not show which modules do one task together, or the direction of a connection.</li>
+<li><strong>Model</strong>: a Python module, usually <code>map/model.py</code>, that a person or a coding agent writes. It gives the components, flows, sequences, and invariants.</li>
 </ul>
+<h2 id="component">Component</h2>
+<p>A <strong>component</strong> is the system part that a map assigns to source modules or symbols. A card on the map shows one component.
+<code>implemented_by</code> gives its modules (<code>&quot;shop.orders&quot;</code>), package patterns (<code>&quot;shop.ui.*&quot;</code>), or symbols (<code>&quot;shop.cli:main&quot;</code>).</p>
 <p>Each module that is not an empty package marker must have exactly one component, or a recorded ignore under <code>[coverage]</code>.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="component">
 <table>
@@ -84,16 +71,16 @@ A card on the map shows one component.</p>
 <tr>
 <td><code>store</code></td>
 <td>Stored software data.</td>
-<td>A line below its name.</td>
+<td>A second line at the bottom of the card.</td>
 </tr>
 <tr>
 <td><code>actor</code></td>
-<td>A person or system outside the mapped source. It has no modules.</td>
+<td>A person or system outside the mapped source.</td>
 <td>Dashed border.</td>
 </tr>
 <tr>
 <td><code>agent</code></td>
-<td>A part that calls a model and acts on the model output.</td>
+<td>A part that calls a model and acts on the output.</td>
 <td>Inner ring.</td>
 </tr>
 <tr>
@@ -103,113 +90,85 @@ A card on the map shows one component.</p>
 </tr>
 <tr>
 <td><code>context</code></td>
-<td>Stored content that goes into the input of a model.</td>
-<td>Dotted border.</td>
+<td>Stored content for the input of a model.</td>
+<td>Dotted border and a second line at the bottom of the card.</td>
 </tr>
 </tbody>
 </table>
 </div>
 <h2 id="flow-and-artifact">Flow and artifact</h2>
 <p>A <strong>flow</strong> is a directed relation with one artifact and two component endpoints.
-The <strong>artifact</strong> is the named data or control item that the flow carries.
-This flow carries the artifact <code>order</code> from <code>OrderFiles</code> to <code>CommandLine</code>:</p>
+The <strong>artifact</strong> is the named data or control item that the flow carries.</p>
 <pre class="code"><code class="language-python"><span class="f">Flow</span><span class="p">(</span><span class="s">"OrderFiles"</span><span class="p">, </span><span class="s">"CommandLine"</span><span class="p">, </span><span class="s">"order"</span><span class="p">, </span><span class="s">"data"</span><span class="p">)
 </span></code></pre>
-<p>The standard flow kinds are <code>data</code>, <code>control</code>, <code>context</code>, and <code>tool</code>.
-A model declares each other kind in <code>flow_kinds</code> and gives it a layer.
-A map has one flow, or no flow, for each ordered pair of components.
-Each flow has one relation sentence in <code>MEANING.relations</code>, written from the source component.</p>
+<ul>
+<li>The standard flow kinds are <code>data</code>, <code>control</code>, <code>context</code>, and <code>tool</code>. A model declares each other kind in <code>flow_kinds</code> and gives it a layer.</li>
+<li>A map has one flow, or no flow, for each ordered pair of components.</li>
+</ul>
 <h2 id="sequence-and-entry-point">Sequence and entry point</h2>
-<p>An <strong>entry point</strong> is a command, route, or public symbol where a run can start.
-Extraction finds console scripts, <code>python -m</code> modules, <code>main</code> functions, subcommands, and the public functions of a package root:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> facts <span class="a">--entry-points</span></span>
-<span class="ln" style="--i:0"><span class="l">entry points:</span> 2. A sequence specifies each applicable entry point. The target is a console-script function or a subcommand script.</span>
-<span class="ln" style="--i:2">  shop (console script): shop.cli, target main</span>
-<span class="ln" style="--i:2">  main() in shop.cli: shop.cli, target main</span></code></pre>
-<p>A <strong>sequence</strong> is the ordered set of steps that starts at an entry point.
-The schema uses the names <code>Journey</code> and <code>journeys</code> for a sequence.
+<p>An <strong>entry point</strong> is a command, route, or public symbol where a run can start.</p>
+<p>A <strong>sequence</strong> is the ordered set of steps that starts at an entry point. The schema uses <code>Journey</code> for a sequence.
 Each step gives the acting components (<code>acts</code>), the measurement components (<code>measures</code>), one flow (<code>edge</code>), and one sentence (<code>say</code>).
-The <code>covers</code> field gives the exact entry points that the sequence covers.</p>
-<pre class="code"><code class="language-python"><span class="f">Journey</span><span class="p">(
-    </span><span class="a">id</span><span class="p">=</span><span class="s">"print-total"</span><span class="p">,
-    </span><span class="a">label</span><span class="p">=</span><span class="s">"Print the total of an order"</span><span class="p">,
-    </span><span class="a">starts</span><span class="p">=</span><span class="s">"shop"</span><span class="p">,
-    </span><span class="a">covers</span><span class="p">=(</span><span class="s">'["console_script","shop.cli","main","shop"]'</span><span class="p">,),
-    </span><span class="a">steps</span><span class="p">=(
-        </span><span class="f">Step</span><span class="p">((</span><span class="s">"Person"</span><span class="p">,), (), (</span><span class="s">"Person"</span><span class="p">, </span><span class="s">"CommandLine"</span><span class="p">), </span><span class="s">"The person gives an order path."</span><span class="p">),
-        </span><span class="f">Step</span><span class="p">((</span><span class="s">"OrderFiles"</span><span class="p">,), (), (</span><span class="s">"OrderFiles"</span><span class="p">, </span><span class="s">"CommandLine"</span><span class="p">), </span><span class="s">"The store reads the order."</span><span class="p">),
-        </span><span class="f">Step</span><span class="p">((</span><span class="s">"Orders"</span><span class="p">,), (), (</span><span class="s">"CommandLine"</span><span class="p">, </span><span class="s">"Orders"</span><span class="p">), </span><span class="s">"The command calculates the total."</span><span class="p">),
-    ),
-)
-</span></code></pre>
-<p>A person or an agent writes the steps. A sequence does not record a run of the program.</p>
+<code>covers</code> gives the entry points that the sequence covers.
+A sequence does not record a run of the program.</p>
 <h2 id="layer">Layer</h2>
-<p>A <strong>layer</strong> is a map view that shows a specified set of components and flows.
-Each layer asks one question. The page derives the standard layers from the model:</p>
+<p>A <strong>layer</strong> is a map view that shows a specified set of components and flows.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="layer">
 <table>
 <thead>
 <tr>
 <th>Layer</th>
-<th>Question</th>
 <th>Flows</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Structure</td>
-<td>Which components are in each region and container?</td>
 <td>None.</td>
 </tr>
 <tr>
 <td>System context</td>
-<td>Which actors connect to the system?</td>
 <td>Flows with an actor at one end.</td>
 </tr>
 <tr>
 <td>Data flow</td>
-<td>Which artifacts move between components?</td>
-<td>Flows of the kind <code>data</code>.</td>
+<td>The <code>data</code> flows.</td>
 </tr>
 <tr>
 <td>Control flow</td>
-<td>Which components cause other components to act?</td>
-<td>Flows of the kind <code>control</code>.</td>
+<td>The <code>control</code> flows.</td>
+</tr>
+<tr>
+<td>All</td>
+<td>All flows.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p><code>MEANING.layer_overrides</code> can put one flow in a different layer.
-A model with an <code>agent</code> component, or with a component that has <code>calls_model=True</code>, also gets the Agents, Context, and Tools layers.
-A model can add custom layers in <code>MEANING.layers</code>. The page also has All, which shows all flows.
-A layer selects the flows. It does not change their colors: each line has the color of its flow kind.</p>
+<p>A model with an <code>agent</code> or <code>calls_model=True</code> component also has the Agents, Context, and Tools layers.</p>
 <h2 id="region-and-container">Region and container</h2>
-<p>A <strong>container</strong> is a map boundary for a process, a host, or a source directory.
-A <strong>region</strong> is a group of components and its bounds on the map. Each region is in a container.
-Actors are in containers, not in regions.
-<code>systemap place</code> calculates the position of each component in its region.</p>
+<ul>
+<li><strong>Container</strong>: a map boundary for a process, a host, or a source directory.</li>
+<li><strong>Region</strong>: a group of components and its bounds on the map. Each region is in a container.</li>
+</ul>
 <h2 id="invariant">Invariant</h2>
-<p>An <strong>invariant</strong> is a source-supported rule that applies to specified components.
-Its text cites the source of the rule, such as a file and line or a document heading.</p>
-<pre class="code"><code class="language-python"><span class="f">Invariant</span><span class="p">(</span><span class="n">1</span><span class="p">, </span><span class="s">"The writer records each result once (docs/ledger.md)."</span><span class="p">, </span><span class="a">governs</span><span class="p">=(</span><span class="s">"Writer"</span><span class="p">, </span><span class="s">"Ledger"</span><span class="p">))
-</span></code></pre>
-<p>The page shows the invariants as rules in the Details panel. The panel of a component gives its rules.</p>
+<p>An <strong>invariant</strong> is a source-supported rule that applies to specified components. Its text cites the source of the rule.</p>
 <h2 id="evidence-states">Evidence states</h2>
-<p>Each flow has one evidence state. The renderer and the checks calculate it from the stored source snapshot.</p>
+<p>systemap calculates the evidence state of each flow from the stored source snapshot.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="evidence-states">
 <table>
 <thead>
 <tr>
 <th>Stored value</th>
 <th>Condition</th>
-<th>Line on the map</th>
+<th>Line</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>observed</code></td>
-<td>The flow records source records and a review digest. They agree with the current source and the current claim. At least one source record is in a module of an endpoint.</td>
-<td>Solid line. The page shows &quot;current source review&quot;.</td>
+<td>The source records and the review digest of the flow agree with the current source and claim. At least one record is in a module of an endpoint.</td>
+<td>Solid.</td>
 </tr>
 <tr>
 <td><code>structural</code></td>
@@ -218,8 +177,8 @@ Its text cites the source of the rule, such as a file and line or a document hea
 </tr>
 <tr>
 <td><code>external</code></td>
-<td>An actor is at one end. The flow crosses the source boundary.</td>
-<td>Solid line.</td>
+<td>An actor is at one end.</td>
+<td>Solid.</td>
 </tr>
 <tr>
 <td><code>declared</code></td>
@@ -229,82 +188,29 @@ Its text cites the source of the rule, such as a file and line or a document hea
 </tbody>
 </table>
 </div>
-<p>The stored value <code>observed</code> is an identifier. It does not mean that a program ran.
-The page legend, the Details panel, and <code>systemap describe</code> use the words &quot;current source review&quot;.
-A current source review is a recorded source review whose source records still agree with the stored source snapshot.</p>
-<p>Structural evidence does not show the direction or the artifact of a flow. No evidence state records a run of the program.
-<code>systemap describe</code> counts the states:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">evidence:</span> 2 observed (current source review), 0 structural (an import, a shared module, or a configured mechanism), 1 external (an actor endpoint), 0 declared (no source review or structural evidence)</span></code></pre>
-<p>The <a href="reference.html#what-does-systemap-check-reject">reference</a> gives the source record format and the command that prints the digests.</p>
+<p>The page calls <code>observed</code> &quot;current source review&quot;. It does not mean that a program ran.
+The <a href="reference.html#what-does-systemap-check-reject">reference</a> gives the source record format.</p>
 <h2 id="review-states">Review states</h2>
-<p>A component can record a <code>source_review</code> digest after a person or an agent examines its source and its claims.
-Each source component has one review state:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="review-states">
-<table>
-<thead>
-<tr>
-<th>State</th>
-<th>Condition</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>missing</code></td>
-<td>The component has no <code>source_review</code> value.</td>
-</tr>
-<tr>
-<td><code>stale</code></td>
-<td>The <code>source_review</code> value is not the current digest of its source and its claims.</td>
-</tr>
-<tr>
-<td><code>current</code></td>
-<td>The <code>source_review</code> value is the current digest.</td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><code>systemap judgement</code> counts the states on one line, for example <code>source reviews: 0 current, 0 stale, 3 missing</code>.
-A stale review is a <code>stale source review</code> finding, so <code>judgement --strict</code> fails.
-A missing review is not a finding.
-<code>systemap delta</code> gives a <code>source review</code> line for each changed component whose review is not current.</p>
+<p>A component can record a <code>source_review</code> digest after an examination of its source and claims.
+Its state is <code>missing</code> (no value), <code>stale</code> (not the current digest), or <code>current</code>.
+A stale review is a finding. A missing review is not a finding.</p>
 <h2 id="findings-and-answers">Findings and answers</h2>
-<p>A <strong>finding</strong> is one line that a command prints about the map. The line starts with its kind, such as <code>single module</code> or <code>crossing import</code>.</p>
-<ul>
-<li>A <code>systemap check</code> finding rejects the map. The command exits 1.</li>
-<li>A <code>systemap judgement</code> finding is a possible map error that a person or an agent must examine.</li>
-<li>A <code>systemap delta</code> line gives a change and the necessary map action.</li>
-</ul>
-<p>Under the first finding of each kind, a <code>why</code> row and a <code>do</code> row explain it. The <code>--brief</code> option removes these rows.
-<code>systemap explain</code> prints the full explanation of a kind:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> explain <span class="s">"crossing import"</span></span>
-<span class="ln" style="--i:0">crossing import</span>
-<span class="ln" style="--i:2">  <span class="l">meaning:</span> A module of one component imports a module of another component. No flow connects these components.</span>
-<span class="ln" style="--i:2">  <span class="l">importance:</span> The code has a connection that the map does not show. This connection can affect a change to the system.</span>
-<span class="ln" style="--i:2">  <span class="l">action:</span> Add the flow and its description. Or put the modules in one component, or record why the import does not make a flow necessary.</span></code></pre>
-<p>For a <code>judgement</code> finding, change the map, or record an answer under <code>[judgement] answered</code> in <code>systemap.toml</code>.
-Each answer has a reason. A finding line is also an identifier, so an exact answer quotes the full line.</p>
-<ul>
-<li>An <strong>exact answer</strong> uses <code>item</code> for one line or <code>items</code> for a list of lines. It must also have an <code>evidence</code> digest.</li>
-<li>A <strong>family answer</strong> uses <code>kind</code>, <code>crossing</code>, <code>crossing_into</code>, <code>crossing_from</code>, or <code>module_sdk</code>. It must have <code>policy = true</code>.</li>
-</ul>
-<p>An exact answer without its digest stays pending. The command prints the current digest:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:2">  <span class="bad">pending answer:</span> 'single module: CommandLine contains only shop.cli' must have a new source review. The evidence digest is "fc793b1d03fd7039044613f8fee204af0bb50731369b21320091473a6951982e"</span></code></pre>
-<p>Examine the source before you copy the digest into the answer:</p>
+<p>A <strong>finding</strong> is one line that a command prints about the map. It starts with its kind, such as <code>single module</code>.
+A <code>check</code> finding rejects the map. A <code>judgement</code> finding is a possible map error.
+<code>systemap explain KIND</code> gives the meaning of a kind and the necessary action.</p>
+<p>For a <code>judgement</code> finding, change the map, or record an answer with a reason in <code>systemap.toml</code>:</p>
 <pre class="code"><code class="language-toml"><span class="k">[judgement]
 </span><span class="a">answered </span><span class="p">= [
     { </span><span class="a">item </span><span class="p">= </span><span class="s">"single module: CommandLine contains only shop.cli"</span><span class="p">, </span><span class="a">reason </span><span class="p">= </span><span class="s">"The command line is a separate part: it reads the arguments and prints the result."</span><span class="p">, </span><span class="a">evidence </span><span class="p">= </span><span class="s">"fc793b1d03fd7039044613f8fee204af0bb50731369b21320091473a6951982e" </span><span class="p">},
     { </span><span class="a">kind </span><span class="p">= </span><span class="s">"thin layer"</span><span class="p">, </span><span class="a">policy </span><span class="p">= </span><span class="n">true</span><span class="p">, </span><span class="a">reason </span><span class="p">= </span><span class="s">"This small program has no control flows." </span><span class="p">},
 ]
 </span></code></pre>
-<p>When the source evidence changes, the digest changes and the finding opens again.
-An answer that matches no finding is stale. <code>judgement</code> reports it, but the exit code does not change:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> judgement <span class="a">--strict</span></span>
-<span class="ln" style="--i:0"><span class="l">judgement:</span> No possible map error to examine, 4 answered, 1 stale</span>
-<span class="ln" style="--i:2">  <span class="l">stale answer:</span> 'single module: Reports contains only shop.reports' is now missing. Remove it from [judgement] answered.</span>
-<span class="ln" style="--i:2">  <span class="l">policy answer:</span> kind = "thin layer" covers 1 lines at this snapshot. 1 lines are outside the source-review baseline.</span>
-<span class="ln" style="--i:0"><span class="l">source reviews:</span> 0 current, 0 stale, 3 missing</span></code></pre>
-<p>An answer does not change the map. It records the reason that the map stays as it is.
-The <a href="reference.html#what-does-the-second-pass-find">reference</a> gives each <code>judgement</code> finding and each answer form.</p>
+<ul>
+<li>An <strong>exact answer</strong> quotes the full line in <code>item</code>, or lines in <code>items</code>. It must have the <code>evidence</code> digest that <code>judgement</code> prints. Examine the source before you copy the digest.</li>
+<li>A <strong>family answer</strong> uses <code>kind</code>, <code>crossing</code>, <code>crossing_into</code>, <code>crossing_from</code>, or <code>module_sdk</code>. It must have <code>policy = true</code>.</li>
+</ul>
+<p>When the source evidence changes, the finding opens again. An answer does not change the map.
+The <a href="reference.html#what-does-the-second-pass-find">reference</a> gives each finding and each answer form.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="getting-started.html" rel="prev"><span class="kicker">Previous</span><span>Get started</span></a><a class="pager__a pager__next" href="reading-the-map.html" rel="next"><span class="kicker">Next</span><span>Read the map</span></a></nav>
 </main>
 <aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#facts-and-model">Facts and model</a></li><li class="toc__l2"><a href="#component">Component</a></li><li class="toc__l2"><a href="#flow-and-artifact">Flow and artifact</a></li><li class="toc__l2"><a href="#sequence-and-entry-point">Sequence and entry point</a></li><li class="toc__l2"><a href="#layer">Layer</a></li><li class="toc__l2"><a href="#region-and-container">Region and container</a></li><li class="toc__l2"><a href="#invariant">Invariant</a></li><li class="toc__l2"><a href="#evidence-states">Evidence states</a></li><li class="toc__l2"><a href="#review-states">Review states</a></li><li class="toc__l2"><a href="#findings-and-answers">Findings and answers</a></li></ul></aside>
