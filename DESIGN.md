@@ -336,8 +336,8 @@ Zoom out, the zoom value, zoom in, and Fit are one segmented group. The full-scr
 The buttons have icons on a 16-unit grid with a 1.5-unit line, round ends, and round joins.
 Each icon button has a name and a tooltip. The zoom value button sets the actual size. Fit shows the full map.
 Fit shows the drawn map: the containers, the regions, the cards, the lines, and the labels.
-It does not show the empty margin of the figure. The map is 8px or more from the edges of the map frame.
-It is above one line of the legend and the readout. On a narrow window, a legend with two lines can cover the foot of the map.
+It does not show the empty space around them. The map is 8px or more from the edges of the map frame.
+It is above one line of the legend and the readout. On a narrow window, a legend with two lines can cover the bottom of the map.
 The page opens at Fit. When the window, the panel, or the legend changes the map frame, a map at Fit stays at Fit.
 The zoom value then shows the new zoom. Fit is 150 percent or less.
 The Fit icon has small corners around a rectangle. The full-screen icon has large corners.
@@ -475,9 +475,9 @@ Running text is 12px or more. No text on the page is less than 11px.
 The phone layout uses 14px and 15px for body text and controls.
 Map text uses SVG units and changes size with the zoom. The smallest map text is 11 SVG units.
 When the zoom is less than 100 percent, labels become larger (see Map and text).
-The tags, the step numbers, and the foot of the step note in a sequence use 13.6 SVG units, the largest card description size.
+The tags, the step numbers, and the line with the two ends in the step note use 13.6 SVG units, the largest card description size.
 At Fit on a 1440 by 900 screen, the self map shows card names at 12px or more and the other map text at 11px or more.
-The container label OUTSIDE THE PACKAGE is the exception: its box gives room for 10.7px.
+Only the container label OUTSIDE THE PACKAGE is smaller: its box gives room for 10.7px.
 In a browser that can do it, the lines of a heading have almost the same length.
 The last line of a paragraph does not contain only one short word.
 
