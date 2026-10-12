@@ -12,20 +12,22 @@
 <a class="btn" href="guide/getting-started.html">Get started</a>
 </div>
 </div>
-<svg class="routes" viewBox="0 0 480 360" aria-hidden="true" focusable="false">
-<g class="routes__cards">
-<rect x="12" y="28" width="132" height="52" rx="6"/><rect x="320" y="28" width="132" height="52" rx="6"/>
-<rect x="166" y="154" width="132" height="52" rx="6"/><rect x="12" y="280" width="132" height="52" rx="6"/>
-<rect x="320" y="280" width="132" height="52" rx="6"/>
-</g>
-<g class="routes__text"><rect class="t1" x="26" y="43" width="64" height="7" rx="2"/><rect x="26" y="58" width="96" height="6" rx="2"/><rect class="t1" x="334" y="43" width="64" height="7" rx="2"/><rect x="334" y="58" width="96" height="6" rx="2"/><rect class="t1" x="180" y="169" width="64" height="7" rx="2"/><rect x="180" y="184" width="96" height="6" rx="2"/><rect class="t1" x="26" y="295" width="64" height="7" rx="2"/><rect x="26" y="310" width="96" height="6" rx="2"/><rect class="t1" x="334" y="295" width="64" height="7" rx="2"/><rect x="334" y="310" width="96" height="6" rx="2"/></g>
-<path class="route route--data" pathLength="1" d="M144,54 H320"/>
-<path class="route route--k" pathLength="1" d="M78,80 V180 H166"/>
-<path class="route route--control" pathLength="1" d="M298,180 H386 V280"/>
-<path class="route route--change" pathLength="1" d="M232,206 V306 H144"/>
-<g class="routes__dots"><circle class="dot--data" cx="320" cy="54" r="5"/><circle class="dot--k" cx="166" cy="180" r="5"/>
-<circle class="dot--control" cx="386" cy="280" r="5"/><circle class="dot--change" cx="144" cy="306" r="5"/></g>
+<figure class="mini">
+<svg viewBox="0 0 480 400" role="img" aria-label="Five parts of the systemap map. The coding agent gives commands to the CLI and writes map/model.py. The CLI starts the extraction. The extractor gives map.json and the model gives the model to the checks. The checks give the fix to the agent.">
+<g class="fl fl--control" data-from="Agent" data-to="CLI" data-artifact="commands" style="--d:300ms"><path pathLength="1" d="M166,52 H308"/><polygon class="ah" points="314,52 306,48 306,56"/><g class="lb"><rect x="209" y="44" width="62" height="16" rx="3"/><text x="240" y="56">commands</text></g></g>
+<g class="fl fl--judge" data-from="Agent" data-to="Model" data-artifact="map/model.py" style="--d:390ms"><path pathLength="1" d="M91,88 V170"/><polygon class="ah" points="91,176 87,168 95,168"/><g class="lb"><rect x="51" y="124" width="80" height="16" rx="3"/><text x="91" y="136">map/model.py</text></g></g>
+<g class="fl fl--control" data-from="CLI" data-to="FactsExtractor" data-artifact="extract, facts" style="--d:480ms"><path pathLength="1" d="M389,88 V170"/><polygon class="ah" points="389,176 385,168 393,168"/><g class="lb"><rect x="347" y="124" width="84" height="16" rx="3"/><text x="389" y="136">extract, facts</text></g></g>
+<g class="fl fl--data" data-from="FactsExtractor" data-to="Check" data-artifact="map.json" style="--d:570ms"><path pathLength="1" d="M389,228 V342 H321"/><polygon class="ah" points="315,342 323,338 323,346"/><g class="lb"><rect x="360" y="277" width="58" height="16" rx="3"/><text x="389" y="289">map.json</text></g></g>
+<g class="fl fl--data" data-from="Model" data-to="Check" data-artifact="model" style="--d:660ms"><path pathLength="1" d="M91,228 V342 H159"/><polygon class="ah" points="165,342 157,338 157,346"/><g class="lb"><rect x="69" y="277" width="44" height="16" rx="3"/><text x="91" y="289">model</text></g></g>
+<g class="fl fl--data" data-from="Check" data-to="Agent" data-artifact="the fix" style="--d:750ms"><path pathLength="1" d="M240,316 V76 H172"/><polygon class="ah" points="166,76 174,72 174,80"/><g class="lb"><rect x="215" y="188" width="50" height="16" rx="3"/><text x="240" y="200">the fix</text></g></g>
+<g class="nd" data-id="Agent" style="--in:0ms"><rect class="nd__shade" x="16" y="36" width="150" height="52" rx="6"/><rect class="nd__box nd__box--actor" x="16" y="36" width="150" height="52" rx="6"/><text class="nd__id" x="28" y="58">Agent</text><text class="nd__t" x="28" y="75">The coding agent</text></g>
+<g class="nd" data-id="CLI" style="--in:60ms"><rect class="nd__shade" x="314" y="36" width="150" height="52" rx="6"/><rect class="nd__box" x="314" y="36" width="150" height="52" rx="6"/><text class="nd__id" x="326" y="58">CLI</text><text class="nd__t" x="326" y="75">The commands</text></g>
+<g class="nd" data-id="Model" style="--in:120ms"><rect class="nd__shade" x="16" y="176" width="150" height="52" rx="6"/><rect class="nd__box" x="16" y="176" width="150" height="52" rx="6"/><text class="nd__id" x="28" y="198">Model</text><text class="nd__t" x="28" y="215">The map schema</text></g>
+<g class="nd" data-id="FactsExtractor" style="--in:180ms"><rect class="nd__shade" x="314" y="176" width="150" height="52" rx="6"/><rect class="nd__box" x="314" y="176" width="150" height="52" rx="6"/><text class="nd__id" x="326" y="198">FactsExtractor</text><text class="nd__t" x="326" y="215">The source records</text></g>
+<g class="nd" data-id="Check" style="--in:240ms"><rect class="nd__shade" x="165" y="316" width="150" height="52" rx="6"/><rect class="nd__box" x="165" y="316" width="150" height="52" rx="6"/><text class="nd__id" x="177" y="338">Check</text><text class="nd__t" x="177" y="355">The map checks</text></g>
 </svg>
+<figcaption>Five parts of the systemap map, from its own <code>map/model.py</code>.</figcaption>
+</figure>
 </div>
 
 <div class="wrap">

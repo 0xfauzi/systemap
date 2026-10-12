@@ -103,6 +103,14 @@ Thus one selection applies to the site and to the map page.
 The site obeys the reduced motion setting of the browser.
 
 Each section of the landing page has one flow kind color of the map page.
+
+The map at the top of the landing page shows five components and six flows of the self-map.
+`tests/test_site.py` makes sure that each flow and each plain name are in `map/model.py`.
+The map has the surface and the motion of the map page (`src/systemap/page_motion.py`).
+In Ink, the surface has the film grain of the map page under the dot grid, and a dark edge.
+The build copies the grain image from the map page CSS. In Paper, the surface has the dot grid only.
+The cards come in one time, in reading order. Then each line draws from its source to its target.
+A card under the pointer shows its lines and the cards at their ends, and the other parts go dim.
 In Paper, the rose kind color has less than 4.5:1 on the page, so the section labels are ink there.
 
 ## Code blocks

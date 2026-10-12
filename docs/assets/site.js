@@ -1,5 +1,6 @@
 // The script of the systemap website: the theme, the docs menu on a phone,
-// the current section in "On this page", the views tabs, and the Copy button.
+// the current section in "On this page", the views tabs, the part of the map
+// on the landing page, and the Copy button.
 // The page head sets data-theme before the page shows. The theme key and values
 // are those of the map page, so the site and the map page keep one selection.
 (function(){
@@ -123,6 +124,45 @@
     });
   }
 
+  // The part of the self-map on the landing page, as on the map page: after 120 ms
+  // on a card, its lines and the cards at their ends stay, and the rest go dim.
+  // Leaving the card ends it.
+  function minimap(){
+    each('.mini', function(box){
+      var svg = box.querySelector('svg'), wait = 0;
+      if(!svg){ return; }
+      function all(selector){ return Array.prototype.slice.call(svg.querySelectorAll(selector)); }
+      function clear(){
+        window.clearTimeout(wait);
+        box.classList.remove('peek');
+        all('.lit').forEach(function(n){ n.classList.remove('lit'); });
+      }
+      function light(id){
+        var ends = {};
+        clear();
+        ends[id] = true;
+        all('.fl').forEach(function(fl){
+          if(fl.getAttribute('data-from') === id || fl.getAttribute('data-to') === id){
+            fl.classList.add('lit');
+            ends[fl.getAttribute('data-from')] = ends[fl.getAttribute('data-to')] = true;
+          }
+        });
+        all('.nd').forEach(function(n){ if(ends[n.getAttribute('data-id')]){ n.classList.add('lit'); } });
+        box.classList.add('peek');
+      }
+      svg.addEventListener('pointerover', function(e){
+        var card = e.target.closest ? e.target.closest('.nd') : null;
+        if(!card){ return; }
+        window.clearTimeout(wait);
+        wait = window.setTimeout(function(){ light(card.getAttribute('data-id')); }, 120);
+      });
+      svg.addEventListener('pointerout', function(e){
+        var card = e.target.closest ? e.target.closest('.nd') : null;
+        if(card && !(e.relatedTarget && card.contains(e.relatedTarget))){ clear(); }
+      });
+    });
+  }
+
   function copies(){
     if(!navigator.clipboard || !window.isSecureContext){ return; }
     each('[data-copy]', function(b){
@@ -140,5 +180,6 @@
   menu();
   sections();
   tabs();
+  minimap();
   copies();
 })();

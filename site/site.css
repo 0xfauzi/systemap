@@ -231,17 +231,47 @@ letter-spacing:-.035em}
 color:var(--on-accent)}
 .btn--primary:hover{filter:brightness(1.06)}
 
-.routes{width:100%;max-width:460px;height:auto;justify-self:end}
-.routes__cards rect{fill:var(--card);stroke:var(--card-line);stroke-width:1.25}
-.route{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
-.route--data,.dot--data{stroke:var(--k-data);fill:var(--k-data)}
-.route--k,.dot--k{stroke:var(--brand);fill:var(--brand)}
-.route--control,.dot--control{stroke:var(--k-control);fill:var(--k-control)}
-.route--change,.dot--change{stroke:var(--change);fill:var(--change)}
-.route{fill:none}
-.routes__dots circle{stroke:none}
-.routes__text rect{fill:var(--line-2)}
-.routes__text .t1{fill:var(--ink-3)}
+/* A part of the self-map, with the surface and the motion of the map page
+   (src/systemap/page_motion.py). Ink: a film grain under the dot grid and a soft dark
+   edge. Paper: the dot grid only. */
+.mini{position:relative;width:100%;max-width:480px;margin:0;justify-self:end}
+.mini svg{position:relative;width:100%;height:auto;overflow:hidden;border:1px solid var(--line-2);
+border-radius:12px;background-color:var(--map);background-image:var(--grain),
+radial-gradient(var(--grid) 1px,transparent 1px);background-size:160px 160px,24px 24px}
+.mini::after{content:"";position:absolute;inset:0 0 auto;aspect-ratio:480/400;border-radius:12px;
+pointer-events:none;background:radial-gradient(130% 110% at 50% 42%,transparent 62%,
+color-mix(in srgb,#000 24%,transparent))}
+:root[data-theme="light"] .mini svg{background-image:radial-gradient(var(--grid) 1px,transparent 1px);
+background-size:24px 24px}
+:root[data-theme="light"] .mini::after{display:none}
+@media (prefers-color-scheme:light){
+:root:not([data-theme]) .mini svg{background-image:radial-gradient(var(--grid) 1px,transparent 1px);
+background-size:24px 24px}
+:root:not([data-theme]) .mini::after{display:none}
+}
+.mini figcaption{margin:10px 2px 0;font-size:13px;line-height:20px;color:var(--ink-3)}
+.nd__box{fill:var(--card);stroke:var(--card-line);stroke-width:1.25}
+.nd__box--actor{stroke-dasharray:4 3}
+.nd__shade{fill:#000;fill-opacity:.42;stroke:none;transform:translateY(1.6px);
+transition:transform .16s ease-out,fill-opacity .16s ease-out}
+.nd:hover .nd__shade{transform:translateY(3.2px);fill-opacity:.5}
+:root[data-theme="light"] .nd__shade{fill:#1d1b17;fill-opacity:.08}
+:root[data-theme="light"] .nd:hover .nd__shade{fill-opacity:.12}
+.nd__id{font:600 12px var(--fm);fill:var(--ink)}
+.nd__t{font:400 11px var(--fs);fill:var(--ink-2)}
+.fl path{fill:none;stroke:var(--fl);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.fl .ah{fill:var(--fl)}
+.fl .lb rect{fill:var(--map)}
+.fl .lb text{font:500 11px var(--fs);fill:var(--ink-2);text-anchor:middle}
+.fl--data{--fl:var(--k-data)}
+.fl--control{--fl:var(--k-control)}
+.fl--judge{--fl:var(--k-custom-1)}
+.fl,.nd{transition:opacity .14s ease-out}
+.fl path{transition:stroke-width .14s ease-out}
+/* A card under the pointer shows its lines and the cards at their ends (site.js). */
+.mini.peek .fl:not(.lit){opacity:.18}
+.mini.peek .fl.lit path{stroke-width:2.6}
+.mini.peek .nd:not(.lit){opacity:.6}
 
 /* The three views of the map page, in one window with tabs. Without the script,
    the window shows the Sequences view and no tabs. */
@@ -328,23 +358,21 @@ border-radius:50%;background:var(--ink-3)}
 
 @media (prefers-reduced-motion:no-preference){
 @keyframes route-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-@keyframes dot-in{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
 @keyframes blink{50%{opacity:0}}
-.route{stroke-dasharray:1 1;animation:route-draw .5s cubic-bezier(.45,0,.25,1) both}
-.route--k{animation-delay:.12s}
-.route--control{animation-delay:.24s}
-.route--change{animation-delay:.36s}
-.routes__dots circle{transform-box:fill-box;transform-origin:center;animation:dot-in .16s ease-out both}
-.dot--data{animation-delay:.5s!important}
-.dot--k{animation-delay:.62s!important}
-.dot--control{animation-delay:.74s!important}
-.dot--change{animation-delay:.86s!important}
+/* As on the map page: the cards come in one time, in reading order. Then each
+   line draws from its source to its target in 300 ms, and its arrow and label show. */
+@keyframes card-in{from{opacity:0;transform:translateY(5px)}}
+@keyframes fade-in{from{opacity:0}}
+.mini .nd{animation:card-in .32s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--in,0ms)}
+.mini .fl path{stroke-dasharray:1 1;animation:route-draw .3s cubic-bezier(.45,0,.25,1) backwards;
+animation-delay:var(--d,0ms)}
+.mini .fl :is(.ah,.lb){animation:fade-in .16s ease-out backwards;animation-delay:calc(var(--d,0ms) + .3s)}
 .term__cursor{animation:blink 1.2s steps(1) infinite}
 }
 
 @media (max-width:1099px){
 .hero__in{grid-template-columns:minmax(0,1fr)}
-.routes{display:none}
+.mini{justify-self:start}
 .step,.live,.start{grid-template-columns:minmax(0,1fr);gap:28px}
 }
 @media (max-width:820px){
@@ -352,6 +380,7 @@ border-radius:50%;background:var(--ink-3)}
 }
 @media (max-width:640px){
 .wrap{padding:0 var(--space-phone-margin)}
+.mini{display:none}
 .hero{padding-top:48px}
 .hero h1{font-size:40px;line-height:44px}
 .hero .lead{font-size:17px;line-height:27px}

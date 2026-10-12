@@ -31,7 +31,9 @@ from pygments.token import (
     _TokenType,
 )
 
-BLOCK = re.compile(r'<pre(?: class="([^"]*)")?><code class="language-([\w+-]+)">(.*?)</code></pre>', re.S)
+BLOCK = re.compile(
+    r'<pre(?: class="([^"]*)")?><code class="language-([\w+-]+)">(.*?)</code></pre>', re.S
+)
 LEXERS = {
     "python": "python",
     "py": "python",

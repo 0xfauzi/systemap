@@ -34,7 +34,7 @@ from typing import Any
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
-from systemap import page, page_font, theme
+from systemap import page, page_font, page_motion, theme
 
 # site/ is not a package. The page parts are in site/layout.py, next to this file.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -92,6 +92,7 @@ SITE_TOKENS = (
     "region",
     "change",
     "accent_soft",
+    "grid",
 )
 # The flow kind colors of the map page. The landing page gives one to each section.
 SITE_KINDS = ("data", "control", "context", "tools")
@@ -377,7 +378,17 @@ def colour_css(table: dict[str, Any]) -> str:
     out = [f"color-scheme:{table['color_scheme']};"]
     out += [f"{theme.CSS_NAMES[key]}:{table[key]};" for key in SITE_TOKENS]
     out += [f"--k-{kind}:{table['layers'][kind]};" for kind in SITE_KINDS]
+    # The first custom kind color. On the self-map, it is the color of "judge".
+    out.append(f"--k-custom-1:{table['layer_palette'][0]};")
     return "".join(out)
+
+
+def grain() -> str:
+    """Give the film grain of the Ink map surface, from the CSS of the map page."""
+    found = re.search(r'url\("([^"]+)"\)', page_motion.SURFACE_CSS)
+    if not found:
+        raise SiteError("src/systemap/page_motion.py: the map surface has no grain image.")
+    return found[1]
 
 
 def code_colours() -> dict[str, str]:
@@ -397,6 +408,7 @@ def site_css(source: str, design: dict[str, dict[str, Any]]) -> str:
         "font-weight:400 700;font-display:swap}\n"
         f":root{{{colour_css(dark)}--fs:{theme.SANS};--fm:{theme.MONO};{design_css(design)}"
         + "".join(f"{name}:{value};" for name, value in code_colours().items())
+        + f'--grain:url("{grain()}");'
         + "}\n"
         f':root[data-theme="light"]{{{colour_css(light)}}}\n'
         "@media (prefers-color-scheme:light){:root:not([data-theme])"

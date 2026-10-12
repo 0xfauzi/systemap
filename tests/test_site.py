@@ -71,7 +71,9 @@ def test_the_pages_load_nothing_from_another_site(site: ModuleType) -> None:
     files = committed(site)
     css = files["assets/site.css"].decode("utf-8")
     assert "@import" not in css
-    assert re.findall(r"url\(([^)]*)\)", css) == ["inter.woff2"]
+    # An inline data: image (the film grain of the map surface) makes no request.
+    found = re.findall(r"url\(([^)]*)\)", css)
+    assert [u for u in found if not u.startswith('"data:')] == ["inter.woff2"]
     for name, data in files.items():
         if name.endswith(".html"):
             text = data.decode("utf-8")
@@ -233,3 +235,25 @@ def test_the_landing_page_shows_recorded_output(fixture_site: dict[str, str]) ->
         for scheme in ("dark", "light"):
             assert f"screenshots/view-{name}-{scheme}.webp" in landing
             assert f"screenshots/view-{name}-phone-{scheme}.webp" in landing
+
+
+def test_the_hero_map_is_a_part_of_the_self_map(fixture_site: dict[str, str]) -> None:
+    from systemap import config, nest
+
+    tree = nest.load(config.load(ROOT))
+    model, meaning = tree.top.model, tree.top.meaning
+    flows = {(f.src, f.dst, f.artifact, f.kind) for f in model.flows}
+    landing = fixture_site["index.html"]
+    shown = re.findall(
+        r'class="fl fl--(\w+)" data-from="(\w+)" data-to="(\w+)" data-artifact="([^"]+)"', landing
+    )
+    assert len(shown) == 6
+    for kind, src, dst, artifact in shown:
+        assert (src, dst, artifact, kind) in flows, (src, dst, artifact, kind)
+    cards = re.findall(
+        r'data-id="(\w+)".*?<text class="nd__id"[^>]*>\1</text><text class="nd__t"[^>]*>([^<]+)<',
+        landing,
+    )
+    assert len(cards) == 5
+    for cid, plain in cards:
+        assert meaning.plain[cid] == plain, cid
