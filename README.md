@@ -64,8 +64,9 @@ A label moves along its line to a place where it touches no card, label, or othe
 A label without such a place also shows only for a pointer, keyboard focus, or selection.
 The Details panel keeps all component connections, with direction and evidence.
 
-Flow lines also show evidence. A solid internal line shows a source review
-with references and a claim digest that match the stored source snapshot.
+Flow lines also show evidence. A solid internal line shows a current source review.
+This is a recorded source review whose source records and claim digest still agree with
+the stored source snapshot. At least one source record is in a module of a flow endpoint.
 A short dashed line shows structural evidence: an import, a shared module,
 or a configured mechanism. A long dashed line shows a declared flow
 without that evidence.
@@ -305,6 +306,7 @@ include a single-module component, an entry point with no sequence, and an impor
 across components with no flow. Change the map or record a reason in
 `systemap.toml`. Exact answers must have evidence for the stored source snapshot. Family answers must have
 an explicit policy. Changed evidence can open an exact finding again.
+A component `source_review` digest that is not current is also a finding.
 
 A report with no open findings does not show that every component assignment is correct.
 The rules use names and imports. They can miss a module in the incorrect component.

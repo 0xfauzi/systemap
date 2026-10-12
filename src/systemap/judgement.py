@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, explain, judgement_evidence, nest
+from systemap import card_review, evidence, explain, judgement_evidence, nest
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
 from systemap.extract import unknown_fact_lines
@@ -393,6 +393,8 @@ def run(
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + flow_review(model, meaning, facts, observed_by)
+        + no_endpoint_source(model)
+        + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip)
         + unknown_fact_lines(facts)
     )
@@ -415,6 +417,63 @@ def flow_review(
         for flow in model.flows
         if states[flow.edge].state == evidence.STRUCTURAL or states[flow.edge].unresolved_refs
     ]
+
+
+def no_endpoint_source(model: Model) -> list[str]:
+    """This function finds flows with source records in no module of their endpoints.
+
+    The evidence state of such a flow is not `observed`. An actor has no modules, so a
+    source record must be in a module of the other endpoint.
+    """
+    out: list[str] = []
+    for flow in model.flows:
+        if not flow.source_refs or evidence.cites_an_endpoint(flow, model):
+            continue
+        ends = " or ".join(c.id for c in model.components if c.id in flow.edge and c.implemented_by)
+        out.append(
+            f"no endpoint source: {flow.src} -> {flow.dst} ({flow.artifact}): no source record "
+            f"is in a module of {ends}. Add a source record in a module of {ends}, or change "
+            f"the flow."
+        )
+    return out
+
+
+def stale_source_reviews(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+    """This function finds components with a `source_review` value that is not current.
+
+    A component without `source_review` gives no line. `review_counts` counts it.
+    Without facts, the report lists no review questions.
+    """
+    if not facts.get("components"):
+        return []
+    return [
+        (
+            f"stale source review: {card.id} has a source_review digest that is not the "
+            f"current digest. Examine its source and claims again. Then record the current digest."
+        )
+        for card in model.components
+        if card.kind != "actor"
+        and card_review.state(card, model, meaning, facts) == card_review.STALE
+    ]
+
+
+def review_counts(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
+    """This function counts the review states of the source components in all maps.
+
+    A missing review is a count, not a finding, so that a map without reviews can pass.
+    """
+    if not facts.get("components"):
+        return []
+    found = [
+        card_review.state(card, m.model, m.meaning, facts)
+        for m in tree.maps
+        for card in m.model.components
+        if card.kind != "actor"
+    ]
+    if not found:
+        return []
+    counts = ", ".join(f"{found.count(state)} {state}" for state in card_review.STATES)
+    return [f"source reviews: {counts}"]
 
 
 def run_tree(

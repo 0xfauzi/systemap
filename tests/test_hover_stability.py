@@ -179,7 +179,7 @@ def check_flow_group(report: dict[str, Any], group: dict[str, Any], names: dict[
         assert flow["art"] in choice["text"]
         other = flow["from"] if group["heading"] == "Receives" else flow["to"]
         assert other in choice["text"]
-        evidence = "source review recorded" if flow["evidence"] == "observed" else flow["evidence"]
+        evidence = "current source review" if flow["evidence"] == "observed" else flow["evidence"]
         assert evidence in choice["text"]
 
 

@@ -540,7 +540,9 @@ def test_judgement_ignores_audit_answers(
         encoding="utf-8",
     )
     main(["--root", str(two_cards), "judgement"])
-    assert "stale" not in capsys.readouterr().out
+    out = capsys.readouterr().out
+    # The source review count line also names the stale state. It is not an answer.
+    assert "stale" not in out.splitlines()[0] and "stale answer" not in out
 
 
 # ---- delta --jev and suggest --jev: the pieces that read the report and the pairs ---

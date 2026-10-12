@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap import journeys as journeys_mod
-from systemap.evidence import DECLARED, STATES, owners
+from systemap.evidence import DECLARED, READER_TEXT, STATES, owners
 from systemap.evidence import of_model as evidence_of
 from systemap.extract import entry_label
 from systemap.model import Edge, Journey, Meaning, Model, all_layers, reading
@@ -255,8 +255,7 @@ def lines(
     counts: dict[str, int] = meta.get("evidence", {})
     out.append(
         "evidence: "
-        + ", ".join(f"{counts.get(state, 0)} {state}" for state in STATES)
-        + " (import evidence, a shared module, an external actor, or no fact evidence)"
+        + ", ".join(f"{counts.get(state, 0)} {state} ({READER_TEXT[state]})" for state in STATES)
     )
 
     out.append("layers: The component and flow counts follow.")

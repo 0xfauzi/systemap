@@ -28,6 +28,23 @@ A layer is a filtered view of the map.
   The command writes the pages and `change.svg` into a temporary directory. It does not write tracked files.
   docs/reference.md gives the options, the HTTP requests, and the JSON lines.
 
+- `systemap judgement --strict` can now fail on a stale source review.
+  Each component has one review state: `missing` (no `source_review`), `stale` (`source_review` is not
+  the current digest), or `current`. `systemap delta` and `systemap judgement` use the same state.
+  Delta lines do not change. Judgement prints a `stale source review` finding for each stale component.
+  A missing review is not a finding, because many maps have no `source_review` values.
+  Judgement counts the states on a new line, for example `source reviews: 16 current, 0 stale, 0 missing`.
+
+- A flow is `observed` only if at least one of its source records is in a module of its source
+  component or its target component. For a flow with an actor end, a record must be in a module of
+  the other end. If no record is in an endpoint module, the flow has the evidence state that its
+  imports or mechanism give. Judgement then prints a `no endpoint source` finding.
+  No existing map in this repository, `bench/scratch`, or `tests/fixtures` has such a flow.
+
+- The page legend, the Details panel, the flow labels for screen readers, and `systemap describe`
+  show `observed` as "current source review". The stored value `observed` does not change.
+  The `evidence lost` line of `systemap delta` now says "had a current source review" instead of "was observed".
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.

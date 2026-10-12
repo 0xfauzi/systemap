@@ -134,6 +134,34 @@ JUDGEMENT = {
             "claim is incorrect, change the flow."
         ),
     ),
+    "no endpoint source": Lesson(
+        means=(
+            "No source record of a flow is in a module of its source component or its "
+            "target component."
+        ),
+        why=(
+            "A source record in a different module cannot show that the two components "
+            "send or receive the artifact. The flow is not `observed` until this changes."
+        ),
+        do=(
+            "Add a source record in an endpoint module that sends or receives the artifact. "
+            "If no such module exists, change the flow."
+        ),
+    ),
+    "stale source review": Lesson(
+        means=(
+            "The `source_review` digest of a component is not the current digest of its "
+            "source and claims."
+        ),
+        why=(
+            "The source or the claims changed after the last source review. The description, "
+            "flows, sequences, or invariants of the component can now be incorrect."
+        ),
+        do=(
+            "Examine the changed source against all claims of the component. Correct the "
+            "claims. Then record the current `source_review` digest."
+        ),
+    ),
     "model sdk": Lesson(
         means="A module imports a model SDK, but its component has no model-call marker.",
         why=("The map must show model calls. These calls can have a cost, a delay, and errors."),

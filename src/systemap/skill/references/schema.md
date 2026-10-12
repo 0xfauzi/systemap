@@ -103,6 +103,7 @@ ignore = [
 `source_review` records a SHA-256 digest after source examination.
 Examine the description, interface, connected flows, sequences, and invariants before you write it.
 Delta keeps a changed component under `The map needs an update` until the digest agrees with the current claims and source.
+If the value is not the current digest, `systemap judgement` gives a `stale source review` finding.
 Refresh does not write this digest. See `references/maintenance.md` for the procedure.
 
 ### Kind and appearance
@@ -182,6 +183,10 @@ Represent the other direction as a separate flow with its own sentence.
 
 An import, common module, or configured mechanism gives `structural` evidence only.
 `observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
+At least one reference must be in a module of the source or target component.
+An actor has no modules. For a flow with an actor end, use a module of the other end.
+If no reference is in an endpoint module, the flow is not `observed`, and `systemap judgement` gives a `no endpoint source` finding.
+The page shows `observed` as "current source review". It is a recorded source review, not a record of program execution.
 A reference has the form `module[:symbol]@<source_sha256>`.
 The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
 It does not examine the claims for you. Examine the source before you record the values.

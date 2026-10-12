@@ -1,8 +1,11 @@
-"""Hash the source and map claims examined for one component.
+"""Hash the source and map claims examined for one component, and give its review state.
 
 The digest records a value for source review. It does not show that a maintainer
 examined the source. After source examination, a maintainer writes `Component.source_review`.
 Refresh does not write this value automatically.
+
+`state` is the one procedure that compares `source_review` with the current digest.
+Delta and judgement both use it.
 """
 
 from __future__ import annotations
@@ -105,3 +108,22 @@ def digest(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any
     material = {"source": source, "claims": _claims(card, model, meaning)}
     raw = json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+MISSING = "missing"
+STALE = "stale"
+CURRENT = "current"
+STATES = (CURRENT, STALE, MISSING)
+
+
+def state(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any]) -> str:
+    """Give the review state of one component: missing, stale, or current.
+
+    `missing`: the component has no `source_review` value.
+    `stale`: the `source_review` value is not the current digest. A component without a
+    current digest, for example after a parse error, also has this state.
+    `current`: the `source_review` value is the current digest.
+    """
+    if not card.source_review:
+        return MISSING
+    return CURRENT if card.source_review == digest(card, model, meaning, facts) else STALE

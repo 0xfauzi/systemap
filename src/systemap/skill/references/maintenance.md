@@ -41,6 +41,17 @@ The language policy in `references/language.md` applies to every changed name an
 An added or removed module assignment also opens source review again.
 This includes modules matched by an `implemented_by` wildcard.
 
+Each component has one review state:
+
+- `missing`: the component has no `source_review` value.
+- `stale`: the `source_review` value is not the current digest.
+- `current`: the `source_review` value is the current digest.
+
+Delta and judgement use the same state.
+Delta gives a `source review` line for a changed component that is not `current`.
+Judgement gives a `stale source review` finding for each `stale` component, so `judgement --strict` fails.
+Judgement counts `missing` components on its `source reviews:` line. A missing review is not a finding.
+
 The command below prints current component digests. It does not examine the claims for you.
 The script must import systemap.
 If systemap is a uv tool and not a project dependency, the script can fail to import it.
@@ -77,7 +88,7 @@ If the source or the claims change after that, the finding opens again.
 | `interface vanished` | The interface refers to a missing symbol. | Use an existing symbol or an empty interface value. |
 | `new crossing import` | An import crosses components without a flow. | Add a supported flow, change assignments, or record why no flow is necessary. |
 | `evidence lost` | The flow no longer has its recorded support. | Examine current source. Then correct or renew the claim. |
-| `source evidence lost` | Source records no longer support an observed claim. | Examine references, direction, and artifact before renewal. |
+| `source evidence lost` | Source records no longer support a claim that had a current source review. | Examine references, direction, and artifact before renewal. |
 | `structural evidence lost` | An import or configured mechanism is missing. | Examine the flow against current source. |
 | `source review` | Component source or claims changed. | Examine all claims before renewal of `source_review`. |
 | `move candidate` | Removed and added modules have the same public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim. Then assign the added module. After that, no action is necessary for the line. |
