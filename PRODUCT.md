@@ -32,7 +32,7 @@ Imports give structural evidence. They do not show the authored meaning.
 Source reviews use source content and the full claim to show changed
 evidence.
 
-Declared relationships keep their evidence status. External relationships cross
+Declared relationships keep their evidence state. External relationships cross
 the code boundary. The page has no runtime dependencies and fetches no external
 assets. The page shows terminal instructions. It does not execute these
 commands.
@@ -41,6 +41,7 @@ commands.
 
 The name is systemap. The project uses literal language and short sentences.
 Do not use emoji or em dashes.
+
 The user selected the refined prototype with a spatial map.
 The user rejected the operations-first layout.
 The user selected the design with three views: Map, Sequences, and Changes.
@@ -51,7 +52,7 @@ DESIGN.md records the map, the panel, the controls, and the motion.
 
 README.md, AGENTS.md, map/model.py, docs/map/index.html, and docs/map/map.json
 give the product descriptions and self-map. Local screenshots are in
-output/playwright. The PR does not include these files.
+output/playwright. The pull request does not include these files.
 Before you use a screenshot as evidence for the stored source snapshot, compare it with the current
 page.
 

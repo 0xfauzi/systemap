@@ -10,11 +10,12 @@ A layer is a filtered view of the map.
 ## Unreleased
 
 - CI writes no map report comment on a pull request by default.
-  The delta job gives each line and its action in the job log. The job fails while the map needs an update.
+  The delta job gives each line and its action in the job log. The job fails while it is necessary to update the map.
   `systemap delta --format markdown` and its Mermaid diagram are removed.
+
   With `[delta] page_url` in `systemap.toml`, `systemap delta --comment FILE --pr N` writes one comment
   with a link to the Changes view of the published page. The workflow from `init` posts that comment
-  and changes it after each push. If the map needs an update, the comment has one more line that says so.
+  and changes it after each push. If it is necessary to update the map, the comment has one more line that says so.
 
 - The Changes view lists the map changes: the components, flows, sequences, and rules that the change
   added, removed, or changed in the model. It compares the committed model at the merge base with the
@@ -32,20 +33,20 @@ A layer is a filtered view of the map.
 
 - Sequence framing uses the full map width after controls change.
   Selected component cards no longer clip at the right edge in the examined desktop and phone sequences.
-  Arrow hover changes highlights without replacing the selected-relationship inspector.
+  Arrow hover changes highlights. It does not replace the selected-relationship inspector.
   Sequence rows distinguish a missing display label from a missing source entry point.
 
 - The TypeScript reader expands `${configDir}` at the start of `baseUrl`, `paths`, `rootDir`, or `outDir` values.
-  The value becomes the folder of the top-level `tsconfig.json` throughout the `extends` chain.
+  The value becomes the directory of the top-level `tsconfig.json` throughout the `extends` chain.
   Previously, shared configurations such as `@sindresorhus/tsconfig` left `outDir` inside `node_modules`.
-  Mapping a compiled package entry to source then needed guesses of `src/` or `source/`.
+  Then the TypeScript reader guessed `src/` or `source/` to map a compiled package entry to source.
   Measurement against `tsc --showConfig` 7.0.2 showed that the variable applies only at the start of a value.
 
 - With `rootDir` unset, the TypeScript reader no longer guesses `src/` or the repository root.
   It calculates the root as the project's `tsc` does, measured on 5.9.3, 6.0.3, and 7.0.2.
-  TypeScript 5 uses the longest common folder of input files selected by `files`, `include`, and `exclude`.
-  Version 6 and later use the `tsconfig.json` folder.
-  `composite` uses that folder on every version.
+  TypeScript 5 uses the longest common directory of input files selected by `files`, `include`, and `exclude`.
+  Version 6 and later use the `tsconfig.json` directory.
+  `composite` uses that directory on every version.
   The reader finds the version in `node_modules/typescript`, then `package.json`.
 
   Without either, it tries both roots and maps a compiled target only when one fits and the other does not.
@@ -68,6 +69,7 @@ A layer is a filtered view of the map.
   `export default name` gives the kind of the local name.
   A named export hides a `*` export of the same name, so `tsc` and the facts agree.
   A file such as `logger.config.ts` does not hide the name `config` of `logger.ts`.
+
   A re-export from an npm package gives no unknown record.
   A second parse reads `export type * from` and the variance keywords `in` and `out`.
   `export {}`, `export module`, and overload signatures give no unknown record and no repeated name.
@@ -83,9 +85,9 @@ A layer is a filtered view of the map.
 
 - Authored text follows the writing rules in `AGENTS.md`.
   Literal phrases replace metaphors, and terms have definitions at first use.
-  Filtered views are now called layers in the page, `describe`, `figure`, and skill.
+  The page, `describe`, `figure`, and skill now use the term layer for a filtered view.
   Previously, some text used readings and some used layers, although only layers had a definition.
-  The first line of `systemap suggest` now reads `a first grouping to revise, not the answer`.
+  The first line of `systemap suggest` is now `a first grouping to revise, not the answer`.
   `README.md`, `docs/reference.md`, `docs/benchmarks.md`, `bench/jev/README.md`, `explain.py`, `page.py`, and the skill use the same rules.
 
   No check rule, judgement finding, or delta finding changed its identifier text.
@@ -97,8 +99,10 @@ A layer is a filtered view of the map.
   layers, components, flows, sequences, rules, and actions. Icon buttons set the theme and Reduce motion,
   show the keyboard keys, and open the Details panel. Read is now Details, and its key is D.
   The full-screen button and the F key show the map alone in Map, Sequences, and Changes.
-  The Text view and Reference are removed. The Map panel gives all rules and the help for lines and cards.
+
+  The Text view and Reference are removed. The Map panel gives all rules and an explanation of the lines and cards.
   The commit in the header opens the source records. The page no longer shows judgement decisions.
+
   Motion is on until the reader sets Reduce motion on the page. The system setting no longer stops it.
 
 ## 1.2.0 - 2026-09-20

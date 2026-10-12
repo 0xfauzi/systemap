@@ -51,7 +51,9 @@ Each repository and mode has one row for its latest run.
 The session's result event gives the model, turns, minutes, and dollars.
 After the session, the harness executes `systemap check` and
 `systemap judgement --strict`. Their results use the `check` and `judgement`
-columns. The `run` column shows whether the session completed without
+columns.
+
+The `run` column shows whether the session completed without
 intervention or stopped at its limit. The `skill first` column shows whether
 the first tool call used the systemap skill. The procedure specifies this first
 call.
