@@ -162,7 +162,7 @@ def test_a_card_that_changed_outside_the_plan_is_the_finding(
     assert cmd_plan(args_for(repo, check=plan_id)) == 1
     out = capsys.readouterr().out
     assert "not in the plan: Writer changed and the plan did not name it" in out
-    assert "the work changed a part absent from the plan" in out
+    assert "The work changed a component that is not in the plan" in out
 
 
 def test_work_that_landed_where_it_was_projected_says_so(
@@ -188,7 +188,7 @@ def test_a_plan_nobody_wrote_names_the_ones_that_exist(
 ) -> None:
     assert cmd_plan(args_for(repo, check="no-such-plan")) == 1
     out = capsys.readouterr().out
-    assert "no plan named no-such-plan" in out and "none yet" in out
+    assert "no plan has the ID no-such-plan" in out and "none yet" in out
 
 
 def test_the_cards_a_change_touched_are_read_from_the_facts() -> None:

@@ -134,7 +134,7 @@ def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
     """This function gives a sequence start, step count, and steps without import evidence."""
     where = f", from {j.starts}" if j.starts else ""
     note = (
-        " (an agent wrote the sequence. no maintainer source review is available)"
+        " (an agent wrote the sequence, and no maintainer source review is available)"
         if j.drafted
         else ""
     )
@@ -191,7 +191,7 @@ def lines(
     out = [
         (
             f"canvas {w} x {h}: {_plural(len(model.components), 'component')}, "
-            f"{_plural(len(model.flows), 'edge')}, "
+            f"{_plural(len(model.flows), 'flow')}, "
             f"{_plural(len(model.regions), 'region')}, {_plural(len(layers), 'layer')}"
         )
     ]
@@ -231,7 +231,7 @@ def lines(
     out.append(f"region order: {order}. {cost}. {how}")
 
     rows, cols = gutters({cid: (b[0], b[1], b[2], b[3]) for cid, b in cards.items()}, (w, h))
-    out.append("edges: Bend counts, lengths, and label positions follow in score order.")
+    out.append("flow paths: The bend counts, lengths, and label positions follow in score order.")
     ranked = sorted(
         range(len(model.flows)),
         key=lambda i: (-bends(paths.get(str(i), [])), -length(paths.get(str(i), []))),
@@ -259,13 +259,13 @@ def lines(
         + " (import evidence, a shared module, an external actor, or no fact evidence)"
     )
 
-    out.append("layers: The component and edge counts follow.")
+    out.append("layers: The component and flow counts follow.")
     for lay in layers:
         edges, subjects = reading(model, meaning, lay.id)
         lit = set(subjects)
         for i in edges:
             lit.update(model.flows[i].edge)
-        out.append(f"  {lay.id}: {_plural(len(lit), 'component')}, {_plural(len(edges), 'edge')}")
+        out.append(f"  {lay.id}: {_plural(len(lit), 'component')}, {_plural(len(edges), 'flow')}")
 
     collisions = list(meta.get("collisions", []))
     notes = list(meta.get("notes", []))

@@ -88,7 +88,7 @@ def test_the_comment_says_when_the_map_needs_an_update() -> None:
     assert lines[1] == "[Open the Changes view of the map](https://example.org/pr-7/#changes)"
     assert lines[2:] == [
         "",
-        "The map needs an update (3 lines). The log of the delta job gives the action "
+        "A map update is necessary (3 lines). The log of the delta job gives the action "
         "for each line.",
     ]
     assert "(1 line)" in delta_link.comment(URL, 7, 1)
@@ -155,7 +155,7 @@ def test_a_comment_without_a_pull_request_number_is_an_option_error(
     add_config(repo, f'[delta]\npage_url = "{URL}"\n')
     assert delta(repo, "--base", "HEAD~1", "--comment", str(repo / "comment.md")) == 2
     err = capsys.readouterr().err
-    assert "delta --comment needs --pr with the pull request number." in err
+    assert "delta --comment must have --pr with the pull request number." in err
     assert "Correct the command option." in err
     for bad in ("abc", "0", "-3"):
         with pytest.raises(SystemExit) as stop:

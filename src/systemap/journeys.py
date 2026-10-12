@@ -205,7 +205,7 @@ def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
             or not isinstance(step.get("say"), str)
             or not step["say"].strip()
         ):
-            problems.append(f"step {k} needs lists of component identifiers and a sentence")
+            problems.append(f"step {k} must have lists of component identifiers and a sentence")
             continue
         edge = tuple(step["edge"])
         acts = tuple(step["acts"])
@@ -273,7 +273,7 @@ def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
             content = path.read_bytes()
         except OSError as exc:
             raise ValueError(
-                f"cannot examine sequence: source {relative} is unavailable: {exc}"
+                f"cannot examine the sequence: source {relative} is not available: {exc}"
             ) from exc
         digest.update(relative.encode())
         digest.update(b"\0")
@@ -351,7 +351,7 @@ def as_source(journey: Journey) -> list[str]:
         f"        label={json.dumps(journey.label, ensure_ascii=False)},",
         f"        starts={json.dumps(journey.starts, ensure_ascii=False)},",
         f"        covers={journey.covers!r},",
-        "        drafted=True,  # examine each step against source before removal",
+        "        drafted=True,  # before you remove this line, compare each step with the source",
         "        steps=(",
     ]
     for step in journey.steps:

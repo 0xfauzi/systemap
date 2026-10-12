@@ -185,14 +185,14 @@ def report(windows: list[Window], root: Path, since: str, every: int, top: int) 
             head,
             (
                 "  No map change occurs in this period. Module counts, component sizes, and "
-                "imports across component boundaries stayed the same."
+                "imports across component boundaries did not change."
             ),
         ]
     out = [
         head,
         (
-            f"  The {min(top, len(moved))} largest windows follow. Equal sizes use the "
-            f"last window in chronological order first:"
+            f"  The {min(top, len(moved))} largest windows follow. For equal sizes, the "
+            f"latest window is first:"
         ),
     ]
     # The largest first. Of equal sizes, the latest window first, as the text says.

@@ -162,7 +162,9 @@ def test_the_walk_is_written_into_the_model_where_its_journeys_are_named() -> No
     source = "JOURNEYS = (\n)\n"
     grown = journeys.add_to_source(source, draft.journey)
     assert grown is not None and 'id="read-and-write"' in grown
-    assert "drafted=True,  # examine each step against source before removal" in grown
+    assert (
+        "drafted=True,  # before you remove this line, compare each step with the source" in grown
+    )
     assert grown.startswith("JOURNEYS = (\n    Journey(")
     # a model file that names its journeys somewhere this cannot find is said so
     assert journeys.add_to_source("MEANING = Meaning(plain={})\n", draft.journey) is None

@@ -1493,13 +1493,13 @@ def summary(facts: dict[str, Any]) -> list[str]:
     primary = sum(c["tests_primary"] for c in comps.values())
     dirs: list[str] = list(facts.get("tests_dirs", []))
     if guarded:
-        tests = f"{guarded} test functions import a module, {primary} in a file named after it"
+        tests = f"{guarded} test functions import a module, {primary} in a file with its name"
     elif dirs:
         # Zero is a finding, not a count: say where the extractor looked, so
         # a tests directory it did not find is set in `tests_dir`.
-        tests = f"none import a module; searched {', '.join(dirs)}"
+        tests = f"none import a module. The extractor searched {', '.join(dirs)}"
     else:
-        tests = "none import a module; no directory named tests or test was found"
+        tests = "none import a module. The extractor found no tests or test directory"
     out = [
         "facts for the change detector (these never appear on the map):",
         f"  modules:          {len(comps)}",
@@ -1511,7 +1511,7 @@ def summary(facts: dict[str, Any]) -> list[str]:
     markers = empty_markers(facts)
     if markers:
         out.append(
-            f"  empty package markers: {len(markers)} ({', '.join(markers)}); an __init__ with "
-            "no public names and no imports, left out of the coverage rule"
+            f"  empty package markers: {len(markers)} ({', '.join(markers)}). Each is an "
+            "__init__ with no public names and no imports. The coverage rule omits them."
         )
     return out

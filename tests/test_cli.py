@@ -51,7 +51,7 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
     assert "ASD-STE100 Issue 9" in model
-    assert "installed systemap skill language policy" in model
+    assert "language policy of the installed systemap skill" in model
 
     # The starter model is empty: the check has one line to say, and says only that.
     assert run("--root", str(tmp_path), "check") == 1
@@ -162,7 +162,7 @@ def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path
     # The delta job has no write permission and writes no comment.
     assert "permissions:" not in job and "gh api" not in job
     assert job.rstrip().endswith('exit "$code"')
-    assert "::error title=Map delta::The map needs an update." in job
+    assert "::error title=Map delta::A map update is necessary." in job
     # The link job: write permission on that job alone, only with a comment from delta.
     assert workflow.count("pull-requests: write") == 1
     assert "    permissions:\n      pull-requests: write" in link

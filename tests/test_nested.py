@@ -308,10 +308,10 @@ def test_the_check_runs_on_every_map_and_counts_coverage_once(
     assert out.count("coverage:") == 1
     assert "coverage: 10 of 10 modules mapped, 1 an empty package marker" in out
     assert "claimed twice" not in out
-    assert "map layout: has no errors (5 components, 4 orthogonal labeled edges" in out
-    assert "Gateway: map layout: has no errors (5 components, 4 orthogonal labeled edges" in out
-    assert "Style: map layout: has no errors (4 components, 3 orthogonal labeled edges" in out
-    assert "Gateway: map routes: 0 edges across components other than its endpoints" in out
+    assert "map layout: has no errors (5 components, 4 orthogonal flow paths with labels" in out
+    assert "Gateway: map layout: has no errors (5 components, 4 orthogonal flow paths" in out
+    assert "Style: map layout: has no errors (4 components, 3 orthogonal flow paths" in out
+    assert "Gateway: map routes: 0 flow paths across components other than their endpoints" in out
     assert "nesting" not in out
     for rel in ("index.html", "Gateway/index.html", "Style/index.html"):
         assert f"docs/map/{rel} has no rendered output." in out, rel

@@ -363,7 +363,8 @@ def test_audit_answers_need_evidence_or_explicit_policy() -> None:
     )
     assert broad.open == []
     assert broad.policies == [
-        'kind = "jev flow" covers 1 current lines; 1 outside its reviewed baseline'
+        'kind = "jev flow" covers 1 lines at this snapshot. 1 lines are outside the '
+        "source-review baseline."
     ]
 
 

@@ -86,7 +86,7 @@ def modules(facts: dict[str, Any]) -> list[str]:
     components: dict[str, Any] = facts.get("components", {})
     out = [
         (
-            f"modules: {len(components)}. Each line gives the opening docstring sentence "
+            f"modules: {len(components)}. Each line gives the first docstring sentence "
             f"and the public name, import, and test counts."
         )
     ]
@@ -113,7 +113,7 @@ def docstrings(facts: dict[str, Any]) -> list[str]:
     out = [
         (
             f"docstrings: {with_one} of {len(components)} modules have docstrings. Each "
-            f"line gives the opening sentence."
+            f"line gives the first sentence."
         )
     ]
     for name in sorted(components):
@@ -200,7 +200,7 @@ def imports(facts: dict[str, Any], name: str) -> list[str]:
 
 
 VIEWS = (
-    "views: Use --modules for module summaries, --docstrings for opening "
+    "views: Use --modules for module summaries, --docstrings for first "
     "sentences, --module NAME for a module record, and --names NAME for public "
     "names. Use --entry-points for entry point targets, --external for external "
     "imports, and --imports NAME for internal imports."

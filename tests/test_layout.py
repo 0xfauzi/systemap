@@ -110,7 +110,7 @@ def test_starter_corridors_route_every_pair_of_regions(
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out
     assert (
-        "map routes: 0 edges across components other than its endpoints, 0 across regions other than its endpoint regions"
+        "map routes: 0 flow paths across components other than their endpoints, 0 across regions other than their endpoint regions"
         in out
     )
     assert "map layout: has no errors (4 components" in out
@@ -330,7 +330,7 @@ def test_gutters_are_named_from_the_card_grid() -> None:
 def test_describe_reads_the_picture_back(sample: Sample) -> None:
     lines = describe.run(sample.model, sample.meaning, sample.theme, sample.facts)
     text = "\n".join(lines)
-    assert lines[0] == "canvas 900 x 400: 5 components, 5 edges, 2 regions, 6 layers"
+    assert lines[0] == "canvas 900 x 400: 5 components, 5 flows, 2 regions, 6 layers"
     assert "  work: 2 components (Reader, Parser)" in lines
     assert "  keep: 2 components (Ledger, Writer)" in lines
     assert "  in a container only: 1 component (User)" in lines
@@ -345,10 +345,10 @@ def test_describe_reads_the_picture_back(sample: Sample) -> None:
     assert gutters, "every gutter of the card grid is listed"
     for line in gutters:
         assert re.search(r"\(\d+ units\): \d+ of \d+ seats used, \d+ labels?$", line), line
-    assert "  structure: 5 components, 0 edges" in lines
-    assert "  system: 2 components, 1 edge" in lines
-    assert "  data: 4 components, 2 edges" in lines
-    assert "  memory: 2 components, 1 edge" in lines
+    assert "  structure: 5 components, 0 flows" in lines
+    assert "  system: 2 components, 1 flow" in lines
+    assert "  data: 4 components, 2 flows" in lines
+    assert "  memory: 2 components, 1 flow" in lines
     assert "check refuses" not in text, "a clean map has nothing to refuse"
 
 
@@ -389,12 +389,12 @@ def test_describe_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     capsys.readouterr()
     assert run("--root", str(tmp_path), "describe") == 0
     out = capsys.readouterr().out
-    assert re.match("canvas \\d+ x \\d+: 4 components, 6 edges, 4 regions, 4 layers\\n", out)
+    assert re.match("canvas \\d+ x \\d+: 4 components, 6 flows, 4 regions, 4 layers\\n", out)
     assert "positions: 0 pinned, 4 placed\n" in out
     assert "  a: 1 component (A)\n" in out and "  d: 1 component (D)\n" in out
     assert (
         "gutters: The maximum occupied seat counts and seat capacities follow." in out
-        and "layers: The component and edge counts follow." in out
+        and "layers: The component and flow counts follow." in out
     )
     # A model that contradicts itself cannot be drawn: the same refusal as check.
     model = tmp_path / "map/model.py"
