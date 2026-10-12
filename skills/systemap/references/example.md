@@ -12,6 +12,7 @@ The modules are `pkg.reader`, `pkg.parser`, `pkg.writer`, and `pkg.ledger`.
 The tests do the model checks against a source fixture with these modules.
 The example gives the positions so that the example is a complete file.
 For an initial model, do not write `x` and `y`. Then run `systemap place`.
+All values are literal values. systemap reads the file and does not run it as code.
 
 ```python
 """The system map of pkg and its component connections."""
@@ -31,11 +32,6 @@ from systemap import (
     Step,
 )
 
-# Columns are 190 units apart. Rows are 160 units apart.
-# The spaces between cards give routes for the flows.
-COL = {"c1": 270, "c2": 460, "c3": 650}
-ROW = {"r1": 90, "r2": 250}
-
 CONTAINERS = (
     # The user is outside the system. The source code runs in one process.
     Container("outside", "OUTSIDE", (16, 16, 186, 368), tone="host"),
@@ -48,6 +44,8 @@ REGIONS = (
     Region("keep", "KEEP", (240, 210, 626, 130), container="system"),
 )
 
+# The card columns are 190 units apart. The rows are 160 units apart.
+# The spaces between cards give routes for the flows.
 COMPONENTS = (
     # This actor has a container position and no source modules.
     Component("User", "Types the input.", kind="actor", container="outside", x=34, y=96),
@@ -59,8 +57,8 @@ COMPONENTS = (
         implemented_by=("pkg.reader",),
         entry="read",
         region="work",
-        x=COL["c1"],
-        y=ROW["r1"],
+        x=270,
+        y=90,
     ),
     Component(
         id="Parser",
@@ -69,8 +67,8 @@ COMPONENTS = (
         implemented_by=("pkg.parser",),
         entry="parse",
         region="work",
-        x=COL["c2"],
-        y=ROW["r1"],
+        x=460,
+        y=90,
     ),
     # The store keeps records. Its entry point is a class.
     Component(
@@ -81,8 +79,8 @@ COMPONENTS = (
         entry="Ledger",
         kind="store",
         region="keep",
-        x=COL["c2"],
-        y=ROW["r2"],
+        x=460,
+        y=250,
     ),
     Component(
         id="Writer",
@@ -91,8 +89,8 @@ COMPONENTS = (
         implemented_by=("pkg.writer",),
         entry="write",
         region="keep",
-        x=COL["c3"],
-        y=ROW["r2"],
+        x=650,
+        y=250,
     ),
 )
 

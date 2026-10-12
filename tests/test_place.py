@@ -253,9 +253,15 @@ def test_fill_puts_the_card_that_talks_next_to_its_neighbour_and_refuses_a_full_
 
 
 def fixture_source_without_positions() -> str:
-    """The fixture module with every `x=` and `y=` line removed."""
+    """The model part of the fixture module, with every `x=` and `y=` line removed.
+
+    The fixture is also a Python module with a facts() function and a calculated grid.
+    The model file keeps its systemap import and its literal model values only.
+    """
     text = (ROOT / "tests" / "fixture_workspace.py").read_text(encoding="utf-8")
-    out = re.sub(r"^\s+[xy]=[^\n]*,\n", "", text, flags=re.M)
+    start = text.index("from systemap import (")
+    model = text[start : text.index(")\n", start) + 2] + "\n" + text[text.index("CONTAINERS = (") :]
+    out = re.sub(r"^\s+[xy]=[^\n]*,\n", "", model, flags=re.M)
     assert "x=" not in out.split("COMPONENTS = (")[1].split("# (from, to")[0]
     return out
 

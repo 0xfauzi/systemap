@@ -105,12 +105,13 @@ COMPONENTS = (
     Component(
         id="Config",
         source_review="fb3a4fcad6308c5684127f4166a6786012f2accc1ae8e96b47c9662b29005808",
-        does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons.",
+        does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads model files as data and does not run their code.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
             "systemap.config",
             "systemap.init_language",
             "systemap.language_config",
+            "systemap.model_load",
             "systemap.root_check",
             "systemap.typescript_config",
         ),

@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from systemap import extract, jev
+from systemap import extract, jev, model_load
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -32,6 +32,13 @@ def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     maintainer's key is removed; a test that means to ask sets its own and a
     recorded transport (jev_replay reads the real key at import, for recording)."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_model_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each test reads model files with the safe reader, as a command does by default. A
+    test that permits model code sets SYSTEMAP_TRUST_MODEL_CODE itself."""
+    monkeypatch.delenv(model_load.TRUST, raising=False)
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:
@@ -335,9 +342,6 @@ from systemap import (
     Step,
 )
 
-COL = {"c1": 80, "c2": 370}
-ROW = {"r1": 130}
-
 CONTAINERS = (
     Container(
         id="system",
@@ -358,8 +362,8 @@ COMPONENTS = (
         interface="read(source) -> Request",
         implemented_by=("pkg.reader",),
         entry="read",
-        x=COL["c1"],
-        y=ROW["r1"],
+        x=80,
+        y=130,
     ),
     Component(
         id="Writer",
@@ -368,8 +372,8 @@ COMPONENTS = (
         interface="write(request) -> Result",
         implemented_by=("pkg.writer",),
         entry="write",
-        x=COL["c2"],
-        y=ROW["r1"],
+        x=370,
+        y=130,
     ),
 )
 

@@ -42,8 +42,8 @@ MODEL = (
         interface="read(source) -> Request",
         implemented_by=("pkg.reader",),
         entry="read",
-        x=COL["c1"],
-        y=ROW["r1"],
+        x=80,
+        y=130,
     ),
     Component(
         id="Writer",
@@ -52,8 +52,8 @@ MODEL = (
         interface="write(request) -> Result",
         implemented_by=("pkg.writer",),
         entry="write",
-        x=COL["c2"],
-        y=ROW["r1"],
+        x=370,
+        y=130,
     ),
 )
 """,
@@ -65,8 +65,8 @@ MODEL = (
         implemented_by=("bot.agent", "bot.memory"),
         entry="root_agent",
         kind="agent",
-        x=COL["c1"],
-        y=ROW["r1"],
+        x=80,
+        y=130,
     ),
     Component(
         id="Writer",
@@ -75,8 +75,8 @@ MODEL = (
         implemented_by=("bot.agent:search",),
         entry="search",
         kind="tool",
-        x=COL["c2"],
-        y=ROW["r1"],
+        x=370,
+        y=130,
     ),
 )
 """,

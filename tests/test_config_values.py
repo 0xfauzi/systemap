@@ -64,6 +64,31 @@ def test_only_a_systemap_name_gives_the_systemap_import_advice(
     path.write_text(model + "\nimport my_shared_layout_helpers\n", encoding="utf-8")
     assert run("--root", str(two_cards), "check") == 2
     err = capsys.readouterr().err
+    assert "an import of my_shared_layout_helpers, which is not a file beside" in err
+    assert "import from systemap" not in err
+    path.write_text(model + "\nSIZE = CANVAS_SIZE\n", encoding="utf-8")
+    assert run("--root", str(two_cards), "check") == 2
+    err = capsys.readouterr().err
+    assert "the name CANVAS_SIZE, which the file does not define before this line" in err
+    assert "import from systemap" not in err
+    path.write_text(model + "\nfrom systemap import Layers\n", encoding="utf-8")
+    assert run("--root", str(two_cards), "check") == 2
+    err = capsys.readouterr().err
+    assert "an import of Layers from systemap" in err
+    assert "Add Layers" not in err
+    assert "Use a name that systemap exports for a model: " in err and "Layer, " in err
+
+
+def test_the_permitted_model_code_keeps_the_systemap_import_advice(
+    two_cards: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With SYSTEMAP_TRUST_MODEL_CODE=1, the file runs as Python code, with the 2.0 advice."""
+    monkeypatch.setenv("SYSTEMAP_TRUST_MODEL_CODE", "1")
+    path = two_cards / "map/model.py"
+    model = path.read_text(encoding="utf-8")
+    path.write_text(model + "\nimport my_shared_layout_helpers\n", encoding="utf-8")
+    assert run("--root", str(two_cards), "check") == 2
+    err = capsys.readouterr().err
     assert "No module named 'my_shared_layout_helpers'" in err
     assert "import from systemap" not in err
     path.write_text(model + "\nSIZE = CANVAS_SIZE\n", encoding="utf-8")
