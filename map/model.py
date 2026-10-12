@@ -132,8 +132,10 @@ COMPONENTS = (
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
             "systemap.extract",
+            "systemap.completeness",
             "systemap.facts",
             "systemap.language",
+            "systemap.python_imports",
             "systemap.reexports",
             "systemap.source_text",
             "systemap.typescript",
@@ -227,7 +229,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="4694044e81d338b527585fb6a0a5bb38cbdd60b2be72e0a862206bd7538a1eae",
+        source_review="791d4e289f5d0240971b537e5248762465e22f20c9436dfae462d1a07d5984d6",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(

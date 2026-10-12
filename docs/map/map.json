@@ -99,5 +99,5 @@
 "provenance":{"files":{"pyproject.toml":"acf19ffe94e8ac356a693424588d4b5db4ac56a74c9bf5b8e33b5523c14caf36"},"parser":"3.11","settings":"848734c4c3d6ab3367bca62aab07d3113bf90f5fc8bac550b16520e42b9ce8af"},
 "spec_sections":[],
 "tests_dirs":["tests"],
-"version":4
+"version":5
 }

@@ -71,6 +71,17 @@ class LanguageAdapter(Protocol):
         context: Any = None,
     ) -> list[str]: ...
 
+    def unresolved_imports(
+        self,
+        raw: str,
+        prefixes: set[str],
+        known: set[str],
+        module: str,
+        repo: Path,
+        paths: dict[str, Path],
+        context: Any,
+    ) -> list[str]: ...
+
     def collect_tests(
         self,
         repo: Path,
