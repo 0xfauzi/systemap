@@ -14,5 +14,20 @@
     "system map",
     "documentation",
     "coding agents"
-  ]
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "command": {
+      "type": "string",
+      "title": "systemap command",
+      "description": "The command that starts systemap, for example \"uv run systemap\" or \"uvx systemap\". The plugin adds \"live --port 0 --json --no-watch\" to this command.",
+      "default": "systemap"
+    },
+    "autostart": {
+      "type": "boolean",
+      "title": "Start the live map with each session",
+      "description": "If true, the live map starts when a session starts in a systemap repository. The live map runs the Python code in map/model.py of that repository. Set true only if you trust each repository that you open.",
+      "default": false
+    }
+  }
 }

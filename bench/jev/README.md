@@ -2230,3 +2230,25 @@ Acceptance (written before the run): exit code 0 with the code of 7b29986, and e
 
 The sample page of `test_page_is_small_and_self_contained` is 326,741 bytes with the code of 7b29986 and
 326,810 bytes with the changed reader text. The limit is 329,728 bytes.
+
+## Claude Code version for the plugin job (2026-10-12)
+
+Acceptance value, written before the run: the lowest Claude Code version that does all steps of the
+CI plugin job with the hooks module of the live map. The steps are `claude plugin validate .`, the two
+`scripts/check_plugin_manifest.py` checks, the marketplace install with the plugin enabled, and
+`claude plugin test .` with 15 passed tests. Each lower version must fail.
+The script `ci_versions.py` installed each version with npm into a scratch directory and used an empty
+configuration directory. It was not added to the repository.
+
+| Versions | `plugin test` command | Manifest checks | Install | Plugin tests |
+|---|---|---|---|---|
+| 2.1.278, 2.1.280 | No | Fail: `$ is passed to "update", imported from "claude-code"` | Pass | Cannot run |
+| 2.1.281 to 2.1.285 | No | Pass | Pass | Cannot run |
+| 2.1.286 to 2.1.288, link to `http://127.0.0.1` | Yes | Pass | Pass | 9 pass, 6 fail |
+| 2.1.286 to 2.1.296, link to `http://localhost` | Yes | Pass | Pass | 15 pass |
+
+Result: 2.1.286. The CI plugin job installs it and runs `claude plugin test .`.
+Versions 2.1.286 to 2.1.288 refuse a `Link` to `http://127.0.0.1:PORT/` with
+`Link href must be https: (or http://localhost)`. Then they draw no line above the prompt.
+Thus the `Open map` link uses `localhost`. Version 2.1.296 takes both addresses.
+A second run of 2.1.286 without the session variables of this computer also passed all steps.

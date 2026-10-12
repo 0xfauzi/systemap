@@ -67,6 +67,24 @@ A layer is a filtered view of the map.
 
   This repository keeps the `asd-ste100` profile for its map, interface text, and documentation.
 
+- The Claude Code plugin shows a live map. In a repository with systemap configuration,
+  one line above the prompt shows `map: not started · Start live map`.
+  `Start live map` or `/map` starts `systemap live --port 0 --json --no-watch`.
+  The live map runs the code in `map/model.py` of the repository.
+  Thus the plugin starts it only after `Start live map` or `/map`, or when the `autostart` option is true.
+
+  After a turn that changes files, the plugin tells `systemap live` to render the map again.
+  The line then shows the number of map updates, `Open map`, and `Show`.
+  `Show` and `/map` open a pane with the change figure and the map update lines.
+  A terminal pane shows the lines and the link only.
+  The `command` option sets the command that starts systemap, for example `uv run systemap`.
+  The `Open map` link uses `localhost` in place of `127.0.0.1`.
+  Claude Code 2.1.286 refuses a link to `http://127.0.0.1`, and then it shows no line above the prompt.
+
+- The CI plugin job runs the plugin tests with `claude plugin test .`.
+  The job installs Claude Code 2.1.286, the lowest version that does all steps of the job.
+  Versions 2.1.278 to 2.1.285 have no `plugin test` command.
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.

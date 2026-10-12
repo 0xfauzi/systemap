@@ -207,6 +207,9 @@ For Claude Code, use the repository's plugin marketplace:
     /plugin marketplace add 0xfauzi/systemap
     /plugin install systemap@systemap
 
+The plugin also gives a live map in Claude Code.
+See [What does the live map in Claude Code show?](#what-does-the-live-map-in-claude-code-show)
+
 Other agents can use the same instructions if they can read files and execute commands.
 
 The writing profile in `systemap.toml` sets the writing rules for map names, sequence steps, and other map text.
@@ -277,6 +280,43 @@ systemap check && systemap judgement --strict
 The larger fixture in
 [`tests/fixtures/typescript-app`](tests/fixtures/typescript-app) includes path
 aliases, TSX, and a package binary.
+
+### What does the live map in Claude Code show?
+
+The Claude Code plugin shows the map of the current files while an agent changes them.
+It uses the `systemap live` command.
+
+In a repository with `systemap.toml`, or with `[tool.systemap]` in `pyproject.toml`,
+the plugin shows one line above the prompt:
+
+    map: not started · Start live map
+
+The live map runs the code in `map/model.py` of the repository, so start it only in a repository that you trust.
+To start it, select `Start live map` or type `/map`.
+The plugin then runs `systemap live --port 0 --json --no-watch`.
+
+After a turn that changes files, the plugin tells `systemap live` to render the map again.
+The line above the prompt then shows the state of the live map:
+
+- `map: live · 3 map updates · Open map · Show`. The map shows the current files.
+  A map update is a `systemap delta` line that needs an action.
+- `map: rendering`. systemap renders the map now.
+- `map: not updated: ...`. systemap could not render the map. The page keeps the last correct map.
+
+`Open map` opens the full page in a browser. `Show` and `/map` open a pane.
+In Claude Code Desktop, VS Code, and the Claude mobile app, the pane shows the change figure and the map update lines.
+In a terminal, the pane shows the map update lines and the link.
+If the figure has more than 131,072 characters, the pane shows the link and no figure.
+
+The plugin has two options. Set them with `/plugin configure systemap@systemap` or in `/config`:
+
+- `command`: the command that starts systemap. The default is `systemap`.
+  Examples are `uv run systemap` and `uvx systemap`.
+- `autostart`: if true, the live map starts with each session in a systemap repository.
+  The default is false.
+
+If the command cannot start, the line says so and gives the name of the `command` option.
+In a directory without systemap configuration, the plugin shows nothing.
 
 ## Why does an agent write the map?
 
