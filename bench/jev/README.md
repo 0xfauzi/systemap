@@ -2430,3 +2430,53 @@ Thus the result does not show the behavior on TypeScript.
     SYSTEMAP_TRUST_MODEL_CODE=1 JEV_SET=holdout JEV_ROOT_SCORECARD=../scorecard uv run --project bench/jev python bench/jev/flow_context.py build
     JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py flowctx_base flowctx_around flowctx_calls flowctx_targets
     uv run --project bench/jev python bench/jev/flow_context.py score > bench/jev/results/flowctx-report.txt
+
+### Results
+
+The Jev requests were sent on 2026-10-13. Each arm operated one time on development, and then one time on holdout.
+No selector changed between the development requests and the holdout requests.
+All 1,024 answers came from the model `jev-1.13.0`, with 0 errors.
+`results/flowctx-report.txt` has the full output.
+
+Two arms satisfy the acceptance value: `calls` and `targets`. `base` and `around` do not.
+The table gives the figures at the threshold that the development set selected.
+"Caught" is the fraction of incorrect claims with P(holds) below the threshold.
+"Flagged" is the fraction of correct claims below the threshold.
+
+| arm | threshold | dev caught | dev flagged | holdout caught | holdout flagged | points | result |
+|---|---|---|---|---|---|---|---|
+| `base` | 0.15 | 39/80 (48.8%) | 1/80 (1.2%) | 19/48 (39.6%) | 1/48 (2.1%) | -9.2 | fail: dev caught below 50% |
+| `around` | 0.15 | 34/80 (42.5%) | 1/80 (1.2%) | 14/48 (29.2%) | 1/48 (2.1%) | -13.3 | fail: dev caught below 50%, difference more than 10 points |
+| `calls` | 0.2 | 48/80 (60.0%) | 2/80 (2.5%) | 26/48 (54.2%) | 0/48 (0.0%) | -5.8 | pass |
+| `targets` | 0.2 | 47/80 (58.8%) | 2/80 (2.5%) | 28/48 (58.3%) | 0/48 (0.0%) | -0.5 | pass |
+
+The AUC on development and holdout was 0.878 and 0.882 for `base`, and 0.880 and 0.909 for `around`.
+It was 0.898 and 0.931 for `calls`, and 0.899 and 0.932 for `targets`.
+
+In this measurement, `base` at the shipped threshold 0.2 caught 53/80 (66%) and flagged 4/80 (5.0%) on development.
+On holdout, it caught 29/48 (60.4%) and flagged 2/48 (4.2%).
+The recorded measurement flagged 2/80 on development with the same `code` text, but with the earlier question and an earlier model.
+Thus the development rule selected 0.15 for `base`, and `base` did not satisfy the value.
+
+The cost was 1,024 Jev requests: 1,094,728 input tokens and 20,480 output tokens.
+The median input was 698 tokens for `base`, 1,119 for `around`, 848 for `calls`, and 932 for `targets` on development.
+The median latency was 0.21 to 0.23 seconds for each arm.
+
+### Decision
+
+`calls` has the highest development catch rate of the two arms that satisfy the value.
+But `calls` uses text patterns for Python and TypeScript syntax, and shared code must not contain these patterns.
+Thus `src/` did not change, and `jev flow` stays out of `DEFAULT_KINDS`.
+
+To use the result, a language adapter must write a call-site fact for each module.
+The fact must give the lines that use a local name bound to an imported name.
+It must also give the line of the function that contains each use.
+Each adapter must give the same output: `extract.py` for Python, and the TypeScript adapter.
+Then `audit_code` can select the `calls` lines from the fact.
+
+A new measurement with the fact is necessary before `jev flow` goes into `DEFAULT_KINDS`.
+All the measured repositories are Python repositories. A TypeScript measurement is also necessary.
+
+The `targets` lines from the facts signatures did not increase the development catch rate (47/80 compared with 48/80 for `calls`).
+The `around` lines decreased the catch rate on the two sets.
+With 48 holdout claims, one claim is 2.1 points. Thus the difference between `calls` and `targets` on holdout is 2 claims.
