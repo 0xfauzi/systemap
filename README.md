@@ -25,7 +25,7 @@ This page gives the map terms, the installation procedure, and the commands
 that compare the map with the code.
 
 <p align="center">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: switching between views, selecting a component to show its connections, reading a sequence step by step" width="100%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: the reader changes the view, selects a component to show its connections, and reads a sequence one step at a time" width="100%">
 </p>
 
 <p align="center">
@@ -64,7 +64,9 @@ Flow lines also show evidence. A solid internal line shows a source review
 with references and a claim digest that match the stored source snapshot.
 A short dashed line shows structural evidence: an import, a shared module,
 or a configured mechanism. A long dashed line shows a declared flow
-without that evidence. Structural evidence does not show direction or the
+without that evidence.
+
+Structural evidence does not show direction or the
 artifact that a flow carries. External flows have an actor at one end.
 None of these states records execution.
 
@@ -76,8 +78,10 @@ None of these states records execution.
 The page has three views. **Map** shows the layers. **Sequences** shows one
 operation as a route on the map, then one step at a time, with a note at each
 step. A button in its row opens the list of sequences. **Changes** shows the components and flows that a revision comparison
-changed. On the first visit, a guide card gives five steps through the map.
-The three views have the same parts: a row of controls under the header,
+changed.
+
+On the first visit, a guide card gives five steps through the map.
+The three views have the same parts. Each has a row of controls under the header,
 a small label and a question above the map, and a panel at the right.
 On a wide window, the Map view opens the panel with the page. With no
 selection, the panel shows the current layer: one card for each flow,
@@ -87,12 +91,15 @@ The header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for
 views, layers, components, flows, sequences, rules, and actions. Icon buttons
 select the theme, set Reduce motion, show the keyboard keys, and open the
 Details panel. Motion is on until the reader sets Reduce motion on the page.
+
 The full-screen button and the F key show the map alone in each view.
 The Map panel gives all rules of the system and an explanation of the lines
 and cards. The commit in the header opens the source records of the page.
+
 The themes are Ink and Paper.
 Ink has dark surfaces and is the default. Paper has light surfaces.
 The first visit uses the device theme.
+
 Only the flow kinds, the selection, and the change have colors.
 A line has the color of its flow kind in all views. The selection color
 identifies only the current item, such as the selected card, the current step,
@@ -103,6 +110,7 @@ In a sequence step, the acting component has an ACTS tag and a measurement
 component has a MEASURES tag. On a phone, the map shows its regions as a grid,
 and a sequence shows one step below the map. The map gets the height that the
 step and its buttons do not use.
+
 The panel gives source modules, entry points, related sequences, and evidence states.
 These values come from the current model and recorded source data.
 
@@ -111,7 +119,7 @@ These values come from the current model and recorded source data.
 Install systemap. Then write the initial files:
 
     uv tool install systemap        # or: uv add --dev systemap
-    systemap init                   # --no-ci to skip the workflow
+    systemap init                   # --no-ci writes no workflow
 
 For a TypeScript repository, install the parser extra:
 
@@ -162,14 +170,16 @@ explicit unknown record. `systemap check` prints these records but does not
 reject the map for them. Each unknown record must have a correction or
 an accepted answer before `systemap judgement --strict` accepts it. A missing npm package in
 `tsconfig.json` `extends` also gives an unknown record. Extraction can thus
-continue without `node_modules`. The TypeScript grammar used by the reader rejects some
+continue without `node_modules`.
+
+The TypeScript grammar used by the reader rejects some
 correct generic call signatures, such as `obj?.m<T>?.()`. These modules stay in the facts
 with an unknown public surface. A second parse reads `export type * from` and the
 variance keywords `in` and `out`.
 
 TypeScript discovery first uses `src/`, then the repository root. For a
 monorepo or a repository without `src/`, configure `[package_roots]` for the
-application packages. This prevents scripts and fixtures from becoming
+application packages. With this configuration, scripts and fixtures do not become
 application modules. If only the package directories of a workspace have a
 `tsconfig.json` file, `init` selects TypeScript and writes no package roots.
 
@@ -180,7 +190,8 @@ instructions, and a CI workflow. The command then prints this instruction:
 
 Give the instruction to your agent. The agent reads the code, selects a component
 for each module, writes flows, and does the checks. A second examination finds missing claims.
-Read the agent's completion report when it stops. It gives the recorded answers
+
+When the agent stops, read its completion report. It gives the recorded answers
 and the uncertain claims. Correct the items with which you do not agree. Then commit the page.
 
 For Claude Code, use the repository's plugin marketplace:
@@ -191,7 +202,7 @@ For Claude Code, use the repository's plugin marketplace:
 Other agents can use the same instructions if they can read files and execute commands.
 
 All map names, sequence steps, interface text, and documentation must use ASD-STE100 Issue 9.
-The [language policy](src/systemap/skill/references/language.md) gives the official reference, glossary, and required examination procedure.
+The [language policy](src/systemap/skill/references/language.md) gives the official reference, the glossary, and the necessary examination procedure.
 
 ### TypeScript example
 
@@ -262,7 +273,7 @@ cannot show.
 
 A person or agent must make the semantic decisions. For example, four modules
 can form one part, but an import graph does not show that assignment.
-The same limitation applies to a flow's direction and artifact.
+The same limit applies to a flow's direction and artifact.
 
 systemap gives the agent a procedure and commands to compare the result with
 the code. The procedure includes a second pass over the modules and claims.
@@ -279,8 +290,8 @@ The agent corrects the findings and runs the commands again until no open findin
 
 **`systemap check` compares the map with the code.** Its rules reject
 unclaimed modules, missing entry names, incorrect geometry, and stale outputs.
-Geometry findings include a line through an unrelated component and overlapping
-labels. Each finding gives a correction.
+Geometry findings include a line through an unrelated component and two
+labels with an overlap. Each finding gives a correction.
 
 **`systemap judgement` prints possible map errors to examine.** Examples
 include a single-module component, an entry point with no sequence, and an import
@@ -311,7 +322,8 @@ This example keeps finding identifiers from an earlier version:
 Its `entry` field shows a public name at which a reader can start.
 
 The workflow from `init` runs delta on each pull request. The job log gives each line
-and its action. CI rejects the pull request while the map needs an update.
+and its action. CI rejects the pull request while it is necessary to update the map.
+
 CI writes no comment by default. If your repository publishes the map page of each
 pull request, set `[delta] page_url` in `systemap.toml`. Then CI writes one comment
 with a link to the Changes view of that page, and changes it after each push.
@@ -326,7 +338,7 @@ requests from one repository form a small sample.
 
 ## What other commands can you use?
 
-- **Read a finding's explanation.** Each printed finding type has text about its meaning,
+- **Read a finding's explanation.** Each printed finding kind has text about its meaning,
   its effect on the map, and the necessary action.
   `systemap explain "<kind>"` prints the full explanation.
 
@@ -339,14 +351,14 @@ requests from one repository form a small sample.
 - **Make a work plan.** `systemap plan "<task>"` shows parts likely to change.
   After the work, the command compares the projection with the changed parts.
 
-- **Get a second opinion.** TypeSafe's Jev model answers semantic questions that
+- **Ask Jev semantic questions.** TypeSafe's Jev model answers semantic questions that
   the mechanical rules cannot answer. Set `TYPESAFE_API_KEY` for this option.
   `check` and `judgement` make no network requests.
   Other commands can use Jev if you set the key.
 
 The experiments set acceptance thresholds before implementation.
 The experiment records include features that did not meet their thresholds and
-did not ship. See [bench/jev](bench/jev).
+are not in systemap. See [bench/jev](bench/jev).
 `systemap --help` lists all commands.
 [docs/reference.md](docs/reference.md) gives all options, rules, and settings.
 
@@ -374,5 +386,5 @@ against a copy of this repository's map.
 
 systemap uses the MIT license.
 
-If systemap prevents you from completing a map, open an issue.
+If you cannot complete a map because of systemap, open an issue.
 Previous versions used reports of problems from people and agents.
