@@ -447,6 +447,31 @@ CHECK = {
         why="A sequence can now start at code that differs from the recorded target.",
         do="Use `systemap refresh`. Then examine entry point coverage.",
     ),
+    "rule fail": Lesson(
+        means="A resolved import in the facts does not obey an import rule of the model.",
+        why=(
+            "An import rule records a permitted relation between components. An import "
+            "against the rule makes the structure that the map shows incorrect."
+        ),
+        do=(
+            "Remove the import from the source. If the new relation is correct, change "
+            "the rule and its invariant."
+        ),
+    ),
+    "rule unknown": Lesson(
+        means=(
+            "No resolved import goes against the rule, but the facts do not give all imports "
+            "of a module of the rule."
+        ),
+        why=(
+            "A module that did not parse, or an import that systemap cannot resolve, can "
+            "contain an import against the rule."
+        ),
+        do=(
+            "Correct the source or the import. Then use `systemap refresh`. To make this "
+            'result stop the check, set `unknown = "fail"` in `[rules]`.'
+        ),
+    ),
     "derived facts changed": Lesson(
         means="Imports or other extracted facts changed for a module.",
         why="A source hash does not show which map claims changed.",

@@ -1,6 +1,6 @@
 """The schema for a system map and its consistency checks.
 
-Model contains containers, regions, components, flows, and invariants.
+Model contains containers, regions, components, flows, invariants, and import rules.
 Meaning contains component names, layer questions, flow sentences, and sequences.
 The extractor supplies source facts separately.
 
@@ -34,6 +34,7 @@ Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
 
 KINDS = ("component", "store", "actor", "agent", "tool", "context")
+IMPORT_RULE_KINDS = ("forbid_import", "allow_imports", "forbid_cycle")
 AGENT_KINDS = ("agent", "tool", "context")
 TONES = ("host", "client", "server", "isolated")
 
@@ -165,6 +166,25 @@ class Invariant:
 
 
 @dataclass(frozen=True)
+class ImportRule:
+    """A rule that a program can examine against the resolved imports in the facts.
+
+    forbid_import: no module of a `src` component imports a module of a `dst` component.
+    allow_imports: the modules of `src` import only modules of `src` and `dst` components.
+    External packages are not in the import facts, and the rule does not examine them.
+    forbid_cycle: no import cycle connects two or more `src` components.
+    An empty `src` selects all components. The rule has no `dst`.
+    invariant gives the number of the invariant that the rule examines, if one applies."""
+
+    id: str
+    kind: str
+    src: tuple[str, ...] = ()
+    dst: tuple[str, ...] = ()
+    reason: str = ""
+    invariant: int | None = None
+
+
+@dataclass(frozen=True)
 class Step:
     """A sequence step with acting components, measured components, a flow, and a sentence."""
 
@@ -290,6 +310,7 @@ class Model:
     flows: tuple[Flow, ...]
     flow_kinds: tuple[str, ...]
     invariants: tuple[Invariant, ...] = ()
+    import_rules: tuple[ImportRule, ...] = ()
 
     @property
     def ids(self) -> set[str]:
@@ -589,6 +610,46 @@ def problems(model: Model, meaning: Meaning) -> list[str]:
     """Get layout and meaning findings with their kind prefixes."""
     out = [f"placement: {p}" for p in model.layout_problems()]
     out += [f"meaning: {p}" for p in meaning_problems(model, meaning)]
+    out += [f"import rule: {p}" for p in import_rule_problems(model)]
+    return out
+
+
+def import_rule_problems(model: Model) -> list[str]:
+    """Find import rules with a duplicate or empty id, an unknown kind, or unknown references."""
+    out: list[str] = []
+    seen: set[str] = set()
+    numbers = {inv.n for inv in model.invariants}
+    for rule in model.import_rules:
+        if not rule.id.strip():
+            out.append(f"a rule of kind {rule.kind} has an empty id")
+        elif rule.id in seen:
+            out.append(f"{rule.id} is the id of two rules. Give each rule its own id")
+        seen.add(rule.id)
+        out += [f"{rule.id} {p}" for p in _rule_fields(rule, model.ids)]
+        if rule.invariant is not None and rule.invariant not in numbers:
+            out.append(f"{rule.id} has unknown invariant {rule.invariant}")
+    return out
+
+
+def _rule_fields(rule: ImportRule, ids: set[str]) -> list[str]:
+    if rule.kind not in IMPORT_RULE_KINDS:
+        return [f"has unknown kind {rule.kind}. Use {', '.join(IMPORT_RULE_KINDS)}"]
+    out: list[str] = []
+    for key, value in (("src", rule.src), ("dst", rule.dst)):
+        if not isinstance(value, tuple | list):
+            out.append(f"has a {key} that is not a tuple of component ids")
+            continue
+        out += [f"has unknown component {cid} in {key}" for cid in value if cid not in ids]
+    if out:
+        return out
+    if rule.kind != "forbid_cycle" and not rule.src:
+        out.append(f"has no src component. A rule of kind {rule.kind} must have one")
+    if rule.kind == "forbid_import" and not rule.dst:
+        out.append("has no dst component. A rule of kind forbid_import must have one")
+    if rule.kind == "forbid_cycle" and rule.dst:
+        out.append("has a dst. A rule of kind forbid_cycle uses only src")
+    both = sorted(set(rule.src) & set(rule.dst))
+    out += [f"has component {cid} in src and in dst" for cid in both]
     return out
 
 

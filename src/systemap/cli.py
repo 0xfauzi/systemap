@@ -34,6 +34,7 @@ from systemap import (
     failures,
     figure,
     history,
+    import_rules,
     init_language,
     jev_cli,
     judgement,
@@ -51,7 +52,7 @@ from systemap import (
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
-from systemap.model import Meaning, Model
+from systemap.model import Meaning, Model, import_rule_problems
 from systemap.model import problems as model_problems
 from systemap.serve import DEFAULT_PORT, make_server
 
@@ -359,10 +360,39 @@ def cmd_check(args: argparse.Namespace) -> int:
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
+    code = _rules_check(p, facts, not args.brief)
     if not check.tree_ok(results) or stale:
         say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
         return STALE
-    return OK
+    return code
+
+
+def _rules_check(p: Project, facts: dict[str, Any], teach: bool) -> int:
+    """Print the import rule results. Give exit 1 for a fail, or for an unknown result
+    under [rules] unknown = "fail"."""
+    ruled = import_rules.run_tree(p.tree, facts)
+    say(*import_rules.report(ruled, p.cfg.rules_unknown, teach))
+    return OK if import_rules.ok(ruled, p.cfg.rules_unknown) else STALE
+
+
+def cmd_rules(args: argparse.Namespace) -> int:
+    """Print the result of each import rule: pass, fail, or unknown.
+
+    `--json` writes one JSON object. Notices for a person go to stderr.
+    """
+    p = _project(args)
+    facts = extract.read_facts(p.cfg.facts_path)
+    problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
+    ruled = import_rules.run_tree(p.tree, facts)
+    if not facts:
+        warn(f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}", "run: systemap extract")
+    if args.json:
+        say(json.dumps(import_rules.payload(ruled, p.cfg.rules_unknown, problems), indent=2))
+    else:
+        lines = import_rules.report(ruled, p.cfg.rules_unknown, not args.brief)
+        say(*problems, *(lines or ["import rules: The model has no import rules."]))
+    passed = facts and not problems and import_rules.ok(ruled, p.cfg.rules_unknown)
+    return OK if passed else STALE
 
 
 # ---- figure ----------------------------------------------------------------
@@ -1066,6 +1096,30 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     s.set_defaults(func=cmd_judgement)
+
+    s = sub.add_parser(
+        "rules",
+        help="Print the result of each import rule: pass, fail, or unknown.",
+        description=(
+            "This command compares the import rules of the model with the resolved imports "
+            "in the facts. The result fail gives each import against the rule. The result "
+            "unknown gives each module with imports that are possibly not in the facts. The "
+            'command exits 1 for the result fail. With [rules] unknown = "fail", it also '
+            "exits 1 for the result unknown."
+        ),
+    )
+    add_root(s)
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="Print result lines only. Use systemap explain KIND for the full explanation.",
+    )
+    s.add_argument(
+        "--json",
+        action="store_true",
+        help="Write one JSON object with the result of each rule and the counts.",
+    )
+    s.set_defaults(func=cmd_rules)
 
     s = sub.add_parser(
         "delta",

@@ -143,6 +143,7 @@ JOURNEYS = (
             '["subcommand","systemap.cli","systemap","place"]',
             '["subcommand","systemap.cli","systemap","check"]',
             '["subcommand","systemap.cli","systemap","skill"]',
+            '["subcommand","systemap.cli","systemap","rules"]',
         ),
         steps=(
             Step(
@@ -185,7 +186,7 @@ JOURNEYS = (
                 acts=("Check",),
                 measures=("Check",),
                 edge=("Check", "Agent"),
-                say="systemap check gives each error and necessary action. The agent makes changes until module coverage is N/N and layout checks give no errors.",
+                say="systemap check gives each error and necessary action, and the result of each import rule. systemap rules gives only the import rule results. The agent makes changes until module coverage is N/N and layout checks give no errors.",
             ),
         ),
     ),

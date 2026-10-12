@@ -9,6 +9,7 @@
 - Component: source and interface, kind and appearance, positions and text, nested map
 - Flow
 - Invariant
+- ImportRule
 - Journey
 - Step
 - Layer
@@ -47,7 +48,7 @@ For a model file from an earlier version, tell the maintainer about `systemap co
 
 ## Model
 
-`Model(canvas, containers, regions, components, flows, flow_kinds, invariants=())`
+`Model(canvas, containers, regions, components, flows, flow_kinds, invariants=(), import_rules=())`
 
 `canvas` gives `(width, height)` in SVG coordinate units.
 The other collections are tuples of the dataclasses below.
@@ -240,6 +241,41 @@ An invariant gives a source-supported repository rule.
 `governs` contains the directly affected component identifiers.
 The page and component inspector show the applicable rules.
 
+## ImportRule
+
+`ImportRule(id, kind, src=(), dst=(), reason="", invariant=None)`
+
+An import rule gives a permitted relation between components.
+`systemap check` and `systemap rules` compare each rule with the resolved imports in the facts.
+`id` must be unique. `kind` must be one of these values:
+
+| `kind` | The result is `fail` if |
+|---|---|
+| `forbid_import` | A module of a `src` component imports a module of a `dst` component. |
+| `allow_imports` | A module of a `src` component imports a module of a component that is not in `src` or `dst`. |
+| `forbid_cycle` | The imports between the `src` components make a cycle. An empty `src` selects all components. |
+
+`reason` gives the cause of the rule. `invariant` gives the number of the related invariant.
+The rules do not examine external packages, because the import facts do not contain them.
+
+```python
+IMPORT_RULES = (
+    ImportRule(
+        "reader-alone",
+        "forbid_import",
+        src=("Reader",),
+        dst=("Writer",),
+        reason="The reader does not use the writer.",
+    ),
+)
+```
+
+Put the tuple in `Model(..., import_rules=IMPORT_RULES)`.
+The result is `unknown` if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
+This occurs when a module did not parse, or when a module has unresolved imports.
+`allow_imports` also gives `unknown` for an import of a module with no component.
+`check` prints an `unknown` result as a warning. `unknown = "fail"` in `[rules]` makes it an error.
+
 ## Journey
 
 `Journey(id, label, steps, starts="", drafted=False, covers=())`
@@ -306,6 +342,8 @@ The checker rejects these conditions:
 - Missing positions, cards that overlap, and components outside their region or container.
 - Unknown flow endpoints, invalid kinds, duplicate ordered pairs, and invalid context or tool endpoints.
 - Unknown invariant components and duplicate invariant numbers.
+- Import rules with a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant.
+- Imports against an import rule.
 - Routes through unrelated cards or regions.
 - Labels that touch cards, headers, or other labels.
 - Text that exceeds its box or is below the minimum type size of 11 units.

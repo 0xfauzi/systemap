@@ -263,6 +263,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | gutter | The layout space between regions or card columns. |
 | holdout | Recorded evaluation cases excluded from fitting a method (category 7). |
 | import connection | An extracted source import between two component module sets. |
+| import rule | A model record that gives the permitted imports between the module sets of components. Its result is `pass`, `fail`, or `unknown`. |
 | layout geometry | The coordinates and bounds used by the map layout (category 7). |
 | legend | The diagram explanation for its colors and marks. |
 | keyboard focus | The user interface control that receives keyboard input. |

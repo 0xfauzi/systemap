@@ -22,7 +22,13 @@ The command exits 1 if a rule rejects the map.
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
 | meaning | A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id. |
+| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
+
+An import rule can also have the result `unknown`.
+This result occurs if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
+`check` prints each `unknown` result as a warning and does not reject the map.
+Set `unknown = "fail"` in `[rules]` to make `check` reject the map for this result.
 
 The labels rule rejects these conditions:
 
@@ -333,6 +339,28 @@ MEANING = Meaning(
 )
 ```
 
+A model can also contain import rules.
+`systemap check` and `systemap rules` compare each rule with the resolved imports in the facts.
+This rule gives `fail` if a module of `FactsExtractor` imports a module of `Schematic`:
+
+```python
+from systemap import ImportRule
+
+IMPORT_RULES = (
+    ImportRule(
+        "facts-first",
+        "forbid_import",
+        src=("FactsExtractor",),
+        dst=("Schematic",),
+        reason="Extraction does not use the drawing.",
+    ),
+)
+```
+
+Give the tuple to `Model(..., import_rules=IMPORT_RULES)`.
+The schema file of the skill tells about the three `kind` values: `forbid_import`, `allow_imports`, and `forbid_cycle`.
+The page does not show import rules.
+
 The example has no `x` or `y` values.
 `systemap place` writes these positions.
 After component additions or removals, `systemap place --all` writes new
@@ -576,6 +604,25 @@ The JSON object has these fields:
 The `evidence` digest is for an answer with one line.
 An `items` answer for more than one line has a different digest.
 The text report prints that digest in the pending-answer row.
+
+### `systemap rules [--brief] [--json]`
+
+Prints the result of each import rule: `pass`, `fail`, or `unknown`.
+`systemap check` prints the same results.
+A `fail` result gives each import against the rule, as source module and target module.
+An `unknown` result gives each module with imports that are possibly not in the facts, and the cause.
+
+The causes are a module that did not parse, unresolved imports, and an import of a module with no component.
+The command exits 1 for a `fail`, for an incorrect rule, or for missing facts.
+It also exits 1 for an `unknown` result with `[rules] unknown = "fail"`.
+
+- `--brief` does not include the two explanation rows.
+
+- `--json` writes one JSON object to stdout for software.
+  The keys are `ok`, `unknown_policy`, `problems`, `counts`, and `rules`.
+  Each item of `rules` has `map`, `id`, `kind`, `src`, `dst`, `reason`, `invariant`, and `result`.
+  It also has `imports` (`source`, `target`) and `unknown` (`module`, `cause`, `detail`).
+  The `cause` values are `no_facts`, `no_read_state`, `not_parsed`, `unresolved_not_known`, `unresolved_imports`, and `no_component`.
 
 ### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]`
 
@@ -872,6 +919,7 @@ Unknown keys are rejected.
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. No ignore is necessary for empty package markers. |
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A `-` at the start removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
+| `[rules]` | `unknown = "warn"` | `unknown = "fail"` makes `systemap check` and `systemap rules` exit 1 for an import rule with the result `unknown`. With `"warn"`, the commands print the result and do not reject the map. A different value or key gives a configuration error. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--jev`. With `enabled` unset, `delta` sends no question without `--jev`, also with a key. `enabled = false` stops the hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |

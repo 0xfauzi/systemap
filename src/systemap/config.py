@@ -56,6 +56,7 @@ KNOWN_KEYS = {
     "agent",
     "delta",
     "writing",
+    "rules",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
@@ -65,6 +66,7 @@ FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", 
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
 JUDGEMENT_KEYS = {"answered"}
+RULES_UNKNOWN = ("warn", "fail")
 ANSWER_FORMS = ("item", "items", "crossing", "crossing_into", "crossing_from", "kind", "module_sdk")
 ANSWER_KEYS = {*ANSWER_FORMS, "reason", "evidence", "policy", "reviewed"}
 # The kinds of line `systemap judgement` prints, as `kind = "..."` names them.
@@ -193,6 +195,8 @@ class Config:
     # The URL of the published map page of a pull request, with {number}. Empty: no comment.
     delta_page_url: str = ""
     writing_profile: str = "plain"  # the writing profile for map text
+    # "fail": an import rule with the result unknown makes `systemap check` fail.
+    rules_unknown: str = "warn"
     source: str = ""
 
     @property
@@ -458,6 +462,7 @@ def load(root: Path) -> Config:
         judgement_answered=_judgement_answered(raw, where),
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
+        rules_unknown=_rules(raw, where),
         **_jev(raw, where),
         **_agent(raw, where),
         root=root,
@@ -578,6 +583,20 @@ def _flows(raw: dict[str, Any], where: str) -> tuple[str, ...]:
     if any(not name.strip() for name in names):
         raise ConfigError(f"{where}: flows.observed_by must contain a word for each mechanism.")
     return tuple(name.strip() for name in names)
+
+
+def _rules(raw: dict[str, Any], where: str) -> str:
+    """This function reads `[rules]`. `unknown` sets the effect of an unknown rule result."""
+    rules = raw.get("rules", {})
+    if not isinstance(rules, dict):
+        raise ConfigError(f"{where}: rules must be a table")
+    bad = sorted(set(rules) - {"unknown"})
+    if bad:
+        raise ConfigError(f"{where}: rules has an unknown key: {', '.join(bad)}")
+    value = rules.get("unknown", "warn")
+    if value not in RULES_UNKNOWN:
+        raise ConfigError(f'{where}: rules.unknown must be "warn" or "fail"')
+    return str(value)
 
 
 def _jev(raw: dict[str, Any], where: str) -> dict[str, Any]:
