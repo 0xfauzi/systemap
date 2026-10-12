@@ -2079,3 +2079,108 @@ The test that passes on the base examines that the layout widths do not change.
 The sample page of `test_page_is_small_and_self_contained` is 326,739 bytes after the three merges.
 The limit is 329,728 bytes, so the page passes with 2,989 bytes of space.
 The label script and the Fit changes added 5,595 bytes.
+
+## A model reader that runs no code (2026-10-12)
+
+systemap 2.0.0 ran `map/model.py` as Python code. The new reader (`src/systemap/model_load.py`)
+parses the model file and makes the values from literal syntax only.
+`SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command selects the 2.0.0 loader.
+All runs used Python 3.11.17 on Linux. Other processes can run on the same computer, so the times are approximate.
+
+### Parser limits (model_parse_limits.py)
+
+Acceptance (written before the run): each input parses or gives SyntaxError, RecursionError,
+MemoryError, or ValueError, and the process does not stop. The peak memory for a 1 MB file
+with the most syntax nodes for its size is less than 400 MB.
+
+| Input | Result |
+|---|---|
+| 300 nested parentheses | SyntaxError: too many nested parentheses |
+| 300 nested lists | SyntaxError: too many nested parentheses |
+| 100,000 minus signs before a number | MemoryError, at once |
+| 100,000 additions | RecursionError during the syntax tree construction (0.05 s) |
+| An attribute chain of 100,000 names | RecursionError during the syntax tree construction (0.03 s) |
+| A chain of 50,000 calls | RecursionError during the syntax tree construction (0.05 s) |
+| 100,000 `not` operators | MemoryError, at once |
+| A flat list, 1,000,006 bytes | 500,006 nodes, peak 485 MB, 2.80 s |
+| A flat list, 524,294 bytes | 262,150 nodes, peak 262 MB, 1.49 s |
+| A flat list, 262,150 bytes | 131,078 nodes, peak 137 MB, 0.31 s |
+
+No input stopped the process. The 1 MB file failed the memory acceptance value.
+The reader therefore reads at most 512 KiB for one model and the files that it imports.
+It refuses a larger file before it parses it. The reader gives the parser errors as refusals.
+Its own check also refuses values that are nested more than 32 levels.
+The three self-map files contain 72,442 bytes after this change.
+
+### Load time (model_load_time.py)
+
+Acceptance (written before the run): the safe reader takes at most twice the time of the
+2.0.0 code loader for the self-map. Each line is one process with 30 loads after one load
+that is not counted. The values are the medians in milliseconds.
+
+| Files | Code loader (ms) | Safe reader (ms) | Ratio |
+|---|---|---|---|
+| 2.0.0 self-map (7b29986), bytecode cache | 3.3, 3.4, 4.2 | refused | |
+| New self-map, bytecode cache | 2.5, 2.5, 2.3 | 8.0, 7.2, 6.7 | 3.16, 2.91, 2.88 |
+| New self-map, no bytecode cache (`PYTHONDONTWRITEBYTECODE=1`) | 7.0, 4.2, 4.3 | 7.5, 6.7, 6.5 | 1.07, 1.60, 1.50 |
+
+The safe reader failed the acceptance value when Python keeps the bytecode of
+`map/flows.py` and `map/journeys.py` in `map/__pycache__`. Then the code loader compiles
+only `map/model.py`. The reader passed the acceptance value without the bytecode cache.
+Against the 2.0.0 self-map with the code loader (the state before this change), the
+ratios of the medians across the runs are between 1.5 and 2.4.
+
+A profile of a first version gave these means of 30 runs for the three files:
+the complete read 9.47 ms, `ast.parse` 4.35 ms, a count of the syntax nodes with `ast.walk`
+1.89 ms, and the values 0.79 ms. `compile` of the same three files takes 3.72 ms.
+The check now counts the values that it examines, and the `ast.walk` count is removed.
+The remaining time of the current reader, about 1.5 ms, is the check and the file reads
+(calculated from the table, not measured separately).
+`ast.parse` alone is near twice the time of the code loader with the bytecode cache,
+so a check with no cost would also be near the acceptance value. A measurement is
+necessary before a decision about a cache of the parsed files.
+The difference is 4 to 5 ms for each load. `systemap check` loads the model one time.
+
+### Model files that the reader accepts (model_census.py)
+
+Acceptance (written before the run): 0 refusals for the self-map, the TypeScript test
+fixture, the model that `systemap init` writes, and the worked example of the skill.
+
+| File | Result in the worktree of this change |
+|---|---|
+| The `systemap init` template | accepted |
+| `map/model.py`, with `map/flows.py` and `map/journeys.py` | accepted |
+| `tests/fixtures/typescript-app/map/model.py` | accepted |
+| The worked example in `references/example.md` (three skill directories) | accepted |
+| The example in `docs/reference.md` | accepted |
+| `bench/scratch/cli-first-map-20261011T201433Z/repo/map/model.py` | accepted |
+| The skill example in that bench repository (skill 2.0.0) | refused: line 46, an index (`x=COL["c1"]`) |
+
+The change passed the acceptance value. Before this change, the reader refused
+`map/model.py` (line 15, `from dataclasses import replace`, then `_reviewed` and a
+dictionary comprehension) and the skill example (line 46, an index into `COL`).
+The bench model has `Steps = tuple[Step, ...]` from the 2.0.0 `init` template.
+The reader accepts this form as a type alias, so the `init` models of 0.11.0 to 2.0.0 load
+with no change. The census of the model texts that the tests write is in the test suite:
+the two-card fixture (`x=COL["c1"]`), four delta and comparison fixtures
+(`plain={c.id: ... for c in COMPONENTS}`) and the placement fixture (a Python module with
+`from typing import Any` and a calculated grid) were refused. They now use literal values.
+
+Of the 69 commits that changed the self-map, the reader accepts 4: this change and three
+commits of 2026-08-26 and 2026-08-27. The other 65 have `from dataclasses import replace` (56)
+or a comprehension (9). `render --base` with one of these commits shows the refusal in the
+Changes view, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is set.
+
+### Adversarial tests
+
+`tests/test_model_load.py` has 43 tests. With the 2.0.0 loader (the code of de8358e), 37 failed
+and 6 passed. In 22 of the failures, the model file wrote its marker file: `os.system`,
+`__import__`, `exec`, `eval`, `getattr`, `__builtins__`, a lambda, a function, a class,
+a decorator, a comprehension, an f-string, `systemap.config` and other systemap modules
+(three tests), a call of `open`, a sibling file through a symbolic link to outside the
+directory, a committed model in the revision comparison, and the four values of
+`SYSTEMAP_TRUST_MODEL_CODE` other than `1`. The other 15 failures were refusals that did not
+occur or messages without the line. The 6 tests that passed examine files that both loaders
+accept, and the annotation test: the 2.0.0 loader also did not evaluate annotations, because
+`compile` received `from __future__ import annotations` from `config.py`.
+With the safe reader, all 43 tests pass.

@@ -9,6 +9,22 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+- systemap reads a model file as data. It does not run code from the model file.
+  Earlier versions ran `map/model.py` as Python code in `check`, `render`, `delta`, and the other commands.
+  The comparison of a base revision also ran the committed model files.
+
+  A model file can contain only literal values, calls of the model classes, names that the file
+  defines, `import NAME` for a file in the same directory, and a type alias such as
+  `Steps = tuple[Step, ...]`. [docs/reference.md](docs/reference.md) gives the full list and the limits.
+  systemap refuses all other syntax before it makes a value. The message gives the file, the line,
+  and the refused syntax. A model file from `systemap init` loads with no change.
+
+  A model file with functions, comprehensions, indexes, or other imports does not load in this version.
+  Write the values as literal values. If you know that the code in a repository is safe, set
+  `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command to run the model file as in 2.0.0.
+  The base revision of `render --base` uses the same rule. For a base model with code, the Changes view
+  gives the refusal, unless the environment sets this value.
+
 ## 2.0.0 - 2026-10-12
 
 This version removes `systemap delta --format markdown`.

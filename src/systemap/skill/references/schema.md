@@ -2,6 +2,7 @@
 
 ## Contents
 
+- The model file
 - Model
 - Container
 - Region
@@ -20,6 +21,28 @@ The model uses frozen dataclasses exported by `systemap`.
 Default values identify optional fields.
 Use ASD-STE100 names and prose as specified in `references/language.md`.
 Keep schema keys and source symbols exact.
+
+## The model file
+
+systemap reads the model file as data. It does not run the file as Python code.
+Write only these statements:
+
+- The module docstring and `from __future__ import annotations`.
+- `from systemap import ...` for the model classes and `AGENT_KINDS`, `KINDS`, and `STANDARD_KINDS`.
+- `import NAME` for the file `NAME.py` in the same directory, such as `import journeys`.
+  Then use `NAME.VALUE` for a value from that file.
+- `NAME = value` and `NAME: annotation = value`. systemap does not read the annotation.
+- A type alias for annotations, such as `Steps = tuple[Step, ...]`.
+
+A value is a `str`, `int`, `float`, `bool`, or `None` constant, or a `tuple`, `list`, `set`, or `dict` of values.
+A value can also be a minus sign before a number, a model class call, or a name that an earlier statement defines.
+Write each position, digest, and source record as a literal value.
+Do not write functions, loops, comprehensions, f-strings, operators, indexes, or other imports.
+systemap refuses other syntax and gives the file and the line.
+If systemap refuses a statement, write the value as a literal value.
+
+The maintainer can set `SYSTEMAP_TRUST_MODEL_CODE=1` to run model code in a repository with safe code.
+Do not set this value to make a refused model file load.
 
 ## Model
 

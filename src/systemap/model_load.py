@@ -10,13 +10,13 @@ cannot give this permission: systemap does not read it from a repository file.
 
 Accepted statements: the module docstring, `from __future__ import annotations`, an
 import of model names from `systemap` or `systemap.model`, `import NAME` for the file
-NAME.py beside the model file, `NAME = value`, `NAME: annotation = value` (the reader
+NAME.py in the same directory, `NAME = value`, `NAME: annotation = value` (the reader
 does not read the annotation), and `NAME = tuple[...]` and similar type aliases.
 
 Accepted values: str, int, float, bool and None constants, a minus sign before a number,
-tuples, lists, sets and dictionaries of values, calls of the model classes with
-positional and keyword values, names that an earlier statement in the same file
-defined, and `FILE.NAME` for a value in an imported file.
+a tuple, list, set or dict of values, calls of the model classes with positional and
+keyword values, names that an earlier statement in the same file defined, and
+`FILE.NAME` for a value in an imported file.
 """
 
 from __future__ import annotations
@@ -78,8 +78,8 @@ CLASS = "class"
 ALIAS = "type alias"
 
 ADVICE = (
-    "systemap does not run code from a model file. Write literal values: strings, numbers, "
-    "True, False, None, tuples, lists, sets, dictionaries, and calls of the model classes. "
+    "systemap does not run code from a model file. Write literal values and calls of the "
+    "model classes. "
     f"If you know that the code in this repository is safe, set {TRUST}=1 in the "
     "environment of the command. Then systemap runs the model file as Python code."
 )
@@ -138,7 +138,7 @@ class _Reader:
         path = self.folder / f"{name}.py"
         if not path.is_file():
             raise file.refuse(
-                node, f"an import of {name}, which is not a file beside the model file"
+                node, f"an import of {name}, which is not a file in the directory of the model file"
             )
         resolved = path.resolve()
         if resolved.parent != self.folder:
@@ -468,7 +468,7 @@ def _attribute(file: _File, node: ast.Attribute, depth: int) -> int:
         raise file.refuse(
             node,
             _construct(node, file.segment),
-            "Use FILE.NAME only for a value that an imported file beside the model defines. ",
+            "Use FILE.NAME only for a value that an imported file in the same directory defines. ",
         )
     return imported.sizes[node.attr]
 

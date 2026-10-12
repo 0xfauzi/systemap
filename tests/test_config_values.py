@@ -64,7 +64,7 @@ def test_only_a_systemap_name_gives_the_systemap_import_advice(
     path.write_text(model + "\nimport my_shared_layout_helpers\n", encoding="utf-8")
     assert run("--root", str(two_cards), "check") == 2
     err = capsys.readouterr().err
-    assert "an import of my_shared_layout_helpers, which is not a file beside" in err
+    assert "an import of my_shared_layout_helpers, which is not a file in the directory" in err
     assert "import from systemap" not in err
     path.write_text(model + "\nSIZE = CANVAS_SIZE\n", encoding="utf-8")
     assert run("--root", str(two_cards), "check") == 2
