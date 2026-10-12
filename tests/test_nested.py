@@ -308,10 +308,10 @@ def test_the_check_runs_on_every_map_and_counts_coverage_once(
     assert out.count("coverage:") == 1
     assert "coverage: 10 of 10 modules mapped, 1 an empty package marker" in out
     assert "claimed twice" not in out
-    assert "map layout: has no errors (5 components, 4 orthogonal labeled edges" in out
-    assert "Gateway: map layout: has no errors (5 components, 4 orthogonal labeled edges" in out
-    assert "Style: map layout: has no errors (4 components, 3 orthogonal labeled edges" in out
-    assert "Gateway: map routes: 0 edges across components other than its endpoints" in out
+    assert "map layout: has no errors (5 components, 4 orthogonal flow paths with labels" in out
+    assert "Gateway: map layout: has no errors (5 components, 4 orthogonal flow paths" in out
+    assert "Style: map layout: has no errors (4 components, 3 orthogonal flow paths" in out
+    assert "Gateway: map routes: 0 flow paths across components other than their endpoints" in out
     assert "nesting" not in out
     for rel in ("index.html", "Gateway/index.html", "Style/index.html"):
         assert f"docs/map/{rel} has no rendered output." in out, rel
@@ -736,7 +736,8 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
         "facts",
         "built_at_commit",
         "The commit read during extraction (`HEAD`), or empty outside Git. "
-        "The page prints `facts from <sha>`. Extraction precedes the commit recording facts",
+        "The page prints `facts from <sha>`. Extraction occurs before the commit that records "
+        "the facts",
     ) in FIELDS
 
 

@@ -667,7 +667,7 @@ def order_line(placement: Placement) -> str:
         if placement.tried
         else "as listed"
     )
-    return f"region order: {order}; {placement.score.text()}; {how}"
+    return f"region order: {order}. {placement.score.text()}. {how}"
 
 
 # ---- filling the holes: some cards pinned ----------------------------------------

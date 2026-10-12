@@ -728,8 +728,8 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
     through, across = result.through, result.across
     out = [
         (
-            f"map routes: {through} edge{('s' if through != 1 else '')} across components "
-            f"other than its endpoints, {across} across regions other than its endpoint "
+            f"map routes: {through} flow path{('s' if through != 1 else '')} across components "
+            f"other than their endpoints, {across} across regions other than their endpoint "
             f"regions."
         )
     ]
@@ -767,7 +767,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         out += [f"  {line}" for line in result.interface]
         out.append(
             f"  fix: In {model_file}, start interface with a public name from the "
-            f"component modules (Class.method for a method), or leave it empty."
+            f"component modules, or leave it empty. Use Class.method for a method."
         )
     out.extend(_unknown_surface_report(result.unknown_surface))
     problems = result.problems
@@ -779,7 +779,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         n = len(model.components)
         out.append(
             f"map layout: has no errors ({n} components, {len(model.flows)} orthogonal "
-            f"labeled edges, no text size less than {TEXT_PX:g}px)"
+            f"flow paths with labels, no text size less than {TEXT_PX:g}px)"
         )
     out += report_stale(result.stale)
     return out

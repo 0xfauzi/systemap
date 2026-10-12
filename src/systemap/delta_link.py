@@ -81,7 +81,7 @@ def comment(url: str, pr: int, open_lines: int) -> str:
         word = "line" if open_lines == 1 else "lines"
         out += [
             "",
-            f"The map needs an update ({open_lines} {word}). The log of the delta job "
+            f"A map update is necessary ({open_lines} {word}). The log of the delta job "
             "gives the action for each line.",
         ]
     return "\n".join(out) + "\n"
@@ -95,6 +95,6 @@ def write(path: str, url: str, pr: int, open_lines: int) -> bool:
     if not url:
         return False
     if not pr:
-        raise LinkError("delta --comment needs --pr with the pull request number.")
+        raise LinkError("delta --comment must have --pr with the pull request number.")
     Path(path).write_text(comment(url, pr, open_lines), encoding="utf-8", newline="\n")
     return True

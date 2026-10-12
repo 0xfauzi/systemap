@@ -165,11 +165,11 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert run("--root", str(tmp_path), "facts", "--modules") == 0
     out = capsys.readouterr().out
     assert out == (
-        "modules: 3. Each line gives the opening docstring sentence and the public name, import, and test counts.\n  pkg: empty package marker\n  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n  pkg.writer: No docstring is available. (1 name, 1 import, 1 test)\n"
+        "modules: 3. Each line gives the first docstring sentence and the public name, import, and test counts.\n  pkg: empty package marker\n  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n  pkg.writer: No docstring is available. (1 name, 1 import, 1 test)\n"
     )
     assert run("--root", str(tmp_path), "facts", "--docstrings") == 0
     assert capsys.readouterr().out == (
-        "docstrings: 2 of 3 modules have docstrings. Each line gives the opening sentence.\n  pkg: empty package marker\n  pkg.reader: Read things.\n  pkg.writer: No docstring is available.\n"
+        "docstrings: 2 of 3 modules have docstrings. Each line gives the first sentence.\n  pkg: empty package marker\n  pkg.reader: Read things.\n  pkg.writer: No docstring is available.\n"
     )
 
     # One record, rendered: never the JSON, and never a test's name.

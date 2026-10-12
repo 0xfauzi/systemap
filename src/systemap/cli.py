@@ -106,8 +106,8 @@ AGENT_SENTENCE = (
 # The sentence for a repository that already has a map: the skill's "the
 # code changed" path, with the ref the map is compared against.
 MAINTENANCE_SENTENCE = (
-    "The code changed. Update the map with systemap. Obey the systemap skill "
-    "maintenance procedure and ASD-STE100 Issue 9. Use base {base}."
+    "The code changed. Update the map with systemap. Obey the maintenance procedure "
+    "of the systemap skill and ASD-STE100 Issue 9. Use base {base}."
 )
 
 
@@ -612,7 +612,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         return OK
     say(
         f"history: The command reads facts at {len(shas)} commits. The cache reduces "
-        f"the time of subsequent runs."
+        f"the time of later runs."
     )
     try:
         windows = trend.walk(p.cfg, p.tree.top.model, shas)
@@ -708,7 +708,7 @@ def cmd_place(args: argparse.Namespace) -> int:
             raise place.PlaceError(
                 f"The command could not write a position for {', '.join(wrong)} in {m.rel}: "
                 f"the source has no explicit Component(id=...) call. Use systemap place "
-                f"--print to get x and y. Add these values manually."
+                f"--print to show x and y. Add these values manually."
             )
         laid = ". The command set all boxes and the canvas" if placement.fresh else ""
         say(f"{m.prefix}place: The command wrote {m.rel}: {place.head(placement)}{laid}")
@@ -849,7 +849,7 @@ def build_parser() -> argparse.ArgumentParser:
     view.add_argument(
         "--docstrings",
         action="store_true",
-        help="Print the opening sentence of each module docstring.",
+        help="Print the first sentence of each module docstring.",
     )
     view.add_argument(
         "--module",
@@ -897,7 +897,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--all",
         action="store_true",
-        help="Set all component positions again, but keeps components with pinned=True.",
+        help="Set all component positions again, but keep components with pinned=True.",
     )
     s.add_argument(
         "--print", action="store_true", help="Print the positions. Do not write the model."
@@ -1017,9 +1017,9 @@ def build_parser() -> argparse.ArgumentParser:
         "judgement",
         help="Print the possible map errors for the maintainer to examine.",
         description=(
-            "This command gives possible errors that mechanical checks cannot resolve. The "
-            "diagnostics include module grouping, flow descriptions, entry points, and "
-            "source evidence. An answer in [judgement] answered can accept an exact line "
+            "This command gives possible errors that mechanical checks cannot identify with "
+            "certainty. The diagnostics include module groups, flow descriptions, entry points, "
+            "and source evidence. An answer in [judgement] answered can accept an exact line "
             "or a family of lines. Exact answers must have source evidence. Family answers "
             "must have policy=true. The command exits 0, or 1 with --strict if a line "
             "remains open."
@@ -1055,7 +1055,7 @@ def build_parser() -> argparse.ArgumentParser:
             "This command reads the facts at two Git commits. It gives added, removed, and "
             "moved modules, missing entries and interfaces, new imports, and changes to "
             "flow evidence. Each diagnostic gives the necessary action. The command exits "
-            "0 if the map is current, or 1 if the map needs an update."
+            "0 if the map is current, or 1 if a map update is necessary."
         ),
     )
     add_root(s)
@@ -1110,8 +1110,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print measurements of the map geometry.",
         description=(
             "This command gives map measurements for a reader without a browser. It gives "
-            "components per region, region order, routing score, edge bends and lengths, "
-            "gutter capacity, and layer contents."
+            "components in each region, region order, routing score, flow path bends and "
+            "lengths, gutter capacity, and layer contents."
         ),
     )
     add_root(s)

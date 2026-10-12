@@ -67,7 +67,7 @@ def _entries(repo: Path, sha: str) -> list[_Entry]:
     """This function lists the blobs of a commit tree with their modes and paths."""
     proc = _git(repo, "ls-tree", "-r", "-z", "--full-tree", sha)
     if proc.returncode != 0:
-        raise DeltaError(f"git ls-tree {sha[:7]} returned an error: {_stderr(proc)}")
+        raise DeltaError(f"git ls-tree {sha[:7]} gave an error: {_stderr(proc)}")
     out: list[_Entry] = []
     for record in proc.stdout.split(b"\0"):
         head, tab, raw_path = record.partition(b"\t")
@@ -84,7 +84,7 @@ def _contents(repo: Path, oids: list[str]) -> list[bytes]:
         return []
     proc = _git(repo, "cat-file", "--batch", stdin="".join(f"{o}\n" for o in oids).encode())
     if proc.returncode != 0:
-        raise DeltaError(f"git cat-file returned an error: {_stderr(proc)}")
+        raise DeltaError(f"git cat-file gave an error: {_stderr(proc)}")
     data, at, out = proc.stdout, 0, []
     for _oid in oids:
         end = data.index(b"\n", at)

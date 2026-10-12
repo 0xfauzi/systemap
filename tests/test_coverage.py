@@ -177,8 +177,8 @@ def test_empty_package_markers_are_left_out_and_listed_once(
     assert run("--root", str(tmp_path), "extract") == 0
     out = capsys.readouterr().out
     assert (
-        "  empty package markers: 3 (pkg, pkg.other, pkg.sub); an __init__ with no public "
-        "names and no imports, left out of the coverage rule"
+        "  empty package markers: 3 (pkg, pkg.other, pkg.sub). Each is an __init__ with no "
+        "public names and no imports. The coverage rule omits them."
     ) in out
     assert out.count("empty package markers") == 1, "listed once"
     assert run("--root", str(tmp_path), "refresh") == 0

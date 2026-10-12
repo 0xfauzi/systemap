@@ -20,7 +20,7 @@ name = {name}
 model = "map/model.py"
 out_dir = "docs/map"
 # Test directories can be one path or a list of paths.
-# Without this key, the extractor finds directories called tests or test.
+# Without this key, the extractor finds directories with the name tests or test.
 # tests_dir = ["tests"]
 # spec_path = "docs/design.md"
 
@@ -34,7 +34,7 @@ out_dir = "docs/map"
 # ignore = [{{ module = "{package}.compat", reason = "Compatibility code outside the mapped system." }}]
 
 # An exact answer identifies a complete judgement finding and its explanation.
-# The command counts answered findings and gives stale-answer findings.
+# systemap judgement counts the answered findings and gives the stale answers.
 # An exact answer must have the evidence digest from its pending answer line.
 # [judgement]
 # answered = [{{ item = "single module: Reader contains only {package}.reader", reason = "The reader is a separate component.", evidence = "<digest from the pending answer line>" }}]
@@ -45,7 +45,7 @@ out_dir = "docs/map"
 # [delta]
 # page_url = "https://example.org/pr-{{number}}/"
 
-# The refresh command renders these figures beside the page.
+# The refresh command renders these figures in the output directory.
 # mode is "system" for all components or "reach" for a plan selection.
 # layer selects the flow view. A .svg path gives an SVG figure.
 [[figures]]
@@ -67,12 +67,12 @@ MODEL = '''# ruff: noqa: E501
 """The system map of {doc_name}.
 
 All reader text must use ASD-STE100 Issue 9.
-Before you write names or sentences, read the installed systemap skill language policy.
-Use the official writing rules and dictionary, including approved word meanings.
+Before you write names or sentences, read the language policy of the installed systemap skill.
+Use the official writing rules and dictionary. Use only the approved word meanings.
 
 The extractor supplies source facts. This file records component purposes and flow claims.
 Each component identifies its source modules and an applicable public entry point.
-A maintainer must examine the source before recording support for a claim.
+Before a maintainer records support for a claim, the maintainer must examine the source.
 
 The initial model has one container and four regions, without components.
 Write components from source facts. Then run systemap place to calculate positions.
@@ -108,7 +108,7 @@ CONTAINERS = (
 )
 
 # fmt: off
-# Regions group components. The initial grid has 48-unit column corridors and 36-unit row corridors.
+# A region contains a group of components. The initial grid has 48-unit column corridors and 36-unit row corridors.
 REGIONS = (
     Region(id="a", label="REGION A", box=(40, 60, 390, 216), container="system"),
     Region(id="b", label="REGION B", box=(478, 60, 390, 216), container="system"),
@@ -118,9 +118,9 @@ REGIONS = (
 # fmt: on
 
 # fmt: off
-# Write one component per source responsibility.
+# Write one component for each task in the source.
 # implemented_by gives source modules. entry gives a public source symbol.
-# Omit x and y until the placement command runs.
+# Do not set x and y. The placement command calculates them.
 COMPONENTS: tuple[Component, ...] = ()
 # fmt: on
 
@@ -144,7 +144,7 @@ MODEL = Model(
 )
 
 
-# Give short component descriptions, layer questions, and one sentence per flow.
+# Give short component descriptions, layer questions, and one sentence for each flow.
 PLAIN: dict[str, str] = {{}}
 
 LAYERS: tuple[Layer, ...] = ()
@@ -171,10 +171,11 @@ MEANING = Meaning(
 
 WORKFLOW = """name: systemap
 
-# The committed map must match the source facts and renderer.
+# The committed map must agree with the source facts and the renderer.
 # This workflow uses the package version that made it.
-# Change the package pin when you install a new systemap version.
-# The delta job fails if the map needs an update. Its log gives each action.
+# When you install a new systemap version, change the version in this file.
+#
+# The delta job fails if a map update is necessary. Its log gives each action.
 # Only the link job can write a pull request comment. It runs only if
 # [delta] page_url in systemap.toml gives the map page of each pull request.
 
@@ -209,14 +210,14 @@ jobs:
       - name: Source facts match
         run: |
           uvx --from "systemap==__VERSION__" systemap extract --check || {
-            echo "::error title=Stale map::Source facts do not match the repository. Run systemap refresh and commit the output directory."
+            echo "::error title=Stale map::Source facts do not agree with the repository. Run systemap refresh. Then commit the output directory."
             exit 1
           }
 
       - name: Map consistency checks
         run: |
           uvx --from "systemap==__VERSION__" systemap check || {
-            echo "::error title=Map check::The model has inconsistent fields or unmapped modules. Examine the findings above."
+            echo "::error title=Map check::The model has fields that do not agree, or modules without a component. Examine the findings above."
             exit 1
           }
 
@@ -230,7 +231,7 @@ jobs:
       - name: Rendered page matches
         run: |
           uvx --from "systemap==__VERSION__" systemap render --check || {
-            echo "::error title=Stale map::index.html does not match the renderer output. Run systemap refresh and commit the output directory."
+            echo "::error title=Stale map::index.html does not agree with the renderer output. Run systemap refresh. Then commit the output directory."
             exit 1
           }
 
@@ -274,7 +275,7 @@ jobs:
         run: |
           code="$(cat delta.code)"
           if [ "$code" = "1" ]; then
-            echo "::error title=Map delta::The map needs an update. Do the action in each line of the Map change results step. Then run the command in its last line."
+            echo "::error title=Map delta::A map update is necessary. Do the action in each line of the Map change results step. Then run the command in its last line."
           elif [ "$code" != "0" ]; then
             echo "::error title=Map delta::systemap delta could not run (exit $code). The Map change results step gives the reason."
           fi

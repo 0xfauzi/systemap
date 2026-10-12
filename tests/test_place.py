@@ -271,7 +271,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     assert printed.startswith(
         "place: 28 components placed, 0 kept. The command set all boxes and the canvas.\n"
     )
-    assert "\n  region order: " in printed and "; 720 orders examined, 13 routed\n" in printed
+    assert "\n  region order: " in printed and ". 720 orders examined, 13 routed\n" in printed
     assert "  Gateway: x=" in printed and "  region gateway: box=(" in printed
     assert "  container server: box=(" in printed and "  canvas: (" in printed
     assert model_path.read_text(encoding="utf-8") == before, "--print writes nothing"
@@ -282,7 +282,7 @@ def test_place_writes_the_model_in_place_and_a_second_run_changes_nothing(
     # regions, so every one of the 720 orders was tried, and the twelve
     # best by the estimate plus the order as listed were routed.
     assert re.fullmatch(
-        "place: The command wrote map/model.py: 28 components placed, 0 kept. The command set all boxes and the canvas\\n  region order: (\\w+, ){5}\\w+; \\d+ bends, [\\d,]+ units; 720 orders examined, 13 routed\\nrun: systemap check\\n",
+        "place: The command wrote map/model.py: 28 components placed, 0 kept. The command set all boxes and the canvas\\n  region order: (\\w+, ){5}\\w+\\. \\d+ bends, [\\d,]+ units\\. 720 orders examined, 13 routed\\nrun: systemap check\\n",
         out,
     ), out
     after = model_path.read_text(encoding="utf-8")
@@ -524,11 +524,11 @@ def test_the_search_picks_an_order_the_router_scores_no_worse_than_the_listed_on
     # Deterministic: the same search twice is the same placement.
     assert place.compute(model) == searched
     assert re.fullmatch(
-        "region order: (\\w+, ){5}\\w+; \\d+ bends, [\\d,]+ units; 720 orders examined, 13 routed",
+        "region order: (\\w+, ){5}\\w+\\. \\d+ bends, [\\d,]+ units\\. 720 orders examined, 13 routed",
         place.order_line(searched),
     )
     assert place.order_line(listed) == (
-        f"region order: {', '.join(listed.order)}; {listed.score.text()}; as listed"
+        f"region order: {', '.join(listed.order)}. {listed.score.text()}. as listed"
     )
 
 
@@ -632,7 +632,7 @@ def test_describe_prints_the_region_order_for_the_look_and_as_written(
     ), out
     assert main(["--root", str(tmp_path), "place", "--keep-order"]) == 0
     out = capsys.readouterr().out
-    assert re.search(r"^  region order: gateway, contracts, .*; as listed$", out, flags=re.M), out
+    assert re.search(r"^  region order: gateway, contracts, .*\. as listed$", out, flags=re.M), out
     assert main(["--root", str(tmp_path), "describe"]) == 0
     out = capsys.readouterr().out
     assert re.search(

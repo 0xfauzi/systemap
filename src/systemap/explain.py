@@ -80,8 +80,8 @@ JUDGEMENT = {
     "journey start": Lesson(
         means="A sequence starts at an entry point that the facts do not contain.",
         why=(
-            "An incorrect entry point name prevents the map from showing which entry "
-            "points have sequences."
+            "If an entry point name is incorrect, the map cannot show which entry points "
+            "have sequences."
         ),
         do=(
             "Use the entry point name from `systemap facts --entry-points`, or leave "
@@ -162,7 +162,7 @@ DELTA = {
         means="A module has a different path. systemap identified the module at its previous path.",
         why=("A component with the previous path no longer contains the module."),
         do=(
-            "Change the module claim to the new name, or put the module in the component "
+            "Change the module claim to the new name. Or put the module in the component "
             "for its task at this snapshot."
         ),
     ),
@@ -251,7 +251,7 @@ DELTA = {
         means=(
             "The source review of a flow no longer gives evidence for its claim in this snapshot."
         ),
-        why="An import can stay the same when the flow direction or data changes.",
+        why="The flow direction or data can change while the import does not change.",
         do="Read the changed source. Correct the flow claims. Then record new source references.",
     ),
     "move candidate": Lesson(
@@ -261,9 +261,9 @@ DELTA = {
         ),
         why="Names such as `run` can occur in unrelated modules.",
         do=(
-            "Compare the source. If the module task stayed the same, change the claim to the "
+            "Compare the source. If the module task did not change, change the claim to the "
             "added module. Otherwise, remove the claim and add the added module to the "
-            "component for its task. Then the line needs no action."
+            "component for its task. Then no action is necessary for the line."
         ),
     ),
     "structural evidence lost": Lesson(
@@ -297,7 +297,7 @@ AUDIT = {
             "the delta lines or the exit code."
         ),
         do=(
-            "Read the two source files. If the module task stayed the same, change the claim "
+            "Read the two source files. If the module task did not change, change the claim "
             "to the added module. Otherwise, do the actions of the delta lines."
         ),
     ),
@@ -352,8 +352,8 @@ CHECK = {
     "coverage": Lesson(
         means="A module has no component, or it has more than one component.",
         why=(
-            "Coverage shows which modules the map contains. Multiple claims for one module "
-            "make the component sizes incorrect."
+            "Coverage shows which modules the map contains. Two or more claims for one "
+            "module make the component sizes incorrect."
         ),
         do=(
             "Add each module to one component, or give a reason to ignore it in "
@@ -369,8 +369,10 @@ CHECK = {
         do="After a component change, use `systemap place`. Then correct the reported errors.",
     ),
     "map routes": Lesson(
-        means="An edge crosses an unrelated component or region.",
-        why=("An edge across an unrelated component can show a connection that does not occur."),
+        means="A flow path crosses an unrelated component or region.",
+        why=(
+            "A flow path across an unrelated component can show a connection that does not occur."
+        ),
         do=(
             "Move a component to give the route sufficient space, or use `systemap place "
             "--all` to set the positions again."
@@ -442,7 +444,10 @@ def whole(kind: str) -> list[str]:
     found = LESSONS.get(kind)
     if found is None:
         known = ", ".join(sorted(LESSONS))
-        return [f"explain: there is no line kind called {kind!r}.", f"  the kinds are: {known}"]
+        return [
+            f"explain: there is no line kind with the name {kind!r}.",
+            f"  the kinds are: {known}",
+        ]
     return [
         f"{kind}",
         f"  meaning: {found.means}",

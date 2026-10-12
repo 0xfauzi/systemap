@@ -192,7 +192,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "facts",
         "built_at_commit",
         "The commit read during extraction (`HEAD`), or empty outside Git. The page "
-        "prints `facts from <sha>`. Extraction precedes the commit recording facts",
+        "prints `facts from <sha>`. Extraction occurs before the commit that records the facts",
     ),
     ("facts", "packages", "The import names of package roots"),
     (
@@ -207,33 +207,33 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "facts",
         "tests_dirs",
         "Root-relative test directories: configured `tests_dir`, or every directory "
-        "named `tests` or `test`",
+        "with the name `tests` or `test`",
     ),
     ("facts", "spec_sections", "The `##` headings in `spec_path`, with `level` and `title`"),
-    ("facts", "entry_points", "One record per entry point, with the fields below"),
+    ("facts", "entry_points", "One record for each entry point, with the fields below"),
     (
         "facts",
         "entry_point_issues",
         "Package entry targets or Python decorators with unresolved framework "
-        "bindings. Empty if there are none",
+        "bindings. The list is empty if there are none",
     ),
     (
         "facts",
         "test_file_issues",
         "TypeScript test files with unresolved imports or names after a parse error. "
-        "Empty if there are none",
+        "The list is empty if there are none",
     ),
     (
         "facts",
         "config_issues",
-        "TypeScript npm tsconfig packages in `extends` that cannot be read. Empty if "
-        "there are none",
+        "TypeScript npm tsconfig packages in `extends` that cannot be read. The list is "
+        "empty if there are none",
     ),
-    ("facts", "components", "One module record per dotted name, with the fields below"),
+    ("facts", "components", "One module record for each dotted name, with the fields below"),
     ("module", "id", "The dotted module name"),
     ("module", "file", "The root-relative source path"),
     ("module", "package", "The first module-name segment"),
-    ("module", "plane", "The second module-name segment if `planes` includes it. If not, `core`"),
+    ("module", "plane", "The second module-name segment if `planes` includes it, or `core`"),
     ("module", "loc", "The file line count"),
     (
         "module",
@@ -248,14 +248,14 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "module",
         "syntax_sha",
-        "The parsed-syntax digest, without comments or formatting, for source review",
+        "The parsed-syntax digest for source review. Comments and text format do not change it",
     ),
     ("module", "docstring", "The first module-docstring paragraph, with a length limit"),
     ("module", "functions", "Public functions with `name` and `signature`"),
     (
         "module",
         "classes",
-        "Public classes excluding errors, with `name` and public method signatures in `methods`",
+        "Public classes other than errors, with `name` and public method signatures in `methods`",
     ),
     (
         "module",
@@ -270,7 +270,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "Public module-level names in source order, with `kind`: `function`, `class`, "
         "`error`, `constant` (UPPER_CASE), or `object` (other assignments such as "
         "`app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` "
-        "includes local re-exports with `reexport_of` and their defining kind. A "
+        "includes local re-exports, with `reexport_of` and the kind in their source module. A "
         "full-module import uses kind `module`. `entry` and `interface` can use these "
         "names",
     ),
@@ -307,12 +307,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "tests_total",
         "The number of test functions with an import reference to this module",
     ),
-    ("module", "tests_primary", "The number of those functions in a file named for this module"),
+    ("module", "tests_primary", "The number of those functions in a file with the module name"),
     ("module", "tests", "Up to 25 test names, with primary tests first"),
     (
         "module",
         "tests_digest",
-        "A digest of every qualified test identity, including hidden identities",
+        "A digest of every qualified test identity. It also includes hidden identities",
     ),
     ("module", "parse_error", "Python source read or parse errors, with line and parser version"),
     (
@@ -325,12 +325,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "name",
         "The script name, `python -m` command, `main`, subcommand name, or function name",
     ),
-    ("entry point", "module", "The defining module"),
+    ("entry point", "module", "The module that defines the entry point"),
     (
         "entry point",
         "target",
-        "The console-script function, or the console script for a subcommand. Empty "
-        "for other kinds",
+        "The console-script function, or the console script for a subcommand. It is "
+        "empty for other kinds",
     ),
 )
 
@@ -351,7 +351,7 @@ def facts_doc() -> str:
         "## The facts file",
         "",
         "`systemap extract` writes `docs/map/map.json` by default.",
-        "The following fields come from `systemap.extract.FIELDS`.",
+        "These fields come from `systemap.extract.FIELDS`.",
     ]
     for scope, title in SCOPE_TITLES.items():
         out += ["", f"**{title}**", ""]
@@ -360,11 +360,12 @@ def facts_doc() -> str:
         "",
         "**The extract summary**",
         "",
-        "The quantities from `systemap extract` describe source facts.",
-        "They do not describe component functions on the map.",
+        "The numbers from `systemap extract` describe source facts.",
+        "They do not describe the purposes of the map components.",
         "`modules` counts records under `components`.",
-        "`functions`, `classes`, and `errors` sum the module fields with those names.",
-        "`tests` sums `tests_total`. The count for same-name test files sums `tests_primary`.",
+        "`functions`, `classes`, and `errors` give the sums of those module fields.",
+        "`tests` gives the sum of `tests_total`. The count for test files with the module",
+        "name gives the sum of `tests_primary`.",
         "",
         "`empty package markers` counts `__init__` records without public `names`,",
         "`imports`, or `external` entries. Coverage automatically excludes these records.",
@@ -1493,13 +1494,13 @@ def summary(facts: dict[str, Any]) -> list[str]:
     primary = sum(c["tests_primary"] for c in comps.values())
     dirs: list[str] = list(facts.get("tests_dirs", []))
     if guarded:
-        tests = f"{guarded} test functions import a module, {primary} in a file named after it"
+        tests = f"{guarded} test functions import a module, {primary} in a file with its name"
     elif dirs:
         # Zero is a finding, not a count: say where the extractor looked, so
         # a tests directory it did not find is set in `tests_dir`.
-        tests = f"none import a module; searched {', '.join(dirs)}"
+        tests = f"none import a module. The extractor searched {', '.join(dirs)}"
     else:
-        tests = "none import a module; no directory named tests or test was found"
+        tests = "none import a module. The extractor found no tests or test directory"
     out = [
         "facts for the change detector (these never appear on the map):",
         f"  modules:          {len(comps)}",
@@ -1511,7 +1512,7 @@ def summary(facts: dict[str, Any]) -> list[str]:
     markers = empty_markers(facts)
     if markers:
         out.append(
-            f"  empty package markers: {len(markers)} ({', '.join(markers)}); an __init__ with "
-            "no public names and no imports, left out of the coverage rule"
+            f"  empty package markers: {len(markers)} ({', '.join(markers)}). Each is an "
+            "__init__ with no public names and no imports. The coverage rule omits them."
         )
     return out

@@ -116,7 +116,7 @@ def test_one_commit_is_not_a_trend(repo: Path, capsys: pytest.CaptureFixture[str
 def test_windows_of_equal_size_print_the_latest_first(tmp_path: Path) -> None:
     windows = [trend.Window(base=str(i) * 40, head=str(i + 1) * 40, modules=1) for i in range(3)]
     out = trend.report(windows, tmp_path, "1 year ago", 14, 3)
-    assert "Equal sizes use the last window in chronological order first" in out[1]
+    assert "For equal sizes, the latest window is first" in out[1]
     shown = [line.strip() for line in out if ".." in line and "followed" not in line]
     assert shown == ["2222222..3333333", "1111111..2222222", "0000000..1111111"]
 
