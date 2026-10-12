@@ -12,6 +12,7 @@ from systemap import (
     nest,
     page_changes,
     page_data,
+    page_font,
     page_groups,
     page_guide,
     page_icons,
@@ -437,6 +438,7 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         f"if(localStorage.getItem({json.dumps(MOTION_KEY)})==='true'){{m='true'}}}}catch(e){{}}"
         "document.documentElement.setAttribute('data-reduce-motion',m)})();</script>"
         "<style>"
+        + page_font.FACE
         + _compact_css(
             panel_css(t, variables=True) + CSS.replace("{ROOT}", theme_mod.root_css(t)) + extra_css
         )
