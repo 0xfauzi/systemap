@@ -26,6 +26,7 @@ The first item gives the procedure to change that workflow.
   With `[delta] page_url` in `systemap.toml`, `systemap delta --comment FILE --pr N` writes one comment
   with a link to the Changes view of the published page. The workflow from `init` posts that comment
   and changes it after each push. If it is necessary to update the map, the comment has one more line that says so.
+  The workflow posts the comment only for a pull request from a branch of the same repository.
 
 - The Changes view lists the map changes: the components, flows, sequences, and rules that the change
   added, removed, or changed in the model. It compares the committed model at the merge base with the

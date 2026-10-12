@@ -334,6 +334,8 @@ and its action. CI rejects the pull request while it is necessary to update the 
 CI writes no comment by default. If your repository publishes the map page of each
 pull request, set `[delta] page_url` in `systemap.toml`. Then CI writes one comment
 with a link to the Changes view of that page, and changes it after each push.
+CI writes this comment only for a pull request from a branch of the same repository.
+The code and the settings of a pull request from a fork can change the comment text.
 The Changes view of that page shows the changed parts on the map.
 
 The agent can correct these findings without a full new map.

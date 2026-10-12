@@ -177,7 +177,8 @@ WORKFLOW = """name: systemap
 #
 # The delta job fails if a map update is necessary. Its log gives each action.
 # Only the link job can write a pull request comment. It runs only if
-# [delta] page_url in systemap.toml gives the map page of each pull request.
+# [delta] page_url in systemap.toml gives the map page of each pull request,
+# and only for a pull request from a branch of this repository.
 
 
 on:
@@ -282,9 +283,13 @@ jobs:
           exit "$code"
 
   # This job runs only if [delta] page_url in systemap.toml gives the map page of each pull request.
+  # It runs only for a pull request from a branch of this repository. The code and the settings
+  # of a pull request from a fork can change the comment text.
   link:
     needs: delta
-    if: ${{ !cancelled() && needs.delta.outputs.comment != '' }}
+    if: >-
+      ${{ !cancelled() && needs.delta.outputs.comment != ''
+      && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

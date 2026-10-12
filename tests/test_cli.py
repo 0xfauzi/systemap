@@ -167,7 +167,9 @@ def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path
     assert workflow.count("pull-requests: write") == 1
     assert "    permissions:\n      pull-requests: write" in link
     assert "    needs: delta\n" in link
-    assert "if: ${{ !cancelled() && needs.delta.outputs.comment != '' }}" in link
+    assert "${{ !cancelled() && needs.delta.outputs.comment != ''" in link
+    # A fork pull request can change the comment text: the job runs only for this repository.
+    assert "&& github.event.pull_request.head.repo.full_name == github.repository }}" in link
     assert "comment: ${{ steps.delta.outputs.comment }}" in job
     # One comment: found by the marker delta writes first, then edited in place.
     assert f'startswith("{delta_link.MARKER}")' in link
