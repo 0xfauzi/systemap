@@ -1,5 +1,202 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=map/">
-<title>systemap</title>
-<a href="map/">systemap map</a>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>systemap: a map of a software system, made from its source</title>
+<meta name="description" content="systemap makes a map of a software system from its source code. A coding agent writes the map. The checks compare it with the code at each change.">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+<script>(function(){var d=document.documentElement,s=null;d.className+=' js';try{s=localStorage.getItem('systemap-theme')}catch(e){}if(s!=='dark'&&s!=='light'){s=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('data-theme',s)})();</script>
+<script src="assets/site.js" defer></script>
+</head>
+<body class="home">
+<a class="skip" href="#main">Go to the content</a>
+<header class="bar">
+<a class="brand" href="./"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<nav class="nav" aria-label="Site"><a class="nav__a" href="guide/">Docs</a><a class="nav__a" href="map/">Live example</a><a class="nav__a" href="https://github.com/0xfauzi/systemap">GitHub</a></nav>
+<span class="bar__space"></span>
+<button type="button" class="tool" id="theme" aria-label="Paper theme" title="Paper theme" hidden><span class="tool__to-paper"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.75v1.25M8 13v1.25M1.75 8H3M13 8h1.25M3.58 3.58l.88.88M11.54 11.54l.88.88M3.58 12.42l.88-.88M11.54 4.46l.88-.88M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></svg></span><span class="tool__to-ink"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.25 9.75A5.5 5.5 0 1 1 6.25 2.75a4.5 4.5 0 0 0 7 7z"/></svg></span></button>
+</header>
+<main id="main">
+<div class="wrap">
+
+<section class="hero" aria-labelledby="top">
+<p class="kicker">System map · Python and TypeScript</p>
+<h1 id="top">A map of your software system, made from its source code</h1>
+<p class="lead">Your coding agent writes the components, the flows between them, and the sequences, and each component names its source modules. You and your agents can examine the map on one page, and CI compares it with the code at each change.</p>
+<div class="hero__do">
+<div class="install"><code><span class="install__p" aria-hidden="true">$ </span>uv tool install systemap</code><button type="button" class="copy" data-copy="uv tool install systemap" aria-label="Copy the install command" hidden>Copy</button></div>
+<div class="hero__links">
+<a class="btn btn--primary" href="map/">Live example</a>
+<a class="btn" href="guide/">Docs</a>
+<a class="btn" href="https://github.com/0xfauzi/systemap">GitHub</a>
+</div>
+</div>
+<a class="shot" href="map/">
+<picture>
+<source srcset="screenshots/light.png" media="(prefers-color-scheme: light)" data-scheme="light">
+<source srcset="screenshots/dark.png" media="(prefers-color-scheme: dark)" data-scheme="dark">
+<img src="screenshots/dark.png" width="1600" height="900" alt="The systemap page in the Map view. It shows the map of systemap itself at the System context layer, with the Details panel at the right.">
+</picture>
+</a>
+<p class="shot__cap">The map of the systemap repository, in the Map view. Select the image to open the live page.</p>
+</section>
+
+<section class="sec" aria-labelledby="how">
+<div class="sec__head">
+<p class="kicker">How it works</p>
+<h2 id="how">Source facts, an authored model, and checks</h2>
+<p>A program reads the facts that the source code gives. A coding agent writes the decisions that the facts cannot give. The checks compare the two.</p>
+</div>
+<div class="sec__body">
+<ol class="steps">
+<li>
+<h3><span class="ring" aria-hidden="true">1</span>The extractor reads the source code</h3>
+<p><code>systemap extract</code> reads the modules, public names, imports, test references, and entry points of a Python or TypeScript repository. It writes these source facts to <code>docs/map/map.json</code>.</p>
+<pre><code>systemap init
+systemap extract</code></pre>
+</li>
+<li>
+<h3><span class="ring" aria-hidden="true">2</span>The coding agent writes the model</h3>
+<p>The facts do not show which modules have one function, or the direction and the artifact of a flow. Your coding agent reads the code with the systemap skill. Then it writes <code>map/model.py</code>: the components, the flows, and the sequences. Give it the instruction that <code>systemap init</code> prints:</p>
+<pre class="say"><code>Make a map of this repository with systemap. Obey the systemap skill and its writing rules.</code></pre>
+</li>
+<li>
+<h3><span class="ring" aria-hidden="true">3</span>The checks compare the model with the facts</h3>
+<p><code>systemap check</code> rejects contradictions, for example a module that no component claims, or a flow line through an unrelated component. <code>systemap judgement</code> lists possible errors for a person or an agent to examine. The workflow from <code>systemap init</code> runs these commands in CI.</p>
+<pre><code>systemap check
+systemap judgement --strict</code></pre>
+</li>
+</ol>
+<div class="shows">
+<div>
+<p class="kicker">A result with no findings shows</p>
+<ul>
+<li>Each source module is in one component.</li>
+<li>Each entry name and interface name is in the source modules of its component.</li>
+<li>No flow line goes through an unrelated component, and no labels touch.</li>
+<li>The facts, the page, and the figures agree with the source code and the model.</li>
+</ul>
+</div>
+<div>
+<p class="kicker">It does not show</p>
+<ul>
+<li>That the program does what a flow or a sequence says. The checks do not run the program.</li>
+<li>That each component assignment is correct. The rules use names and imports, and they can miss a module in an incorrect component.</li>
+<li>The direction or the artifact of a structural flow. An import does not show them.</li>
+<li>All function calls. The map contains authored flows only.</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+
+<section class="sec" aria-labelledby="views">
+<div class="sec__head">
+<p class="kicker">The page</p>
+<h2 id="views">Three views, and one question in each view</h2>
+<p><code>systemap render</code> writes the page as one HTML file that makes no external requests. The page has two themes, Ink and Paper, and a layout for a phone.</p>
+</div>
+<div class="sec__body">
+<ul class="views">
+<li>
+<p class="kicker">Map</p>
+<p class="q">What are the components and their connections?</p>
+<p>Each layer shows the flows for one question, for example System context, Data flow, or Control flow. Select a component to see its flows, its sequences, and its source modules.</p>
+</li>
+<li>
+<p class="kicker">Sequences</p>
+<p class="q">Which steps make one operation?</p>
+<p>A sequence starts at an entry point. The page shows the whole route, or one step at a time with a note. The model gives the order of the steps. It is not a record of a program run.</p>
+</li>
+<li>
+<p class="kicker">Changes</p>
+<p class="q">What did this change touch?</p>
+<p>The Changes view compares two revisions. It marks the components with changed source code and the flows that need a new source review.</p>
+</li>
+</ul>
+</div>
+</section>
+
+<section class="sec" aria-labelledby="changes">
+<div class="sec__head">
+<p class="kicker">Pull requests</p>
+<h2 id="changes">What did a pull request do to the system?</h2>
+<p>Git shows the changed lines. systemap shows the changed components, flows, and claims.</p>
+</div>
+<div class="sec__body">
+<p><code>systemap delta</code> compares the source facts at two Git commits. Each line gives a change and the action that the map needs. The workflow from <code>systemap init</code> runs the command on each pull request and writes the lines in the job log.</p>
+<pre class="out"><code><span class="out__l" style="--i:0">delta: d6161f8^ (fae3ef3) -&gt; d6161f8: 2 modules changed, 1 added, 0 removed, 0 moved. 2 of 16 components specified</span>
+<span class="out__l" style="--i:0">The map needs an update (2):</span>
+<span class="out__l" style="--i:2">  source review: CLI has changed code in systemap.cli, systemap.serve. Compare its description, flows, sequences, and invariants with the new source.</span>
+<span class="out__l" style="--i:2">  source review: Page has changed code in systemap.page_live. Compare its description, flows, sequences, and invariants with the new source.</span>
+<span class="out__l" style="--i:0">No action is necessary for these changes (1):</span>
+<span class="out__l" style="--i:2">  added: systemap.page_live, with a claim in Page</span>
+<span class="out__l" style="--i:0">next to the change:</span>
+<span class="out__l" style="--i:2">  CLI has the most changed modules. It has flows to 15 of the 16 components, so the list gives no useful context.</span>
+<span class="out__l" style="--i:0">Do the action in each line under &quot;The map needs an update&quot;. Then run systemap refresh &amp;&amp; systemap check &amp;&amp; systemap judgement --strict</span></code></pre>
+<p class="cap">The output of <code>systemap delta --base d6161f8^ --head d6161f8 --brief</code> in this repository. Commit d6161f8 added <code>systemap live</code>.</p>
+<p>By default, a necessary map update gives a warning, and the job passes. With <code>systemap init --strict-ci</code>, a necessary map update makes the job fail. <code>systemap render --base REF</code> adds a comparison with that revision to the page, in the Changes view.</p>
+</div>
+</section>
+
+<section class="sec" aria-labelledby="agents">
+<div class="sec__head">
+<p class="kicker">Coding agents</p>
+<h2 id="agents">How does a coding agent use systemap?</h2>
+<p>An agent that can read files and run commands can use the skill. Claude Code also has a plugin with a live map.</p>
+</div>
+<div class="sec__body">
+<ul class="agents">
+<li>
+<h3>The skill</h3>
+<p><code>systemap init</code> writes the systemap skill into the repository. The skill gives the agent the procedure: extract the facts, write the model, do the checks, render the page, and examine the source code again. At the end, the agent gives a completion report with its uncertain claims.</p>
+</li>
+<li>
+<h3>The Claude Code plugin</h3>
+<p>Install the plugin from the marketplace of this repository:</p>
+<pre><code>/plugin marketplace add 0xfauzi/systemap
+/plugin install systemap@systemap</code></pre>
+</li>
+<li>
+<h3>The live map</h3>
+<p><code>systemap live</code> renders the map of the working tree and supplies it on 127.0.0.1. When a source, model, or configuration file changes, it renders the map again. The browser keeps the view, the layer, the selection, and the sequence step.</p>
+<p>In Claude Code, <code>/map</code> starts the live map. A line above the prompt shows its state, and a pane shows the map update lines.</p>
+<!-- loader: update after the merge -->
+<p>The live map runs the code in <code>map/model.py</code> of the repository. Start it only in a repository that you trust.</p>
+</li>
+</ul>
+</div>
+</section>
+
+<section class="sec" aria-labelledby="limits">
+<div class="sec__head">
+<p class="kicker">Limits</p>
+<h2 id="limits">What systemap does not do</h2>
+<p>Read these limits before you use a result with no findings as evidence.</p>
+</div>
+<div class="sec__body">
+<ul class="limits">
+<li><strong>A check is not a test of the program.</strong> The checks compare the authored model with the source facts. They do not run the program, and they do not show its behavior.</li>
+<li><strong>Python and TypeScript only.</strong> systemap reads Python, TypeScript, and TSX. It does not read framework-specific TypeScript routes.</li>
+<li><strong>The map is authored.</strong> A person or an agent writes each component, flow, and sequence. Extraction does not show which modules have one function, or the direction of a flow.</li>
+<li><strong>Evidence is a record.</strong> A current source review records that a person or an agent examined the source code. After a source change, the review is not current, and <code>systemap judgement</code> gives a finding.</li>
+<li><strong>No network requests in the checks.</strong> <code>systemap check</code> and <code>systemap judgement</code> make no network requests. Other commands send requests to Jev, the TypeSafe model, only if you set <code>TYPESAFE_API_KEY</code>.</li>
+</ul>
+</div>
+</section>
+
+</div>
+</main>
+<footer class="foot" id="footer">
+<div class="foot__in">
+<a class="brand brand--small" href="./"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
+<span class="foot__v">Version <code>2.0.0</code></span>
+<span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
+<span class="foot__font">The page font is Inter, under the <a href="assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
+</div>
+</footer>
+</body>
+</html>
