@@ -87,7 +87,7 @@ operation as a route on the map, then one step at a time, with a note at each
 step. A button in its row opens the list of sequences. **Changes** shows the components and flows that a revision comparison
 changed.
 
-On the first visit, a guide card gives five steps through the map.
+On the first visit, a guide card gives up to five steps through the map.
 The three views have the same parts. Each has a row of controls under the header
 and a panel at the right. Above the map, one line gives a small label and a question.
 On a wide window, the Map view opens the panel with the page. With no
@@ -306,7 +306,7 @@ The line above the prompt then shows the state of the live map:
 - `map: not updated: ...`. systemap could not render the map. The page keeps the last correct map.
 
 `Open map` opens the full page in a browser. `Show` and `/map` open a pane.
-In Claude Code Desktop, VS Code, and the Claude mobile app, the pane shows the change figure and the map update lines.
+On a surface other than the terminal, the pane shows the change figure and the map update lines.
 In a terminal, the pane shows the map update lines and the link.
 If the figure has more than 131,072 characters, the pane shows the link and no figure.
 

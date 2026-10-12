@@ -1,7 +1,7 @@
 # Reference
 
 This document gives the rules, commands, and configuration keys.
-[README.md](README.md) gives the introduction.
+[README.md](../README.md) gives the introduction.
 If a check has a finding, first read its rule below.
 The command descriptions and configuration keys follow the rules.
 
@@ -100,7 +100,7 @@ For each finding, change the model or record the reason for its stored state.
 | possible mis-fold | A module's dotted path has no word in common with its component's id, `does`, plain text, or `interface`. The component has multiple modules. No other module is in the same package. Is the assignment incorrect? |
 | no sentence | A flow has no relation sentence. |
 | thin layer | A layer contains fewer than two components. This includes an unused standard kind. |
-| entry point X has no journey | The entry point's identity is absent from each examined sequence's `covers`. |
+| entry point X has no sequence (component C) | The identity of the entry point is not in the `covers` of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example `entry point 6 routes into C have no sequence (component C)`. |
 | crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. |
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
@@ -306,7 +306,7 @@ Commands use all maps in the map tree:
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
-The fixture in [`tests/test_nested.py`](tests/test_nested.py) has five top-level
+The fixture in [`tests/test_nested.py`](../tests/test_nested.py) has five top-level
 components. Two open nested maps.
 
 ## What does a model contain?
@@ -379,8 +379,8 @@ systemap does not read this permission from `systemap.toml`, because the reposit
 To write a model file with code again as literal values, use `systemap convert`.
 
 The full schema and examples are in
-[`SKILL.md`](src/systemap/skill/SKILL.md) and its
-[`references/`](src/systemap/skill/references/).
+[`SKILL.md`](../src/systemap/skill/SKILL.md) and its
+[`references/`](../src/systemap/skill/references/).
 
 ## Which command do you use?
 
@@ -395,7 +395,8 @@ The input is a command option, `systemap.toml` or the model module, a `tsconfig.
 
 Writes `systemap.toml`, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
-The command does not replace files.
+The command does not replace `systemap.toml`, the model, or the workflow.
+It writes the skill directory again on each run.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
 
@@ -462,9 +463,9 @@ For more regions, it uses a greedy start and pairwise swaps.
 A bend estimate scores each candidate.
 The router renders the best twelve estimates and the model's listed order.
 It scores label collisions, rejected routes, bends, and length, in that order.
-The report gives the selected order and score:
+The report gives the selected order and score. This line is from `systemap place --all --print` in this repository:
 
-    region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed
+    region order: draw, gather, mean, keep, operate. 159 bends, 32,562 units. 120 orders examined, 13 routed
 
 The procedure is deterministic and uses only the standard library.
 
@@ -480,6 +481,8 @@ The procedure is deterministic and uses only the standard library.
 Writes the page from the facts and model.
 
 - `--check` exits 1 if the page is stale.
+  It renders the page with the same options and compares the two pages.
+  Thus a page that `render --base REF` wrote is stale for `render --check` without `--base REF`.
 
 - `--base REF` adds a change map relative to that revision.
   The page link `#changes`, for example `index.html#changes`, opens the Changes view.
@@ -815,7 +818,7 @@ Unknown keys are rejected.
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled = true` | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. `enabled = false` stops automatic delta questions and hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must not contain `#`, because the link adds `#changes`. |
+| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |

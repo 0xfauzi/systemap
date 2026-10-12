@@ -416,7 +416,7 @@ The panel title of a component has the 19px panel title size.
 The map moves so that the panel does not cover the selection.
 The selection also stays above the legend and the readout, as a sequence step does.
 
-On the first visit, a guide card at the bottom right gives five steps. Each step selects a layer or a sequence.
+On the first visit, a guide card at the bottom right gives up to five steps. Each step selects a layer or a sequence.
 The map moves left so that the card does not cover it. The map goes back to Fit when the card closes.
 The page records the first visit in the browser. The Details panel shows the same steps.
 

@@ -220,8 +220,8 @@ For each finding, change the model or record the reason for its stored state.</p
 <td>A layer contains fewer than two components. This includes an unused standard kind.</td>
 </tr>
 <tr>
-<td>entry point X has no journey</td>
-<td>The entry point's identity is absent from each examined sequence's <code>covers</code>.</td>
+<td>entry point X has no sequence (component C)</td>
+<td>The identity of the entry point is not in the <code>covers</code> of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example <code>entry point 6 routes into C have no sequence (component C)</code>.</td>
 </tr>
 <tr>
 <td>crossing import</td>
@@ -547,7 +547,8 @@ The input is a command option, <code>systemap.toml</code> or the model module, a
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
-The command does not replace files.
+The command does not replace <code>systemap.toml</code>, the model, or the workflow.
+It writes the skill directory again on each run.
 It prints the instruction for your agent.
 <code>--no-ci</code> does not include the workflow.</p>
 <p>The workflow has the variable <code>SYSTEMAP_CI</code>. Its default value is <code>advisory</code>:
@@ -614,8 +615,8 @@ For more regions, it uses a greedy start and pairwise swaps.</p>
 <p>A bend estimate scores each candidate.
 The router renders the best twelve estimates and the model's listed order.
 It scores label collisions, rejected routes, bends, and length, in that order.
-The report gives the selected order and score:</p>
-<pre><code>region order: layout, contracts, ...; 40 bends, 7,909 units; 720 orders tried, 13 routed
+The report gives the selected order and score. This line is from <code>systemap place --all --print</code> in this repository:</p>
+<pre><code>region order: draw, gather, mean, keep, operate. 159 bends, 32,562 units. 120 orders examined, 13 routed
 </code></pre>
 <p>The procedure is deterministic and uses only the standard library.</p>
 <ul>
@@ -634,7 +635,9 @@ Use it after you add or remove components.</p>
 <p>Writes the page from the facts and model.</p>
 <ul>
 <li>
-<p><code>--check</code> exits 1 if the page is stale.</p>
+<p><code>--check</code> exits 1 if the page is stale.
+It renders the page with the same options and compares the two pages.
+Thus a page that <code>render --base REF</code> wrote is stale for <code>render --check</code> without <code>--base REF</code>.</p>
 </li>
 <li>
 <p><code>--base REF</code> adds a change map relative to that revision.
@@ -1094,7 +1097,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[delta]</code></td>
 <td>none</td>
-<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, <code>systemap delta --comment FILE --pr N</code> writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with <code>https://</code> or <code>http://</code>. It must not contain <code>#</code>, because the link adds <code>#changes</code>.</td>
+<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, <code>systemap delta --comment FILE --pr N</code> writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
 </tr>
 <tr>
 <td><code>[writing]</code></td>

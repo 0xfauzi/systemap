@@ -116,7 +116,9 @@ See `bench/jev/README.md` in the systemap source repository for methods and limi
 ## Pull request workflow
 
 The generated workflow runs `delta --base <base commit> --head <head commit>` for each pull request.
-The job log gives each line and its action. The job fails if the map is not current.
+The job log gives each line and its action.
+If the map is not current, the job gives a warning and passes.
+With `systemap init --strict-ci`, the job fails.
 
 Without `[delta] page_url` in `systemap.toml`, the workflow writes no comment.
 With `page_url`, it writes one comment with a link to the Changes view of the page for the pull request.
