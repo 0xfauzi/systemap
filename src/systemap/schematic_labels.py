@@ -50,10 +50,14 @@ var HEADS = [].map.call(svg.querySelectorAll('.zone__h,.box__h'), function(g){
   return h;
 }).filter(function(h){ return h.box.w > 0; });
 var LABS = labels.map(function(l){
+  // The anchor is the middle of the layout box. The box for collisions is the box
+  // of the text, or the layout box where the text has no box.
   var r = l.querySelector('.flowlbl__hit'), i = +l.dataset.edge;
+  var t = l.querySelector('text').getBBox();
   var box = {x:+r.getAttribute('x'), y:+r.getAttribute('y') + 6, w:+r.getAttribute('width'),
-    h:+r.getAttribute('height') - 12};
-  var b = part(l, box, box.x + box.w / 2, box.y + box.h / 2, i), near = box.w / 2 + 8;
+    h:+r.getAttribute('height') - 12}, x = box.x + box.w / 2, y = box.y + box.h / 2;
+  if(t.width){ box = {x:t.x, y:t.y, w:t.width, h:t.height}; }
+  var b = part(l, box, x, y, i), near = box.w / 2 + 8;
   // The run of its own line nearest to the label: under it, or beside it.
   SEGS.forEach(function(q){
     var d = Math.max(q.x - b.x, b.x - q.x - q.w, 0) + Math.max(q.y - b.y, b.y - q.y - q.h, 0);
@@ -87,7 +91,7 @@ function placeLabel(b, s, ctx){
   var q = b.own, flat = q && !q.h, w = b.box.w * s, h = b.box.h * s;
   for(var n = 0; n <= 240; n = n > 0 ? -n : 2 - n){
     var dx = flat ? n : 0, dy = flat ? 0 : n;
-    var r = {x:b.x + dx - w / 2, y:b.y + dy - h / 2, w:w, h:h};
+    var r = {x:b.x + (b.box.x - b.x) * s + dx, y:b.y + (b.box.y - b.y) * s + dy, w:w, h:h};
     if(n && !(q && (flat ? r.x >= q.x + 4 && r.x + w <= q.x + q.w - 4
       : r.y >= q.y + 4 && r.y + h <= q.y + q.h - 4))){ continue; }
     if(free(r, ctx, b)){
