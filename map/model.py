@@ -193,7 +193,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="9e068b9576bf097673c675c7771da62749bbceda360d7ee8244476c877d73460",
+        source_review="6d4f33e67a605da43b5dfccae9f8d3f3d050a5488683a41275d0aff706858c16",
         does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -298,7 +298,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="82b8cfa959aecce1b684e21d61a2e7e34a6b4df0fbc978974d5034ba740b23db",
+        source_review="643b93fa40f3d258d4ee7d72ce45d6420ccdd0155f84d909e3008848f1faf08c",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. With --strict, returns exit code 1 for findings without answers. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
