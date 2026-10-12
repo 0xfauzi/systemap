@@ -1,0 +1,9 @@
+delta: d6161f8^ (fae3ef3) -> d6161f8: 2 modules changed, 1 added, 0 removed, 0 moved. 2 of 16 components specified
+The map needs an update (2):
+  source review: CLI has changed code in systemap.cli, systemap.serve. Compare its description, flows, sequences, and invariants with the new source.
+  source review: Page has changed code in systemap.page_live. Compare its description, flows, sequences, and invariants with the new source.
+No action is necessary for these changes (1):
+  added: systemap.page_live, with a claim in Page
+next to the change:
+  CLI has the most changed modules. It has flows to 15 of the 16 components, so the list gives no useful context.
+Do the action in each line under "The map needs an update". Then run systemap refresh && systemap check && systemap judgement --strict

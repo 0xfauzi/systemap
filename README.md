@@ -13,6 +13,8 @@
  <img alt="how many dependencies it has" src="https://img.shields.io/badge/dependencies-none-b3b1aa?labelColor=121417">
 </p>
 
+The website has the guide, the reference, and a live example: <https://0xfauzi.github.io/systemap/>.
+
 A coding agent can write code faster than you can read it. After many changes,
 you can forget parts of your Python or TypeScript system.
 
