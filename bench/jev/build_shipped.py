@@ -40,6 +40,7 @@ import build_meaning
 from common import REPOS, load, write
 
 from systemap import audit, jev, jev_cli, nest
+from systemap.jev_provider import ask_of
 
 Notes = Counter[str]
 Rows = list[dict[str, Any]]
@@ -53,7 +54,7 @@ def plan_asks(name: str, kinds: tuple[str, ...]) -> dict[str, jev.Ask]:
     """The shipped audit requests for one repository, by request key."""
     repo = load(name)
     plan = audit.make_plan(nest.load(repo.cfg), repo.facts, repo.cfg, kinds)
-    return {a.key: a for a in plan.asks}
+    return {q.key: ask_of(q) for q in plan.questions}
 
 
 def governs_asks(name: str) -> dict[str, jev.Ask]:
@@ -68,20 +69,15 @@ def governs_asks(name: str) -> dict[str, jev.Ask]:
     model = dataclasses.replace(top.model, invariants=invariants)
     plan = audit.Plan()
     audit.plan_governs(plan, dataclasses.replace(top, model=model))
-    return {a.key: a for a in plan.asks}
+    return {q.key: ask_of(q) for q in plan.questions}
 
 
 def triage_ask(name: str, report: str) -> jev.Ask:
     """The request that `systemap triage` sends for one report.
 
-    jev_cli.cmd_triage makes this state and question in its body, not in a function.
-    This function makes the same structure from the shipped values.
+    jev_cli.triage_question makes the question. The Jev adapter makes the request.
     """
-    top = top_map(name)
-    state = {"system": load(name).cfg.name, "report": report[: jev_cli.REPORT_CAP]}
-    criteria = audit.owner_criteria(top.model, top.meaning)
-    question = {"type": "choice", "instructions": jev_cli.TRIAGE_Q, "criteria": criteria}
-    return jev.Ask("triage", state, {"where": question})
+    return ask_of(jev_cli.triage_question(load(name).cfg, top_map(name), report))
 
 
 def shipped_row(old: dict[str, Any], ask: jev.Ask, state: Any = None) -> dict[str, Any]:

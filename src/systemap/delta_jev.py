@@ -13,18 +13,23 @@ A Jev answer is a suggestion for source examination, not evidence. It does not c
 the delta lines or the exit code. Thus a run with Jev, a run without
 a key, and a run where Jev does not answer give the same result.
 If there is no question, no client is made and no message prints.
+
+The questions and the answers use the provider records in `systemap.decision`.
+`systemap.jev_provider` sends them to Jev. A refusal gives no suggestion, and the
+report gives the count of the questions that got a refusal.
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import audit, explain, extract, jev, moves, nest
+from systemap import audit, decision, explain, extract, jev, jev_provider, moves, nest
 from systemap.config import Config
+from systemap.decision import ChoiceQuestion, DecisionError, DecisionProvider, Thresholds
 from systemap.delta import Delta
-from systemap.jev import Ask, JevError
 
 BECAME_Q = (
     "The commit removed `old_module` and added the option modules. Which "
@@ -34,10 +39,7 @@ BECAME_Q = (
 NOT_MOVED = "not moved: deleted"
 # How many new modules the question offers: the measured cap.
 MOVE_OPTIONS = 250
-# A pick at this confidence or more prints. Delta and these picks found 82 renames
-# against delta's 66, and 16 of the 17 added pairs were right, with earlier prompts
-# on Python repositories (bench/jev/README.md, "What did tests 7 and 8 measure?").
-MOVE_AT = 0.8
+# The confidence of a printed pick is `move_at` in `systemap.decision.THRESHOLDS`.
 LABEL = "delta --jev"
 
 
@@ -100,7 +102,7 @@ def _brief(record: dict[str, Any]) -> str:
     return f"{record.get('file')}: {doc} Names: {names}"
 
 
-def _move_ask(base: dict[str, Any], old: str, criteria: dict[str, str]) -> Ask:
+def _move_question(base: dict[str, Any], old: str, options: dict[str, str]) -> ChoiceQuestion:
     record = base[old]
     state = {
         "old_module": {
@@ -110,17 +112,17 @@ def _move_ask(base: dict[str, Any], old: str, criteria: dict[str, str]) -> Ask:
             "names": [n["name"] for n in record.get("names", [])][:40],
         }
     }
-    question = {"type": "choice", "instructions": BECAME_Q, "criteria": criteria}
-    return Ask(old, state, {"became": question})
+    return ChoiceQuestion(old, "became", BECAME_Q, state, options)
 
 
 def jev_moves(
-    base: dict[str, Any], head: dict[str, Any], client: jev.Jev
+    base: dict[str, Any], head: dict[str, Any], provider: DecisionProvider
 ) -> dict[str, tuple[str, str]]:
-    """Pair removed modules with new modules at confidence MOVE_AT or more.
+    """Pair removed modules with new modules at the `move_at` confidence or more.
 
-    Delta's rules first remove known pairs. Jev selects from the new modules. A new
-    module that delta paired, or that a pick with more confidence took, is not used again.
+    Delta's rules first remove known pairs. The provider selects from the new modules.
+    A new module that delta paired, or that a pick with more confidence took, is not
+    used again. A refusal or an answer without a confidence gives no pair.
     """
     b, h = base.get("components", {}), head.get("components", {})
     found = unpaired(base, head)
@@ -128,22 +130,29 @@ def jev_moves(
         return {}
     criteria = {m: _brief(h[m]) for m in found.options[:MOVE_OPTIONS]}
     criteria[NOT_MOVED] = "The removed module was deleted. No new module continues its function."
-    asks = [_move_ask(b, old, criteria) for old in found.left]
-    answered = client.ask(asks)
-    picks = sorted(
-        ((answered[a.key]["became"], a.key) for a in asks),
-        key=lambda p: (-p[0]["confidence"], p[1]),
-    )
+    questions = [_move_question(b, old, criteria) for old in found.left]
+    answers = provider.decide(questions)
+    move_at = decision.thresholds(provider.name).move_at
+    picks = sorted(_sure_picks(questions, answers), key=lambda p: (-p[1], p[2]))
     taken = {new for new, _how in found.found.values()}
     out: dict[str, tuple[str, str]] = {}
-    for a, old in picks:
-        if a["choice"] == NOT_MOVED or a["confidence"] < MOVE_AT or a["choice"] in taken:
+    for choice, confidence, old in picks:
+        if choice == NOT_MOVED or confidence < move_at or choice in taken:
             continue
-        taken.add(a["choice"])
-        out[old] = (
-            a["choice"],
-            f"read as the same module by Jev, confidence {a['confidence']:.2f}",
-        )
+        taken.add(choice)
+        out[old] = (choice, f"read as the same module by Jev, confidence {confidence:.2f}")
+    return out
+
+
+def _sure_picks(
+    questions: list[ChoiceQuestion], answers: list[decision.Answer]
+) -> list[tuple[str, float, str]]:
+    """Give the pick, the confidence, and the removed module of each answer with a confidence."""
+    out = []
+    for question, answer in zip(questions, answers, strict=True):
+        a = decision.choice(answer, question.key)
+        if a is not None and a.confidence is not None:
+            out.append((a.choice, a.confidence, question.key))
     return out
 
 
@@ -152,17 +161,18 @@ def owner_suggestions(
     tree: nest.Tree,
     head: dict[str, Any],
     modules: dict[str, list[str]],
-    client: jev.Jev,
+    provider: DecisionProvider,
 ) -> list[str]:
     """Give one owner prediction or three candidates per unclaimed module, in its own map."""
     plan = audit.Plan()
     for m in tree.maps:
         if modules.get(m.id):
             audit.plan_owner(plan, m, head, modules[m.id], cfg.name, placed_too=False)
-    answered = client.ask(plan.asks)
+    answers = provider.decide(plan.questions)
+    limits: Thresholds = decision.thresholds(provider.name)
     out = []
-    for ask in plan.asks:
-        line = audit.owner_line(plan.reads[ask.key], answered[ask.key])
+    for question, answer in zip(plan.questions, answers, strict=True):
+        line = audit.owner_line(plan.reads[question.key], answer, limits)
         if line is not None:
             out.append(f"{line.text} ({'; '.join(line.detail)})")
     return out
@@ -185,20 +195,41 @@ def ask(
     if not left and not owners:
         return NOTHING
     try:
-        client = jev.from_env(cfg.jev_model, cfg.jev_cache_path, send)
-    except JevError as exc:
+        provider = jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send)
+    except DecisionError as exc:
         return Asked(errors=(f"{LABEL}: {exc}",))
+    counted = Counted(provider)
     lines: list[str] = []
     try:
-        moved = jev_moves(base, head, client) if left else {}
+        moved = jev_moves(base, head, counted) if left else {}
         lines += [f"jev move: {old} -> {new} ({how})" for old, (new, how) in moved.items()]
-        lines += owner_suggestions(cfg, tree, head, owners, client) if owners else []
-    except JevError as exc:
-        return Asked(tuple(lines), (f"{LABEL}: {exc}",))
+        lines += owner_suggestions(cfg, tree, head, owners, counted) if owners else []
+    except DecisionError as exc:
+        return Asked(tuple(lines), (f"{LABEL}: {exc}", *counted.errors()))
     finally:
-        if client.usage.sent or client.usage.cached:
-            print(client.usage.line(), file=sys.stderr)
-    return Asked(tuple(lines))
+        if provider.usage.sent or provider.usage.cached:
+            print(provider.usage.line(), file=sys.stderr)
+    return Asked(tuple(lines), counted.errors())
+
+
+class Counted:
+    """Give the answers of a decision provider. Keep the keys of the refusals."""
+
+    def __init__(self, provider: DecisionProvider) -> None:
+        self.provider = provider
+        self.name = provider.name
+        self.refused: list[str] = []
+
+    def decide(self, questions: Sequence[decision.Question]) -> list[decision.Answer]:
+        answers = self.provider.decide(questions)
+        self.refused += decision.refused(questions, answers)
+        return answers
+
+    def errors(self) -> tuple[str, ...]:
+        """Give a reason line when the decision provider gave a refusal."""
+        if not self.refused:
+            return ()
+        return (f"{LABEL}: the decision provider gave a refusal for {len(self.refused)} questions",)
 
 
 # ---- the report -------------------------------------------------------------------

@@ -331,6 +331,8 @@ COMPONENTS = (
             "systemap.delta_jev",
             "systemap.jev_cli",
             "systemap.jev",
+            "systemap.jev_provider",
+            "systemap.decision",
             "systemap.agent",
             "systemap.journeys",
             "systemap.model_write",

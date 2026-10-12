@@ -35,7 +35,6 @@ from systemap import (
     figure,
     history,
     init_language,
-    jev,
     jev_cli,
     judgement,
     judgement_json,
@@ -602,16 +601,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
     if args.jev:
-        try:
-            client = jev.from_env(cfg.jev_model, cfg.jev_cache_path)
-        except jev.JevError as exc:
-            say(f"suggest --jev: {exc}")
-            return STALE
-        lines, code = jev_cli.run_or_explain(
-            lambda: jev_cli.suggest_groups(cfg, facts, client), "suggest --jev"
-        )
-        say(*lines, client.usage.line())
-        return code
+        return jev_cli.cmd_suggest_jev(cfg, facts)
     say(*suggest_mod.lines(facts))
     if cfg.model_path.is_file():
         tree = nest.load(cfg)

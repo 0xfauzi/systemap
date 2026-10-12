@@ -1,9 +1,9 @@
 """The plan projects a task onto map components and compares the projection with a later
 change.
 
-Jev gives component weights from the task and component descriptions. The context
-includes connected flows, sequences, and invariants. A later comparison identifies
-unplanned changes and planned components without changes.
+A decision provider gives component weights from the task and component descriptions.
+The context includes connected flows, sequences, and invariants. A later comparison
+identifies unplanned changes and planned components without changes.
 """
 
 from __future__ import annotations
@@ -18,9 +18,7 @@ from systemap import graph
 from systemap.config import Config
 from systemap.model import Meaning, Model
 
-# The measured cut: a card is in the projection when Jev gives it at least
-# this much of the probability. See the docstring above for what it scored.
-CUT = 0.05
+# The cut of each provider is `plan_cut` in `systemap.decision.THRESHOLDS`.
 # The text is cut here, as triage cuts an issue: a question with a whole
 # design document in it is a question about the document, not the work.
 TEXT_CAP = 2000
@@ -70,9 +68,9 @@ class Projection:
         }
 
 
-def named(probabilities: dict[str, float], cut: float = CUT) -> list[str]:
-    """This function selects components with sufficient Jev weights, with the largest
-    weights first.
+def named(probabilities: dict[str, float], cut: float) -> list[str]:
+    """This function selects components with a probability at or above the cut, with the
+    largest probabilities first.
     """
     ranked = sorted(probabilities.items(), key=lambda kv: -kv[1])
     return [cid for cid, p in ranked if p >= cut and not cid.startswith("none")]
@@ -97,9 +95,11 @@ def project(
     task: str,
     probabilities: dict[str, float],
     at: str = "",
+    *,
+    cut: float,
 ) -> Projection:
-    """This function converts a Jev answer into weighted components and map context."""
-    cards = named(probabilities)
+    """This function converts a choice answer into weighted components and map context."""
+    cards = named(probabilities, cut)
     return Projection(
         id=plan_id(task),
         task=task,
