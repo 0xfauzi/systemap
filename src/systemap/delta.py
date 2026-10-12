@@ -526,7 +526,7 @@ def _flow_review_lines(
                         f"{f.dst}"
                         " ("
                         f"{f.artifact}"
-                        ") was observed"
+                        ") had a current source review"
                         f"{at_base}"
                         " and no import connects them now. Find the evidence, give the "
                         "mechanism, or remove the flow in "
@@ -605,8 +605,7 @@ def _evidence_review_lines(
         before = set(claimed(card, b))
         after = set(claimed(card, h))
         affected = sorted((semantic & (before | after)) | (before ^ after))
-        current_review = card_review.digest(card, model, meaning, head)
-        if affected and (not current_review or card.source_review != current_review):
+        if affected and card_review.state(card, model, meaning, head) != card_review.CURRENT:
             lines.append(
                 Line(
                     "source review",

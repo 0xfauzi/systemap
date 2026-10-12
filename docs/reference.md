@@ -49,13 +49,22 @@ The renderer and the checks use the evidence state of the stored source snapshot
 
 | Evidence | Condition | Indication |
 |---|---|---|
-| `observed` | `source_refs` resolve to extracted source hashes. `review_digest` agrees with the current flow claim and sentence. | A solid line. The panel shows a source review for the stored snapshot. |
+| `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim and sentence. | A solid line. The page shows "current source review". |
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
 
+The stored value `observed` is an identifier. It does not mean that a program ran.
+The page legend, the Details panel, and `systemap describe` use the words "current source review".
+A current source review is a recorded source review whose source records still agree with the stored source snapshot.
+
 For `observed`, a flow records `source_refs` and a `review_digest`.
 A reference has the form `module[:symbol]@<source_sha256>`.
+At least one reference must be in a module of the source component or the target component.
+A package pattern or a symbol claim in `implemented_by` also puts a component in a module.
+An actor has no modules. For a flow with an actor end, use a module of the other end.
+If no reference is in an endpoint module, the flow is not `observed`.
+`systemap judgement` then prints a `no endpoint source` finding.
 The command below prints the `source_sha256` of each module and the `review_digest` of each flow.
 It does not examine the claims for you. Examine the source before you record the values.
 
@@ -95,10 +104,19 @@ For each finding, change the model or record the reason for its stored state.
 | crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. |
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
+| no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
+| stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
 Without `--strict`, the report exits 0.
 With `--strict`, it exits 1 while a finding is open.
+
+Each source component has one review state:
+`missing` (no `source_review`), `stale` (`source_review` is not the current digest), or `current`.
+`systemap delta` and `systemap judgement` use the same state.
+A stale review is a `stale source review` finding, so `judgement --strict` fails on it.
+A missing review is not a finding. Many maps have no `source_review` values, and these maps pass `judgement --strict`.
+The report counts the three states on one line, for example `source reviews: 16 current, 0 stale, 0 missing`.
 `[judgement] answered` in `systemap.toml` contains recorded answers.
 Accepted answers suppress findings and increase the answered count.
 The report can print `judgement: 3 possible map errors to examine, 21 answered`.
@@ -484,7 +502,9 @@ components that can become nested maps.
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
 sentences, thin layers, uncovered entry points, crossing imports, unreviewed
-flows, and model SDK imports outside agents.
+flows, source records outside the flow endpoints, stale component source reviews,
+and model SDK imports outside agents.
+A line after the findings counts the component source reviews by state: current, stale, and missing.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
 The first finding of each kind has rows about its effect and necessary action.

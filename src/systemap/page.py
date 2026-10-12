@@ -322,12 +322,13 @@ def _map_key(t: dict[str, Any], model: Model) -> str:
         '<details class="read__more" id="mapkey"><summary><span class="seq-kicker">'
         "LINES AND CARDS</span></summary>"
         '<div class="legend"><span class="lg"><i class="lg--solidline"></i>'
-        "source review recorded</span>"
+        "current source review</span>"
         '<span class="lg"><i class="lg--dashline"></i>flow without source review</span></div>'
         "<p>A card groups modules by function. "
         "A dashed card identifies an actor outside the source code. "
         "A flow names an artifact between components. A layer shows flows for one question.</p>"
-        "<p>A solid internal line records a source review with resolved references. "
+        "<p>A solid internal line has a current source review. Its source records "
+        "agree with the stored source snapshot. "
         "A short dashed line shows structural evidence: an import, shared module "
         "or configured mechanism. "
         "A long dashed line has no structural evidence. "

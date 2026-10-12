@@ -296,7 +296,7 @@ function endpointButton(id, role){
     + esc(d ? d.plain : '') + '</span></button>';
 }
 function evidenceLabel(state){
-  return state === 'observed' ? 'source review recorded' : state;
+  return state === 'observed' ? 'current source review' : state;
 }
 function evidenceReason(e){
   if(e.evidence === 'external'){
@@ -307,8 +307,9 @@ function evidenceReason(e){
       + 'artifact is necessary. A judgement answer does not change the flow evidence.';
   }
   if(e.evidence === 'observed'){
-    return 'The source references identify this source revision. The flow agrees with its recorded '
-      + 'review digest. This is a source review claim. There is no record of program execution.';
+    return 'The map records a source review for this flow. Its source records still agree with '
+      + 'the code at this revision, and the flow agrees with the recorded review digest. '
+      + 'There is no record of program execution.';
   }
   var support=[];
   if(e.import_present){support.push('An import connects the components.');}

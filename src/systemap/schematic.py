@@ -8,6 +8,7 @@ and kind values. Flow lines carry artifact labels and `data-layer`.
 
 Flow evidence states come from evidence.py. `observed` means that source
 references resolve and the source review digest agrees with the claim.
+The reader text for `observed` is "current source review".
 `structural` means that an import, shared module or configured mechanism
 supports a possible connection. `external` means that an endpoint is
 an actor. `declared` means that no structural evidence supports the flow.
@@ -353,7 +354,9 @@ def render(
         look = change_flow(P, marks, i, colour, marker, artifact in hot_artifacts)
         fid = f"{svg_id}-f{i}"
         ev = backed[(src, dst)]
-        evidence_label = {evidence.OBSERVED: "source review recorded"}.get(ev.state, ev.state)
+        evidence_label = {evidence.OBSERVED: evidence.READER_TEXT[evidence.OBSERVED]}.get(
+            ev.state, ev.state
+        )
         # A declared edge is dashed: the map says so and the code does not.
         dashed = {
             evidence.DECLARED: ' stroke-dasharray="7 5"',

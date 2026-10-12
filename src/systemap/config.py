@@ -80,6 +80,8 @@ LINE_KINDS = (
     "crossing import",
     "declared flow",
     "flow review",
+    "no endpoint source",
+    "stale source review",
     "model sdk",
     "unknown surface",
 )

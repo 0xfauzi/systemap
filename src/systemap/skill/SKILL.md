@@ -102,6 +102,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
    | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Renew the record or correct the claim. |
+   | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
+   | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then record the current digest. |
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 
@@ -148,19 +150,17 @@ An actor is a person or system outside the mapped source.
 A flow carries one artifact between two components.
 Standard kinds are `data`, `control`, `context`, and `tool`.
 Each other kind must have a declaration in `flow_kinds` and a layer assignment.
-Use one to three words for an artifact noun phrase.
-Write one relation sentence from the source component.
+Use one to three words for an artifact noun phrase. Write one relation sentence from the source component.
 Write one short name in `plain` for each component.
 
 Every flow has an evidence state:
 
 - `structural`: an import, common module, or configured observation gives structural evidence for a relation only.
-- `observed`: current source records and a claim digest support direction and artifact.
+- `observed`: a current source review. Current source records and a claim digest support direction and artifact. At least one record is in a module of an endpoint.
 - `external`: one endpoint is an actor.
 - `declared`: no structural evidence or examined source supports the flow.
 
-Structural and declared flows use dashed lines. Examine their source evidence.
-An import alone does not show an artifact or its direction. Never renew a digest without source examination.
+Structural and declared flows use dashed lines. Examine their source evidence. An import alone does not show an artifact or its direction. Never renew a digest without source examination.
 
 Write sequences for the entry points that are important to a reader.
 `starts` is a display label. `covers` contains exact examined entry identities.

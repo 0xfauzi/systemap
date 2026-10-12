@@ -511,16 +511,14 @@ def cmd_judgement(args: argparse.Namespace) -> int:
             f"only the model."
         )
     lines = judgement.run_tree(
-        p.tree,
-        facts,
-        judgement.sdk_list(p.cfg.model_sdks),
-        p.cfg.observed_by,
+        p.tree, facts, judgement.sdk_list(p.cfg.model_sdks), p.cfg.observed_by
     )
     mine = [a for a in p.cfg.judgement_answered if not audit.is_audit_answer(a)]
     current_evidence = judgement.evidence_for_tree(p.tree, facts, p.cfg.root, lines)
     result = judgement.apply_answers(lines, mine, current_evidence)
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
+    say(*judgement.review_counts(p.tree, facts))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(
