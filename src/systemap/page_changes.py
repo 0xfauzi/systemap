@@ -273,10 +273,6 @@ CSS = (
 #changemap .node.sel{opacity:1}
 #changemap .node.dim[data-change="end"]{opacity:.6}
 #changemap .node.dim[data-change="none"]:not(.sel){opacity:.32}
-#changemap :is(.flow,.flowlbl)[data-change="lost"].off{opacity:1;visibility:visible;
-  pointer-events:auto}
-#changemap .flow[data-change="lost"].off{pointer-events:stroke}
-#changemap :is(.flow,.flowlbl)[data-change="rest"]:is(.hot,.peek){display:inline}
 #changemap .chg-tag{pointer-events:none}
 #changemap.chg-base .node[data-change],#changemap.chg-held .node[data-change]{opacity:1}
 #changemap.chg-base .node:is([data-change="changed"],[data-change="tests"],

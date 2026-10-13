@@ -771,6 +771,12 @@ in the environment of the command. Then systemap runs each model file as Python 
 as version 2.0 did. Only the value <code>1</code> gives this permission.
 systemap does not read this permission from <code>systemap.toml</code>, because the repository controls that file.
 To write a model file with code again as literal values, use <code>systemap convert</code>.</p>
+<p>The page and the figures use some model names as CSS names and SVG IDs.
+Thus systemap refuses these names when it reads the model, and the command exits 2:</p>
+<ul>
+<li>A custom layer ID that contains a character other than a letter, a digit, <code>_</code>, or <code>-</code>.</li>
+<li>The component IDs <code>_meta</code> and <code>__proto__</code>. The page data uses these keys.</li>
+</ul>
 <p>The full schema and examples are in
 <a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/SKILL.md"><code>SKILL.md</code></a> and its
 <a href="https://github.com/0xfauzi/systemap/tree/main/src/systemap/skill/references"><code>references/</code></a>.</p>
@@ -1874,7 +1880,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[theme]</code></td>
 <td><code>dark</code></td>
-<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>. The page uses theme values in HTML without conversion. Thus a value cannot contain <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, or <code>&quot;</code>. A font value (<code>font_ui</code>, <code>font_mono</code>) can contain <code>&quot;</code>.</td>
+<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>. The page uses theme values in HTML without conversion. Thus a value cannot contain <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, or <code>&quot;</code>. A font value (<code>font_ui</code>, <code>font_mono</code>) can contain <code>&quot;</code>. A <code>[theme.marks]</code> value must be <code>ring</code>, <code>notch</code>, or <code>dotted</code>. A key in a theme table, such as <code>[theme.delta]</code>, can contain only letters, digits, <code>_</code>, and <code>-</code>. The page uses these keys in CSS names.</td>
 </tr>
 <tr>
 <td><code>[[figures]]</code></td>

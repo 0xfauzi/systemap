@@ -9,7 +9,15 @@ import pytest
 from conftest import Sample
 
 from systemap.schematic import render
-from systemap.schematic_cards import PLAIN_WIDTH, TEXT_PX, card_text, plain_inset, plain_width
+from systemap.schematic_cards import (
+    PLAIN_WIDTH,
+    TEXT_PX,
+    card_lines,
+    card_sizes,
+    card_text,
+    plain_inset,
+    plain_width,
+)
 
 
 def test_describe_description_keeps_all_words() -> None:
@@ -107,3 +115,16 @@ def test_rendered_description_origin_preserves_margin(
     assert description.text == text
     first_character_left = float(description.attrib["x"]) + left_bearing * 11 / 2048
     assert first_character_left >= float(box.attrib["x"]) + 10
+
+
+@pytest.mark.parametrize("plain", ["WWWWWWWWWWWW", "WWWWWWWWWWWW part", "a b c"])
+def test_each_description_line_fits_at_the_selected_size(plain: str) -> None:
+    """Acceptance (Codex result schematic-3): at the size that `card_sizes` selects, each
+    description line is 130 units (PLAIN_WIDTH) or less with the measured widths.
+    With "WWWWWWWWWWWW", the base selected 13.6 and the line was 154.0 units."""
+    sizes = card_sizes([("component", "A", plain)])
+    lines = card_lines("component", "A", plain, sizes)
+    assert lines is not None
+    for _dy, _inset, line in lines[1]:
+        assert plain_width(line) * sizes[1] / TEXT_PX <= PLAIN_WIDTH, (sizes, line)
+    assert " ".join(line for _dy, _inset, line in lines[1]) == plain
