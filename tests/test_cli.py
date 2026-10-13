@@ -35,8 +35,8 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
         assert (tmp_path / rel).is_file(), rel
     assert 'name = "demo"' in (tmp_path / "systemap.toml").read_text(encoding="utf-8")
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/systemap/ (SKILL.md and 9 references)" in out
-    assert "SKILL.md\n" not in out.replace("(SKILL.md and 9 references)\n", "")
+    assert "wrote .claude/skills/systemap/ (SKILL.md and 10 references)" in out
+    assert "SKILL.md\n" not in out.replace("(SKILL.md and 10 references)\n", "")
     assert out.rstrip().endswith(
         "Make a map of this repository with systemap. Obey the systemap skill and its writing rules."
     )
@@ -343,7 +343,7 @@ def test_skill_command_writes_the_skill(tmp_path: Path, capsys: pytest.CaptureFi
     assert written.is_file()
     out = capsys.readouterr().out
     assert f"wrote {written}" in out
-    assert "references/ (9 files)" in out
+    assert "references/ (10 files)" in out
     text = written.read_text(encoding="utf-8")
     assert text.startswith("---\nname: systemap\n")
     assert "systemap check" in text

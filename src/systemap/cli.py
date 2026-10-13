@@ -24,6 +24,7 @@ from systemap import (
     change,
     check,
     config,
+    decisions_cli,
     delta,
     delta_jev,
     delta_link,
@@ -557,12 +558,14 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(_no_facts(p))
-    result = judgement_json.evaluate(p.tree, facts, p.cfg).result
+    judged = judgement_json.evaluate(p.tree, facts, p.cfg)
+    result = judged.result
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
+    say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -574,7 +577,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     """Write the judgement report as one JSON object. Notices for a person go to stderr."""
     if not p.model.components:
         warn(NO_COMPONENTS)
-        say(json.dumps(judgement_json.empty(), indent=2))
+        say(json.dumps(judgement_json.empty(p.cfg.require_reviews), indent=2))
         return OK
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
@@ -583,6 +586,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     detail = judgement.crossing_detail_tree(p.tree, facts)
     reviews = judgement.review_states(p.tree, facts)
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
+    obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
     warn(*notes)
     if args.strict and judged.result.open:
@@ -1281,6 +1285,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_parsers(sub, add_root)
     model_convert.add_parsers(sub, add_root)
     review.add_parsers(sub, add_root)
+    decisions_cli.add_parsers(sub, add_root)
     return parser
 
 

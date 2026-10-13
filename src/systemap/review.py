@@ -94,11 +94,20 @@ def flow_target(text: str) -> Target:
     return Target(edge=(src, dst))
 
 
-def review(cfg: config.Config, map_id: str, target: Target, dry_run: bool) -> list[str]:
-    """Write the current digest of one target. Give the lines for the person."""
+def review(
+    cfg: config.Config,
+    map_id: str,
+    target: Target,
+    dry_run: bool,
+    facts: dict[str, Any] | None = None,
+) -> list[str]:
+    """Write the current digest of one target. Give the lines for the person.
+
+    Without `facts`, the command extracts the facts from the source in the working tree.
+    """
     m = _map(cfg, map_id)
     model, meaning = _data(m)
-    facts = extract.build(cfg)
+    facts = facts if facts is not None else extract.build(cfg)
     digest = _digest(m, model, meaning, facts, target)
     path, source, call = _definition(m, target)
     rel = cfg.rel(path)

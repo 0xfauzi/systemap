@@ -32,6 +32,7 @@ REFERENCES = (
     "second-pass.md",
     "pitfalls.md",
     "maintenance.md",
+    "decisions.md",
 )
 
 

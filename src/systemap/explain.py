@@ -162,6 +162,19 @@ JUDGEMENT = {
             "claims. Then record the current `source_review` digest."
         ),
     ),
+    "missing source review": Lesson(
+        means="A source component has no `source_review` digest.",
+        why=(
+            "`[judgement] require_reviews = true` makes a source review necessary for each "
+            "source component. Without a source review, no person or agent examined its claims "
+            "against the source."
+        ),
+        do=(
+            "Examine the source against all claims of the component. Use `systemap decisions "
+            "pending` and `systemap decisions submit`, or record the digest with "
+            "`systemap review ID`."
+        ),
+    ),
     "model sdk": Lesson(
         means="A module imports a model SDK, but its component has no model-call marker.",
         why=("The map must show model calls. These calls can have a cost, a delay, and errors."),
