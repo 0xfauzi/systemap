@@ -54,8 +54,11 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("delta_git.py", "write_tree", "open"): "os.devnull for writes",
     ("delta_git.py", "write_tree", "target.open"): "a write of a Git blob",
     # The confined open functions.
-    ("file_write.py", "_open_lock", "os.open"): "the lock open that refuses a link and a FIFO",
+    ("file_write.py", "_create", "os.open"): "the lock open that refuses a link and a FIFO",
     ("repo_files.py", "_open", "os.open"): "the confined reader",
+    ("repo_files.py", "_open_below", "os.open"): "the confined reader: a file in an open folder",
+    ("repo_files.py", "open_folder", "os.open"): "the confined walk: the resolved root",
+    ("repo_files.py", "_child", "os.open"): "the confined walk: a folder without a link",
     # The Git shallow file that `git rev-parse --git-path shallow` names: Git metadata.
     ("history.py", "shallow_note", "path.read_text"): "Git metadata, not a repository file",
     # Model files.
@@ -70,6 +73,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("place_source.py", "write", "path.read_bytes"): MODEL,
     ("review.py", "_definition", "path.read_bytes"): MODEL,
     ("review.py", "_same", "shutil.copyfile"): MODEL,
+    ("journeys.py", "_proposed_meaning", "shutil.copyfile"): MODEL,
     # ---- writes that do not use file_write.write_atomic ----
     # The confined writer itself.
     ("file_write.py", "write_atomic", "os.replace"): "the confined writer",
@@ -78,9 +82,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # repository. The write keeps its bytes, also a byte order mark.
     ("answer_write.py", "add", "target.write_bytes"): "the configuration that config.load read",
     ("decisions_submit.py", "_write_answers", "target.write_bytes"): "the same configuration",
-    # A path from a command option of the person who operates the command.
-    ("cli.py", "cmd_figure", "out.write_text"): "the --out option of systemap figure",
-    ("delta_link.py", "write", "write_text"): "the --comment option of systemap delta",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
     ("model_write.py", "_replace", "os.replace"): MODEL,

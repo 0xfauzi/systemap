@@ -159,7 +159,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "are `null` if the defining module is not known. A `*` re-export of the module does not "
         "give a name that has `star_export` set to `false`. A name with `star_export` set to "
         "`null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for "
-        "`default`. The Python adapter sets the value from `__all__`. A Python name that is "
+        "`default`. The Python adapter sets the value from `__all__`. The `__all__` of a "
+        "package also applies to the names of its `*` re-exports. A Python name that is "
         "not in `__all__` stays in `names`, because an import of that name can use it. "
         "`type_only` is `true` for a type-only export. A type-only export is not an entry "
         "point, because the emitted code has no value for it. A name without `type_only` "
@@ -295,7 +296,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "same function as an entry point before it. An import binding of the function is "
         "permitted if it is the only module-level binding of the name, other than in an "
         "`except` clause. The Python adapter also writes it for a `__main__` module that "
-        "imports that function and uses it. Coverage then counts the two entry points as "
+        "imports that function and uses it at the module level, not in a function body. "
+        "Coverage then counts the two entry points as "
         "one. An empty "
         "string tells that the adapter found no such entry point. Then this entry point "
         "must have a sequence. If the field is missing, the value is not known. Then the "
@@ -347,14 +349,16 @@ def facts_doc() -> str:
 def read_facts(path: Path, root: Path) -> dict[str, Any]:
     """Read stored facts. The root is the repository root.
 
-    Give an empty table if the file is missing or the JSON parser cannot read it.
-    A link out of the root (at the file or at a folder), a FIFO, and a device give
-    `file_write.RefusedFile` with the cause. They do not give an empty table.
+    Give an empty table if the file is missing, if it is not UTF-8 text, or if the JSON
+    parser cannot read it. A link out of the root (at the file or at a folder), a FIFO,
+    and a device give `file_write.RefusedFile` with the cause. They do not give an empty
+    table.
     """
     try:
         text = file_write.read_text(root, path)
         data = json.loads(text) if text is not None else {}
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):
+        # ValueError includes json.JSONDecodeError and UnicodeDecodeError.
         return {}
     return dict(data) if isinstance(data, dict) else {}
 

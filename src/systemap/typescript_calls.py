@@ -13,7 +13,8 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from systemap.call_sites import IMPORT, VALUE, WHOLE, Binding, records
-from systemap.typescript_syntax import specifier_name, string_value, syntax_tree
+from systemap.typescript_scopes import Scopes
+from systemap.typescript_syntax import first_named, specifier_name, string_value, syntax_tree
 
 RECEIVER = "this"
 DEFAULT = "default"
@@ -165,9 +166,7 @@ def _root(value: Any | None, imports: dict[str, Binding]) -> tuple[Binding, str]
         "new_expression",
     ):
         inner = {"call_expression": "function", "new_expression": "constructor"}.get(value.type)
-        value = (
-            value.child_by_field_name(inner) if inner else next(iter(value.named_children), None)
-        )
+        value = value.child_by_field_name(inner) if inner else first_named(value)
     text = _dotted(value)
     if text is None:
         return None
@@ -223,7 +222,11 @@ def _value_target(node: Any) -> tuple[str, Any, Any] | None:
     )
 
 
-def _value_bindings(reader: _Reader, imports: dict[str, Binding]) -> list[Binding]:
+def _value_bindings(
+    reader: _Reader, imports: dict[str, Binding], origins: dict[int, Any]
+) -> list[Binding]:
+    """Give the bindings that get a value or a type from an import. `origins` gets the
+    node that makes each binding."""
     out: list[Binding] = []
     for node in _walk(reader.root):
         found = _value_target(node)
@@ -235,6 +238,7 @@ def _value_bindings(reader: _Reader, imports: dict[str, Binding]) -> list[Bindin
             continue
         scope = reader.scope(node) if "." not in local else None
         out.append(Binding(local, root[0].target, root[1], VALUE, _line(node), scope))
+        origins[id(out[-1])] = node
     return out
 
 
@@ -265,12 +269,16 @@ def _use(reader: _Reader, node: Any) -> tuple[int, int, str]:
     return _line(node), reader.function_line(functions[0]) if functions else 0, member
 
 
-def _add_uses(reader: _Reader, bindings: dict[str, list[Binding]]) -> None:
+def _add_uses(reader: _Reader, bindings: dict[str, list[Binding]], origins: dict[int, Any]) -> None:
+    """Add each use of each binding. A use where an inner declaration hides the name is
+    not a use of the binding (`typescript_scopes`)."""
+    scopes = Scopes()
     for node in _walk(reader.root):
         if node.type not in NAMES or _is_binding(node):
             continue
         for binding in bindings.get(_dotted(node) or "", []):
-            if reader.in_scope(binding, node):
+            origin = origins[id(binding)]
+            if reader.in_scope(binding, node) and not scopes.hides(binding.local, origin, node):
                 binding.uses.add(_use(reader, node))
 
 
@@ -284,16 +292,18 @@ def call_sites(raw: str, path: str, module: str, resolve: Resolver) -> list[dict
         return None
     reader = _Reader(root)
     imports: dict[str, Binding] = {}
+    origins: dict[int, Any] = {}
     for statement in (c for c in root.named_children if c.type == "import_statement"):
         for local, name, source, line in _import_sites(statement):
             target = resolve(source) if source else None
             if target:
                 imports[local] = Binding(local, target, name, IMPORT, line)
-    values = _value_bindings(reader, imports)
+                origins[id(imports[local])] = statement
+    values = _value_bindings(reader, imports, origins)
     by_local: dict[str, list[Binding]] = {}
     for binding in [*imports.values(), *values]:
         by_local.setdefault(binding.local, []).append(binding)
-    _add_uses(reader, by_local)
+    _add_uses(reader, by_local, origins)
     return records([*imports.values(), *values, *_reexports(root, resolve)], module)
 
 

@@ -9,6 +9,11 @@ The adapter writes the language rules into the records:
   a `*` name. Two `*` names from different defining symbols are ambiguous.
 - `star_export` set to `false` marks a name that a `*` re-export does not give.
   `star_export` set to `null` marks a name that a `*` re-export can give or not give.
+- On a `*` re-export record, `star_export_names` limits the names that a `*` re-export of
+  the module gives from it, and `star_export` set to `null` makes them not known. The
+  resolver writes the result as `star_export` on each name that the record gives.
+- A `*` re-export from a module that the adapter could not read or parse gives names that
+  are not known. The module then gets an unknown record with the cause `reexport`.
 
 Each re-export gets `defined_in` and `defined_as`: the module and the symbol that define
 it. `defined_as` is `*` when the name refers to a full module. The two values are `null`
@@ -84,6 +89,7 @@ class _Resolver:
                 if not rebinds and name in explicit:
                     continue
                 found = self._entry(name, source, name, bool(entry.get("type_only")))
+                found.update(_star_policy(entry, name))
                 _bind(module, out, _typed({**found, "via_star": True}), rebinds)
         return self._without_duplicates(module, out)
 
@@ -210,6 +216,8 @@ class _Resolver:
         `*` re-export."""
         if module not in self.raw or module in visited:
             return [], False
+        if _unread(self.components[module]):
+            return [], True
         if (module, visited) not in self.given:
             self.given[module, visited] = self._star_names(module, visited)
         return self.given[module, visited]
@@ -220,8 +228,9 @@ class _Resolver:
         for entry in self.raw[module]:
             if entry.get("star"):
                 given, unsure = self.star_names(entry["reexport_of"], visited | {module})
-                names.extend(given)
-                uncertain = uncertain or unsure
+                kept = [name for name in given if _star_policy(entry, name) == {}]
+                names.extend(kept)
+                uncertain = uncertain or unsure or entry.get("star_export", True) is None
             elif entry.get("star_export", True) is None:
                 uncertain = True
             elif entry.get("star_export", True) is not False:
@@ -284,6 +293,24 @@ class _Resolver:
         return kept
 
 
+def _star_policy(entry: dict[str, Any], name: str) -> dict[str, Any]:
+    """Give the `star_export` value of a name that the `*` re-export record gives: `{}`
+    when a `*` re-export of the module gives the name."""
+    if entry.get("star_export", True) is None:
+        return {"star_export": None}
+    allowed = entry.get("star_export_names")
+    if allowed is not None and name not in allowed:
+        return {"star_export": False}
+    return {}
+
+
+def _unread(record: Mapping[str, Any]) -> bool:
+    """Tell if the adapter could not read or parse all of the module. Its names are then
+    not known."""
+    state = record.get("completeness")
+    return isinstance(state, Mapping) and state.get("parsed") is False
+
+
 def _rebinds(names: list[dict[str, Any]]) -> bool:
     return any(entry.get("star") and entry.get("rebinds") for entry in names)
 
@@ -320,11 +347,16 @@ def definitions(record: Mapping[str, Any], module: str, name: str) -> list[tuple
     """This function gives each module and symbol that can define a public name.
 
     It reads only the `defined_in` and `defined_as` facts. A name that the module defines
-    itself is in the module under the same name. A defining module that is not known
-    gives no result."""
+    itself is in the module under the same name. A name with `defined_as` and without
+    `defined_in` is also in the module under the `defined_as` symbol, as the public name
+    `default` of a local class. A defining module that is not known gives no result."""
     out = [(module, name)]
     for entry in record.get("names", []):
-        if entry.get("name") != name or "defined_in" not in entry:
+        if entry.get("name") != name:
+            continue
+        if "defined_in" not in entry:
+            if entry.get("defined_as"):
+                out.append((module, str(entry["defined_as"])))
             continue
         defined_in, defined_as = entry["defined_in"], entry["defined_as"]
         if defined_in is not None and defined_as is not None:

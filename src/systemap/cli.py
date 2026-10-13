@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -250,12 +251,13 @@ def _render_page(
     facts: dict[str, Any],
     args: argparse.Namespace,
     source: change.SourceChange | None = None,
+    pr: dict[str, Any] | None = None,
 ) -> str:
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
     if base:
         ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"), source)
-        ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
+        ch["pr"] = pr or {}
     return page.build(
         p.cfg,
         m.model,
@@ -277,11 +279,13 @@ def cmd_render(args: argparse.Namespace) -> int:
     code = OK
     # One source comparison for all maps: it does not use the model of a map.
     source = change.source_change(p.cfg, args.base, facts, args.head) if args.base else None
+    # One gh request for all maps. The data gives the title of each change map.
+    pr = change.pr_meta(p.cfg.root, getattr(args, "pr", "")) if args.base else {}
     for m in p.tree.maps:
-        html = _render_page(p, m, facts, args, source)
+        html = _render_page(p, m, facts, args, source, pr)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
-            current = file_write.read_text(p.cfg.root, out) or ""
+            current = check.output_text(p.cfg.root, out)
             if current != html:
                 say(f"{p.cfg.rel(out)} is stale: it differs from the rendered output.")
                 code = STALE
@@ -369,15 +373,16 @@ def cmd_rules(args: argparse.Namespace) -> int:
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
     ruled = import_rules.run_tree(p.tree, facts)
-    if not facts:
-        warn(f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}", "run: systemap extract")
+    missing = [] if facts else [f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}"]
+    if missing:
+        warn(*missing, "run: systemap extract")
+    result = import_rules.payload(ruled, p.cfg.rules_unknown, problems + missing)
     if args.json:
-        say(json.dumps(import_rules.payload(ruled, p.cfg.rules_unknown, problems), indent=2))
+        say(json.dumps(result, indent=2))
     else:
         lines = import_rules.report(ruled, p.cfg.rules_unknown, not args.brief)
         say(*problems, *(lines or ["import rules: The model has no import rules."]))
-    passed = facts and not problems and import_rules.ok(ruled, p.cfg.rules_unknown)
-    return OK if passed else STALE
+    return OK if result["ok"] else STALE
 
 
 # ---- figure ----------------------------------------------------------------
@@ -426,13 +431,13 @@ def cmd_figure(args: argparse.Namespace) -> int:
     for line in collisions:
         warn(line)
     if args.out:
-        # Relative to the output directory, like a [[figures]] out; an
-        # absolute path is written where it says.
+        # A relative path starts at the output directory, as a [[figures]] out does. Its
+        # folder must be in the repository. The write replaces a link at the path.
         out = Path(args.out)
+        root = out.parent
         if not out.is_absolute():
-            out = p.cfg.out_path / out
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8", newline="\n")
+            out, root = Path(os.path.normpath(p.cfg.out_path / out)), p.cfg.root
+        file_write.write_atomic(root, out, html)
         say(f"The command wrote {p.cfg.rel(out)} ({len(html) / 1024:.0f} KB)")
     else:
         sys.stdout.write(html)
@@ -630,7 +635,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
-        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
+        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open), root)
     if args.decide is None and not selected and d.added and d.removed:
         jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
@@ -786,6 +791,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
     address.
     """
     cfg = config.load(_root(args))
+    # The served directory must be in the repository after the resolution of links.
+    file_write.confined(cfg.root, cfg.page_path)
     if not cfg.page_path.is_file():
         say(f"No page is available at {cfg.rel(cfg.page_path)}", "run: systemap refresh")
         return STALE

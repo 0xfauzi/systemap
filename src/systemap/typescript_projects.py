@@ -27,6 +27,7 @@ from systemap.typescript_config import (
     input_files,
     load_project_config,
     package_json,
+    resolved,
 )
 
 CONFIG_NAME = "tsconfig.json"
@@ -106,7 +107,7 @@ class TypeScriptProjects:
     def config_for(self, path: Path) -> TypeScriptConfig:
         """This function gives the configuration that compiles a source file."""
         if path not in self._chosen:
-            self._chosen[path] = self._choose(path.resolve())
+            self._chosen[path] = self._choose(resolved(path))
         return self._chosen[path]
 
     def _choose(self, path: Path) -> TypeScriptConfig:
@@ -144,6 +145,9 @@ class TypeScriptProjects:
         queue = list(self._selected(config))
         if self._dependencies is None:
             return frozenset(queue)
+        # A package import can read this program while the loop builds it, for the output
+        # root of a package. That read gives the input files (`typescript_resolve`).
+        self._programs[id(config)] = frozenset(queue)
         seen = set(queue)
         for path in queue:
             for found in self._dependencies(path, config):
@@ -185,7 +189,7 @@ class TypeScriptProjects:
         """This function gives the nearest directory above a file that has a package.json
         file. The repository root and a directory outside it give None.
         """
-        directory = path.resolve().parent
+        directory = resolved(path).parent
         if directory not in self._packages:
             self._packages[directory] = self._find_package(directory)
         return self._packages[directory]

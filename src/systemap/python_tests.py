@@ -5,6 +5,9 @@ test pattern selects. A test function refers to a module if its file imports the
 A test file that cannot be read or parsed gives a `test_file_issues` record. The record
 has the same fields as the record of the TypeScript adapter. The test functions of that
 file are not known.
+
+A relative import in a test file starts at the package of its folder. The package of a
+folder is the package of the source modules in that folder.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ from __future__ import annotations
 import ast
 import os
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -132,31 +135,51 @@ def collect_tests(
     repo: Path,
     tests_dirs: tuple[str, ...],
     prefixes: set[str],
-    known: set[str],
+    paths: Mapping[str, Path],
     tests: PythonTests,
 ) -> dict[str, list[dict[str, Any]]]:
     """Give the test functions that refer to each imported module.
 
-    Each test name includes the file and the enclosing definitions. An import does not
-    show that a test examines the module.
+    `paths` gives the file of each source module. Each test name includes the file and
+    the enclosing definitions. An import does not show that a test examines the module.
     """
     guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    known, packages = set(paths), _packages(paths)
     for path in test_files(repo, tests_dirs, tests.test_patterns):
         tree = _parse_test(repo, path, tests.test_issues)
         if tree is not None:
-            for target, entries in _references(repo, path, tree, prefixes, known).items():
+            package = packages.get(path.parent, "")
+            module = f"{package}.{path.stem}" if package else ""
+            for target, entries in _references(repo, path, tree, prefixes, known, module).items():
                 guards[target].extend(entries)
     return guards
 
 
+def _packages(paths: Mapping[str, Path]) -> dict[Path, str]:
+    """Give the dotted package of each folder that holds a source module."""
+    out: dict[Path, str] = {}
+    for module, path in paths.items():
+        package = module if path.name == "__init__.py" else module.rpartition(".")[0]
+        if package:
+            out.setdefault(path.parent, package)
+    return out
+
+
 def _references(
-    repo: Path, path: Path, tree: ast.Module, prefixes: set[str], known: set[str]
+    repo: Path,
+    path: Path,
+    tree: ast.Module,
+    prefixes: set[str],
+    known: set[str],
+    module: str = "",
 ) -> dict[str, list[dict[str, Any]]]:
-    """Give the test functions of one parsed test file, for each imported module."""
+    """Give the test functions of one parsed test file, for each imported module.
+
+    `module` is the dotted name of the test file for a relative import, or empty."""
     targets = {
         target
         for _node, _local, target, _name, _line in python_calls.import_targets(
-            tree, prefixes, known
+            tree, prefixes, known, module
         )
     }
     names = _names(tree) if targets else []

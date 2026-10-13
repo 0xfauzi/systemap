@@ -19,6 +19,12 @@ full new file. Two writers do not use the same temporary file. A new file gets t
 of a usual write: 0666 without the bits of the umask. A regular file that is at the path
 keeps its mode.
 
+A different process can change a folder of the path to a link after the check. Where
+`repo_files.WALK` is true, `write_atomic` and `locked` open the resolved folder one part
+at a time, without a link, and they make, replace, and open the file relative to that
+open folder. A part that is a link at that time gives `RefusedFile`. On Windows, the two
+functions use the checked path, and a change of a folder after the check is not found.
+
 `locked` holds an exclusive lock on the file `<path>.lock` while its `with` statement
 operates. A different process that tries to get the same lock waits. The operating
 system releases the lock when the process stops, also after a failure. A lock file that
@@ -33,7 +39,7 @@ import secrets
 import stat
 import sys
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 
 from systemap import repo_files
@@ -88,10 +94,54 @@ def confined(root: Path, path: Path) -> None:
 
 def folder(root: Path, path: Path) -> None:
     """Make the folder of the path in the root. Refuse a folder that is not in the root."""
+    if repo_files.WALK:
+        os.close(_open_parent(root, path))
+        return
     confined(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if not repo_files.inside(root, path.parent):
         raise RefusedFile(path, _outside(root))
+
+
+def _open_parent(root: Path, path: Path) -> int:
+    """Make and open the folder of the path in the root, and give its descriptor.
+
+    The nearest folder that exists is resolved, and it must be in the resolved root.
+    Then each part of the folder opens relative to the part before it. A part that is a
+    link at that time gives RefusedFile."""
+    confined(root, path)
+    # The root is not a path from the repository: a missing root is made, as before.
+    root.mkdir(parents=True, exist_ok=True)
+    base = root.resolve()
+    existing = path.parent
+    while not os.path.lexists(existing) and existing != root:
+        existing = existing.parent
+    resolved = existing.resolve()
+    if not resolved.is_relative_to(base):
+        raise RefusedFile(path, _outside(root))
+    parts = resolved.relative_to(base).parts + path.parent.relative_to(existing).parts
+    try:
+        return repo_files.open_folder(base, parts, make=True)
+    except repo_files.RepoPathError as exc:
+        raise RefusedFile(path, str(exc)) from exc
+
+
+@contextmanager
+def _parent(root: Path, path: Path) -> Iterator[int | None]:
+    """Hold the open folder of the path, or None where `repo_files.WALK` is false."""
+    if not repo_files.WALK:
+        yield None
+        return
+    descriptor = _open_parent(root, path)
+    try:
+        yield descriptor
+    finally:
+        os.close(descriptor)
+
+
+def _name(path: Path, parent: int | None) -> str:
+    """Give the name of the path relative to its open folder, or the full path."""
+    return path.name if parent is not None else str(path)
 
 
 def read_text(root: Path, path: Path) -> str | None:
@@ -118,40 +168,42 @@ def write_atomic(root: Path, path: Path, text: str) -> None:
     The folder of the path must be in the root. A link at the path is replaced.
     """
     folder(root, path)
-    handle, name = _temporary(path)
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
-            out.write(text)
-        _keep_mode(path, name)
-        os.replace(name, path)
-    except BaseException:
-        Path(name).unlink(missing_ok=True)
-        raise
+    with _parent(root, path) as parent:
+        handle, name = _temporary(path, parent)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
+                out.write(text)
+            _keep_mode(_name(path, parent), name, parent)
+            os.replace(name, _name(path, parent), src_dir_fd=parent, dst_dir_fd=parent)
+        except BaseException:
+            with suppress(FileNotFoundError):
+                os.unlink(name, dir_fd=parent)
+            raise
 
 
-def _temporary(path: Path) -> tuple[int, str]:
+def _temporary(path: Path, parent: int | None) -> tuple[int, str]:
     """Make a new temporary file of this writer next to the path. Give its descriptor and
-    its name.
+    its name, relative to the open folder `parent` if there is one.
 
     The operating system applies the umask to the mode 0666, as for a usual write. The
     file must not be present before. Thus a link or a file of a different writer is not used.
     """
     while True:
-        name = str(path.with_name(f"{path.name}.{secrets.token_hex(8)}.tmp"))
+        name = _name(path.with_name(f"{path.name}.{secrets.token_hex(8)}.tmp"), parent)
         try:
-            return os.open(name, _TEMPORARY_FLAGS, 0o666), name
+            return os.open(name, _TEMPORARY_FLAGS, 0o666, dir_fd=parent), name
         except FileExistsError:
             continue
 
 
-def _keep_mode(path: Path, name: str) -> None:
+def _keep_mode(path: str, name: str, parent: int | None) -> None:
     """Give the temporary file the mode of the regular file at the path, if there is one."""
     try:
-        existing = os.lstat(path)
+        existing = os.lstat(path, dir_fd=parent)
     except FileNotFoundError:
         return
     if stat.S_ISREG(existing.st_mode):
-        os.chmod(name, stat.S_IMODE(existing.st_mode))
+        os.chmod(name, stat.S_IMODE(existing.st_mode), dir_fd=parent)
 
 
 @contextmanager
@@ -162,7 +214,8 @@ def locked(root: Path, path: Path) -> Iterator[None]:
     """
     lock = path.with_name(f"{path.name}.lock")
     folder(root, lock)
-    descriptor = _open_lock(lock)
+    with _parent(root, lock) as parent:
+        descriptor = _open_lock(lock, parent)
     try:
         _lock(descriptor)
         try:
@@ -173,16 +226,18 @@ def locked(root: Path, path: Path) -> Iterator[None]:
         os.close(descriptor)
 
 
-def _open_lock(lock: Path) -> int:
+def _open_lock(lock: Path, parent: int | None) -> int:
     """Open or make the lock file. Refuse a link, a FIFO, and a device with RefusedFile.
 
     The open does not wait on a FIFO. A platform without O_NOFOLLOW gets the link test
     before the open only.
     """
-    if lock.is_symlink():
-        raise RefusedFile(lock, LINK)
+    name = _name(lock, parent)
+    with suppress(FileNotFoundError):
+        if stat.S_ISLNK(os.lstat(name, dir_fd=parent).st_mode):
+            raise RefusedFile(lock, LINK)
     try:
-        descriptor = os.open(lock, _LOCK_FLAGS, 0o666)
+        descriptor = _create(name, parent)
     except OSError as exc:
         if exc.errno == errno.ELOOP:
             raise RefusedFile(lock, LINK) from exc
@@ -191,6 +246,20 @@ def _open_lock(lock: Path) -> int:
         os.close(descriptor)
         raise RefusedFile(lock, "the path is not a regular file")
     return descriptor
+
+
+def _create(name: str, parent: int | None) -> int:
+    """Open or make the lock file. Try the same open again after FileNotFoundError.
+
+    On macOS, an open with O_CREAT relative to a folder descriptor can give ENOENT when
+    other processes make the same new name at the same time. In a probe of 1200 opens by
+    8 processes at the same time, 260 opens gave ENOENT, and each second try opened the
+    file. A folder that was removed gives FileNotFoundError at each try.
+    """
+    for _attempt in range(4):
+        with suppress(FileNotFoundError):
+            return os.open(name, _LOCK_FLAGS, 0o666, dir_fd=parent)
+    return os.open(name, _LOCK_FLAGS, 0o666, dir_fd=parent)
 
 
 if sys.platform == "win32":

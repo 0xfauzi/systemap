@@ -10,8 +10,11 @@ one line that says so. Without `page_url`, `systemap delta` writes no comment.
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Any
+
+from systemap import file_write
 
 # The first line of the comment. CI finds the comment with it and changes that comment.
 MARKER = "<!-- systemap delta -->"
@@ -87,14 +90,20 @@ def comment(url: str, pr: int, open_lines: int) -> str:
     return "\n".join(out) + "\n"
 
 
-def write(path: str, url: str, pr: int, open_lines: int) -> bool:
+def write(path: str, url: str, pr: int, open_lines: int, root: Path) -> bool:
     """Write the comment to `path` if the configuration has a page URL.
 
     Without a page URL, the function writes no file. The result tells if it wrote one.
+    The write replaces a link at the path. It does not write to the target of the link.
+    For a path in the repository at `root`, each folder of the path must be in the
+    repository. A different path is in a folder of the person who runs the command, for
+    example a folder of the CI runner. `file_write.RefusedFile` gives a refused path.
     """
     if not url:
         return False
     if not pr:
         raise LinkError("delta --comment must have --pr with the pull request number.")
-    Path(path).write_text(comment(url, pr, open_lines), encoding="utf-8", newline="\n")
+    target = Path(os.path.abspath(path))
+    inside = any(target.is_relative_to(base) for base in (root, root.resolve()))
+    file_write.write_atomic(root if inside else target.parent, target, comment(url, pr, open_lines))
     return True

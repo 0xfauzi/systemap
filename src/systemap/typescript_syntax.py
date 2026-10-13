@@ -15,6 +15,7 @@ from tree_sitter import Language, Node, Parser
 from systemap import unknown_causes
 from systemap.notice_text import description, is_notice
 from systemap.typescript_repo import TYPESCRIPT_REPOSITORY
+from systemap.typescript_strings import escape, joined
 
 TS = Language(tree_sitter_typescript.language_typescript())
 TSX = Language(tree_sitter_typescript.language_tsx())
@@ -44,19 +45,53 @@ def syntax_tree(raw: str, path: str = "") -> Node:
     If the first parse has an error, a second parse reads the source without the
     keyword `type` in `export type * from` and without variance keywords. The function
     uses the second tree only if it has no error. The other tokens keep their positions.
+    A replacement in a string, a template, a regular expression, or a comment of the
+    second tree is not used. Thus the second tree has the literal text of the source.
     """
     root = _tree(raw, path)
     if not root.has_error:
         return root
-    rewritten = _VARIANCE.sub(_blank_keywords, _TYPE_STAR.sub(_blank_keywords, raw))
-    if rewritten == raw:
+    spans = _keyword_spans(raw)
+    if not spans:
         return root
-    second = _tree(rewritten, path)
+    second = _tree(_blank(raw, spans), path)
+    kept = [span for span in spans if not _in_literal(second, raw, span)]
+    if kept != spans:
+        if not kept:
+            return root
+        second = _tree(_blank(raw, kept), path)
     return root if second.has_error else second
 
 
-def _blank_keywords(match: re.Match[str]) -> str:
-    return match.group(1) + re.sub(r"[^\n]", " ", match.group(2))
+# The syntax nodes that contain literal text, not tokens.
+LITERALS = frozenset({"string", "template_string", "regex", "comment"})
+
+
+def _keyword_spans(raw: str) -> list[tuple[int, int]]:
+    """Give the character spans of the keywords that the second parse replaces."""
+    spans = [found.span(2) for found in _TYPE_STAR.finditer(raw)]
+    spans += [found.span(2) for found in _VARIANCE.finditer(_blank(raw, spans))]
+    return sorted(spans)
+
+
+def _blank(raw: str, spans: list[tuple[int, int]]) -> str:
+    """Replace each character in the spans with a space. A line end stays."""
+    text = list(raw)
+    for start, end in spans:
+        text[start:end] = re.sub(r"[^\n]", " ", raw[start:end])
+    return "".join(text)
+
+
+def _in_literal(root: Node, raw: str, span: tuple[int, int]) -> bool:
+    """Tell if a literal node of the tree contains the span."""
+    start = len(raw[: span[0]].encode("utf-8"))
+    end = len(raw[: span[1]].encode("utf-8"))
+    node: Node | None = root.descendant_for_byte_range(start, end)
+    while node is not None:
+        if node.type in LITERALS:
+            return True
+        node = node.parent
+    return False
 
 
 # The text limit of a source excerpt in a parse problem.
@@ -104,6 +139,23 @@ def _text(node: Node | None) -> str:
     return (node.text or b"").decode("utf-8") if node is not None else ""
 
 
+def first_named(node: Node | None) -> Node | None:
+    """This function gives the first named child of a node that is not a comment.
+
+    The grammar gives a comment as a named node at each position, as in
+    `import(/* name */ "./a")`.
+    """
+    if node is None:
+        return None
+    return next((child for child in node.named_children if child.type != "comment"), None)
+
+
+def first_argument(call: Node) -> Node | None:
+    """This function gives the first argument of a call, or None. A comment is not an
+    argument."""
+    return first_named(call.child_by_field_name("arguments"))
+
+
 def _one_line(text: str) -> str:
     return " ".join(text.split())
 
@@ -125,35 +177,11 @@ def string_value(node: Node | None) -> str:
     if node is None or node.type != "string":
         return ""
     parts = (
-        _escape(_text(child)) if child.type == "escape_sequence" else _text(child)
+        escape(_text(child)) if child.type == "escape_sequence" else _text(child)
         for child in node.named_children
     )
-    # Two escape sequences such as `\ud83d\ude00` give one character. A surrogate
-    # without its pair becomes U+FFFD, because UTF-8 output cannot contain it.
-    value = "".join(parts)
-    return value.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
-
-
-SIMPLE_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v"}
-LINE_ENDS = ("\n", "\r", "\u2028", "\u2029")
-
-
-def _escape(sequence: str) -> str:
-    """This function gives the character of one escape sequence of the JavaScript grammar.
-
-    A backslash before a line end continues the line and gives no character.
-    """
-    body = sequence[1:]
-    if body.startswith(LINE_ENDS):
-        return ""
-    digits = body[1:].strip("{}") if body[:1] in ("x", "u") else body
-    base = 16 if body[:1] in ("x", "u") else 8
-    if digits.isalnum() and (base == 16 or digits.isdigit()):
-        try:
-            return chr(int(digits, base))
-        except ValueError:
-            pass
-    return SIMPLE_ESCAPES.get(body, body)
+    # Two escape sequences such as `\ud83d\ude00` give one character.
+    return joined("".join(parts))
 
 
 def docstring(root: Node) -> str:

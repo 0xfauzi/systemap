@@ -565,6 +565,13 @@ CHECK = {
         why="The facts file does not show the current unknown records.",
         do="Use `systemap refresh`. Then read the unknown surface lines.",
     ),
+    "specification sections changed": Lesson(
+        means=(
+            "The section headings of the `spec_path` file changed after systemap wrote the facts."
+        ),
+        why="The facts file does not show the current sections of the specification.",
+        do="Use `systemap refresh`. Then read the changed sections.",
+    ),
     "derived facts changed": Lesson(
         means="Imports or other extracted facts changed for a module.",
         why="A source hash does not show which map claims changed.",

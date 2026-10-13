@@ -25,6 +25,7 @@ from systemap.typescript_config import (
     compiler_settings,
     load_typescript_config,
     package_json,
+    resolved,
     source_files,
 )
 from systemap.typescript_config_files import (
@@ -36,14 +37,16 @@ from systemap.typescript_roots import (
     missing_roots_message,
     type_test_patterns,
 )
+from systemap.typescript_strings import QUOTED, decode_quoted
 
 TSCONFIG = "tsconfig.json"
 PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
 # The method name in a recorded method header. A header starts with optional modifiers
-# and an optional `*`. The name can contain Unicode letters (`identifier.complete`).
+# and an optional `*`. The name can contain Unicode letters (`identifier.complete`). A
+# quoted name, such as `"get"`, gives the value of the string.
 METHOD = re.compile(
     r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    r"\*?\s*([^\s?!<(]+)\s*[?!]?\s*[<(]"
+    rf"\*?\s*({QUOTED}|[^\s?!<(]+)\s*[?!]?\s*[<(]"
 )
 # npm package names of model SDKs and agent frameworks. A scope such as `@ai-sdk`
 # matches each package in that scope. A name matches as a prefix of the import name.
@@ -84,7 +87,7 @@ def skipped(path: Path, base: Path, names: frozenset[str]) -> bool:
 def ts_skipped(path: Path, base: Path, out_dir: Path | None) -> bool:
     """Find a file that tsc does not read: a file in node_modules, outDir, or a similar
     folder below the base folder. The folders above the base do not count."""
-    if out_dir is not None and path.resolve().is_relative_to(out_dir):
+    if out_dir is not None and resolved(path).is_relative_to(out_dir):
         return True
     return skipped(path, base, SOURCE_SKIP)
 
@@ -198,7 +201,8 @@ class TypeScriptRepository:
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)
-        return found.group(1) if found and identifier.complete(found.group(1)) else ""
+        name = decode_quoted(found.group(1)) if found else ""
+        return name if identifier.complete(name) else ""
 
 
 TYPESCRIPT_REPOSITORY = TypeScriptRepository()

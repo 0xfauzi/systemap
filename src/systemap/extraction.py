@@ -349,6 +349,9 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
         out.append("extraction inputs changed since the map was built")
     out.extend(_entry_drift(fresh, stored))
     out.extend(_issue_drift(fresh, stored))
+    # A heading change in the `spec_path` file changes no module and no input digest.
+    if stored and fresh.get("spec_sections", []) != stored.get("spec_sections", []):
+        out.append("specification sections changed since the map was built")
     added = sorted(set(new_c) - set(old_c))
     gone = sorted(set(old_c) - set(new_c))
     moved = sorted(m for m in set(new_c) & set(old_c) if new_c[m]["sha"] != old_c[m]["sha"])

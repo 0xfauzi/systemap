@@ -6,9 +6,13 @@ re-export resolver reads the records and does not examine Python source.
 - A `*` re-export in a package `__init__` has `star` and `rebinds`: in Python, a later
   binding of a name replaces an earlier binding.
 - A literal `__all__` gives the names of a `*` import. A public name that is not in it
-  gets `star_export` set to `false`.
+  gets `star_export` set to `false`. An empty `__all__` gives no name.
 - If `__all__` has a value that is not a literal list of strings, each public name gets
   `star_export` set to `null`: the adapter does not know if the name is in a `*` import.
+- The `__all__` rule also applies to the names that a `*` re-export of the package gives.
+  The `*` record then gets `star_export_names`, the names of a literal `__all__`, or
+  `star_export` set to `null`. The shared resolver applies them, and it does not write
+  them to the facts.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ from typing import Any
 ALL = "__all__"
 # A value that `__all__` can have, but that the adapter cannot read.
 NOT_KNOWN = None
+# The module has no `__all__`.
+_MISSING = object()
 
 
 def reexports(aliases: list[ast.alias], source: str) -> list[dict[str, Any]]:
@@ -48,10 +54,11 @@ def mark_star_exports(statements: list[ast.stmt], names: list[dict[str, Any]]) -
 
     A module without `__all__` gives each public name, so no record changes."""
     listed = _all_names(statements)
-    if listed == ():
+    if listed is _MISSING:
         return
     for entry in names:
         if entry.get("star"):
+            _mark_star(entry, listed)
             continue
         if listed is NOT_KNOWN:
             entry["star_export"] = None
@@ -59,9 +66,17 @@ def mark_star_exports(statements: list[ast.stmt], names: list[dict[str, Any]]) -
             entry["star_export"] = False
 
 
-def _all_names(statements: list[ast.stmt]) -> tuple[str, ...] | None:
-    """This function gives the names in `__all__`, `()` without `__all__`, or `None` when
-    the value is not a literal list of strings."""
+def _mark_star(entry: dict[str, Any], listed: Any) -> None:
+    """This function writes the `__all__` rule of the package on its `*` re-export record."""
+    if listed is NOT_KNOWN:
+        entry["star_export"] = None
+    else:
+        entry["star_export_names"] = list(listed)
+
+
+def _all_names(statements: list[ast.stmt]) -> Any:
+    """This function gives the names in `__all__`, `_MISSING` without `__all__`, or `None`
+    when the value is not a literal list of strings."""
     found: list[str] = []
     assigned = False
     for node in statements:
@@ -75,7 +90,7 @@ def _all_names(statements: list[ast.stmt]) -> tuple[str, ...] | None:
         if isinstance(node, ast.Assign | ast.AnnAssign):
             found = []
         found.extend(strings)
-    return tuple(found) if assigned else ()
+    return tuple(found) if assigned else _MISSING
 
 
 _ABSENT = object()
