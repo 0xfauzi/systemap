@@ -220,7 +220,9 @@ def test_jev_and_decide_send_identical_suggest_requests(
         monkeypatch.setattr(jev, "http_send", lambda key, base=jev.API, r=recorder: r)
         (root / ".systemap/jev-cache.json").unlink(missing_ok=True)
         assert main(["--root", str(root), "suggest", option]) == 0
-        sent[option] = recorder.bodies
+        # Requests go in parallel, so the send order can change. The answers keep the
+        # order of the questions, so the bodies are compared as a sorted list.
+        sent[option] = sorted(recorder.bodies)
     assert sent["--decide"] and sent["--decide"] == sent["--jev"]
     capsys.readouterr()
 
