@@ -201,7 +201,7 @@ class PythonLanguage(PythonRepository):
     ) -> dict[str, list[dict[str, Any]]]:
         isolated = python_tests.PythonTests()
         tests = context if isinstance(context, python_tests.PythonTests) else isolated
-        return python_tests.collect_tests(repo, tests_dirs, prefixes, set(paths), tests)
+        return python_tests.collect_tests(repo, tests_dirs, prefixes, paths, tests)
 
     def entry_points(
         self,
@@ -235,8 +235,11 @@ PYTHON = PythonLanguage()
 
 
 def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str:
-    rel = path.relative_to(pkg_dir).with_suffix("")
-    parts = [p for p in rel.parts if p != "__init__"]
+    """Give the dotted module of a file. Only a last part `__init__` (the package file)
+    is not in the name. A folder with the name `__init__` keeps its part."""
+    parts = list(path.relative_to(pkg_dir).with_suffix("").parts)
+    if parts and parts[-1] == "__init__":
+        parts.pop()
     return ".".join([pkg_name, *parts]) if parts else pkg_name
 
 

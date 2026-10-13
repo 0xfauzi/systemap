@@ -56,6 +56,9 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # The confined open functions.
     ("file_write.py", "_open_lock", "os.open"): "the lock open that refuses a link and a FIFO",
     ("repo_files.py", "_open", "os.open"): "the confined reader",
+    ("repo_files.py", "_open_below", "os.open"): "the confined reader: a file in an open folder",
+    ("repo_files.py", "open_folder", "os.open"): "the confined walk: the resolved root",
+    ("repo_files.py", "_child", "os.open"): "the confined walk: a folder without a link",
     # The Git shallow file that `git rev-parse --git-path shallow` names: Git metadata.
     ("history.py", "shallow_note", "path.read_text"): "Git metadata, not a repository file",
     # Model files.
