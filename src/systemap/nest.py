@@ -184,6 +184,11 @@ def _opened(cfg: Config, parent: Map, c: Component, target: str, above: list[Pat
             f"{parent.rel}: {c.id} opens {rel}, which is not in the repository. Put the "
             f"nested model file in the repository."
         )
+    if path.exists() and not path.is_file():
+        raise ConfigError(
+            f"{parent.rel}: {c.id} opens {rel}, which is not a regular file. Put the nested "
+            f"model module at this path, or remove map from the component."
+        )
     if not path.is_file():
         raise ConfigError(
             f"{parent.rel}: {c.id} opens {rel}, which is missing. Write the nested model "

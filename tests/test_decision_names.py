@@ -51,7 +51,7 @@ def _answer(root: Path, item: str, digest: str) -> None:
 def _previous_digest(root: Path, line: str) -> str:
     """Give the digest as the previous release made it: from the printed line itself."""
     cfg = load_config(root)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts
     return judgement.evidence_for_tree(nest.load(cfg), facts, cfg.root, [line])[line]
 
@@ -112,7 +112,7 @@ def test_a_new_name_closes_the_line_with_no_warning(
 def test_the_digest_is_the_same_for_the_two_names(roots: dict[str, Path]) -> None:
     root = roots["asked"]
     cfg = load_config(root)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts
     tree = nest.load(cfg)
     owner_new = "decision owner: pkg.stray is claimed by no card"

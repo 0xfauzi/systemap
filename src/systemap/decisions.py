@@ -59,11 +59,23 @@ ARROW = "->"
 
 @dataclass(frozen=True)
 class SourceFile:
-    """One source file of a claim: the repository-relative path, the module, and the file digest."""
+    """One source file of a claim: the repository-relative path, the module, and the file digest.
+
+    A file that `confined` refuses has no digest. `problem` then gives the cause, for
+    example "link out of the repository" or "not a regular file in the repository".
+    """
 
     file: str
     module: str
     sha256: str
+    problem: str = ""
+
+
+# The causes of `confined` for a source file record.
+_PROBLEMS = {
+    "is outside the repository": repo_files.LINK_OUT,
+    "is not a regular file": repo_files.NOT_REGULAR,
+}
 
 
 @dataclass(frozen=True)
@@ -127,6 +139,8 @@ def confined(root: Path, name: str) -> tuple[Path | None, str]:
         if "not in the repository" in str(exc):
             return None, "is outside the repository"
         return None, "is not a regular file"
+    except FileNotFoundError:
+        return None, "is missing"
     except OSError:
         return None, "is not a regular file"
 
@@ -149,12 +163,27 @@ def _files(root: Path, facts: dict[str, Any], modules: Iterable[str]) -> tuple[S
         name = record.get("file") if isinstance(record, dict) else None
         if not isinstance(name, str):
             continue
-        full = confined(root, name)[0]
-        if full is None:
-            continue
+        full, cause = confined(root, name)
         rel = PurePosixPath(name).as_posix()
-        out.setdefault(rel, SourceFile(rel, module, file_digest(full)))
+        found = (
+            SourceFile(rel, module, file_digest(full))
+            if full is not None
+            else SourceFile(rel, module, "", _PROBLEMS.get(cause, cause.removeprefix("is ")))
+        )
+        out.setdefault(rel, found)
     return tuple(out.values())
+
+
+def blocked_by(blocked: str, files: Iterable[SourceFile]) -> str:
+    """Add the refused source files to the cause of a blocked request.
+
+    A `supported` verdict needs the source. Thus a claim with a refused file is blocked.
+    """
+    refused = [f"{f.file}: {f.problem}" for f in files if f.problem]
+    if not refused:
+        return blocked
+    text = f"The command cannot read these source files: {'; '.join(refused)}. Correct the source."
+    return f"{blocked} {text}".strip()
 
 
 def _id(kind: str, target: str, digest: str | None) -> str:
@@ -223,8 +252,8 @@ def _card_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
                 card.id,
                 _card_claim(card, m.model, m.meaning),
                 digest,
-                _files(root, facts, card_modules(card, facts)),
-                blocked,
+                files := _files(root, facts, card_modules(card, facts)),
+                blocked_by(blocked, files),
             )
         )
     return out
@@ -266,8 +295,8 @@ def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
                 target,
                 _flow_claim(flow, m.meaning),
                 digest,
-                _files(root, facts, modules),
-                blocked,
+                files := _files(root, facts, modules),
+                blocked_by(blocked, files),
             )
         )
     return out
@@ -340,7 +369,7 @@ def _line_requests(
                 line,
                 digest,
                 files,
-                blocked,
+                blocked_by(blocked, files),
                 identity,
             )
         )

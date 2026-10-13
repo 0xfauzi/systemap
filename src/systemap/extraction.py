@@ -236,6 +236,24 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
         record["tests"] = [t["name"] for t in unique[:TESTS_KEPT]]
 
 
+def _config_digests(root: Path, names: tuple[str, ...]) -> dict[str, str]:
+    """Give the digest of each configuration file of the language that is present.
+
+    The function reads only a regular file in the repository, with `repo_files`. A link
+    out of the repository and a FIFO give a ConfigError with the path and the cause.
+    """
+    files: dict[str, str] = {}
+    for relative in names:
+        path = root / relative
+        if not repo_files.present(path):
+            continue
+        try:
+            files[relative] = source_text.text_digest(repo_files.read_bytes(root, relative))
+        except OSError as exc:
+            raise ConfigError(f"The parser could not read {path}: {exc}") from exc
+    return files
+
+
 def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[str, Any]:
     settings = {
         "language": cfg.language,
@@ -247,11 +265,7 @@ def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[st
         # Installed npm packages can change the compiler settings: a separate record.
         "compiler": None,
     }
-    files: dict[str, str] = {}
-    for relative in language.config_files:
-        path = cfg.root / relative
-        if path.is_file():
-            files[relative] = source_text.text_digest(path.read_bytes())
+    files = _config_digests(cfg.root, language.config_files)
     # The drift comparison finds a change of the facts that a parser version gives.
     return {
         "parser": language.parser_version(),

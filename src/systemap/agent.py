@@ -262,7 +262,7 @@ def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
     return Agent(
         command=cfg.agent_command.strip(),
         root=cfg.root,
-        cache=Cache(cfg.agent_cache_path),
+        cache=Cache(cfg.agent_cache_path, root=cfg.root),
         timeout=cfg.agent_timeout,
         run_command=run_command or shell_run,
         profile=cfg.writing_profile,

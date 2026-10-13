@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from systemap import file_write
 from systemap.source_facts import empty_markers
 
 # Every field the extractor writes: (scope, field, what it holds). The
@@ -333,15 +334,16 @@ def facts_doc() -> str:
     return "\n".join(out) + "\n"
 
 
-def read_facts(path: Path) -> dict[str, Any]:
-    """Read stored facts.
+def read_facts(path: Path, root: Path) -> dict[str, Any]:
+    """Read stored facts. The root is the repository root.
 
     Give an empty table if the file is missing or the JSON parser cannot read it.
+    A link out of the root (at the file or at a folder), a FIFO, and a device give
+    `file_write.RefusedFile` with the cause. They do not give an empty table.
     """
-    if not path.is_file():
-        return {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        text = file_write.read_text(root, path)
+        data = json.loads(text) if text is not None else {}
     except (OSError, json.JSONDecodeError):
         return {}
     return dict(data) if isinstance(data, dict) else {}
@@ -372,9 +374,9 @@ def dumps(facts: dict[str, Any]) -> str:
     return "{\n" + ",\n".join(parts) + "\n}\n"
 
 
-def write_facts(path: Path, facts: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dumps(facts), encoding="utf-8", newline="\n")
+def write_facts(path: Path, facts: dict[str, Any], root: Path) -> None:
+    """Write the facts. The folder must be in the root. A link at the path is replaced."""
+    file_write.write_atomic(root, path, dumps(facts))
 
 
 def summary(facts: dict[str, Any]) -> list[str]:

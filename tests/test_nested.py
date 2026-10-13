@@ -223,7 +223,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
     from systemap.config import load
 
     add_child_route(nested)
-    facts = facts_file.read_facts(load(nested).facts_path)
+    facts = facts_file.read_facts(load(nested).facts_path, load(nested).root)
     assert facts is not None
     point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
     identity = source_facts.entry_identity(point)

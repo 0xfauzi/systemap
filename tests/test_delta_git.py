@@ -138,7 +138,7 @@ def test_an_exact_answer_needs_the_judgement_evidence_digest_in_delta(
     assert main(["--root", str(repo), "extract"]) == 0
     capsys.readouterr()
     cfg = config.load(repo)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts is not None
     tree = nest.load(cfg)
     line = next(

@@ -255,17 +255,17 @@ def test_the_cache_key_has_the_provider_and_the_model(tmp_path: Path) -> None:
     assert key != jev.cache_key("jev-latest", "2026-09-10", jev_provider.ask_of(READS))
     assert key != jev.cache_key("gpt-6-luna", "2026-09-10", jev_provider.ask_of(READS))
     # A cache that Jev wrote for the same question gives no OpenAI answer.
-    cache = jev.Cache(tmp_path / "cache.json")
+    cache = jev.Cache(tmp_path / "cache.json", root=tmp_path)
     jev_key = jev.cache_key("jev-latest", "2026-09-10", jev_provider.ask_of(READS))
     cache.entries[jev_key] = {"reads": {"type": "noul", "noul": 0.9}}
     cache.save()
     transport = Decisions(noul=0.25)
-    provider = oa.OpenAIProvider(transport, cache=jev.Cache(tmp_path / "cache.json"))
+    provider = oa.OpenAIProvider(transport, cache=jev.Cache(tmp_path / "cache.json", root=tmp_path))
     assert provider.pending([READS]) == 1
     assert provider.decide([READS]) == [
         PredicateAnswer(0.25, transport._answer({"type": "predicate", "name": "reads"}))
     ]
-    again = oa.OpenAIProvider(transport, cache=jev.Cache(tmp_path / "cache.json"))
+    again = oa.OpenAIProvider(transport, cache=jev.Cache(tmp_path / "cache.json", root=tmp_path))
     assert again.decide([READS])[0] == PredicateAnswer(
         0.25, transport._answer({"type": "predicate", "name": "reads"})
     )

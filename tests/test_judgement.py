@@ -263,7 +263,7 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
     assert main(["--root", str(tmp_path), "extract"]) == 0
     cfg = config.load(tmp_path)
     tree = nest.load(cfg)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     lines = judgement.run_tree(tree, facts)
     crossing = next(line for line in lines if line.startswith("crossing import: "))
     before = judgement.evidence_for_tree(tree, facts, tmp_path, lines)

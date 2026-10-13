@@ -386,7 +386,7 @@ def test_place_inserts_in_the_call_style_the_file_uses(tmp_path: Path) -> None:
 
 def test_self_map_stripped_is_clean_after_place() -> None:
     model, meaning = config.load_model(ROOT / "map" / "model.py")
-    facts = check.facts_file.read_facts(ROOT / "docs" / "map" / "map.json")
+    facts = check.facts_file.read_facts(ROOT / "docs" / "map" / "map.json", ROOT)
     placement = place.compute(stripped(model))
     placed = place.apply(stripped(model), placement)
     assert len(placement.positions) == len(model.components)

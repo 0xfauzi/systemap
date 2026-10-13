@@ -259,16 +259,18 @@ def _agrees(ask: Ask, answers: Any) -> bool:
     return True
 
 
-def _read_cache(path: Path | None) -> tuple[dict[str, Any], dict[str, str]]:
+def _read_cache(root: Path, path: Path | None) -> tuple[dict[str, Any], dict[str, str]]:
     """Give the entries and the releases of a cache file.
 
     A file that is not JSON, or that has fields of an incorrect type, is not usable.
     Its answers cannot be read. Thus the result is an empty cache, and the next request
-    goes to the provider again."""
-    if path is None or not path.exists():
+    goes to the provider again. A link out of the root, a FIFO, and a device give
+    `file_write.RefusedFile` with the cause. They do not give an empty cache."""
+    text = None if path is None else file_write.read_text(root, path)
+    if text is None:
         return {}, {}
     try:
-        held = json.loads(path.read_text(encoding="utf-8"))
+        held = json.loads(text)
     except ValueError:
         return {}, {}
     entries = held.get("entries", {}) if isinstance(held, dict) else None
@@ -287,28 +289,36 @@ class Cache:
     Two commands can save the same cache at the same time. A save holds a lock on the
     cache. Then it reads the entries of the other writers and adds its own entries.
     It writes the result through a temporary file of its own. The first read of an
-    existing file also holds the lock."""
+    existing file also holds the lock.
 
-    def __init__(self, path: Path | None) -> None:
+    A cache file has a root: the repository root for a configured cache. The file and
+    each folder of it must be in the root (`file_write`). A path without a root gives
+    ValueError, so that a caller cannot forget the root."""
+
+    def __init__(self, path: Path | None = None, *, root: Path | None = None) -> None:
+        if path is not None and root is None:
+            raise ValueError(f"The cache file {path} needs the root folder that contains it.")
         self.path = path
+        self.root = root or Path()
         self.entries: dict[str, Any] = {}
         self.releases: dict[str, str] = {}
+        if path is not None:
+            file_write.confined(self.root, path)
         if path is not None and path.exists():
             # On Windows, a read cannot occur while a different process replaces the file.
-            with file_write.locked(path):
-                self.entries, self.releases = _read_cache(path)
+            with file_write.locked(self.root, path):
+                self.entries, self.releases = _read_cache(self.root, path)
 
     def save(self) -> None:
         if self.path is None:
             return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with file_write.locked(self.path):
-            entries, releases = _read_cache(self.path)
+        with file_write.locked(self.root, self.path):
+            entries, releases = _read_cache(self.root, self.path)
             entries.update(self.entries)
             releases.update(self.releases)
             self.entries, self.releases = entries, releases
             held = {"version": 1, "entries": entries, "releases": releases}
-            file_write.write_atomic(self.path, json.dumps(held))
+            file_write.write_atomic(self.root, self.path, json.dumps(held))
 
 
 @dataclass
@@ -438,14 +448,18 @@ class Jev:
         self.usage.sent += 1
 
 
-def from_env(model: str, cache_path: Path | None, send: Send | None = None) -> Jev:
-    """Make a client with injected transport, or HTTPS with an environment key."""
+def from_env(
+    model: str, cache_path: Path | None, send: Send | None = None, root: Path | None = None
+) -> Jev:
+    """Make a client with injected transport, or HTTPS with an environment key.
+
+    `root` is the folder that contains the cache file: the repository root."""
     if send is None:
         key = os.environ.get(KEY_ENV, "").strip()
         if not key:
             raise JevError(f"set {KEY_ENV} to call Jev. No data was sent")
         send = http_send(key, os.environ.get(BASE_ENV, "").strip() or API)
-    return Jev(with_retries(send), model, Cache(cache_path))
+    return Jev(with_retries(send), model, Cache(cache_path, root=root))
 
 
 def has_key() -> bool:
