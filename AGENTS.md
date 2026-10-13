@@ -30,6 +30,24 @@ Use literal words. Do not use emoji or em dashes.
 
 A finding line is also an identifier. The configuration can contain the full line under `[judgement] answered`.
 Do not change finding identifiers without an explicit migration.
+
+### The identity of a finding
+
+A recorded answer must stay applicable while its finding stays the same. Thus the finding line contains only the parts that identify the finding:
+
+- the kind and the map prefix,
+- the names of the component, the module, the file, the flow, or the entry point,
+- the target and the names that the finding is about,
+- the text of the finding kind that does not change.
+
+A finding line must not contain a value that changes when the finding stays the same. Examples are a line number, a column, a source excerpt, a parser version, and a time. Put such a value in a row below the line and in a field of `judgement --json`.
+
+The evidence digest finds a change to the cited source or claims. The finding line does not have to find it.
+
+A count in a line is an exception that occurs before this rule, for example "in 3 modules" in a `crossing import` line. Do not add a new count to a finding line.
+
+Use one migration path, `answer_migrations.py`, for each changed line form. Give each earlier form one pattern and one test.
+
 For each new finding kind, add three sentences to `explain.py`:
 
 - What the finding tells the reader.

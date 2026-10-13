@@ -430,7 +430,8 @@ def test_zero_tests_is_said_in_one_line_naming_the_directories(tmp_path: Path) -
     )
     write_tree(tmp_path, TINY_PACKAGE)
     assert (
-        "  tests:            3 test functions import a module, 2 in a file with its name"
+        "  tests:            3 pairs of a test function and a module that it imports, "
+        "2 in a test file with the module name"
         in facts_file.summary(extract.build(config.load(tmp_path)))
     )
 

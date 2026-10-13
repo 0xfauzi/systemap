@@ -84,7 +84,8 @@ def test_a_reexport_of_a_declaration_file_gives_one_line_for_each_statement(
     tmp_path: Path,
 ) -> None:
     """trial2-1. Acceptance: `src/index.ts` gives 4 unknown lines, one for each re-export
-    statement, at the line of the statement (3, 7, 8, 9). No line has the location `:1`.
+    statement. The sources of the lines give the line of each statement (3, 7, 8, 9).
+    From facts format 11, a line has no line number (trial3-1).
     The three statements that name an existing declaration file have the cause
     `declaration file`, the file, and the names of the statement. The statement with a
     missing file keeps the cause `target` and gives its name. No two lines are equal.
@@ -95,29 +96,35 @@ def test_a_reexport_of_a_declaration_file_gives_one_line_for_each_statement(
     facts = _build(tmp_path, DECLARATIONS)
     causes = source_facts.unknown_fact_causes(facts)
     lines = [(line, cause) for line, cause in causes if "module web.index " in line]
-    head = "unknown surface: module web.index (src/index.ts:{line}): "
+    head = "unknown surface: module web.index (src/index.ts): "
     shapes = {"target": "#types/shapes", "file": "types/shapes.d.ts"}
     assert lines == [
         (
-            head.format(line=3) + DECLARED.format(**shapes, names="Shape, Size"),
+            head + DECLARED.format(**shapes, names="Shape, Size"),
             unknown_causes.DECLARATION_FILE,
         ),
         (
-            head.format(line=7)
+            head
             + DECLARED.format(target="#dep-types/deps", file="src/types/deps.d.ts", names="Dep"),
             unknown_causes.DECLARATION_FILE,
         ),
         (
-            head.format(line=8) + OUTSIDE.format(target="#types/missing") + " Names: Missing.",
+            head + OUTSIDE.format(target="#types/missing") + " Names: Missing.",
             unknown_causes.TARGET,
         ),
         (
-            head.format(line=9) + DECLARED.format(**shapes, names="*"),
+            head + DECLARED.format(**shapes, names="*"),
             unknown_causes.DECLARATION_FILE,
         ),
     ]
     assert len({line for line, _cause in causes}) == len(causes)
-    assert not any(":1)" in line for line, _cause in causes)
+    located = source_facts.located_records(facts)
+    assert [[found.line for found in located[line]] for line, _cause in lines] == [
+        [3],
+        [7],
+        [8],
+        [9],
+    ]
 
 
 def test_an_import_of_a_declaration_file_is_not_an_unresolved_import(tmp_path: Path) -> None:
@@ -173,11 +180,11 @@ def test_an_answer_for_the_earlier_reexport_target_line_selects_the_new_line() -
         "'#types/missing' is outside the extracted module set."
     )
     current = (
-        "unknown surface: module web.index (src/index.ts:8): the re-export target "
+        "unknown surface: module web.index (src/index.ts): the re-export target "
         "'#types/missing' is outside the extracted module set. Names: Missing."
     )
     declared = (
-        "unknown surface: module web.index (src/index.ts:3): the re-export target "
+        "unknown surface: module web.index (src/index.ts): the re-export target "
         "'#types/shapes' is the declaration file types/shapes.d.ts. A declaration file "
         "gives only types and has no module record. Names: Shape, Size."
     )
@@ -186,7 +193,7 @@ def test_an_answer_for_the_earlier_reexport_target_line_selects_the_new_line() -
         given = [Answer(items=(prefix + earlier, prefix + old_shapes), reason="known")]
         [moved] = judgement_moves.current_lines(given, [prefix + current, prefix + declared])
         assert moved.items == (prefix + current, prefix + old_shapes)
-    second = current.replace(":8)", ":12)").replace("Missing.", "Other.")
+    second = current.replace("Missing.", "Other.")
     [kept] = judgement_moves.current_lines(
         [Answer(items=(earlier,), reason="known")], [current, second]
     )
@@ -204,7 +211,7 @@ def test_judgement_gives_the_cause_and_the_fix_line_of_an_unknown_surface_line(
     `judgement` prints the row `cause: syntax` below the `unknown surface` line and the
     fix line of the cause `syntax`. `--brief` keeps the two rows. `judgement --json`
     gives `"cause": "syntax"` in the row of that line, null in each other row, and
-    `schema_version` 2. The explanation does not say "Read the source excerpt", because
+    `schema_version` 3. The explanation does not say "Read the source excerpt", because
     a line can have no excerpt. On 2c7b1f8, the text and the JSON object had no cause
     and no fix line, but the explanation told the reader to do the step in the fix line.
     """
@@ -224,7 +231,7 @@ def test_judgement_gives_the_cause_and_the_fix_line_of_an_unknown_surface_line(
     capsys.readouterr()
     main(["--root", str(root), "judgement", "--json"])
     out = json.loads(capsys.readouterr().out)
-    assert out["schema_version"] == 2
+    assert out["schema_version"] == 3
     causes = {row["line"]: row["cause"] for row in out["open"]}
     assert {c for line, c in causes.items() if "unknown surface: " in line} == {"syntax"}
     assert {c for line, c in causes.items() if "unknown surface: " not in line} == {None}

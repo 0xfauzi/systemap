@@ -399,7 +399,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 10, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
+- `version`: The facts format is 11, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -431,7 +431,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint includes decorators. It does not include callable bodies. A `*` re-export has the name `*`, because one module cannot supply the names that it gives.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without statements. A Python docstring, `pass`, `__future__` import, and literal value for a dunder name such as `__all__` are not statements for this rule. Coverage does not include these modules.
-- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, short source excerpt, and `cause`.
+- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, short source excerpt, and `cause`. A parse record also has `parser`, the parser version. The finding line gives only the reason. The line, the excerpt, and the parser version go into rows below the line.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
 - `call_sites`: The local names that the module gets from a name of a module in `uses`, and the lines that use them. Each record has `local`, `target`, `name` (`*` for the full module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import statement makes, or for a re-export without a local name, such as `export { a } from`. It is `value` for a name that gets its value or type from that name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each use is `[line, function line, property]`. The function line is the line of the named function or method that contains the use, or 0. The property is the attribute that the use reads, or an empty string. The value is `null` if the source did not parse.
 - `imports`: The keys of `uses`.
@@ -460,8 +460,10 @@ The numbers from `systemap extract` describe source facts.
 They do not describe the purposes of the map components.
 `modules` counts records under `components`.
 `functions`, `classes`, `types`, and `errors` give the sums of those module fields.
-`tests` gives the sum of `tests_total`. The count for test files with the module
-name gives the sum of `tests_primary`.
+`tests` gives the sum of `tests_total`. Thus the count has one item for each pair
+of a test function and a module that it imports. A test function that imports three
+modules counts three times. The count for test files with the module name gives the
+sum of `tests_primary`.
 
 `empty package markers` counts the records with `empty_marker` set to true.
 Coverage automatically excludes these records.

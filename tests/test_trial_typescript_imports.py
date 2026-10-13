@@ -12,7 +12,7 @@ from typing import Any
 
 from conftest import write_tree
 
-from systemap import config, extract, judgement, judgement_moves, source_facts
+from systemap import answer_migrations, config, extract, judgement, judgement_moves, source_facts
 from systemap.config import Answer
 
 # A package of the ky layout: the source is in src, and package.json gives the output.
@@ -163,7 +163,8 @@ def test_a_parse_problem_gives_the_error_lines_and_the_parser_version(tmp_path: 
     """trial-16. Acceptance: the unknown record of the test file gives line 4, an excerpt
     that contains `runnerImport<typeof import('./fixtures/basic')>(` and
     `fixture('cjs.js'),`, and the parser version. On 4ea3bed, the excerpt was `','`
-    and the line gave no parser version.
+    and the line gave no parser version. From facts format 11, the reason is fixed, and
+    the parser version is in the field `parser` (trial3-1).
     """
     facts = _build(
         tmp_path,
@@ -180,8 +181,9 @@ def test_a_parse_problem_gives_the_error_lines_and_the_parser_version(tmp_path: 
     assert problem["source"] == (
         "runnerImport<typeof import('./fixtures/basic')>( fixture('cjs.js'),"
     )
-    assert "(parser version tree-sitter " in problem["reason"]
-    assert "tree-sitter-typescript " in problem["reason"]
+    assert problem["reason"] == "The parser could not parse the source syntax."
+    assert problem["parser"].startswith("tree-sitter ")
+    assert "tree-sitter-typescript " in problem["parser"]
 
 
 def test_an_answer_for_the_earlier_parse_line_applies_to_the_current_line(
@@ -201,10 +203,10 @@ def test_an_answer_for_the_earlier_parse_line_applies_to_the_current_line(
     )
     lines = source_facts.unknown_fact_lines(extract.build(config.load(tmp_path)))
     [line] = [line for line in lines if "web.runner" in line]
-    prefix = line[: line.index("Source excerpt:")]
-    earlier = prefix + "Source excerpt: ','"
+    earlier = line.replace("(src/runner.ts)", "(src/runner.ts:4)") + " Source excerpt: ','"
     answer = Answer(items=(earlier,), reason="known", evidence="digest")
+    # From facts format 11, `answer_migrations` gives the current line (trial3-1).
+    assert answer_migrations.current_line(earlier) == line
     [moved] = judgement_moves.current_lines([answer], [line])
-    assert moved.items == (line,)
     result = judgement.apply_answers([line], [moved], {line: "digest"})
     assert result.open == [] and result.stale == [] and result.pending == []

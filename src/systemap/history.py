@@ -107,11 +107,14 @@ def git(root: Path, *args: str) -> str:
 
 
 def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[str]:
-    """This function selects one commit for each time window, in chronological order.
+    """This function selects commits from the first-parent history, in chronological order.
 
-    The initial commit in each window supplies the sample. Commit activity does not
-    change the number of samples. The last sample is the ref, if its commit is in the
-    range. A commit outside the range is not a sample. A ref that Git cannot resolve to
+    The oldest commit in the range is the first sample. Each next sample is the first
+    commit with a commit date that is `every_days` or more days after the date of the
+    previous sample. Thus an interval starts at a commit, not at a fixed date. Many
+    commits in one interval give one sample. A period without commits gives no sample. Thus commit
+    activity changes the number of samples. The last sample is the ref, if its commit is
+    in the range. A commit outside the range is not a sample. A ref that Git cannot resolve to
     a commit gives DeltaError.
     """
     head = delta.resolve(root, ref)

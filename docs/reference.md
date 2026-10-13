@@ -205,11 +205,18 @@ The evidence digest of a line contains only the evidence that the line names:
 - For each module that the line names, and each module of a named component, the module facts and the source file.
 - For a `crossing import` line, the imports between the two components and the source of the two modules of each import.
 - For an `entry point` line, the entry point records of its modules. A record has the `kind`, `module`, `target`, and `name` values.
+- For an `unknown surface` line of a module or a test file, the records of the line and the text of each cited source line.
+  The records do not include the line number and the parser version.
+  A new line above the statement does not change this evidence. A change to the statement changes it.
+  A record without a line number uses the module evidence.
 
 Thus a change to a different component, or to a `source_review` value, does not open the finding again.
 A line that names no component and no module uses the full evidence: the model files and all modules.
 The model files are the model file and each model file that it imports.
 An `entry point` line with the full evidence also has all entry point records.
+
+Migration from facts format 10: the evidence of an `unknown surface` line of a module or a test file changed.
+Thus each of these exact answers is pending one time after the update.
 
 Migration: the full evidence of a model file that imports other model files changed.
 The evidence of each `entry point` line also changed.
@@ -441,9 +448,9 @@ The same rule applies to this line. A kind without `_`, for example `route`, doe
 
 The `unknown surface` line for a TypeScript parse error also changed.
 Its source excerpt is the line of the error and the line before it, because the error can be one token, such as `','`.
-The line also ends with the parser version, as the Python line does.
-An answer item in the earlier form applies to a current line if its text up to `The parser could not parse the source syntax.` agrees with one current line.
-The evidence digest must agree.
+From facts format 11, the excerpt and the parser version are in rows below the line.
+The line ends with `The parser could not parse the source syntax.`
+An answer item in an earlier form applies to the current line of the same module.
 
 The parser can also refuse correct syntax.
 tree-sitter-typescript 0.23.2 refuses a generic function call with a `typeof import()` type argument and a comma after the last argument.
@@ -454,7 +461,7 @@ At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.
 
 The `unknown surface` line for a re-export target outside the extracted module set also changed (facts format 10).
 The earlier line had the location `:1`, and a statement with two or more names gave one equal line for each name.
-The new line has the line of the statement, and it ends with the names, for example `Names: Shape, Size.`
+The new line ends with the names, for example `Names: Shape, Size.` The `at:` row gives the line of the statement.
 An answer item in the earlier form can apply to a current line.
 The map, the module, the file, and the target must agree with one and only one current line.
 The evidence digest must agree.
@@ -462,6 +469,21 @@ A target that is a declaration file has a different line with the cause `declara
 An answer item in the earlier form does not apply to that line, because the meaning changed.
 Thus `judgement` gives the earlier item as a stale answer.
 The command prints no warning for an item in the earlier form of this line.
+
+Facts format 11 removes each value from an `unknown surface` line that changes while the finding stays the same.
+A recorded answer then stays applicable when a line is added above the cited statement.
+
+| Earlier text in the line | New text in the line |
+|---|---|
+| `module M (src/a.ts:254): ...` | `module M (src/a.ts): ...` |
+| `test file tests/a.spec.ts:3: ...` | `test file tests/a.spec.ts: ...` |
+| `... Source excerpt: '<text>' (parser version <version>)` | `...` |
+| `... source could not be parsed: SyntaxError (parser version 3.11.10)` | `... source could not be parsed: SyntaxError` |
+
+The judgement report gives these values in rows below the line, and `judgement --json` gives them in `open[].sources`.
+An answer item in an earlier form applies to the line in the new form.
+`judgement` prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+Two records with different line numbers can give the same line. Then one answer applies to the two records.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
 The previous options stay for one release. They send the same requests as the new options.
@@ -823,6 +845,7 @@ Each condition that rejects the map prints its lines.
 The `unknown surface` group gives the records that the extractor could not read or connect.
 These records do not reject the map.
 The adapter writes the cause of each record in the `cause` field.
+Below each line, the `at:`, `excerpt:`, and `parser version:` rows give the values that are not in the line, as `systemap judgement` gives them.
 The group gives one `fix:` line for each cause that occurs:
 
 | Cause | Condition |
@@ -831,8 +854,9 @@ The group gives one `fix:` line for each cause that occurs:
 | `encoding` | The file is not UTF-8 text. |
 | `syntax` | The parser could not parse the source. |
 | `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
-| `target` | A reference has a target that is not a module in the facts. An example is a package bin that is a `.js` file. |
+| `target` | A reference has a target that is not a module in the facts. An example is a package bin target that is not in the repository. |
 | `declaration file` | A re-export target is a declaration file, such as a TypeScript `.d.ts` file. A declaration file gives only types and has no module. The line gives the names of the statement. |
+| `script file` | A package bin target is a JavaScript file in the repository with no source module. The extractor does not read it, and `[package_roots]` cannot make it a module. |
 | `package` | A configuration file extends a configuration package that systemap could not read. |
 | `binding` | The framework binding of a registration is not known. |
 | `reexport` | The names that a re-export gives are not known. |
@@ -914,6 +938,12 @@ The first finding of each kind has rows about its effect and necessary action.
   After the lines, the report gives one `fix:` line for each cause, as `systemap check` does.
   `--brief` does not remove these rows.
 
+- Below the `cause:` row, the line of a module record or a test file record gives its source rows.
+  An `at:` row gives the file and the line of each cited statement.
+  An `excerpt:` row gives the source excerpt. A `parser version:` row gives the version of the parser that refused the source.
+  A finding line is the identity of the finding. Thus it does not contain these values (facts format 11).
+  If two statements of one module give the same line, the line occurs one time with two `at:` rows.
+
 - If the decision store has unknown decision requests, the report gives each one after the review counts.
   The row `unknown request ID: CLAIM` gives the claim. The report does not say that the claim is correct.
   The `systemap decisions` section tells about decision requests.
@@ -956,13 +986,14 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `open[].cause`. |
+| `schema_version` | integer | The version of this schema. The value is 3. Version 2 added `open[].cause`. Version 3 added `open[].sources`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
 | `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
 | `open[].cause` | string or null | The cause of an `unknown surface` finding, for example `syntax` or `declaration file`. The `systemap check` section gives the causes. For other kinds, the value is null. |
+| `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module or a test file. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |

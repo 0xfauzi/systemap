@@ -2,7 +2,8 @@
 
 It reads `bin` and `exports` in the top-level package.json file and in the package.json
 file of each package directory that contains source modules. Each compiled target maps
-to a source module through the tsconfig project of its package.
+to a source module through the tsconfig project of its package. A bin target that is a
+JavaScript file in the repository, with no source module, has the cause `script file`.
 """
 
 from __future__ import annotations
@@ -12,14 +13,15 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
+from systemap import repo_files
 from systemap.typescript_config import (
     TypeScriptConfig,
     package_json,
     root_candidates,
     source_targets,
 )
-from systemap.typescript_projects import path_choices
-from systemap.unknown_causes import TARGET
+from systemap.typescript_projects import SCRIPT_SUFFIXES, path_choices
+from systemap.unknown_causes import SCRIPT_FILE, TARGET
 
 if TYPE_CHECKING:
     from systemap.typescript import TypeScriptContext
@@ -109,10 +111,26 @@ def _package_entries(
             points.append({"kind": "console_script", "name": name, "module": module, "target": ""})
         else:
             shown = package.label + target.removeprefix("./") if package.label else target
-            issues.append(_entry_issue("package_bin", name, shown, BIN_REASON, TARGET))
+            cause = _bin_cause(package.label + target.removeprefix("./"), context)
+            issues.append(_entry_issue("package_bin", name, shown, BIN_REASON, cause))
     modules, export_issues = _package_exports(package, context)
     issues.extend(export_issues)
     return modules
+
+
+def _bin_cause(rel: str, context: TypeScriptContext) -> str:
+    """Give the cause of a bin target without a source module.
+
+    A JavaScript file in the repository is a script file. The extractor does not read it,
+    and no source root can make it a module. Each other target has the cause `target`.
+    """
+    if not rel.endswith(SCRIPT_SUFFIXES):
+        return TARGET
+    try:
+        repo_files.checked(context.repo, rel)
+    except OSError:
+        return TARGET
+    return SCRIPT_FILE
 
 
 def _package_exports(
