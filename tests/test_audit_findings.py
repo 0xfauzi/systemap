@@ -100,7 +100,7 @@ def test_audit_triage_plan_and_suggest_say_why_a_bad_answer_stops_them(
     assert main(["--root", str(two_cards), "plan", "change the reader"]) == 1
     assert capsys.readouterr().out.startswith("plan: Jev gave an incorrect answer")
     assert main(["--root", str(two_cards), "suggest", "--jev"]) == 1
-    assert capsys.readouterr().out.startswith("suggest --jev: Jev gave an incorrect answer")
+    assert capsys.readouterr().out.startswith("suggest --decide: Jev gave an incorrect answer")
     assert not (two_cards / ".systemap/plans").exists()
 
 
@@ -117,7 +117,7 @@ def test_a_missing_probability_for_the_claimed_component_is_an_error(sample: Sam
 def test_an_owner_answer_without_the_claimed_probability_is_not_kept(
     sample: Sample, tmp_path: Path
 ) -> None:
-    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ("jev mis-fold",))
+    plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ("decision mis-fold",))
     partial = Fake(
         lambda name, q: {
             "type": "choice",
@@ -181,7 +181,7 @@ def flow_asks(cfg: Config, model: Model, meaning: Meaning) -> audit.Plan:
     tree = nest.Tree(
         (nest.Map(id="", path=cfg.model_path, rel="", model=model, meaning=meaning, theme={}),)
     )
-    return audit.make_plan(tree, extract.build(cfg), cfg, ("jev flow",))
+    return audit.make_plan(tree, extract.build(cfg), cfg, ("decision flow",))
 
 
 @pytest.mark.parametrize(
@@ -273,19 +273,19 @@ def test_the_audit_identifier_does_not_contain_the_pick(sample: Sample) -> None:
     first = audit.owner_line(read, ChoiceAnswer("Reader", probs, 0.9), JEV)
     later = audit.owner_line(read, ChoiceAnswer(audit.NONE, probs, 0.5), JEV)
     assert first is not None and later is not None
-    assert first.text == later.text == "jev mis-fold: Parser claims pkg.parser"
+    assert first.text == later.text == "decision mis-fold: Parser claims pkg.parser"
     assert first.detail[0].startswith("reads like Reader; P(Parser) 0.01")
     assert later.detail[0].startswith("reads like none of the cards")
     stray = ("owner", tree_of(sample).top, "pkg.stray", "")
     sure = audit.owner_line(stray, ChoiceAnswer("Writer", {"Writer": 0.95}, 0.95), JEV)
-    assert sure is not None and sure.text == "jev owner: pkg.stray is claimed by no card"
+    assert sure is not None and sure.text == "decision owner: pkg.stray is claimed by no card"
     assert sure.detail == ("reads like Writer; confidence 0.95",)
 
 
 OLD = "jev mis-fold: Parser claims pkg.parser, which reads like Reader"
-NEW = "jev mis-fold: Parser claims pkg.parser"
+NEW = "decision mis-fold: Parser claims pkg.parser"
 OLD_OWNER = "Core: jev owner: pkg.stray is claimed by no card; closest: Writer, Parser, Reader"
-NEW_OWNER = "Core: jev owner: pkg.stray is claimed by no card"
+NEW_OWNER = "Core: decision owner: pkg.stray is claimed by no card"
 
 
 def test_answers_recorded_with_the_old_line_still_match() -> None:
@@ -293,7 +293,7 @@ def test_answers_recorded_with_the_old_line_still_match() -> None:
     assert audit.migrated(OLD_OWNER) == NEW_OWNER
     assert audit.migrated(
         "jev owner: pkg.x is claimed by no card; it reads like none of the cards"
-    ) == ("jev owner: pkg.x is claimed by no card")
+    ) == ("decision owner: pkg.x is claimed by no card")
     assert audit.migrated(NEW) == NEW
     found = [audit.Line(NEW), audit.Line(NEW_OWNER)]
     evidence = {NEW: "d1", NEW_OWNER: "d2"}
@@ -316,7 +316,7 @@ def test_answers_recorded_with_the_old_line_still_match() -> None:
 
 
 def test_the_misfold_explanation_says_what_jev_reads() -> None:
-    lesson = explain.lesson("jev mis-fold")
+    lesson = explain.lesson("decision mis-fold")
     assert lesson is not None
     assert "reads the code" not in lesson.why
     assert "docstring" in lesson.why
@@ -330,9 +330,9 @@ def test_each_owner_kind_asks_only_about_its_own_modules(sample: Sample) -> None
         sample.cfg.root, {"pkg/stray.py": '"""A stray."""\n\ndef stray() -> None:\n    pass\n'}
     )
     facts = extract.build(sample.cfg)
-    owner_only = audit.make_plan(tree_of(sample), facts, sample.cfg, ("jev owner",))
+    owner_only = audit.make_plan(tree_of(sample), facts, sample.cfg, ("decision owner",))
     assert [a.key for a in owner_only.questions] == ["|owner|pkg.stray"]
-    misfold_only = audit.make_plan(tree_of(sample), facts, sample.cfg, ("jev mis-fold",))
+    misfold_only = audit.make_plan(tree_of(sample), facts, sample.cfg, ("decision mis-fold",))
     assert "|owner|pkg.stray" not in [a.key for a in misfold_only.questions]
     assert len(misfold_only.questions) == 4
 

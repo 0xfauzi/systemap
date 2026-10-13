@@ -5,7 +5,7 @@ An external file is a file that is not in the repository. It has a secret marker
 Acceptance values:
 
 1. The facts file gives an absolute path, a path with a `..` part, or a link to the
-   external file. Then these readers do not read the external file: the `jev flow` audit
+   external file. Then these readers do not read the external file: the `decision flow` audit
    questions (injected provider), the `judgement --order-by-drift` questions (injected
    provider and injected transport), the change detection, the evidence digests, and
    the sequence snapshot. No question state and no request body contains the marker.
@@ -194,15 +194,19 @@ def loaded(root: Path) -> tuple[config.Config, nest.Tree, dict[str, Any]]:
 def test_the_flow_audit_does_not_read_an_outside_file(
     project: tuple[Path, Path, str], form: str
 ) -> None:
-    """Acceptance 1 for `systemap audit --kind "jev flow"`, with an injected provider."""
+    """Acceptance 1 for `systemap audit --kind "decision flow"`, with an injected provider."""
     root, secret, language = project
     cfg, tree, facts = loaded(root)
     control = Recorder()
-    audit.run(tree, facts, cfg, control, ["jev flow"])
+    audit.run(tree, facts, cfg, control, ["decision flow"])
     assert any(q.key.split("|")[1] == "flow" for q in control.asked)
     provider = Recorder()
     audit.run(
-        tree, tampered(facts, bad_path(form, root, secret, language)), cfg, provider, ["jev flow"]
+        tree,
+        tampered(facts, bad_path(form, root, secret, language)),
+        cfg,
+        provider,
+        ["decision flow"],
     )
     assert MARKER not in provider.states()
 

@@ -6,7 +6,7 @@
 - Answer records
 - Every nested map
 - Completion conditions
-- Jev source questions
+- Decision provider source questions
 
 The structural check finds contradictions, not every omission or incorrect meaning.
 Examine each component assignment and flow claim against source.
@@ -120,21 +120,21 @@ The work must agree with all of these conditions:
 
 Give the maintainer the completion report from SKILL.md, with the recorded answers and evidence limits.
 
-## Jev source questions
+## Decision provider source questions
 
 With `TYPESAFE_API_KEY`, run `systemap audit` after check and judgement pass.
-Jev can find differences between the source and authored claims.
+The decision provider (Jev or OpenAI) can find differences between the source and authored claims.
 Each answer is a question for source examination, not source evidence.
 
 | line | action |
 |---|---|
-| `jev mis-fold` | Read the module. Correct its assignment or record the source reason. |
-| `jev owner` | Give the module a component assignment with source evidence or record a coverage exclusion. |
-| `jev sentence` | Compare the description with source. Correct it or record why it is correct. |
-| `jev flow` | Find the source call and artifact. Instance calls can be missing from Jev's input. |
-| `jev governs` | Examine if a component change can make the invariant incorrect. Change `governs` only with source support. |
+| `decision mis-fold` | Read the module. Correct its assignment or record the source reason. |
+| `decision owner` | Give the module a component assignment with source evidence or record a coverage exclusion. |
+| `decision sentence` | Compare the description with source. Correct it or record why it is correct. |
+| `decision flow` | Find the source call and artifact. Instance calls can be missing from the provider input. |
+| `decision governs` | Examine if a component change can make the invariant incorrect. Change `governs` only with source support. |
 
-The audit asks the `jev flow` question only with `--kind "jev flow"`.
+The audit asks the `decision flow` question only with `--kind "decision flow"`.
 Its recorded experiment found fewer incorrect flows on maps not used for threshold selection.
 Use that limit when you examine its answers.
 Record audit answers under `[judgement] answered` with a reason.

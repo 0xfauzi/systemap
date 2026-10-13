@@ -2,7 +2,7 @@
 name: systemap
 description: Makes or updates a system map from repository source code. Use it for map/model.py, systemap.toml, component assignments, flows, sequences, invariants, and map checks. Also use it when a person asks for a map or diagram of repository components and flows. Use it when a line from systemap check, judgement, audit, or delta identifies a necessary action. It extracts source facts, writes the model, gives positions to components, examines source claims, renders the map, and records answers to findings. The map text obeys the writing profile: plain or ASD-STE100. Use systemap delta for source changes after the first map.
 license: MIT
-compatibility: Python 3.11+ and the systemap package (uv tool install systemap). Delta and history use Git. Jev commands use TYPESAFE_API_KEY and network access.
+compatibility: Python 3.11+ and the systemap package (uv tool install systemap). Delta and history use Git. Decision provider commands use TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) and network access.
 ---
 
 # Make or update a system map
@@ -31,7 +31,7 @@ Read [references/language.md](references/language.md) before you write. Do not c
 ## Jev answers
 
 Jev is the TypeSafe model for questions that imports and names cannot answer.
-With `TYPESAFE_API_KEY`, use `suggest --jev` and `audit`.
+With `TYPESAFE_API_KEY`, use `suggest --decide` and `audit`. `--jev` is the previous name of `--decide`.
 The `delta` and `triage` commands can also use Jev.
 
 Without a key, use source examination in `references/second-pass.md`.
@@ -48,7 +48,7 @@ Copy these lines into your answer. Mark each step when it is complete.
 - [ ] 1 extract: The facts are current.
 - [ ] 2 draft: Each nonempty module has a component assignment. All components have positions.
 - [ ] 3 check: The check has no failures. A `stale` finding can stay until step 5.
-- [ ] 4 judgement: No judgement line or `jev` line stays without an action or an answer.
+- [ ] 4 judgement: No judgement line or `decision` line stays without an action or an answer.
 - [ ] 5 render: The page and figures are current, and you examined both figures.
 - [ ] 6 source review: A complete source examination causes no model changes.
 - [ ] 7 stop: The work agrees with each stop condition.
@@ -60,7 +60,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    Use `--docstrings` for source descriptions and `--names NAME` for public symbols.
    Use `--entry-points` for sequence inputs and `--module NAME` for a complete module record.
    Give every nonempty module a component assignment.
-2. **draft**: If Jev is available, use `systemap suggest --jev`.
+2. **draft**: If Jev is available, use `systemap suggest --decide`.
    Otherwise, use `systemap suggest`. Examine the proposed assignments against source.
    Read the repository's own documentation: its README, AGENTS.md, CLAUDE.md, docs/.
    Read `references/schema.md`, `references/example.md`, `references/layout.md`, and `references/pitfalls.md`.
@@ -106,7 +106,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 
-   When Jev is available, run `systemap audit`. Act on or answer its `jev ...` lines.
+   When Jev is available, run `systemap audit`. Act on or answer its `decision ...` lines.
 5. **render**: Run `systemap refresh`. Then run `systemap describe`.
    The description gives component counts, route bends, gutter use, and layer contents.
 
@@ -131,7 +131,7 @@ Do not replace the full model for a small source change.
 
 1. Run `systemap delta --base REF` against the base branch.
    Each line identifies a change and the necessary map action.
-   A `hint:` or `delta --jev:` line means Jev did not supply answers. Tell the maintainer.
+   A `hint:` or `delta --decide:` line means the decision provider did not supply answers. Tell the maintainer.
 2. Act on these lines in `map/model.py` and `systemap.toml`.
 3. Run `systemap refresh`. Then run `systemap check && systemap judgement --strict`.
 4. If delta identifies more than one-third of the components, do the full loop.
@@ -188,10 +188,10 @@ Its actors represent adjacent components. Commands examine every nested map.
 | `systemap place` | Write positions for components without positions. `--all` keeps only pinned positions. `--keep-order` keeps region order. `--print` shows positions without file changes. |
 | `systemap render` | Write the page. `--check` exits 1 for stale output. |
 | `systemap check` | Examine map consistency and coverage. Exit 0 means success, 1 means failed checks, and 2 means that the command cannot use the configuration or model. |
-| `systemap suggest` | Show initial package assignments. `--jev` uses Jev answers. Examine all proposals against source. |
+| `systemap suggest` | Show initial package assignments. `--decide` uses the answers of the decision provider. Examine all proposals against source. |
 | `systemap judgement` | Show possible map errors. Correct each one or record an answer. `--strict` exits 1 for unanswered lines. `--kind KIND` shows only the lines of that kind. `--verbose` lists crossing imports. |
-| `systemap audit` | Ask Jev about source meaning. Record its answers under `[judgement]`. |
-| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means that you must update the map. With `[delta] page_url`, `--comment FILE --pr N` writes a link comment. `--no-jev` prevents model calls. |
+| `systemap audit` | Ask the decision provider about source meaning. Record its answers under `[judgement]`. |
+| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means that you must update the map. With `[delta] page_url`, `--comment FILE --pr N` writes a link comment. `--no-decide` prevents model calls. |
 | `systemap triage "<issue>"` | Ask Jev for three components that the issue can affect, with modules and adjacent components. |
 | `systemap describe` | Show components per region, bends and length per route, gutter use, and layer contents. |
 | `systemap refresh` | Extract facts, do checks, render configured output, and examine the result. |

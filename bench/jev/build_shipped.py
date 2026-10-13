@@ -99,7 +99,7 @@ def by_repo(rows: Rows, make: Callable[[str], dict[str, jev.Ask]]) -> dict[str, 
 
 
 def owner_shipped(old_rows: Rows, notes: Notes) -> Rows:
-    asks = by_repo(old_rows, lambda n: plan_asks(n, ("jev mis-fold",)))
+    asks = by_repo(old_rows, lambda n: plan_asks(n, ("decision mis-fold",)))
     out = []
     for r in old_rows:
         ask = asks[r["repo"]].get(f"{top_map(r['repo']).id}|owner|{r['id']}")
@@ -116,7 +116,7 @@ def owner_shipped(old_rows: Rows, notes: Notes) -> Rows:
 
 def sentence_shipped(old_rows: Rows, notes: Notes) -> Rows:
     """The shipped state with the sentence of the old row: own or of a sibling."""
-    asks = by_repo(old_rows, lambda n: plan_asks(n, ("jev sentence",)))
+    asks = by_repo(old_rows, lambda n: plan_asks(n, ("decision sentence",)))
     out = []
     for r in old_rows:
         cid = r["id"].rsplit(":", 1)[0]
@@ -134,7 +134,7 @@ def sentence_shipped(old_rows: Rows, notes: Notes) -> Rows:
 
 def flowverify_shipped(old_rows: Rows, notes: Notes) -> Rows:
     """The shipped state with the claim of the old row: own or of a different flow."""
-    asks = by_repo(old_rows, lambda n: plan_asks(n, ("jev flow",)))
+    asks = by_repo(old_rows, lambda n: plan_asks(n, ("decision flow",)))
     artifact = {
         r["id"].rsplit(":", 1)[0]: r["state"]["claim"]["artifact"]
         for r in old_rows
