@@ -33,6 +33,7 @@ from systemap.typescript_config import (
     TypeScriptConfig,
     alias_targets,
     package_json,
+    resolved,
 )
 from systemap.typescript_projects import existing_target, without_script_suffix
 from systemap.typescript_syntax import syntax_tree
@@ -49,7 +50,7 @@ ImportReader = Callable[[Any], Iterable[tuple[str, set[str]]]]
 def relative_targets(specifier: str, importer: Path, root_dirs: tuple[Path, ...]) -> list[Path]:
     """Give the import paths of a relative specifier. The suffix stays, because it selects
     the source suffixes (see `path_choices`)."""
-    relative = (importer.parent / specifier).resolve()
+    relative = resolved(importer.parent / specifier)
     targets = [relative]
     containing = [root for root in root_dirs if relative.is_relative_to(root)]
     if containing:
@@ -108,7 +109,7 @@ def workspace_module(
         (
             name
             for name in (normalized, f"{normalized}.index")
-            if name in paths and paths[name].resolve().is_relative_to(directory)
+            if name in paths and resolved(paths[name]).is_relative_to(directory)
         ),
         None,
     )
@@ -183,6 +184,6 @@ def program_dependencies(
         found = target_file(specifier, path, compiler, repo)
         if found is None:
             module = package_module(specifier, path, context)
-            found = paths[module].resolve() if module in paths else None
+            found = resolved(paths[module]) if module in paths else None
         if found is not None and not found.name.endswith(DECLARATION_SUFFIXES):
             yield found

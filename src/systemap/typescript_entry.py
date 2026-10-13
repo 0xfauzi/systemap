@@ -17,6 +17,7 @@ from systemap import repo_files
 from systemap.typescript_config import (
     TypeScriptConfig,
     package_json,
+    resolved,
     root_candidates,
     source_targets,
 )
@@ -184,15 +185,15 @@ def entry_module(target: str, package: Package, context: TypeScriptContext) -> s
 
 def _in_out_dir(target: str, package: Package) -> bool:
     out_dir = package.compiler.out_dir
-    return out_dir is not None and (package.directory / target).resolve().is_relative_to(out_dir)
+    return out_dir is not None and resolved(package.directory / target).is_relative_to(out_dir)
 
 
 def _matching_entry_modules(candidates: Iterable[Path], context: TypeScriptContext) -> set[str]:
     return {
-        context.modules_by_path[choice.resolve()]
+        context.modules_by_path[resolved(choice)]
         for source in candidates
         for choice in path_choices(source)
-        if choice.resolve() in context.modules_by_path
+        if resolved(choice) in context.modules_by_path
     }
 
 

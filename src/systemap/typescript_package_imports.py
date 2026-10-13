@@ -28,7 +28,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from systemap.config import ConfigError
-from systemap.typescript_config import DECLARATION_SUFFIXES, config_present, package_json
+from systemap.typescript_config import (
+    DECLARATION_SUFFIXES,
+    config_present,
+    package_json,
+    resolved,
+)
 from systemap.typescript_entry import Package, entry_module, package_at
 
 if TYPE_CHECKING:
@@ -160,7 +165,7 @@ def _file_import(
     if module is not None or not target.endswith(DECLARATION_SUFFIXES):
         return PackageImport(module)
     loaded = _match(*key, conditions - {"types"})
-    path = (scope.directory / target).resolve()
+    path = resolved(scope.directory / target)
     repo = context.repo.resolve()
     if loaded is not None and not loaded.endswith(DECLARATION_SUFFIXES):
         return PackageImport(None)
@@ -277,7 +282,7 @@ def _scope(importer: Path, context: TypeScriptContext) -> Package | None:
     A package.json file that the reader cannot read gives no package. The extraction then
     keeps the import as it was before, and Node.js also stops at such a file.
     """
-    directory = importer.resolve().parent
+    directory = resolved(importer).parent
     scopes: dict[Path, Package | None] = context.package_scopes
     if directory not in scopes:
         scopes[directory] = _find_scope(directory, context)

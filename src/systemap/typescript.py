@@ -26,6 +26,7 @@ from systemap.typescript_config import (
     TypeScriptConfig,
     is_alias,
     load_typescript_config,
+    resolved,
     root_candidates,
     source_files,
 )
@@ -478,7 +479,7 @@ class TypeScriptLanguage(TypeScriptRepository):
             raise ConfigError(str(exc)) from exc
         context = TypeScriptContext(
             repo=repo,
-            modules_by_path={path.resolve(): module for module, path in paths.items()},
+            modules_by_path={resolved(path): module for module, path in paths.items()},
             compiler=compiler,
             tests_dirs=tests_dirs,
             test_patterns=test_patterns,

@@ -25,6 +25,7 @@ from systemap.typescript_config import (
     compiler_settings,
     load_typescript_config,
     package_json,
+    resolved,
     source_files,
 )
 from systemap.typescript_config_files import (
@@ -86,7 +87,7 @@ def skipped(path: Path, base: Path, names: frozenset[str]) -> bool:
 def ts_skipped(path: Path, base: Path, out_dir: Path | None) -> bool:
     """Find a file that tsc does not read: a file in node_modules, outDir, or a similar
     folder below the base folder. The folders above the base do not count."""
-    if out_dir is not None and path.resolve().is_relative_to(out_dir):
+    if out_dir is not None and resolved(path).is_relative_to(out_dir):
         return True
     return skipped(path, base, SOURCE_SKIP)
 

@@ -439,12 +439,6 @@ def test_a_link_loop_is_a_module_that_could_not_be_read(tmp_path: Path) -> None:
 
 
 @LINKS
-@pytest.mark.xfail(
-    raises=RuntimeError,
-    strict=True,
-    reason="typescript_projects.config_for resolves the link before the shared read. The "
-    "TypeScript workstream owns that module.",
-)
 def test_a_typescript_link_loop_is_a_module_that_could_not_be_read(tmp_path: Path) -> None:
     """Acceptance: the TypeScript version of the test above. A `.ts` file that is a link
     to itself gives a module record with `parsed` false and the cause `read`."""
