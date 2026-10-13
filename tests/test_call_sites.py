@@ -190,7 +190,7 @@ def test_a_flow_without_the_fact_is_not_known(tmp_path: Path, language: str) -> 
     tree = nest.Tree(
         (nest.Map(id="", path=cfg.model_path, rel="", model=model, meaning=meaning, theme={}),)
     )
-    plan = audit.make_plan(tree, facts, cfg, ("jev flow",))
+    plan = audit.make_plan(tree, facts, cfg, ("decision flow",))
     assert plan.questions == []
     assert plan.unasked == []
     assert plan.unknown == ["Writer -> Ledger (parts)"]
