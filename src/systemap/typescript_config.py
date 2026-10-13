@@ -154,6 +154,17 @@ def typescript_major(root: Path) -> int | None:
     return None
 
 
+def resolved(path: Path) -> Path:
+    """Give the resolved path. A link loop has no target. Then the function gives the
+    resolved folder and the name of the link, as Python 3.13 does. The loop is not a file,
+    and the shared read gives its cause (`repo_files`)."""
+    try:
+        return path.resolve()
+    except RuntimeError:
+        # Python 3.11 gives RuntimeError for a link loop.
+        return resolved(path.parent) / path.name
+
+
 def _strip_jsonc(text: str) -> str:
     """This function removes JSONC comments and trailing commas without changing string
     values.
@@ -283,12 +294,15 @@ def _inherited_options(
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
     """This function reads compiler options, aliases, comments, and output directories.
 
-    The result also contains the configurations in `references`.
+    The result also contains the configurations in `references`. Without a top-level
+    tsconfig.json file, the result has only the TypeScript version. A nested project
+    uses that version to find its output root.
     """
     path = repo / "tsconfig.json"
+    major = typescript_major(repo)
     if not config_present(path):
-        return TypeScriptConfig()
-    return load_project_config(path, repo, typescript_major(repo))
+        return TypeScriptConfig(typescript_major=major)
+    return load_project_config(path, repo, major)
 
 
 def load_project_config(path: Path, repo: Path, major: int | None) -> TypeScriptConfig:
@@ -675,7 +689,7 @@ def source_targets(
     A target outside outDir, or without configured outDir, stays unchanged because it
     can already refer to source.
     """
-    built = (repo / target).resolve()
+    built = resolved(repo / target)
     if config.out_dir is None or not built.is_relative_to(config.out_dir):
         return [built]
     relative = built.relative_to(config.out_dir)

@@ -17,6 +17,7 @@ from systemap import repo_files
 from systemap.typescript_config import (
     TypeScriptConfig,
     package_json,
+    resolved,
     root_candidates,
     source_targets,
 )
@@ -166,7 +167,8 @@ def entry_module(target: str, package: Package, context: TypeScriptContext) -> s
     A target in a build folder, such as dist, can also map to a unique source file below
     src or source.
     """
-    if not target.endswith(TARGET_SUFFIXES):
+    if not target.endswith(TARGET_SUFFIXES) or "\0" in target:
+        # A file path cannot contain a NUL character: the target names no file.
         return None
     sources = source_targets(target, package.directory, package.compiler, package.source_roots)
     direct = _matching_entry_modules(sources, context)
@@ -183,15 +185,15 @@ def entry_module(target: str, package: Package, context: TypeScriptContext) -> s
 
 def _in_out_dir(target: str, package: Package) -> bool:
     out_dir = package.compiler.out_dir
-    return out_dir is not None and (package.directory / target).resolve().is_relative_to(out_dir)
+    return out_dir is not None and resolved(package.directory / target).is_relative_to(out_dir)
 
 
 def _matching_entry_modules(candidates: Iterable[Path], context: TypeScriptContext) -> set[str]:
     return {
-        context.modules_by_path[choice.resolve()]
+        context.modules_by_path[resolved(choice)]
         for source in candidates
         for choice in path_choices(source)
-        if choice.resolve() in context.modules_by_path
+        if resolved(choice) in context.modules_by_path
     }
 
 

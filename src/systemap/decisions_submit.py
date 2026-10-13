@@ -109,6 +109,8 @@ def read_results(name: str) -> list[Any]:
         data = json.loads(text)
     except OSError as exc:
         raise DecisionError(f"{name}: the command cannot read the file: {exc}") from exc
+    except UnicodeError as exc:
+        raise DecisionError(f"{name}: the file is not UTF-8 text: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise DecisionError(f"{name}: the file is not JSON: {exc}") from exc
     if not isinstance(data, list):
@@ -185,17 +187,29 @@ def _supported_errors(
     """Examine the conditions that only a supported result has."""
     if request.blocked:
         return [f"{where}: the command cannot record supported for {request.id}. {request.blocked}"]
-    claim_files = {f.file for f in request.files}
     if not cited:
         return [f"{where}: a supported result must have one or more citations."]
-    if claim_files and not any(PurePosixPath(c[0]).as_posix() in claim_files for c in cited):
-        return [
-            f"{where}: a supported result must refer to a file of the claim: "
-            f"{', '.join(sorted(claim_files))}."
-        ]
+    required, what = _required_files(request, snap)
+    if required and not any(PurePosixPath(c[0]).as_posix() in required for c in cited):
+        return [f"{where}: a supported result must refer to {what}: {', '.join(sorted(required))}."]
     if request.type == SOURCE_REVIEW:
         return _open_flows(request, where, verdicts, snap)
     return []
+
+
+def _required_files(request: Request, snap: Snapshot) -> tuple[set[str], str]:
+    """Give the files that a supported result must cite, and their name for the message.
+
+    For a flow, these are the files of the two endpoint components. If a result cites only
+    the files of the other source records of the flow, the command refuses it. If no
+    endpoint has a file, the rule uses the files of the claim.
+    """
+    if request.type == FLOW_REVIEW:
+        m = snap.tree.get(request.map)
+        ends = decisions.endpoint_files(m, request.target, snap.facts, snap.cfg.root)
+        if ends:
+            return ends, "a file of an endpoint component"
+    return {f.file for f in request.files}, "a file of the claim"
 
 
 def _open_flows(

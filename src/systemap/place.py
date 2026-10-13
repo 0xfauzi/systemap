@@ -13,7 +13,7 @@ import math
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 
-from systemap.model import CARD_H, CARD_W, Box, Model, Region
+from systemap.model import CARD_H, CARD_W, KINDS, Box, Model, Region
 from systemap.route import place_labels, route_all
 from systemap.schematic import (
     HEADER_LINES,
@@ -779,6 +779,18 @@ def kept_by(model: Model, all_cards: bool) -> tuple[str, ...]:
     return tuple(c.id for c in model.components if c.positioned and (c.pinned or not all_cards))
 
 
+def _references(model: Model) -> None:
+    """Refuse an unknown component kind and a flow to an unknown component. The placement
+    cannot size or route them. A component without a position is not refused."""
+    ids = model.ids
+    for c in model.components:
+        if c.kind not in KINDS:
+            raise PlaceError(f"{c.id} has unknown kind {c.kind}. Use {', '.join(KINDS)}.")
+    for f in model.flows:
+        if f.src not in ids or f.dst not in ids:
+            raise PlaceError(f"flow {f.src} -> {f.dst} has an unknown component. Correct the flow.")
+
+
 def compute(model: Model, all_cards: bool = False, keep_order: bool = False) -> Placement:
     """This function calculates a fresh layout if no position stays the same. otherwise, it
     fills free slots.
@@ -796,6 +808,7 @@ def compute(model: Model, all_cards: bool = False, keep_order: bool = False) -> 
             kept=keep,
             all_cards=all_cards,
         )
+    _references(model)
     if keep:
         return _fill_layout(model, set(keep), all_cards)
     laid = _listed(model) if keep_order else _search(model)

@@ -8,16 +8,44 @@ part of the repository. Some commands send this text to an external service.
 These functions refuse such a path with `RepoPathError`. `RepoPathError` is an `OSError`.
 Thus each caller gives its usual result for a file that it cannot read.
 A missing file gives `FileNotFoundError`, as before.
+
+A different process can change a folder of the path to a link after the check. Thus the
+read does not open the full path. Where the operating system can open a path relative to
+an open folder (`WALK`), the read opens the resolved path one part at a time. Each part
+opens relative to the folder before it, and a part that is a link gives `RepoPathError`.
+Windows cannot do this step. There, the read opens the checked path, and a change of a
+folder between the check and the open is not found.
 """
 
 from __future__ import annotations
 
+import errno
 import os
 import re
 import stat
+from collections.abc import Sequence
 from pathlib import Path, PurePath, PureWindowsPath
 
 _PARTS = re.compile(r"[\\/]")
+# True when `os.open` can open a path part relative to an open folder, without a link.
+WALK = os.open in os.supports_dir_fd and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW")
+_FOLDER_FLAGS = (
+    os.O_RDONLY
+    | getattr(os, "O_DIRECTORY", 0)
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_CLOEXEC", 0)
+)
+_FILE_FLAGS = (
+    os.O_RDONLY
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_NONBLOCK", 0)
+    | getattr(os, "O_CLOEXEC", 0)
+    | getattr(os, "O_BINARY", 0)
+)
+# The errors of an open with O_NOFOLLOW at a link: ELOOP (Linux), ENOTDIR for a folder
+# open (macOS), and EMLINK (FreeBSD).
+_LINK_ERRORS = frozenset({errno.ELOOP, errno.ENOTDIR, errno.EMLINK})
+CHANGED = "a part of the path is a link"
 
 
 class RepoPathError(OSError):
@@ -59,7 +87,16 @@ def checked(root: Path, rel: str | PurePath) -> Path:
     text = os.fspath(rel)
     _lexical(text)
     base = root.resolve()
-    target = (base / text).resolve(strict=True)
+    try:
+        target = (base / text).resolve(strict=True)
+    except RuntimeError as exc:
+        # Python 3.11 gives RuntimeError for a link loop.
+        raise RepoPathError("the path is a link loop") from exc
+    except OSError as exc:
+        # Python 3.13 gives OSError with ELOOP for a link loop.
+        if exc.errno == errno.ELOOP:
+            raise RepoPathError("the path is a link loop") from exc
+        raise
     if not target.is_relative_to(base):
         raise RepoPathError("the file is not in the repository")
     if not stat.S_ISREG(target.stat().st_mode):
@@ -79,18 +116,80 @@ def relative(root: Path, path: Path) -> str:
     raise RepoPathError("the file is not in the repository")
 
 
+def open_folder(base: Path, parts: Sequence[str], make: bool = False) -> int:
+    """Open the folder `base/parts` one part at a time, and give its descriptor.
+
+    Each part opens relative to the folder before it. A part that is a link gives
+    `RepoPathError`. A part that is a file gives the error of the operating system.
+    With `make`, the function makes a missing part. Use this function only if `WALK` is
+    true.
+    """
+    descriptor = os.open(base, _FOLDER_FLAGS)
+    try:
+        for part in parts:
+            child = _child(descriptor, part, make)
+            os.close(descriptor)
+            descriptor = child
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _child(folder: int, part: str, make: bool) -> int:
+    try:
+        return os.open(part, _FOLDER_FLAGS, dir_fd=folder)
+    except FileNotFoundError:
+        if not make:
+            raise
+    except OSError as exc:
+        if exc.errno in _LINK_ERRORS and _is_link(part, folder):
+            raise RepoPathError(CHANGED) from exc
+        raise
+    try:
+        os.mkdir(part, 0o777, dir_fd=folder)
+    except FileExistsError:
+        pass
+    return _child(folder, part, False)
+
+
+def _is_link(part: str, folder: int) -> bool:
+    """Tell if the part in the open folder is a link. A part that is a file is not a link:
+    the caller then gives the error of the operating system, as for a usual open."""
+    try:
+        return stat.S_ISLNK(os.lstat(part, dir_fd=folder).st_mode)
+    except OSError:
+        return False
+
+
 def _open(root: Path, rel: str | PurePath) -> int:
-    """Open the checked file. The last part of the path must not be a link.
+    """Open the checked file. No part of the resolved path can be a link at the open.
 
     The function examines the open file again.
     """
     target = checked(root, rel)
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-    descriptor = os.open(target, flags | getattr(os, "O_BINARY", 0))
+    if WALK:
+        descriptor = _open_below(root.resolve(), target)
+    else:
+        descriptor = os.open(target, _FILE_FLAGS)
     if not stat.S_ISREG(os.fstat(descriptor).st_mode):
         os.close(descriptor)
         raise RepoPathError("the path is not a regular file")
     return descriptor
+
+
+def _open_below(base: Path, target: Path) -> int:
+    """Open the file `target` in `base` through the descriptor of each folder."""
+    parts = target.relative_to(base).parts
+    folder = open_folder(base, parts[:-1])
+    try:
+        return os.open(parts[-1], _FILE_FLAGS, dir_fd=folder)
+    except OSError as exc:
+        if exc.errno in _LINK_ERRORS:
+            raise RepoPathError(CHANGED) from exc
+        raise
+    finally:
+        os.close(folder)
 
 
 def read_bytes(root: Path, rel: str | PurePath) -> bytes:
@@ -121,8 +220,12 @@ def present(path: Path) -> bool:
 
 
 def inside(root: Path, path: Path) -> bool:
-    """Tell if the resolved path is in the resolved root."""
-    return path.resolve().is_relative_to(root.resolve())
+    """Tell if the resolved path is in the resolved root. A link loop is not in the root."""
+    try:
+        return path.resolve().is_relative_to(root.resolve())
+    except RuntimeError:
+        # Python 3.11 gives RuntimeError for a link loop.
+        return False
 
 
 LINK_OUT = "link out of the repository"

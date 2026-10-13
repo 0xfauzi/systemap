@@ -64,9 +64,12 @@ def source_modules(card: Component, components: dict[str, Any]) -> set[str]:
     return names
 
 
-def _touches(journey: Journey, card_id: str) -> bool:
+def touches(journey: Journey, card_id: str) -> bool:
     """Find if a sequence names this component in `starts`, actors, measures, or flow
     endpoints.
+
+    This is the one rule that selects the sequences of a component claim. The decision
+    requests and the drift questions use it also.
     """
     return journey.starts == card_id or any(
         card_id in step.acts or card_id in step.measures or card_id in step.edge
@@ -104,7 +107,7 @@ def _claims(
         if card.id in flow.edge
     ]
     journeys = [
-        journey_record(journey) for journey in meaning.journeys if _touches(journey, card.id)
+        journey_record(journey) for journey in meaning.journeys if touches(journey, card.id)
     ]
     invariants = [
         dataclasses.asdict(invariant)

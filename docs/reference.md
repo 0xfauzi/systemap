@@ -847,6 +847,10 @@ The procedure is deterministic and uses only the standard library.
 
 - `--print` prints positions without file changes.
 
+Before the command calculates positions, it examines the flows and the `kind` value of each component.
+A flow to an unknown component, or an unknown `kind` value, causes exit 1.
+The error gives the flow or the component. `systemap describe` also examines them.
+
 ### `systemap render [--check] [--base REF]`
 
 Writes the page from the facts and model.
@@ -867,10 +871,16 @@ Thus they do not tell you to use `systemap extract` when `extract` cannot operat
   The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
   If systemap cannot read a changed source file, the changes of its module are not known.
   The panel gives the read problem. A missing file is a removal.
-  If systemap cannot read a changed test file, the panel gives the file and the problem.
+  Each revision resolves the imports of its test files with the files of that revision:
+  its configuration files, module paths, and modules.
+  If systemap cannot read or parse a changed test file at a revision, the panel gives the file and the problem.
   The page has no test changes for that file.
   The panel also gives each changed path that the Git tree reader refuses, with its cause.
   The changes of such a path are not known.
+
+- `--pr N` gives the pull request title of the change map. `gh pr view` gives the title.
+  If `gh` cannot give the data, the command writes one note with the cause to stderr.
+  The page then has no pull request title.
 
 ### `systemap check [--brief]`
 
@@ -916,6 +926,10 @@ Uses the page generator to render one figure for a document.
 - `--map ID` selects a nested map.
 
 - An `--out` filename with a `.svg` suffix writes the drawing without a frame.
+
+- A relative `--out` path is relative to the output directory.
+  Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+  The command replaces a link at the `--out` path with a file. It does not write to the target of the link.
 
 - `--svg-id ID` sets the HTML ID of the drawing. The default is `lessonmap`.
   The ID must start with a letter and contain only letters, digits, `-`, and `_`.
@@ -1062,6 +1076,7 @@ An `unknown` result gives each module with imports that are possibly not in the 
 The causes are a module that did not parse, unresolved imports, and an import of a module with no component.
 The command exits 1 for a `fail`, for an incorrect rule, or for missing facts.
 It also exits 1 for an `unknown` result with `[rules] unknown = "fail"`.
+The `ok` value of `--json` agrees with the exit code. Missing facts are an item of `problems`.
 
 - `--brief` does not include the two explanation rows.
 
@@ -1114,6 +1129,8 @@ than one-third of the map.
   The first comment line is `<!-- systemap delta -->`. CI finds the comment with it and changes that comment.
   Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
+  If `FILE` is a link, the command replaces the link. It does not write to the target of the link.
+  If `FILE` is in the repository, each folder of `FILE` must be in the repository.
 
 - `--decide` enables the suggestions of the decision provider for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change
@@ -1183,7 +1200,8 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--check ID --base REF` compares the projection with changed components
   since `REF`. The default base is `origin/main`.
-  The current model gives the component of each module.
+  The current model gives the components of each module.
+  A component of a module claims the module, or a symbol in the module.
   If the current model does not claim a removed module, the model at the `REF` commit gives its component.
   It exits 1 for changed components outside the plan.
 
@@ -1223,10 +1241,15 @@ The agent can write no more than 200,000 bytes to stdout.
 If it writes more, the command stops the agent, and the request does not complete.
 If a request does not complete, the command writes the accepted sequences of the other requests.
 Then it names each request that did not complete and exits 1.
+A rejected draft is also a request that did not complete.
 
 Accepted sequences enter the model with `drafted=True`.
 The command writes them into the `JOURNEYS = (...)` tuple of the model.
 The tuple can have a type annotation, as in the model from `init`.
+If the model does not import `Journey` or `Step`, the command adds an import from `systemap`.
+Before the write, the model reader reads the changed model, as for each other command.
+If the reader refuses it, or the changed `MEANING` does not contain each accepted sequence,
+the command writes no file and exits 1.
 `judgement` prints `drafted journey` until a person examines the sequence and
 removes the mark.
 
@@ -1449,6 +1472,7 @@ The server answers only a request whose Host header is `127.0.0.1` or `localhost
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
 The server answers 404 for a symbolic link to a file that is not in the output directory.
 `systemap live` has the same rules.
+If the output directory is not in the repository after the resolution of links, the command exits 1. The server does not start.
 
 ### `systemap live [--port 8765] [--base REF] [--no-watch] [--json]`
 
@@ -1479,6 +1503,8 @@ After a good version, the command removes the pages of the maps that the version
   and the source and test files one time each second.
   The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
   It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
+  The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name `build` or `dist`.
+  The scan includes each test file that extraction reads, also a file that `test_patterns` selects out of the package roots and the test directories.
   When a scan finds a change and the next scan finds no more change, the command renders the page again.
 
 - `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
@@ -1580,6 +1606,12 @@ Two types of import name a file of the same package through `package.json`. Thus
 - A subpath import starts with `#`, as `#types/hot`. The `imports` key of the nearest `package.json` gives the file.
   A target that names an npm package gives that package in `external`.
 
+An import of a different package of the repository is also an internal import.
+The `name` in a `package.json` file of the repository identifies that package.
+The module that `[package_roots]` gives for the import must be in the folder of that `package.json` file.
+A `[package_roots]` name does not identify a package for other imports.
+Thus, if the package `web` has no `exports` key, `import "web"` in that package is an external import.
+
 systemap uses the rules of Node.js and TypeScript for these imports:
 [Self-referencing a package using its name](https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name),
 [Subpath imports](https://nodejs.org/api/packages.html#subpath-imports), and
@@ -1596,6 +1628,9 @@ The suffix of an import selects the source suffix, as in `tsc`.
 `.js` selects `.ts` or `.tsx`, `.mjs` selects `.mts`, and `.cjs` selects `.cts`.
 An import without a suffix selects `.ts` or `.tsx`.
 If `tsc` cannot resolve a relative import, the import has no target.
+A `paths` alias names its first target file that is available, as in `tsc`.
+If no module has that file, the import is an unresolved local import. A different target does not replace it.
+An import path with a NUL character has no target.
 
 A source file that systemap cannot read keeps its module record, with a read problem.
 A `package.json` file that systemap cannot read gives a configuration error.
@@ -1604,6 +1639,7 @@ This also applies to a `package.json` file without a JSON object.
 A TypeScript test name contains the names of the `describe` or `suite` functions that contain the test.
 The text ` > ` is between two names, as in `orders > saves an order`.
 If a file has two tests with the same name, the second name gets ` #2`.
+If a different test of the file has that name, the name gets the next number that no test of the file has.
 A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in `tsconfig.json` `extends` gives an `unknown surface`
 finding. Extraction continues with the compiler options that it can read.
@@ -1630,9 +1666,12 @@ The nearest `tsconfig.json` file gives the project if its files or their imports
 Then the first project in `references` that selects the file gives the project.
 Then the first project in `references` with files that import the file gives the project.
 These imports can go through other files.
+These imports include relative imports, `paths` aliases, self-name imports, and subpath imports.
+An import of a different package of the repository does not add a file to a project.
+`tsc` reads the declaration output of that package for such an import.
 
 The version comes from `node_modules/typescript/package.json`, then the
-`typescript` range in `package.json`.
+`typescript` range in `package.json`. This also applies if the repository root has no `tsconfig.json` file.
 If the two files do not give a version, systemap tries the two roots.
 A compiled target maps to a module only if one root gives a match and the other does not.
 Two matches leave the target unmapped.

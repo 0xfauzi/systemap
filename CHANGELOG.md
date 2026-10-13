@@ -134,8 +134,17 @@ Each item gives the change, and then the step that you must do.
   - Two regions or containers with the same ID.
   - A flow sentence that contains only spaces.
   - A model value with an incorrect type. This gives a configuration error.
+  - Two flows without an `id` on different pairs that give the same default identifier, for example `A->B` to `C` and `A` to `B->C`.
+
+  `place` and `describe` exit 1 for a flow to an unknown component, or for an unknown component `kind`.
 
   Step: correct each flow, sequence, region, and component that `systemap check` gives.
+
+- The facts are stale if the specification sections change.
+  `check` then gives the line `specification sections changed since the map was built`.
+  An output file that is not UTF-8 text is a stale output in `check` and in `render --check`.
+
+  Step: run `systemap refresh`, and commit the facts file and the outputs.
 
 - The page has two themes: Ink (`scheme = "dark"`, the default) and Paper (`scheme = "light"`).
   The 1.2.0 scheme names `warm`, `graphite`, and `paper` give a configuration error. A `[theme.paper]` table also gives an error.
@@ -164,6 +173,13 @@ Each item gives the change, and then the step that you must do.
   - A configured cache path (`[jev]`, `[openai]`, or `[agent]`), `out_dir`, or `model` that is absolute or that has a `..` part is a configuration error.
   - The facts file and each configured figure must be in `out_dir`. A different path gives exit code 2.
   - A cache file or an output file that is a link to a different folder, a FIFO, or a device gives exit code 1.
+  - A `tool` or `tool.systemap` value in `pyproject.toml` that is not a table gives a configuration error.
+  - A relative `figure --out` path is relative to the output directory. Its folder must be in the repository, or the command exits 1.
+  - `serve` refuses an output directory that is not in the repository, and the server does not start.
+  - `figure --out` and `delta --comment FILE` replace a link at the path. They do not write to the target of the link.
+
+  Where the platform permits it, each read and write opens each part of the path without links.
+  Thus a folder that changes to a link after the check is refused. Windows keeps the earlier check.
 
   A `tsconfig.json` target in the `node_modules` folder of the repository stays permitted.
   A missing configuration file gives an empty table.
@@ -181,6 +197,9 @@ Each item gives the change, and then the step that you must do.
   - `history` exits 2 if Git cannot resolve `--ref` or if a Git command fails.
   - `place` loads the model file again after its write. If a position is different, it restores the earlier file and exits 1.
   - `journeys --limit` must be 1 or more. `journeys` exits 1 and names each request that did not complete.
+    A rejected draft is also a request that did not complete.
+    A missing source file, an agent command with an incorrect quotation, or an agent that cannot start gives exit 1.
+  - The `ok` value of `rules --json` agrees with the exit code. Missing facts are an item of `problems`.
 
 - `init` writes no `systemap.toml` if `pyproject.toml` has a `[tool.systemap]` table. It writes the model at the `model` path of that table.
 
@@ -317,6 +336,10 @@ Each item gives the change, and then the step that you must do.
 
 - Output files get the mode of a usual write with the umask. An existing file keeps its mode.
 
+- A name that systemap cannot know is "not known", and it gives no missing-name error.
+  Examples are an interface method of a re-export with an unknown definition, and an entry of a module with unknown names.
+  A link loop in a Python or TypeScript repository is a module that could not be read. It does not stop extraction.
+
 ### Security repairs
 
 - systemap reads a repository file only if it is a regular file in the repository.
@@ -404,6 +427,23 @@ These are the Windows repairs:
 - A cache read holds the lock of its cache.
 - `place` and `review` write LF line ends.
 - Messages give paths with forward slashes.
+
+A second Codex code review examined the code at 13a7f45 for four types of defect:
+a crash, an unsafe access, a silent incorrect result, and a defect that stops a real repository at `systemap check`.
+It gave 58 results. For each result, a test showed the failure before the repair, and the same test passed after the repair.
+The second review did not examine the page and the schematic parts.
+
+| area | results | examples of repairs |
+|---|---|---|
+| Python adapter and shared facts | 14 | A link loop is a module that could not be read. An empty `__all__` gives no star names. |
+| TypeScript adapter | 14 | A `paths` alias names its first target file that is available, as in `tsc`. Each test of a file gets a different identity. |
+| model, evidence, and judgement | 9 | A layer list in place of a tuple does not stop `check`. Two flows with one default identifier give a finding. |
+| decision requests | 5 | The claim of a source review request contains each claim of its digest. A result file that is not UTF-8 gives a command error. |
+| change detection, sequences, agents, and plans | 10 | Each revision resolves its test imports with its own files. `journeys` reads the changed model before it writes. |
+| commands | 6 | `serve` and `figure --out` stay in the repository. A route does not go through an unrelated region when a corridor is available. |
+
+On macOS, a lock open relative to a folder can fail with ENOENT. In a test of 8 processes, 429 of 2400 opens failed.
+The lock open tries again after ENOENT. The same test then gave 2400 of 2400 correct opens.
 
 #### Security repairs from the code review
 

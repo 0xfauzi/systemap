@@ -1091,6 +1091,9 @@ Use it after you add or remove components.</p>
 <p><code>--print</code> prints positions without file changes.</p>
 </li>
 </ul>
+<p>Before the command calculates positions, it examines the flows and the <code>kind</code> value of each component.
+A flow to an unknown component, or an unknown <code>kind</code> value, causes exit 1.
+The error gives the flow or the component. <code>systemap describe</code> also examines them.</p>
 <h3 id="systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></h3>
 <p>Writes the page from the facts and model.
 Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
@@ -1112,10 +1115,17 @@ If the base model does not load, the panel gives the reason.
 The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
 If systemap cannot read a changed source file, the changes of its module are not known.
 The panel gives the read problem. A missing file is a removal.
-If systemap cannot read a changed test file, the panel gives the file and the problem.
+Each revision resolves the imports of its test files with the files of that revision:
+its configuration files, module paths, and modules.
+If systemap cannot read or parse a changed test file at a revision, the panel gives the file and the problem.
 The page has no test changes for that file.
 The panel also gives each changed path that the Git tree reader refuses, with its cause.
 The changes of such a path are not known.</p>
+</li>
+<li>
+<p><code>--pr N</code> gives the pull request title of the change map. <code>gh pr view</code> gives the title.
+If <code>gh</code> cannot give the data, the command writes one note with the cause to stderr.
+The page then has no pull request title.</p>
 </li>
 </ul>
 <h3 id="systemap-check-brief"><code>systemap check [--brief]</code></h3>
@@ -1206,6 +1216,11 @@ The legend contains only that layer.</p>
 </li>
 <li>
 <p>An <code>--out</code> filename with a <code>.svg</code> suffix writes the drawing without a frame.</p>
+</li>
+<li>
+<p>A relative <code>--out</code> path is relative to the output directory.
+Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+The command replaces a link at the <code>--out</code> path with a file. It does not write to the target of the link.</p>
 </li>
 <li>
 <p><code>--svg-id ID</code> sets the HTML ID of the drawing. The default is <code>lessonmap</code>.
@@ -1449,7 +1464,8 @@ A <code>fail</code> result gives each import against the rule, as source module 
 An <code>unknown</code> result gives each module with imports that are possibly not in the facts, and the cause.</p>
 <p>The causes are a module that did not parse, unresolved imports, and an import of a module with no component.
 The command exits 1 for a <code>fail</code>, for an incorrect rule, or for missing facts.
-It also exits 1 for an <code>unknown</code> result with <code>[rules] unknown = &quot;fail&quot;</code>.</p>
+It also exits 1 for an <code>unknown</code> result with <code>[rules] unknown = &quot;fail&quot;</code>.
+The <code>ok</code> value of <code>--json</code> agrees with the exit code. Missing facts are an item of <code>problems</code>.</p>
 <ul>
 <li>
 <p><code>--brief</code> does not include the two explanation rows.</p>
@@ -1499,7 +1515,9 @@ The comment has one link to the Changes view of the page for pull request <code>
 If it is necessary to update the map, one more line says so and gives the number of lines.</p>
 <p>The first comment line is <code>&lt;!-- systemap delta --&gt;</code>. CI finds the comment with it and changes that comment.
 Without <code>page_url</code>, the command writes no file.
-The comment does not change the delta lines or the exit code.</p>
+The comment does not change the delta lines or the exit code.
+If <code>FILE</code> is a link, the command replaces the link. It does not write to the target of the link.
+If <code>FILE</code> is in the repository, each folder of <code>FILE</code> must be in the repository.</p>
 </li>
 <li>
 <p><code>--decide</code> enables the suggestions of the decision provider for modules with changed
@@ -1575,7 +1593,8 @@ Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
 <li>
 <p><code>--check ID --base REF</code> compares the projection with changed components
 since <code>REF</code>. The default base is <code>origin/main</code>.
-The current model gives the component of each module.
+The current model gives the components of each module.
+A component of a module claims the module, or a symbol in the module.
 If the current model does not claim a removed module, the model at the <code>REF</code> commit gives its component.
 It exits 1 for changed components outside the plan.</p>
 </li>
@@ -1613,10 +1632,15 @@ Thus, after a rejected answer, the next command sends the question to the agent 
 <p>The agent can write no more than 200,000 bytes to stdout.
 If it writes more, the command stops the agent, and the request does not complete.
 If a request does not complete, the command writes the accepted sequences of the other requests.
-Then it names each request that did not complete and exits 1.</p>
+Then it names each request that did not complete and exits 1.
+A rejected draft is also a request that did not complete.</p>
 <p>Accepted sequences enter the model with <code>drafted=True</code>.
 The command writes them into the <code>JOURNEYS = (...)</code> tuple of the model.
 The tuple can have a type annotation, as in the model from <code>init</code>.
+If the model does not import <code>Journey</code> or <code>Step</code>, the command adds an import from <code>systemap</code>.
+Before the write, the model reader reads the changed model, as for each other command.
+If the reader refuses it, or the changed <code>MEANING</code> does not contain each accepted sequence,
+the command writes no file and exits 1.
 <code>judgement</code> prints <code>drafted journey</code> until a person examines the sequence and
 removes the mark.</p>
 <p>By default, the command writes no more than three sequences.</p>
@@ -1963,7 +1987,8 @@ Then use <code>--port 0</code> to select an available port, or give a different 
 The server answers only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port.
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
 The server answers 404 for a symbolic link to a file that is not in the output directory.
-<code>systemap live</code> has the same rules.</p>
+<code>systemap live</code> has the same rules.
+If the output directory is not in the repository after the resolution of links, the command exits 1. The server does not start.</p>
 <h3 id="systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></h3>
 <p>Renders the page of the working tree and supplies it through HTTP on the loopback address.
 The facts come from the source files in memory. The models come from the model files.
@@ -1993,6 +2018,8 @@ and the untracked files that Git does not ignore.</p>
 and the source and test files one time each second.
 The scan includes the language configuration files below each package root, such as <code>packages/web/src/lib/package.json</code>.
 It also includes these files in the folders between a package root and the repository root, such as <code>packages/web/tsconfig.json</code>.
+The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name <code>build</code> or <code>dist</code>.
+The scan includes each test file that extraction reads, also a file that <code>test_patterns</code> selects out of the package roots and the test directories.
 When a scan finds a change and the next scan finds no more change, the command renders the page again.</p>
 </li>
 <li>
@@ -2270,6 +2297,11 @@ The nearest <code>package.json</code> above the file must have this <code>name</
 <li>A subpath import starts with <code>#</code>, as <code>#types/hot</code>. The <code>imports</code> key of the nearest <code>package.json</code> gives the file.
 A target that names an npm package gives that package in <code>external</code>.</li>
 </ul>
+<p>An import of a different package of the repository is also an internal import.
+The <code>name</code> in a <code>package.json</code> file of the repository identifies that package.
+The module that <code>[package_roots]</code> gives for the import must be in the folder of that <code>package.json</code> file.
+A <code>[package_roots]</code> name does not identify a package for other imports.
+Thus, if the package <code>web</code> has no <code>exports</code> key, <code>import &quot;web&quot;</code> in that package is an external import.</p>
 <p>systemap uses the rules of Node.js and TypeScript for these imports:
 <a href="https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name">Self-referencing a package using its name</a>,
 <a href="https://nodejs.org/api/packages.html#subpath-imports">Subpath imports</a>, and
@@ -2282,13 +2314,17 @@ An import without a target, for example a <code>#</code> name that <code>imports
 <p>The suffix of an import selects the source suffix, as in <code>tsc</code>.
 <code>.js</code> selects <code>.ts</code> or <code>.tsx</code>, <code>.mjs</code> selects <code>.mts</code>, and <code>.cjs</code> selects <code>.cts</code>.
 An import without a suffix selects <code>.ts</code> or <code>.tsx</code>.
-If <code>tsc</code> cannot resolve a relative import, the import has no target.</p>
+If <code>tsc</code> cannot resolve a relative import, the import has no target.
+A <code>paths</code> alias names its first target file that is available, as in <code>tsc</code>.
+If no module has that file, the import is an unresolved local import. A different target does not replace it.
+An import path with a NUL character has no target.</p>
 <p>A source file that systemap cannot read keeps its module record, with a read problem.
 A <code>package.json</code> file that systemap cannot read gives a configuration error.
 This also applies to a <code>package.json</code> file without a JSON object.</p>
 <p>A TypeScript test name contains the names of the <code>describe</code> or <code>suite</code> functions that contain the test.
 The text <code>&gt;</code> is between two names, as in <code>orders &gt; saves an order</code>.
 If a file has two tests with the same name, the second name gets <code> #2</code>.
+If a different test of the file has that name, the name gets the next number that no test of the file has.
 A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in <code>tsconfig.json</code> <code>extends</code> gives an <code>unknown surface</code>
 finding. Extraction continues with the compiler options that it can read.</p>
@@ -2316,9 +2352,12 @@ The selected files include tests and the source files that these files import.</
 The nearest <code>tsconfig.json</code> file gives the project if its files or their imports contain the file.
 Then the first project in <code>references</code> that selects the file gives the project.
 Then the first project in <code>references</code> with files that import the file gives the project.
-These imports can go through other files.</p>
+These imports can go through other files.
+These imports include relative imports, <code>paths</code> aliases, self-name imports, and subpath imports.
+An import of a different package of the repository does not add a file to a project.
+<code>tsc</code> reads the declaration output of that package for such an import.</p>
 <p>The version comes from <code>node_modules/typescript/package.json</code>, then the
-<code>typescript</code> range in <code>package.json</code>.
+<code>typescript</code> range in <code>package.json</code>. This also applies if the repository root has no <code>tsconfig.json</code> file.
 If the two files do not give a version, systemap tries the two roots.
 A compiled target maps to a module only if one root gives a match and the other does not.
 Two matches leave the target unmapped.</p>

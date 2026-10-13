@@ -19,15 +19,19 @@ import dataclasses
 import hashlib
 import io
 import json
+import os
+import shutil
+import tempfile
 import tokenize
 from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import flow_ids, repo_files, step_refs
+from systemap import config, file_write, flow_ids, model_load, repo_files, step_refs
 from systemap import journey_coverage as judgement
-from systemap.agent import Agent
+from systemap.agent import Agent, AgentError
+from systemap.config import ConfigError
 from systemap.evidence import owners
 from systemap.model import Journey, Meaning, Model, Step
 from systemap.source_facts import entry_identity, entry_label
@@ -339,14 +343,18 @@ def refuse_used_id(draft: Draft, meaning: Meaning, taken: Collection[str] = ()) 
 
 
 def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
-    """Hash current source bytes for the sequence answer cache."""
+    """Hash current source bytes for the sequence answer cache.
+
+    A source file of the facts that systemap cannot read gives AgentError with the file.
+    """
     digest = hashlib.sha256()
     for relative in sorted({record["file"] for record in facts.get("components", {}).values()}):
         try:
             content = repo_files.read_bytes(root, relative)
         except OSError as exc:
-            raise ValueError(
-                f"cannot examine the sequence: source {relative} is not available: {exc}"
+            raise AgentError(
+                f"the source file {relative} of the facts is not available: "
+                f"{repo_files.reason(exc)}. Run systemap extract. Then run the command again."
             ) from exc
         digest.update(relative.encode())
         digest.update(b"\0")
@@ -369,6 +377,92 @@ def add_to_source(source: str, journey: Journey) -> str | None:
         if offset is not None:
             return _insert_journey(source, journey, offset)
     return None
+
+
+# The model classes that an inserted sequence calls.
+SEQUENCE_CLASSES = ("Journey", "Step")
+
+
+def with_imports(source: str) -> str:
+    """Add an import from systemap for each sequence class that no import of the module
+    gives. The source must parse.
+
+    The new import comes after the first group of import statements. Thus the names are
+    defined before the sequences use them."""
+    body = ast.parse(source).body
+    given = {
+        alias.asname or alias.name.split(".")[0]
+        for statement in body
+        if isinstance(statement, ast.Import | ast.ImportFrom)
+        for alias in statement.names
+    }
+    missing = [name for name in SEQUENCE_CLASSES if name not in given]
+    if not missing or "*" in given:
+        return source
+    lines = source.splitlines(keepends=True)
+    anchor = _first_imports_end(body)
+    added = f"from systemap import {', '.join(missing)}\n"
+    return "".join([*lines[:anchor], added, *lines[anchor:]])
+
+
+def _first_imports_end(body: list[ast.stmt]) -> int:
+    """Give the last line of the first group of import statements, after the docstring."""
+    start = 1 if body and _docstring(body[0]) else 0
+    anchor = (body[0].end_lineno or 0) if start else 0
+    for statement in body[start:]:
+        if not isinstance(statement, ast.Import | ast.ImportFrom):
+            break
+        anchor = statement.end_lineno or anchor
+    return anchor
+
+
+def _docstring(statement: ast.stmt) -> bool:
+    return (
+        isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+        and isinstance(statement.value.value, str)
+    )
+
+
+def proposal_problem(path: Path, label: str, source: str, ids: Collection[str]) -> str:
+    """Give the problem of a proposed model text, or an empty string.
+
+    The model reader reads a copy of the model files in a temporary folder, with the
+    proposed text in place of the file at `path`. The reader is the reader of each other
+    command (`config.load_model`). The loaded MEANING must contain each sequence id."""
+    try:
+        found = {journey.id for journey in _proposed_meaning(path, label, source).journeys}
+    except ConfigError as exc:
+        return f"The model reader does not accept the changed model: {exc}"
+    missing = [one for one in ids if one not in found]
+    if not missing:
+        return ""
+    return (
+        f"{label}: the changed model does not contain the sequence {', '.join(missing)}. "
+        "Make sure that MEANING uses the sequence list of the model file."
+    )
+
+
+def _proposed_meaning(path: Path, label: str, source: str) -> Meaning:
+    with tempfile.TemporaryDirectory(prefix="systemap-journeys-") as folder:
+        copy = Path(folder).resolve()
+        for each in _model_files(path, label):
+            shutil.copyfile(each, copy / each.name)
+        file_write.write_atomic(copy, copy / path.name, source)
+        return config.load_model(copy / path.name, label)[1]
+
+
+def _model_files(path: Path, label: str) -> tuple[Path, ...]:
+    """Give the model file and the files that it can import.
+
+    The reader that runs no code gives the files that the model file imports. With
+    permission to run the model code, each Python file in the folder can be an import."""
+    if os.environ.get(model_load.TRUST) == "1":
+        return tuple(sorted(p for p in path.parent.glob(model_load.MODEL_FILES) if p.is_file()))
+    try:
+        return model_load.files(path, label)
+    except model_load.ModelFileError as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def _journey_assignment_offset(

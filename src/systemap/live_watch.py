@@ -1,7 +1,8 @@
 """The watcher of `systemap live` finds the files that a render reads and scans them.
 
 The files are the systemap configuration files, the model files, the source and test
-files of the configured language, and the configuration files of the language. The
+files of the configured language, and the configuration files of the language. The test
+rule of the language adapter selects the test files, as for extraction. The
 language adapter gives the configuration files that it reads (`config_paths`). This
 module does not know their names.
 """
@@ -60,11 +61,30 @@ def watched(root: Path, models: Iterable[Path] = ()) -> list[Path]:
     tests = [root / rel for rel in cfg.test_dirs if rel]
     folders = [package for package, _name in cfg.roots] + tests
     found += adapter.config_paths(root, folders)
-    # Output folders hold no source of the project, for each language.
-    skip = adapter.skip_dirs | config.OUTPUT_DIRS
+    # The watcher skips the folders that the source walk of the adapter skips. Then it
+    # watches each source file that extraction reads.
     for folder in folders:
-        found += _files(folder, adapter.source_suffixes, skip)
+        found += _files(folder, adapter.source_suffixes, adapter.skip_dirs)
+    found += _tests(root, cfg)
     return list(dict.fromkeys(found))
+
+
+def _tests(root: Path, cfg: config.Config) -> list[Path]:
+    """Give the test files that extraction reads: the files that the test rule of the
+    adapter selects, below the repository root.
+
+    A test pattern can select a file out of the package roots and the test directories.
+    If the adapter is not installed, give no file. Then the render gives the error.
+    """
+    try:
+        adapter = languages.adapter(cfg.language)
+    except languages.LanguageError:
+        return []
+    return [
+        path
+        for path in _files(root, adapter.source_suffixes, adapter.skip_dirs)
+        if adapter.is_test_file(path.relative_to(root).as_posix(), cfg.test_dirs, cfg.test_patterns)
+    ]
 
 
 def _files(folder: Path, suffixes: tuple[str, ...], skip: frozenset[str]) -> Iterator[Path]:

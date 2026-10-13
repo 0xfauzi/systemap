@@ -99,21 +99,39 @@ class Usage:
 Run = Any  # (command, question, cwd, timeout) -> str; the tests pass their own.
 
 
+def argv(command: str) -> list[str]:
+    """Give the program and the arguments of the configured command, or give AgentError.
+
+    The command uses the quotation rules of a POSIX shell. An unmatched quotation mark
+    gives AgentError."""
+    try:
+        words = shlex.split(command)
+    except ValueError as exc:
+        raise AgentError(
+            f"The agent command {command!r} under [agent] in systemap.toml has an incorrect "
+            f"quotation: {exc}. Correct the command. Then run the command again."
+        ) from exc
+    if not words:
+        raise AgentError(NO_AGENT)
+    return words
+
+
 def shell_run(command: str, question: str, cwd: Path, timeout: float) -> str:
     """Operate the configured command with the question on stdin.
 
     The command can write no more than OUTPUT_CAP bytes to stdout. If it writes more,
     this function stops the command and gives AgentError. Only the end of the stderr
     output stays in memory, for the error message."""
+    words = argv(command)
     try:
         proc = subprocess.Popen(  # noqa: S603 - the command is the maintainer's own configuration
-            shlex.split(command),
+            words,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
         )
-    except FileNotFoundError as exc:
+    except OSError as exc:
         raise AgentError(f"The agent command could not start: {exc}") from exc
     out = _Reader(proc.stdout, OUTPUT_CAP, keep_end=False)
     err = _Reader(proc.stderr, ERROR_KEEP, keep_end=True)
@@ -259,6 +277,7 @@ def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
     """Get the configured agent. Raise AgentError if no command is configured."""
     if not cfg.agent_command.strip():
         raise AgentError(NO_AGENT)
+    argv(cfg.agent_command)
     return Agent(
         command=cfg.agent_command.strip(),
         root=cfg.root,

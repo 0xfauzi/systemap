@@ -27,13 +27,11 @@ def _in_package(name: str, prefixes: Iterable[str]) -> bool:
 
 
 def _resolve(name: str, known: set[str]) -> str | None:
-    parts = name.split(".")
-    while parts:
-        candidate = ".".join(parts)
-        if candidate in known:
-            return candidate
-        parts.pop()
-    return None
+    """Give the module of an import source, or None if it is not in the inventory.
+
+    Exact membership only: the package of an absent module is not its target. The import
+    of an absent module is an unresolved import (`python_imports.python_unresolved`)."""
+    return name if name in known else None
 
 
 def import_targets(
@@ -125,11 +123,33 @@ class _Reader:
         found = self.functions(node)
         return found[0] if found else None
 
-    def in_scope(self, binding: Binding, node: ast.AST) -> bool:
-        return binding.scope is None or binding.scope in self.functions(node)
+    def visible(self, bindings: Iterable[Binding], node: ast.AST) -> dict[str, Binding]:
+        """Give the binding of each local name that a use at the node reads.
+
+        A binding in the innermost function that contains the node hides a binding of the
+        same name in an outer function or in the module. In one scope, the last binding
+        is kept."""
+        functions = self.functions(node)
+        found: dict[str, tuple[int, Binding]] = {}
+        for binding in bindings:
+            rank = _rank(functions, binding)
+            if rank is not None and (binding.local not in found or rank <= found[binding.local][0]):
+                found[binding.local] = (rank, binding)
+        return {local: binding for local, (_rank_of, binding) in found.items()}
 
     def in_class_body(self, node: ast.AST) -> bool:
         return isinstance(self.parent.get(node), ast.ClassDef)
+
+
+def _rank(functions: list[ast.AST], binding: Binding) -> int | None:
+    """Give the depth of the scope of the binding from a use: 0 for the innermost function
+    of the use. A module binding is after all functions. None: the use cannot read it."""
+    if binding.scope is None:
+        return len(functions)
+    for rank, function in enumerate(functions):
+        if function is binding.scope:
+            return rank
+    return None
 
 
 def _root(value: ast.AST | None, imports: dict[str, Binding]) -> tuple[Binding, str] | None:
@@ -187,12 +207,13 @@ def _value_binding(
     reader: _Reader,
     node: ast.AST,
     bound: tuple[ast.AST, ast.AST | None, ast.AST | None],
-    imports: dict[str, Binding],
+    imports: list[Binding],
 ) -> Binding | None:
     target, value, annotation = bound
     local = target.arg if isinstance(target, ast.arg) else _dotted(target)
-    found = _root(value, imports) or _annotation_root(annotation, imports)
-    if not local or not found or local in imports:
+    visible = reader.visible(imports, node)
+    found = _root(value, visible) or _annotation_root(annotation, visible)
+    if not local or not found or local in visible:
         return None
     if reader.in_class_body(node) and isinstance(target, ast.Name):
         local = f"{RECEIVER}.{local}"
@@ -201,7 +222,7 @@ def _value_binding(
     return Binding(local, root.target, name, VALUE, int(getattr(node, "lineno", 0)), scope)
 
 
-def _value_bindings(reader: _Reader, imports: dict[str, Binding]) -> list[Binding]:
+def _value_bindings(reader: _Reader, imports: list[Binding]) -> list[Binding]:
     found = (
         _value_binding(reader, node, bound, imports)
         for node in ast.walk(reader.tree)
@@ -220,12 +241,22 @@ def _use(reader: _Reader, node: ast.AST) -> tuple[int, int, str]:
 
 
 def _add_uses(reader: _Reader, bindings: dict[str, list[Binding]]) -> None:
+    """Add each use to the bindings of its name in the innermost scope that has one."""
     for node in ast.walk(reader.tree):
         if not isinstance(node, ast.Name | ast.Attribute) or isinstance(node.ctx, ast.Store):
             continue
-        for binding in bindings.get(_dotted(node) or "", []):
-            if reader.in_scope(binding, node):
+        candidates = bindings.get(_dotted(node) or "", [])
+        if candidates:
+            for binding in _nearest(reader.functions(node), candidates):
                 binding.uses.add(_use(reader, node))
+
+
+def _nearest(functions: list[ast.AST], candidates: list[Binding]) -> list[Binding]:
+    """Give the bindings of the innermost scope that a use in `functions` can read."""
+    ranked = [(_rank(functions, binding), binding) for binding in candidates]
+    reached = [(rank, binding) for rank, binding in ranked if rank is not None]
+    nearest = min((rank for rank, _binding in reached), default=None)
+    return [binding for rank, binding in reached if rank == nearest]
 
 
 def _star_bindings(
@@ -250,7 +281,9 @@ def call_sites(
     except (SyntaxError, ValueError):
         return None
     reader = _Reader(tree)
-    imports: dict[str, Binding] = {}
+    # One binding for each scope and local name. An import in one function does not
+    # replace an import of the same name in a different function.
+    imports: dict[tuple[int, str], Binding] = {}
     for node, local, target, name, line in import_targets(
         tree, prefixes, known, module, is_package
     ):
@@ -261,8 +294,9 @@ def call_sites(
         )
         for _node, each, each_target, each_name, each_line in found:
             scope = reader.scope(node)
-            imports[each] = Binding(each, each_target, each_name, IMPORT, each_line, scope)
-    values = _value_bindings(reader, imports)
+            binding = Binding(each, each_target, each_name, IMPORT, each_line, scope)
+            imports[id(scope), each] = binding
+    values = _value_bindings(reader, list(imports.values()))
     by_local: dict[str, list[Binding]] = {}
     for binding in [*imports.values(), *values]:
         by_local.setdefault(binding.local, []).append(binding)
