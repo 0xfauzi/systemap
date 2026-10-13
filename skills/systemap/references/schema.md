@@ -107,7 +107,8 @@ An entry supplied by any kind still receives the normal source check.
 
 `interface` is optional. It starts with an existing public symbol or re-export.
 Examples are `read(source) -> Request` and `Ledger.record / Ledger.history`.
-The checker reads the first identifier before `(`, `.`, `->`, or whitespace.
+The checker reads the first identifier. An identifier can contain Unicode letters.
+It ends at the first character that an identifier cannot contain, such as `(`, `.`, `-`, or whitespace.
 For `Class.method`, both the class and its public method must exist.
 
 Keep literal signatures exact. Write any additional description under the writing profile.

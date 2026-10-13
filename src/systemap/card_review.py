@@ -56,8 +56,10 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
 
 
 def _touches(journey: Journey, card_id: str) -> bool:
-    """Find whether a sequence names this component in actors, measures, or flow endpoints."""
-    return any(
+    """Find if a sequence names this component in `starts`, actors, measures, or flow
+    endpoints.
+    """
+    return journey.starts == card_id or any(
         card_id in step.acts or card_id in step.measures or card_id in step.edge
         for step in journey.steps
     )
@@ -123,8 +125,9 @@ def claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
     """Give the map claims of a component without the review values.
 
     The claims are the component fields, its plain name, and the flows, sequences, and
-    invariants that name it. `source_review`, the flow review digests, and the source
-    digests in the flow source records are not claims.
+    invariants that name it. A sequence also names the component in its `starts` field.
+    `source_review`, the flow review digests, and the source digests in the flow source
+    records are not claims.
     """
     return _claims(card, model, meaning, reviews=False)
 

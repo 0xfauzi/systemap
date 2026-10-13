@@ -147,6 +147,7 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
             continue
         path = _opened(cfg, parent, c, c.map, above)
         rel = cfg.rel(path)
+        _opened_once(cfg, parent, c.id, path, maps)
         model, meaning = load_model(path, rel)
         child = Map(
             _child_id(parent, c.id),
@@ -189,6 +190,21 @@ def _opened(cfg: Config, parent: Map, c: Component, target: str, above: list[Pat
             f"module at this path, or remove map from the component."
         )
     return path
+
+
+def _opened_once(cfg: Config, parent: Map, card: str, path: Path, maps: list[Map]) -> None:
+    """Refuse a nested model file that a different component opens.
+
+    The loader reads each model file one time. Two components that open the same file
+    make two maps of the same modules, and each level of the tree doubles the number of
+    file reads.
+    """
+    first = next((m for m in maps if m.path.resolve() == path), None)
+    if first is not None:
+        raise ConfigError(
+            f"{parent.rel}: {card} opens {cfg.rel(path)}, but the map {first.id} "
+            "uses this file. Give each nested model file one component that opens it."
+        )
 
 
 def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:

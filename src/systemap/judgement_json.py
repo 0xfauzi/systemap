@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import audit, judgement, nest, review_policy
+from systemap import audit, judgement, judgement_moves, nest, review_policy
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
@@ -40,6 +40,7 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     if cfg.require_reviews:
         lines += review_policy.missing_lines(tree, facts)
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
+    given = judgement_moves.current_lines(given, lines)
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     result = judgement.apply_answers(lines, given, evidence)
     return Judged(lines, evidence, result, cfg.require_reviews)

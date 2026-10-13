@@ -20,7 +20,7 @@ from pathlib import Path
 
 from conftest import TINY_PACKAGE, write_tree
 
-from systemap import answer_migrations, config, extract, judgement, source_facts
+from systemap import answer_migrations, config, extract, judgement, judgement_moves, source_facts
 from systemap.config import Answer
 
 
@@ -78,3 +78,23 @@ def test_an_answer_in_the_earlier_form_selects_the_current_line(tmp_path: Path) 
     assert judgement.answer_digest(group, {**evidence, "other line": "second"}) == expected
     assert any(earlier in warning for warning in answer_migrations.warnings([answer]))
     assert answer_migrations.warnings([Answer(items=(line,), reason="known")]) == []
+
+
+def test_an_answer_in_the_earlier_form_follows_a_line_that_moved_to_a_nested_map() -> None:
+    """Acceptance: an item in the earlier form, with the prefix of the top map, selects the
+    one current line in the nested map. Each migration acts on the item one time: the moved
+    item is in the current form, and the form migration does not change it again.
+    """
+    current = (
+        "sub: unknown surface: module app.broken (app/broken.py:3): "
+        "SyntaxError (parser version 3.11.10)"
+    )
+    earlier = (
+        "unknown surface: module app.broken (app/broken.py:3): SyntaxError under Python 3.11.10"
+    )
+    answer = Answer(items=(earlier,), reason="known", evidence="digest-of-the-evidence")
+    (moved,) = judgement_moves.current_lines([answer], [current])
+    assert moved.items == (current,)
+    assert answer_migrations.current_line(moved.items[0]) == current
+    result = judgement.apply_answers([current], [moved], {current: "digest-of-the-evidence"})
+    assert result.open == [] and result.stale == [] and result.pending == []

@@ -15,13 +15,13 @@ The command exits 1 if a rule rejects the map.
 |---|---|
 | coverage | No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is a Python `__init__.py` file or a TypeScript `index` file that holds no code. The rule automatically excludes these markers. |
 | entry | A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty `entry`. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
-| interface | The first identifier of an `interface` is absent from the component's public names and re-exports. The identifier ends at `(`, `.`, `->`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
+| interface | The first identifier of an `interface` is absent from the component's public names and re-exports. An identifier can contain Unicode letters. It ends at the first character that an identifier cannot contain, such as `(`, `.`, `-`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
 | nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |
-| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. |
+| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id. |
 | routes | A route crosses an unrelated component or an unrelated region. |
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
-| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence. A step has no `say`. A custom layer uses a standard id. |
+| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. |
 | import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
 
@@ -57,7 +57,7 @@ The renderer and the checks use the evidence state of the stored source snapshot
 |---|---|---|
 | `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim and sentence. | A solid line. The page shows "current source review". |
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
-| `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. |
+| `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. The panel also shows the `source_refs` and each reference that does not resolve. `systemap review` refuses a reference that does not resolve. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
 
 The stored value `observed` is an identifier. It does not mean that a program ran.
@@ -191,9 +191,16 @@ The evidence digest of a line contains only the evidence that the line names:
   The `source_review` value, the flow review digests, and the source digests in `source_refs` are not claims.
 - For each module that the line names, and each module of a named component, the module facts and the source file.
 - For a `crossing import` line, the imports between the two components and the source of the two modules of each import.
+- For an `entry point` line, the entry point records of its modules. A record has the `kind`, `module`, `target`, and `name` values.
 
 Thus a change to a different component, or to a `source_review` value, does not open the finding again.
-A line that names no component and no module uses the full evidence: the model file and all modules.
+A line that names no component and no module uses the full evidence: the model files and all modules.
+The model files are the model file and each model file that it imports.
+An `entry point` line with the full evidence also has all entry point records.
+
+Migration: the full evidence of a model file that imports other model files changed.
+The evidence of each `entry point` line also changed.
+Thus each of these exact answers is pending one time after the update.
 
 Migration from systemap 3.0.0: the earlier evidence digest of a line that is not a `crossing import` contained the full model file and all modules.
 Thus each of these exact answers is pending one time after the update.
@@ -435,6 +442,8 @@ Thus the ID must not contain `/` or `\`, and it must not be `.` or `..`.
 
 Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
+Only one component can open a nested model file.
+The map tree rejects a second component that opens the same file.
 Symbol claims are permitted.
 Empty package markers are excluded.
 Nested actors must be components from the parent map.
@@ -460,6 +469,11 @@ Commands use all maps in the map tree:
 - `describe` and `judgement` use map-id prefixes.
   An `item` answer contains the printed line.
   A family answer can apply to all maps.
+
+- An `unknown surface` line about a module occurs one time, in the map that owns the module.
+  An `unknown surface` line about the repository occurs one time, in the top map.
+  Migration: an earlier exact answer for such a line can have a different map prefix.
+  If its `item` without the prefix agrees with one current line, the answer applies to that line.
 
 - `delta` compares each map's claimed modules.
   A moved module shows its component and model file.

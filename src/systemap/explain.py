@@ -394,8 +394,9 @@ AUDIT = {
             "code has no such connection."
         ),
         do=(
-            "Find the call for the flow. The question to the provider has no instance-call "
-            "evidence. If the flow uses an instance call, record that reason."
+            "Find the code that sends the artifact. The question to the provider contains the "
+            "source lines that use names from the other component. If the code sends the "
+            "artifact through a file or a function argument, record that reason."
         ),
     ),
     decision_kinds.GOVERNS: Lesson(

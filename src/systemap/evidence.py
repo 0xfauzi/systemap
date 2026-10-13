@@ -298,7 +298,15 @@ def of_model(
         mechanism = mechanism_of(f, meaning, mechanisms)
         refs, unresolved, claim_changed, no_endpoint = _review(f, meaning, facts, model)
         if model.kind_of(f.src) == "actor" or model.kind_of(f.dst) == "actor":
-            out[slot(f)] = Evidence(EXTERNAL)
+            # The state stays external. The source records and their examination stay
+            # in the record for the page and for `systemap review`.
+            out[slot(f)] = Evidence(
+                EXTERNAL,
+                source_refs=refs,
+                unresolved_refs=unresolved,
+                claim_changed=claim_changed,
+                no_endpoint_ref=no_endpoint,
+            )
         else:
             state = (
                 OBSERVED

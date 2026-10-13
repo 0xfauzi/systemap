@@ -13,15 +13,16 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
-from systemap import config
+from systemap import config, identifier
 from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 
 # Below a Python package root or test directory, these folders hold no source of the
 # project. The folders above the root are not examined.
 PYTHON_SKIP = frozenset({".git", ".venv", "node_modules", "__pycache__", "build", "dist"})
 PACKAGE_MARKER = "__init__.py"
-# The method name in a recorded method header, such as `async def save(self)`.
-METHOD = re.compile(r"(?:async )?def (\w+)\(")
+# The method name in a recorded method header, such as `async def save(self)`. The
+# name can contain Unicode letters and marks (`identifier.complete`).
+METHOD = re.compile(r"(?:async )?def ([^\s(]+)\(")
 
 # Import names that mark a module as calling a model or running an agent framework.
 # Dotted where the namespace is shared. A cloud SDK that also reaches a model (boto3)
@@ -187,7 +188,7 @@ class PythonRepository:
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)
-        return found.group(1) if found else ""
+        return found.group(1) if found and identifier.complete(found.group(1)) else ""
 
 
 PYTHON_REPOSITORY = PythonRepository()
