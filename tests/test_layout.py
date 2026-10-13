@@ -120,7 +120,7 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
     """The consumer's formatter must accept the starter as written, whatever
     its line length; trailing commas keep the collections exploded."""
     pytest.importorskip("ruff")
-    files = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci="")
+    files = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci="", language="python")
     model = tmp_path / "model.py"
     model.write_text(files["map/model.py"], encoding="utf-8")
     for width in ("88", "100"):

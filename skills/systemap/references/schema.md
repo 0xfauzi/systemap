@@ -343,13 +343,13 @@ These fields come from `systemap.extract.FIELDS`.
 
 - `id`: The dotted module name.
 - `file`: The root-relative source path.
-- `package`: The first module-name segment.
+- `package`: The dotted name of the package that contains the module. The language adapter writes it. A dot in a file name does not change it. A Python `__init__` module is in the parent package of its own package. A package root gives its own name.
 - `plane`: The second module-name segment if `planes` includes it, or `core`.
 - `loc`: The file line count.
 - `sha`: The first twelve hex digits of the source SHA-1. This is the change-detector key.
 - `source_sha256`: The full SHA-256 of UTF-8 source text with normalized newlines, for source references.
 - `syntax_sha`: The parsed-syntax digest for source review. Comments and text format do not change it.
-- `docstring`: The first module-docstring paragraph, with a length limit.
+- `docstring`: The first paragraph of the module description, with a length limit. The Python adapter reads the module docstring. The TypeScript adapter reads the first documentation comment.
 - `functions`: Public functions with `name` and `signature`.
 - `classes`: Public classes other than errors, with `name` and public method signatures in `methods`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
@@ -357,6 +357,7 @@ These fields come from `systemap.extract.FIELDS`.
 - `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. `entry` and `interface` can use these names.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
+- `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without names, imports, or statements. Coverage does not include these modules.
 - `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
 - `imports`: The keys of `uses`.
@@ -371,10 +372,11 @@ These fields come from `systemap.extract.FIELDS`.
 
 **Each entry point, under `entry_points`**
 
-- `kind`: `console_script`, `main_module`, `main_function`, `subcommand`, or `public_function`.
-- `name`: The script name, `python -m` command, `main`, subcommand name, or function name.
+- `kind`: `console_script`, `main_module`, `main_function`, `subcommand`, `public_function`, `route`, `command`, `task`, or `plugin`.
+- `name`: The script name, `python -m` command, `main`, subcommand name, route, command name, plugin hook, or function name.
 - `module`: The module that defines the entry point.
-- `target`: The console-script function, or the console script for a subcommand. It is empty for other kinds.
+- `target`: The console-script function, the console script for a subcommand, or the registered function. It is empty for other kinds.
+- `label`: The display name that the language adapter gives to the entry point. A sequence can name it in `starts`.
 
 **The extract summary**
 
@@ -385,5 +387,5 @@ They do not describe the purposes of the map components.
 `tests` gives the sum of `tests_total`. The count for test files with the module
 name gives the sum of `tests_primary`.
 
-`empty package markers` counts `__init__` records without public `names`,
-`imports`, or `external` entries. Coverage automatically excludes these records.
+`empty package markers` counts the records with `empty_marker` set to true.
+Coverage automatically excludes these records.

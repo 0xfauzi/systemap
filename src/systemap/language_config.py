@@ -8,6 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from systemap import language as languages
+
 # The writing profiles of the language policy. The first profile is the default.
 PROFILES = ("plain", "asd-ste100")
 
@@ -22,13 +24,9 @@ def package_roots(
         ):
             return tuple(value.items())
         raise ValueError(f'{source}: package_roots must be a table of "path" = "module name"')
-    if language == "typescript":
-        from systemap.typescript_config import discover_typescript_roots
-
-        return tuple(discover_typescript_roots(root))
-    from systemap.config import discover_roots
-
-    return tuple(discover_roots(root))
+    if not language:
+        return ()
+    return tuple(languages.repository(language).discover_roots(root))
 
 
 def tests_directories(value: Any, source: str) -> tuple[str, ...]:

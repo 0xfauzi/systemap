@@ -12,7 +12,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from systemap import __version__
+from systemap import __version__, model_load
+from systemap import language as languages
 
 CONFIG = """# systemap configuration. All keys are optional.
 # The project name comes from pyproject.toml or the repository directory.
@@ -371,24 +372,6 @@ TOOLING_NOTE = (
     "  run all repository CI commands on the map files",
 )
 
-# The comment above the package roots, for each source language.
-ROOTS_NOTE = {
-    "python": (
-        '# Package roots use "path" = "import name".\n'
-        "# Without explicit roots, the extractor finds top-level Python packages\n"
-        "# in the repository and its uv workspace members."
-    ),
-    "typescript": (
-        '# Package roots use "path" = "module name".\n'
-        "# Without explicit roots, the extractor uses src, then the repository root,\n"
-        "# when the repository root has a tsconfig.json file."
-    ),
-}
-# The commented example for a repository without discovered package roots.
-ROOTS_EXAMPLE = {
-    "python": '# [package_roots]\n# "src/mypackage" = "mypackage"',
-    "typescript": '# [package_roots]\n# "packages/web/src" = "web"',
-}
 # TOML basic strings and Python string literals use the same escapes for these characters.
 _ESCAPES: dict[int, str] = {ord('"'): '\\"', ord("\\"): "\\\\"} | {
     code: f"\\u{code:04x}" for code in (*range(0x20), 0x7F)
@@ -403,8 +386,11 @@ def quoted(text: str) -> str:
 def tooling_note(root: Path, language: str) -> tuple[str, ...]:
     """Give the note about repository tool settings for the map files.
 
-    A TypeScript repository without pyproject.toml has no Python tool settings."""
-    if language == "typescript" and not (root / "pyproject.toml").is_file():
+    The model file is Python. The repository tools read it if the source language uses
+    the suffix of the model file, or if pyproject.toml is available. Otherwise the
+    repository has no tool settings for the model file."""
+    reads_model = model_load.MODEL_SUFFIX in languages.repository(language).source_suffixes
+    if not reads_model and not (root / "pyproject.toml").is_file():
         return ()
     return TOOLING_NOTE
 
@@ -412,7 +398,7 @@ def tooling_note(root: Path, language: str) -> tuple[str, ...]:
 def _roots_block(roots: list[tuple[str, str]], language: str) -> str:
     """Give the [package_roots] table, or a commented example without roots."""
     if not roots:
-        return ROOTS_EXAMPLE.get(language, ROOTS_EXAMPLE["python"])
+        return languages.repository(language).roots_example
     lines = ["[package_roots]"] + [f"{quoted(path)} = {quoted(pkg)}" for path, pkg in roots]
     return "\n".join(lines)
 
@@ -450,7 +436,8 @@ def files(
     package: str,
     roots: list[tuple[str, str]],
     ci: str = ADVISORY,
-    language: str = "python",
+    *,
+    language: str,
 ) -> dict[str, str]:
     """Get initial file paths and contents.
 
@@ -461,7 +448,7 @@ def files(
         "systemap.toml": CONFIG.format(
             language=language,
             name=quoted(name),
-            roots_note=ROOTS_NOTE.get(language, ROOTS_NOTE["python"]),
+            roots_note=languages.repository(language).roots_note,
             roots=_roots_block(roots, language),
             package=package,
         ),
@@ -471,11 +458,8 @@ def files(
         "docs/map/.gitkeep": "",
     }
     if ci:
-        requirement = (
-            f"systemap[typescript]=={__version__}"
-            if language == "typescript"
-            else f"systemap=={__version__}"
-        )
+        extra = languages.repository(language).install_extra
+        requirement = f"systemap[{extra}]=={__version__}" if extra else f"systemap=={__version__}"
         out[".github/workflows/systemap.yml"] = WORKFLOW.replace(
             "systemap==__VERSION__", requirement
         ).replace("__CI_MODE__", ci)
@@ -488,11 +472,12 @@ def write(
     package: str,
     roots: list[tuple[str, str]],
     ci: str = ADVISORY,
-    language: str = "python",
+    *,
+    language: str,
 ) -> list[str]:
     """Write missing files. Give one output line for each written or existing file."""
     out: list[str] = []
-    for rel, content in files(name, package, roots, ci, language).items():
+    for rel, content in files(name, package, roots, ci, language=language).items():
         path = root / rel
         if path.exists():
             out.append(f"kept {rel} (file exists)")

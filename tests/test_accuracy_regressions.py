@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import change, check, config, extract, history, journeys, scaffold
+from systemap import change, check, config, extract, history, journeys, scaffold, source_facts
 from systemap.jev_cli import _atomic_model_write
 from systemap.journeys import as_source
 from systemap.model import Component, Flow, Journey, Model, Step
@@ -219,7 +219,7 @@ def test_conflicting_star_exports_are_uncertain(tmp_path: Path) -> None:
         },
     )
     facts = extract.build(config.load(tmp_path))
-    assert any("ambiguous" in line for line in extract.unknown_fact_lines(facts))
+    assert any("ambiguous" in line for line in source_facts.unknown_fact_lines(facts))
 
 
 @pytest.mark.parametrize(
@@ -381,7 +381,7 @@ def test_typescript_exported_contract_changes_are_visible(before: str, after: st
     ],
 )
 def test_python_exported_contract_changes_are_visible(before: str, after: str) -> None:
-    delta = change.surface_delta(before, after)
+    delta = change.surface_delta(before, after, extract.PYTHON)
     assert (
         delta is None
         or delta.get("unknown")

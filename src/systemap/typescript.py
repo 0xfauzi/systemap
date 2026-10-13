@@ -5,7 +5,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -13,7 +13,8 @@ from typing import Any
 from systemap import typescript_entry
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
-from systemap.source_text import configured_out_dir, out_dir_below, read_problems, ts_skipped
+from systemap.source_facts import standard_label
+from systemap.source_text import read_problems
 from systemap.typescript_config import (
     DECLARATION_SUFFIXES,
     SOURCE_SKIP,
@@ -26,6 +27,13 @@ from systemap.typescript_config import (
     source_files,
 )
 from systemap.typescript_projects import TypeScriptProjects, path_choices, without_script_suffix
+from systemap.typescript_repo import (
+    TypeScriptRepository,
+    compiler_record,
+    configured_out_dir,
+    out_dir_below,
+    ts_skipped,
+)
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
 from systemap.typescript_syntax import syntax_tree
@@ -37,6 +45,8 @@ TEST_SUFFIXES = tuple(
     f".{role}{suffix}" for role in ("test", "spec", "cy") for suffix in SOURCE_SUFFIXES
 )
 TEST_FILES = ("test.ts", "test.tsx")
+# The file name of a module that a folder import reads, without its suffix.
+INDEX = "index"
 # Jest reads each file in a directory with this name as a test file.
 TEST_DIRECTORY = "__tests__"
 WHOLE_MODULE = "*"
@@ -509,10 +519,8 @@ def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> b
     )
 
 
-class TypeScriptLanguage:
+class TypeScriptLanguage(TypeScriptRepository):
     """This adapter converts TypeScript syntax to the shared facts schema."""
-
-    name = "typescript"
 
     def source_paths(
         self,
@@ -558,6 +566,43 @@ class TypeScriptLanguage:
     def module_of(self, path: Path, root: Path, name: str) -> str:
         parts = path.relative_to(root).with_suffix("").parts
         return ".".join((name, *(part.replace("-", "_") for part in parts)))
+
+    def package_of(self, path: Path, root: Path, name: str) -> str:
+        """Give the folder of the file as a dotted name. A dot in a file name, such as
+        `user.service.ts`, does not make a package."""
+        parts = path.relative_to(root).parent.parts
+        return ".".join((name, *(part.replace("-", "_") for part in parts)))
+
+    def is_package_module(self, path: Path) -> bool:
+        return path.name.split(".", 1)[0] == INDEX and path.suffix in SOURCE_SUFFIXES
+
+    def empty_marker(self, record: Mapping[str, Any], raw: str) -> bool:
+        """Find an index file that has no statements: only comments, or no text.
+
+        A file that did not parse is not empty, because its statements are not known."""
+        if not self.is_package_module(Path(str(record.get("file", "")))):
+            return False
+        if not record.get("completeness", {}).get("parsed"):
+            return False
+        root = syntax_tree(raw, str(record.get("file", "")))
+        return all(child.type == "comment" for child in root.named_children)
+
+    def entry_label(self, point: Mapping[str, str]) -> str:
+        return standard_label(point)
+
+    def compiler_record(self, context: Any, repo: Path) -> dict[str, str]:
+        return compiler_record(getattr(context, "compiler", None), repo)
+
+    def extra_facts(self, context: Any, entry_issues: list[dict[str, str]]) -> dict[str, Any]:
+        """Give the issue lists. Each list is written, also when it is empty."""
+        return {
+            "entry_point_issues": entry_issues,
+            "test_file_issues": context.test_issues,
+            "config_issues": [
+                {"file": file, "reference": reference}
+                for file, reference in context.compiler.issues
+            ],
+        }
 
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         absolute = repo / path

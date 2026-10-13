@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import change, config, delta, extract, history, nest, typescript_config
+from systemap import change, config, delta, extract, history, nest, source_facts, typescript_config
 from systemap.cli import main
 from systemap.typescript import TYPESCRIPT, parse_surface
 from systemap.typescript import test_names as names_of_tests
@@ -82,8 +82,20 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
         {"name": "serve", "kind": "function", "reexport_of": "web.service"}
     ]
     assert facts["entry_points"] == [
-        {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""},
-        {"kind": "public_function", "name": "serve", "module": "web.index", "target": ""},
+        {
+            "kind": "console_script",
+            "name": "web",
+            "module": "web.cli",
+            "target": "",
+            "label": "web (console script)",
+        },
+        {
+            "kind": "public_function",
+            "name": "serve",
+            "module": "web.index",
+            "target": "",
+            "label": "serve() in web.index",
+        },
     ]
 
 
@@ -110,12 +122,14 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "name": "request",
             "module": "acme.web.api",
             "target": "",
+            "label": "request() in acme.web.api",
         },
         {
             "kind": "public_function",
             "name": "app",
             "module": "acme.web.index",
             "target": "",
+            "label": "app() in acme.web.index",
         },
     ]
 
@@ -250,8 +264,20 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
     facts = extract.build(cfg)
     assert facts["components"]["web.index"]["uses"] == {"web.service": ["serve"]}
     assert facts["entry_points"] == [
-        {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""},
-        {"kind": "public_function", "name": "api", "module": "web.index", "target": ""},
+        {
+            "kind": "console_script",
+            "name": "web",
+            "module": "web.cli",
+            "target": "",
+            "label": "web (console script)",
+        },
+        {
+            "kind": "public_function",
+            "name": "api",
+            "module": "web.index",
+            "target": "",
+            "label": "api() in web.index",
+        },
     ]
     assert {issue["kind"] for issue in facts["entry_point_issues"]} == {
         "package_bin",
@@ -303,7 +329,7 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     facts = extract.build(config.load(tmp_path))
     issue = facts["components"]["web.broken"]["unknown"][0]
     assert "could not parse the TypeScript syntax" in issue["reason"]
-    assert extract.unknown_fact_lines(facts) == [
+    assert source_facts.unknown_fact_lines(facts) == [
         f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
     ]
 
@@ -327,7 +353,7 @@ def test_missing_npm_tsconfig_and_declaration_files_do_not_stop_extract(tmp_path
     assert sorted(facts["components"]) == ["web.index", "web.value"]
     assert facts["components"]["web.index"]["uses"] == {"web.value": ["value"]}
     assert facts["config_issues"] == [{"file": "tsconfig.json", "reference": "@vendor/tsconfig"}]
-    assert "tsconfig.json extends '@vendor/tsconfig'" in extract.unknown_fact_lines(facts)[0]
+    assert "tsconfig.json extends '@vendor/tsconfig'" in source_facts.unknown_fact_lines(facts)[0]
     assert TYPESCRIPT.module_for_path(tmp_path, "src/types.d.ts", cfg.roots) is None
 
     (tmp_path / "tsconfig.json").write_text('{"extends":"./missing.json"}', encoding="utf-8")
@@ -606,7 +632,7 @@ def test_init_refuses_an_ambiguous_python_and_typescript_repository(
         },
     )
     assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 2
-    assert "The source contains Python and TypeScript" in capsys.readouterr().err
+    assert "The source contains python and typescript files" in capsys.readouterr().err
 
 
 def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
@@ -668,9 +694,13 @@ def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path
     facts = extract.build(config.load(tmp_path))
     assert facts["components"]["web.index"]["uses"] == {"web.util": ["helper"]}
     assert facts["components"]["web.index"]["external"] == []
-    assert {"kind": "console_script", "name": "web", "module": "web.cli", "target": ""} in facts[
-        "entry_points"
-    ]
+    assert {
+        "kind": "console_script",
+        "name": "web",
+        "module": "web.cli",
+        "target": "",
+        "label": "web (console script)",
+    } in facts["entry_points"]
     assert facts["entry_point_issues"] == []
 
 

@@ -1,6 +1,6 @@
 """The ways into a system, and the journeys that should walk from them.
 
-`systemap.ways_in` reads a module's syntax tree for the ways in a framework
+`systemap.python_entry` reads a module's syntax tree for the ways in a framework
 registers: routes, commands, tasks and plugin hooks. `judgement` then asks
 for a journey from each, in one line per card once a card takes more than a
 few of one kind, and says when a journey jumps or starts at nothing.
@@ -10,14 +10,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from systemap import extract, judgement, ways_in
+from systemap import judgement, python_entry, source_facts
 from systemap.model import Journey, Meaning, Step
+from systemap.source_facts import standard_label
 
 # ---- what the source registers -----------------------------------------------------
 
 
 def found(source: str, module: str = "pkg.mod") -> list[tuple[str, str, str]]:
-    return [(p["kind"], p["name"], p["target"]) for p in ways_in.in_source(module, source)]
+    return [(p["kind"], p["name"], p["target"]) for p in python_entry.in_source(module, source)]
 
 
 def test_web_routes_are_read_with_their_method_and_path() -> None:
@@ -113,10 +114,10 @@ def test_decorator_bindings_separate_frameworks_from_local_names() -> None:
         "cache = Cache()\n@cache.get('/key')\ndef read(): pass\n"
     )
     assert found(source) == []
-    assert ways_in.registration_candidates("pkg.mod", source) == []
+    assert python_entry.registration_candidates("pkg.mod", source) == []
     unknown = '@router.get("/read")\ndef read(): pass\n'
     assert found(unknown) == []
-    assert ways_in.registration_candidates("pkg.mod", unknown)[0]["kind"] == "decorator"
+    assert python_entry.registration_candidates("pkg.mod", unknown)[0]["kind"] == "decorator"
 
 
 def test_background_tasks_are_ways_in_too() -> None:
@@ -141,7 +142,7 @@ def test_poetry_scripts_and_plugin_hooks_are_read_from_pyproject() -> None:
         "project": {"entry-points": {"pytest11": {"cov": "pkg.plugin:setup"}}},
     }
     components = {"poetry.console.application": {}, "pkg.plugin": {}}
-    assert ways_in.in_pyproject(data, components) == [
+    assert python_entry.in_pyproject(data, components) == [
         {
             "kind": "console_script",
             "name": "poetry",
@@ -151,14 +152,17 @@ def test_poetry_scripts_and_plugin_hooks_are_read_from_pyproject() -> None:
         {"kind": "plugin", "name": "pytest11: cov", "module": "pkg.plugin", "target": "setup"},
     ]
     # a script pointing outside this system is not one of its ways in
-    assert ways_in.in_pyproject(data, {"pkg.plugin": {}})[0]["kind"] == "plugin"
+    assert python_entry.in_pyproject(data, {"pkg.plugin": {}})[0]["kind"] == "plugin"
 
 
 def test_each_way_in_is_named_the_way_a_person_would_name_it() -> None:
-    assert ways_in.label({"kind": "route", "name": "GET /x", "module": "m"}) == "GET /x (route)"
-    assert ways_in.label({"kind": "command", "name": "add", "module": "m"}) == "add (command)"
-    assert "background task" in ways_in.label({"kind": "task", "name": "t", "module": "m"})
-    assert ways_in.label({"kind": "console_script", "name": "x", "module": "m"}) == ""
+    assert standard_label({"kind": "route", "name": "GET /x", "module": "m"}) == "GET /x (route)"
+    assert standard_label({"kind": "command", "name": "add", "module": "m"}) == "add (command)"
+    assert "background task" in standard_label({"kind": "task", "name": "t", "module": "m"})
+    assert (
+        standard_label({"kind": "console_script", "name": "x", "module": "m"})
+        == "x (console script)"
+    )
 
 
 # ---- what judgement asks about them ------------------------------------------------
@@ -201,7 +205,7 @@ def test_a_journey_covers_only_an_explicit_entry_identity(sample: Any) -> None:
         label="read one",
         steps=(Step(("Reader",), (), ("Reader", "Parser"), "Reader passes data."),),
         starts="GET /r",
-        covers=(extract.entry_identity(facts["entry_points"][0]),),
+        covers=(source_facts.entry_identity(facts["entry_points"][0]),),
     )
     meaning = Meaning(plain={}, journeys=(reviewed,))
     assert judgement.entry_points_without_journey(sample.model, meaning, facts) == []

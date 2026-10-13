@@ -12,11 +12,12 @@ import os
 import re
 import subprocess
 import tomllib
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap import language as languages
 from systemap import model_load
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
@@ -29,8 +30,8 @@ SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__", "build", "dist", "t
 # the skipped directories minus `tests` itself, plus a plain `venv`.
 SKIP_WALK = (SKIP_DIRS - {"tests"}) | {"venv"}
 TEST_DIR_NAMES = ("tests", "test")
-# Output directory names. A directory with one of these names and an __init__.py is a
-# package, such as the pypa/build package, and the walks go into it.
+# Output directory names. If the language adapter identifies a directory with one of
+# these names as a package, such as the pypa/build package, the walks go into it.
 OUTPUT_DIRS = frozenset({"build", "dist"})
 CANDIDATE_DEPTH = 4
 
@@ -165,7 +166,7 @@ class Config:
     root: Path
     name: str
     package_roots: tuple[tuple[str, str], ...]
-    language: str = "python"
+    language: str
     tests_dirs: tuple[str, ...] = ()
     test_patterns: tuple[str, ...] = ()
     model: str = "map/model.py"
@@ -238,7 +239,10 @@ class Config:
         """This property gives configured test directories, or discovered directories if
         none are configured.
         """
-        return self.tests_dirs or tuple(discover_tests(self.root))
+        if self.tests_dirs:
+            return self.tests_dirs
+        package_dir = languages.repository(self.language).package_dir if self.language else _none
+        return tuple(discover_tests(self.root, package_dir))
 
     def rel(self, path: Path) -> str:
         """This method gives a path relative to the root when the path is inside the root."""
@@ -263,69 +267,28 @@ def find_root(start: Path) -> Path | None:
     return None
 
 
-def _pyproject(root: Path) -> dict[str, Any]:
-    path = root / "pyproject.toml"
-    if not path.is_file():
-        return {}
-    try:
-        return tomllib.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
+PackageDir = Callable[[Path], bool]
 
 
-def workspace_members(root: Path) -> list[Path]:
-    """This function finds the directories selected by `[tool.uv.workspace] members`
-    patterns.
-    """
-    workspace = _pyproject(root).get("tool", {}).get("uv", {}).get("workspace", {})
-    members = workspace.get("members", []) if isinstance(workspace, dict) else []
-    out: list[Path] = []
-    for pattern in members:
-        if not isinstance(pattern, str):
-            continue
-        for path in sorted(root.glob(pattern)):
-            if path.is_dir() and path.resolve() != root.resolve() and path not in out:
-                out.append(path)
-    return out
-
-
-def discover_roots(root: Path) -> list[tuple[str, str]]:
-    """This function finds package directories with __init__.py, including src layouts and
-    uv workspace members.
-    """
-    found: list[tuple[str, str]] = []
-    for base in (root, *workspace_members(root)):
-        for parent in (base, base / "src"):
-            if not parent.is_dir():
-                continue
-            for child in sorted(parent.iterdir()):
-                if not child.is_dir() or skipped(child, SKIP_DIRS):
-                    continue
-                if (child / "__init__.py").is_file():
-                    entry = (child.relative_to(root).as_posix(), child.name)
-                    if entry not in found:
-                        found.append(entry)
-    return found
-
-
-def skipped(directory: Path, names: Collection[str]) -> bool:
+def skipped(directory: Path, names: Collection[str], package_dir: PackageDir) -> bool:
     """This function finds a directory that a walk does not go into.
 
-    A hidden directory and a directory in `names` are skipped. A package directory with
-    the name of an output directory is not skipped."""
+    A hidden directory and a directory in `names` are skipped. If the language adapter
+    identifies a directory with the name of an output directory as a package, the
+    directory is not skipped."""
     name = directory.name
     if name.startswith("."):
         return True
-    return name in names and not (name in OUTPUT_DIRS and (directory / "__init__.py").is_file())
+    return name in names and not (name in OUTPUT_DIRS and package_dir(directory))
 
 
-def _walk(root: Path, depth: int | None = None) -> list[Path]:
+def walk(root: Path, package_dir: PackageDir, depth: int | None = None) -> list[Path]:
     """This function lists directories under the root, except for excluded directories."""
     out: list[Path] = []
     for dirpath, dirnames, _files in os.walk(root):
         here = Path(dirpath)
         level = len(here.relative_to(root).parts)
-        dirnames[:] = sorted(d for d in dirnames if not skipped(here / d, SKIP_WALK))
+        dirnames[:] = sorted(d for d in dirnames if not skipped(here / d, SKIP_WALK, package_dir))
         if depth is not None and level >= depth:
             dirnames[:] = []
         if here != root:
@@ -333,7 +296,13 @@ def _walk(root: Path, depth: int | None = None) -> list[Path]:
     return out
 
 
-def discover_tests(root: Path) -> list[str]:
+def _none(directory: Path) -> bool:
+    """Without a known language, no directory is a package."""
+    del directory
+    return False
+
+
+def discover_tests(root: Path, package_dir: PackageDir) -> list[str]:
     """This function finds test and tests directories under the root. It does not search
     inside a discovered test directory.
     """
@@ -342,7 +311,7 @@ def discover_tests(root: Path) -> list[str]:
         here = Path(dirpath)
         keep: list[str] = []
         for d in sorted(dirnames):
-            if skipped(here / d, SKIP_WALK):
+            if skipped(here / d, SKIP_WALK, package_dir):
                 continue
             if d in TEST_DIR_NAMES:
                 out.append((here / d).relative_to(root).as_posix())
@@ -352,25 +321,16 @@ def discover_tests(root: Path) -> list[str]:
     return out
 
 
-def candidate_packages(root: Path, depth: int = CANDIDATE_DEPTH) -> list[str]:
-    """This function lists relative package-directory paths within the specified depth for
-    a missing-root diagnostic.
-    """
-    return [
-        d.relative_to(root).as_posix() for d in _walk(root, depth) if (d / "__init__.py").is_file()
-    ]
-
-
-def default_name(root: Path) -> str:
+def default_name(root: Path, language: str) -> str:
     """This function selects the project name, Git repository directory name, or root
     directory name.
 
+    The language adapter reads the project name from its package metadata.
     A worktree uses the common Git directory to identify its repository.
     """
-    project = _pyproject(root).get("project", {})
-    name = project.get("name") if isinstance(project, dict) else None
-    if isinstance(name, str) and name.strip():
-        return name.strip()
+    name = languages.repository(language).project_name(root) if language else ""
+    if name:
+        return name
     try:
         proc = subprocess.run(
             ["git", "rev-parse", "--git-common-dir"],
@@ -436,11 +396,8 @@ def load(root: Path) -> Config:
             f"{where}: unknown key{'s' if len(unknown) > 1 else ''}: {', '.join(unknown)}"
         )
 
-    language = _str(raw, "language", "python", where)
-    if language not in ("python", "typescript"):
-        raise ConfigError(f'{where}: language must be "python" or "typescript"')
-
     try:
+        language = _language(root, raw, where)
         roots = package_roots(root, language, raw.get("package_roots"), where)
         roots = checked_roots(root, language, raw, roots, KNOWN_KEYS, where)
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
@@ -461,7 +418,7 @@ def load(root: Path) -> Config:
         **_jev(raw, where),
         **_agent(raw, where),
         root=root,
-        name=_str(raw, "name", "", where) or default_name(root),
+        name=_str(raw, "name", "", where) or default_name(root, language),
         package_roots=roots,
         language=language,
         tests_dirs=tests_dirs,
@@ -478,6 +435,31 @@ def load(root: Path) -> Config:
         writing_profile=writing,
         source=source,
     )
+
+
+def _language(root: Path, raw: dict[str, Any], where: str) -> str:
+    """This function gives the configured language, or the language of the source.
+
+    Without the language key, the adapters examine the configured package roots, or
+    they find their own package roots. If the language is not clear, the function
+    stops and tells the maintainer to set the language key."""
+    if "language" not in raw:
+        folders = _root_folders(root, raw.get("package_roots"))
+        try:
+            return languages.detect(root, folders)
+        except languages.LanguageError as exc:
+            raise ValueError(f"{where}: {exc}") from exc
+    language = _str(raw, "language", "", where)
+    if language not in languages.names():
+        choices = " or ".join(f'"{name}"' for name in languages.names())
+        raise ValueError(f"{where}: language must be {choices}")
+    return language
+
+
+def _root_folders(root: Path, value: Any) -> tuple[Path, ...]:
+    if not isinstance(value, dict):
+        return ()
+    return tuple(root / str(path) for path in value)
 
 
 def _figures(raw: dict[str, Any], where: str) -> tuple[Figure, ...]:

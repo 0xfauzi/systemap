@@ -1,9 +1,10 @@
-"""The entry point reader finds routes, commands, background tasks, and plugin hooks in
-source code.
+"""The Python entry point reader finds the places where a run of a Python system starts.
 
-An entry point lets a person or another system start an operation. The reader records
-literal registrations for supported frameworks. An unknown framework binding gives a
-diagnostic rather than assumed coverage.
+It reads console scripts, `__main__` modules, `main` functions, argparse subcommands,
+public package-root functions, framework routes, commands, background tasks, and plugin
+hooks. An entry point lets a person or another system start an operation. The reader
+records literal registrations for supported frameworks. An unknown framework binding
+gives a diagnostic rather than assumed coverage.
 """
 
 from __future__ import annotations
@@ -307,20 +308,6 @@ def _hooks(group: str, entries: Any, components: dict[str, Any]) -> list[dict[st
     return out
 
 
-def label(point: dict[str, str]) -> str:
-    """This function gives a display name for an entry point."""
-    kind, name, module = point["kind"], point["name"], point["module"]
-    if kind == "route":
-        return f"{name} (route)"
-    if kind == "command":
-        return f"{name} (command)"
-    if kind == "task":
-        return f"{name}() (background task in {module})"
-    if kind == "plugin":
-        return f"{name} (plugin hook)"
-    return ""
-
-
 def read_pyproject(repo: Path) -> dict[str, Any]:
     import tomllib
 
@@ -331,3 +318,108 @@ def read_pyproject(repo: Path) -> dict[str, Any]:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
         return {}
+
+
+def subcommands(raw: str) -> list[str]:
+    """Read argparse subcommand names from one module.
+
+    A call `<anything>.add_parser("name", ...)` with a literal first argument
+    specifies a subcommand. The parser does not find names made from variables.
+    Judgement can give findings only for names in the syntax tree.
+    """
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError):
+        return []
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "add_parser"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            out.append(node.args[0].value)
+    return out
+
+
+def console_scripts(repo: Path) -> dict[str, tuple[str, str]]:
+    """Map `[project.scripts]` names to module and function targets."""
+    data = read_pyproject(repo)
+    scripts = data.get("project", {}).get("scripts", {})
+    out: dict[str, tuple[str, str]] = {}
+    if isinstance(scripts, dict):
+        for name, target in scripts.items():
+            if isinstance(target, str) and ":" in target:
+                module, func = target.split(":", 1)
+                out[str(name)] = (module.strip(), func.strip())
+    return out
+
+
+def _plain_ways(module: str, record: dict[str, Any], is_root: bool) -> list[dict[str, str]]:
+    """Get entry points from `__main__`, `main`, and public package-root names."""
+    out: list[dict[str, str]] = []
+    if module.endswith(".__main__"):
+        pkg = module[: -len(".__main__")]
+        out.append(
+            {"kind": "main_module", "name": f"python -m {pkg}", "module": module, "target": ""}
+        )
+    if any(f["name"] == "main" for f in record["functions"]):
+        out.append({"kind": "main_function", "name": "main", "module": module, "target": "main"})
+    if is_root:
+        out += [
+            {"kind": "public_function", "name": f["name"], "module": module, "target": ""}
+            for f in record["functions"]
+        ]
+    return out
+
+
+def entry_points(
+    repo: Path, prefixes: set[str], components: dict[str, Any], sources: dict[str, str]
+) -> list[dict[str, str]]:
+    """Read entry points from the source tree.
+
+    Include console scripts, `__main__`, `main`, literal argparse subcommands, and
+    public package-root functions. The framework readers in this module add framework routes, click,
+    typer, cleo, Django commands, tasks, and plugin hooks.
+
+    Judgement gives findings for entry points without examined sequences.
+    A subcommand records its console script so the display can use the typed command.
+    """
+    scripts = {
+        name: (module, func)
+        for name, (module, func) in sorted(console_scripts(repo).items())
+        if module in components
+    }
+    script_of_module = {module: name for name, (module, _f) in scripts.items()}
+    out: list[dict[str, str]] = []
+    for name, (module, func) in scripts.items():
+        out.append({"kind": "console_script", "name": name, "module": module, "target": func})
+    for module, record in sorted(components.items()):
+        out += _plain_ways(module, record, module in prefixes)
+        out += [
+            {
+                "kind": "subcommand",
+                "name": sub,
+                "module": module,
+                "target": script_of_module.get(module, ""),
+            }
+            for sub in subcommands(sources.get(module, ""))
+        ]
+        out += in_source(module, sources.get(module, ""))
+    out += in_pyproject(read_pyproject(repo), components)
+    return _once_each(out)
+
+
+def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Keep each entry point one time when source readers find identical records."""
+    seen: set[tuple[str, str, str, str]] = set()
+    kept = []
+    for point in points:
+        key = (point["kind"], point["name"], point["module"], point["target"])
+        if key not in seen:
+            seen.add(key)
+            kept.append(point)
+    return kept

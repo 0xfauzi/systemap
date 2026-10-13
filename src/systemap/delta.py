@@ -23,9 +23,9 @@ from systemap import (
     delta_git,
     delta_report,
     evidence,
-    extract,
     graph,
     nest,
+    source_facts,
 )
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
@@ -239,7 +239,7 @@ def compute(
         elif (
             claimed_by is None
             and not ignored(new_name)
-            and not extract.is_empty_marker(h[new_name])
+            and not source_facts.is_empty_marker(h[new_name])
         ):
             was = owner_base.get(old)
             lines.append(
@@ -279,7 +279,7 @@ def compute(
             lines.append(
                 Line("added", f"added: {module}, with a claim in {claimed_by}", (claimed_by,))
             )
-        elif extract.is_empty_marker(h[module]):
+        elif source_facts.is_empty_marker(h[module]):
             lines.append(Line("added", f"added: {module}, an empty package marker"))
         elif ignored(module) and not within:
             lines.append(Line("added", f"added: {module}, ignored in [coverage]"))

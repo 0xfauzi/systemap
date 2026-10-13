@@ -515,7 +515,7 @@ def render(
             "does": c.does,
             "state": state if kind != "actor" else "actor",
             "state_label": state_label if kind != "actor" else "outside",
-            "lives": lives_in(list(c.implemented_by)),
+            "lives": lives_in(list(c.implemented_by), facts.get("components", {})),
             "modules": list(c.implemented_by),
             # The three fields the panel prints beside the plain word: the
             # one-line signature, the entry with the module that defines

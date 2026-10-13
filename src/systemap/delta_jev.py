@@ -26,7 +26,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import audit, decision, explain, extract, jev, jev_provider, moves, nest
+from systemap import audit, decision, explain, jev, jev_provider, moves, nest, source_facts
 from systemap.config import Config
 from systemap.decision import ChoiceQuestion, DecisionError, DecisionProvider, Thresholds
 from systemap.delta import Delta
@@ -72,8 +72,8 @@ def unpaired(base: dict[str, Any], head: dict[str, Any]) -> Unpaired:
     gone = sorted(set(b) - set(h))
     new = sorted(set(h) - set(b))
     found = moves.find(b, h, gone, new)
-    left = [m for m in gone if m not in found and not extract.is_empty_marker(b[m])]
-    options = [m for m in new if not extract.is_empty_marker(h[m])]
+    left = [m for m in gone if m not in found and not source_facts.is_empty_marker(b[m])]
+    options = [m for m in new if not source_facts.is_empty_marker(h[m])]
     return Unpaired(left if options else [], options, found)
 
 

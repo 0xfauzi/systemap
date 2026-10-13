@@ -34,6 +34,7 @@ from systemap import (
     judgement,
     model_write,
     nest,
+    source_facts,
 )
 from systemap import plan as plan_mod
 from systemap.decision import (
@@ -398,7 +399,7 @@ def pair_candidates(facts: dict[str, Any], mods: list[str]) -> list[tuple[str, s
     known = set(mods)
     by_package: dict[str, list[str]] = {}
     for m in mods:
-        by_package.setdefault(m.rsplit(".", 1)[0], []).append(m)
+        by_package.setdefault(source_facts.package_of(m, facts["components"]), []).append(m)
     pairs = {(a, b) for ms in by_package.values() for a, b in zip(ms, ms[1:], strict=False)}
     for a in mods:
         for b in facts["components"][a].get("imports", []):
@@ -442,7 +443,7 @@ def suggest_groups(
 ) -> list[str]:
     """Give the module groups. A refusal gives no pair. The output gives the count of refusals."""
     comps = facts["components"]
-    mods = sorted(m for m in comps if not extract.is_empty_marker(comps[m]))
+    mods = sorted(m for m in comps if not source_facts.is_empty_marker(comps[m]))
     questions = [same_question(cfg, facts, a, b) for a, b in pair_candidates(facts, mods)]
     answers = provider.decide(questions)
     same_at = decision.thresholds(provider.name).same_at

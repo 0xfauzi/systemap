@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from systemap import extract, ways_in
 from systemap import facts as facts_mod
+from systemap import source_facts
 from systemap.config import Config
 from systemap.model import (
     Component,
@@ -63,7 +63,7 @@ def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:
         out[c.id] = {
             "modules": [_module_record(mid, modules[mid]) for mid in related],
             "claims": list(c.implemented_by),
-            "points": [ways_in.label(p) for p in points if p.get("module") in owned],
+            "points": [source_facts.entry_label(p) for p in points if p.get("module") in owned],
             "symbol_claims": [{"module": module, "name": name} for module, name in symbols],
             "unresolved_claims": _unresolved_claims(c, modules),
         }
@@ -78,7 +78,7 @@ def provenance(cfg: Config, facts: dict[str, Any], model_file: str = "") -> dict
         "revision": facts.get("built_at_commit", ""),
         "extraction": "working tree",
         "uncommitted": "not recorded",
-        "unknown": extract.unknown_fact_lines(facts),
+        "unknown": source_facts.unknown_fact_lines(facts),
     }
 
 

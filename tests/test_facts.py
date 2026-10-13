@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import check, config, extract, skill
+from systemap import check, config, extract, skill, source_facts
 from systemap import facts as facts_mod
 from systemap.cli import main
 from systemap.model import Component, Model, defines_entry, public_names
@@ -57,7 +57,7 @@ def test_a_package_init_records_the_names_it_reexports(tmp_path: Path) -> None:
     # A private name, a star import and anything outside the package are not re-exports.
     assert public_names(root) == {"run", "Thing", "Item", "deep", "util", "VERSION"}
     assert root["functions"] == [] and root["classes"] == []
-    assert not extract.is_empty_marker(root), "a re-exporting __init__ is a module"
+    assert not source_facts.is_empty_marker(root), "a re-exporting __init__ is a module"
     # A plain module's imports stay imports: only a package __init__ re-exports.
     assert facts["components"]["pkg.util"]["names"] == [{"name": "helper", "kind": "function"}]
     # No public function is invented for the package root's entry points.
@@ -165,30 +165,30 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert run("--root", str(tmp_path), "facts", "--modules") == 0
     out = capsys.readouterr().out
     assert out == (
-        "modules: 3. Each line gives the first docstring sentence and the public name, import, and test counts.\n  pkg: empty package marker\n  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n  pkg.writer: No docstring is available. (1 name, 1 import, 1 test)\n"
+        "modules: 3. Each line gives the first sentence of the description and the public name, import, and test counts.\n  pkg: empty package marker\n  pkg.reader: Read things. (4 names, 0 imports, 2 tests)\n  pkg.writer: No module description is available. (1 name, 1 import, 1 test)\n"
     )
     assert run("--root", str(tmp_path), "facts", "--docstrings") == 0
     assert capsys.readouterr().out == (
-        "docstrings: 2 of 3 modules have docstrings. Each line gives the first sentence.\n  pkg: empty package marker\n  pkg.reader: Read things.\n  pkg.writer: No docstring is available.\n"
+        "descriptions: 2 of 3 modules have a description. Each line gives the first sentence.\n  pkg: empty package marker\n  pkg.reader: Read things.\n  pkg.writer: No module description is available.\n"
     )
 
     # One record, rendered: never the JSON, and never a test's name.
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.reader") == 0
     out = capsys.readouterr().out
     assert out == (
-        "pkg.reader (pkg/reader.py)\n  docstring: Read things.\n  public names: 4\n    LIMIT: constant\n    Request: class\n    ReadError: error\n    read: function\n  imports: no internal imports\n  imported by: pkg.writer\n  external: none\n  tests: 2 tests import the module (2 in a test file with the module name)\n"
+        "pkg.reader (pkg/reader.py)\n  description: Read things.\n  public names: 4\n    LIMIT: constant\n    Request: class\n    ReadError: error\n    read: function\n  imports: no internal imports\n  imported by: pkg.writer\n  external: none\n  tests: 2 tests import the module (2 in a test file with the module name)\n"
     )
     assert "test_read_returns_request" not in out and "{" not in out
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.writer") == 0
     out = capsys.readouterr().out
-    assert "  docstring: No docstring is available.\n" in out
+    assert "  description: No module description is available.\n" in out
     assert "  imports: pkg.reader\n  imported by: no internal importers\n  external: yaml\n" in out
     assert out.endswith(
         "  tests: 1 tests import the module (0 in a test file with the module name)\n"
     )
     assert run("--root", str(tmp_path), "facts", "--module", "pkg") == 0
     assert capsys.readouterr().out == (
-        "pkg (pkg/__init__.py)\n  empty package marker: The __init__ has no public names or imports.\n"
+        "pkg (pkg/__init__.py)\n  empty package marker: The module only marks a package and holds no code.\n"
     )
     assert run("--root", str(tmp_path), "facts", "--module", "pkg.reder") == 1
     assert capsys.readouterr().out == (

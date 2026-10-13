@@ -171,7 +171,10 @@ JUDGEMENT = {
         ),
     ),
     "unknown surface": Lesson(
-        means=("The TypeScript parser could not identify a module or package target."),
+        means=(
+            "The language adapter could not read part of the source. Or, it could not find "
+            "the target of an entry point, an import, or a configuration file."
+        ),
         why=(
             "If the facts omit an export or import, the public interface or its "
             "connections can be incorrect."

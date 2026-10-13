@@ -114,7 +114,9 @@ def test_init_writes_a_configuration_that_gives_the_plain_profile(tmp_path: Path
 
 
 def test_the_template_model_names_the_profile_not_one_standard() -> None:
-    model = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci=False)["map/model.py"]
+    model = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci=False, language="python")[
+        "map/model.py"
+    ]
     assert "ASD-STE100 Issue 9" not in model
     assert "[writing] profile" in model
 

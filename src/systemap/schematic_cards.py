@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 import html
+import posixpath
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import ceil
 from typing import Any
 
-from systemap.model import AGENT_KINDS, CARD_H, Container, Meaning, Model, Region, all_layers
+from systemap.model import (
+    AGENT_KINDS,
+    CARD_H,
+    Container,
+    Meaning,
+    Model,
+    Region,
+    all_layers,
+    module_matches,
+)
+from systemap.source_facts import module_file
 from systemap.theme import Palette
 
 CARD_W = 150.0
@@ -360,32 +372,42 @@ def card_sizes(cards: list[tuple[str, str, str]]) -> tuple[float, float]:
     return NAME_PX, TEXT_PX
 
 
-def _file_of(claim: str) -> str:
-    """Give the file for a module claim. Add the symbol name after a colon for a symbol claim."""
-    module, _, name = claim.partition(":")
-    path = module.replace(".", "/") + ".py"
-    return f"{path}:{name}" if name else path
+def _claimed_files(claim: str, components: Mapping[str, Any]) -> list[str]:
+    """Give the source files of the modules that a claim covers, from the `file` facts."""
+    pattern = claim.partition(":")[0]
+    files = [module_file(m, components) for m in components if module_matches(pattern, m)]
+    return sorted(file for file in files if file)
 
 
-def lives_in(modules: list[str]) -> str:
-    """Give source paths or a common package path for a component.
+def _file_of(claim: str, components: Mapping[str, Any]) -> str:
+    """Give the file for a module claim. Add the symbol name after a colon for a symbol claim.
 
-    For three or fewer claims, give the files and symbol names. For more
-    claims, give the common directory and module count."""
+    A package claim gives its folder. Without a file fact, the claim itself is the text."""
+    files = _claimed_files(claim, components)
+    if not files:
+        return claim
+    _, _, name = claim.partition(":")
+    if claim.endswith(".*"):
+        return _folder(files) + "/"
+    return f"{files[0]}:{name}" if name else files[0]
+
+
+def _folder(files: list[str]) -> str:
+    return posixpath.commonpath([posixpath.dirname(file) or "." for file in files])
+
+
+def lives_in(modules: list[str], components: Mapping[str, Any]) -> str:
+    """Give source paths or a common folder for a component.
+
+    For three or fewer claims, give the files and symbol names. For more claims, give
+    the common folder and module count. The `file` facts give the paths."""
     if not modules:
         return ""
     if len(modules) <= 3:
-        return ", ".join(_file_of(m) for m in modules)
-    parts = [m.partition(":")[0].split(".") for m in modules]
-    common: list[str] = []
-    for column in zip(*parts, strict=False):
-        if len(set(column)) == 1:
-            common.append(column[0])
-        else:
-            break
-    if len(common) == len(min(parts, key=len)):
-        common = common[:-1]
-    return "/".join(common) + f"/ ({len(modules)} modules)"
+        return ", ".join(_file_of(m, components) for m in modules)
+    files = [file for m in modules for file in _claimed_files(m, components)]
+    where = f"{_folder(files)}/ " if files else ""
+    return f"{where}({len(modules)} modules)"
 
 
 def legend_rows(

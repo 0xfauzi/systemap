@@ -69,7 +69,7 @@ def test_the_review_state_is_missing_stale_or_current() -> None:
 
 def _delta_lines(card: Component, model: Model, meaning: Meaning) -> list[str]:
     lines = delta._evidence_review_lines(
-        Config(Path("."), "Example", ()),
+        Config(Path("."), "Example", (), "python"),
         model,
         meaning,
         FACTS,

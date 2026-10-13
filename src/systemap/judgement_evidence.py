@@ -22,7 +22,7 @@ def _source_hash(root: Path, record: dict[str, Any]) -> str:
 
 
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
-    """This function removes Python-version-specific AST fingerprints from the evidence
+    """This function removes the parser-specific syntax fingerprints from the evidence
     state.
     """
     stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}

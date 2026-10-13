@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import audit, judgement, nest
+from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
 SCHEMA_VERSION = 1
@@ -32,7 +33,9 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     """This function gives the judgement lines and applies the answers that are not
     audit answers.
     """
-    lines = judgement.run_tree(tree, facts, judgement.sdk_list(cfg.model_sdks), cfg.observed_by)
+    base = languages.repository(cfg.language).model_sdks if cfg.language else judgement.MODEL_SDKS
+    sdks = judgement.sdk_list(cfg.model_sdks, base)
+    lines = judgement.run_tree(tree, facts, sdks, cfg.observed_by)
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     return Judged(lines, evidence, judgement.apply_answers(lines, given, evidence))

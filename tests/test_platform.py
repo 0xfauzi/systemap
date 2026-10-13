@@ -51,7 +51,7 @@ def test_every_written_file_ends_its_lines_with_lf(tmp_path: Path) -> None:
 def test_paths_are_printed_and_recorded_with_forward_slashes(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    cfg = Config(root=tmp_path, name="demo", package_roots=(("pkg", "pkg"),))
+    cfg = Config(root=tmp_path, name="demo", package_roots=(("pkg", "pkg"),), language="python")
     assert cfg.rel(tmp_path / "docs" / "map" / "index.html") == "docs/map/index.html"
     assert cfg.rel(tmp_path.parent / "elsewhere") == str(tmp_path.parent / "elsewhere")
     write_tree(tmp_path, TINY_PACKAGE)

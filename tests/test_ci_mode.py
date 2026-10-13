@@ -103,7 +103,9 @@ def test_each_check_step_obeys_the_mode(
     tmp_path: Path, mode: str, code: int, passes: bool, level: str
 ) -> None:
     steps = _steps(
-        scaffold.files("demo", "pkg", [("pkg", "pkg")])[".github/workflows/systemap.yml"]
+        scaffold.files("demo", "pkg", [("pkg", "pkg")], language="python")[
+            ".github/workflows/systemap.yml"
+        ]
     )
     for name in CHECK_STEPS:
         result = _run(steps[name], tmp_path, code, mode)

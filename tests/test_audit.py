@@ -582,10 +582,10 @@ def test_groups_are_connected_components_largest_first() -> None:
 def test_pair_candidates_chain_each_package_and_add_imports() -> None:
     facts = {
         "components": {
-            "p.a": {"imports": ["q.x"]},
-            "p.b": {"imports": []},
-            "p.c": {"imports": []},
-            "q.x": {"imports": []},
+            "p.a": {"imports": ["q.x"], "package": "p"},
+            "p.b": {"imports": [], "package": "p"},
+            "p.c": {"imports": [], "package": "p"},
+            "q.x": {"imports": [], "package": "q"},
         }
     }
     assert jev_cli.pair_candidates(facts, ["p.a", "p.b", "p.c", "q.x"]) == [
