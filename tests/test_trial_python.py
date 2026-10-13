@@ -105,11 +105,11 @@ def test_a_script_without_public_names_or_entry_points_needs_no_entry(tmp_path: 
     ]
 
 
-def test_a_module_that_did_not_parse_still_must_have_an_entry(tmp_path: Path) -> None:
+def test_an_empty_entry_of_a_module_that_did_not_parse_is_not_known(tmp_path: Path) -> None:
+    """The public names of the module are not known, so an empty entry gives no line
+    (Codex model-3). The `source inventory unresolved` group gives the module."""
     facts = _facts(tmp_path, {**PY_SCRIPT, "pkg/script.py": "def broken(:\n"})
-    assert check.check_entry(_model(_card("pkg.script", "")), facts) == [
-        "Cli has no entry. Its modules are pkg.script"
-    ]
+    assert check.check_entry(_model(_card("pkg.script", "")), facts) == []
 
 
 def test_a_typescript_bin_without_exports_can_be_the_entry(tmp_path: Path) -> None:

@@ -4,7 +4,9 @@ A flow can have an explicit `id`. Without an id, the identifier of the flow is `
 Thus each model without ids keeps its identifiers, its digests, and its finding lines.
 
 Two or more flows can connect one ordered pair only if each of these flows has an
-explicit id. Relation sentences, layer overrides, and verb overrides use the flow
+explicit id. A component id can contain `->`. Thus two different pairs can give the same
+`SRC->DST` identifier, for example ("A->B", "C") and ("A", "B->C"). Then each of these
+flows must have an explicit id. Relation sentences, layer overrides, and verb overrides use the flow
 identifier as the key. The old `(SRC, DST)` key is also correct, but only for a pair
 that one flow connects. A sequence step names its flow with `flow="ID"`, or with the
 old `edge=(SRC, DST)` for a pair that one flow connects.
@@ -70,7 +72,7 @@ def counts(flows: Iterable[Flow]) -> dict[Edge, int]:
 def pair_problems(flows: tuple[Flow, ...]) -> list[str]:
     """Find incorrect ids, ids that two flows use, pairs with flows that have no id, and
     flows with the same component at the two ends."""
-    out = _id_problems(flows) + _loop_problems(flows)
+    out = _id_problems(flows) + _loop_problems(flows) + _default_key_problems(flows)
     for (src, dst), n in counts(flows).items():
         group = [f for f in flows if f.edge == (src, dst)]
         if n > 1 and not all(f.id for f in group):
@@ -82,6 +84,20 @@ def pair_problems(flows: tuple[Flow, ...]) -> list[str]:
                 "direction"
             )
     return out
+
+
+def _default_key_problems(flows: tuple[Flow, ...]) -> list[str]:
+    """Find flows without an id on different pairs that have the same identifier."""
+    pairs: dict[str, list[Edge]] = {}
+    for f in flows:
+        if not f.id and f.edge not in pairs.setdefault(f.key, []):
+            pairs[f.key].append(f.edge)
+    return [
+        f"flows {' and '.join(f'{src} -> {dst}' for src, dst in edges)} have the same "
+        f"identifier {key}. Give each of these flows its own id"
+        for key, edges in pairs.items()
+        if len(edges) > 1
+    ]
 
 
 def _loop_problems(flows: tuple[Flow, ...]) -> list[str]:
@@ -204,13 +220,20 @@ def journey_record(journey: Journey) -> dict[str, Any]:
     return record
 
 
+def _edges(text: str) -> set[Edge]:
+    """Give each pair that `SRC->DST` text can name. Each `->` can divide the two ends,
+    because a component id can contain `->`."""
+    at = [k for k in range(len(text)) if text.startswith(ARROW, k)]
+    return {(text[:k].strip(), text[k + len(ARROW) :].strip()) for k in at}
+
+
 def find(flows: tuple[Flow, ...], text: str) -> tuple[Flow | None, str]:
     """Find one flow from an id or from `SRC->DST`. Give None and the problem if not one."""
     src, arrow, dst = text.partition(ARROW)
     if arrow:
-        edge = (src.strip(), dst.strip())
-        found = [f for f in flows if f.edge == edge]
-        what = f"{edge[0]}{ARROW}{edge[1]}"
+        edges = _edges(text)
+        found = [f for f in flows if f.edge in edges]
+        what = f"{src.strip()}{ARROW}{dst.strip()}"
     else:
         found = [f for f in flows if f.id and f.id == text.strip()]
         what = text.strip()

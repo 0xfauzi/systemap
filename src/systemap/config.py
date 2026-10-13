@@ -23,8 +23,8 @@ from systemap import (
     flow_ids,
     model_fields,
     model_load,
-    model_names,
     repo_files,
+    tool_table,
 )
 from systemap import language as languages
 from systemap.config_paths import names as written_names
@@ -303,7 +303,8 @@ def configures(pyproject: Path) -> bool:
 
     If the file is not correct TOML and it contains the text tool.systemap, the result is
     `True`. Then the configuration reader gives the TOML error for that file. A file
-    that the reader refuses, such as a link out of the folder, also gives `True`."""
+    that the reader refuses, such as a link out of the folder, also gives `True`. A `tool`
+    or `tool.systemap` value that is not a table also gives `True` (see tool_table)."""
     try:
         text = repo_files.read_text(pyproject.parent, pyproject.name, encoding="utf-8-sig")
     except (OSError, UnicodeError):
@@ -312,8 +313,10 @@ def configures(pyproject: Path) -> bool:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError:
         return "tool.systemap" in text
-    tool = data.get("tool")
-    return isinstance(tool, dict) and isinstance(tool.get("systemap"), dict)
+    try:
+        return tool_table.section(data) is not None
+    except ValueError:
+        return True
 
 
 PackageDir = Callable[[Path], bool]
@@ -411,11 +414,10 @@ def read_raw(root: Path) -> tuple[dict[str, Any], str]:
     if repo_files.present(root / "pyproject.toml"):
         try:
             text = repo_files.read_text(root, "pyproject.toml", encoding="utf-8-sig")
-            data = tomllib.loads(text)
-        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+            section = tool_table.section(tomllib.loads(text))
+        except (OSError, ValueError) as exc:
             raise ConfigError(f"pyproject.toml: {exc}") from exc
-        section = data.get("tool", {}).get("systemap")
-        if isinstance(section, dict):
+        if section is not None:
             return section, "pyproject.toml [tool.systemap]"
     return {}, ""
 
@@ -792,9 +794,7 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
         raise ConfigError(f"{label}: MODEL must be a systemap.Model")
     if not isinstance(meaning, Meaning):
         raise ConfigError(f"{label}: MEANING must be a systemap.Meaning")
-    found = model_fields.problem(model, Model, "MODEL")
-    found = found or model_fields.problem(meaning, Meaning, "MEANING")
-    found = found or model_names.problem(model, meaning)
+    found, model, meaning = model_fields.checked(model, meaning)
     if found:
         raise ConfigError(f"{label}: {found}")
     return model, flow_ids.resolve(model, meaning)

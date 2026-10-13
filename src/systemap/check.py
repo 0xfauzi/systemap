@@ -342,14 +342,17 @@ def _symbol_problem(
     """Give the problem of one symbol claim, or None for a correct claim.
 
     An empty string tells that the claim is not known: the names of the module are not
-    known (`_names_unknown`), and the facts do not give the name. The claim then gives no line."""
+    known (`_names_unknown`), and the facts do not give the name. The claim then gives no line.
+    The module owner is known also when the name is not known. Thus a module without an
+    owner gives its line."""
     symbol = f"{module}:{name}"
     if module not in components:
         return f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
     if name not in public_names(components[module]):
-        if _names_unknown(components[module]):
+        if not _names_unknown(components[module]):
+            return f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
+        if module in owned:
             return ""
-        return f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
     if module not in owned:
         return (
             f"{c.id} has a symbol claim for {symbol} in a module with no owner. A symbol "
@@ -491,17 +494,18 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
         )
     if not method:
         return ""
-    methods = _interface_methods(modules, symbols, components, name)
-    if method not in methods:
-        # The class's own methods first: a wrong method is usually a
-        # misspelt one, not a module-level name.
-        closest = _closest(method, methods) or _closest(method, names)
-        hint = f". The nearest name is {closest}" if closest else ""
-        return (
-            f"{c.id} interface contains {name}.{method}, but {name} has no public method "
-            f"{method} ({held}){hint}"
-        )
-    return ""
+    holders = _holders(modules, symbols, components, name)
+    methods = _interface_methods(holders, components, name)
+    if method in methods or _methods_not_known(holders, components, name):
+        return ""
+    # The class's own methods first: a wrong method is usually a
+    # misspelt one, not a module-level name.
+    closest = _closest(method, methods) or _closest(method, names)
+    hint = f". The nearest name is {closest}" if closest else ""
+    return (
+        f"{c.id} interface contains {name}.{method}, but {name} has no public method "
+        f"{method} ({held}){hint}"
+    )
 
 
 def _name_hint(name: str, names: set[str], records: list[Mapping[str, Any]]) -> str:
@@ -524,14 +528,45 @@ def _name_hint(name: str, names: set[str], records: list[Mapping[str, Any]]) -> 
     return f". The nearest name is {closest}" if closest else ""
 
 
-def _interface_methods(
+def _holders(
     modules: list[str], symbols: list[tuple[str, str]], components: Mapping[str, Any], name: str
-) -> set[str]:
+) -> list[str]:
+    """Give the claimed modules and the modules of the symbol claims of the name."""
+    return [*modules, *(m for m, n in symbols if n == name and m in components)]
+
+
+def _methods_not_known(holders: list[str], components: Mapping[str, Any], name: str) -> bool:
+    """Tell if the methods of the name are not known.
+
+    They are not known if a module gives the name with an unknown definition. They are
+    also not known if a module of a definition is missing from the facts or its names are not known.
+    Then a method that the facts do not give is not known: it is not a pass and not a
+    failure. The `source inventory unresolved` group or the `unknown surface` group gives
+    the cause."""
+    for holder in holders:
+        record = components[holder]
+        if _unknown_definition(record, name):
+            return True
+        for module, _symbol in reexports.definitions(record, holder, name):
+            if module not in components or _names_unknown(components[module]):
+                return True
+    return False
+
+
+def _unknown_definition(record: Mapping[str, Any], name: str) -> bool:
+    """Tell if the module gives the name with an unknown defining module or symbol."""
+    return any(
+        entry.get("defined_in") is None or entry.get("defined_as") is None
+        for entry in record.get("names") or []
+        if entry.get("name") == name and "defined_in" in entry
+    )
+
+
+def _interface_methods(holders: list[str], components: Mapping[str, Any], name: str) -> set[str]:
     """This function gives the public methods of each definition of the name.
 
     A re-export gives the module and the symbol of its definition. A name that refers to
     a full module gives the public names of that module."""
-    holders = [*modules, *(m for m, n in symbols if n == name and m in components)]
     methods: set[str] = set()
     for holder in holders:
         for module, symbol in reexports.definitions(components[holder], holder, name):
@@ -603,15 +638,30 @@ def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
     """Compare an output file with its rendered text.
 
     The file must be in the output directory (`out_paths`). A link out of the repository,
-    a FIFO, and a device give `file_write.RefusedFile` with the cause.
+    a FIFO, and a device give `file_write.RefusedFile` with the cause. A file that is not
+    UTF-8 text is different from the rendered output. A refresh replaces it.
     """
     rel = cfg.rel(path)
-    text = file_write.read_text(cfg.root, out_paths.checked(cfg, path))
+    try:
+        text = file_write.read_text(cfg.root, out_paths.checked(cfg, path))
+    except UnicodeError:
+        return [f"{rel} differs from the rendered output. The file is not UTF-8 text."]
     if text is None:
         return [f"{rel} has no rendered output."]
     if text != expected:
         return [f"{rel} differs from the rendered output."]
     return []
+
+
+def output_text(root: Path, path: Path) -> str:
+    """Give the text of an output file, or an empty string if it is missing.
+
+    A file that is not UTF-8 text also gives an empty string: it is different from each
+    rendered output."""
+    try:
+        return file_write.read_text(root, path) or ""
+    except UnicodeError:
+        return ""
 
 
 # ---- one run -------------------------------------------------------------------
