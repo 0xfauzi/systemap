@@ -71,13 +71,44 @@ def _one_line(text: str) -> str:
     return " ".join(text.split())
 
 
-def _string(node: Node | None) -> str:
+def string_value(node: Node | None) -> str:
+    """This function gives the value of a string literal. Each escape sequence gives its
+    character.
+
+    The value is empty if the node is not a string literal.
+    """
     if node is None or node.type != "string":
         return ""
-    fragment = next(
-        (child for child in node.named_children if child.type == "string_fragment"), None
+    parts = (
+        _escape(_text(child)) if child.type == "escape_sequence" else _text(child)
+        for child in node.named_children
     )
-    return _text(fragment)
+    # Two escape sequences such as `\ud83d\ude00` give one character. A surrogate
+    # without its pair becomes U+FFFD, because UTF-8 output cannot contain it.
+    value = "".join(parts)
+    return value.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+
+
+SIMPLE_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v"}
+LINE_ENDS = ("\n", "\r", "\u2028", "\u2029")
+
+
+def _escape(sequence: str) -> str:
+    """This function gives the character of one escape sequence of the JavaScript grammar.
+
+    A backslash before a line end continues the line and gives no character.
+    """
+    body = sequence[1:]
+    if body.startswith(LINE_ENDS):
+        return ""
+    digits = body[1:].strip("{}") if body[:1] in ("x", "u") else body
+    base = 16 if body[:1] in ("x", "u") else 8
+    if digits.isalnum() and (base == 16 or digits.isdigit()):
+        try:
+            return chr(int(digits, base))
+        except ValueError:
+            pass
+    return SIMPLE_ESCAPES.get(body, body)
 
 
 def docstring(root: Node) -> str:

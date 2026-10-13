@@ -6,7 +6,7 @@ import re
 
 from tree_sitter import Node
 
-from systemap.typescript_syntax import _root, _string, _text
+from systemap.typescript_syntax import _root, _text, string_value
 
 TEST_CALL = re.compile(r"(?:test|it)(?:\.(?:only|skip|concurrent|fails|todo))*")
 # A table test: `it.each(rows)("name", ...)` or it.each`rows`("name", ...).
@@ -72,7 +72,7 @@ def _name(call: Node) -> str:
     first = _first_argument(call)
     if first is not None and first.type == "template_string":
         return _text(first)[1:-1]
-    return _string(first)
+    return string_value(first)
 
 
 def _suite_name(call: Node) -> str:

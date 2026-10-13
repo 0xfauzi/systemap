@@ -29,7 +29,8 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # Format 7: each module record has the `call_sites` fact. Format 8: a Python `api`
 # fingerprint includes decorators, and the Python `empty_marker` fact reads each
 # top-level statement. Each re-export has `defined_in` and `defined_as`, the identity
-# of its definition. Cached facts of format 7 have the earlier values.
+# of its definition. A TypeScript type-only export has `type_only`, and `api` has a
+# record for each `*` re-export. Cached facts of format 7 have the earlier values.
 FORMAT = 8
 TESTS_KEPT = 25
 

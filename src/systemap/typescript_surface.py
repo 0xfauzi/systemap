@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from tree_sitter import Node
 
 from systemap.typescript_imports import import_names
-from systemap.typescript_syntax import _one_line, _root, _string, _text, _tree, _walk, docstring
+from systemap.typescript_reexports import export_specifiers, reexport_api, reexports
+from systemap.typescript_syntax import _one_line, _root, _text, _tree, _walk, docstring
 from systemap.typescript_tests import test_names as test_names
 
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
@@ -32,10 +34,6 @@ TYPE_NODES = {
 }
 # `namespace N {}` and `module N {}` declare the same kind of object.
 NAMESPACE_NODES = {"internal_module", "module"}
-
-
-def _source(node: Node) -> str:
-    return _string(node.child_by_field_name("source"))
 
 
 def _header(node: Node) -> str:
@@ -143,94 +141,122 @@ def _namespace_kinds(declaration: Node) -> dict[str, str]:
     return {_text(name): "object"} if name is not None else {}
 
 
+def _is_callable(node: Node | None) -> bool:
+    """This function tells if a value is a function. The names, the function records, and
+    the export identities use this one test.
+    """
+    return node is not None and node.type in EXPORTED_FUNCTION_NODES
+
+
+# The name kind of each record group of a variable.
+RECORD_KINDS = {"functions": "function", "constants": "constant"}
+
+
 def _variable_kinds(declaration: Node) -> dict[str, str]:
+    """This function gives the `kind` value of each variable name, as an export of
+    the declaration gives it.
+    """
     out: dict[str, str] = {}
     for variable in (
         child for child in declaration.named_children if child.type == "variable_declarator"
     ):
+        names = _binding_names(variable.child_by_field_name("name"))
         value = variable.child_by_field_name("value")
-        kind = (
-            "function" if value is not None and value.type in EXPORTED_FUNCTION_NODES else "object"
-        )
-        out.update((name, kind) for name in _binding_names(variable.child_by_field_name("name")))
+        found = _variable_record(value, names[0]) if len(names) == 1 else None
+        kind = RECORD_KINDS[found[0]] if found is not None else "object"
+        out.update((name, kind) for name in names)
     return out
 
 
-def _reexports(node: Node) -> list[dict[str, Any]]:
-    source = _source(node)
-    if not source:
-        return []
-    namespace = next(
-        (child for child in node.named_children if child.type == "namespace_export"), None
-    )
-    if namespace is not None:
-        return [_namespace_reexport(namespace, source)]
-    clause = next((child for child in node.named_children if child.type == "export_clause"), None)
-    if clause is None:
-        return [_star_reexport(source)] if any(child.type == "*" for child in node.children) else []
-    return _named_reexports(clause, source)
+def _declaration_nodes(root: Node) -> dict[str, list[Node]]:
+    """This function gives the top-level declarations of each local name.
 
-
-def _namespace_reexport(namespace: Node, source: str) -> dict[str, Any]:
-    alias = next((child for child in namespace.named_children if child.type == "identifier"), None)
-    return {"name": _text(alias) or "unknown", "kind": "object", "reexport_of": source}
-
-
-def _star_reexport(source: str) -> dict[str, Any]:
-    return {"name": "*", "kind": "reexport", "reexport_of": source, "star": True}
-
-
-def _named_reexports(clause: Node, source: str) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
-        identifiers = [
-            child
-            for child in specifier.named_children
-            if child.type in ("identifier", "type_identifier")
-        ]
-        if identifiers:
-            original, public = _text(identifiers[0]), _text(identifiers[-1])
-            entry: dict[str, Any] = {"name": public, "kind": "reexport", "reexport_of": source}
-            if public != original:
-                entry["defined_as"] = original
-            out.append(entry)
-    return out
-
-
-def _local_exports(
-    node: Node, local_names: dict[str, dict[str, str]]
-) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-    """This function records `export { name }` for a declared or an imported local name.
-
-    An imported name is a re-export of its source module.
+    A function with overload signatures has more than one declaration. A variable has
+    its declarator, if the declarator declares only that name.
     """
-    clause = next((child for child in node.named_children if child.type == "export_clause"), None)
-    if clause is None:
-        return [], []
-    names: list[dict[str, str]] = []
-    unknown: list[dict[str, Any]] = []
-    for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
-        identifiers = [
-            child
-            for child in specifier.named_children
-            if child.type in ("identifier", "type_identifier")
-        ]
-        if not identifiers:
-            continue
-        local, public = _text(identifiers[0]), _text(identifiers[-1])
-        names.append(_local_entry(public, local_names.get(local, {"kind": "unknown"})))
-        if local not in local_names:
-            unknown.append(
+    out: dict[str, list[Node]] = {}
+    for statement in root.named_children:
+        declaration = _declaration(statement) if statement.type == "export_statement" else statement
+        for name, node in _declared_nodes(declaration):
+            out.setdefault(name, []).append(node)
+    return out
+
+
+def _declared_nodes(declaration: Node | None) -> list[tuple[str, Node]]:
+    if declaration is None:
+        return []
+    if declaration.type in FUNCTION_NODES:
+        return [(_text(declaration.child_by_field_name("name")), declaration)]
+    if declaration.type in TYPE_NODES:
+        return [(_type_record(declaration)[0]["name"], declaration)]
+    if declaration.type != "lexical_declaration":
+        return []
+    out: list[tuple[str, Node]] = []
+    for variable in (
+        child for child in declaration.named_children if child.type == "variable_declarator"
+    ):
+        names = _binding_names(variable.child_by_field_name("name"))
+        if len(names) == 1:
+            out.append((names[0], variable))
+    return out
+
+
+@dataclass(frozen=True)
+class _Module:
+    """The facts of one module that each export statement can use.
+
+    `source` is the module text. The syntax tree does not contain all of the module text.
+    """
+
+    local_names: dict[str, dict[str, Any]]
+    declarations: dict[str, list[Node]]
+    source: bytes
+
+
+def _local_exports(node: Node, module: _Module, surface: dict[str, Any]) -> bool:
+    """This function records `export { name }` for a declared or an imported local name,
+    and tells if the statement gives a public name.
+
+    An imported name is a re-export of its source module. A declared name gets the
+    declaration records, with the public name.
+    """
+    specifiers = export_specifiers(node)
+    for local, public, type_only in specifiers:
+        entry = _local_entry(public, module.local_names.get(local, {"kind": "unknown"}))
+        if type_only:
+            entry["type_only"] = True
+        surface["names"].append(entry)
+        _add_local_records(module.declarations.get(local, []), public, surface)
+        if local not in module.local_names:
+            surface["unknown"].append(
                 _unknown(node, f"the local export {local!r} has an unknown declaration kind.")
             )
-    return names, unknown
+    return bool(specifiers)
 
 
-def _local_entry(public: str, known: dict[str, str]) -> dict[str, str]:
+def _local_entry(public: str, known: dict[str, Any]) -> dict[str, Any]:
     entry = {"name": public, **known}
     if entry.get("defined_as") == public:
         del entry["defined_as"]
     return entry
+
+
+def _add_local_records(nodes: list[Node], public: str, surface: dict[str, Any]) -> None:
+    """This function adds the records of local declarations, with the public name.
+
+    `export { Store as Public }` gives the class record `Public`, with the methods of
+    `Store`.
+    """
+    for node in nodes:
+        if node.type in TYPE_NODES:
+            record, is_error = _type_record(node)
+            surface["errors" if is_error else "classes"].append({**record, "name": public})
+        elif node.type in FUNCTION_NODES:
+            surface["functions"].append({"name": public, "signature": _header(node)})
+        elif node.type == "variable_declarator":
+            found = _variable_record(node.child_by_field_name("value"), public)
+            if found is not None:
+                surface[found[0]].append(found[1])
 
 
 def _unknown(node: Node, reason: str) -> dict[str, Any]:
@@ -260,8 +286,8 @@ def _add_function(
     name_override: str = "",
 ) -> None:
     name = (
-        _text(declaration.child_by_field_name("name"))
-        or name_override
+        name_override
+        or _text(declaration.child_by_field_name("name"))
         or ("default" if default else "")
     )
     if not name:
@@ -346,7 +372,7 @@ def _add_variable(
         names.extend({"name": name, "kind": "object"} for name in bound_names)
         return
     name = bound_names[0]
-    if value.type in ("arrow_function", "function_expression"):
+    if _is_callable(value):
         _add_function(value, functions, names, name_override=name)
     elif UPPER_NAME.fullmatch(name):
         constants.append({"name": name, "value": _one_line(_text(value))[:80]})
@@ -355,18 +381,32 @@ def _add_variable(
         names.append({"name": name, "kind": "object"})
 
 
-def _record_export(
-    export: Node, surface: dict[str, Any], local_names: dict[str, dict[str, str]]
-) -> None:
-    reexports = _reexports(export)
+def _variable_record(value: Node | None, name: str) -> tuple[str, dict[str, str]] | None:
+    """This function gives the record group and the record of a variable with one name,
+    as `_add_variable` records it. An object has no record.
+    """
+    if value is None:
+        return None
+    if _is_callable(value):
+        signature = (
+            _arrow_signature(name, value) if value.type == "arrow_function" else _header(value)
+        )
+        return "functions", {"name": name, "signature": signature}
+    if UPPER_NAME.fullmatch(name):
+        return "constants", {"name": name, "value": _one_line(_text(value))[:80]}
+    return None
+
+
+def _record_export(export: Node, surface: dict[str, Any], module: _Module) -> None:
+    found = reexports(export, module.source)
     start = len(surface["names"])
-    surface["names"].extend(reexports)
-    if reexports and any(entry.get("star") for entry in reexports):
+    surface["names"].extend(found)
+    if found and any(entry.get("star") for entry in found):
         return
     declaration = _declaration(export)
     default = any(child.type == "default" for child in export.children)
     if declaration is None:
-        _record_export_without_declaration(export, surface, local_names, default, reexports)
+        _record_export_without_declaration(export, surface, module, default, found)
         return
     _record_declared_export(export, declaration, surface, default, start)
 
@@ -374,18 +414,16 @@ def _record_export(
 def _record_export_without_declaration(
     export: Node,
     surface: dict[str, Any],
-    local_names: dict[str, dict[str, str]],
+    module: _Module,
     default: bool,
-    reexports: list[dict[str, Any]],
+    found: list[dict[str, Any]],
 ) -> None:
     value = export.child_by_field_name("value")
     if default and value is not None:
-        _record_default_value(export, value, surface, local_names)
+        _record_default_value(export, value, surface, module.local_names)
         return
-    local, local_unknown = _local_exports(export, local_names) if not reexports else ([], [])
-    surface["names"].extend(local)
-    surface["unknown"].extend(local_unknown)
-    if not local and not reexports and not _empty_export(export):
+    local = _local_exports(export, module, surface) if not found else False
+    if not local and not found and not _empty_export(export):
         surface["unknown"].append(_unknown(export, "The export form has no recorded public name."))
 
 
@@ -398,8 +436,8 @@ def _empty_export(export: Node) -> bool:
 def _record_default_value(
     export: Node, value: Node, surface: dict[str, Any], local_names: dict[str, dict[str, str]]
 ) -> None:
-    if value.type in ("arrow_function", "function_expression", "generator_function"):
-        _add_function(value, surface["functions"], surface["names"], default=True)
+    if _is_callable(value):
+        _add_function(value, surface["functions"], surface["names"], name_override="default")
         return
     entry = _default_name(value, local_names)
     surface["names"].append(entry)
@@ -530,13 +568,13 @@ def _type_definition(node: Node) -> str:
     return _syntax(node, omit_body=True) + "\n" + "\n".join(members)
 
 
-def _namespace_definition(node: Node) -> str:
+def _namespace_definition(node: Node, source: bytes) -> str:
     body = node.child_by_field_name("body")
-    exports = _exported_api(body) if body is not None else []
+    exports = _exported_api(body, source) if body is not None else []
     return _syntax(node, omit_body=True) + "\n" + json.dumps(exports, sort_keys=True)
 
 
-def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
+def _declaration_api(node: Node, source: bytes) -> list[tuple[str, str, str]]:
     if node.type in FUNCTION_NODES:
         name = _text(node.child_by_field_name("name"))
         return [(name, "operations", _syntax(node, omit_body=True))] if name else []
@@ -544,7 +582,8 @@ def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
         record, is_error = _type_record(node)
         return [(record["name"], "refusals" if is_error else "types", _type_definition(node))]
     if node.type in NAMESPACE_NODES:
-        return [(name, "constants", _namespace_definition(node)) for name in _namespace_kinds(node)]
+        definition = _namespace_definition(node, source)
+        return [(name, "constants", definition) for name in _namespace_kinds(node)]
     if node.type != "lexical_declaration":
         return []
     return _lexical_api(node)
@@ -553,9 +592,8 @@ def _declaration_api(node: Node) -> list[tuple[str, str, str]]:
 def _lexical_api(node: Node) -> list[tuple[str, str, str]]:
     out: list[tuple[str, str, str]] = []
     for variable in (child for child in node.named_children if child.type == "variable_declarator"):
-        value = variable.child_by_field_name("value")
         names = _binding_names(variable.child_by_field_name("name"))
-        is_function = value is not None and value.type in EXPORTED_FUNCTION_NODES
+        is_function = _is_callable(variable.child_by_field_name("value"))
         definition = _syntax(variable, omit_body=is_function)
         out.extend(
             (name, "operations" if is_function else "constants", definition) for name in names
@@ -563,103 +601,88 @@ def _lexical_api(node: Node) -> list[tuple[str, str, str]]:
     return out
 
 
-def _local_api(root: Node) -> dict[str, list[tuple[str, str]]]:
-    local: dict[str, list[tuple[str, str]]] = {}
+# The export identities of each local name: (bucket, fingerprint) pairs.
+LocalApi = dict[str, list[tuple[str, str]]]
+
+
+def _local_api(root: Node, source: bytes) -> LocalApi:
+    local: LocalApi = {}
     for statement in root.named_children:
         declaration = _declaration(statement) if statement.type == "export_statement" else statement
         if declaration is None:
             continue
-        for name, bucket, definition in _declaration_api(declaration):
+        for name, bucket, definition in _declaration_api(declaration, source):
             local.setdefault(name, []).append((bucket, definition))
     return local
 
 
-def _exported_api(root: Node) -> list[dict[str, str]]:
-    local = _import_api(root) | _local_api(root)
+def _exported_api(root: Node, source: bytes) -> list[dict[str, str]]:
+    local = _import_api(root) | _local_api(root, source)
     out: list[dict[str, str]] = []
     for statement in (node for node in root.named_children if node.type == "export_statement"):
-        out.extend(_export_statement_api(statement, local))
+        out.extend(_export_statement_api(statement, local, source))
     return out
 
 
-def _import_api(root: Node) -> dict[str, list[tuple[str, str]]]:
+def _import_api(root: Node) -> LocalApi:
     """This function gives the identity of each imported local name, for `export { name }`."""
     return {
-        name: [("constants", f"reexport:{entry['reexport_of']}:{entry.get('defined_as', '*')}")]
+        name: [
+            (
+                "constants",
+                f"{'type-reexport' if entry.get('type_only') else 'reexport'}:"
+                f"{entry['reexport_of']}:{entry.get('defined_as', '*')}",
+            )
+        ]
         for name, entry in import_names(root).items()
     }
 
 
-def _export_statement_api(
-    statement: Node, local: dict[str, list[tuple[str, str]]]
-) -> list[dict[str, str]]:
-    reexports = _reexports(statement)
-    if reexports:
-        return _reexport_api(reexports)
-    declared = _declared_export_api(statement)
+def _export_statement_api(statement: Node, local: LocalApi, source: bytes) -> list[dict[str, str]]:
+    found = reexports(statement, source)
+    if found:
+        return reexport_api(found)
+    declared = _declared_export_api(statement, local, source)
     if declared is not None:
         return declared
     return _clause_export_api(statement, local)
 
 
-def _reexport_api(reexports: list[dict[str, Any]]) -> list[dict[str, str]]:
-    out: list[dict[str, str]] = []
-    for entry in reexports:
-        if entry.get("star"):
-            continue
-        source = entry["reexport_of"]
-        original = entry.get("defined_as", entry["name"])
-        out.append(
-            {
-                "name": entry["name"],
-                "bucket": "constants",
-                "fingerprint": f"reexport:{source}:{original}",
-            }
-        )
-    return out
-
-
-def _declared_export_api(statement: Node) -> list[dict[str, str]] | None:
+def _declared_export_api(
+    statement: Node, local: LocalApi, source: bytes
+) -> list[dict[str, str]] | None:
     declaration = _declaration(statement)
     default = any(child.type == "default" for child in statement.children)
     if declaration is not None:
         return [
             {"name": "default" if default else name, "bucket": bucket, "fingerprint": definition}
-            for name, bucket, definition in _declaration_api(declaration)
+            for name, bucket, definition in _declaration_api(declaration, source)
         ]
     value = statement.child_by_field_name("value")
-    if default and value is not None:
-        bucket = "operations" if value.type in EXPORTED_FUNCTION_NODES else "constants"
+    if not default or value is None:
+        return None
+    if value.type == "identifier" and _text(value) in local:
+        # `export default serve` has the identity of the declaration of `serve`.
         return [
-            {
-                "name": "default",
-                "bucket": bucket,
-                "fingerprint": _syntax(value, omit_body=bucket == "operations"),
-            }
+            {"name": "default", "bucket": bucket, "fingerprint": definition}
+            for bucket, definition in local[_text(value)]
         ]
-    return None
+    bucket = "operations" if _is_callable(value) else "constants"
+    return [
+        {
+            "name": "default",
+            "bucket": bucket,
+            "fingerprint": _syntax(value, omit_body=bucket == "operations"),
+        }
+    ]
 
 
-def _clause_export_api(
-    statement: Node, local: dict[str, list[tuple[str, str]]]
-) -> list[dict[str, str]]:
+def _clause_export_api(statement: Node, local: LocalApi) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
-    clause = next(
-        (child for child in statement.named_children if child.type == "export_clause"), None
-    )
-    if clause is None:
-        return out
-    for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
-        identifiers = [
-            child
-            for child in specifier.named_children
-            if child.type in ("identifier", "type_identifier")
-        ]
-        if not identifiers:
-            continue
-        original, public = _text(identifiers[0]), _text(identifiers[-1])
+    for original, public, type_only in export_specifiers(statement):
+        prefix = "type-only:" if type_only else ""
         for bucket, definition in local.get(original, [("constants", f"unresolved:{original}")]):
-            out.append({"name": public, "bucket": bucket, "fingerprint": definition})
+            out.append({"name": public, "bucket": bucket, "fingerprint": prefix + definition})
     return out
 
 
@@ -676,8 +699,10 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     constants: list[dict[str, str]] = []
     names: list[dict[str, Any]] = []
     unknown: list[dict[str, Any]] = []
-    local_names = import_names(root)
+    local_names: dict[str, dict[str, Any]] = dict(import_names(root))
     local_names.update((name, {"kind": kind}) for name, kind in _declared_kinds(root).items())
+    source = raw.encode("utf-8")
+    module = _Module(local_names, _declaration_nodes(root), source)
     surface = {
         "functions": functions,
         "classes": classes,
@@ -687,7 +712,7 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "unknown": unknown,
     }
     for export in (node for node in root.named_children if node.type == "export_statement"):
-        _record_export(export, surface, local_names)
+        _record_export(export, surface, module)
     return {
         "docstring": docstring(root),
         "functions": functions,
@@ -696,5 +721,5 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "constants": constants,
         "names": names,
         "unknown": unknown,
-        "api": _exported_api(root),
+        "api": _exported_api(root, source),
     }
