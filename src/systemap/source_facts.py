@@ -10,7 +10,7 @@ value, and they do not give a pass.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from systemap.model import source_parsed
@@ -89,10 +89,24 @@ def module_file(module: str, components: Mapping[str, Any]) -> str:
     return file if isinstance(file, str) else ""
 
 
-def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
-    """Give the facts that the extractor could not fully read or connect."""
+def unknown_fact_lines(
+    facts: dict[str, Any], skip: Collection[str] = (), repository: bool = True
+) -> list[str]:
+    """Give the facts that the extractor could not fully read or connect.
+
+    A module line is not given for a module in `skip`. The judgement gives a module line
+    in the map that owns the module. The lines about entry points, test files, and
+    configuration files apply to the full repository. Only `repository` gives them.
+    """
+    modules = _unknown_module_lines(facts, skip)
+    return modules + _unknown_repository_lines(facts) if repository else modules
+
+
+def _unknown_module_lines(facts: dict[str, Any], skip: Collection[str]) -> list[str]:
     out: list[str] = []
     for module, record in sorted(facts.get("components", {}).items()):
+        if module in skip:
+            continue
         file = record.get("file", module)
         if issue := record.get("parse_error"):
             location = f"{file}:{issue['line']}" if issue.get("line") else file
@@ -104,6 +118,11 @@ def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
             line = issue.get("line", 0)
             location = f"{file}:{line}" if line else file
             out.append(f"unknown surface: module {module} ({location}): {issue['reason']}")
+    return out
+
+
+def _unknown_repository_lines(facts: dict[str, Any]) -> list[str]:
+    out: list[str] = []
     for issue in facts.get("entry_point_issues", []):
         out.append(
             f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "

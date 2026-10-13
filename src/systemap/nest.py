@@ -148,6 +148,7 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
                 f"{parent.rel}: {c.id} opens {rel}, which is already a parent map ({chain}). A "
                 f"map cannot open itself."
             )
+        _opened_once(cfg, parent, c.id, path, maps)
         if not repo_files.inside(cfg.root, path):
             raise ConfigError(
                 f"{parent.rel}: {c.id} opens {rel}, which is not in the repository. Put the "
@@ -171,6 +172,21 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
         )
         maps.append(child)
         _walk(cfg, child, [*above, path], maps)
+
+
+def _opened_once(cfg: Config, parent: Map, card: str, path: Path, maps: list[Map]) -> None:
+    """Refuse a nested model file that a different component opens.
+
+    The loader reads each model file one time. Two components that open the same file
+    make two maps of the same modules, and each level of the tree doubles the number of
+    file reads.
+    """
+    first = next((m for m in maps if m.path.resolve() == path), None)
+    if first is not None:
+        raise ConfigError(
+            f"{parent.rel}: {card} opens {cfg.rel(path)}, but the map {first.id} "
+            "uses this file. Give each nested model file one component that opens it."
+        )
 
 
 def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:

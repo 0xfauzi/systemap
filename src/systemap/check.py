@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, extraction, figure, nest, page, source_facts
+from systemap import explain, extract, extraction, figure, identifier, nest, page, source_facts
 from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
@@ -359,20 +359,18 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 
 # ---- interface: the signature names something the modules define ------------------
 
-# The leading identifier of an interface line, and the method after a dot
-# when the line reads `Class.method`. A name can contain `$`, as a TypeScript
-# name can. The token ends at `(`, `.`, `->`, whitespace or any other character.
-INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_$][\w$]*)(?:\.([A-Za-z_$][\w$]*))?")
-
 
 def interface_head(text: str) -> tuple[str, str] | None:
-    """This function reads the initial interface identifier and optional method name, or
-    gives `None` if there is no identifier.
+    """This function reads the initial interface identifier and the method name after a
+    dot (`Class.method`), or gives `None`. An identifier can contain Unicode letters.
     """
-    found = INTERFACE_HEAD.match(text)
-    if found is None:
+    start = len(text) - len(text.lstrip())
+    name = identifier.read(text, start)
+    if not name:
         return None
-    return found.group(1), found.group(2) or ""
+    after = start + len(name)
+    method = identifier.read(text, after + 1) if text[after : after + 1] == "." else ""
+    return name, method
 
 
 def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:

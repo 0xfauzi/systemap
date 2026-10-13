@@ -17,7 +17,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from systemap import config
+from systemap import config, identifier
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_config import (
     DECLARATION_SUFFIXES,
@@ -32,10 +32,10 @@ from systemap.typescript_config import (
 TSCONFIG = "tsconfig.json"
 PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
 # The method name in a recorded method header. A header starts with optional modifiers
-# and an optional `*`.
+# and an optional `*`. The name can contain Unicode letters (`identifier.complete`).
 METHOD = re.compile(
     r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
+    r"\*?\s*([^\s?!<(]+)\s*[?!]?\s*[<(]"
 )
 # npm package names of model SDKs and agent frameworks. A scope such as `@ai-sdk`
 # matches each package in that scope. A name matches as a prefix of the import name.
@@ -182,7 +182,7 @@ class TypeScriptRepository:
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)
-        return found.group(1) if found else ""
+        return found.group(1) if found and identifier.complete(found.group(1)) else ""
 
 
 TYPESCRIPT_REPOSITORY = TypeScriptRepository()

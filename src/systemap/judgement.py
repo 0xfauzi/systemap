@@ -40,7 +40,6 @@ from systemap.journey_coverage import (
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
 from systemap.source_facts import package_of, unknown_fact_lines
-from systemap.source_text import text_digest
 
 __all__ = ["mentioned"]
 
@@ -353,11 +352,13 @@ def run(
     journeys_text: str | None = None,
     covered: Collection[str] | None = None,
     skip: Collection[str] = (),
+    repository: bool = True,
 ) -> list[str]:
     """This function gives the judgement diagnostics for one map.
 
     The journeys_text and skip arguments supply nested-map sequence data and excluded
-    modules.
+    modules. Only `repository` gives the lines about the full repository. Thus a tree of
+    maps gives these lines one time.
     """
     return (
         single_module(model, facts)
@@ -375,7 +376,7 @@ def run(
         + step_refs.problems(model, meaning, facts)
         + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip)
-        + unknown_fact_lines(facts)
+        + unknown_fact_lines(facts, skip, repository)
     )
 
 
@@ -394,7 +395,8 @@ def flow_review(
             f"artifact, or change the flow."
         )
         for flow in model.flows
-        if states.of(flow).state == evidence.STRUCTURAL or states.of(flow).unresolved_refs
+        if states.of(flow).state == evidence.STRUCTURAL
+        or (states.of(flow).unresolved_refs and states.of(flow).state != evidence.EXTERNAL)
     ]
 
 
@@ -486,7 +488,16 @@ def run_tree(
         skip = {mod for c in m.model.opening for mod in claimed(c, components)}
         if not m.top:
             skip |= set(components) - set(_owner_of(m.model, facts))
-        lines = run(m.model, m.meaning, facts, sdks, observed_by, covered=covered, skip=skip)
+        lines = run(
+            m.model,
+            m.meaning,
+            facts,
+            sdks,
+            observed_by,
+            covered=covered,
+            skip=skip,
+            repository=m.top,
+        )
         out += [m.prefix + line for line in lines]
     return out
 
@@ -523,8 +534,9 @@ def evidence_for_tree(
         )
         if state is None:
             if m.id not in model_hashes:
-                model_hashes[m.id] = text_digest(m.path.read_bytes())
-            state = judgement_evidence.full_state(components, root, model_hashes[m.id])
+                model_hashes[m.id] = judgement_evidence.model_digest(m)
+            points = judgement_evidence.entry_points(m, facts, key)
+            state = judgement_evidence.full_state(components, root, model_hashes[m.id], points)
         encoded = json.dumps(state, sort_keys=True, default=str).encode()
         out[key] = hashlib.sha256(encoded).hexdigest()
     return out

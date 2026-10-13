@@ -12,7 +12,7 @@
    "  decision flow: Reader -> Writer ('request'): the code where they meet may not carry it",
    "      P(carries it) 0.10",
    "      why: An incorrect flow tells the reader that a connection is available when the code has no such connection.",
-   "      do:  Find the call for the flow. The question to the provider has no instance-call evidence. If the flow uses an instance call, record that reason.",
+   "      do:  Find the code that sends the artifact. The question to the provider contains the source lines that use names from the other component. If the code sends the artifact through a file or a function argument, record that reason.",
    "jev: 1 sent, 0 from the cache; 0 input and 0 output tokens; jev-golden"
   ]
  },
