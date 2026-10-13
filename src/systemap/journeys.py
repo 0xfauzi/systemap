@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import journey_coverage as judgement
+from systemap import repo_files
 from systemap.agent import Agent
 from systemap.evidence import owners
 from systemap.extract import entry_identity, entry_label
@@ -268,9 +269,8 @@ def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
     """Hash current source bytes for the sequence answer cache."""
     digest = hashlib.sha256()
     for relative in sorted({record["file"] for record in facts.get("components", {}).values()}):
-        path = root / relative
         try:
-            content = path.read_bytes()
+            content = repo_files.read_bytes(root, relative)
         except OSError as exc:
             raise ValueError(
                 f"cannot examine the sequence: source {relative} is not available: {exc}"

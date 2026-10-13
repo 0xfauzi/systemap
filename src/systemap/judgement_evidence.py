@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from systemap import repo_files
 from systemap.source_text import text_digest
 
 
@@ -16,7 +17,7 @@ def _source_hash(root: Path, record: dict[str, Any]) -> str:
     if not isinstance(name, str):
         return "unknown source"
     try:
-        return text_digest((root / name).read_bytes())
+        return text_digest(repo_files.read_bytes(root, name))
     except OSError:
         return "missing source"
 

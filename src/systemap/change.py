@@ -17,7 +17,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from systemap import delta_model, extract, history, nest
+from systemap import delta_model, extract, history, nest, repo_files
 from systemap.config import Config
 from systemap.extract import WHOLE_MODULE
 from systemap.language import LanguageAdapter
@@ -171,7 +171,7 @@ class _WorkingTree:
 
     def text(self, path: str) -> str:
         try:
-            return (self.cfg.root / path).read_text(encoding="utf-8", errors="replace")
+            return repo_files.read_text(self.cfg.root, path, errors="replace")
         except OSError:
             return ""
 
@@ -283,7 +283,7 @@ def _paths_for_change(
     paths = {
         module: cfg.root / record["file"]
         for module, record in facts.get("components", {}).items()
-        if record.get("file")
+        if repo_files.plain(record.get("file"))
     }
     for path in files:
         module = language.module_for_path(cfg.root, path, cfg.roots)
