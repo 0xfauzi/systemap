@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from systemap import decision_kinds
+
 INDENT = "      "
 
 
@@ -99,6 +101,20 @@ JUDGEMENT = {
         do=(
             "Compare the sequence with the code. Correct the errors. Then set "
             "`drafted=False`, or answer the line with your source review."
+        ),
+    ),
+    "step source": Lesson(
+        means=(
+            "A source record of a sequence step does not resolve in the current source. "
+            "Or, the record is in no module of an acting or measured component of the step."
+        ),
+        why=(
+            "The record must show the step in the code of the components that do the step. "
+            "A record in a different module does not show that the step occurs."
+        ),
+        do=(
+            "Examine the source of the step. Then cite a current record in a module of an "
+            "acting or measured component, or change the step."
         ),
     ),
     "crossing import": Lesson(
@@ -317,24 +333,25 @@ DELTA = {
     ),
 }
 
-# ---- the lines `systemap audit` prints, from Jev's answers ------------------------
+# ---- the lines from the answers of a decision provider (audit and delta --decide) -----
 
 AUDIT = {
-    "jev mis-fold": Lesson(
-        means="Jev gives a different component for the task of this module.",
+    decision_kinds.MISFOLD: Lesson(
+        means="The decision provider gives a different component for the task of this module.",
         why=(
-            "The `possible mis-fold` rule uses names only. Jev reads the module name, "
-            "docstring, public names, and imports to find modules in incorrect components."
+            "The `possible mis-fold` rule uses names only. The decision provider reads the "
+            "module name, docstring, public names, and imports to find modules in incorrect "
+            "components."
         ),
         do=(
             "Compare the module with both components. Move it, or record the reason "
             "for its component at this snapshot."
         ),
     ),
-    "jev move": Lesson(
+    decision_kinds.MOVE: Lesson(
         means=(
-            "Jev reads a removed module and an added module as the same module. Delta did "
-            "not pair them."
+            "The decision provider reads a removed module and an added module as the same "
+            "module. Delta did not pair them."
         ),
         why=(
             "A move keeps the module claim of a component. This suggestion does not change "
@@ -345,16 +362,18 @@ AUDIT = {
             "to the added module. Otherwise, do the actions of the delta lines."
         ),
     ),
-    "jev owner": Lesson(
-        means="No component contains this module. Jev gives a possible component.",
+    decision_kinds.OWNER: Lesson(
+        means=(
+            "No component contains this module. The decision provider gives a possible component."
+        ),
         why="Without a component for the module, the map omits part of the system.",
         do=(
             "Add the module to the specified component or one of the three nearest "
             "components. Or give a reason to ignore it."
         ),
     ),
-    "jev sentence": Lesson(
-        means="Jev gives a possible error in the component description.",
+    decision_kinds.SENTENCE: Lesson(
+        means="The decision provider gives a possible error in the component description.",
         why=(
             "An incorrect component description gives the reader incorrect information "
             "about the modules."
@@ -364,20 +383,23 @@ AUDIT = {
             "is still correct."
         ),
     ),
-    "jev flow": Lesson(
-        means=("Jev gives a possible difference between the code and the flow claim."),
+    decision_kinds.FLOW: Lesson(
+        means=(
+            "The decision provider gives a possible difference between the code and the flow claim."
+        ),
         why=(
             "An incorrect flow tells the reader that a connection is available when the "
             "code has no such connection."
         ),
         do=(
-            "Find the call for the flow. Jev has no instance-call evidence. If the flow "
-            "uses an instance call, record that reason."
+            "Find the call for the flow. The question to the provider has no instance-call "
+            "evidence. If the flow uses an instance call, record that reason."
         ),
     ),
-    "jev governs": Lesson(
+    decision_kinds.GOVERNS: Lesson(
         means=(
-            "Jev gives a component that a rule can affect. The rule does not name that component."
+            "The decision provider gives a component that a rule can affect. The rule does "
+            "not name that component."
         ),
         why=(
             "A missing component in the rule scope can let a change cause an error without "
@@ -389,6 +411,10 @@ AUDIT = {
         ),
     ),
 }
+
+# The previous names of the decision kinds give the explanation of the new name.
+# systemap reads the previous names for one release.
+PREVIOUS = {old: AUDIT[new] for old, new in decision_kinds.PREVIOUS.items()}
 
 # ---- what `systemap check` refuses -------------------------------------------------
 
@@ -495,7 +521,7 @@ CHECK = {
     ),
 }
 
-LESSONS: dict[str, Lesson] = {**JUDGEMENT, **DELTA, **AUDIT, **CHECK}
+LESSONS: dict[str, Lesson] = {**JUDGEMENT, **DELTA, **AUDIT, **PREVIOUS, **CHECK}
 
 
 def lesson(kind: str) -> Lesson | None:
@@ -512,13 +538,16 @@ def whole(kind: str) -> list[str]:
     """This function gives the full explanation for `systemap explain`."""
     found = LESSONS.get(kind)
     if found is None:
-        known = ", ".join(sorted(LESSONS))
+        known = ", ".join(sorted(set(LESSONS) - set(PREVIOUS)))
         return [
             f"explain: there is no line kind with the name {kind!r}.",
             f"  the kinds are: {known}",
         ]
+    current = decision_kinds.current(kind)
+    name = [f"  new name: {current}"] if current != kind else []
     return [
         f"{kind}",
+        *name,
         f"  meaning: {found.means}",
         f"  importance: {found.why}",
         f"  action: {found.do}",

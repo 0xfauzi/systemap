@@ -1,33 +1,37 @@
-"""Get Jev's second opinion on semantic map claims.
+"""Get a second opinion on semantic map claims from a decision provider.
 
-`systemap judgement` uses names and imports. Audit gives TypeSafe's Jev questions
-about owners, component sentences, flow claims, and invariants.
-Disagreements print with `jev mis-fold`, `jev owner`, `jev sentence`, `jev flow`,
-or `jev governs` identifiers.
+`systemap judgement` uses names and imports. Audit gives the decision provider (Jev
+or OpenAI) questions about owners, component sentences, flow claims, and invariants.
+Disagreements print with `decision mis-fold`, `decision owner`, `decision sentence`,
+`decision flow`, or `decision governs` identifiers. `systemap.decision_kinds` gives
+these names and their previous names, which started with "jev".
 
 Thresholds came from five first maps in bench/scratch, recorded in bench/jev.
 Three holdout maps used the same thresholds. All results stayed within 10 points
 except flow claims: 54% of incorrect claims found, compared with 66%.
-Thus, `jev flow` needs explicit selection with `--kind "jev flow"`.
+Thus, `decision flow` needs explicit selection with `--kind "decision flow"`.
 Language changes to prompts have not been measured again.
 
-Flow questions include source lines naming imports from the other component
-(`systemap.audit_code`). Instance calls can be absent, such as `ledger.record(parts)`
-after a Ledger import. That limitation can cause doubt without a source defect.
-A flow without such lines gets no question. The report gives the count of these flows.
+Flow questions include the source lines that use names from the other component
+(`systemap.audit_code`). The `call_sites` fact gives these lines, with instance calls
+such as `ledger.record(parts)` after a Ledger import. A flow without such lines gets no
+question. A flow with a module without a known `call_sites` fact also gets no question.
+The report gives the count of each type of flow.
 
 The questions and the answers use the provider records in `systemap.decision`.
-The Jev values in `decision.JEV` are the thresholds. `systemap.jev_provider` sends
-the questions to Jev. A refusal from a provider gives no finding, and the report
+`decision.THRESHOLDS` gives the thresholds of each provider. `systemap.providers`
+selects the provider. A refusal from a provider gives no finding, and the report
 gives the count of the questions that got a refusal.
 
-A finding line is an identifier. It does not contain Jev's pick, so a new model
-release that changes only the pick does not change the line. The pick is in the
-detail row. `migrated` changes a line in the earlier form, which ended with the
-pick, to the current form, so that recorded answers continue to match.
+A finding line is an identifier. It does not contain the pick of the provider, so a
+new model release that changes only the pick does not change the line. The pick is in
+the detail row. `migrated` changes a line in an earlier form to the current form, so
+that recorded answers continue to match. An earlier form ended with the pick, or had
+a previous kind name. `evidence` gives the evidence digest of a line from its line
+with the previous kind name, so that the recorded digests stay correct.
 
 Completed reports exit 0. A request error can cause exit 1.
-Check and judgement do not call Jev. Audit answers use `[judgement] answered`.
+Check and judgement do not call a decision provider. Audit answers use `[judgement] answered`.
 Audit reads only answers for its findings; judgement ignores them.
 Exact answers must have reviewed-evidence digests. Family answers must have
 `policy = true`. Reports count matches outside the reviewed baseline.
@@ -41,7 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import decision, explain, nest
+from systemap import decision, decision_kinds, explain, nest
 from systemap import language as languages
 from systemap.audit_code import code_between
 from systemap.config import AUDIT_KINDS, Answer, Config
@@ -63,14 +67,14 @@ from systemap.source_facts import is_empty_marker
 
 # The question each line kind comes from: the owner question gives two kinds.
 QUESTION_OF = {
-    "jev mis-fold": "owner",
-    "jev owner": "owner",
-    "jev sentence": "sentence",
-    "jev flow": "flow",
-    "jev governs": "governs",
+    decision_kinds.MISFOLD: "owner",
+    decision_kinds.OWNER: "owner",
+    decision_kinds.SENTENCE: "sentence",
+    decision_kinds.FLOW: "flow",
+    decision_kinds.GOVERNS: "governs",
 }
 # The kinds asked when none is named: all but the one that missed the holdout bar.
-DEFAULT_KINDS = tuple(k for k in QUESTION_OF if k != "jev flow")
+DEFAULT_KINDS = tuple(k for k in QUESTION_OF if k != decision_kinds.FLOW)
 KINDS = AUDIT_KINDS
 NONE = "none of these"
 
@@ -108,6 +112,8 @@ class Plan:
     reads: dict[str, Any] = field(default_factory=dict)
     # Flows without a source line that uses a name from the other component.
     unasked: list[str] = field(default_factory=list)
+    # Flows with a module whose `call_sites` fact or source is not known.
+    unknown: list[str] = field(default_factory=list)
 
     def add(self, question: Question, read: Any) -> None:
         self.questions.append(question)
@@ -222,17 +228,17 @@ def plan_flows(
             continue
         code = code_between(root, facts, by, (f.src, f.dst), language)
         if not code:
-            plan.unasked.append(f"{f.src} -> {f.dst} ({f.artifact})")
+            (plan.unasked if code == [] else plan.unknown).append(f"{f.name} ({f.artifact})")
             continue
         brief = {x: card_brief(m.model, m.meaning, x) for x in (f.src, f.dst)}
         claim = {
             "from": f.src,
             "to": f.dst,
             "artifact": f.artifact,
-            "sentence": m.meaning.relations.get(f.edge, ""),
+            "sentence": m.meaning.relation(f),
         }
         state = {"claim": claim, "ends": brief, "code": code}
-        key = f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}"
+        key = f"{m.id}|flow|{f.key}:{f.artifact}"
         plan.add(PredicateQuestion(key, "holds", VERIFY_Q, state), ("flow", m, f))
 
 
@@ -265,7 +271,7 @@ def make_plan(
         extra = _owner_extra(m, facts, ignores, kinds)
         view = facts if m.top else _view(facts, m)
         if "owner" in asked:
-            plan_owner(plan, m, view, extra, cfg.name, placed_too="jev mis-fold" in kinds)
+            plan_owner(plan, m, view, extra, cfg.name, placed_too=decision_kinds.MISFOLD in kinds)
         if "sentence" in asked:
             plan_sentences(plan, m, view)
         if "flow" in asked:
@@ -278,8 +284,8 @@ def make_plan(
 def _owner_extra(
     m: nest.Map, facts: dict[str, Any], ignores: list[str], kinds: tuple[str, ...]
 ) -> list[str]:
-    """Give the unclaimed modules for the owner question: top map, `jev owner` only."""
-    if not m.top or "jev owner" not in kinds:
+    """Give the unclaimed modules for the owner question: top map, `decision owner` only."""
+    if not m.top or decision_kinds.OWNER not in kinds:
         return []
     return unclaimed(m.model, facts, ignores)
 
@@ -309,7 +315,7 @@ def owner_line(read: tuple[Any, ...], answer: decision.Answer, limits: Threshold
         return None
     if cid:
         return _misfold_line(m, mod, cid, a, limits)
-    text = f"jev owner: {mod} is claimed by no card"
+    text = f"{decision_kinds.OWNER}: {mod} is claimed by no card"
     pick = f"reads like {_reads_like(a.choice)}"
     sure = "no confidence" if a.confidence is None else f"confidence {a.confidence:.2f}"
     if a.confidence is not None and a.confidence >= decision.value(limits, "owner_at"):
@@ -328,7 +334,7 @@ def _misfold_line(
     p = probs[cid]
     if p >= decision.value(limits, "misfold_below"):
         return None
-    text = f"jev mis-fold: {cid} claims {mod}"
+    text = f"{decision_kinds.MISFOLD}: {cid} claims {mod}"
     detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(probs, 3))
     pick = f"reads like {_reads_like(a.choice)}"
     return Line(m.prefix + text, (f"{pick}; P({cid}) {p:.2f}; most likely: {detail}",))
@@ -341,17 +347,18 @@ def sentence_line(
     p = decision.probability(answer, f"{m.id}|sentence|{cid}")
     if p is None or p >= decision.value(limits, "sentence_below"):
         return None
-    text = f"jev sentence: {cid}'s sentence may not describe its modules"
+    text = f"{decision_kinds.SENTENCE}: {cid}'s sentence may not describe its modules"
     return Line(m.prefix + text, (f"P(describes) {p:.2f}",))
 
 
 def flow_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
     _, m, f = read
-    p = decision.probability(answer, f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}")
+    p = decision.probability(answer, f"{m.id}|flow|{f.key}:{f.artifact}")
     if p is None or p >= decision.value(limits, "flow_below"):
         return None
     text = (
-        f"jev flow: {f.src} -> {f.dst} ('{f.artifact}'): the code where they meet may not carry it"
+        f"{decision_kinds.FLOW}: {f.name} ('{f.artifact}'): "
+        "the code where they meet may not carry it"
     )
     return Line(m.prefix + text, (f"P(carries it) {p:.2f}",))
 
@@ -361,7 +368,7 @@ def governs_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresho
     p = decision.probability(answer, f"{m.id}|governs|{inv.n}|{cid}")
     if p is None or p < decision.value(limits, "governs_at"):
         return None
-    text = f"jev governs: invariant {inv.n} may govern {cid}, which it does not name"
+    text = f"{decision_kinds.GOVERNS}: invariant {inv.n} may govern {cid}, which it does not name"
     return Line(m.prefix + text, (f"P(governs) {p:.2f}",))
 
 
@@ -398,42 +405,60 @@ def run(
 # ---- answers, shared with judgement ---------------------------------------------
 
 
-# The earlier form of the mis-fold and owner lines ended with Jev's pick.
+# An earlier form of the mis-fold and owner lines ended with the pick of the provider.
 _EARLIER = re.compile(
-    r"^(?P<line>(?:\S+: )?jev (?:mis-fold: \S+ claims \S+|owner: \S+ is claimed by no card))"
+    r"^(?P<line>(?:\S+: )?(?:jev|decision) "
+    r"(?:mis-fold: \S+ claims \S+|owner: \S+ is claimed by no card))"
     r"(?:, which reads like .+|; it reads like .+|; closest: .+)$"
 )
 
 
 def migrated(line: str) -> str:
-    """Change a line in the earlier form, with Jev's pick at the end, to the current form."""
+    """Change a line in an earlier form to the current form.
+
+    An earlier form has the pick of the provider at the end, or a previous kind name.
+    """
     found = _EARLIER.match(line)
-    return found["line"] if found else line
+    return decision_kinds.current_line(found["line"] if found else line)
 
 
 def _bare(line: str) -> str:
     """Remove a nested-map `<map>: ` prefix from a finding."""
-    head, sep, rest = line.partition(": ")
-    return rest if sep and rest.startswith("jev ") and not head.startswith("jev ") else line
+    return decision_kinds.bare(line)
 
 
 def is_audit_answer(answer: Answer) -> bool:
-    """Determine whether an answer names audit findings."""
+    """Determine whether an answer names audit findings, with a new or previous name."""
     if answer.kind:
-        return answer.kind in KINDS
-    return bool(answer.items) and all(_bare(i).startswith("jev ") for i in answer.items)
+        return decision_kinds.current(answer.kind) in KINDS
+    return bool(answer.items) and all(decision_kinds.kind_of(i) in KINDS for i in answer.items)
 
 
 def _covers(answer: Answer, line: str) -> bool:
     if answer.items:
         return any(migrated(item) == line for item in answer.items)
-    return _bare(line).startswith(answer.kind + ": ")
+    return decision_kinds.kind_of(line) == decision_kinds.current(answer.kind)
 
 
 def _stale(mine: list[Answer], texts: list[str]) -> list[str]:
     """Give the configured items and kinds that match no current line."""
     stale = [i for a in mine for i in a.items if migrated(i) not in texts]
     return stale + [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+
+
+def evidence(
+    tree: nest.Tree, facts: dict[str, Any], root: Path, texts: Iterable[str]
+) -> dict[str, str]:
+    """Give the evidence digest of each audit line.
+
+    The digest of a line is the digest of the same line with its previous kind name.
+    Thus an exact answer recorded before the rename keeps its digest.
+    """
+    from systemap.judgement import evidence_for_tree
+
+    previous = {text: decision_kinds.previous_line(text) for text in texts}
+    found = evidence_for_tree(tree, facts, root, list(previous.values()))
+    return {text: found[line] for text, line in previous.items()}
 
 
 def _with_earlier_lines(evidence: Mapping[str, str], mine: list[Answer]) -> dict[str, str]:
@@ -450,8 +475,8 @@ def _with_earlier_lines(evidence: Mapping[str, str], mine: list[Answer]) -> dict
 
 def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
     """Determine whether the answer names types selected in this run."""
-    names = [answer.kind] if answer.kind else [_bare(i).split(": ", 1)[0] for i in answer.items]
-    return all(n in kinds for n in names)
+    names = [answer.kind] if answer.kind else [decision_kinds.kind_of(i) for i in answer.items]
+    return all(n is not None and decision_kinds.current(n) in kinds for n in names)
 
 
 def apply(
@@ -551,12 +576,14 @@ def report(
     policies: Iterable[str] = (),
     unasked: Iterable[str] = (),
     refused: Iterable[str] = (),
+    unknown: Iterable[str] = (),
 ) -> list[str]:
     """Give CLI findings and explanations.
 
     `teach` adds one explanation per finding type. `--brief` removes explanations.
-    `unasked` gives the flows without source lines for a `jev flow` question.
+    `unasked` gives the flows without source lines for a `decision flow` question.
     `refused` gives the keys of the questions that got a refusal.
+    `unknown` gives the flows with a module whose `call_sites` fact is not known.
     """
     tail = (f", {answered} answered" if answered else "") + (
         f", {len(stale)} stale" if stale else ""
@@ -571,6 +598,7 @@ def report(
     out += [f"  pending answer: {s}" for s in pending]
     out += [f"  policy answer: {s}" for s in policies]
     out += unasked_lines(list(unasked))
+    out += unknown_lines(list(unknown))
     out += refused_lines(list(refused))
     out.append(usage)
     return out
@@ -588,7 +616,7 @@ def refused_lines(refused: list[str]) -> list[str]:
 
 
 def unasked_lines(unasked: list[str]) -> list[str]:
-    """Give the count of flows that got no `jev flow` question, and the first five."""
+    """Give the count of flows that got no `decision flow` question, and the first five."""
     if not unasked:
         return []
     noun = "flow has" if len(unasked) == 1 else "flows have"
@@ -599,6 +627,18 @@ def unasked_lines(unasked: list[str]) -> list[str]:
     ]
 
 
+def unknown_lines(unknown: list[str]) -> list[str]:
+    """Give the count of flows without a known `call_sites` fact, and the first five."""
+    if not unknown:
+        return []
+    noun = "flow has" if len(unknown) == 1 else "flows have"
+    more = f", and {len(unknown) - 5} more" if len(unknown) > 5 else ""
+    return [
+        f"  not asked: {len(unknown)} {noun} a module without a known call_sites fact. "
+        f"Do systemap refresh: {', '.join(unknown[:5])}{more}"
+    ]
+
+
 def _taught(open_lines: list[Line], teach: bool) -> list[str]:
     """Give each finding's details and one explanation per type."""
     out: list[str] = []
@@ -606,7 +646,7 @@ def _taught(open_lines: list[Line], teach: bool) -> list[str]:
     for line in open_lines:
         out.append(f"  {line.text}")
         out += [f"      {d}" for d in line.detail]
-        kind = _bare(line.text).split(": ", 1)[0]
+        kind = decision_kinds.kind_of(line.text) or ""
         if teach and kind not in taught:
             taught.add(kind)
             out += explain.rows(kind)
@@ -638,6 +678,8 @@ def dry_run(plan: Plan, pending: int | str | None, chars: int) -> list[str]:
         "  by type: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())),
         "  outgoing data: module names, docstrings, public names, internal imports, component "
         "ids and sentences, invariants, flow sentences, and source lines with imports between "
-        "components. A docstring has 600 characters at most. A flow has 30 source lines at most.",
+        "components. A docstring has 600 characters at most. A flow has 60 source lines and "
+        "12 lines from the facts at most.",
         *unasked_lines(plan.unasked),
+        *unknown_lines(plan.unknown),
     ]

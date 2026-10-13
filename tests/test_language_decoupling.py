@@ -25,6 +25,7 @@ from systemap import (
     page_data,
     source_facts,
     suggest,
+    typescript_calls,
 )
 from systemap import language as languages
 from systemap.model import Component, Model, Region
@@ -271,17 +272,24 @@ def test_each_adapter_has_its_own_model_sdk_names(
     assert len(found["typescript"]) == 1
 
 
-def test_each_adapter_reads_the_local_names_of_an_import() -> None:
-    """Acceptance (census item 15): the adapter gives the local name of a whole-module
-    import: `st` for Python and `svc` for TypeScript."""
-    python = languages.repository("python")
-    assert python.local_bindings("import shop.orders.store as st\n", "shop.orders.store", {}) == {
-        "st"
-    }
-    typescript = languages.repository("typescript")
-    record = {"file": "src/users/user.service.ts"}
-    text = 'import * as svc from "./user.service";\n'
-    assert typescript.local_bindings(text, "web.users.user.service", record) == {"svc"}
+def test_each_adapter_reads_the_local_names_of_an_import(
+    python_facts: tuple[config.Config, dict[str, Any]],
+) -> None:
+    """Acceptance (census item 15): the call-site reader of each adapter gives the local
+    name of a whole-module import and its use: `st` for Python and `svc` for TypeScript."""
+    _cfg, facts = python_facts
+    sites = {s["local"]: s for s in facts["components"]["shop.orders.audit"]["call_sites"]}
+    assert (sites["st"]["target"], sites["st"]["name"]) == ("shop.orders.store", "*")
+    assert sites["st"]["uses"] == [[3, 0, "Ledger"]]
+    text = 'import * as svc from "./user.service";\nsvc.save();\n'
+    target = "web.users.user.service"
+    found = typescript_calls.call_sites(
+        text, "src/users/view.ts", "web.users.view", {"./user.service": target}.get
+    )
+    assert found is not None
+    assert [(s["local"], s["target"], s["name"], s["uses"]) for s in found] == [
+        ("svc", target, "*", [[2, 0, "save"]])
+    ]
 
 
 # ---- the final acceptance test: no language test in a shared module --------------------
@@ -293,11 +301,13 @@ ADAPTERS = {
     "python_repo.py": "The Python repository adapter.",
     "python_entry.py": "The Python entry point reader.",
     "python_imports.py": "The Python import resolver.",
+    "python_calls.py": "The Python call-site reader.",
     "typescript.py": "The TypeScript adapter.",
     "typescript_repo.py": "The TypeScript repository adapter.",
     "typescript_config.py": "The tsconfig reader of the TypeScript adapter.",
     "typescript_entry.py": "The TypeScript entry point reader.",
     "typescript_imports.py": "The TypeScript import reader.",
+    "typescript_calls.py": "The TypeScript call-site reader.",
     "typescript_projects.py": "The TypeScript project reader.",
     "typescript_surface.py": "The TypeScript public surface reader.",
     "typescript_syntax.py": "The TypeScript parser.",

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, evidence, explain, judgement_evidence, nest
+from systemap import card_review, evidence, explain, judgement_evidence, nest, step_refs
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
@@ -139,9 +139,9 @@ def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str
 
 def no_sentence(model: Model, meaning: Meaning) -> list[str]:
     return [
-        f"no sentence: {f.src} -> {f.dst} ('{f.artifact}')"
+        f"no sentence: {f.name} ('{f.artifact}')"
         for f in model.flows
-        if not (meaning.relations.get(f.edge) or "").strip()
+        if not meaning.relation(f).strip()
     ]
 
 
@@ -150,7 +150,7 @@ def thin_layers(model: Model, meaning: Meaning) -> list[str]:
     on_layer: dict[str, set[str]] = {layer.id: set() for layer in layers}
     for f in model.flows:
         try:
-            layer_id = meaning.layer_for(f.edge, f.kind)
+            layer_id = meaning.layer_for(f, f.kind)
         except KeyError:
             continue
         on_layer.setdefault(layer_id, set()).update((f.src, f.dst))
@@ -274,7 +274,7 @@ def declared_flows(
         return []
     return [
         (
-            f"declared flow: {f.src} -> {f.dst} ({f.artifact}): no import connects them. "
+            f"declared flow: {f.name} ({f.artifact}): no import connects them. "
             f"Find the evidence, give the mechanism in the description, or remove the flow."
         )
         for f in evidence.declared(model, meaning, facts, observed_by)
@@ -372,6 +372,7 @@ def run(
         + declared_flows(model, meaning, facts, observed_by)
         + flow_review(model, meaning, facts, observed_by)
         + no_endpoint_source(model, facts.get("components", {}))
+        + step_refs.problems(model, meaning, facts)
         + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip)
         + unknown_fact_lines(facts)
@@ -388,12 +389,12 @@ def flow_review(
     states = evidence.of_model(model, meaning, facts, observed_by)
     return [
         (
-            f"flow review: {flow.src} -> {flow.dst} ({flow.artifact}) has structural "
+            f"flow review: {flow.name} ({flow.artifact}) has structural "
             f"evidence but no source review. Give source references for direction and "
             f"artifact, or change the flow."
         )
         for flow in model.flows
-        if states[flow.edge].state == evidence.STRUCTURAL or states[flow.edge].unresolved_refs
+        if states.of(flow).state == evidence.STRUCTURAL or states.of(flow).unresolved_refs
     ]
 
 
@@ -409,7 +410,7 @@ def no_endpoint_source(model: Model, components: Mapping[str, Any] | None = None
             continue
         ends = " or ".join(c.id for c in model.components if c.id in flow.edge and c.implemented_by)
         out.append(
-            f"no endpoint source: {flow.src} -> {flow.dst} ({flow.artifact}): no source record "
+            f"no endpoint source: {flow.name} ({flow.artifact}): no source record "
             f"is in a module of {ends}. Add a source record in a module of {ends}, or change "
             f"the flow."
         )

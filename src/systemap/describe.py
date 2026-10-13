@@ -12,9 +12,10 @@ from collections.abc import Iterable
 from typing import Any
 
 from systemap import journeys as journeys_mod
-from systemap.evidence import DECLARED, READER_TEXT, STATES, owners
+from systemap.evidence import DECLARED, READER_TEXT, STATES, ByFlow, owners
 from systemap.evidence import of_model as evidence_of
-from systemap.model import Edge, Journey, Meaning, Model, all_layers, reading
+from systemap.flow_ids import step_flow
+from systemap.model import Flow, Journey, Meaning, Model, all_layers, reading
 from systemap.place import Score, grid_order
 from systemap.route import Gutter, gutters, locate, seats
 from systemap.schematic import LABEL_H
@@ -126,11 +127,11 @@ def journey_lines(
     states = evidence_of(model, meaning, facts, observed_by)
     out = ["sequences: These steps give the system operations."]
     for j in meaning.journeys:
-        out += _walk_lines(j, states)
+        out += _walk_lines(j, states, model.flows)
     return out + _ways_in_lines(model, meaning, facts)
 
 
-def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
+def _walk_lines(j: Journey, states: ByFlow, flows: tuple[Flow, ...]) -> list[str]:
     """This function gives a sequence start, step count, and steps without import evidence."""
     where = f", from {j.starts}" if j.starts else ""
     note = (
@@ -139,7 +140,8 @@ def _walk_lines(j: Journey, states: dict[Edge, Any]) -> list[str]:
         else ""
     )
     out = [f"  {j.id}: {_plural(len(j.steps), 'step')}{where}{note}"]
-    thin = [f"{a} -> {b}" for a, b in (s.edge for s in j.steps) if _unbacked(states, (a, b))]
+    found = [step_flow(s, flows)[0] for s in j.steps]
+    thin = [f.name for f in found if f is not None and states.of(f).state == DECLARED]
     if thin:
         out.append(
             f"    no import evidence: {', '.join(thin)}. No import gives evidence for "
@@ -160,11 +162,6 @@ def _ways_in_lines(model: Model, meaning: Meaning, facts: dict[str, Any]) -> lis
         more = f", and {len(left) - 5} more" if len(left) > 5 else ""
         out.append(f"    without a sequence: {named}{more}. Use systemap journeys.")
     return out
-
-
-def _unbacked(states: dict[Edge, Any], edge: Edge) -> bool:
-    found = states.get(edge)
-    return found is not None and found.state == DECLARED
 
 
 def _word(n: int) -> str:

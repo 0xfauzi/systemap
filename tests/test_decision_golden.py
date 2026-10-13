@@ -8,8 +8,8 @@ Acceptance values:
 - For each question kind, the cache keys are identical to the recorded keys.
 - For each question kind, the output lines are identical to the recorded lines.
 
-The question kinds are the five audit kinds, triage, plan, `suggest --jev`, and
-`delta --jev` (move and owner questions). The transport is an injected recording
+The question kinds are the five audit kinds, triage, plan, `suggest --decide`, and
+`delta --decide` (move and owner questions). The transport is an injected recording
 transport. It gives fixed answers that cause findings. No test opens a socket.
 
 To record the file again, set SYSTEMAP_RECORD_GOLDEN=1. Record only before a change
@@ -52,7 +52,7 @@ def _answer(name: str, question: dict[str, Any], state: Any) -> dict[str, Any]:
         return {"type": "noul", "noul": NOUL[name]}
     options = list(question["criteria"])
     if name == "became":
-        # The first new module, at a confidence that prints a `jev move` line.
+        # The first new module, at a confidence that prints a `decision move` line.
         return {"type": "choice", "choice": options[0], "confidence": 0.9}
     h = _number(state)
     pick = options[h % len(options)]
@@ -128,15 +128,15 @@ def roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
 
 
 COMMANDS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "jev mis-fold": ("asked", ("audit", "--kind", "jev mis-fold")),
-    "jev owner": ("asked", ("audit", "--kind", "jev owner")),
-    "jev sentence": ("asked", ("audit", "--kind", "jev sentence")),
-    "jev flow": ("asked", ("audit", "--kind", "jev flow")),
-    "jev governs": ("asked", ("audit", "--kind", "jev governs")),
+    "decision mis-fold": ("asked", ("audit", "--kind", "decision mis-fold")),
+    "decision owner": ("asked", ("audit", "--kind", "decision owner")),
+    "decision sentence": ("asked", ("audit", "--kind", "decision sentence")),
+    "decision flow": ("asked", ("audit", "--kind", "decision flow")),
+    "decision governs": ("asked", ("audit", "--kind", "decision governs")),
     "triage": ("asked", ("triage", "Reading a file with a BOM leaves the BOM in the request")),
     "plan": ("asked", ("plan", "read the input in parts")),
-    "suggest": ("asked", ("suggest", "--jev")),
-    "delta": ("changed", ("delta", "--base", "HEAD~1", "--jev")),
+    "suggest": ("asked", ("suggest", "--decide")),
+    "delta": ("changed", ("delta", "--base", "HEAD~1", "--decide")),
 }
 
 
@@ -193,7 +193,7 @@ def test_the_dry_run_count_of_characters_is_identical(
     roots: dict[str, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The dry run gives the same question count and character count without a key."""
-    kinds = [x for kind in COMMANDS if kind.startswith("jev ") for x in ("--kind", kind)]
+    kinds = [x for kind in COMMANDS if kind.startswith("decision ") for x in ("--kind", kind)]
     code = main(["--root", str(roots["asked"]), "audit", "--dry-run", *kinds])
     got = {"code": code, "out": capsys.readouterr().out.splitlines()}
     golden = json.loads(GOLDEN.read_text(encoding="utf-8")) if GOLDEN.exists() else {}

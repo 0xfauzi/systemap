@@ -101,7 +101,7 @@ def test_misfold_fires_below_the_threshold_only(sample: Sample) -> None:
     )
     line = audit.owner_line(read, low, JEV)
     assert line is not None
-    assert line.text == "jev mis-fold: Parser claims pkg.parser"
+    assert line.text == "decision mis-fold: Parser claims pkg.parser"
     assert line.detail[0].startswith("reads like Reader; P(Parser) 0.04")
     assert audit.owner_line(read, high, JEV) is None
 
@@ -122,7 +122,7 @@ def test_unclaimed_module_gets_one_card_when_confident_else_three(sample: Sample
     )  # type: ignore[union-attr]
     assert audit.owner_line(read, none, JEV).detail[0].startswith("reads like none of the cards")  # type: ignore[union-attr]
     texts = {audit.owner_line(read, a, JEV).text for a in (sure, unsure, none)}  # type: ignore[union-attr]
-    assert texts == {"jev owner: pkg.stray is claimed by no card"}
+    assert texts == {"decision owner: pkg.stray is claimed by no card"}
 
 
 def test_sentence_flow_and_governs_thresholds(sample: Sample) -> None:
@@ -138,7 +138,7 @@ def test_sentence_flow_and_governs_thresholds(sample: Sample) -> None:
     got = audit.governs_line(("governs", top, inv, "Reader"), answer("governs", noul=0.8), JEV)
     assert (
         got is not None
-        and got.text == "jev governs: invariant 1 may govern Reader, which it does not name"
+        and got.text == "decision governs: invariant 1 may govern Reader, which it does not name"
     )
     assert (
         audit.governs_line(("governs", top, inv, "Reader"), answer("governs", noul=0.79), JEV)
@@ -151,13 +151,13 @@ def test_sentence_flow_and_governs_thresholds(sample: Sample) -> None:
 
 def test_audit_answers_are_told_apart_from_judgement_answers() -> None:
     mine = Answer(
-        items=("jev sentence: Reader's sentence may not describe its modules",), reason="r"
+        items=("decision sentence: Reader's sentence may not describe its modules",), reason="r"
     )
     sub = Answer(
-        items=("Gateway: jev flow: A -> B ('x'): the code where they meet may not carry it",),
+        items=("Gateway: decision flow: A -> B ('x'): the code where they meet may not carry it",),
         reason="r",
     )
-    family = Answer(items=(), reason="r", kind="jev governs")
+    family = Answer(items=(), reason="r", kind="decision governs")
     theirs = Answer(items=("single module: Reader is only pkg.reader",), reason="r")
     assert (
         audit.is_audit_answer(mine) and audit.is_audit_answer(sub) and audit.is_audit_answer(family)
@@ -169,16 +169,16 @@ def test_audit_answers_are_told_apart_from_judgement_answers() -> None:
 def test_by_default_the_flow_question_is_not_asked(sample: Sample) -> None:
     plan = audit.make_plan(tree_of(sample), sample.facts, sample.cfg)
     assert sorted({a.key.split("|")[1] for a in plan.questions}) == ["governs", "owner", "sentence"]
-    assert "jev flow" not in audit.DEFAULT_KINDS
-    one = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ["jev flow"])
+    assert "decision flow" not in audit.DEFAULT_KINDS
+    one = audit.make_plan(tree_of(sample), sample.facts, sample.cfg, ["decision flow"])
     assert {a.key.split("|")[1] for a in one.questions} == {"flow"}
 
 
 def test_an_answer_about_a_kind_not_asked_is_not_stale() -> None:
     given = [
-        Answer(items=(), reason="the joins are events", kind="jev flow"),
+        Answer(items=(), reason="the joins are events", kind="decision flow"),
         Answer(
-            items=("jev flow: A -> B ('x'): the code where they meet may not carry it",),
+            items=("decision flow: A -> B ('x'): the code where they meet may not carry it",),
             reason="old",
         ),
     ]
@@ -188,37 +188,37 @@ def test_an_answer_about_a_kind_not_asked_is_not_stale() -> None:
 
 def test_apply_suppresses_answered_lines_and_reports_stale_answers() -> None:
     found = [
-        audit.Line("jev sentence: Reader's sentence may not describe its modules"),
-        audit.Line("jev governs: invariant 1 may govern Reader, which it does not name"),
+        audit.Line("decision sentence: Reader's sentence may not describe its modules"),
+        audit.Line("decision governs: invariant 1 may govern Reader, which it does not name"),
     ]
     given = [
         Answer(items=(found[0].text,), reason="it does"),
-        Answer(items=(), reason="rule scope", kind="jev governs"),
+        Answer(items=(), reason="rule scope", kind="decision governs"),
         Answer(
-            items=("jev flow: A -> B ('x'): the code where they meet may not carry it",),
+            items=("decision flow: A -> B ('x'): the code where they meet may not carry it",),
             reason="old",
         ),
-        Answer(items=(), reason="no mis-folds any more", kind="jev mis-fold"),
+        Answer(items=(), reason="no mis-folds any more", kind="decision mis-fold"),
         Answer(items=("single module: Reader is only pkg.reader",), reason="judgement's"),
     ]
     open_lines, answered, stale = audit.apply(found, given, audit.KINDS)
     assert open_lines == [] and answered == 2
     assert stale == [
-        "jev flow: A -> B ('x'): the code where they meet may not carry it",
-        'kind = "jev mis-fold"',
+        "decision flow: A -> B ('x'): the code where they meet may not carry it",
+        'kind = "decision mis-fold"',
     ]
 
 
 def test_config_accepts_audit_kinds_and_a_jev_table(tmp_path: Path) -> None:
     (tmp_path / "systemap.toml").write_text(
         '[jev]\nmodel = "jev-preview"\ncache = "cache/jev.json"\n'
-        '[judgement]\nanswered = [{ kind = "jev flow", reason = "the joins are events" }]\n',
+        '[judgement]\nanswered = [{ kind = "decision flow", reason = "the joins are events" }]\n',
         encoding="utf-8",
     )
     cfg = load_config(tmp_path)
     assert cfg.jev_model == "jev-preview"
     assert cfg.jev_cache_path == tmp_path / "cache/jev.json"
-    assert cfg.judgement_answered[0].kind == "jev flow"
+    assert cfg.judgement_answered[0].kind == "decision flow"
     (tmp_path / "systemap.toml").write_text('[jev]\nmodels = "x"\n', encoding="utf-8")
     with pytest.raises(ConfigError, match="jev has an unknown key: models"):
         load_config(tmp_path)
@@ -338,19 +338,18 @@ def test_historical_audit_on_exact_recorded_answers(sample: Sample) -> None:
     assert questions[0] != plan.questions[0]
     found = audit.lines(plan, JevProvider(client).decide(questions), JEV)
     # What the real model said about the sample, recorded. Every module reads like its own
-    # card. Both flows are doubted: Reader -> Parser rightly (nothing in pkg.reader calls the
-    # parser; the parser only imports Request), Writer -> Ledger because the evidence is the
-    # lines naming an imported name, and `ledger.record(parts)` names none: a limit of the
-    # measured method, said in audit.py's docstring.
+    # card. Reader -> Parser is doubted rightly: nothing in pkg.reader calls the parser, and
+    # the parser only imports Request. Writer -> Ledger is not doubted: the `call_sites` fact
+    # puts `ledger.record(parts)` into the context. Before that fact, the context had only
+    # the lines that name an imported name, and Jev doubted this flow too.
     assert [x.text for x in found] == [
-        "jev flow: Reader -> Parser ('parse'): the code where they meet may not carry it",
-        "jev flow: Writer -> Ledger ('record'): the code where they meet may not carry it",
+        "decision flow: Reader -> Parser ('parse'): the code where they meet may not carry it",
     ]
     assert client.usage.sent == 15 or recording.recording
 
 
 def test_audit_answers_need_evidence_or_explicit_policy() -> None:
-    line = audit.Line("jev flow: A -> B ('x'): the code where they meet may not carry it")
+    line = audit.Line("decision flow: A -> B ('x'): the code where they meet may not carry it")
     digest = "a" * 64
     legacy = audit.apply_reviewed(
         [line], [Answer((line.text,), "reviewed")], {line.text: digest}, audit.KINDS
@@ -373,13 +372,13 @@ def test_audit_answers_need_evidence_or_explicit_policy() -> None:
     assert changed.open == [line]
     broad = audit.apply_reviewed(
         [line],
-        [Answer((), "standing rule", kind="jev flow", policy=True)],
+        [Answer((), "standing rule", kind="decision flow", policy=True)],
         {line.text: digest},
         audit.KINDS,
     )
     assert broad.open == []
     assert broad.policies == [
-        'kind = "jev flow" covers 1 lines at this snapshot. 1 lines are outside the '
+        'kind = "decision flow" covers 1 lines at this snapshot. 1 lines are outside the '
         "source-review baseline."
     ]
 
@@ -553,7 +552,7 @@ def test_judgement_ignores_audit_answers(
     toml = two_cards / "systemap.toml"
     toml.write_text(
         toml.read_text(encoding="utf-8")
-        + '\n[judgement]\nanswered = [{ item = "jev sentence: Reader\'s sentence may not describe its modules", reason = "r" }]\n',
+        + '\n[judgement]\nanswered = [{ item = "decision sentence: Reader\'s sentence may not describe its modules", reason = "r" }]\n',
         encoding="utf-8",
     )
     main(["--root", str(two_cards), "judgement"])

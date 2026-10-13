@@ -85,6 +85,19 @@
    "output_tokens": 22
   }
  },
+ "46b0aadfa19b721bd45a216640ea8ff5e34fd6fc7b2973e80f111f6d6e9b052c": {
+  "answers": {
+   "holds": {
+    "noul": 0.43,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 501,
+   "output_tokens": 20
+  }
+ },
  "56881fffd5de3e56207413752412a6de8aadcd88d8a14182ec6b6959d4f8c97f": {
   "answers": {
    "governs": {
@@ -171,6 +184,19 @@
     "release_date": "2026-09-10T18:39:06.057655+00:00"
    }
   ]
+ },
+ "841c17f494e0543bc226198b5b08cc6498ff5f4c8d729b1f479e83177845554f": {
+  "answers": {
+   "holds": {
+    "noul": 0.15,
+    "type": "noul"
+   }
+  },
+  "model": "jev-1.13.0",
+  "usage": {
+   "input_tokens": 488,
+   "output_tokens": 20
+  }
  },
  "948ccf1ae0ff10e24c7905c09f60750925ab2cf65f6c9c1cccb32967e6f421e7": {
   "answers": {

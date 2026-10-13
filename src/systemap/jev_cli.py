@@ -25,6 +25,7 @@ from systemap import (
     audit,
     config,
     decision,
+    decision_kinds,
     delta,
     evidence,
     extract,
@@ -32,7 +33,6 @@ from systemap import (
     history,
     jev,
     journeys,
-    judgement,
     model_write,
     nest,
     providers,
@@ -56,7 +56,7 @@ OK, STALE = 0, 1
 # Where the report text is cut: the measured issues were a title and 1,500
 # characters of body; past this the numbers in bench/jev do not apply.
 REPORT_CAP = 2000
-# The `suggest --jev` limit for one part is `same_at` in `systemap.decision.THRESHOLDS`.
+# The `suggest --decide` limit for one part is `same_at` in `systemap.decision.THRESHOLDS`.
 
 TRIAGE_Q = "`report` is an issue for this system. Which component will the fix probably change?"
 SAME_Q = (
@@ -96,9 +96,10 @@ JUDGEMENT_HINT = (
     "component. Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
-    "hint: To receive Jev suggestions for moved modules and for modules without a "
-    "component, give --jev or set [jev] enabled = true in systemap.toml. Jev must have "
-    "TYPESAFE_API_KEY. The suggestions do not change the delta result. "
+    "hint: To receive suggestions from the decision provider for moved modules and for "
+    "modules without a component, give --decide or set [jev] enabled = true in "
+    "systemap.toml. Jev must have TYPESAFE_API_KEY. OpenAI must have OPENAI_API_KEY. "
+    "The suggestions do not change the delta result. "
     "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 
@@ -130,13 +131,15 @@ def delta_hint(cfg: config.Config) -> None:
 
 
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
-    """Give Jev findings with exit 0, or exit 1 if the request cannot complete."""
+    """Give the provider findings with exit 0, or exit 1 if the request cannot complete."""
     cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
     facts = _facts(cfg)
     if facts is None:
         return STALE
     tree = nest.load(cfg)
-    kinds = _measured_kinds(cfg, tuple(args.kind) if args.kind else audit.DEFAULT_KINDS)
+    for line in decision_kinds.warnings(cfg.judgement_answered):
+        print(line, file=sys.stderr)
+    kinds = _measured_kinds(cfg, _kinds(args.kind) if args.kind else audit.DEFAULT_KINDS)
     if not kinds:
         return STALE
     plan = audit.make_plan(tree, facts, cfg, kinds)
@@ -150,9 +153,9 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         print(f"audit: {exc}")
         return STALE
     texts = [line.text for line in found]
-    current_evidence = judgement.evidence_for_tree(tree, facts, cfg.root, texts)
+    current_evidence = audit.evidence(tree, facts, cfg.root, texts)
     result = audit.apply_reviewed(found, cfg.judgement_answered, current_evidence, kinds)
-    open_lines = [x for x in result.open if audit._bare(x.text).split(": ", 1)[0] in kinds]
+    open_lines = [x for x in result.open if decision_kinds.kind_of(x.text) in kinds]
     print(
         *audit.report(
             open_lines,
@@ -164,10 +167,18 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
             result.policies,
             plan.unasked,
             decision.refused(plan.questions, answers),
+            plan.unknown,
         ),
         sep="\n",
     )
     return OK
+
+
+def _kinds(given: list[str]) -> tuple[str, ...]:
+    """Give the current kind names. Print a warning for each previous name."""
+    for name in dict.fromkeys(k for k in given if k in decision_kinds.PREVIOUS):
+        print(decision_kinds.option_warning(name), file=sys.stderr)
+    return tuple(dict.fromkeys(decision_kinds.current(k) for k in given))
 
 
 def _measured_kinds(cfg: config.Config, kinds: tuple[str, ...]) -> tuple[str, ...]:
@@ -398,7 +409,7 @@ def writer_usage(writer: agent.Agent) -> None:
         print(writer.usage.line(), file=sys.stderr)
 
 
-# ---- suggest --jev: groups from Jev's answers about module pairs -------------------
+# ---- suggest --decide: groups from the provider answers about module pairs --------
 
 
 def pair_candidates(facts: dict[str, Any], mods: list[str]) -> list[tuple[str, str]]:
@@ -461,7 +472,7 @@ def suggest_groups(
             edges.append((q.key.split("|")[0], q.key.split("|")[1]))
     found = groups(mods, edges)
     out = [
-        f"suggest --jev: {len(found)} groups from {len(questions)} questions about module pairs. "
+        f"{SUGGEST}: {len(found)} groups from {len(questions)} questions about module pairs. "
         f"A pair is in one component if P >= {same_at}. Examine these proposed groups. "
         "On two of five development maps, the accuracy was lower than with one component "
         "for each package",
@@ -475,18 +486,21 @@ def suggest_groups(
     return out
 
 
+SUGGEST = "suggest --decide"
+
+
 def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
     """Print the module groups from the provider answers, or the reason for no groups."""
     try:
         providers.require(cfg, "same_at")
         client = _client(cfg)
     except DecisionError as exc:
-        print(f"suggest --jev: {exc}")
+        print(f"{SUGGEST}: {exc}")
         return STALE
     try:
         lines, code = suggest_groups(cfg, facts, client), OK
     except DecisionError as exc:
-        lines, code = [f"suggest --jev: {exc}"], STALE
+        lines, code = [f"{SUGGEST}: {exc}"], STALE
     print(*lines, client.usage.line(), sep="\n")
     return code
 
@@ -607,9 +621,9 @@ def _check_lines(
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
     s = sub.add_parser(
         "audit",
-        help="Ask Jev to examine the map claims.",
-        description="Jev examines module ownership, component sentences, flow claims, and "
-        "invariants. "
+        help="Ask the decision provider to examine the map claims.",
+        description="The decision provider (Jev or OpenAI) examines module ownership, "
+        "component sentences, flow claims, and invariants. "
         "It can give possible owners for modules without a component. It can identify claims "
         "that do not agree with the source. "
         "The command sends facts and model text to the API of the decision provider. "
@@ -627,12 +641,13 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "--kind",
         action="append",
         default=[],
-        choices=config.AUDIT_KINDS,
+        choices=decision_kinds.AUDIT_NAMES,
         metavar="KIND",
         help="Select this question type. Use the option again for more types (one of: "
         + ", ".join(f'"{k}"' for k in config.AUDIT_KINDS)
-        + '). The default does not include "jev flow". Its holdout result was less than '
-        "the threshold.",
+        + f'). The default does not include "{decision_kinds.FLOW}". Its holdout result was '
+        'less than the threshold. The previous names, such as "jev flow", stay correct for '
+        "one release.",
     )
     s.add_argument(
         "--brief",
@@ -669,10 +684,10 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "plan",
         help="Give the components that a task will probably change. Then compare the plan with "
         "the changes.",
-        description="Jev compares a task with the purpose of each component. "
+        description="The decision provider compares a task with the purpose of each component. "
         "The output gives the probable components with their flows, sequences, and rules. "
         "The --check option compares the saved plan projection with the changed code. "
-        "Set TYPESAFE_API_KEY before use.",
+        "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
     providers.add_option(s)
@@ -688,10 +703,12 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     s = sub.add_parser(
         "triage",
         help="Give the three components that an issue fix will probably change.",
-        description="Jev compares the issue with the purpose of each component. "
+        description="The decision provider compares the issue with the purpose of each "
+        "component. "
         "It gives the three components that the fix will probably change. It also gives their "
         "modules and their flows on the map. "
-        "Give the text as an argument, or - to read stdin. Set TYPESAFE_API_KEY before use.",
+        "Give the text as an argument, or - to read stdin. "
+        "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
     providers.add_option(s)

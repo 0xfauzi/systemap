@@ -351,18 +351,20 @@ def test_a_question_type_without_a_measured_value_sends_nothing(
     assert out == [
         f"triage: {decision.unmeasured('openai', 'triage')}",
         f"plan: {decision.unmeasured('openai', 'plan')}",
-        f"suggest --jev: {decision.unmeasured('openai', 'suggest --jev')}",
+        f"suggest --decide: {decision.unmeasured('openai', 'suggest --decide')}",
     ]
     # Audit leaves out the mis-fold question and asks the other types.
-    assert _run(two_cards, "audit", "--provider", "openai", "--kind", "jev mis-fold") == 1
+    assert _run(two_cards, "audit", "--provider", "openai", "--kind", "decision mis-fold") == 1
     assert counted.requests == []
-    assert capsys.readouterr().out == (f"audit: {decision.unmeasured('openai', 'jev mis-fold')}\n")
+    assert capsys.readouterr().out == (
+        f"audit: {decision.unmeasured('openai', 'decision mis-fold')}\n"
+    )
     # Delta leaves out the move question and asks the owner question.
     _run(renamed, "delta", "--base", "HEAD~1", "--jev", "--provider", "openai")
     assert counted.requests
     assert all(q["name"] == "owner" for _m, _p, b in counted.requests for q in b["questions"])
     out = capsys.readouterr().out
-    assert decision.unmeasured("openai", "the move question of delta --jev") in out
+    assert decision.unmeasured("openai", "the move question of delta --decide") in out
 
 
 # ---- refusals -------------------------------------------------------------------------
@@ -375,7 +377,7 @@ def test_a_refusal_gives_no_finding_for_each_question_type(sample: Sample) -> No
     facts = extract.build(sample.cfg)
     transport = Decisions(refuse=True)
     provider = oa.OpenAIProvider(transport)
-    kinds = [k for k in audit.KINDS if k != "jev mis-fold"]
+    kinds = [k for k in audit.KINDS if k != "decision mis-fold"]
     assert audit.run(tree_of(sample), facts, sample.cfg, provider, kinds) == []
     names = {q["name"] for _m, _p, b in transport.requests for q in b["questions"]}
     assert names == {"owner", "describes", "holds", "governs"}
@@ -385,7 +387,7 @@ def test_a_refusal_gives_no_finding_for_each_question_type(sample: Sample) -> No
     )
     assert owners == []
     assert counted.errors() == (
-        "delta --jev: the decision provider gave a refusal for 1 questions",
+        "delta --decide: the decision provider gave a refusal for 1 questions",
     )
 
 
@@ -393,5 +395,5 @@ def test_the_openai_thresholds_have_no_value_for_the_failed_types() -> None:
     limits = decision.thresholds("openai")
     assert limits.misfold_below is None and limits.plan_cut is None and not limits.triage
     assert decision.value(limits, "sentence_below") == 0.3
-    with pytest.raises(DecisionError, match="no measured value for jev mis-fold"):
+    with pytest.raises(DecisionError, match="no measured value for decision mis-fold"):
         decision.value(limits, "misfold_below")

@@ -178,8 +178,8 @@ def test_one_flow_per_ordered_pair() -> None:
     )
     assert doubled.layout_problems() == [
         "flow A -> B appears twice ('thing' and 'another thing'). "
-        "Each ordered pair can have only one flow. "
-        "Select one artifact, or add a reverse flow for a return artifact"
+        "Give each flow on this pair its own id. "
+        "For an artifact that goes back, add a flow in the opposite direction"
     ]
     # The other direction is its own pair.
     both_ways = dataclasses.replace(model, flows=(*model.flows, Flow("B", "A", "reply", "work")))

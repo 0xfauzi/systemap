@@ -98,7 +98,7 @@ def change_marks(
         i
         for i, f in enumerate(model.flows)
         if {f.src, f.dst} & source
-        and backed[f.edge].state in (evidence.STRUCTURAL, evidence.DECLARED)
+        and backed[evidence.slot(f)].state in (evidence.STRUCTURAL, evidence.DECLARED)
     )
     ends = {end for i in lost for end in model.flows[i].edge}
     cards = {

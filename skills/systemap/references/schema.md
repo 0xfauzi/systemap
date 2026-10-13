@@ -191,7 +191,7 @@ See `references/layout.md` for thresholds and commands.
 
 ## Flow
 
-`Flow(src, dst, artifact, kind, source_refs=(), review_digest="")`
+`Flow(src, dst, artifact, kind, source_refs=(), review_digest="", id="")`
 
 A flow carries one artifact from component `src` to component `dst`.
 Use an artifact noun phrase of one to three words.
@@ -202,10 +202,27 @@ A context destination must be an agent or `calls_model` component.
 A tool source must be an agent or `calls_model` component.
 Every flow must have a relation sentence.
 
-One flow per ordered pair is permitted.
-The pair is the key for its sentence, direction verbs, and connection diagram.
-For multiple transfers in one direction, select the artifact that is most important to the reader.
+The flow identifier is the `id`. A flow without an `id` has the identifier `SRC->DST`.
+Use the identifier as the key in `relations`, `layer_overrides`, and `verb_overrides`.
+The `(src, dst)` pair is also a correct key, but only for a pair that one flow connects.
 Represent the other direction as a separate flow with its own sentence.
+
+One flow per ordered pair is permitted without an `id`.
+Two or more flows can connect one ordered pair only if each of these flows has its own `id`.
+An `id` contains only letters, digits, `_`, `.`, and `-`.
+Each flow then has its own sentence, review digest, finding lines, and label on the map.
+A finding line names such a flow as `SRC -> DST [ID]`.
+
+```python
+FLOWS = (
+    Flow("OrderService", "OrderQueue", "order", "data", id="submit-order"),
+    Flow("OrderService", "OrderQueue", "cancel", "control", id="cancel-order"),
+)
+RELATIONS = {
+    "submit-order": "The service puts a new order in the queue.",
+    "cancel-order": "The service tells the queue to remove an order.",
+}
+```
 
 An import, common module, or configured mechanism gives `structural` evidence only.
 `observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
@@ -216,6 +233,7 @@ The page shows `observed` as "current source review". It is a recorded source re
 A reference has the form `module[:symbol]@<source_sha256>`.
 The facts file gives the `source_sha256` of each module in `components`. The section "The facts file" gives its fields.
 `systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
+Use `--flow ID` for a flow with an `id`. The `SRC->DST` form is correct only for a pair that one flow connects.
 It does not examine the claims for you. Examine the source before you record the values.
 
 A source change gives a new `source_sha256`.
@@ -290,12 +308,20 @@ A nonempty sequence covers only those identities.
 
 ## Step
 
-`Step(acts, measures, edge, say)`
+`Step(acts, measures, edge=("", ""), say="", flow="", source_refs=())`
 
 `acts` identifies the components that act.
 `measures` identifies components that monitor or record the step. If none applies, use `()`.
-`edge` is the `(src, dst)` pair of an existing flow.
+`flow` is the identifier of an existing flow, for example `flow="cancel-order"`.
+`edge` is the `(src, dst)` pair of an existing flow. Use it only for a pair that one flow connects.
+Give `flow` or `edge`. If two or more flows connect the pair, `flow` is necessary.
 `say` gives one sentence about the action and result, under the writing profile.
+
+`source_refs` is optional. It has the same `module[:symbol]@<source_sha256>` form as for a flow.
+Each record must resolve in the current facts.
+Each record must also be in a module of an acting or measured component of the step.
+If a record does not agree with these rules, `systemap judgement` gives a `step source` finding.
+`systemap journeys` refuses an agent step with such a record.
 
 ## Layer
 
@@ -329,18 +355,21 @@ accent = "#1D1B17"
 | `plain` | One short display name for every component identifier. |
 | `layers` | Custom layers, after standard layers. |
 | `layer_of_kind` | A layer identifier for each custom flow kind. |
-| `relations` | One sentence per `(src, dst)` pair, from the source component. |
+| `relations` | One sentence per flow, from the source component. The key is the flow identifier or the `(src, dst)` pair. |
 | `journeys` | The tuple of sequences. |
-| `layer_overrides` | A different layer for a specified flow pair. |
+| `layer_overrides` | A different layer for a specified flow. The key is the same as in `relations`. |
 | `verbs` | Source and destination direction verbs for a layer, such as `("sends to", "receives from")`. |
-| `verb_overrides` | Direction verbs for one flow pair. |
+| `verb_overrides` | Direction verbs for one flow. The key is the same as in `relations`. |
 
 ## Structural checks
 
 The checker rejects these conditions:
 
 - Missing positions, cards that overlap, and components outside their region or container.
-- Unknown flow endpoints, invalid kinds, duplicate ordered pairs, and invalid context or tool endpoints.
+- Unknown flow endpoints, invalid kinds, and invalid context or tool endpoints.
+- Two flows on one ordered pair without an `id` on each, an incorrect `id`, and an `id` on two flows.
+- A pair key in `relations`, `layer_overrides`, or `verb_overrides` for a pair with two or more flows.
+- A step with an unknown flow, or with the pair of two or more flows.
 - Unknown invariant components and duplicate invariant numbers.
 - Import rules with a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant.
 - Imports against an import rule.
@@ -365,7 +394,7 @@ These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 6, with portable syntax hashes, compiler provenance, module completeness, and the folder package in `package`. `extract --check` marks older formats stale.
+- `version`: The facts format is 7, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, and `call_sites`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -398,6 +427,7 @@ These fields come from `systemap.extract.FIELDS`.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without names, imports, or statements. Coverage does not include these modules.
 - `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
+- `call_sites`: The local names that the module gets from a name of a module in `uses`, and the lines that use them. Each record has `local`, `target`, `name` (`*` for the full module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import statement makes, or for a re-export without a local name, such as `export { a } from`. It is `value` for a name that gets its value or type from that name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each use is `[line, function line, property]`. The function line is the line of the named function or method that contains the use, or 0. The property is the attribute that the use reads, or an empty string. The value is `null` if the source did not parse.
 - `imports`: The keys of `uses`.
 - `imported_by`: Local modules that import this module.
 - `external`: Third-party dotted import names, such as `anthropic` or `google.adk`. Standard-library and local-package imports are excluded. `model sdk` findings read this field.

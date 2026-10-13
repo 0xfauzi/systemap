@@ -2625,3 +2625,99 @@ The OpenAI owner threshold gives one component for 9.5% of modules, compared wit
 The OpenAI governs threshold found fewer governed components than Jev, and it suggested more incorrect pairs on holdout (6.0% compared with 0.9%).
 Thus OpenAI is an alternative provider, not a replacement for Jev.
 All measured repositories are Python repositories. A TypeScript measurement is necessary before these values apply to TypeScript.
+
+## Does the flow context from the call-site fact satisfy the flow acceptance value? (2026-10-13)
+
+The flow context experiment above found two arms that satisfy the acceptance value: `calls` and `targets`.
+These arms used text patterns for Python and TypeScript syntax. Thus they did not go into `src/`.
+
+This work adds the `call_sites` fact to each language adapter.
+The Python adapter reads the fact with `ast`. The TypeScript adapter reads it with tree-sitter.
+`audit_code.code_between` selects the flow context from this fact only.
+This experiment measures that selector on the same rows.
+`call_site_context.py` has the method and the acceptance value in its docstring.
+
+### Method
+
+The rows are the same 160 development rows and 96 holdout rows as the flow context experiment.
+Each row sends the shipped question (`audit.VERIFY_Q`) and the shipped `ends`. Only the `code` text is new.
+
+The cached facts have format 2. They do not have the `call_sites` fact.
+Thus `build` writes the fact with the Python adapter from the source of the cached facts.
+`build` stops if a source file is not the file that the cached facts give.
+
+The cached facts of format 2 give the first name part as `package`. The current `audit.modules_by_card` reads `package` as the folder package.
+Thus `build` writes the folder package into each cached record. Then it compares the module claims with the claims of the flow context experiment.
+
+The claims are the same for all 8 maps.
+Before this correction, 22 of the 32 Mealie rows had an empty context. No Jev request was sent before the correction.
+
+The context has the lines of `targets`, but the fact gives the lines:
+
+1. The import lines and the lines that use an imported name.
+2. The lines that read a property of a local name that gets its value or type from an imported name.
+3. The line of the named function or method that contains each of these lines.
+4. At most 12 lines from the facts: the signature of each imported function, class, or method that a selected line uses, and the first sentence of each target module description.
+
+The context has at most 60 source lines. Each line has 160 characters at most.
+
+If the context of a row is empty, the shipped audit sends no question for the flow.
+The command does not send such a row. The score counts it as not caught and not flagged.
+
+### Acceptance value
+
+The acceptance value was written before the first Jev request. It is the value that `calls` and `targets` satisfied:
+
+- The development set gives the threshold. The holdout set does not.
+  The candidate thresholds are 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, and 0.5.
+  The threshold is the largest candidate that flags at most 2 of 80 correct development claims.
+- At that threshold, the development catch rate must be 50% or more.
+- At that threshold, the difference between the holdout catch rate and the development catch rate must be 10 points or less.
+- At that threshold, the selector can flag at most 2 of 48 correct holdout claims.
+- If the selector satisfies the value, `audit_code.code_between` uses the fact. If it does not, `audit_code.py` does not change.
+- The result does not put `jev flow` into `DEFAULT_KINDS`, because no TypeScript row set is available.
+
+All the repositories in the two sets are Python repositories.
+Thus the result does not show the behavior on TypeScript.
+
+### Commands
+
+    uv run --project bench/jev python bench/jev/call_site_context.py build
+    uv run --project bench/jev python bench/jev/run.py flowctx_facts
+    SYSTEMAP_TRUST_MODEL_CODE=1 JEV_SET=holdout JEV_ROOT_SCORECARD=../scorecard uv run --project bench/jev python bench/jev/call_site_context.py build
+    JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py flowctx_facts
+    uv run --project bench/jev python bench/jev/call_site_context.py score > bench/jev/results/flowctx-facts-report.txt
+
+### Results
+
+The Jev requests were sent on 2026-10-13. The selector operated one time on development, and then one time on holdout.
+The selector did not change between the development requests and the holdout requests.
+All 256 answers came from the model `jev-1.13.0`, with 0 errors.
+No row had an empty context.
+`results/flowctx-facts-report.txt` has the full output.
+
+The selector satisfies the acceptance value.
+The table gives the figures at the threshold that the development set selected, 0.2.
+The `calls` and `targets` rows give the results of the flow context experiment.
+
+| selector | threshold | dev caught | dev flagged | holdout caught | holdout flagged | points | result |
+|---|---|---|---|---|---|---|---|
+| `call_sites` fact | 0.2 | 48/80 (60.0%) | 2/80 (2.5%) | 25/48 (52.1%) | 1/48 (2.1%) | -7.9 | pass |
+| `calls` (text patterns) | 0.2 | 48/80 (60.0%) | 2/80 (2.5%) | 26/48 (54.2%) | 0/48 (0.0%) | -5.8 | pass |
+| `targets` (text patterns) | 0.2 | 47/80 (58.8%) | 2/80 (2.5%) | 28/48 (58.3%) | 0/48 (0.0%) | -0.5 | pass |
+
+The AUC was 0.904 on development and 0.936 on holdout.
+The median code length was 1,165 characters on development and 1,374 characters on holdout.
+
+The cost was 256 Jev requests: 279,288 input tokens and 5,120 output tokens.
+The median input was 871 tokens on development and 978 tokens on holdout. The median time was 0.21 seconds.
+
+### Decision
+
+`audit_code.code_between` uses the `call_sites` fact. The threshold 0.2 in `decision.JEV` does not change.
+`jev flow` stays out of `DEFAULT_KINDS`, because no TypeScript row set is available.
+
+A TypeScript row set must have a map with flows and flow sentences for each repository, as the Python rows have.
+The bench data has no map of Hono, Ky, or Zod, and no checkout of these repositories. Thus no TypeScript rows were made.
+
+The `decision.OPENAI` flow value (0.05) was measured with the earlier context. A new OpenAI measurement with this context is necessary.

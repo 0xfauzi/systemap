@@ -184,7 +184,7 @@ def test_jev_does_not_change_the_update_lines_or_the_exit_code(
     assert with_jev[0] == without[0]
     assert update_lines(with_jev[1]) == update_lines(without[1])
     assert (
-        "  jev move: pkg.ledger -> pkg.records_store (read as the same module by Jev, "
+        "  decision move: pkg.ledger -> pkg.records_store (read as the same module by Jev, "
         "confidence 0.90)" in with_jev[1].splitlines()
     )
     assert (
@@ -196,7 +196,7 @@ def test_jev_does_not_change_the_update_lines_or_the_exit_code(
     broken = run(renamed, capsys, "--jev")
     assert broken[0] == without[0]
     assert update_lines(broken[1]) == update_lines(without[1])
-    assert "delta --jev: Jev gave an incorrect answer to became" in broken[1]
+    assert "delta --decide: Jev gave an incorrect answer to became" in broken[1]
 
 
 def test_a_model_change_closes_a_move_candidate(
@@ -249,7 +249,7 @@ def test_delta_jev_asks_for_an_owner_of_each_unclaimed_module(
     owners = [p["state"]["module"]["module"] for p in fake.posts if "owner" in p["questions"]]
     assert owners == ["pkg.stray"]
     assert (
-        "  jev owner: pkg.stray is claimed by no card (reads like Reader; confidence 0.95)"
+        "  decision owner: pkg.stray is claimed by no card (reads like Reader; confidence 0.95)"
         in out.splitlines()
     )
 
@@ -273,7 +273,7 @@ def test_the_text_report_gives_the_reason_for_no_answer(
     code = main(["--root", str(renamed), "delta", "--base", "HEAD~1", "--jev"])
     out = capsys.readouterr().out
     assert code == 1
-    assert "delta --jev: set TYPESAFE_API_KEY to call Jev. No data was sent" in out
+    assert "delta --decide: set TYPESAFE_API_KEY to call Jev. No data was sent" in out
     assert "Jev suggestions." not in out
 
 

@@ -17,11 +17,11 @@ The command exits 1 if a rule rejects the map.
 | entry | A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty `entry`. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
 | interface | The first identifier of an `interface` is absent from the component's public names and re-exports. The identifier ends at `(`, `.`, `->`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
 | nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |
-| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. |
+| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. |
 | routes | A route crosses an unrelated component or an unrelated region. |
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
-| meaning | A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id. |
+| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence. A step has no `say`. A custom layer uses a standard id. |
 | import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
 
@@ -73,10 +73,50 @@ If no reference is in an endpoint module, the flow is not `observed`.
 `systemap judgement` then prints a `no endpoint source` finding.
 The facts file (`docs/map/map.json` by default) gives the `source_sha256` of each module in `components`.
 `systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
+For a flow with an `id`, use `systemap review --flow ID`.
 It does not examine the claims for you. Examine the source before you record the values.
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
+
+## How do two flows connect one pair of components?
+
+Each flow has an identifier. The identifier is the `id` of the flow.
+A flow without an `id` has the identifier `SRC->DST`.
+Thus, a model without ids keeps its digests, keys, and finding lines.
+
+Two or more flows can connect one ordered pair only if each of these flows has its own `id`.
+An `id` contains only letters, digits, `_`, `.`, and `-`.
+In this example, the service sends two artifacts to the queue:
+
+```python
+FLOWS = (
+    Flow("OrderService", "OrderQueue", "order", "data", id="submit-order"),
+    Flow("OrderService", "OrderQueue", "cancel", "control", id="cancel-order"),
+)
+RELATIONS = {
+    "submit-order": "The service puts a new order in the queue.",
+    "cancel-order": "The service tells the queue to remove an order.",
+}
+STEP = Step(acts=("OrderService",), measures=(), flow="cancel-order",
+            say="The service tells the queue to remove the order.")
+```
+
+The map shows each flow as a different line with its own label.
+Each flow has its own sentence, `source_refs`, `review_digest`, and decision request.
+A finding line names a flow with an `id` as `SRC -> DST [ID]`.
+`systemap review --flow submit-order` writes the digest of that flow only.
+
+The keys of `relations`, `layer_overrides`, and `verb_overrides` are flow identifiers.
+A `(SRC, DST)` key is also correct, but only for a pair that one flow connects.
+A sequence step names its flow with `flow="ID"`.
+A step with `edge=(SRC, DST)` is correct only for a pair that one flow connects.
+On the page, each flow in the map data has an `id` key with its identifier. The other keys do not change.
+
+A sequence step can have `source_refs` in the same form as a flow.
+Each record must resolve in the current facts.
+Each record must be in a module of an acting or measured component of the step.
+`systemap judgement` gives a `step source` finding for each record that does not agree.
 
 ## What does the second pass find?
 
@@ -96,6 +136,7 @@ For each finding, change the model or record the reason for its stored state.
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
 | no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
+| step source | A record in the `source_refs` of a sequence step does not resolve in the current facts. Or, the record is in no module of an acting or measured component of the step. Cite a current record or change the step. |
 | stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with `systemap review ID`. |
 | missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
@@ -185,11 +226,11 @@ Do not use the recorded scores as results for the changed prompts or your system
 
 | line | what it asks | development maps | holdout maps |
 |---|---|---|---|
-| jev mis-fold | The component for each module claim. A line prints when the claimed component has P < 0.05. | 95% of incorrect component assignments found. 4% of correct assignments gave incorrect findings. The word rule for `possible mis-fold` found 32%. | 93% found. 1% of correct assignments gave incorrect findings. |
-| jev owner | The same question for a module without a component claim. One component prints at confidence 0.9 or more. Otherwise, three print. | 56% of modules get one component. 98% of those answers are correct. | 60% of modules get one component. 100% of those answers are correct. |
-| jev sentence | Does the component sentence agree with its modules? A line prints below P 0.2. | 67% of incorrect sentences found. 1% of correct sentences gave incorrect findings. Small source changes can cause no finding. | 61% found. 2% of correct sentences gave incorrect findings. |
-| jev flow | Does the code connection agree with the flow claim? A line prints below P 0.2. **`audit` sends these questions only with `--kind "jev flow"`.** | 66% of incorrect claims found. 2% of correct claims gave incorrect findings. Evidence excludes instance calls. This exclusion can cause an incorrect finding. | 54% found. 4% of correct claims gave incorrect findings. The result was more than 10 points below development. It failed the default-question threshold. |
-| jev governs | Does a rule apply to a component outside its scope? A line prints at P 0.8 or more. | 31% of applicable components found. 1% of other components proposed. | 38% of applicable components found. 1% of other components proposed. |
+| decision mis-fold | The component for each module claim. A line prints when the claimed component has P < 0.05. | 95% of incorrect component assignments found. 4% of correct assignments gave incorrect findings. The word rule for `possible mis-fold` found 32%. | 93% found. 1% of correct assignments gave incorrect findings. |
+| decision owner | The same question for a module without a component claim. One component prints at confidence 0.9 or more. Otherwise, three print. | 56% of modules get one component. 98% of those answers are correct. | 60% of modules get one component. 100% of those answers are correct. |
+| decision sentence | Does the component sentence agree with its modules? A line prints below P 0.2. | 67% of incorrect sentences found. 1% of correct sentences gave incorrect findings. Small source changes can cause no finding. | 61% found. 2% of correct sentences gave incorrect findings. |
+| decision flow | Does the code connection agree with the flow claim? A line prints below P 0.2. **`audit` sends these questions only with `--kind "decision flow"`.** | 60% of incorrect claims found. 2.5% of correct claims gave incorrect findings. The evidence is the lines that the `call_sites` fact gives, with instance calls. | 52% found. 2% of correct claims gave incorrect findings. The result was within 10 points of development. No TypeScript result was measured, so the question is not a default question. |
+| decision governs | Does a rule apply to a component outside its scope? A line prints at P 0.8 or more. | 31% of applicable components found. 1% of other components proposed. | 38% of applicable components found. 1% of other components proposed. |
 
 
 No question goes to Jev without `TYPESAFE_API_KEY`.
@@ -198,7 +239,7 @@ The data contains module names, docstrings, public names, internal imports, comp
 sentences, invariants, and source lines at connections between components.
 With a key, the dry run gets the model list to count cached answers. It sends no map data.
 
-A `jev flow` question gets the source lines that use a name from the other component.
+A `decision flow` question gets the source lines that use a name from the other component.
 For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
 For TypeScript, it compares the last part of the import path with the file name of the target module.
 A flow without such lines gets no question. The report gives the count of these flows.
@@ -215,14 +256,15 @@ If the model list is not available and the cache has every answer for the last k
 release, the command uses the cache. The usage line says so.
 
 Audit answers use `[judgement] answered` with `item`, `items`, or a kind such as
-`"jev flow"`. `audit` reads only answers for the kinds in its report.
+`"decision flow"`. `audit` reads only answers for the kinds in its report.
 A kind excluded from the report does not make its answer stale.
 `judgement` ignores all audit answers.
 
-The `jev mis-fold` and `jev owner` lines do not contain the component that Jev selects.
+The `decision mis-fold` and `decision owner` lines do not contain the component that the provider selects.
 The detail row gives that component. Thus a new model release that changes only that component
 does not open an answer again. Earlier versions put that component at the end of the line,
 for example `jev mis-fold: Writer claims pkg.emit, which reads like Reader`.
+Previous versions also used the `jev` names.
 An answer with the earlier line text matches the current line, with the same evidence digest.
 
 `systemap triage "<issue>"` gives the three components likely to change in an
@@ -231,24 +273,25 @@ On 80 closed issues from two repositories, the component of the pull request wit
 in 80% of predictions. It was in the first three in 88%.
 
 `delta` sends questions to Jev only when you select Jev.
-To select Jev, give `--jev`, or set `[jev] enabled = true` in `systemap.toml`.
+To select Jev, give `--decide`, or set `[jev] enabled = true` in `systemap.toml`.
 `[jev] enabled = true` also must have `TYPESAFE_API_KEY`.
 A key alone does not select Jev. Without a selection, `delta` sends no data to Jev.
-If the request cannot complete, `--jev` gives the cause.
-`--no-jev` sends nothing, also with `[jev] enabled = true`.
+If the request cannot complete, `--decide` gives the cause.
+`--no-decide` sends nothing, also with `[jev] enabled = true`.
+`--jev` and `--no-jev` are the previous names of these options.
 If delta has no question for Jev, it sends nothing and prints no Jev line.
 
 Jev answers are suggestions for source examination. They are not evidence.
 They do not change the delta lines or the exit code.
 Thus a run with Jev, a run without a key, and a run in CI give the same result.
 The suggestions print under their own heading.
-If Jev does not answer, a `delta --jev:` line gives the reason under a different heading.
+If Jev does not answer, a `delta --decide:` line gives the reason under a different heading.
 
 Jev examines removed modules that delta did not pair with added modules.
 Delta first compares source, public names, and filenames.
-A pair that Jev selects with confidence of at least 0.8 prints as a `jev move` line, for example
-`jev move: pkg.ledger -> pkg.accounts.book (read as the same module by Jev, confidence 0.94)`.
-Jev also suggests a component for each module that no component claims, as a `jev owner` line.
+A pair that Jev selects with confidence of at least 0.8 prints as a `decision move` line, for example
+`decision move: pkg.ledger -> pkg.accounts.book (read as the same module by Jev, confidence 0.94)`.
+Jev also suggests a component for each module that no component claims, as a `decision owner` line.
 
 With earlier prompts on Python repositories, delta found 66 renames.
 Jev selected 17 more pairs, and 16 of them were correct.
@@ -260,7 +303,7 @@ in `implemented_by`. It also has a necessary action while an added module has no
 Read the two source files. Then change the claims.
 The line then moves to the changes with no necessary action.
 
-`suggest --jev` groups modules from pair answers.
+`suggest --decide` groups modules from pair answers.
 Pairs have an import connection or the same package.
 Its groups were better than package-only groups on three of five development maps.
 They were not better on the other two.
@@ -275,7 +318,7 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 
 ## Which decision provider answers the questions?
 
-A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --jev`, and `delta --jev`.
+A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --decide`, and `delta --decide`.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
 
@@ -299,18 +342,19 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 
 | question type | OpenAI threshold | development maps | holdout maps |
 |---|---|---|---|
-| jev mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
-| jev owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
-| jev sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
-| jev flow | P < 0.05 (only with `--kind "jev flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
-| jev governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
+| decision mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
+| decision owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
+| decision sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
+| decision flow | P < 0.05 (only with `--kind "decision flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+| decision governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
 | triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
 | plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
-| `suggest --jev`, `delta --jev` moves | not available | not measured | No holdout rows exist. |
+| `suggest --decide`, `delta --decide` moves | not available | not measured | No holdout rows exist. |
 
-The owner question of `delta --jev` uses the `jev owner` threshold.
+The owner question of `delta --decide` uses the `decision owner` threshold.
 All measured repositories are Python repositories. No TypeScript result was measured.
-The finding types keep the names `jev mis-fold`, `jev owner`, and the other `jev` names, also when OpenAI answers. These names are identifiers in `[judgement] answered`.
+The finding kinds have the same names for each provider. These names are identifiers in `[judgement] answered`.
+[How do you change to the new finding names?](#how-do-you-change-to-the-new-finding-names) gives the previous names.
 
 An OpenAI answer must agree with its question, as a Jev answer must.
 A refusal for one question gives no finding for that question. The report gives the count of refused questions.
@@ -321,6 +365,51 @@ Its key includes the provider name, the model, the evidence, and the question. T
 The cost line on stderr has the same form for each provider, for example `openai: 1 sent, 0 from the cache; 290 input and 0 output tokens; gpt-6-luna`.
 OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
 The 1,636 bench requests used 1,211,893 input tokens ($0.12).
+
+## How do you change to the new finding names?
+
+In this release, the diagnostic kinds of a decision provider have new names.
+The previous names started with `jev`. The new names start with `decision`, because Jev or OpenAI can give the answers.
+
+| previous name | new name |
+|---|---|
+| `jev mis-fold` | `decision mis-fold` |
+| `jev owner` | `decision owner` |
+| `jev sentence` | `decision sentence` |
+| `jev flow` | `decision flow` |
+| `jev governs` | `decision governs` |
+| `jev move` | `decision move` |
+
+This release also reads the previous names:
+
+- An exact answer (`item` or `items`) with a previous name is an answer for the line with the new name.
+- A family answer, for example `kind = "jev flow"`, is an answer for the lines of the new diagnostic kind.
+- `audit --kind "jev flow"` selects the new diagnostic kind and prints a warning.
+- `systemap explain "jev flow"` gives the text of the new diagnostic kind.
+
+`audit` and `judgement` print one warning to stderr for each previous name in `[judgement] answered`.
+The warning gives the new name. Only this release reads the previous names.
+
+The evidence digest of a line is the same for the previous name and the new name.
+systemap calculates the digest of a line from the same line with its previous name.
+Thus an exact answer with one item keeps its `evidence` value after you change the name.
+But the digest of an `items` group also contains the text of each item.
+Thus a group with changed names gets a new digest, and `audit` prints a `pending answer` line.
+
+`--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
+The previous options stay for one release. They send the same requests as the new options.
+`[jev] enabled` and the other keys of the `[jev]` table do not change.
+
+The printed text gives the name of the provider that gave the answers.
+For example, `delta --decide --provider openai` prints `OpenAI suggestions`. With Jev, it prints `Jev suggestions`.
+
+To change a configuration to the new names, do these steps:
+
+1. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
+2. If you changed an `items` group, use `systemap audit`.
+3. Examine the source of each `pending answer` line again. Then record the digest from that line.
+4. Replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files.
+5. Use `systemap judgement --strict`. Make sure that it prints no warning.
 
 ## What do you do above forty components?
 
@@ -611,7 +700,7 @@ A result without changes prints
 A rejected check causes exit 1, and the command renders nothing.
 `-q` or `--quiet` prints only errors and check results.
 
-### `systemap suggest [--jev]`
+### `systemap suggest [--decide]`
 
 Proposes the first module groups for revision.
 From facts alone, it gives one component per package with two or more modules.
@@ -619,8 +708,8 @@ It lists modules and imports across proposals.
 With a model, it also shows maps above forty components and large
 components that can become nested maps.
 
-- `--jev` uses Jev's module-pair answers instead of package groups.
-  Set `TYPESAFE_API_KEY` for this option.
+- `--decide` uses the module-pair answers of the decision provider instead of package groups.
+  Set `TYPESAFE_API_KEY` for this option. `--jev` is the previous name of `--decide`. It stays for one release.
 
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
@@ -764,14 +853,17 @@ than one-third of the map.
   Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
 
-- `--jev` enables Jev suggestions for modules with changed
+- `--decide` enables the suggestions of the decision provider for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change
   the delta lines or the exit code. `[jev] enabled = true` in `systemap.toml`
-  and `TYPESAFE_API_KEY` also enable them. A key alone does not enable them.
+  and the key of the provider also enable them. A key alone does not enable them.
+  The heading of the suggestions names the provider, for example `Jev suggestions`.
 
-- `--no-jev` sends nothing.
+- `--no-decide` sends nothing.
 
-- `--provider jev|openai` selects the decision provider of `--jev`.
+- `--jev` and `--no-jev` are the previous names of `--decide` and `--no-decide`. They stay for one release.
+
+- `--provider jev|openai` selects the decision provider of `--decide`.
   With `openai`, `[jev] enabled = true` must have `OPENAI_API_KEY`.
   OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
 
@@ -792,9 +884,10 @@ evidence, unconfirmed agent drafts, and covered entry counts.
 
 ### `systemap audit [--dry-run] [--kind KIND]...`
 
-Sends questions about semantic claims to Jev.
-The finding kinds are `jev mis-fold`, `jev owner`, `jev sentence`, and
-`jev governs`. `--kind "jev flow"` also sends questions about flow claims.
+Sends questions about semantic claims to the decision provider.
+The finding kinds are `decision mis-fold`, `decision owner`, `decision sentence`, and
+`decision governs`. `--kind "decision flow"` also sends questions about flow claims.
+`--kind` also accepts the previous `jev` names for one release, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.
 Set `TYPESAFE_API_KEY` before you run the command.
@@ -804,7 +897,7 @@ Set `TYPESAFE_API_KEY` before you run the command.
 - `--dry-run` lists proposed questions and does not send them.
 
 - `--provider jev|openai` selects the decision provider.
-  With `openai`, the command does not send the `jev mis-fold` questions and gives the cause.
+  With `openai`, the command does not send the `decision mis-fold` questions and gives the cause.
 
 ### `systemap plan "<task>" [--check ID] [--base REF]`
 
@@ -848,6 +941,8 @@ An examination must add a new entry to that list before the entry counts as cove
 The agent gives components in the execution path and a sentence for each step.
 Each request contains the language policy of the `[writing]` profile.
 The command rejects a step with no authored flow and gives a finding.
+The command also rejects a step source record that does not resolve.
+It rejects a step source record in no module of an acting or measured component of the step.
 The command does not write that step.
 
 Accepted sequences enter the model with `drafted=True`.
@@ -900,12 +995,15 @@ It writes the file only if that reader gives the same model as the old file.
 Fields with their default values are not in the new text.
 If the old file imported a file beside it, the command names that file. The new file does not import it.
 
-### `systemap review ID | --flow 'SRC->DST' [--map ID] [--dry-run]`
+### `systemap review ID | --flow ID | --flow 'SRC->DST' [--map ID] [--dry-run]`
 
 Writes the current review digest of one target into the model file.
 `systemap review ID` writes `source_review` of the component ID.
+`systemap review --flow ID` writes `review_digest` of the flow with that identifier.
 `systemap review --flow 'SRC->DST'` writes `review_digest` of the flow from SRC to DST.
-Put the flow value between quotation marks, because the shell reads `>` as a redirection.
+The `SRC->DST` form is correct only for a pair that one flow connects.
+Put the `SRC->DST` value between quotation marks, because the shell reads `>` as a redirection.
+If the map has no flow with the `ID`, the command stops with exit 2.
 `--map ID` selects a nested map.
 `--dry-run` prints the digest and the file, and it writes nothing.
 
@@ -929,7 +1027,7 @@ If the value is the current digest, the command writes nothing.
 
 The command stops with exit 1 and writes nothing in these conditions:
 
-- The map has no such component or flow.
+- The map has no such component or flow, or two or more flows connect the `SRC->DST` pair.
 - The component has no current digest. It claims no module, a claimed module is missing, or the parser cannot read a claimed module.
 - The flow has no `source_refs`, or a source record does not agree with the current source.
 - systemap cannot read the model file as data. Use `systemap convert` first.
@@ -1159,11 +1257,11 @@ Unknown keys are rejected.
 | `[facts]` | none | `model_sdks = [...]` adds import names to the SDK list of the language adapter. A `-` at the start removes a name of that list (`"-google.adk"`). The Python list contains Python import names, and the TypeScript list contains npm package names. |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[rules]` | `unknown = "warn"` | `unknown = "fail"` makes `systemap check` and `systemap rules` exit 1 for an import rule with the result `unknown`. With `"warn"`, the commands print the result and do not reject the map. A different value or key gives a configuration error. |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. The previous `jev` names stay correct for one release, with a warning. |
 | `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
-| `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --jev`, and `suggest --jev`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
-| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--jev`. With `enabled` unset, `delta` sends no question without `--jev`, also with a key. `enabled = false` stops the hints. |
+| `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, and `suggest --decide`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--decide`. With `enabled` unset, `delta` sends no question without `--decide`, also with a key. `enabled = false` stops the hints. |
 | `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |

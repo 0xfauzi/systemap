@@ -78,7 +78,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>placement</td>
-<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number.</td>
+<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no <code>id</code>. Two flows have the same <code>id</code>, or an <code>id</code> contains a character other than a letter, a digit, <code>_</code>, <code>.</code>, or <code>-</code>. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number.</td>
 </tr>
 <tr>
 <td>routes</td>
@@ -94,7 +94,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>meaning</td>
-<td>A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id.</td>
+<td>A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the <code>(SRC, DST)</code> key of a pair with two or more flows. A sequence step names such a pair with <code>edge</code>. A flow has no sentence. A step has no <code>say</code>. A custom layer uses a standard id.</td>
 </tr>
 <tr>
 <td>import rules</td>
@@ -181,9 +181,41 @@ If no reference is in an endpoint module, the flow is not <code>observed</code>.
 <code>systemap judgement</code> then prints a <code>no endpoint source</code> finding.
 The facts file (<code>docs/map/map.json</code> by default) gives the <code>source_sha256</code> of each module in <code>components</code>.
 <code>systemap review --flow 'SRC-&gt;DST'</code> writes the current <code>review_digest</code> of one flow.
+For a flow with an <code>id</code>, use <code>systemap review --flow ID</code>.
 It does not examine the claims for you. Examine the source before you record the values.</p>
 <p>A source change gives a new <code>source_sha256</code>.
 A change to the flow or its relation sentence gives a new <code>review_digest</code>.</p>
+<h2 id="how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</h2>
+<p>Each flow has an identifier. The identifier is the <code>id</code> of the flow.
+A flow without an <code>id</code> has the identifier <code>SRC-&gt;DST</code>.
+Thus, a model without ids keeps its digests, keys, and finding lines.</p>
+<p>Two or more flows can connect one ordered pair only if each of these flows has its own <code>id</code>.
+An <code>id</code> contains only letters, digits, <code>_</code>, <code>.</code>, and <code>-</code>.
+In this example, the service sends two artifacts to the queue:</p>
+<pre class="code"><code class="language-python">FLOWS <span class="p">= (
+    </span><span class="f">Flow</span><span class="p">(</span><span class="s">"OrderService"</span><span class="p">, </span><span class="s">"OrderQueue"</span><span class="p">, </span><span class="s">"order"</span><span class="p">, </span><span class="s">"data"</span><span class="p">, </span><span class="a">id</span><span class="p">=</span><span class="s">"submit-order"</span><span class="p">),
+    </span><span class="f">Flow</span><span class="p">(</span><span class="s">"OrderService"</span><span class="p">, </span><span class="s">"OrderQueue"</span><span class="p">, </span><span class="s">"cancel"</span><span class="p">, </span><span class="s">"control"</span><span class="p">, </span><span class="a">id</span><span class="p">=</span><span class="s">"cancel-order"</span><span class="p">),
+)
+</span>RELATIONS <span class="p">= {
+    </span><span class="s">"submit-order"</span><span class="p">: </span><span class="s">"The service puts a new order in the queue."</span><span class="p">,
+    </span><span class="s">"cancel-order"</span><span class="p">: </span><span class="s">"The service tells the queue to remove an order."</span><span class="p">,
+}
+</span>STEP <span class="p">= </span><span class="f">Step</span><span class="p">(</span><span class="a">acts</span><span class="p">=(</span><span class="s">"OrderService"</span><span class="p">,), </span><span class="a">measures</span><span class="p">=(), </span><span class="a">flow</span><span class="p">=</span><span class="s">"cancel-order"</span><span class="p">,
+            </span><span class="a">say</span><span class="p">=</span><span class="s">"The service tells the queue to remove the order."</span><span class="p">)
+</span></code></pre>
+<p>The map shows each flow as a different line with its own label.
+Each flow has its own sentence, <code>source_refs</code>, <code>review_digest</code>, and decision request.
+A finding line names a flow with an <code>id</code> as <code>SRC -&gt; DST [ID]</code>.
+<code>systemap review --flow submit-order</code> writes the digest of that flow only.</p>
+<p>The keys of <code>relations</code>, <code>layer_overrides</code>, and <code>verb_overrides</code> are flow identifiers.
+A <code>(SRC, DST)</code> key is also correct, but only for a pair that one flow connects.
+A sequence step names its flow with <code>flow=&quot;ID&quot;</code>.
+A step with <code>edge=(SRC, DST)</code> is correct only for a pair that one flow connects.
+On the page, each flow in the map data has an <code>id</code> key with its identifier. The other keys do not change.</p>
+<p>A sequence step can have <code>source_refs</code> in the same form as a flow.
+Each record must resolve in the current facts.
+Each record must be in a module of an acting or measured component of the step.
+<code>systemap judgement</code> gives a <code>step source</code> finding for each record that does not agree.</p>
 <h2 id="what-does-the-second-pass-find">What does the second pass find?</h2>
 <p>The check rejects contradictions.
 It cannot show all omissions.
@@ -233,6 +265,10 @@ For each finding, change the model or record the reason for its stored state.</p
 <tr>
 <td>no endpoint source</td>
 <td>A flow has <code>source_refs</code>, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow.</td>
+</tr>
+<tr>
+<td>step source</td>
+<td>A record in the <code>source_refs</code> of a sequence step does not resolve in the current facts. Or, the record is in no module of an acting or measured component of the step. Cite a current record or change the step.</td>
 </tr>
 <tr>
 <td>stale source review</td>
@@ -340,31 +376,31 @@ Do not use the recorded scores as results for the changed prompts or your system
 </thead>
 <tbody>
 <tr>
-<td>jev mis-fold</td>
+<td>decision mis-fold</td>
 <td>The component for each module claim. A line prints when the claimed component has P &lt; 0.05.</td>
 <td>95% of incorrect component assignments found. 4% of correct assignments gave incorrect findings. The word rule for <code>possible mis-fold</code> found 32%.</td>
 <td>93% found. 1% of correct assignments gave incorrect findings.</td>
 </tr>
 <tr>
-<td>jev owner</td>
+<td>decision owner</td>
 <td>The same question for a module without a component claim. One component prints at confidence 0.9 or more. Otherwise, three print.</td>
 <td>56% of modules get one component. 98% of those answers are correct.</td>
 <td>60% of modules get one component. 100% of those answers are correct.</td>
 </tr>
 <tr>
-<td>jev sentence</td>
+<td>decision sentence</td>
 <td>Does the component sentence agree with its modules? A line prints below P 0.2.</td>
 <td>67% of incorrect sentences found. 1% of correct sentences gave incorrect findings. Small source changes can cause no finding.</td>
 <td>61% found. 2% of correct sentences gave incorrect findings.</td>
 </tr>
 <tr>
-<td>jev flow</td>
-<td>Does the code connection agree with the flow claim? A line prints below P 0.2. <strong><code>audit</code> sends these questions only with <code>--kind &quot;jev flow&quot;</code>.</strong></td>
-<td>66% of incorrect claims found. 2% of correct claims gave incorrect findings. Evidence excludes instance calls. This exclusion can cause an incorrect finding.</td>
-<td>54% found. 4% of correct claims gave incorrect findings. The result was more than 10 points below development. It failed the default-question threshold.</td>
+<td>decision flow</td>
+<td>Does the code connection agree with the flow claim? A line prints below P 0.2. <strong><code>audit</code> sends these questions only with <code>--kind &quot;decision flow&quot;</code>.</strong></td>
+<td>60% of incorrect claims found. 2.5% of correct claims gave incorrect findings. The evidence is the lines that the <code>call_sites</code> fact gives, with instance calls.</td>
+<td>52% found. 2% of correct claims gave incorrect findings. The result was within 10 points of development. No TypeScript result was measured, so the question is not a default question.</td>
 </tr>
 <tr>
-<td>jev governs</td>
+<td>decision governs</td>
 <td>Does a rule apply to a component outside its scope? A line prints at P 0.8 or more.</td>
 <td>31% of applicable components found. 1% of other components proposed.</td>
 <td>38% of applicable components found. 1% of other components proposed.</td>
@@ -377,7 +413,7 @@ Do not use the recorded scores as results for the changed prompts or your system
 The data contains module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
 With a key, the dry run gets the model list to count cached answers. It sends no map data.</p>
-<p>A <code>jev flow</code> question gets the source lines that use a name from the other component.
+<p>A <code>decision flow</code> question gets the source lines that use a name from the other component.
 For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
 For TypeScript, it compares the last part of the import path with the file name of the target module.
 A flow without such lines gets no question. The report gives the count of these flows.</p>
@@ -391,35 +427,37 @@ A new model release causes new questions.
 If the model list is not available and the cache has every answer for the last known
 release, the command uses the cache. The usage line says so.</p>
 <p>Audit answers use <code>[judgement] answered</code> with <code>item</code>, <code>items</code>, or a kind such as
-<code>&quot;jev flow&quot;</code>. <code>audit</code> reads only answers for the kinds in its report.
+<code>&quot;decision flow&quot;</code>. <code>audit</code> reads only answers for the kinds in its report.
 A kind excluded from the report does not make its answer stale.
 <code>judgement</code> ignores all audit answers.</p>
-<p>The <code>jev mis-fold</code> and <code>jev owner</code> lines do not contain the component that Jev selects.
+<p>The <code>decision mis-fold</code> and <code>decision owner</code> lines do not contain the component that the provider selects.
 The detail row gives that component. Thus a new model release that changes only that component
 does not open an answer again. Earlier versions put that component at the end of the line,
 for example <code>jev mis-fold: Writer claims pkg.emit, which reads like Reader</code>.
+Previous versions also used the <code>jev</code> names.
 An answer with the earlier line text matches the current line, with the same evidence digest.</p>
 <p><code>systemap triage &quot;&lt;issue&gt;&quot;</code> gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
 On 80 closed issues from two repositories, the component of the pull request with the fix was first
 in 80% of predictions. It was in the first three in 88%.</p>
 <p><code>delta</code> sends questions to Jev only when you select Jev.
-To select Jev, give <code>--jev</code>, or set <code>[jev] enabled = true</code> in <code>systemap.toml</code>.
+To select Jev, give <code>--decide</code>, or set <code>[jev] enabled = true</code> in <code>systemap.toml</code>.
 <code>[jev] enabled = true</code> also must have <code>TYPESAFE_API_KEY</code>.
 A key alone does not select Jev. Without a selection, <code>delta</code> sends no data to Jev.
-If the request cannot complete, <code>--jev</code> gives the cause.
-<code>--no-jev</code> sends nothing, also with <code>[jev] enabled = true</code>.
+If the request cannot complete, <code>--decide</code> gives the cause.
+<code>--no-decide</code> sends nothing, also with <code>[jev] enabled = true</code>.
+<code>--jev</code> and <code>--no-jev</code> are the previous names of these options.
 If delta has no question for Jev, it sends nothing and prints no Jev line.</p>
 <p>Jev answers are suggestions for source examination. They are not evidence.
 They do not change the delta lines or the exit code.
 Thus a run with Jev, a run without a key, and a run in CI give the same result.
 The suggestions print under their own heading.
-If Jev does not answer, a <code>delta --jev:</code> line gives the reason under a different heading.</p>
+If Jev does not answer, a <code>delta --decide:</code> line gives the reason under a different heading.</p>
 <p>Jev examines removed modules that delta did not pair with added modules.
 Delta first compares source, public names, and filenames.
-A pair that Jev selects with confidence of at least 0.8 prints as a <code>jev move</code> line, for example
-<code>jev move: pkg.ledger -&gt; pkg.accounts.book (read as the same module by Jev, confidence 0.94)</code>.
-Jev also suggests a component for each module that no component claims, as a <code>jev owner</code> line.</p>
+A pair that Jev selects with confidence of at least 0.8 prints as a <code>decision move</code> line, for example
+<code>decision move: pkg.ledger -&gt; pkg.accounts.book (read as the same module by Jev, confidence 0.94)</code>.
+Jev also suggests a component for each module that no component claims, as a <code>decision owner</code> line.</p>
 <p>With earlier prompts on Python repositories, delta found 66 renames.
 Jev selected 17 more pairs, and 16 of them were correct.
 An agent wrote reference labels from commits without Jev's answers.
@@ -428,7 +466,7 @@ The records are in <code>bench/jev</code>.</p>
 in <code>implemented_by</code>. It also has a necessary action while an added module has no claim and no ignore.
 Read the two source files. Then change the claims.
 The line then moves to the changes with no necessary action.</p>
-<p><code>suggest --jev</code> groups modules from pair answers.
+<p><code>suggest --decide</code> groups modules from pair answers.
 Pairs have an import connection or the same package.
 Its groups were better than package-only groups on three of five development maps.
 They were not better on the other two.
@@ -440,7 +478,7 @@ The <code>delta</code> hint tells how to select Jev. It prints with a key and wi
 Each hint gives a result that was measured with earlier prompts on Python repositories.
 <code>[jev] enabled = false</code> stops the hints.</p>
 <h2 id="which-decision-provider-answers-the-questions">Which decision provider answers the questions?</h2>
-<p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --jev</code>, and <code>delta --jev</code>.
+<p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --decide</code>, and <code>delta --decide</code>.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (<code>POST https://api.openai.com/v1/decisions</code>, model <code>gpt-6-luna</code>, public beta).</p>
 <p>To select OpenAI, give <code>--provider openai</code> to the command, or set <code>[decisions] provider = &quot;openai&quot;</code> in <code>systemap.toml</code>.
@@ -470,31 +508,31 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 </thead>
 <tbody>
 <tr>
-<td>jev mis-fold</td>
+<td>decision mis-fold</td>
 <td>not available</td>
 <td>82.1% found at P &lt; 0.02, 3.1% incorrect findings</td>
 <td>61.5% found. More than 10 points below development.</td>
 </tr>
 <tr>
-<td>jev owner</td>
+<td>decision owner</td>
 <td>confidence 0.99 or more</td>
 <td>9.5% of modules get one component, 100% correct</td>
 <td>4.7%, 100% correct</td>
 </tr>
 <tr>
-<td>jev sentence</td>
+<td>decision sentence</td>
 <td>P &lt; 0.3</td>
 <td>81.0% of incorrect sentences found, 1.3% incorrect findings</td>
 <td>75.0% found, 0.0% incorrect findings</td>
 </tr>
 <tr>
-<td>jev flow</td>
-<td>P &lt; 0.05 (only with <code>--kind &quot;jev flow&quot;</code>)</td>
+<td>decision flow</td>
+<td>P &lt; 0.05 (only with <code>--kind &quot;decision flow&quot;</code>)</td>
 <td>46.2% of incorrect claims found, 2.5% incorrect findings</td>
 <td>56.2% found, 8.3% incorrect findings</td>
 </tr>
 <tr>
-<td>jev governs</td>
+<td>decision governs</td>
 <td>P 0.99 or more</td>
 <td>19.8% of applicable components found, 1.1% of other components proposed</td>
 <td>17.2% found, 6.0% proposed</td>
@@ -512,7 +550,7 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 <td>0.39 covered</td>
 </tr>
 <tr>
-<td><code>suggest --jev</code>, <code>delta --jev</code> moves</td>
+<td><code>suggest --decide</code>, <code>delta --decide</code> moves</td>
 <td>not available</td>
 <td>not measured</td>
 <td>No holdout rows exist.</td>
@@ -520,9 +558,10 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 </tbody>
 </table>
 </div>
-<p>The owner question of <code>delta --jev</code> uses the <code>jev owner</code> threshold.
+<p>The owner question of <code>delta --decide</code> uses the <code>decision owner</code> threshold.
 All measured repositories are Python repositories. No TypeScript result was measured.
-The finding types keep the names <code>jev mis-fold</code>, <code>jev owner</code>, and the other <code>jev</code> names, also when OpenAI answers. These names are identifiers in <code>[judgement] answered</code>.</p>
+The finding kinds have the same names for each provider. These names are identifiers in <code>[judgement] answered</code>.
+<a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a> gives the previous names.</p>
 <p>An OpenAI answer must agree with its question, as a Jev answer must.
 A refusal for one question gives no finding for that question. The report gives the count of refused questions.</p>
 <p>The cache is <code>.systemap/openai-cache.json</code>. It does not keep a refusal.
@@ -530,6 +569,72 @@ Its key includes the provider name, the model, the evidence, and the question. T
 <p>The cost line on stderr has the same form for each provider, for example <code>openai: 1 sent, 0 from the cache; 290 input and 0 output tokens; gpt-6-luna</code>.
 OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
 The 1,636 bench requests used 1,211,893 input tokens ($0.12).</p>
+<h2 id="how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</h2>
+<p>In this release, the diagnostic kinds of a decision provider have new names.
+The previous names started with <code>jev</code>. The new names start with <code>decision</code>, because Jev or OpenAI can give the answers.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
+<table>
+<thead>
+<tr>
+<th>previous name</th>
+<th>new name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jev mis-fold</code></td>
+<td><code>decision mis-fold</code></td>
+</tr>
+<tr>
+<td><code>jev owner</code></td>
+<td><code>decision owner</code></td>
+</tr>
+<tr>
+<td><code>jev sentence</code></td>
+<td><code>decision sentence</code></td>
+</tr>
+<tr>
+<td><code>jev flow</code></td>
+<td><code>decision flow</code></td>
+</tr>
+<tr>
+<td><code>jev governs</code></td>
+<td><code>decision governs</code></td>
+</tr>
+<tr>
+<td><code>jev move</code></td>
+<td><code>decision move</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This release also reads the previous names:</p>
+<ul>
+<li>An exact answer (<code>item</code> or <code>items</code>) with a previous name is an answer for the line with the new name.</li>
+<li>A family answer, for example <code>kind = &quot;jev flow&quot;</code>, is an answer for the lines of the new diagnostic kind.</li>
+<li><code>audit --kind &quot;jev flow&quot;</code> selects the new diagnostic kind and prints a warning.</li>
+<li><code>systemap explain &quot;jev flow&quot;</code> gives the text of the new diagnostic kind.</li>
+</ul>
+<p><code>audit</code> and <code>judgement</code> print one warning to stderr for each previous name in <code>[judgement] answered</code>.
+The warning gives the new name. Only this release reads the previous names.</p>
+<p>The evidence digest of a line is the same for the previous name and the new name.
+systemap calculates the digest of a line from the same line with its previous name.
+Thus an exact answer with one item keeps its <code>evidence</code> value after you change the name.
+But the digest of an <code>items</code> group also contains the text of each item.
+Thus a group with changed names gets a new digest, and <code>audit</code> prints a <code>pending answer</code> line.</p>
+<p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
+The previous options stay for one release. They send the same requests as the new options.
+<code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
+<p>The printed text gives the name of the provider that gave the answers.
+For example, <code>delta --decide --provider openai</code> prints <code>OpenAI suggestions</code>. With Jev, it prints <code>Jev suggestions</code>.</p>
+<p>To change a configuration to the new names, do these steps:</p>
+<ol>
+<li>In <code>systemap.toml</code>, replace each previous name in <code>[judgement] answered</code> with its new name.</li>
+<li>If you changed an <code>items</code> group, use <code>systemap audit</code>.</li>
+<li>Examine the source of each <code>pending answer</code> line again. Then record the digest from that line.</li>
+<li>Replace <code>--jev</code> with <code>--decide</code> and <code>--no-jev</code> with <code>--no-decide</code> in scripts and CI files.</li>
+<li>Use <code>systemap judgement --strict</code>. Make sure that it prints no warning.</li>
+</ol>
 <h2 id="what-do-you-do-above-forty-components">What do you do above forty components?</h2>
 <p>A large repository can exceed the capacity of one readable canvas.
 Above approximately forty components, each layer can contain almost all
@@ -812,7 +917,7 @@ A result without changes prints
 <code>map: The page agrees with the rendered model fields and the facts.</code>
 A rejected check causes exit 1, and the command renders nothing.
 <code>-q</code> or <code>--quiet</code> prints only errors and check results.</p>
-<h3 id="systemap-suggest-jev"><code>systemap suggest [--jev]</code></h3>
+<h3 id="systemap-suggest-decide"><code>systemap suggest [--decide]</code></h3>
 <p>Proposes the first module groups for revision.
 From facts alone, it gives one component per package with two or more modules.
 It lists modules and imports across proposals.
@@ -820,8 +925,8 @@ With a model, it also shows maps above forty components and large
 components that can become nested maps.</p>
 <ul>
 <li>
-<p><code>--jev</code> uses Jev's module-pair answers instead of package groups.
-Set <code>TYPESAFE_API_KEY</code> for this option.</p>
+<p><code>--decide</code> uses the module-pair answers of the decision provider instead of package groups.
+Set <code>TYPESAFE_API_KEY</code> for this option. <code>--jev</code> is the previous name of <code>--decide</code>. It stays for one release.</p>
 </li>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider.
@@ -1054,16 +1159,20 @@ Without <code>page_url</code>, the command writes no file.
 The comment does not change the delta lines or the exit code.</p>
 </li>
 <li>
-<p><code>--jev</code> enables Jev suggestions for modules with changed
+<p><code>--decide</code> enables the suggestions of the decision provider for modules with changed
 names and content, and for unclaimed modules. The suggestions do not change
 the delta lines or the exit code. <code>[jev] enabled = true</code> in <code>systemap.toml</code>
-and <code>TYPESAFE_API_KEY</code> also enable them. A key alone does not enable them.</p>
+and the key of the provider also enable them. A key alone does not enable them.
+The heading of the suggestions names the provider, for example <code>Jev suggestions</code>.</p>
 </li>
 <li>
-<p><code>--no-jev</code> sends nothing.</p>
+<p><code>--no-decide</code> sends nothing.</p>
 </li>
 <li>
-<p><code>--provider jev|openai</code> selects the decision provider of <code>--jev</code>.
+<p><code>--jev</code> and <code>--no-jev</code> are the previous names of <code>--decide</code> and <code>--no-decide</code>. They stay for one release.</p>
+</li>
+<li>
+<p><code>--provider jev|openai</code> selects the decision provider of <code>--decide</code>.
 With <code>openai</code>, <code>[jev] enabled = true</code> must have <code>OPENAI_API_KEY</code>.
 OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.</p>
 </li>
@@ -1082,9 +1191,10 @@ A gutter line counts the labels that the flow paths put in that gutter.</p>
 <p>The sequence section gives steps, the entry point where each sequence starts, steps without import
 evidence, unconfirmed agent drafts, and covered entry counts.</p>
 <h3 id="systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></h3>
-<p>Sends questions about semantic claims to Jev.
-The finding kinds are <code>jev mis-fold</code>, <code>jev owner</code>, <code>jev sentence</code>, and
-<code>jev governs</code>. <code>--kind &quot;jev flow&quot;</code> also sends questions about flow claims.
+<p>Sends questions about semantic claims to the decision provider.
+The finding kinds are <code>decision mis-fold</code>, <code>decision owner</code>, <code>decision sentence</code>, and
+<code>decision governs</code>. <code>--kind &quot;decision flow&quot;</code> also sends questions about flow claims.
+<code>--kind</code> also accepts the previous <code>jev</code> names for one release, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.
 Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
@@ -1097,7 +1207,7 @@ Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
 </li>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider.
-With <code>openai</code>, the command does not send the <code>jev mis-fold</code> questions and gives the cause.</p>
+With <code>openai</code>, the command does not send the <code>decision mis-fold</code> questions and gives the cause.</p>
 </li>
 </ul>
 <h3 id="systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></h3>
@@ -1141,6 +1251,8 @@ An examination must add a new entry to that list before the entry counts as cove
 The agent gives components in the execution path and a sentence for each step.
 Each request contains the language policy of the <code>[writing]</code> profile.
 The command rejects a step with no authored flow and gives a finding.
+The command also rejects a step source record that does not resolve.
+It rejects a step source record in no module of an acting or measured component of the step.
 The command does not write that step.</p>
 <p>Accepted sequences enter the model with <code>drafted=True</code>.
 The command writes them into the <code>JOURNEYS = (...)</code> tuple of the model.
@@ -1188,11 +1300,14 @@ If all model files have literal values only, it writes nothing and exits 0.</p>
 It writes the file only if that reader gives the same model as the old file.
 Fields with their default values are not in the new text.
 If the old file imported a file beside it, the command names that file. The new file does not import it.</p>
-<h3 id="systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow 'SRC-&gt;DST' [--map ID] [--dry-run]</code></h3>
+<h3 id="systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow 'SRC-&gt;DST' [--map ID] [--dry-run]</code></h3>
 <p>Writes the current review digest of one target into the model file.
 <code>systemap review ID</code> writes <code>source_review</code> of the component ID.
+<code>systemap review --flow ID</code> writes <code>review_digest</code> of the flow with that identifier.
 <code>systemap review --flow 'SRC-&gt;DST'</code> writes <code>review_digest</code> of the flow from SRC to DST.
-Put the flow value between quotation marks, because the shell reads <code>&gt;</code> as a redirection.
+The <code>SRC-&gt;DST</code> form is correct only for a pair that one flow connects.
+Put the <code>SRC-&gt;DST</code> value between quotation marks, because the shell reads <code>&gt;</code> as a redirection.
+If the map has no flow with the <code>ID</code>, the command stops with exit 2.
 <code>--map ID</code> selects a nested map.
 <code>--dry-run</code> prints the digest and the file, and it writes nothing.</p>
 <p>The command does not examine claims.
@@ -1212,7 +1327,7 @@ It writes the file only if the reader that runs no code gives the same model wit
 If the value is the current digest, the command writes nothing.</p>
 <p>The command stops with exit 1 and writes nothing in these conditions:</p>
 <ul>
-<li>The map has no such component or flow.</li>
+<li>The map has no such component or flow, or two or more flows connect the <code>SRC-&gt;DST</code> pair.</li>
 <li>The component has no current digest. It claims no module, a claimed module is missing, or the parser cannot read a claimed module.</li>
 <li>The flow has no <code>source_refs</code>, or a source record does not agree with the current source.</li>
 <li>systemap cannot read the model file as data. Use <code>systemap convert</code> first.</li>
@@ -1695,7 +1810,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[judgement]</code></td>
 <td>none</td>
-<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;jev flow&quot;</code>.</td>
+<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. The previous <code>jev</code> names stay correct for one release, with a warning.</td>
 </tr>
 <tr>
 <td><code>[judgement] require_reviews</code></td>
@@ -1710,12 +1825,12 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[decisions]</code></td>
 <td><code>provider = &quot;jev&quot;</code>, <code>max_contradicted = 3</code></td>
-<td><code>provider</code> is the decision provider of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta --jev</code>, and <code>suggest --jev</code>: <code>&quot;jev&quot;</code> or <code>&quot;openai&quot;</code>. The <code>--provider</code> option of a command replaces this value. A key in the environment does not select a provider. <a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a> gives the data that goes to OpenAI. <code>max_contradicted</code> is the quantity of <code>contradicted</code> verdicts for one target of <code>systemap decisions</code> before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A <code>[decision]</code> table gives a configuration error that tells you to use <code>[decisions] provider</code>.</td>
+<td><code>provider</code> is the decision provider of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta --decide</code>, and <code>suggest --decide</code>: <code>&quot;jev&quot;</code> or <code>&quot;openai&quot;</code>. The <code>--provider</code> option of a command replaces this value. A key in the environment does not select a provider. <a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a> gives the data that goes to OpenAI. <code>max_contradicted</code> is the quantity of <code>contradicted</code> verdicts for one target of <code>systemap decisions</code> before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A <code>[decision]</code> table gives a configuration error that tells you to use <code>[decisions] provider</code>.</td>
 </tr>
 <tr>
 <td><code>[jev]</code></td>
 <td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled</code> unset</td>
-<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --jev</code>. With <code>enabled = true</code> and <code>TYPESAFE_API_KEY</code>, <code>delta</code> sends questions to Jev without <code>--jev</code>. With <code>enabled</code> unset, <code>delta</code> sends no question without <code>--jev</code>, also with a key. <code>enabled = false</code> stops the hints.</td>
+<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --decide</code>. With <code>enabled = true</code> and <code>TYPESAFE_API_KEY</code>, <code>delta</code> sends questions to Jev without <code>--decide</code>. With <code>enabled</code> unset, <code>delta</code> sends no question without <code>--decide</code>, also with a key. <code>enabled = false</code> stops the hints.</td>
 </tr>
 <tr>
 <td><code>[openai]</code></td>
@@ -1808,7 +1923,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
