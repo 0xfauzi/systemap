@@ -28,6 +28,9 @@ REGULAR = ("100644", "100755")
 SYMLINK = "120000"
 # The tree reader writes a blob in parts of this size.
 CHUNK = 1 << 20
+# The version of the facts at a commit. Version 2 adds `refused_paths`. The facts cache
+# scope contains this value, so a cache of version 1 is not read.
+TREE_READER = 2
 
 
 class DeltaError(Exception):
@@ -183,22 +186,6 @@ def blobs_at(repo: Path, sha: str, paths: Iterable[str]) -> dict[str, bytes | No
     return out
 
 
-def _safe(into: Path, rel: str) -> Path | None:
-    """This function gives the target path of a tree entry, or None if it can leave `into`.
-
-    The rule is the same on each platform. Thus the facts at a commit are the same on
-    each platform. A Windows computer reads a backslash as a separator and a colon as a
-    drive. Thus the function refuses a path with a backslash or a colon. `repo_files.plain`
-    refuses an absolute path and a `..` part.
-    """
-    if "\\" in rel or ":" in rel or not repo_files.plain(rel):
-        return None
-    parts = rel.split("/")
-    if any(p in ("", ".", "..") for p in parts) or parts[0].lower() == ".git":
-        return None
-    return into.joinpath(*parts)
-
-
 class _Inside:
     """This record tells if a resolved target is in `into`. It resolves each folder once.
 
@@ -216,30 +203,66 @@ class _Inside:
         return self._folders[folder] and not target.is_symlink()
 
 
-def _link(target: Path, into: Path, value: bytes) -> None:
-    """This function makes a symbolic link if it stays inside the tree."""
+def refusal(rel: str) -> str:
+    """This function gives the cause if the tree reader refuses a committed path, or "".
+
+    The rule is the same on each platform. Thus the facts at a commit are the same on
+    each platform. A Windows computer reads a backslash as a separator and a colon as a
+    drive or a data stream.
+    """
+    if "\\" in rel:
+        return "the path contains a backslash. Windows reads a backslash as a folder separator"
+    if ":" in rel:
+        return "the path contains a colon. Windows reads a colon as a drive or a data stream"
+    parts = rel.split("/")
+    if not repo_files.plain(rel) or any(p in ("", ".", "..") for p in parts):
+        return "the path is absolute, or it contains an empty, . or .. part"
+    if parts[0].lower() == ".git":
+        return "the path is in the .git folder"
+    return ""
+
+
+def _link(target: Path, into: Path, value: bytes) -> str:
+    """This function makes a symbolic link if it stays inside the tree.
+
+    The result is the cause if the function does not make the link, or "".
+    """
     pointed = (target.parent / os.fsdecode(value)).resolve()
     if into not in (pointed, *pointed.parents):
-        return
+        return "the link goes to a file that is not in the tree"
     try:
         target.symlink_to(os.fsdecode(value))
-    except OSError:
-        return
+    except OSError as exc:
+        return f"the link could not be made: {type(exc).__name__}"
+    return ""
 
 
-def write_tree(repo: Path, sha: str, into: Path) -> None:
+def _plan(
+    entries: list[_Entry], into: Path
+) -> tuple[list[tuple[_Entry, Path]], list[tuple[str, str]]]:
+    """This function gives the entries to write with their targets, and the refused
+    paths with their causes."""
+    todo: list[tuple[_Entry, Path]] = []
+    refused: list[tuple[str, str]] = []
+    for entry in entries:
+        if entry.mode not in REGULAR and entry.mode != SYMLINK:
+            continue
+        cause = refusal(entry.path)
+        if cause:
+            refused.append((entry.path, cause))
+        else:
+            todo.append((entry, into.joinpath(*entry.path.split("/"))))
+    return todo, refused
+
+
+def write_tree(repo: Path, sha: str, into: Path) -> list[tuple[str, str]]:
     """This function writes the committed blobs of `sha` into `into`.
 
-    The function writes each blob in parts. It does not read a blob whose path `_safe`
-    refuses. It does not write a target whose resolved path is not in `into`.
+    The function writes each blob in parts. It does not read a blob whose path `refusal`
+    refuses. It does not write a target whose resolved path is not in `into`. The result
+    gives each path that the function did not write, with its cause.
     """
-    todo = [
-        (entry, target)
-        for entry in _entries(repo, sha)
-        if entry.mode in REGULAR or entry.mode == SYMLINK
-        for target in [_safe(into, entry.path)]
-        if target is not None
-    ]
+    todo, refused = _plan(_entries(repo, sha), into)
     inside = _Inside(into)
     with (
         _Blobs(repo, [entry.oid for entry, _target in todo]) as blobs,
@@ -248,23 +271,52 @@ def write_tree(repo: Path, sha: str, into: Path) -> None:
         for entry, target in todo:
             if not inside(target):
                 blobs.copy(nowhere)
+                refused.append((entry.path, "the resolved path is not in the tree folder"))
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             if entry.mode == SYMLINK:
-                _link(target, into, blobs.read())
+                cause = _link(target, into, blobs.read())
+                if cause:
+                    refused.append((entry.path, cause))
                 continue
             with target.open("wb") as out:
                 blobs.copy(out)
+    return sorted(refused)
 
 
 def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
-    """This function extracts facts at a Git commit without reading the working tree."""
+    """This function extracts facts at a Git commit without reading the working tree.
+
+    The facts have no record for a path that the tree reader refuses. `refused_paths`
+    gives each such path and its cause. Thus a comparison can tell that the changes of
+    these paths are not known.
+    """
     with tempfile.TemporaryDirectory(prefix="systemap-delta-") as tmp:
         into = Path(tmp).resolve()
-        write_tree(cfg.root, sha, into)
+        refused = write_tree(cfg.root, sha, into)
         facts = extraction.build(dataclasses.replace(cfg, root=into))
     facts["built_at_commit"] = sha
+    facts["refused_paths"] = _records(refused)
     return facts
+
+
+def _records(refused: list[tuple[str, str]]) -> list[dict[str, str]]:
+    return [{"path": path, "reason": cause} for path, cause in refused]
+
+
+def refused_lines(*facts: dict[str, Any]) -> list[str]:
+    """This function gives the text lines for the refused paths of the facts at commits.
+
+    The changes of these paths are not known. The lines are empty if no path is refused.
+    """
+    found = sorted({(r["path"], r["reason"]) for f in facts for r in f.get("refused_paths", [])})
+    if not found:
+        return []
+    return [
+        "Not in this comparison: the tree reader refused these committed paths. "
+        "Their changes are not known.",
+        *(f"  {path}: {cause}" for path, cause in found),
+    ]
 
 
 def model_at(cfg: Config, sha: str) -> nest.Tree | str:

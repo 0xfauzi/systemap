@@ -112,6 +112,86 @@ def test_the_tree_reader_refuses_windows_paths_on_each_platform(tmp_path: Path) 
     assert written == ["into/pkg/good.py"]
 
 
+def with_entry(root: Path, tree: str, path: str, blob: str) -> str:
+    """Give a tree that is `tree` with one more blob at `path`. `git mktree` accepts each
+    name, also `..`, so the test makes the same tree on each platform."""
+    head, _sep, rest = path.partition("/")
+    rows = [row for row in git(root, "ls-tree", "-z", tree).split("\0") if row] if tree else []
+    kept = [row for row in rows if row.split("\t", 1)[1] != head]
+    if rest:
+        old = next((row.split()[2] for row in rows if row.split("\t", 1)[1] == head), "")
+        kept.append(f"040000 tree {with_entry(root, old, rest, blob)}\t{head}")
+    else:
+        kept.append(f"100644 blob {blob}\t{head}")
+    return git(root, "mktree", "-z", stdin=("\0".join(kept) + "\0").encode())
+
+
+REFUSED = {
+    "colon": ("pkg/a:b.py", "colon"),
+    "backslash": ("pkg/a\\b.py", "backslash"),
+    "dotdot": ("pkg/../c.py", ".."),
+}
+
+
+@pytest.mark.parametrize("case", sorted(REFUSED))
+def test_a_refused_tree_path_is_reported_and_is_not_a_removal(
+    tmp_path: Path, case: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance (refused paths): a commit has a source file at a path that the tree
+    reader refuses (a colon, a backslash, or a `..` part), and the next commit changes it.
+
+    1. `facts_at` gives the path and its cause in `refused_paths`.
+    2. The change data gives the path in `refused_paths`. No component has a removed name,
+       and a module of the path is in `unparsed`.
+    3. The text of `systemap delta` gives the path as not known, and no removed module.
+    """
+    path, cause = REFUSED[case]
+    root = make(tmp_path / "repo", "python")
+    first = git(root, "hash-object", "-w", "--stdin", stdin=b"def f() -> None:\n    pass\n")
+    second = git(
+        root,
+        "hash-object",
+        "-w",
+        "--stdin",
+        stdin=b"def f() -> None:\n    pass\n\n\ndef g() -> None:\n    pass\n",
+    )
+    start = git(root, "rev-parse", "HEAD")
+    base = git(
+        root,
+        "commit-tree",
+        with_entry(root, f"{start}^{{tree}}", path, first),
+        "-p",
+        start,
+        "-m",
+        "a refused path",
+    )
+    head = git(
+        root,
+        "commit-tree",
+        with_entry(root, f"{base}^{{tree}}", path, second),
+        "-p",
+        base,
+        "-m",
+        "a change to it",
+    )
+    git(root, "update-ref", "refs/heads/main", head)
+    cfg = config.load(root)
+    refused = delta_git.facts_at(cfg, head)["refused_paths"]
+    assert [r["path"] for r in refused] == [path]
+    assert cause in refused[0]["reason"]
+    found = change.compute(cfg, nest.load(cfg).top.model, base, {}, head=head)
+    assert [line.split(": ")[0] for line in found["refused_paths"]] == [path]
+    assert not any(
+        any(part["surface"]["removed"].values()) for part in found["per_component"].values()
+    )
+    capsys.readouterr()
+    main(["--root", str(root), "delta", "--base", base, "--head", head])
+    out = capsys.readouterr().out
+    assert f"{path}: " in out
+    assert "not known" in out
+    assert "removed" not in out.lower()
+
+
 # ---- change-5 and change-25: source text in the change detection ------------------
 
 

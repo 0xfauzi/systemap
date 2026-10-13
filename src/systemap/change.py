@@ -17,7 +17,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from systemap import change_text, delta_model, extraction, history, nest, repo_files
+from systemap import change_text, delta_git, delta_model, extraction, history, nest, repo_files
 from systemap.config import Config
 from systemap.language import LanguageAdapter
 from systemap.model import Model, covers, symbol_claims
@@ -446,6 +446,7 @@ class SourceChange:
     tests_added: dict[str, set[str]] = dataclasses.field(default_factory=dict)
     tests_removed: dict[str, set[str]] = dataclasses.field(default_factory=dict)
     unread_tests: tuple[str, ...] = ()
+    refused_paths: tuple[str, ...] = ()
 
 
 def source_change(
@@ -472,7 +473,11 @@ def source_change(
         if module
     }
     wanted = [*sources, *tests]
-    texts = _Sides(change_text.at(cfg.root, merge_base, wanted), side.texts(wanted))
+    refused = _refusals(files)
+    texts = _Sides(
+        _refused(change_text.at(cfg.root, merge_base, wanted), refused),
+        _refused(side.texts(wanted), refused),
+    )
     deltas, unparsed = _source_deltas(language, sources, texts)
     tests_added, tests_removed, unread = _changed_test_deltas(
         cfg, language, files, snapshot_facts, set(deltas) | set(unparsed), texts
@@ -487,7 +492,38 @@ def source_change(
         tests_added=tests_added,
         tests_removed=tests_removed,
         unread_tests=tuple(sorted(unread)),
+        refused_paths=_refused_lines(refused, snapshot_facts),
     )
+
+
+def _refusals(files: list[str]) -> dict[str, str]:
+    """This function gives each changed path that the tree reader refuses, with its cause."""
+    return {path: cause for path in files for cause in [delta_git.refusal(path)] if cause}
+
+
+def _refused(
+    texts: dict[str, change_text.Text], refused: dict[str, str]
+) -> dict[str, change_text.Text]:
+    """This function gives a read problem for each path that the tree reader refuses.
+
+    The facts at a commit have no record for such a path. Thus its changes are not known
+    on each side, also if Git or the disk can give its text.
+    """
+    return {
+        path: change_text.Text(problem=f"the tree reader refuses the path: {refused[path]}")
+        if path in refused
+        else text
+        for path, text in texts.items()
+    }
+
+
+def _refused_lines(refused: dict[str, str], facts: dict[str, Any]) -> tuple[str, ...]:
+    """This function gives each refused path and its cause: the changed paths, and the
+    paths that the facts of a commit head did not record."""
+    found = dict(refused)
+    for record in facts.get("refused_paths", []):
+        found.setdefault(record["path"], record["reason"])
+    return tuple(f"{path}: {cause}" for path, cause in sorted(found.items()))
 
 
 def compute(
@@ -535,6 +571,7 @@ def compute(
         "reach_known": True,
         "unparsed": [],
         "unread_tests": [],
+        "refused_paths": [],
     }
     if not source.files:
         return empty
@@ -636,6 +673,7 @@ def compute(
         "reach_known": reach_known,
         "unparsed": sorted(unparsed),
         "unread_tests": list(source.unread_tests),
+        "refused_paths": list(source.refused_paths),
     }
 
 

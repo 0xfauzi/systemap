@@ -888,7 +888,9 @@ The source text has the same rules as the extraction: UTF-8, with or without a b
 If systemap cannot read a changed source file, the changes of its module are not known.
 The panel gives the read problem. A missing file is a removal.
 If systemap cannot read a changed test file, the panel gives the file and the problem.
-The page has no test changes for that file.</p>
+The page has no test changes for that file.
+The panel also gives each changed path that the Git tree reader refuses, with its cause.
+The changes of such a path are not known.</p>
 </li>
 </ul>
 <h3 id="systemap-check-brief"><code>systemap check [--brief]</code></h3>
@@ -1147,7 +1149,9 @@ Delta compares the head with the merge base of the two refs.
 If Git finds no merge base, the command gives an error and exits 2.
 Delta does not use a different commit as the base.
 Delta does not write a committed path that contains <code>..</code>, a backslash, or a colon.
-Thus the facts at a commit are the same on each platform.</p>
+Thus the facts at a commit are the same on each platform.
+Before the report, delta gives each refused path and its cause under <code>Not in this comparison</code>.
+The changes of a refused path are not known. A refused module is not a removed module.</p>
 <p>Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.

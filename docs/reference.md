@@ -675,6 +675,8 @@ Writes the page from the facts and model.
   The panel gives the read problem. A missing file is a removal.
   If systemap cannot read a changed test file, the panel gives the file and the problem.
   The page has no test changes for that file.
+  The panel also gives each changed path that the Git tree reader refuses, with its cause.
+  The changes of such a path are not known.
 
 ### `systemap check [--brief]`
 
@@ -840,6 +842,8 @@ If Git finds no merge base, the command gives an error and exits 2.
 Delta does not use a different commit as the base.
 Delta does not write a committed path that contains `..`, a backslash, or a colon.
 Thus the facts at a commit are the same on each platform.
+Before the report, delta gives each refused path and its cause under `Not in this comparison`.
+The changes of a refused path are not known. A refused module is not a removed module.
 
 Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.

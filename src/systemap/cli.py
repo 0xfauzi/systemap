@@ -27,6 +27,7 @@ from systemap import (
     decision_kinds,
     decisions_cli,
     delta,
+    delta_git,
     delta_jev,
     delta_link,
     describe,
@@ -620,6 +621,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     cfg = providers.chosen(p.cfg, args.provider)
     selected = jev_cli.uses_jev(cfg, args.decide)
     asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
+    say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))

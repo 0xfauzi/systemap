@@ -164,16 +164,29 @@ def comparison_limits(ch: dict[str, Any]) -> str:
             + "</code>. Correct the source or extractor error. Then run "
             "<code>systemap render --base REF</code> in the terminal.</p>"
         )
-    if ch.get("unread_tests"):
-        out.append(
-            "<p>systemap could not read these changed test files. Their test changes are "
-            "not known: <code>" + esc("; ".join(ch["unread_tests"])) + "</code>.</p>"
-        )
+    out.extend(_not_known_paths(ch))
     for cid, data in _parts(ch).items():
         for module, records in data.get("unknown", {}).items():
             for revision, issues in records.items():
                 out.extend(_unknown(cid, module, revision, issue) for issue in issues)
     return "".join(out)
+
+
+def _not_known_paths(ch: dict[str, Any]) -> list[str]:
+    """Give the paragraphs for the refused paths and the test files that systemap could
+    not read."""
+    texts = (
+        ("refused_paths", "The Git tree reader refused these paths. Their changes are not known"),
+        (
+            "unread_tests",
+            "systemap could not read these changed test files. Their test changes are not known",
+        ),
+    )
+    return [
+        f"<p>{text}: <code>{esc('; '.join(ch[key]))}</code>.</p>"
+        for key, text in texts
+        if ch.get(key)
+    ]
 
 
 def _unknown(cid: str, module: str, revision: str, issue: dict[str, Any]) -> str:
