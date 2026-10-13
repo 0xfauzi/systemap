@@ -107,7 +107,6 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 
    When Jev is available, run `systemap audit`. Act on or answer its `jev ...` lines.
-   With Jev, use the sequence from `systemap judgement --order-by-drift` to select the first stale component, but examine all stale components.
 5. **render**: Run `systemap refresh`. Then run `systemap describe`.
    The description gives component counts, route bends, gutter use, and layer contents.
 

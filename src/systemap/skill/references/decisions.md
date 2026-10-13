@@ -41,6 +41,7 @@ Each decision request has an `id`. If the claim does not change, the `id` stays 
 
 ## Rules
 
+- With Jev, use the sequence from `systemap judgement --order-by-drift` to select the first stale component, but examine all stale components.
 - Do not record `supported` without a citation. A verdict of `supported` must refer to a file of the claim.
   For a flow, the files of the claim are the files of the two endpoint components.
 - Refer only to the lines that you read. Do not refer to a file that you did not read.
