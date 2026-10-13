@@ -1043,6 +1043,9 @@ Use it after you add or remove components.</p>
 <p><code>--print</code> prints positions without file changes.</p>
 </li>
 </ul>
+<p>Before the command calculates positions, it examines the flows and the <code>kind</code> value of each component.
+A flow to an unknown component, or an unknown <code>kind</code> value, causes exit 1.
+The error gives the flow or the component. <code>systemap describe</code> also examines them.</p>
 <h3 id="systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></h3>
 <p>Writes the page from the facts and model.
 Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
@@ -1165,6 +1168,11 @@ The legend contains only that layer.</p>
 </li>
 <li>
 <p>An <code>--out</code> filename with a <code>.svg</code> suffix writes the drawing without a frame.</p>
+</li>
+<li>
+<p>A relative <code>--out</code> path is relative to the output directory.
+Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+The command replaces a link at the <code>--out</code> path with a file. It does not write to the target of the link.</p>
 </li>
 <li>
 <p><code>--svg-id ID</code> sets the HTML ID of the drawing. The default is <code>lessonmap</code>.
@@ -1408,7 +1416,8 @@ A <code>fail</code> result gives each import against the rule, as source module 
 An <code>unknown</code> result gives each module with imports that are possibly not in the facts, and the cause.</p>
 <p>The causes are a module that did not parse, unresolved imports, and an import of a module with no component.
 The command exits 1 for a <code>fail</code>, for an incorrect rule, or for missing facts.
-It also exits 1 for an <code>unknown</code> result with <code>[rules] unknown = &quot;fail&quot;</code>.</p>
+It also exits 1 for an <code>unknown</code> result with <code>[rules] unknown = &quot;fail&quot;</code>.
+The <code>ok</code> value of <code>--json</code> agrees with the exit code. Missing facts are an item of <code>problems</code>.</p>
 <ul>
 <li>
 <p><code>--brief</code> does not include the two explanation rows.</p>
@@ -1924,7 +1933,8 @@ Then use <code>--port 0</code> to select an available port, or give a different 
 The server answers only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port.
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
 The server answers 404 for a symbolic link to a file that is not in the output directory.
-<code>systemap live</code> has the same rules.</p>
+<code>systemap live</code> has the same rules.
+If the output directory is not in the repository after the resolution of links, the command exits 1. The server does not start.</p>
 <h3 id="systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></h3>
 <p>Renders the page of the working tree and supplies it through HTTP on the loopback address.
 The facts come from the source files in memory. The models come from the model files.
@@ -1955,6 +1965,7 @@ and the source and test files one time each second.
 The scan includes the language configuration files below each package root, such as <code>packages/web/src/lib/package.json</code>.
 It also includes these files in the folders between a package root and the repository root, such as <code>packages/web/tsconfig.json</code>.
 The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name <code>build</code> or <code>dist</code>.
+The scan includes each test file that extraction reads, also a file that <code>test_patterns</code> selects out of the package roots and the test directories.
 When a scan finds a change and the next scan finds no more change, the command renders the page again.</p>
 </li>
 <li>

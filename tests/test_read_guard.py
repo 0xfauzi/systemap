@@ -82,8 +82,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # repository. The write keeps its bytes, also a byte order mark.
     ("answer_write.py", "add", "target.write_bytes"): "the configuration that config.load read",
     ("decisions_submit.py", "_write_answers", "target.write_bytes"): "the same configuration",
-    # A path from a command option of the person who operates the command.
-    ("cli.py", "cmd_figure", "out.write_text"): "the --out option of systemap figure",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
     ("model_write.py", "_replace", "os.replace"): MODEL,
