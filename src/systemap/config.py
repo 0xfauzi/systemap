@@ -21,6 +21,7 @@ from systemap import model_load
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
+from systemap.provider_config import settings as provider_settings
 from systemap.root_check import checked_roots
 
 CONFIG_FILE = "systemap.toml"
@@ -53,6 +54,8 @@ KNOWN_KEYS = {
     "judgement",
     "flows",
     "jev",
+    "decision",
+    "openai",
     "agent",
     "delta",
     "writing",
@@ -185,6 +188,10 @@ class Config:
     # None: no explicit value. Only true makes delta ask Jev without --jev.
     # false also stops the hints that tell what Jev can add.
     jev_enabled: bool | None = None
+    # The decision provider of the commands that ask questions. A key never selects it.
+    decision_provider: str = "jev"
+    openai_model: str = "gpt-6-luna"
+    openai_cache: str = ".systemap/openai-cache.json"
     # The command that writes the prose systemap asks for; none by default, and
     # then the commands that would ask print their structure and say so.
     agent_command: str = ""
@@ -206,6 +213,10 @@ class Config:
     @property
     def jev_cache_path(self) -> Path:
         return self.root / self.jev_cache
+
+    @property
+    def openai_cache_path(self) -> Path:
+        return self.root / self.openai_cache
 
     @property
     def agent_cache_path(self) -> Path:
@@ -446,6 +457,7 @@ def load(root: Path) -> Config:
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
         delta_page_url = page_url(raw, where)
         writing = writing_profile(raw.get("writing"), where)
+        providers = provider_settings(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -459,6 +471,7 @@ def load(root: Path) -> Config:
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
         **_jev(raw, where),
+        **providers,
         **_agent(raw, where),
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),

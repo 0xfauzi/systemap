@@ -289,7 +289,11 @@ class Cache:
 
 @dataclass
 class Usage:
-    """Record sent calls, cached answers, and input/output tokens."""
+    """Record sent calls, cached answers, and input/output tokens.
+
+    `provider` is the first word of the usage line. The line has the same form for
+    each decision provider.
+    """
 
     sent: int = 0
     cached: int = 0
@@ -297,13 +301,14 @@ class Usage:
     output_tokens: int = 0
     models: set[str] = field(default_factory=set)
     note: str = ""
+    provider: str = "jev"
 
     def line(self) -> str:
         served = f"{self.sent} sent, {self.cached} from the cache"
         tokens = f"{self.input_tokens:,} input and {self.output_tokens:,} output tokens"
         model = ", ".join(sorted(self.models)) or "no model called"
         tail = f". {self.note}" if self.note else ""
-        return f"jev: {served}; {tokens}; {model}{tail}"
+        return f"{self.provider}: {served}; {tokens}; {model}{tail}"
 
 
 def _count(value: Any) -> int:
