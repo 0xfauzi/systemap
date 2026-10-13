@@ -27,6 +27,7 @@ from systemap import (
 )
 from systemap import theme as theme_mod
 from systemap.config import Config
+from systemap.journey_coverage import reviewed_entries
 from systemap.model import Meaning, Model, all_layers, reading
 from systemap.page_assets import CSS
 from systemap.page_icons import icon
@@ -96,7 +97,9 @@ class Nesting:
     `path` identifies this map and is empty for the top map.
     `card` identifies the component that contains this page.
     `parent_label` names the parent map.
-    `opens` gives the child map records for the inspector."""
+    `opens` gives the child map records for the inspector.
+    `covered` gives the entry point identities that the sequences of all maps include.
+    It is None for a page without a map tree. Then the sequences of the page supply it."""
 
     model_file: str
     path: str = ""
@@ -104,6 +107,7 @@ class Nesting:
     parent_href: str = ""
     parent_label: str = ""
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
+    covered: frozenset[str] | None = None
 
 
 def nesting_of(
@@ -126,6 +130,7 @@ def nesting_of(
         parent_href="../index.html" if parent is not None else "",
         parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
         opens=opens,
+        covered=frozenset(reviewed_entries(x.meaning for x in tree.maps)),
     )
 
 
@@ -269,7 +274,8 @@ def _rules(model: Model) -> str:
     if not model.invariants:
         return ""
     rows = "".join(
-        f'<li id="rule-{inv.n}" value="{inv.n}" tabindex="-1"><span>{esc(inv.text)}</span>'
+        f'<li id="rule-{esc(inv.n)}" value="{esc(inv.n)}" tabindex="-1">'
+        f"<span>{esc(inv.text)}</span>"
         '<span class="governs">'
         + "".join(
             f'<button type="button" class="gv" data-go="{esc(i)}">{esc(i)}</button>'
@@ -508,7 +514,9 @@ def build(
         "outside": cfg.outside_label,
         "tabs": [layer.id for layer in tab_layers(model, meaning)],
         "guide": page_guide.steps(model, meaning),
-        "sequences": page_sequences.data(model, meaning, facts),
+        "sequences": page_sequences.data(
+            model, meaning, facts, covered=nesting.covered, top=not nesting.path
+        ),
     }
     change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch)
     change_svg = _no_tooltips(change_svg)

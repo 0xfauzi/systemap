@@ -128,7 +128,7 @@ _SCRIPT = r"""
       + (colour ? ' style="--c:' + esc(colour) + '"' : '') + '></i>';
   }
   function badge(n, square){
-    return '<b class="pal__n' + (square ? ' sq' : '') + '">' + n + '</b>'; }
+    return '<b class="pal__n' + (square ? ' sq' : '') + '">' + esc(n) + '</b>'; }
   function views(LAY){
     [['understand', 'Map', 'map', 'What are the components and their connections?'],
       ['trace', 'Sequences', 'route', 'Which steps make one operation?'],
@@ -147,7 +147,7 @@ _SCRIPT = r"""
       });
   }
   function parts(){
-    var where = {};
+    var where = Object.create(null);
     (W.regions || []).forEach(function(r){ r.ids.forEach(function(id){ where[id] = r.label; }); });
     Object.keys(A.detail).forEach(function(id){
       if(id === '_meta'){ return; }

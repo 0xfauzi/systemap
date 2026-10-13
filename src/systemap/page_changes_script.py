@@ -51,7 +51,11 @@ SCRIPT = r"""
     return Object.keys(D).filter(function(id){ return id !== '_meta' && MARK[id] === mark; });
   }
   var SOURCE = ids('changed'), TESTS = ids('tests'), IMPORTS = ids('imports');
-  var REGIONS = META.regions || [], RANK = {};
+  // A table with component IDs as keys has no prototype, and a lookup in a table from the
+  // page data reads only its own keys. Then an ID such as `constructor` is not a key.
+  function own(table, key){
+    return table && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined; }
+  var REGIONS = META.regions || [], RANK = Object.create(null);
   REGIONS.forEach(function(r, k){ (r.ids || []).forEach(function(id){ RANK[id] = k; }); });
   function rank(id){ return RANK[id] === undefined ? REGIONS.length : RANK[id]; }
   function touches(i, list){
@@ -193,7 +197,7 @@ SCRIPT = r"""
   }
   var ACTION = {added:'Added', removed:'Removed', changed:'Changed'};
   function sourceChanges(id){
-    var record = (CMP.parts || {})[id], h = '<h4 class="chg-h4">Source changes</h4>';
+    var record = own(CMP.parts, id), h = '<h4 class="chg-h4">Source changes</h4>';
     if(!record){ return h + '<p>' + ((CMP.adjacent || []).indexOf(id) >= 0
       ? 'This component imports changed source. Examine possible effects.'
       : 'The comparison has no source changes for this component.') + '</p>'; }
@@ -239,7 +243,7 @@ SCRIPT = r"""
     var h = '';
     (META.rules || []).forEach(function(r){
       if((r.ids || []).indexOf(id) >= 0){
-        h += '<p class="rule-row"><b>' + r.n + '</b>' + esc(r.text) + '</p>'; }
+        h += '<p class="rule-row"><b>' + esc(r.n) + '</b>' + esc(r.text) + '</p>'; }
     });
     return h ? '<h4 class="chg-h4">Rules for this component</h4>' + h : '';
   }
@@ -275,8 +279,11 @@ SCRIPT = r"""
       detail.classList.toggle('comparison-source', on);
       if(on && card.scrollIntoView){ card.scrollIntoView({block:'nearest'}); }
     });
-    var first = null;
-    if(id && parts && !panel.querySelector('[data-change-card="' + id + '"]')){
+    // The script compares the attribute values and makes no selector. An ID can contain a
+    // quotation mark.
+    var first = null, carded = all('[data-change-card]', panel).some(function(card){
+      return card.dataset.changeCard === id; });
+    if(id && parts && !carded){
       first = parts.insertBefore(pickCard(id), parts.firstChild); }
     // The selected flow goes first, above the card of its component.
     if(parts && EDGES[edge]){ first = parts.insertBefore(flowCard(edge), parts.firstChild); }
