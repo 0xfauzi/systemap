@@ -24,8 +24,10 @@ from systemap import (
     extraction,
     facts_file,
     figure,
+    file_write,
     identifier,
     nest,
+    out_paths,
     page,
     reexports,
     source_facts,
@@ -573,10 +575,16 @@ def stale(
 
 
 def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
+    """Compare an output file with its rendered text.
+
+    The file must be in the output directory (`out_paths`). A link out of the folder of
+    the file, a FIFO, and a device give `file_write.RefusedFile` with the cause.
+    """
     rel = cfg.rel(path)
-    if not path.is_file():
+    text = file_write.read_text(out_paths.checked(cfg, path))
+    if text is None:
         return [f"{rel} has no rendered output."]
-    if path.read_text(encoding="utf-8") != expected:
+    if text != expected:
         return [f"{rel} differs from the rendered output."]
     return []
 

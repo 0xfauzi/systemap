@@ -637,6 +637,11 @@ configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, `systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
+A command reads a cache file or an output file only if it is a regular file in its folder.
+If the file is a link to a file in a different folder, a FIFO, or a device, the command stops with exit code `1`.
+The error gives the file and the cause.
+Remove the file or the link. Then use the command again.
+
 ### `systemap init [--no-ci | --strict-ci]`
 
 Writes `systemap.toml`, an initial model, the skill directory, and a GitHub

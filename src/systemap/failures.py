@@ -12,7 +12,7 @@ import argparse
 import sys
 from collections.abc import Callable
 
-from systemap import change, decisions_submit, delta, delta_link, figure, place, review
+from systemap import change, decisions_submit, delta, delta_link, figure, file_write, place, review
 from systemap import language as languages
 from systemap.config import ArgumentError, ConfigError
 
@@ -32,6 +32,8 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (ConfigError, CONFIG_FIX, BAD_CONFIG),
     (languages.LanguageError, CONFIG_FIX, BAD_CONFIG),
     (figure.FigureError, "", STALE),
+    # The message of a refused cache or output file gives the path, the cause, and the fix.
+    (file_write.RefusedFile, "", STALE),
     (place.PlaceError, "", STALE),
     (review.ReviewError, "", STALE),
     (decisions_submit.DecisionError, "", STALE),

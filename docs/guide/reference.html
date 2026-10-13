@@ -855,6 +855,10 @@ Exit codes are <code>0</code> for current, <code>1</code> for stale or rejected,
 configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, <code>systemap.toml</code> or the model module, a <code>tsconfig.json</code> file, or a Git ref.</p>
+<p>A command reads a cache file or an output file only if it is a regular file in its folder.
+If the file is a link to a file in a different folder, a FIFO, or a device, the command stops with exit code <code>1</code>.
+The error gives the file and the cause.
+Remove the file or the link. Then use the command again.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.

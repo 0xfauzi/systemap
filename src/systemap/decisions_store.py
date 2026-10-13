@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from systemap import file_write
 from systemap.decisions import CONTRADICTED, INSUFFICIENT, SUPPORTED, Request
 
 STORE = ".systemap/decisions.json"
@@ -41,9 +42,14 @@ def path(root: Path) -> Path:
 
 
 def load(root: Path) -> dict[str, dict[str, Any]]:
-    """Read the records by request key. A missing or unreadable store gives no records."""
+    """Read the records by request key. A missing or unreadable store gives no records.
+
+    A link out of the folder of the store, a FIFO, and a device give
+    `file_write.RefusedFile` with the cause. They do not give an empty store.
+    """
     try:
-        data = json.loads(path(root).read_text(encoding="utf-8"))
+        text = file_write.read_text(path(root))
+        data = json.loads(text) if text is not None else {}
     except (OSError, json.JSONDecodeError):
         return {}
     if not isinstance(data, dict) or data.get("version") != VERSION:

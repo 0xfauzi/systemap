@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from systemap import file_write
 from systemap.source_facts import empty_markers
 
 # Every field the extractor writes: (scope, field, what it holds). The
@@ -337,11 +338,12 @@ def read_facts(path: Path) -> dict[str, Any]:
     """Read stored facts.
 
     Give an empty table if the file is missing or the JSON parser cannot read it.
+    A link out of the folder of the file, a FIFO, and a device give
+    `file_write.RefusedFile` with the cause. They do not give an empty table.
     """
-    if not path.is_file():
-        return {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        text = file_write.read_text(path)
+        data = json.loads(text) if text is not None else {}
     except (OSError, json.JSONDecodeError):
         return {}
     return dict(data) if isinstance(data, dict) else {}

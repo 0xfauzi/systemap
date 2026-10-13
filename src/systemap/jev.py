@@ -264,11 +264,13 @@ def _read_cache(path: Path | None) -> tuple[dict[str, Any], dict[str, str]]:
 
     A file that is not JSON, or that has fields of an incorrect type, is not usable.
     Its answers cannot be read. Thus the result is an empty cache, and the next request
-    goes to the provider again."""
-    if path is None or not path.exists():
+    goes to the provider again. A link out of the folder of the cache, a FIFO, and a
+    device give `file_write.RefusedFile` with the cause. They do not give an empty cache."""
+    text = None if path is None else file_write.read_text(path)
+    if text is None:
         return {}, {}
     try:
-        held = json.loads(path.read_text(encoding="utf-8"))
+        held = json.loads(text)
     except ValueError:
         return {}, {}
     entries = held.get("entries", {}) if isinstance(held, dict) else None

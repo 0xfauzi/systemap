@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, graph
+from systemap import evidence, file_write, graph
 from systemap.audit import NONE
 from systemap.config import Config
 from systemap.model import Meaning, Model
@@ -156,11 +156,14 @@ def save(cfg: Config, projection: Projection) -> Path:
 
 
 def load(cfg: Config, plan: str) -> dict[str, Any] | None:
-    path = path_of(cfg, plan)
-    if not path.is_file():
-        return None
+    """Give the stored plan, or None if it is missing or not usable.
+
+    A link out of the plan folder, a FIFO, and a device give `file_write.RefusedFile`
+    with the cause. They do not give None.
+    """
     try:
-        found = json.loads(path.read_text(encoding="utf-8"))
+        text = file_write.read_text(path_of(cfg, plan))
+        found = json.loads(text) if text is not None else None
     except (OSError, ValueError):
         return None
     return found if isinstance(found, dict) else None

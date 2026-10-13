@@ -40,6 +40,7 @@ from systemap import (
     facts_file,
     failures,
     figure,
+    file_write,
     history,
     import_rules,
     init_language,
@@ -280,7 +281,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         html = _render_page(p, m, facts, args, source)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
-            current = out.read_text(encoding="utf-8") if out.is_file() else ""
+            current = file_write.read_text(out) or ""
             if current != html:
                 say(f"{p.cfg.rel(out)} is stale: it differs from the rendered output.")
                 code = STALE

@@ -27,6 +27,7 @@ from systemap import (
     repo_files,
 )
 from systemap import language as languages
+from systemap.config_paths import facts_file
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
@@ -451,7 +452,7 @@ def load(root: Path) -> Config:
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
         delta_page_url = page_url(raw, where)
         writing = writing_profile(raw.get("writing"), where)
-        decided = config_decisions.read(raw, where)
+        decided = {**config_decisions.read(raw, where), "facts_file": facts_file(raw, where)}
         decided["rules_unknown"] = config_decisions.rules_unknown(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
@@ -476,7 +477,6 @@ def load(root: Path) -> Config:
         test_patterns=_str_list(raw, "test_patterns", where),
         model=_str(raw, "model", "map/model.py", where),
         out_dir=_str(raw, "out_dir", "docs/map", where),
-        facts_file=_str(raw, "facts_file", "map.json", where),
         spec_path=_str(raw, "spec_path", "", where),
         planes=_str_list(raw, "planes", where),
         outside_label=_str(raw, "outside_label", "EXTERNAL COMPONENTS", where),
@@ -779,7 +779,8 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     A name that the page cannot use (see model_names) gives a configuration diagnostic.
     """
     if not path.is_file():
-        raise ConfigError(f"The model module is missing: {path}")
+        problem = "not a regular file" if repo_files.present(path) else "missing"
+        raise ConfigError(f"The model module is {problem}: {path}")
     label = label or str(path)
     try:
         names = model_load.load(path, label)
