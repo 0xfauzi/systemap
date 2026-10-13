@@ -73,7 +73,7 @@ class Snapshot:
 def snapshot(cfg: config.Config) -> Snapshot:
     """Read the map, the facts, and the store. The stored facts must agree with the source."""
     tree = nest.load(cfg)
-    saved = facts_file.read_facts(cfg.facts_path)
+    saved = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not saved:
         raise DecisionError(
             f"No facts are available at {cfg.rel(cfg.facts_path)}. Do systemap refresh. "

@@ -69,8 +69,8 @@ def chosen(cfg: Config, option: str | None) -> Config:
 def select(cfg: Config, send: jev.Send | None = None) -> Metered:
     """Make the selected provider, with an injected transport or the environment key."""
     if cfg.decision_provider == openai_provider.NAME:
-        return openai_provider.from_env(cfg.openai_model, cfg.openai_cache_path, send)
-    return jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send)
+        return openai_provider.from_env(cfg.openai_model, cfg.openai_cache_path, send, cfg.root)
+    return jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send, cfg.root)
 
 
 def has_key(cfg: Config) -> bool:

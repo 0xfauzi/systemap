@@ -191,7 +191,7 @@ def test_a_module_that_does_not_parse_is_not_known_and_does_not_reject_the_map(
         assert LOOP not in text_out
     assert run(root, "extract", "--check") == 0
     cfg = config.load(root)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts["components"][module]["completeness"]["cause"] == unknown_causes.SYNTAX
     top = nest.load(cfg).top
     component = next(c for c in top.model.components if c.id == card)

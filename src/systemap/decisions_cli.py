@@ -51,7 +51,10 @@ def pending_text(snap: decisions_submit.Snapshot) -> list[str]:
         out += [f"         {row}" for row in claim[1:]]
         out.append(f"  claim digest: {request.digest or 'none'}")
         out.append(f"  attempts: {_attempts(snap, request)} of {limit}")
-        out += [f"  file: {f.file} sha256 {f.sha256}" for f in request.files]
+        out += [
+            f"  file: {f.file} {f'refused: {f.problem}' if f.problem else f'sha256 {f.sha256}'}"
+            for f in request.files
+        ]
         if request.blocked:
             out.append(f"  blocked: {request.blocked}")
     if status.pending:

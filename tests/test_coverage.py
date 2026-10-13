@@ -184,7 +184,7 @@ def test_empty_package_markers_are_left_out_and_listed_once(
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert "coverage: 6 of 6 modules mapped, 3 empty package markers" in (capsys.readouterr().out)
-    facts = facts_file.read_facts(tmp_path / "docs/map/map.json")
+    facts = facts_file.read_facts(tmp_path / "docs/map/map.json", tmp_path)
     assert source_facts.empty_markers(facts) == ["pkg", "pkg.other", "pkg.sub"]
     assert source_facts.is_empty_marker(facts["components"]["pkg.sub"])
     assert not source_facts.is_empty_marker(facts["components"]["pkg.sub.deep"])
@@ -211,7 +211,7 @@ def test_an_init_that_imports_or_defines_is_not_a_marker(
     for module in ("pkg.sub", "pkg.sub.deep", "pkg.ext", "pkg.named"):
         assert " (no component has this module claim)" in out, module
     assert "coverage: 3 of 7 modules mapped, 1 an empty package marker" in out
-    facts = facts_file.read_facts(tmp_path / "docs/map/map.json")
+    facts = facts_file.read_facts(tmp_path / "docs/map/map.json", tmp_path)
     assert source_facts.empty_markers(facts) == ["pkg"]
 
 

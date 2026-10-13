@@ -40,6 +40,7 @@ from systemap import (
     facts_file,
     failures,
     figure,
+    file_write,
     history,
     import_rules,
     init_language,
@@ -163,12 +164,12 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
     fresh = extraction.build(p.cfg)
-    stored = facts_file.read_facts(p.cfg.facts_path)
+    stored = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if args.check:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
-    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
+    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     say(*facts_file.summary(fresh))
     for m in p.tree.maps:
         for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
@@ -219,7 +220,7 @@ def cmd_facts(args: argparse.Namespace) -> int:
 
 
 def _facts_or_stale(p: Project) -> dict[str, Any] | None:
-    facts = facts_file.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if not facts:
         # Without package roots, `extract` also stops. Give its error, not a command
         # that fails.
@@ -280,15 +281,14 @@ def cmd_render(args: argparse.Namespace) -> int:
         html = _render_page(p, m, facts, args, source)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
-            current = out.read_text(encoding="utf-8") if out.is_file() else ""
+            current = file_write.read_text(p.cfg.root, out) or ""
             if current != html:
                 say(f"{p.cfg.rel(out)} is stale: it differs from the rendered output.")
                 code = STALE
             else:
                 say(f"{p.cfg.rel(out)} agrees with the rendered output.")
             continue
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8", newline="\n")
+        file_write.write_atomic(p.cfg.root, out, html)
         say(f"The command wrote {p.cfg.rel(out)} ({out.stat().st_size / 1024:.0f} KB)")
     if code == STALE:
         say("run: systemap refresh")
@@ -341,7 +341,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     _require_roots(p)
     if _empty(p):
         return STALE
-    facts = facts_file.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
@@ -366,7 +366,7 @@ def cmd_rules(args: argparse.Namespace) -> int:
     `--json` writes one JSON object. Notices for a person go to stderr.
     """
     p = _project(args)
-    facts = facts_file.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
     ruled = import_rules.run_tree(p.tree, facts)
     if not facts:
@@ -471,7 +471,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return _rules_check(p, fresh, True)
 
     note("map: The refresh uses the working tree.")
-    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
+    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     if not check.tree_ok(results):
         say(*_report_tree(p, results, []))
         fix = _fix_line(p, results).replace("systemap check", "systemap refresh")
@@ -499,16 +499,14 @@ def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
     for m in p.tree.maps:
         html = _render_page(p, m, fresh, argparse.Namespace())
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8", newline="\n")
+        file_write.write_atomic(p.cfg.root, out, html)
         written.append(p.cfg.rel(out))
     for fig in p.cfg.figures:
         html, collisions = figure.configured(p.cfg, p.tree, _map(p, fig.map), fresh, fig)
         for line in collisions:
             warn(line)
         out = out_paths.checked(p.cfg, p.cfg.out_path / fig.out)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(html, encoding="utf-8", newline="\n")
+        file_write.write_atomic(p.cfg.root, out, html)
         written.append(p.cfg.rel(out))
     return written
 
@@ -564,7 +562,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     With `--strict`, a model without components gives exit code 1, as `check` does."""
     if _empty(p):
         return STALE if args.strict else OK
-    facts = facts_file.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if not facts:
         say(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
@@ -589,7 +587,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
         warn(NO_COMPONENTS)
         say(json.dumps(judgement_json.empty(p.cfg.require_reviews), indent=2))
         return STALE if args.strict else OK
-    facts = facts_file.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if not facts:
         warn(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
@@ -647,7 +645,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     If a model has components, also print possible nested maps.
     """
     cfg = config.load(_root(args))
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not facts:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
@@ -706,7 +704,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    facts = facts_file.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     covered = reviewed_entries(m.meaning for m in p.tree.maps)
     code = OK
     for m in p.tree.maps:

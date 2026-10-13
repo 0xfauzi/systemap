@@ -670,6 +670,16 @@ configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, `systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
+A command reads and writes a cache file or an output file only in the repository.
+If the file or one of its folders is a link out of the repository, the command stops with exit code `1`.
+A FIFO or a device at the file also stops the command with exit code `1`.
+The error gives the file and the cause.
+Remove the file or the link. Then use the command again.
+
+A write replaces a link in the repository. It does not write to the target of the link.
+The configured cache files, `out_dir`, and `model` must be paths in the repository, without a `..` part.
+An absolute path or a path with a `..` part gives exit code `2`.
+
 ### `systemap init [--no-ci | --strict-ci]`
 
 Writes `systemap.toml`, an initial model, the skill directory, and a GitHub

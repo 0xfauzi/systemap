@@ -68,7 +68,7 @@ def _answered_lines(out: dict[str, Any]) -> list[str]:
 
 def _sources(root: Path, line: str) -> list[int]:
     """Give the source line of each record of an `unknown surface` line."""
-    facts = facts_file.read_facts(config.load(root).facts_path)
+    facts = facts_file.read_facts(config.load(root).facts_path, root)
     return [found.line for found in source_facts.located_records(facts)[line]]
 
 

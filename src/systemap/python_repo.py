@@ -15,13 +15,14 @@ from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config, config_walk, identifier
+from systemap import config, config_walk, identifier, repo_files
 from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 
 # Below a Python package root or test directory, these folders hold no source of the
 # project. The folders above the root are not examined.
 PYTHON_SKIP = frozenset({".git", ".venv", "node_modules", "__pycache__", "build", "dist"})
 PACKAGE_MARKER = "__init__.py"
+PYPROJECT = "pyproject.toml"
 # The method name in a recorded method header, such as `async def save(self)`. The
 # name can contain Unicode letters and marks (`identifier.complete`).
 METHOD = re.compile(r"(?:async )?def ([^\s(]+)\(")
@@ -70,14 +71,25 @@ def package_dir(directory: Path) -> bool:
 
 
 def pyproject(root: Path) -> dict[str, Any]:
-    """Read pyproject.toml, or give an empty table if it is missing or not valid."""
-    path = root / "pyproject.toml"
-    if not path.is_file():
+    """Read pyproject.toml, or give an empty table if it is missing.
+
+    The function reads only a regular file in the root, with `repo_files`. A link out of
+    the root, a FIFO, and a file that the function cannot read give a ConfigError with
+    the path and the cause. They are not a missing file. Text that is not valid TOML
+    gives a ConfigError with the parse error: an empty table would give a project without
+    scripts, workspace members, or name, and that result is not known.
+    """
+    path = root / PYPROJECT
+    if not repo_files.present(path):
         return {}
     try:
-        return tomllib.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
+        text = repo_files.read_text(root, PYPROJECT, encoding="utf-8-sig")
+    except (OSError, UnicodeError) as exc:
+        raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
+    try:
+        return tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
 
 
 def workspace_members(root: Path) -> list[Path]:
@@ -140,7 +152,7 @@ class PythonRepository:
     model_sdks = MODEL_SDKS
     # A Python import name continues after a dot: `google.adk.tools` is in `google.adk`.
     import_separator = "."
-    config_files: tuple[str, ...] = ("pyproject.toml",)
+    config_files: tuple[str, ...] = (PYPROJECT,)
     install_extra = ""
     roots_note = (
         '# Package roots use "path" = "import name".\n'

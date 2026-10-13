@@ -145,7 +145,7 @@ def test_judgement_strict_fails_on_a_stale_review_and_counts_a_missing_review(
     assert "source reviews: 0 current, 1 stale, 1 missing" in out.splitlines()
     cfg = config.load(tmp_path)
     tree = nest.load(cfg)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     reader = next(c for c in tree.top.model.components if c.id == "Reader")
     current = card_review.digest(reader, tree.top.model, tree.top.meaning, facts)
     assert current is not None
