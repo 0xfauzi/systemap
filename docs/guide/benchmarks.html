@@ -324,7 +324,7 @@ The cost was 256 requests and 279,288 input tokens.
 <h3 id="openai-decisions-2026-10-13">OpenAI Decisions (2026-10-13)</h3>
 <p>The model was <code>gpt-6-luna</code>. The rows are the Jev bench rows.
 A kind is available only if each holdout figure is 10 points or less from its development figure.
-There were 1,636 requests, with 0 errors and 0 refusals.
+The first measurement had 1,636 requests, with 0 errors and 0 refusals.
 They used 1,211,893 input tokens and cost 0.121 dollars.</p>
 <div class="table table--wide" role="region" tabindex="0" aria-labelledby="openai-decisions-2026-10-13">
 <table>
@@ -361,9 +361,9 @@ They used 1,211,893 input tokens and cost 0.121 dollars.</p>
 </tr>
 <tr>
 <td>flow</td>
-<td>P &lt; 0.05</td>
-<td>46.2% caught, 2.5% flagged</td>
-<td>56.2% caught, 8.3% flagged</td>
+<td>P &lt; 0.02</td>
+<td>33.8% caught, 2.5% flagged</td>
+<td>37.5% caught, 6.2% flagged</td>
 <td>pass</td>
 </tr>
 <tr>
@@ -390,8 +390,14 @@ They used 1,211,893 input tokens and cost 0.121 dollars.</p>
 </tbody>
 </table>
 </div>
-<p>The flow figures used the earlier flow context, not the <code>call_sites</code> context.
-A new OpenAI measurement with the <code>call_sites</code> context is necessary.</p>
+<p>The flow row comes from a second measurement with the <code>call_sites</code> context.
+It used the 160 development rows and the 96 holdout rows of the Jev measurement above.
+On development, OpenAI caught 27 of 80 incorrect claims and flagged 2 of 80 correct claims.
+On holdout, it caught 18 of 48 and flagged 3 of 48.
+The AUC was 0.881 on development and 0.862 on holdout.
+The 256 requests had 0 errors and 0 refusals, and used 213,942 input tokens (0.021 dollars).</p>
+<p>At P &lt; 0.05, OpenAI flagged 4 of 80 correct development claims, more than the Jev budget of 2.
+Thus the rule selected P &lt; 0.02. At its threshold, Jev caught 48 of 80 on the same rows.</p>
 <h3 id="earlier-measurements-of-the-flow-question">Earlier measurements of the flow question</h3>
 <p>These figures are earlier measurements. The current figures above replace them.</p>
 <p>The recorded figures of the first flow question used an earlier question and an earlier model.
@@ -455,6 +461,10 @@ The catch rate changed by more than 10 points. Thus the flow question became opt
 <p><code>calls</code> and <code>targets</code> used text patterns for Python and TypeScript syntax in shared code.
 Thus they did not go into systemap. The <code>call_sites</code> fact gives the <code>targets</code> lines from each
 language adapter.</p>
+<p>The first OpenAI measurement used the <code>base</code> context. It selected P &lt; 0.05 for the flow question.
+At that threshold, OpenAI caught 37 of 80 (46.2%) on development and flagged 2 of 80 (2.5%).
+On holdout, it caught 27 of 48 (56.2%) and flagged 4 of 48 (8.3%).
+The second OpenAI measurement above replaces these figures.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="reference.html" rel="prev"><span class="kicker">Previous</span><span>Reference</span></a></nav>
 </main>
 <aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#decision-provider-measurements">Decision provider measurements</a></li><li class="toc__l3"><a href="#decision-flow-with-jev-and-the-call-sites-context-2026-10-13">decision flow with Jev and the call_sites context (2026-10-13)</a></li><li class="toc__l3"><a href="#openai-decisions-2026-10-13">OpenAI Decisions (2026-10-13)</a></li><li class="toc__l3"><a href="#earlier-measurements-of-the-flow-question">Earlier measurements of the flow question</a></li></ul></aside>

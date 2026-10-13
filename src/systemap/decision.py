@@ -211,8 +211,9 @@ OPENAI = Thresholds(
     owner_at=0.99,
     # 81.0% of wrong sentences caught, 1.3% of right ones flagged (holdout 75.0%, 0.0%).
     sentence_below=0.3,
-    # 46.2% of wrong claims caught, 2.5% of real ones flagged (holdout 56.2%, 8.3%).
-    flow_below=0.05,
+    # With the flow context from the call-site fact (bench/jev/openai_flow_context.py):
+    # 33.8% of wrong claims caught, 2.5% of real ones flagged (holdout 37.5%, 6.2%).
+    flow_below=0.02,
     # 19.8% of governed cards found, 1.1% of the rest suggested (holdout 17.2%, 6.0%).
     governs_at=0.99,
     # Not available: the pair question has no holdout rows.

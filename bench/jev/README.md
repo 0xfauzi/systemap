@@ -2721,3 +2721,126 @@ A TypeScript row set must have a map with flows and flow sentences for each repo
 The bench data has no map of Hono, Ky, or Zod, and no checkout of these repositories. Thus no TypeScript rows were made.
 
 The `decision.OPENAI` flow value (0.05) was measured with the earlier context. A new OpenAI measurement with this context is necessary.
+
+## Does OpenAI satisfy the flow acceptance value with the context from the call-site fact? (2026-10-13)
+
+The `decision.OPENAI` flow value (0.05) came from the earlier flow context: the lines that use an imported name.
+At this time, `audit_code.code_between` selects the context from the `call_sites` fact. Thus the earlier value does not apply.
+
+Before the first OpenAI request of this experiment, `decision.OPENAI.flow_below` became None.
+Thus OpenAI did not answer the flow question until this experiment gave a value.
+`openai_flow_context.py` has the method and the acceptance value in its docstring.
+
+### Method
+
+The rows are the rows of the call-site context experiment above: 160 development rows and 96 holdout rows.
+Each row has the same id, claim, label, question, and `code` text that Jev answered.
+`call_site_context.py build` makes the rows again from the cached facts and the source.
+`run.py --provider openai flowctx_facts` sends each row to OpenAI one time, as one request.
+The request body comes from `systemap.openai_provider.request_body`, as in the earlier OpenAI experiment.
+
+`openai_flow_context.py score` uses the functions of `provider_eval.py`. Thus the selection rule is the flow rule of the earlier OpenAI experiment.
+Each figure uses only the rows that the two providers answered.
+A row with an empty context gets no request. It counts as not caught and not flagged for the two providers.
+
+### Acceptance value
+
+The acceptance value was written before the first OpenAI request of these rows. It is the flow rule in `provider_eval.py`:
+
+- The development set gives the threshold. The holdout set does not.
+- The budget is the fraction of correct development claims that Jev flags at the shipped Jev threshold, P<0.2, on the same rows.
+  The recorded Jev figure is 2 of 80 (2.5%).
+- The threshold is the largest candidate where OpenAI flags a fraction of the correct development claims that is at most the budget.
+  The candidates are 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, and 0.5.
+- If no candidate satisfies the rule, the flow question type does not satisfy the value.
+  If the selected threshold catches no incorrect development claim, the flow question type does not satisfy the value.
+- At the selected threshold, the holdout catch rate must be 10 points or less from the development catch rate.
+  The holdout flag rate must also be 10 points or less from the development flag rate.
+- If the flow question type satisfies the value, `decision.OPENAI.flow_below` gets the selected threshold.
+  If it does not satisfy the value, `decision.OPENAI.flow_below` stays None, and OpenAI does not answer the flow question.
+
+All the repositories in the two sets are Python repositories.
+Thus the result does not show the behavior on TypeScript.
+
+### Commands
+
+The key comes from the keychain only for the command. No command writes the key.
+
+    uv run --project bench/jev python bench/jev/call_site_context.py build
+    SYSTEMAP_TRUST_MODEL_CODE=1 JEV_SET=holdout JEV_ROOT_SCORECARD=../scorecard uv run --project bench/jev python bench/jev/call_site_context.py build
+    OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s openai-api-key-systemap -w)" uv run --project bench/jev python bench/jev/run.py --provider openai flowctx_facts
+    OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s openai-api-key-systemap -w)" JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py --provider openai flowctx_facts
+    uv run --project bench/jev python bench/jev/openai_flow_context.py score > bench/jev/results/openai/flowctx-facts-report.txt
+
+### Results
+
+The OpenAI requests were sent on 2026-10-13. The development rows went one time, and then the holdout rows went one time.
+No rule, row, or request form changed between the two request sets.
+Before the requests, `call_site_context.py build` made the rows again. The rows of the two sets were the same as the rows that Jev answered.
+
+There were 256 requests: 160 on development and 96 on holdout. There were 0 errors and 0 refusals.
+All answers came from the model `gpt-6-luna`. No row had an empty context.
+`results/openai/flowctx-facts-report.txt` has the full output.
+
+The flow question type satisfies the acceptance value at P<0.02.
+The table gives the OpenAI figures at that threshold, and the Jev figures at the shipped Jev threshold P<0.2.
+The scorer calculated the Jev figures again from the recorded Jev answers. They agree with the call-site context experiment.
+
+| provider | threshold | figure | development | holdout | points | result |
+|---|---|---|---|---|---|---|
+| OpenAI | P<0.02 | caught | 27/80 (33.8%) | 18/48 (37.5%) | +3.7 | satisfied |
+| | | flagged | 2/80 (2.5%) | 3/48 (6.2%) | +3.8 | satisfied |
+| Jev | P<0.2 | caught | 48/80 (60.0%) | 25/48 (52.1%) | -7.9 | |
+| | | flagged | 2/80 (2.5%) | 1/48 (2.1%) | -0.4 | |
+
+At P<0.05, OpenAI flagged 4 of 80 correct development claims (5.0%). This figure is more than the budget of 2 of 80.
+Thus the rule selected P<0.02.
+
+The AUC of OpenAI was 0.881 on development and 0.862 on holdout.
+The AUC of Jev on the same rows was 0.904 and 0.936.
+
+At P<0.05 with the earlier context, OpenAI caught 37 of 80 (46.2%) on development and flagged 2 of 80 (2.5%).
+At P<0.05 with the context from the call-site fact, it caught 32 of 80 (40.0%) and flagged 4 of 80 (5.0%).
+
+### Cost
+
+| set | requests | input tokens | dollars |
+|---|---|---|---|
+| development | 160 | 125,383 | 0.013 |
+| holdout | 96 | 88,559 | 0.009 |
+| total | 256 | 213,942 | 0.021 |
+
+OpenAI gave 0 output tokens. The price is $0.10 for each 1M input tokens, with no output charge.
+The median input was 664 tokens on development and 743 tokens on holdout. The median time was 0.14 seconds for each request.
+
+### Decision
+
+`decision.OPENAI.flow_below` is 0.02.
+`jev flow` stays out of `DEFAULT_KINDS` for the two providers, because no TypeScript row set is available.
+At its threshold, OpenAI catches 33.8% of incorrect claims on development. At its threshold, Jev catches 60.0%.
+Thus Jev stays the better provider for the flow question.
+
+## Which bench scripts did not import on 2026-10-13, and what changed?
+
+Each bench script must import with no error. On the `integrate/wave-3` branch, four scripts did not import, because `src/` removed or moved a name:
+
+| script | error | change |
+|---|---|---|
+| `flow_context.py` | `audit_code._bindings` does not exist, and `audit_code.code_between` has a different signature | `import_context.py` keeps the earlier selector. `flow_context.py` also writes the folder package into each cached record, as `call_site_context.py` does. |
+| `draft.py` | `extract.is_empty_marker` does not exist | The script imports `source_facts.is_empty_marker`. |
+| `moves.py` | `extract.is_empty_marker` does not exist | The script imports `source_facts.is_empty_marker`. |
+| `paths.py` | `extract.entry_label` does not exist | The script imports `source_facts.entry_label`. |
+
+`flow_context.py build` made the rows of the four arms again on the two sets.
+The 8 row files were the same as the files that Jev answered in the flow context experiment.
+`flow_context.py score` gave the same output as `results/flowctx-report.txt`.
+Thus the script stays, and `call_site_context.py` does not replace it. The two scripts measure different selectors.
+
+`source_facts.is_empty_marker` reads the `empty_marker` fact. The cached facts of format 2 do not have this fact.
+Thus, for these facts, the function finds no empty package marker. The earlier `extract.is_empty_marker` found the markers from the file name and the record.
+
+`common.py` and `call_site_context.py` used the new function before this change. After this change, `draft.py` also uses it with the facts of each first map.
+A new `draft.py` result can be different from the recorded result. The script was not operated again.
+
+`drift_head.py` operates when Python imports it. The `repo-maintenance-*` folders in `bench/scratch` are necessary.
+Without these folders, the import stops with `StopIteration`. With these folders, the import completed.

@@ -395,5 +395,7 @@ def test_the_openai_thresholds_have_no_value_for_the_failed_types() -> None:
     limits = decision.thresholds("openai")
     assert limits.misfold_below is None and limits.plan_cut is None and not limits.triage
     assert decision.value(limits, "sentence_below") == 0.3
+    # Measured with the flow context from the call-site fact (bench/jev/openai_flow_context.py).
+    assert decision.value(limits, "flow_below") == 0.02
     with pytest.raises(DecisionError, match="no measured value for decision mis-fold"):
         decision.value(limits, "misfold_below")

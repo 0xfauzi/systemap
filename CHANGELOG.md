@@ -125,7 +125,7 @@ Each item gives the change, and then the step that you must do.
   |---|---|---|---|
   | `decision owner` | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
   | `decision sentence` | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
-  | `decision flow` | P < 0.05 | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+  | `decision flow` | P < 0.02 | 27 of 80 incorrect claims found (33.8%), 2 of 80 incorrect findings (2.5%) | 18 of 48 found (37.5%), 3 of 48 incorrect findings (6.2%) |
   | `decision governs` | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
 
   The other kinds are not available for OpenAI. The command sends no question for them and gives the cause.
@@ -134,9 +134,11 @@ Each item gives the change, and then the step that you must do.
   `plan` included 0.73 of the changed components on development and 0.39 on holdout.
   The pair question of `suggest --decide` and the move question of `delta --decide` have no holdout rows.
 
-  The `decision flow` threshold of OpenAI was measured with the earlier flow context.
-  A new measurement with the call-site context is necessary.
+  The `decision flow` threshold of OpenAI comes from a second measurement with the context from the `call_sites` fact.
+  The command uses the same context. The earlier context had given P < 0.05.
+  On the same development rows, Jev found 48 of 80 incorrect claims (60.0%) at its threshold P < 0.2.
   The 1,636 bench requests used 1,211,893 input tokens and cost 0.12 dollars.
+  The 256 requests of the second flow measurement used 213,942 input tokens and cost 0.02 dollars.
 
 - A flow can have an `id`. Two or more flows can then connect one pair of components, for example `submit-order` and `cancel-order`.
   Each of these flows has its own sentence, review digest, and judgement lines, and the map shows each one as a different line.
