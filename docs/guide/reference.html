@@ -431,7 +431,9 @@ Its key includes the model, release date, state, and question.
 A map without changes uses cached answers at no additional cost.
 A new model release causes new questions.
 If the model list is not available and the cache has every answer for the last known
-release, the command uses the cache. The usage line says so.</p>
+release, the command uses the cache. The usage line says so.
+Two commands can write the cache at the same time.
+A save holds a lock on the file <code>jev-cache.json.lock</code> and keeps the entries of the two commands.</p>
 <p>Audit answers use <code>[judgement] answered</code> with <code>item</code>, <code>items</code>, or a kind such as
 <code>&quot;decision flow&quot;</code>. <code>audit</code> reads only answers for the kinds in its report.
 A kind excluded from the report does not make its answer stale.
@@ -1239,13 +1241,18 @@ Jev compares the task with each component's function.
 The projection includes components with probability of at least 0.05.
 The report includes flows, sequences, and rules for each component.
 It lists six of each, then gives a count.
-The projection is in <code>.systemap/plans/&lt;id&gt;.json</code>.</p>
+The projection is in <code>.systemap/plans/&lt;id&gt;.json</code>.
+The ID has three parts: the date, a digest of the full task, and the first four words of the task.
+The same task on the same date gives the same ID.
+If the plan file of the ID contains a different task, the command does not replace it. It exits 1 and gives the file.</p>
 <p>The measured threshold of 0.05 is in <code>bench/jev/plan_eval.py</code>.
 Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
 <ul>
 <li>
 <p><code>--check ID --base REF</code> compares the projection with changed components
 since <code>REF</code>. The default base is <code>origin/main</code>.
+The current model gives the component of each module.
+If the current model does not claim a removed module, the model at the <code>REF</code> commit gives its component.
 It exits 1 for changed components outside the plan.</p>
 </li>
 <li>
@@ -1276,7 +1283,13 @@ Each request contains the language policy of the <code>[writing]</code> profile.
 The command rejects a step with no authored flow and gives a finding.
 The command also rejects a step source record that does not resolve.
 It rejects a step source record in no module of an acting or measured component of the step.
-The command does not write that step.</p>
+The command does not write that step.
+The agent cache keeps only an answer that gives an accepted sequence.
+Thus, after a rejected answer, the next command sends the question to the agent again.</p>
+<p>The agent can write no more than 200,000 bytes to stdout.
+If it writes more, the command stops the agent, and the request does not complete.
+If a request does not complete, the command writes the accepted sequences of the other requests.
+Then it names each request that did not complete and exits 1.</p>
 <p>Accepted sequences enter the model with <code>drafted=True</code>.
 The command writes them into the <code>JOURNEYS = (...)</code> tuple of the model.
 The tuple can have a type annotation, as in the model from <code>init</code>.
@@ -1285,7 +1298,7 @@ removes the mark.</p>
 <p>By default, the command writes no more than three sequences.</p>
 <ul>
 <li>
-<p><code>--limit N</code> writes no more than N sequences.</p>
+<p><code>--limit N</code> writes no more than N sequences. N must be 1 or more.</p>
 </li>
 <li>
 <p><code>--dry-run</code> lists proposed sequences without file changes.</p>

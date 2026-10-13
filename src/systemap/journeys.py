@@ -295,11 +295,17 @@ def read_answer(
 def write_one(
     agent: Agent, model: Model, meaning: Meaning, facts: dict[str, Any], group: Group
 ) -> Draft:
-    """Ask the agent for one sequence and validate the returned steps."""
+    """Ask the agent for one sequence and validate the returned steps.
+
+    The agent cache keeps only an answer that gives a sequence."""
     question = GROUP_QUESTION if group.whole else QUESTION
     supplied = context(model, meaning, facts, group)
     supplied["source_snapshot"] = _source_snapshot(agent.root, facts)
-    answer = agent.ask(question, supplied)
+    answer = agent.ask(
+        question,
+        supplied,
+        accept=lambda text: read_answer(text, model, group, facts).journey is not None,
+    )
     return read_answer(answer, model, group, facts)
 
 

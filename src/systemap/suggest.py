@@ -61,6 +61,51 @@ def camel(dotted: str, whole: bool = False) -> str:
     )
 
 
+def proposal_ids(packages: list[str]) -> dict[str, str]:
+    """This function gives a different proposal ID to each package.
+
+    The ID rule has three steps:
+    1. The ID is the short name: CamelCase of the path without its first segment.
+    2. If two packages have the same short name, each of them gets its whole name:
+       CamelCase of the full path.
+    3. If two packages still have the same name, each of them gets that name and a
+       number. The numbers start at 1 and follow the package order. The rule does not
+       use a number that gives a name of a different package.
+    The IDs do not change when the packages come in a different order.
+    """
+    names = _counted({pkg: camel(pkg) for pkg in set(packages)})
+    taken = {name for name, held in names.items() if len(held) == 1}
+    ids = {held[0]: name for name, held in names.items() if len(held) == 1}
+    for name, held in sorted(names.items()):
+        if len(held) == 1:
+            continue
+        n = 0
+        for pkg in held:
+            n += 1
+            while f"{name}{n}" in taken:
+                n += 1
+            ids[pkg] = f"{name}{n}"
+            taken.add(ids[pkg])
+    return ids
+
+
+def _counted(short: dict[str, str]) -> dict[str, list[str]]:
+    """Give the packages of each name, after the whole name replaces a repeated short name."""
+    repeated = _by_name(short)
+    named = {
+        pkg: name if len(repeated[name]) == 1 else camel(pkg, whole=True)
+        for pkg, name in short.items()
+    }
+    return _by_name(named)
+
+
+def _by_name(names: dict[str, str]) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for pkg in sorted(names):
+        out.setdefault(names[pkg], []).append(pkg)
+    return out
+
+
 def proposals(facts: dict[str, Any]) -> tuple[list[Proposal], list[str]]:
     """This function gives groups for packages with multiple modules and a separate list of
     isolated modules.
@@ -72,14 +117,7 @@ def proposals(facts: dict[str, Any]) -> tuple[list[Proposal], list[str]]:
         if is_empty_marker(components[module]):
             continue
         by_package.setdefault(group_of(module, components, packages), []).append(module)
-    ids: dict[str, str] = {}
-    short = {pkg: camel(pkg) for pkg in by_package}
-    counts: dict[str, int] = {}
-    for name in short.values():
-        counts[name] = counts.get(name, 0) + 1
-    for pkg, name in short.items():
-        # Two packages that shorten to one id keep their whole path.
-        ids[pkg] = name if counts[name] == 1 else camel(pkg, whole=True)
+    ids = proposal_ids(list(by_package))
     out: list[Proposal] = []
     alone: list[str] = []
     for pkg in sorted(by_package):

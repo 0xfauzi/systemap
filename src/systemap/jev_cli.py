@@ -27,6 +27,7 @@ from systemap import (
     decision,
     decision_kinds,
     delta,
+    delta_git,
     evidence,
     extraction,
     facts_file,
@@ -46,6 +47,7 @@ from systemap.decision import (
     DecisionProvider,
     PredicateQuestion,
 )
+from systemap.model import Model
 
 OK, STALE = 0, 1
 
@@ -330,25 +332,31 @@ def _write_journeys(
     sources: dict[Path, str] = {}
     written: dict[Path, list[str]] = {}
     out: list[str] = []
+    failed = 0
     for current, group in take:
         try:
             draft = journeys.write_one(writer, current.model, current.meaning, facts, group)
         except agent.AgentError as exc:
-            out.append(f"journeys: {exc}")
-            break
+            failed += 1
+            out.append(
+                f"journeys: the request for {current.prefix}{group.label} did not complete: {exc}"
+            )
+            continue
         _record_journey(current, group, draft, sources, written, out)
     if written and not _commit_journeys(cfg, sources, written, out):
         return STALE
+    if failed:
+        out.append(f"journeys: {failed} of {len(take)} requests did not complete")
     print(*out, sep="\n")
     writer_usage(writer)
-    return _written_code(take, written)
+    return _written_code(take, written, failed)
 
 
 def _written_code(
-    take: list[tuple[nest.Map, journeys.Group]], written: dict[Path, list[str]]
+    take: list[tuple[nest.Map, journeys.Group]], written: dict[Path, list[str]], failed: int
 ) -> int:
-    """The command fails when it had sequences to write and wrote none."""
-    return OK if written or not take else STALE
+    """The command fails when a request did not complete, or when it wrote no sequence."""
+    return OK if not failed and (written or not take) else STALE
 
 
 def _record_journey(
@@ -528,7 +536,11 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     made = plan_mod.project(top.model, top.meaning, text.strip(), spread, cut=cut)
     # A projection that names nothing is not written down: there would be
     # nothing to check it against later.
-    where = plan_mod.save(cfg, made) if made.cards else None
+    try:
+        where = plan_mod.save(cfg, made) if made.cards else None
+    except plan_mod.PlanError as exc:
+        print(f"plan: {exc}")
+        return STALE
     print(*_plan_lines(made, cfg, where), sep="\n")
     providers.usage_to_stderr(client)
     return OK
@@ -580,22 +592,28 @@ def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
         print(f"plan: no plan has the ID {args.check} (saved plans: {known})")
         return STALE
     try:
-        base_facts, head_facts = _plan_facts(cfg, args.base)
+        base_facts, head_facts, base_model = _plan_snapshots(cfg, args.base)
     except delta.DeltaError as exc:
         print(f"plan: {exc}")
         return STALE
     top = nest.load(cfg).top
-    owner = evidence.owners(top.model, head_facts)
+    owner = plan_mod.owners(top.model, base_model, base_facts, head_facts)
     changed = plan_mod.touched(base_facts, head_facts, owner)
     missed, untouched = plan_mod.check(list(found.get("cards", [])), changed)
     print(*_check_lines(found, changed, missed, untouched, args.base), sep="\n")
     return STALE if missed else OK
 
 
-def _plan_facts(cfg: config.Config, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Get base facts and working-tree facts for plan comparison."""
+def _plan_snapshots(
+    cfg: config.Config, base: str
+) -> tuple[dict[str, Any], dict[str, Any], Model | None]:
+    """Get base facts, working-tree facts, and the base model for plan comparison.
+
+    The base model is None if the merge base has no model that loads."""
     sha = delta.merge_base(cfg.root, base, "HEAD")
-    return history.facts_at(cfg, sha), extraction.build(cfg)
+    tree = delta_git.model_at(cfg, sha)
+    base_model = tree.top.model if isinstance(tree, nest.Tree) else None
+    return history.facts_at(cfg, sha), extraction.build(cfg), base_model
 
 
 def _check_lines(
@@ -671,7 +689,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     add_root(s)
     s.add_argument(
         "--limit",
-        type=int,
+        type=_limit,
         default=JOURNEY_CAP,
         help=f"Set the maximum number of sequences for each run. The default is {JOURNEY_CAP}.",
     )
@@ -714,6 +732,19 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     providers.add_option(s)
     s.add_argument("text", help="Give the issue title and text, or - to read stdin.")
     s.set_defaults(func=lambda args: cmd_triage(_rooted(args)))
+
+
+def _limit(text: str) -> int:
+    """Give the sequence limit. A value that is not an integer of 1 or more is an error."""
+    try:
+        value = int(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"{text} is not an integer") from exc
+    if value < 1:
+        raise argparse.ArgumentTypeError(
+            f"the limit must be 1 or more, not {value}. Use --dry-run to write no sequence"
+        )
+    return value
 
 
 def _rooted(args: argparse.Namespace) -> argparse.Namespace:

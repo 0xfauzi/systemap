@@ -205,6 +205,83 @@ def test_the_cards_a_change_touched_are_read_from_the_facts() -> None:
     assert missed == ["B"] and untouched == ["D"]
 
 
+def test_a_removed_module_outside_the_plan_is_a_change(
+    repo: Config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """change-3: the acceptance value is exit 1 and a line that names Writer.
+
+    The work removes `pkg/writer.py`. The head facts do not have the module, so the
+    owner of the module must come from the base facts."""
+    send = answering({"Reader": 0.9, "Writer": 0.01, "none of these": 0.09})
+    assert cmd_plan(args_for(repo, task="read the input in chunks"), send=send) == 0
+    plan_id = plan_mod.saved(repo)[0]
+    capsys.readouterr()
+    (repo.root / "pkg/writer.py").unlink()
+    assert cmd_plan(args_for(repo, check=plan_id)) == 1
+    assert "not in the plan: Writer changed" in capsys.readouterr().out
+
+
+def test_a_removed_module_without_a_claim_in_the_head_model_is_a_change(
+    repo: Config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """change-3: the acceptance value is exit 1 and a line that names Writer.
+
+    The work removes `pkg/writer.py` and its claim in the model. The model at the
+    base revision gives the owner of the removed module."""
+    send = answering({"Reader": 0.9, "Writer": 0.01, "none of these": 0.09})
+    assert cmd_plan(args_for(repo, task="read the input in chunks"), send=send) == 0
+    plan_id = plan_mod.saved(repo)[0]
+    capsys.readouterr()
+    (repo.root / "pkg/writer.py").unlink()
+    source = repo.model_path.read_text(encoding="utf-8")
+    assert 'implemented_by=("pkg.writer",)' in source
+    repo.model_path.write_text(
+        source.replace('implemented_by=("pkg.writer",)', "implemented_by=()"), encoding="utf-8"
+    )
+    assert cmd_plan(args_for(repo, check=plan_id)) == 1
+    assert "not in the plan: Writer changed" in capsys.readouterr().out
+
+
+def test_two_tasks_with_the_same_first_words_get_different_ids() -> None:
+    """change-12: the acceptance value is two different IDs on the same date.
+
+    The ID rule: the date, the first four words of the task, and a digest of the
+    full task. The same task on the same date gives the same ID."""
+    first = plan_mod.plan_id("read the input in chunks of one line")
+    second = plan_mod.plan_id("read the input in chunks of one page")
+    assert first != second
+    assert first == plan_mod.plan_id("read the input in chunks of one line"), "the ID is stable"
+    assert first.endswith("-read-the-input-in")
+
+
+def test_a_saved_plan_of_a_different_task_is_not_replaced(sample: Any) -> None:
+    """change-12: the acceptance value is a PlanError and an unchanged plan file.
+
+    The test writes a different task under the ID of a new projection. The save
+    must not replace the file of the different task."""
+    made = plan_mod.project(
+        sample.model, sample.meaning, "split the input", {"Parser": 0.9}, cut=JEV.plan_cut
+    )
+    repo = sample.cfg
+    path = plan_mod.path_of(repo, made.id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    other = json.dumps({**made.as_json(), "task": "a different task"})
+    path.write_text(other, encoding="utf-8")
+    with pytest.raises(plan_mod.PlanError, match="different task"):
+        plan_mod.save(repo, made)
+    assert path.read_text(encoding="utf-8") == other
+    path.unlink()
+    assert plan_mod.save(repo, made) == path
+    assert plan_mod.save(repo, made) == path, "the same task can replace its own plan"
+
+
+def test_a_card_whose_name_starts_with_none_is_named() -> None:
+    """change-24: the acceptance value is ["noneStore"]. Only the exact option
+    "none of these" is not a component."""
+    spread = {"noneStore": 0.6, "none of these": 0.4}
+    assert plan_mod.named(spread, JEV.plan_cut) == ["noneStore"]
+
+
 def test_a_journey_that_does_not_pass_through_the_card_is_not_listed(sample: Any) -> None:
     empty = Meaning(plain={}, relations=sample.meaning.relations)
     assert plan_mod.around(sample.model, empty, "Parser").journeys == ()
