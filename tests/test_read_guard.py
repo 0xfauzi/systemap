@@ -54,7 +54,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("delta_git.py", "write_tree", "open"): "os.devnull for writes",
     ("delta_git.py", "write_tree", "target.open"): "a write of a Git blob",
     # The confined open functions.
-    ("file_write.py", "_open_lock", "os.open"): "the lock open that refuses a link and a FIFO",
+    ("file_write.py", "_create", "os.open"): "the lock open that refuses a link and a FIFO",
     ("repo_files.py", "_open", "os.open"): "the confined reader",
     ("repo_files.py", "_open_below", "os.open"): "the confined reader: a file in an open folder",
     ("repo_files.py", "open_folder", "os.open"): "the confined walk: the resolved root",

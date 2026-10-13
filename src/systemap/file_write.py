@@ -237,7 +237,7 @@ def _open_lock(lock: Path, parent: int | None) -> int:
         if stat.S_ISLNK(os.lstat(name, dir_fd=parent).st_mode):
             raise RefusedFile(lock, LINK)
     try:
-        descriptor = os.open(name, _LOCK_FLAGS, 0o666, dir_fd=parent)
+        descriptor = _create(name, parent)
     except OSError as exc:
         if exc.errno == errno.ELOOP:
             raise RefusedFile(lock, LINK) from exc
@@ -246,6 +246,20 @@ def _open_lock(lock: Path, parent: int | None) -> int:
         os.close(descriptor)
         raise RefusedFile(lock, "the path is not a regular file")
     return descriptor
+
+
+def _create(name: str, parent: int | None) -> int:
+    """Open or make the lock file. Try the same open again after FileNotFoundError.
+
+    On macOS, an open with O_CREAT relative to a folder descriptor can give ENOENT when
+    other processes make the same new name at the same time. In a probe of 1200 opens by
+    8 processes at the same time, 260 opens gave ENOENT, and each second try opened the
+    file. A folder that was removed gives FileNotFoundError at each try.
+    """
+    for _attempt in range(4):
+        with suppress(FileNotFoundError):
+            return os.open(name, _LOCK_FLAGS, 0o666, dir_fd=parent)
+    return os.open(name, _LOCK_FLAGS, 0o666, dir_fd=parent)
 
 
 if sys.platform == "win32":

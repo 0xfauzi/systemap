@@ -92,6 +92,11 @@ def checked(root: Path, rel: str | PurePath) -> Path:
     except RuntimeError as exc:
         # Python 3.11 gives RuntimeError for a link loop.
         raise RepoPathError("the path is a link loop") from exc
+    except OSError as exc:
+        # Python 3.13 gives OSError with ELOOP for a link loop.
+        if exc.errno == errno.ELOOP:
+            raise RepoPathError("the path is a link loop") from exc
+        raise
     if not target.is_relative_to(base):
         raise RepoPathError("the file is not in the repository")
     if not stat.S_ISREG(target.stat().st_mode):
