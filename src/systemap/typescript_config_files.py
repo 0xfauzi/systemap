@@ -4,21 +4,25 @@ for its settings.
 They are package.json and tsconfig.json near the source folders, the package.json file
 of the installed TypeScript package, and each tsconfig file that a tsconfig file names
 in `extends` or `references`. An `extends` or `references` target can have a different
-name, such as `tsconfig.base.json`. The live watcher watches these files.
+name, such as `tsconfig.base.json`. The live watcher watches these files. The digest
+of the extraction inputs has only the values that extraction reads from these files.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from systemap import config, config_walk
+from systemap import config, config_walk, repo_files
 from systemap.typescript_config import (
+    INPUT_KEYS,
     SOURCE_SKIP,
     _config_reference,
     _extends_references,
     _read_config,
+    installed_major,
 )
 
 NAMES = ("package.json", "tsconfig.json")
@@ -96,3 +100,57 @@ def _reference_targets(data: dict[str, Any], path: Path) -> list[Path]:
             target = path.parent / raw
             out.append((target if raw.endswith(".json") else target / "tsconfig.json").resolve())
     return out
+
+
+# The keys of a tsconfig file that extraction reads (`_compiler_options` and
+# `_project_config` in typescript_config). Other keys do not change the facts.
+READ_KEYS = ("extends", "references", *INPUT_KEYS)
+READ_OPTIONS = ("paths", "baseUrl", "rootDir", "rootDirs", "outDir", "composite")
+
+
+def typescript_extraction_inputs(root: Path, folders: Iterable[Path]) -> dict[Path, bytes]:
+    """Give each configuration file that extraction reads, with a stable text of the values
+    that extraction reads from it.
+
+    The installed TypeScript package gives only its major version. A tsconfig file gives
+    the keys in READ_KEYS and READ_OPTIONS, without comments and text format. A
+    package.json file of the repository gives its full text. A tsconfig file that cannot
+    be read gives its full text. A file that is not present has no entry.
+    """
+    package = root / TYPESCRIPT_PACKAGE
+    found: dict[Path, bytes] = {}
+    for path in typescript_config_paths(root, folders):
+        if not repo_files.present(path):
+            continue
+        if path == package:
+            found[path] = _stable({"major": installed_major(root)})
+        elif path.name == "package.json":
+            found[path] = _full_text(path, root)
+        else:
+            found[path] = _tsconfig_values(path, root)
+    return found
+
+
+def _tsconfig_values(path: Path, root: Path) -> bytes:
+    try:
+        data = _read_config(path, root)
+    except ValueError:
+        return _full_text(path, root)
+    options = data.get("compilerOptions")
+    values = {key: data[key] for key in READ_KEYS if key in data}
+    if isinstance(options, dict):
+        values["compilerOptions"] = {key: options[key] for key in READ_OPTIONS if key in options}
+    else:
+        values["compilerOptions"] = options
+    return _stable(values)
+
+
+def _full_text(path: Path, root: Path) -> bytes:
+    try:
+        return repo_files.read_bytes(root, repo_files.relative(root, path))
+    except OSError as exc:
+        raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
+
+
+def _stable(values: object) -> bytes:
+    return json.dumps(values, sort_keys=True, separators=(",", ":")).encode("utf-8")

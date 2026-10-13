@@ -738,6 +738,10 @@ Package `__init__` records include re-exports.
 The other commands read this file.
 
 - `--check` exits 1 if stored facts differ from the source tree.
+  The facts file includes a digest of the values that extraction reads from each configuration file.
+  Thus a change to such a value is also a difference.
+  A comment, the text format, or a value that extraction does not read is not a difference.
+  A file in an installed package folder, for example `node_modules`, is a difference only if it is on this computer.
   It also exits 1 if a model claim names a module that the source tree does not have.
   The report gives the two problem groups separately.
   For stale facts, run `systemap extract`.

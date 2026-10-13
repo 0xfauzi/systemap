@@ -15,7 +15,9 @@ FIFO, and it does not read a file outside the root.
 `write_atomic` writes the text to a temporary file of this writer in the directory of
 the path. Then it replaces the path with that file. A link at the path is replaced. The
 write does not go to the target of the link. A reader gets the full previous file or the
-full new file. Two writers do not use the same temporary file.
+full new file. Two writers do not use the same temporary file. A new file gets the mode
+of a usual write: 0666 without the bits of the umask. A regular file that is at the path
+keeps its mode.
 
 `locked` holds an exclusive lock on the file `<path>.lock` while its `with` statement
 operates. A different process that tries to get the same lock waits. The operating
@@ -27,9 +29,9 @@ from __future__ import annotations
 
 import errno
 import os
+import secrets
 import stat
 import sys
-import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -42,6 +44,15 @@ _LOCK_FLAGS = (
     | os.O_APPEND
     | getattr(os, "O_NOFOLLOW", 0)
     | getattr(os, "O_NONBLOCK", 0)
+    | getattr(os, "O_BINARY", 0)
+)
+# O_EXCL refuses a path that is present, also a link.
+_TEMPORARY_FLAGS = (
+    os.O_WRONLY
+    | os.O_CREAT
+    | os.O_EXCL
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_NOINHERIT", 0)
     | getattr(os, "O_BINARY", 0)
 )
 LINK = "it is a link"
@@ -107,14 +118,40 @@ def write_atomic(root: Path, path: Path, text: str) -> None:
     The folder of the path must be in the root. A link at the path is replaced.
     """
     folder(root, path)
-    handle, name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".tmp")
+    handle, name = _temporary(path)
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
             out.write(text)
+        _keep_mode(path, name)
         os.replace(name, path)
     except BaseException:
         Path(name).unlink(missing_ok=True)
         raise
+
+
+def _temporary(path: Path) -> tuple[int, str]:
+    """Make a new temporary file of this writer next to the path. Give its descriptor and
+    its name.
+
+    The operating system applies the umask to the mode 0666, as for a usual write. The
+    file must not be present before. Thus a link or a file of a different writer is not used.
+    """
+    while True:
+        name = str(path.with_name(f"{path.name}.{secrets.token_hex(8)}.tmp"))
+        try:
+            return os.open(name, _TEMPORARY_FLAGS, 0o666), name
+        except FileExistsError:
+            continue
+
+
+def _keep_mode(path: Path, name: str) -> None:
+    """Give the temporary file the mode of the regular file at the path, if there is one."""
+    try:
+        existing = os.lstat(path)
+    except FileNotFoundError:
+        return
+    if stat.S_ISREG(existing.st_mode):
+        os.chmod(name, stat.S_IMODE(existing.st_mode))
 
 
 @contextmanager

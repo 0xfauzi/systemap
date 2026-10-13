@@ -73,7 +73,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # ---- writes that do not use file_write.write_atomic ----
     # The confined writer itself.
     ("file_write.py", "write_atomic", "os.replace"): "the confined writer",
-    ("file_write.py", "write_atomic", "tempfile.mkstemp"): "the confined writer",
+    ("file_write.py", "_temporary", "os.open"): "the confined writer: a new temporary file",
     # The configuration file that config.load read with repo_files: a regular file in the
     # repository. The write keeps its bytes, also a byte order mark.
     ("answer_write.py", "add", "target.write_bytes"): "the configuration that config.load read",
