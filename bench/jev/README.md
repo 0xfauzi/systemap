@@ -3004,3 +3004,32 @@ Each value is the median of 31 calls on one macOS computer.
 
 The ratio is 1.21. The result satisfies the acceptance value.
 The change added two source modules between the two measurements. On the same tree, the base and the change give the same 279 paths.
+
+## Does the Python file list stay fast with a large node_modules folder? (2026-10-13)
+
+Result `followup-python-paths`: `python_repo.python_paths` used `rglob`.
+Thus it read each folder in node_modules, .venv, and the other skipped folders, and only then removed their files.
+The change uses `os.walk` and does not go into the `PYTHON_SKIP` folders. The TypeScript detection uses the same method.
+
+`bench/python_paths.py` makes two fixtures, each with and without 40,000 files in node_modules.
+In `package`, the package root `src/app` has 40 modules and the node_modules folder. Half of the files in node_modules are `.py` files.
+In `no_source`, the folder has Python files only in node_modules.
+The acceptance value was written before the change: for each call, the median time with node_modules must be at most 1.2 times the median time without node_modules.
+
+Each value is the median of 11 samples on one macOS computer with Python 3.11.10.
+One sample is the mean time of one call in a loop of 20 ms or more.
+
+| revision | call | without node_modules (ms) | with node_modules (ms) | ratio |
+|---|---|---|---|---|
+| base (b168c9c), first run | `list(python_paths(package/src/app))` | 0.2294 | 101.8 | 443.78 |
+| base (b168c9c), first run | `detect(package, [package/src/app])` | 0.0283 | 0.0289 | 1.02 |
+| base (b168c9c), first run | `detect(no_source, [no_source])` | 0.0227 | 101.7 | 4472.93 |
+| base (b168c9c), second run | the three calls, in the same order | 0.2282, 0.0281, 0.0228 | 100.1, 0.0287, 97.93 | 438.81, 1.019, 4286.85 |
+| change, first run | the three calls, in the same order | 0.1583, 0.0308, 0.0139 | 0.1571, 0.0337, 0.0147 | 0.992, 1.094, 1.058 |
+| change, second run | the three calls, in the same order | 0.2065, 0.0342, 0.0150 | 0.1597, 0.0323, 0.0143 | 0.773, 0.946, 0.953 |
+| change, third run | the three calls, in the same order | 0.1706, 0.0303, 0.0148 | 0.1632, 0.0318, 0.0143 | 0.957, 1.047, 0.967 |
+
+For `detect(package, [package/src/app])`, the base also did not read node_modules, because the call stops at the first Python file.
+The results of the calls did not change. The result satisfies the acceptance value.
+On this repository, the base and the change give the same 138 Python files for the package root `src/systemap`.
+The test `tests/test_python_paths_skip.py` records each folder that the calls open, and it finds no folder with a `PYTHON_SKIP` name.

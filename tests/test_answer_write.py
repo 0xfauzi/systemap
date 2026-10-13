@@ -9,6 +9,9 @@ Acceptance values:
 3. A configuration with an answer without citations stays correct, and an answer with
    citations keeps them.
 4. If the writer cannot keep the other values, it writes nothing.
+5. The writer keeps the line end that the file uses (result `followup-answer-newlines`).
+   For each form, a file with CRLF line ends has 0 LF without a CR after the write, and a
+   file with LF line ends has 0 CR after the write.
 """
 
 from __future__ import annotations
@@ -118,3 +121,32 @@ def test_the_decisions_settings_are_validated(tmp_path: Path) -> None:
     toml.write_text('[judgement]\nrequire_reviews = "yes"\n', encoding="utf-8")
     with pytest.raises(ConfigError, match="require_reviews"):
         config.load(tmp_path)
+
+
+def _line_ends(raw: bytes) -> tuple[int, int]:
+    """Give the number of CRLF line ends and the number of LF line ends without a CR."""
+    crlf = raw.count(b"\r\n")
+    return crlf, raw.count(b"\n") - crlf
+
+
+@pytest.mark.parametrize("form", list(FORMS))
+def test_a_crlf_file_keeps_crlf_line_ends(tmp_path: Path, form: str) -> None:
+    """Acceptance 5: the added rows also have CRLF line ends."""
+    text = FORMS[form].replace("\r\n", "\n").replace("\n", "\r\n")
+    (tmp_path / "systemap.toml").write_bytes(text.encode("utf-8"))
+    answer_write.add(tmp_path, "systemap.toml", [ENTRY])
+    raw = (tmp_path / "systemap.toml").read_bytes()
+    crlf, lf = _line_ends(raw)
+    assert (crlf > text.count("\r\n"), lf) == (True, 0)
+    assert answers(raw.decode("utf-8")) == [*answers(text), ENTRY]
+
+
+@pytest.mark.parametrize("form", list(FORMS))
+def test_an_lf_file_keeps_lf_line_ends(tmp_path: Path, form: str) -> None:
+    """Acceptance 5: the added rows also have LF line ends."""
+    text = FORMS[form].replace("\r\n", "\n")
+    (tmp_path / "systemap.toml").write_bytes(text.encode("utf-8"))
+    answer_write.add(tmp_path, "systemap.toml", [ENTRY])
+    raw = (tmp_path / "systemap.toml").read_bytes()
+    assert raw.count(b"\r") == 0
+    assert _line_ends(raw)[1] > text.count("\n")

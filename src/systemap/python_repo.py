@@ -6,6 +6,8 @@ reads the name of a recorded method.
 
 from __future__ import annotations
 
+import fnmatch
+import os
 import re
 import sys
 import tomllib
@@ -49,8 +51,16 @@ def skipped(path: Path, base: Path, names: frozenset[str]) -> bool:
 
 
 def python_paths(root: Path) -> Iterator[Path]:
-    """List the Python files below a package root, except skipped folders."""
-    return (path for path in root.rglob("*.py") if not skipped(path, root, PYTHON_SKIP))
+    """List the Python files below a package root in a stable order.
+
+    The walk does not enter a folder whose name is in PYTHON_SKIP (result
+    `followup-python-paths`). `fnmatch` gives the same case rule as `rglob`: on Windows,
+    the suffix match ignores case."""
+    for current, names, files in os.walk(root):
+        names[:] = sorted(name for name in names if name not in PYTHON_SKIP)
+        for name in sorted(files):
+            if fnmatch.fnmatch(name, "*.py"):
+                yield Path(current, name)
 
 
 def package_dir(directory: Path) -> bool:

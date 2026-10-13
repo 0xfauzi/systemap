@@ -150,7 +150,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="adc5a72bf062f87372005b2dcd218b0cb76b43c3b8d4ee922b854b38d18022bf",
+        source_review="855ed3bff7be58be9370485b8860c635dbe90c769eb958878dcfef4bd84e509a",
         does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
