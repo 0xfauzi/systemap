@@ -527,9 +527,9 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 </tr>
 <tr>
 <td>decision flow</td>
-<td>P &lt; 0.05 (only with <code>--kind &quot;decision flow&quot;</code>)</td>
-<td>46.2% of incorrect claims found, 2.5% incorrect findings</td>
-<td>56.2% found, 8.3% incorrect findings</td>
+<td>P &lt; 0.02 (only with <code>--kind &quot;decision flow&quot;</code>)</td>
+<td>33.8% of incorrect claims found, 2.5% incorrect findings</td>
+<td>37.5% found, 6.2% incorrect findings</td>
 </tr>
 <tr>
 <td>decision governs</td>
@@ -559,6 +559,7 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 </table>
 </div>
 <p>The owner question of <code>delta --decide</code> uses the <code>decision owner</code> threshold.
+The <code>decision flow</code> threshold came from a second measurement on 2026-10-13. It used the flow context from the <code>call_sites</code> fact, as the command does.
 All measured repositories are Python repositories. No TypeScript result was measured.
 The finding kinds have the same names for each provider. These names are identifiers in <code>[judgement] answered</code>.
 <a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a> gives the previous names.</p>
@@ -568,7 +569,8 @@ A refusal for one question gives no finding for that question. The report gives 
 Its key includes the provider name, the model, the evidence, and the question. Thus OpenAI does not use a Jev answer.</p>
 <p>The cost line on stderr has the same form for each provider, for example <code>openai: 1 sent, 0 from the cache; 290 input and 0 output tokens; gpt-6-luna</code>.
 OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
-The 1,636 bench requests used 1,211,893 input tokens ($0.12).</p>
+The 1,636 bench requests used 1,211,893 input tokens ($0.12).
+The 256 requests of the second flow measurement used 213,942 input tokens ($0.02).</p>
 <h2 id="how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</h2>
 <p>In this release, the diagnostic kinds of a decision provider have new names.
 The previous names started with <code>jev</code>. The new names start with <code>decision</code>, because Jev or OpenAI can give the answers.</p>
