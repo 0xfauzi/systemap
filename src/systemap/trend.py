@@ -2,8 +2,9 @@
 model.
 
 Each sample contains source facts at one commit. Each window compares two samples. The
-report gives module counts, entry point counts, component sizes, and new imports across
-component boundaries. It also gives commits that added modules. Rename detection pairs
+report gives module counts, entry point counts, component sizes, and new and removed
+imports across component boundaries. It also gives the commits that added the files of
+new modules. Rename detection pairs
 the same content only. Other pairs must have a source examination.
 """
 
@@ -54,11 +55,15 @@ class Window:
 
     @property
     def size(self) -> int:
-        """This property gives the total change count for window ranking."""
+        """This property gives the total change count for window ranking.
+
+        An added and a removed crossing import have the same weight.
+        """
         return (
             abs(self.modules)
             + abs(self.ways_in)
             + 2 * len(self.new_crossings)
+            + 2 * len(self.gone_crossings)
             + sum(abs(n) for n in self.grew.values())
         )
 
@@ -145,7 +150,11 @@ def walk(cfg: Config, model: Model, shas: list[str]) -> list[Window]:
 
 
 def with_causes(root: Path, window: Window, cap: int = 5) -> Window:
-    """This function adds the commits that introduced modules to the window."""
+    """This function adds the commits that added the new files of the window.
+
+    A commit that only changes a new file is not in the list. Git does not pair renames
+    here, so a commit that renamed a file to a new path added that path.
+    """
     if not window.new_files:
         return window
     try:
@@ -153,6 +162,8 @@ def with_causes(root: Path, window: Window, cap: int = 5) -> Window:
             root,
             "log",
             "--format=%s",
+            "--diff-filter=A",
+            "--no-renames",
             f"{window.base}..{window.head}",
             "--",
             *window.new_files[:FILES_ASKED],
@@ -214,10 +225,17 @@ def _window_lines(window: Window) -> list[str]:
     if window.grew:
         moved = ", ".join(f"{cid} {n:+d}" for cid, n in sorted(window.grew.items()))
         out.append(f"      components: {moved}")
-    if window.new_crossings:
-        left = len(window.new_crossings) - 5
-        pairs = ", ".join(f"{a} -> {b}" for a, b in window.new_crossings[:5])
-        more = f", and {left} more" if left > 0 else ""
-        out.append(f"      new crossing imports: {pairs}{more}")
+    out += _crossing_line("new", window.new_crossings)
+    out += _crossing_line("removed", window.gone_crossings)
     out += [f"      added by commit: {title[:100]}" for title in window.caused_by]
     return out
+
+
+def _crossing_line(label: str, crossings: tuple[tuple[str, str], ...]) -> list[str]:
+    """This function gives one line with the first five crossing imports, or no line."""
+    if not crossings:
+        return []
+    left = len(crossings) - 5
+    pairs = ", ".join(f"{a} -> {b}" for a, b in crossings[:5])
+    more = f", and {left} more" if left > 0 else ""
+    return [f"      {label} crossing imports: {pairs}{more}"]

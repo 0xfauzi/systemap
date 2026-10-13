@@ -234,11 +234,17 @@ def _model_ok(p: Project, maps: list[nest.Map] | None = None) -> bool:
     return ok
 
 
-def _render_page(p: Project, m: nest.Map, facts: dict[str, Any], args: argparse.Namespace) -> str:
+def _render_page(
+    p: Project,
+    m: nest.Map,
+    facts: dict[str, Any],
+    args: argparse.Namespace,
+    source: change.SourceChange | None = None,
+) -> str:
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
     if base:
-        ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"))
+        ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"), source)
         ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
     return page.build(
         p.cfg,
@@ -259,8 +265,10 @@ def cmd_render(args: argparse.Namespace) -> int:
     if not _model_ok(p):
         return STALE
     code = OK
+    # One source comparison for all maps: it does not use the model of a map.
+    source = change.source_change(p.cfg, args.base, facts, args.head) if args.base else None
     for m in p.tree.maps:
-        html = _render_page(p, m, facts, args)
+        html = _render_page(p, m, facts, args, source)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             current = out.read_text(encoding="utf-8") if out.is_file() else ""
@@ -651,11 +659,8 @@ def cmd_history(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    try:
-        shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
-    except delta.DeltaError as exc:
-        say(f"history: {exc}")
-        return STALE
+    # A Git error gives DeltaError. `failures.run` gives its message and exit code 2.
+    shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
     if len(shas) < 2:
         say(history.too_few(len(shas), args.since))
         return OK
@@ -663,11 +668,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         f"history: The command reads facts at {len(shas)} commits. The cache reduces "
         f"the time of later runs."
     )
-    try:
-        windows = trend.walk(p.cfg, p.tree.top.model, shas)
-    except delta.DeltaError as exc:
-        say(f"history: {exc}")
-        return STALE
+    windows = trend.walk(p.cfg, p.tree.top.model, shas)
     say(*trend.report(windows, p.cfg.root, args.since, args.every, args.top))
     return OK
 

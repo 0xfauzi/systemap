@@ -2863,3 +2863,57 @@ Each value is the median of 5 runs on one macOS computer with Python 3.11.10.
 On `origin/main`, `TypeScriptLanguage.source_paths` did one `rglob` walk for each source suffix, and each walk went into node_modules.
 The change uses `source_files`, which does not go into the `SOURCE_SKIP` folders.
 The result satisfies the acceptance value.
+
+## Does the Git tree reader keep a large blob out of memory? (2026-10-13)
+
+Codex result change-14: `delta_git.write_tree` read all blobs of a commit into one byte string, and then copied each blob.
+The change reads each blob in parts of 1 MiB and writes the parts to the file.
+A thread sends the blob requests. Thus the reader does not stop for each request.
+
+Fixtures: `small` has 20 modules. `blob` has the same 20 modules and one file of 256 MiB of random bytes in `assets/`.
+`many` has 2000 modules. Each value is the median of 3 runs of `delta_git.facts_at` in a new process.
+"Memory increase" is the increase of the peak resident memory during the call.
+
+Acceptance (written before the change): for `blob`, the memory increase is at most 64 MiB above the increase for `small`.
+For each fixture, the median time after the change is at most 1.2 times the median time before the change.
+
+Command: `uv run python bench/jev/tree_reader_memory.py`. The base and the change operated two times each, in alternate order.
+The table also gives two earlier runs of the base.
+
+| fixture | base time (ms), 4 runs | change time (ms), 4 runs | time ratio of the medians | base memory increase | change memory increase |
+|---|---|---|---|---|---|
+| `small` | 25, 25, 26, 28 | 25, 25, 27, 43 | 1.02 | 0.5 MiB | 0.4 to 0.5 MiB |
+| `blob` | 189, 239, 242, 246 | 108, 109, 124, 191 | 0.48 | 888 to 898 MiB | 2.5 to 4.5 MiB |
+| `many` | 1562, 1571, 1774, 2028 | 1551, 1694, 1808, 1819 | 1.05 | 10.6 to 11.1 MiB | 10.0 to 10.3 MiB |
+
+For `blob` minus `small`, the change gives 2.0 to 4.1 MiB. The base gave 887 to 898 MiB.
+The result satisfies the two acceptance values.
+A first version of the change sent one request and read one blob at a time. For `many`, its times were 2044 and 2306 ms.
+That version did not satisfy the time value. Thus the change uses a thread for the requests.
+
+The tree reader continues to write each blob of the commit, also the blobs that the extraction does not read.
+Codex proposed a selection of the necessary files. The selection is not in the change, because the language adapters do not give a list of the extraction inputs before the extraction.
+
+## Does a render with nested maps compare the source one time? (2026-10-13)
+
+Codex result change-20: `change.for_page` compared all changed source files again for each map.
+The change makes the source comparison one time with `change.source_change` and gives it to each map.
+The change also reads the blobs of each side with one Git process. Before the change, each file had one `git show` process.
+
+Fixture: 200 modules and 200 test files. The head commit adds one function to each module and one test to each test file.
+The script uses `change.for_page` for K maps with the same model. Each value is the median of 3 runs in a new process.
+
+Acceptance (written before the change): the median time for K = 5 is at most 1.5 times the median time for K = 1.
+The peak resident memory increase for K = 5 is at most 1.2 times the value before the change.
+
+Command: `uv run python bench/jev/change_reuse.py`.
+
+| run | K = 1 time | K = 5 time | ratio | K = 5 memory increase |
+|---|---|---|---|---|
+| base | 3795 ms | 18649 ms | 4.91 | 3.6 MiB |
+| change, first run | 332 ms | 394 ms | 1.19 | 2.3 MiB |
+| change, second run | 263 ms | 262 ms | 1.00 | 2.3 MiB |
+
+The full test suite operated at the same time as the first run of the change.
+The result satisfies the two acceptance values.
+The test `test_a_render_with_nested_maps_parses_each_changed_file_once_for_each_side` counts the surface parses of `systemap render --base` with three maps.

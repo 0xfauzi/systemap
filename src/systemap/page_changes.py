@@ -164,6 +164,11 @@ def comparison_limits(ch: dict[str, Any]) -> str:
             + "</code>. Correct the source or extractor error. Then run "
             "<code>systemap render --base REF</code> in the terminal.</p>"
         )
+    if ch.get("unread_tests"):
+        out.append(
+            "<p>systemap could not read these changed test files. Their test changes are "
+            "not known: <code>" + esc("; ".join(ch["unread_tests"])) + "</code>.</p>"
+        )
     for cid, data in _parts(ch).items():
         for module, records in data.get("unknown", {}).items():
             for revision, issues in records.items():
