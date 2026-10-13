@@ -7,7 +7,8 @@ The reader does not write to the working tree. The maintainer can delete the cac
 A revision from a person goes to `delta.resolve` first. Then the Git commands get only
 the full commit SHA after `--end-of-options`. Thus Git does not read a revision as an
 option. Each cache writer uses a different temporary file. Thus two processes can write
-the same cache file at the same time.
+the same cache file at the same time. Each read and each write of a cache file holds the
+lock `.systemap/facts/facts.lock`.
 """
 
 from __future__ import annotations
@@ -33,6 +34,13 @@ def cache_dir(cfg: Config) -> Path:
     return cfg.root / ".systemap" / "facts"
 
 
+def lock_of(cfg: Config) -> Path:
+    """This function gives the path for `file_write.locked` for the facts cache.
+
+    The lock file is `.systemap/facts/facts.lock`."""
+    return cache_dir(cfg) / "facts"
+
+
 def cache_scope(cfg: Config, parser: str) -> str:
     """This function gives the cache scope for the extraction settings and the parser.
 
@@ -53,16 +61,29 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
         )
     scope = cache_scope(cfg, languages.repository(cfg.language).parser_version())
     path = cache_dir(cfg) / f"{sha}-{scope}.json"
-    if path.exists():
-        try:
-            held: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-            return held
-        except ValueError:
-            pass
+    held = _cached(cfg, path)
+    if held is not None:
+        return held
     facts = delta.facts_at(cfg, sha)
     path.parent.mkdir(parents=True, exist_ok=True)
-    file_write.write_atomic(path, json.dumps(facts))
+    with file_write.locked(lock_of(cfg)):
+        file_write.write_atomic(path, json.dumps(facts))
     return facts
+
+
+def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
+    """This function gives the cached facts in path, or None if the file is not usable.
+
+    The read holds the lock of the facts cache. On Windows, a read cannot occur while a
+    different process replaces the file."""
+    if not path.exists():
+        return None
+    with file_write.locked(lock_of(cfg)):
+        try:
+            held: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            return None
+    return held
 
 
 def git(root: Path, *args: str) -> str:

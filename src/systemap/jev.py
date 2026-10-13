@@ -286,11 +286,17 @@ class Cache:
 
     Two commands can save the same cache at the same time. A save holds a lock on the
     cache. Then it reads the entries of the other writers and adds its own entries.
-    It writes the result through a temporary file of its own."""
+    It writes the result through a temporary file of its own. The first read of an
+    existing file also holds the lock."""
 
     def __init__(self, path: Path | None) -> None:
         self.path = path
-        self.entries, self.releases = _read_cache(path)
+        self.entries: dict[str, Any] = {}
+        self.releases: dict[str, str] = {}
+        if path is not None and path.exists():
+            # On Windows, a read cannot occur while a different process replaces the file.
+            with file_write.locked(path):
+                self.entries, self.releases = _read_cache(path)
 
     def save(self) -> None:
         if self.path is None:

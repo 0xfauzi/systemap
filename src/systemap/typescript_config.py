@@ -112,9 +112,9 @@ def package_json(root: Path, repo: Path | None = None) -> dict[str, Any]:
         text = repo_files.read_text(base, repo_files.relative(base, path))
         data = json.loads(text)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ConfigError(f"The parser could not read {path}: {exc}") from exc
+        raise ConfigError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(data, dict):
-        raise ConfigError(f"{path} must contain a JSON object.")
+        raise ConfigError(f"{path.as_posix()} must contain a JSON object.")
     return data
 
 
@@ -188,9 +188,9 @@ def _read_config(path: Path, repo: Path) -> dict[str, Any]:
         text = repo_files.read_text(repo, repo_files.relative(repo, path))
         value = json.loads(_strip_jsonc(text))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ValueError(f"The parser could not read {path}: {exc}") from exc
+        raise ValueError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain an object.")
+        raise ValueError(f"{path.as_posix()} must contain an object.")
     return value
 
 
@@ -242,7 +242,7 @@ def _compiler_options(
     """
     path = path.resolve()
     if path in active:
-        raise ValueError(f"A circular tsconfig extends relation occurs at {path}")
+        raise ValueError(f"A circular tsconfig extends relation occurs at {path.as_posix()}")
     data = _read_config(path, repo)
     options: Options = {}
     for reference in _extends_references(data, path):
@@ -263,7 +263,7 @@ def _extends_references(data: dict[str, Any], path: Path) -> list[str]:
         return extends
     if extends is None:
         return []
-    raise ValueError(f"{path}: extends must be a string or a list of strings.")
+    raise ValueError(f"{path.as_posix()}: extends must be a string or a list of strings.")
 
 
 def _inherited_options(
