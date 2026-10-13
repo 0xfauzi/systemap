@@ -811,6 +811,10 @@ The procedure is deterministic and uses only the standard library.
 
 - `--print` prints positions without file changes.
 
+Before the command calculates positions, it examines the flows and the `kind` value of each component.
+A flow to an unknown component, or an unknown `kind` value, causes exit 1.
+The error gives the flow or the component. `systemap describe` also examines them.
+
 ### `systemap render [--check] [--base REF]`
 
 Writes the page from the facts and model.
@@ -880,6 +884,10 @@ Uses the page generator to render one figure for a document.
 - `--map ID` selects a nested map.
 
 - An `--out` filename with a `.svg` suffix writes the drawing without a frame.
+
+- A relative `--out` path is relative to the output directory.
+  Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+  The command replaces a link at the `--out` path with a file. It does not write to the target of the link.
 
 - `--svg-id ID` sets the HTML ID of the drawing. The default is `lessonmap`.
   The ID must start with a letter and contain only letters, digits, `-`, and `_`.
@@ -1026,6 +1034,7 @@ An `unknown` result gives each module with imports that are possibly not in the 
 The causes are a module that did not parse, unresolved imports, and an import of a module with no component.
 The command exits 1 for a `fail`, for an incorrect rule, or for missing facts.
 It also exits 1 for an `unknown` result with `[rules] unknown = "fail"`.
+The `ok` value of `--json` agrees with the exit code. Missing facts are an item of `problems`.
 
 - `--brief` does not include the two explanation rows.
 
@@ -1408,6 +1417,7 @@ The server answers only a request whose Host header is `127.0.0.1` or `localhost
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
 The server answers 404 for a symbolic link to a file that is not in the output directory.
 `systemap live` has the same rules.
+If the output directory is not in the repository after the resolution of links, the command exits 1. The server does not start.
 
 ### `systemap live [--port 8765] [--base REF] [--no-watch] [--json]`
 
@@ -1439,6 +1449,7 @@ After a good version, the command removes the pages of the maps that the version
   The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
   It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
   The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name `build` or `dist`.
+  The scan includes each test file that extraction reads, also a file that `test_patterns` selects out of the package roots and the test directories.
   When a scan finds a change and the next scan finds no more change, the command renders the page again.
 
 - `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.

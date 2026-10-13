@@ -79,7 +79,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("answer_write.py", "add", "target.write_bytes"): "the configuration that config.load read",
     ("decisions_submit.py", "_write_answers", "target.write_bytes"): "the same configuration",
     # A path from a command option of the person who operates the command.
-    ("cli.py", "cmd_figure", "out.write_text"): "the --out option of systemap figure",
     ("delta_link.py", "write", "write_text"): "the --comment option of systemap delta",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,

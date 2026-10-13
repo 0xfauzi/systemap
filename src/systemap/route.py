@@ -194,9 +194,15 @@ def _gaps(spans: list[tuple[float, float]], lo: float, hi: float) -> list[tuple[
     return out
 
 
-def _inside(p: Point, box: Box) -> bool:
+def _crosses(a: Point, b: Point, box: Box) -> bool:
+    """Tell if the horizontal or vertical segment from a to b goes into the box interior.
+
+    `check.check_routes` uses the same comparison for a drawn route.
+    """
     bx, by, bw, bh = box
-    return bx < p[0] < bx + bw and by < p[1] < by + bh
+    if abs(a[1] - b[1]) <= abs(a[0] - b[0]):
+        return by < a[1] < by + bh and min(a[0], b[0]) < bx + bw and max(a[0], b[0]) > bx
+    return bx < a[0] < bx + bw and min(a[1], b[1]) < by + bh and max(a[1], b[1]) > by
 
 
 class Router:
@@ -249,14 +255,9 @@ class Router:
             self._mark((x - m, y - m, cw + 2 * m, ch + 2 * m), cid)
         for box in blocks:
             self._mark(box, None)
-        # Per node: the region it sits in, for the foreign-region wall.
-        self.node_region: dict[tuple[int, int], str] = {}
-        for i, x in enumerate(self.xs):
-            for j, y in enumerate(self.ys):
-                for rid, box in regions.items():
-                    if _inside((x, y), box):
-                        self.node_region[(i, j)] = rid
-                        break
+        # Per grid segment: the regions whose interior it crosses, for the foreign-region
+        # wall. A segment can cross a region without a grid node in that region.
+        self.crossed: dict[tuple[int, int, int], set[str]] = {}
         self.h_used: dict[tuple[int, int], int] = {}
         self.v_used: dict[tuple[int, int], int] = {}
         self.ports_used: set[tuple[str, str, float]] = set()
@@ -328,6 +329,37 @@ class Router:
             cost += USED_PORT_COST
         return cost
 
+    def _on(self, a: Point, b: Point) -> set[str]:
+        """Give the regions whose interior the segment from a to b crosses."""
+        return {rid for rid, box in self.regions.items() if _crosses(a, b, box)}
+
+    def _segment(self, orient: int, key: tuple[int, int]) -> set[str]:
+        """Give the regions whose interior the grid segment crosses. Keep the result."""
+        found = self.crossed.get((orient, *key))
+        if found is None:
+            i, j = key
+            end = (self.xs[i + 1], self.ys[j]) if orient == 0 else (self.xs[i], self.ys[j + 1])
+            found = self.crossed[(orient, i, j)] = self._on((self.xs[i], self.ys[j]), end)
+        return found
+
+    def _stubs(
+        self, cid: str, allowed: set[str], strict: bool
+    ) -> list[tuple[str, float, Point, tuple[int, int], int, float]]:
+        """Give the ports of the component. The cost includes the stub to the grid node.
+
+        A strict search does not use a stub that crosses a region that is not allowed.
+        """
+        out: list[tuple[str, float, Point, tuple[int, int], int, float]] = []
+        for side, off, p, node, orient, cost in self._ports(cid):
+            q = (self.xs[node[0]], self.ys[node[1]])
+            length = abs(q[0] - p[0]) + abs(q[1] - p[1])
+            foreign = bool(self._on(p, q) - allowed)
+            if foreign and strict:
+                continue
+            extra = FOREIGN_REGION_COST + length if foreign else 0.0
+            out.append((side, off, p, node, orient, cost + length + extra))
+        return out
+
     # ---- one flow -----------------------------------------------------
     def route(self, src: str, dst: str) -> Route:
         allowed = {self.region_of.get(src, ""), self.region_of.get(dst, "")}
@@ -337,13 +369,9 @@ class Router:
             found = self._search(src, dst, allowed, strict=False)
             if found is None:
                 raise RuntimeError(f"No route is available for {src} -> {dst}")
-            crossed = sorted(
-                {
-                    self.node_region[n]
-                    for n in found[3]
-                    if n in self.node_region and self.node_region[n] not in allowed
-                }
-            )
+            path = found[0]
+            on_path = {r for a, b in zip(path, path[1:], strict=False) for r in self._on(a, b)}
+            crossed = sorted(on_path - allowed)
             fallback = "No corridor avoids " + ", ".join(crossed or ["an unrelated region"])
         points, src_side, dst_side, nodes = found
         for a, b in zip(nodes, nodes[1:], strict=False):
@@ -362,17 +390,15 @@ class Router:
         xs, ys = self.xs, self.ys
         nx, ny = self._nx, self._ny
         entries: dict[tuple[int, int], list[tuple[str, float, Point, int, float]]] = {}
-        for side, off, p, node, orient, cost in self._ports(dst):
+        for side, off, p, node, orient, cost in self._stubs(dst, allowed, strict):
             entries.setdefault(node, []).append((side, off, p, orient, cost))
         dist: dict[tuple[int, int, int], float] = {}
         prev: dict[tuple[int, int, int], tuple[int, int, int] | None] = {}
         start_port: dict[tuple[int, int, int], tuple[str, float, Point]] = {}
         heap: list[tuple[float, int, int, int]] = []
-        for side, off, p, node, orient, cost in self._ports(src):
+        for side, off, p, node, orient, c in self._stubs(src, allowed, strict):
             i, j = node
-            stub = abs(xs[i] - p[0]) + abs(ys[j] - p[1])
             state = (i, j, orient)
-            c = stub + cost
             if c < dist.get(state, math.inf):
                 dist[state] = c
                 prev[state] = None
@@ -388,8 +414,7 @@ class Router:
                 break
             if (i, j) in entries:
                 for side, off, p, orient, cost in entries[(i, j)]:
-                    stub = abs(xs[i] - p[0]) + abs(ys[j] - p[1])
-                    total = d + stub + cost + (BEND_COST if orient != o else 0.0)
+                    total = d + cost + (BEND_COST if orient != o else 0.0)
                     if best is None or total < best[0]:
                         best = (total, state, side, off, p)
             for di, dj, orient in ((1, 0, 0), (-1, 0, 0), (0, 1, 1), (0, -1, 1)):
@@ -408,10 +433,7 @@ class Router:
                         continue
                     length = abs(ys[nj] - ys[j])
                     used = self.v_used.get(key, 0)
-                region = self.node_region.get((ni, nj))
-                foreign = region is not None and region not in allowed
-                mid_region = self.node_region.get((i, j))
-                foreign = foreign or (mid_region is not None and mid_region not in allowed)
+                foreign = bool(self._segment(orient, key) - allowed)
                 if foreign and strict:
                     continue
                 step = length * (USED_LANE_FACTOR if used else 1.0)
