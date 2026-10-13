@@ -22,8 +22,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 7, with portable syntax hashes, compiler provenance, "
-        "module completeness, the folder package in `package`, and `call_sites`. "
+        "The facts format is 8, with portable syntax hashes, compiler provenance, "
+        "module completeness, the folder package in `package`, `call_sites`, and `types`. "
         "`extract --check` marks older formats stale",
     ),
     (
@@ -105,7 +105,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "module",
         "classes",
-        "Public classes other than errors, with `name` and public method signatures in `methods`",
+        "Public class declarations other than errors, with `name` and public method "
+        "signatures in `methods`. A type declaration that is not a class is in `types`",
     ),
     (
         "module",
@@ -113,13 +114,23 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "Public classes with Error or Exception in their names or bases. They use the "
         "same fields as classes",
     ),
+    (
+        "module",
+        "types",
+        "Public type declarations that are not classes, with `name`, `category`, and public "
+        "method signatures in `methods`. The category is `interface`, `enum`, or "
+        "`type_alias`. The TypeScript adapter records the three categories. The Python "
+        "adapter records the `type` statement as `type_alias`. Python 3.11 cannot parse "
+        "this statement",
+    ),
     ("module", "constants", "The first 14 UPPER_CASE assignments, with `name` and `value`"),
     (
         "module",
         "names",
         "Public module-level names in source order, with `kind`: `function`, `class`, "
-        "`error`, `constant` (UPPER_CASE), or `object` (other assignments such as "
-        "`app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` "
+        "`error`, `type` (a record in `types`), `constant` (UPPER_CASE), or `object` (other "
+        "assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. "
+        "A package `__init__` "
         "includes local re-exports, with `reexport_of` and the kind in their source module. A "
         "full-module import uses kind `module`. A `*` re-export of the module does not "
         "give a name that has `star_export` set to `false`. The TypeScript adapter sets it "
@@ -260,7 +271,7 @@ def facts_doc() -> str:
         "The numbers from `systemap extract` describe source facts.",
         "They do not describe the purposes of the map components.",
         "`modules` counts records under `components`.",
-        "`functions`, `classes`, and `errors` give the sums of those module fields.",
+        "`functions`, `classes`, `types`, and `errors` give the sums of those module fields.",
         "`tests` gives the sum of `tests_total`. The count for test files with the module",
         "name gives the sum of `tests_primary`.",
         "",
@@ -318,8 +329,9 @@ def summary(facts: dict[str, Any]) -> list[str]:
     """Give extraction counts with their source fields.
 
     These counts supply the change detector. The map does not show them.
-    `modules` counts `components`. Functions, classes, and errors use their module
-    fields. Test counts use `tests_total` and `tests_primary`.
+    `modules` counts `components`. Functions, classes, types, and errors use their module
+    fields. If a record has no `types`, the types count is not known. Test counts use
+    `tests_total` and `tests_primary`.
     Empty markers are package records without public names, imports, or execution.
     """
     comps = facts["components"]
@@ -334,11 +346,18 @@ def summary(facts: dict[str, Any]) -> list[str]:
         tests = f"none import a module. The extractor searched {', '.join(dirs)}"
     else:
         tests = "none import a module. The extractor found no tests or test directory"
+    # A record of an older facts format has no `types`. Its count is not known.
+    types = (
+        str(sum(len(c["types"]) for c in comps.values()))
+        if all("types" in c for c in comps.values())
+        else "unknown, because the facts file has an older format"
+    )
     out = [
         "facts for the change detector (these never appear on the map):",
         f"  modules:          {len(comps)}",
         f"  functions:        {sum(len(c['functions']) for c in comps.values())}",
         f"  classes:          {sum(len(c['classes']) for c in comps.values())}",
+        f"  types:            {types}",
         f"  errors:           {sum(len(c['errors']) for c in comps.values())}",
         f"  tests:            {tests}",
     ]

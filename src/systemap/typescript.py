@@ -651,6 +651,7 @@ class TypeScriptLanguage(TypeScriptRepository):
                 "functions": [],
                 "classes": [],
                 "errors": [],
+                "types": [],
                 "constants": [],
                 "names": [],
                 "api": [],

@@ -394,7 +394,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 7, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, and `call_sites`. `extract --check` marks older formats stale.
+- `version`: The facts format is 8, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, and `types`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -418,10 +418,11 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `syntax_sha`: The parsed-syntax digest for source review. Comments and text format do not change it.
 - `docstring`: The first paragraph of the module description, with a length limit. The Python adapter reads the module docstring. The TypeScript adapter reads the first documentation comment.
 - `functions`: Public functions with `name` and `signature`.
-- `classes`: Public classes other than errors, with `name` and public method signatures in `methods`.
+- `classes`: Public class declarations other than errors, with `name` and public method signatures in `methods`. A type declaration that is not a class is in `types`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
+- `types`: Public type declarations that are not classes, with `name`, `category`, and public method signatures in `methods`. The category is `interface`, `enum`, or `type_alias`. The TypeScript adapter records the three categories. The Python adapter records the `type` statement as `type_alias`. Python 3.11 cannot parse this statement.
 - `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
-- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. A `*` re-export of the module does not give a name that has `star_export` set to `false`. The TypeScript adapter sets it for `default`. `entry` and `interface` can use these names.
+- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `type` (a record in `types`), `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. A `*` re-export of the module does not give a name that has `star_export` set to `false`. The TypeScript adapter sets it for `default`. `entry` and `interface` can use these names.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without names, imports, or statements. Coverage does not include these modules.
@@ -451,7 +452,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 The numbers from `systemap extract` describe source facts.
 They do not describe the purposes of the map components.
 `modules` counts records under `components`.
-`functions`, `classes`, and `errors` give the sums of those module fields.
+`functions`, `classes`, `types`, and `errors` give the sums of those module fields.
 `tests` gives the sum of `tests_total`. The count for test files with the module
 name gives the sum of `tests_primary`.
 

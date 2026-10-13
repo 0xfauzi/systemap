@@ -737,7 +737,7 @@ def public_names(record: Mapping[str, Any]) -> set[str]:
     if names is not None:
         return {n["name"] for n in names}
     return {f["name"] for f in record.get("functions", [])} | {
-        c["name"] for c in record.get("classes", [])
+        c["name"] for c in record.get("classes", []) + record.get("types", [])
     }
 
 

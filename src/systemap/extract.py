@@ -37,6 +37,8 @@ from systemap.source_facts import standard_label
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 PACKAGE_MODULE = "__init__.py"
+# The `type X = ...` statement exists from Python 3.12. An earlier parser cannot read it.
+TYPE_ALIAS: tuple[type, ...] = (ast.TypeAlias,) if hasattr(ast, "TypeAlias") else ()
 
 
 class PythonLanguage(PythonRepository):
@@ -292,6 +294,7 @@ def parse_surface(
     functions: list[dict[str, Any]] = []
     classes: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    types: list[dict[str, Any]] = []
     constants: list[dict[str, str]] = []
     # Every public module-level name with its kind, so an `entry` can be a
     # lower-case object (`app`, `root_agent`) as well as a function or class.
@@ -306,11 +309,14 @@ def parse_surface(
             _surface_class(node, names, classes, errors)
         elif isinstance(node, ast.Assign | ast.AnnAssign):
             _surface_assignment(node, names, constants)
+        elif isinstance(node, TYPE_ALIAS):
+            _surface_type_alias(node, names, types)
     return {
         "docstring": opening(ast.get_docstring(tree)),
         "functions": functions,
         "classes": classes,
         "errors": errors,
+        "types": types,
         "constants": constants,
         "names": names,
         "api": _python_api(statements),
@@ -375,6 +381,16 @@ def _surface_class(
     }
     (errors if is_error else classes).append(record)
     names.append({"name": node.name, "kind": "error" if is_error else "class"})
+
+
+def _surface_type_alias(
+    node: ast.stmt, names: list[dict[str, str]], types: list[dict[str, Any]]
+) -> None:
+    name = getattr(getattr(node, "name", None), "id", "")
+    if not name or name.startswith("_"):
+        return
+    types.append({"name": name, "category": "type_alias", "methods": []})
+    names.append({"name": name, "kind": "type"})
 
 
 def _surface_assignment(
@@ -455,6 +471,10 @@ def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
         return _python_api_reexports(node)
     if isinstance(node, ast.Assign | ast.AnnAssign):
         return _python_api_assignments(node)
+    if isinstance(node, TYPE_ALIAS):
+        name = getattr(getattr(node, "name", None), "id", "")
+        public = name and not name.startswith("_")
+        return [{"name": name, "bucket": "types", "fingerprint": ast.dump(node)}] if public else []
     return []
 
 
@@ -552,6 +572,7 @@ def collect_module(
             "functions": [],
             "classes": [],
             "errors": [],
+            "types": [],
             "constants": [],
             "names": [],
             "api": [],

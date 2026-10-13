@@ -138,6 +138,12 @@ def _signatures(record: dict[str, Any], names: set[str], language: RepositoryAda
             continue
         methods = [m for m in c.get("methods", []) if language.method_name(m) in names]
         out.append(f"class {c['name']}" + (": " + "; ".join(methods[:2]) if methods else ""))
+    for t in record.get("types", []):
+        if t["name"] not in names:
+            continue
+        methods = [m for m in t.get("methods", []) if language.method_name(m) in names]
+        head = f"{t.get('category', 'type').replace('_', ' ')} {t['name']}"
+        out.append(head + (": " + "; ".join(methods[:2]) if methods else ""))
     return out
 
 

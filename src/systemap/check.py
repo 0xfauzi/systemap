@@ -381,7 +381,7 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
     The first language adapter that reads a name from the signature gives the name."""
     signatures = [
         sig
-        for group in ("classes", "errors")
+        for group in ("classes", "errors", "types")
         for cls in record.get(group, [])
         if cls.get("name") == class_name
         for sig in cls.get("methods", [])
