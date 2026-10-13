@@ -62,7 +62,7 @@ def drawn_kinds(model: Model, meaning: Meaning, layer: str) -> set[str]:
         return {lay.id for lay in all_layers(model, meaning)} - set(DERIVED_LAYERS)
     edges, _subjects = reading(model, meaning, layer)
     flows = model.flows
-    return {meaning.layer_for(flows[i].edge, flows[i].kind) for i in edges}
+    return {meaning.layer_for(flows[i], flows[i].kind) for i in edges}
 
 
 def figure(

@@ -29,11 +29,12 @@ import json
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from systemap import evidence
+from systemap import evidence, flow_ids
 from systemap.model import (
     DERIVED_LAYERS,
     Meaning,
     Model,
+    Step,
     all_layers,
     build_state,
     entry_module,
@@ -306,9 +307,7 @@ def render(
     widths = {i: len(FLOWS[i][2]) * LABEL_CHAR_W + 6 for i in routes}
     # A collision names both labels: the one that could not be seated and
     # the one it landed on, each by its artifact and its edge.
-    label_names = {
-        i: f"label '{art}' ({src} -> {dst})" for i, (src, dst, art, _k) in enumerate(FLOWS)
-    }
+    label_names = {i: f"label '{f.artifact}' ({f.name})" for i, f in enumerate(model.flows)}
     seats = place_labels(
         routes,
         widths,
@@ -327,7 +326,7 @@ def render(
     layers_of: dict[int, str] = {}
     paths: dict[int, list[list[float]]] = {}
     for i, (src, dst, artifact, kind) in enumerate(FLOWS):
-        own = meaning.layer_for((src, dst), kind)
+        own = meaning.layer_for(model.flows[i], kind)
         layers_of[i] = own
         route = routes[i]
         paths[i] = [[round(x, 1), round(y, 1)] for x, y in route.points]
@@ -347,13 +346,13 @@ def render(
         if shown is not None and i not in shown:
             continue
         if route.fallback:
-            notes.append(f"{src} -> {dst}: {route.fallback}")
+            notes.append(f"{model.flows[i].name}: {route.fallback}")
         # A line keeps the color of its kind in every layer. A derived layer
         # (structure, system, agents) selects lines and does not color them.
         colour, marker = LAYER_COLOUR[own], own
         look = change_flow(P, marks, i, colour, marker, artifact in hot_artifacts)
         fid = f"{svg_id}-f{i}"
-        ev = backed[(src, dst)]
+        ev = backed.of(model.flows[i])
         evidence_label = {evidence.OBSERVED: evidence.READER_TEXT[evidence.OBSERVED]}.get(
             ev.state, ev.state
         )
@@ -380,7 +379,7 @@ def render(
             # the label is wider than any seat its path offers.
             fix = f"; {seat.fix}" if seat.fix else ""
             collisions.append(
-                f"label collision: '{artifact}' ({src} -> {dst}) overlaps "
+                f"label collision: '{artifact}' ({model.flows[i].name}) overlaps "
                 f"{', '.join(seat.hits[:3])}{fix}"
             )
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
@@ -543,17 +542,20 @@ def render(
     edges_meta = []
     for i, (src, dst, artifact, kind) in enumerate(FLOWS):
         own = layers_of[i]
-        ev = backed[(src, dst)]
+        flow = model.flows[i]
+        ev = backed.of(flow)
         edges_meta.append(
             {
+                # The flow identifier: the id, or SRC->DST for a flow without an id.
+                "id": flow.key,
                 "from": src,
                 "to": dst,
                 "art": artifact,
                 "kind": kind,
                 "layer": own,
-                "out": meaning.verb_for((src, dst), own, True),
-                "in": meaning.verb_for((src, dst), own, False),
-                "say": meaning.relations.get((src, dst), ""),
+                "out": meaning.verb_for(flow, own, True),
+                "in": meaning.verb_for(flow, own, False),
+                "say": meaning.relation(flow),
                 # The evidence state and the line the panel prints for it,
                 # worded here so the page and a figure say the same thing.
                 "evidence": ev.state,
@@ -563,11 +565,11 @@ def render(
                 "source_refs": list(ev.source_refs),
                 "unresolved_refs": list(ev.unresolved_refs),
                 "claim_changed": ev.claim_changed,
-                "review_digest": model.flows[i].review_digest,
+                "review_digest": flow.review_digest,
                 "evidence_says": ev.says,
             }
         )
-    edge_index = {(a, b): i for i, (a, b, _art, _k) in enumerate(FLOWS)}
+    edge_index = {f.key: i for i, f in enumerate(model.flows)}
     journeys_meta = [
         {
             "id": j.id,
@@ -580,7 +582,7 @@ def render(
                 {
                     "acts": list(s.acts),
                     "measures": list(s.measures),
-                    "edge": edge_index.get(s.edge, -1),
+                    "edge": _step_index(s, model, edge_index),
                     "say": s.say,
                 }
                 for s in j.steps
@@ -719,3 +721,9 @@ def view_data(
         f'data-fit="{x0:g} {y0:g} {round(x1 - x0, 1):g} {round(y1 - y0, 1):g}" '
         f'data-grow="{grow:.3f}" data-read="{read:.3f}" '
     )
+
+
+def _step_index(step: Step, model: Model, edge_index: dict[str, int]) -> int:
+    """Give the index of the flow of a sequence step, or -1 if the step names no one flow."""
+    found = flow_ids.step_flow(step, model.flows)[0]
+    return -1 if found is None else edge_index[found.key]

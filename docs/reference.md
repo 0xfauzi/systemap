@@ -17,11 +17,11 @@ The command exits 1 if a rule rejects the map.
 | entry | A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty `entry`. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
 | interface | The first identifier of an `interface` is absent from the component's public names and re-exports. The identifier ends at `(`, `.`, `->`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
 | nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |
-| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. |
+| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. |
 | routes | A route crosses an unrelated component or an unrelated region. |
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
-| meaning | A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id. |
+| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence. A step has no `say`. A custom layer uses a standard id. |
 | import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
 
@@ -73,10 +73,50 @@ If no reference is in an endpoint module, the flow is not `observed`.
 `systemap judgement` then prints a `no endpoint source` finding.
 The facts file (`docs/map/map.json` by default) gives the `source_sha256` of each module in `components`.
 `systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
+For a flow with an `id`, use `systemap review --flow ID`.
 It does not examine the claims for you. Examine the source before you record the values.
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
+
+## How do two flows connect one pair of components?
+
+Each flow has an identifier. The identifier is the `id` of the flow.
+A flow without an `id` has the identifier `SRC->DST`.
+Thus, a model without ids keeps its digests, keys, and finding lines.
+
+Two or more flows can connect one ordered pair only if each of these flows has its own `id`.
+An `id` contains only letters, digits, `_`, `.`, and `-`.
+In this example, the service sends two artifacts to the queue:
+
+```python
+FLOWS = (
+    Flow("OrderService", "OrderQueue", "order", "data", id="submit-order"),
+    Flow("OrderService", "OrderQueue", "cancel", "control", id="cancel-order"),
+)
+RELATIONS = {
+    "submit-order": "The service puts a new order in the queue.",
+    "cancel-order": "The service tells the queue to remove an order.",
+}
+STEP = Step(acts=("OrderService",), measures=(), flow="cancel-order",
+            say="The service tells the queue to remove the order.")
+```
+
+The map shows each flow as a different line with its own label.
+Each flow has its own sentence, `source_refs`, `review_digest`, and decision request.
+A finding line names a flow with an `id` as `SRC -> DST [ID]`.
+`systemap review --flow submit-order` writes the digest of that flow only.
+
+The keys of `relations`, `layer_overrides`, and `verb_overrides` are flow identifiers.
+A `(SRC, DST)` key is also correct, but only for a pair that one flow connects.
+A sequence step names its flow with `flow="ID"`.
+A step with `edge=(SRC, DST)` is correct only for a pair that one flow connects.
+On the page, each flow in the map data has an `id` key with its identifier. The other keys do not change.
+
+A sequence step can have `source_refs` in the same form as a flow.
+Each record must resolve in the current facts.
+Each record must be in a module of an acting or measured component of the step.
+`systemap judgement` gives a `step source` finding for each record that does not agree.
 
 ## What does the second pass find?
 
@@ -96,6 +136,7 @@ For each finding, change the model or record the reason for its stored state.
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
 | no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
+| step source | A record in the `source_refs` of a sequence step does not resolve in the current facts. Or, the record is in no module of an acting or measured component of the step. Cite a current record or change the step. |
 | stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with `systemap review ID`. |
 | missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
@@ -848,6 +889,8 @@ An examination must add a new entry to that list before the entry counts as cove
 The agent gives components in the execution path and a sentence for each step.
 Each request contains the language policy of the `[writing]` profile.
 The command rejects a step with no authored flow and gives a finding.
+The command also rejects a step source record that does not resolve.
+It rejects a step source record in no module of an acting or measured component of the step.
 The command does not write that step.
 
 Accepted sequences enter the model with `drafted=True`.
@@ -900,12 +943,15 @@ It writes the file only if that reader gives the same model as the old file.
 Fields with their default values are not in the new text.
 If the old file imported a file beside it, the command names that file. The new file does not import it.
 
-### `systemap review ID | --flow 'SRC->DST' [--map ID] [--dry-run]`
+### `systemap review ID | --flow ID | --flow 'SRC->DST' [--map ID] [--dry-run]`
 
 Writes the current review digest of one target into the model file.
 `systemap review ID` writes `source_review` of the component ID.
+`systemap review --flow ID` writes `review_digest` of the flow with that identifier.
 `systemap review --flow 'SRC->DST'` writes `review_digest` of the flow from SRC to DST.
-Put the flow value between quotation marks, because the shell reads `>` as a redirection.
+The `SRC->DST` form is correct only for a pair that one flow connects.
+Put the `SRC->DST` value between quotation marks, because the shell reads `>` as a redirection.
+If the map has no flow with the `ID`, the command stops with exit 2.
 `--map ID` selects a nested map.
 `--dry-run` prints the digest and the file, and it writes nothing.
 
@@ -929,7 +975,7 @@ If the value is the current digest, the command writes nothing.
 
 The command stops with exit 1 and writes nothing in these conditions:
 
-- The map has no such component or flow.
+- The map has no such component or flow, or two or more flows connect the `SRC->DST` pair.
 - The component has no current digest. It claims no module, a claimed module is missing, or the parser cannot read a claimed module.
 - The flow has no `source_refs`, or a source record does not agree with the current source.
 - systemap cannot read the model file as data. Use `systemap convert` first.

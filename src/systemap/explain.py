@@ -101,6 +101,20 @@ JUDGEMENT = {
             "`drafted=False`, or answer the line with your source review."
         ),
     ),
+    "step source": Lesson(
+        means=(
+            "A source record of a sequence step does not resolve in the current source. "
+            "Or, the record is in no module of an acting or measured component of the step."
+        ),
+        why=(
+            "The record must show the step in the code of the components that do the step. "
+            "A record in a different module does not show that the step occurs."
+        ),
+        do=(
+            "Examine the source of the step. Then cite a current record in a module of an "
+            "acting or measured component, or change the step."
+        ),
+    ),
     "crossing import": Lesson(
         means=(
             "A module of one component imports a module of another component. No flow "

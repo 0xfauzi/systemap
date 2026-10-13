@@ -5,7 +5,8 @@ command does not examine claims. It calculates the digest from the current sourc
 the current claims, and it writes that digest into the model file:
 
 - `systemap review ID` writes `source_review` of the component ID.
-- `systemap review --flow 'SRC->DST'` writes `review_digest` of that flow.
+- `systemap review --flow ID` or `--flow 'SRC->DST'` writes `review_digest` of that flow.
+  The `SRC->DST` form is correct only for a pair that one flow connects.
 
 One call writes one target. The command has no option for all targets, because a person or an agent
 must examine each claim separately. The command writes the value as literal data into the file
@@ -30,13 +31,14 @@ from systemap import (
     config,
     evidence,
     extraction,
+    flow_ids,
     model_edit,
     model_load,
     model_write,
     nest,
 )
 from systemap.config import ArgumentError, ConfigError
-from systemap.model import Edge, Meaning, Model
+from systemap.model import Flow, Meaning, Model
 
 ARROW = "->"
 NOT_DATA = (
@@ -51,47 +53,61 @@ class ReviewError(Exception):
 
 @dataclass(frozen=True)
 class Target:
-    """One review target: a component ID, or the source and the target of a flow."""
+    """One review target: a component ID, or a flow.
+
+    `flow` is the text of --flow: a flow id or SRC->DST. `found` is the flow of the map
+    that the text identifies. `review` sets it.
+    """
 
     component: str = ""
-    edge: Edge | None = None
+    flow: str = ""
+    found: Flow | None = None
 
     @property
     def cls(self) -> str:
-        return "Flow" if self.edge else "Component"
+        return "Flow" if self.flow else "Component"
 
     @property
     def key(self) -> str:
-        return "review_digest" if self.edge else "source_review"
+        return "review_digest" if self.flow else "source_review"
 
     @property
     def label(self) -> str:
-        return (
-            f"flow {self.edge[0]}{ARROW}{self.edge[1]}"
-            if self.edge
-            else (f"component {self.component}")
-        )
+        if not self.flow:
+            return f"component {self.component}"
+        return f"flow {self.found.key if self.found else self.flow}"
 
     def defined_by(self, call: ast.Call) -> bool:
         """Find if a model class call in the source defines this target."""
-        if self.edge:
+        if self.found is not None:
             ends = (model_edit.literal(call, 0, "src"), model_edit.literal(call, 1, "dst"))
-            return ends == self.edge
+            given = model_edit.literal(call, 6, "id") or ""
+            return ends == self.found.edge and given == self.found.id
         return model_edit.literal(call, 0, "id") == self.component
 
 
 def flow_target(text: str) -> Target:
-    """Read the value of --flow. The form is SRC->DST.
-
-    A value without -> is kept for a flow identifier in a subsequent version.
-    """
+    """Read the value of --flow. The form is a flow id or SRC->DST."""
     src, arrow, dst = text.partition(ARROW)
-    src, dst = src.strip(), dst.strip()
-    if not arrow or not src or not dst:
+    good = bool(src.strip() and dst.strip()) if arrow else bool(flow_ids.ID_FORM.fullmatch(text))
+    if not good:
         raise ArgumentError(
-            f"--flow {text}: give the flow as SRC->DST, for example --flow 'Reader->Writer'."
+            f"--flow {text}: give the flow as an id or as SRC->DST, for example "
+            "--flow submit-order or --flow 'Reader->Writer'."
         )
-    return Target(edge=(src, dst))
+    return Target(flow=text)
+
+
+def _with_flow(m: nest.Map, model: Model, target: Target) -> Target:
+    """Find the flow of a flow target. An id that no flow has is an option error."""
+    if not target.flow:
+        return target
+    found, problem = flow_ids.find(model.flows, target.flow)
+    if found is not None:
+        return dataclasses.replace(target, found=found)
+    if ARROW not in target.flow and "no flow" in problem:
+        raise ArgumentError(f"--flow {target.flow}: {problem} Give a flow id or SRC->DST.")
+    raise ReviewError(f"{m.rel}: {problem}")
 
 
 def review(
@@ -107,6 +123,7 @@ def review(
     """
     m = _map(cfg, map_id)
     model, meaning = _data(m)
+    target = _with_flow(m, model, target)
     facts = facts if facts is not None else extraction.build(cfg)
     digest = _digest(m, model, meaning, facts, target)
     path, source, call = _definition(m, target)
@@ -151,8 +168,8 @@ def _data(m: nest.Map) -> tuple[Model, Meaning]:
 def _digest(
     m: nest.Map, model: Model, meaning: Meaning, facts: dict[str, Any], target: Target
 ) -> str:
-    if target.edge:
-        return _flow_digest(m, model, meaning, facts, target.edge)
+    if target.found is not None:
+        return _flow_digest(m, model, meaning, facts, target.found)
     card = next((c for c in model.components if c.id == target.component), None)
     if card is None:
         raise ReviewError(f"{m.rel}: the map has no component {target.component}.")
@@ -167,18 +184,15 @@ def _digest(
 
 
 def _flow_digest(
-    m: nest.Map, model: Model, meaning: Meaning, facts: dict[str, Any], edge: Edge
+    m: nest.Map, model: Model, meaning: Meaning, facts: dict[str, Any], flow: Flow
 ) -> str:
-    flow = next((f for f in model.flows if f.edge == edge), None)
-    name = f"{edge[0]}{ARROW}{edge[1]}"
-    if flow is None:
-        raise ReviewError(f"{m.rel}: the map has no flow {name}.")
+    name = flow.key
     if not flow.source_refs:
         raise ReviewError(
             f"{m.prefix}flow {name} has no source_refs. Record the source records that you "
             "examined. Then use systemap review again."
         )
-    unresolved = evidence.of_model(model, meaning, facts)[edge].unresolved_refs
+    unresolved = evidence.of_model(model, meaning, facts).of(flow).unresolved_refs
     if unresolved:
         raise ReviewError(
             f"{m.prefix}flow {name} has source records that do not agree with the current "
@@ -209,9 +223,9 @@ def _definition(m: nest.Map, target: Target) -> tuple[Path, str, ast.Call]:
 
 
 def _with_value(model: Model, target: Target, digest: str) -> Model:
-    if target.edge:
+    if target.found is not None:
         flows = tuple(
-            dataclasses.replace(f, review_digest=digest) if f.edge == target.edge else f
+            dataclasses.replace(f, review_digest=digest) if f == target.found else f
             for f in model.flows
         )
         return dataclasses.replace(model, flows=flows)
@@ -226,11 +240,11 @@ def _stale_ends(
     model: Model, new: Model, meaning: Meaning, facts: dict[str, Any], target: Target
 ) -> list[str]:
     """Tell which endpoint reviews become stale. Their claims include the flow digest."""
-    if not target.edge:
+    if target.found is None:
         return []
     out = []
     for before, after in zip(model.components, new.components, strict=True):
-        if before.id not in target.edge:
+        if before.id not in target.found.edge:
             continue
         old = card_review.state(before, model, meaning, facts)
         if old == card_review.CURRENT and card_review.state(after, new, meaning, facts) != old:
@@ -292,10 +306,11 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     target.add_argument(
         "--flow",
         default=None,
-        metavar="SRC->DST",
+        metavar="ID|SRC->DST",
         help=(
-            "Give the flow that you examined. Put the value between quotation marks, "
-            "because the shell reads > as a redirection: --flow 'Reader->Writer'."
+            "Give the flow that you examined: its id, or SRC->DST if one flow connects "
+            "the pair. Put SRC->DST between quotation marks, because the shell reads > as "
+            "a redirection: --flow 'Reader->Writer'."
         ),
     )
     s.add_argument(

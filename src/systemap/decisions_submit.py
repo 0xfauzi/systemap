@@ -203,10 +203,12 @@ def _open_flows(
 ) -> list[str]:
     """Refuse a component review while a flow of the component has an open verdict."""
     errors = []
+    flows = snap.tree.get(request.map).model.flows
     for flow in snap.requests.values():
         if flow.type != FLOW_REVIEW or flow.map != request.map:
             continue
-        if request.target not in flow.target.split(decisions.ARROW):
+        ends = next((f.edge for f in flows if f.key == flow.target), ())
+        if request.target not in ends:
             continue
         verdict = verdicts.get(flow.id) or decisions_store.verdict(snap.records, flow)
         if verdict and verdict != SUPPORTED:

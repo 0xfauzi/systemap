@@ -127,22 +127,22 @@ def _flow_fields(old: Flow, f: Flow, bm: Meaning, hm: Meaning) -> tuple[str, ...
     words = _differ(old, f, {"artifact": "artifact", "kind": "kind"})
     if _cited(old) != _cited(f):
         words.append(FLOW_FIELDS["source_refs"])
-    if bm.relations.get(old.edge, "") != hm.relations.get(f.edge, ""):
+    if bm.relation(old) != hm.relation(f):
         words.append(FLOW_FIELDS["relation"])
     return tuple(words)
 
 
 def _flows(base: Model, bm: Meaning, head: Model, hm: Meaning) -> tuple[Item, ...]:
     """Give the added and changed flows in model order, then the removed ones."""
-    before = {f.edge: f for f in base.flows}
+    before = {f.key: f for f in base.flows}
     out: list[Item] = []
     for i, f in enumerate(head.flows):
-        old = before.get(f.edge)
+        old = before.get(f.key)
         words = () if old is None else _flow_fields(old, f, bm, hm)
         if old is None or words:
             out.append(Item(ADDED if old is None else CHANGED, f.artifact, words, f.edge, i))
-    after = {f.edge for f in head.flows}
-    out += [Item(REMOVED, f.artifact, ends=f.edge) for f in base.flows if f.edge not in after]
+    after = {f.key for f in head.flows}
+    out += [Item(REMOVED, f.artifact, ends=f.edge) for f in base.flows if f.key not in after]
     return tuple(out)
 
 

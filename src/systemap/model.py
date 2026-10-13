@@ -30,6 +30,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from systemap import flow_ids
+
 Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
 
@@ -142,7 +144,8 @@ class Flow:
 
     source_refs identifies the source records for the flow claim.
     Each record contains a module, an optional symbol, and a source digest.
-    review_digest connects that source review to the flow fields and relation sentence."""
+    review_digest connects that source review to the flow fields and relation sentence.
+    id is optional. Two or more flows on one ordered pair must each have an id."""
 
     src: str
     dst: str
@@ -150,10 +153,21 @@ class Flow:
     kind: str
     source_refs: tuple[str, ...] = ()
     review_digest: str = ""
+    id: str = ""
 
     @property
     def edge(self) -> Edge:
         return self.src, self.dst
+
+    @property
+    def key(self) -> str:
+        """The flow identifier: the id, or SRC->DST for a flow without an id."""
+        return self.id or flow_ids.default_key(self.src, self.dst)
+
+    @property
+    def name(self) -> str:
+        """The flow in a line for the reader: SRC -> DST, and [ID] for a flow with an id."""
+        return flow_ids.name(self)
 
 
 @dataclass(frozen=True)
@@ -186,12 +200,17 @@ class ImportRule:
 
 @dataclass(frozen=True)
 class Step:
-    """A sequence step with acting components, measured components, a flow, and a sentence."""
+    """A sequence step with acting components, measured components, a flow, and a sentence.
+
+    flow names the flow by its identifier. edge names it by its pair, if one flow has the pair.
+    source_refs identifies source records in modules of the acting or measured components."""
 
     acts: tuple[str, ...]
     measures: tuple[str, ...]
-    edge: Edge
-    say: str
+    edge: Edge = flow_ids.NO_EDGE
+    say: str = ""
+    flow: str = ""
+    source_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -350,7 +369,7 @@ class Model:
 
         Each card must have a position inside its region or container.
         Cards must not overlap. Each region must fit inside its container.
-        Flow endpoints and kinds must exist. Each ordered endpoint pair can have only one flow.
+        Flow endpoints and kinds must exist. Many flows on one ordered pair must each have an id.
         Context and tool flows must connect to an agent or a component with calls_model.
         Invariant numbers must have different values, and their component references must exist.
         An actor must not open a nested map."""
@@ -401,17 +420,10 @@ class Model:
             for b in drawable[i + 1 :]:
                 if _overlap(a.box, b.box):
                     out.append(f"{a.id} overlaps {b.id}")
-        pairs: dict[Edge, Flow] = {}
+        out += flow_ids.pair_problems(self.flows)
         for f in self.flows:
             if f.src not in ids or f.dst not in ids:
                 out.append(f"flow {f.src} -> {f.dst} has an unknown component")
-            if f.edge in pairs:
-                out.append(
-                    f"flow {f.src} -> {f.dst} appears twice ('{pairs[f.edge].artifact}' and "
-                    f"'{f.artifact}'). Each ordered pair can have only one flow. "
-                    "Select one artifact, or add a reverse flow for a return artifact"
-                )
-            pairs.setdefault(f.edge, f)
             if f.kind not in STANDARD_KINDS and f.kind not in self.flow_kinds:
                 out.append(
                     f"flow {f.src} -> {f.dst} has kind {f.kind}, which is neither standard "
@@ -455,6 +467,7 @@ class Meaning:
     layer_of_kind connects each custom flow kind to its layer.
     layer_overrides selects a different layer for an individual flow.
     relations gives a sentence for each flow, from its source endpoint.
+    A key is a flow identifier, or (SRC, DST) for a pair that one flow connects.
 
     verbs gives the source-side and target-side labels for each layer.
     verb_overrides supplies these labels for an individual flow.
@@ -463,18 +476,22 @@ class Meaning:
     plain: Mapping[str, str]
     layers: tuple[Layer, ...] = ()
     layer_of_kind: Mapping[str, str] = field(default_factory=dict)
-    relations: Mapping[Edge, str] = field(default_factory=dict)
+    relations: Mapping[Edge | str, str] = field(default_factory=dict)
     journeys: tuple[Journey, ...] = ()
-    layer_overrides: Mapping[Edge, str] = field(default_factory=dict)
+    layer_overrides: Mapping[Edge | str, str] = field(default_factory=dict)
     verbs: Mapping[str, tuple[str, str]] = field(default_factory=dict)
-    verb_overrides: Mapping[Edge, tuple[str, str]] = field(default_factory=dict)
+    verb_overrides: Mapping[Edge | str, tuple[str, str]] = field(default_factory=dict)
 
-    def layer_for(self, edge: Edge, kind: str) -> str:
+    def relation(self, flow: Flow) -> str:
+        """Get the relation sentence of the flow, or an empty string."""
+        return flow_ids.lookup(self.relations, flow) or ""
+
+    def layer_for(self, flow: Flow | Edge | str, kind: str) -> str:
         """Select the flow override, custom kind layer, or standard kind layer.
         Missing kinds cause KeyError.
         """
         layer = (
-            self.layer_overrides.get(edge)
+            flow_ids.lookup(self.layer_overrides, flow)
             or self.layer_of_kind.get(kind)
             or LAYER_OF_STANDARD_KIND.get(kind)
         )
@@ -482,10 +499,10 @@ class Meaning:
             raise KeyError(kind)
         return layer
 
-    def verb_for(self, edge: Edge, layer: str, from_clicked: bool) -> str:
+    def verb_for(self, flow: Flow | Edge | str, layer: str, from_clicked: bool) -> str:
         """Get the connection label for the selected component and flow direction."""
         pair = (
-            self.verb_overrides.get(edge)
+            flow_ids.lookup(self.verb_overrides, flow)
             or self.verbs.get(layer)
             or STANDARD_VERBS.get(layer, ("to", "from"))
         )
@@ -543,7 +560,7 @@ def reading(model: Model, meaning: Meaning, layer_id: str) -> tuple[list[int], l
     edges = [
         i
         for i, f in enumerate(model.flows)
-        if edge_in_layer(model, layer_id, meaning.layer_for(f.edge, f.kind), f.src, f.dst)
+        if edge_in_layer(model, layer_id, meaning.layer_for(f, f.kind), f.src, f.dst)
     ]
     subjects = [c.id for c in model.components if subject_of_layer(model, layer_id, c.id)]
     return edges, subjects
@@ -553,7 +570,6 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
     """Find missing explanations and references that do not exist in the model."""
     out: list[str] = []
     ids = model.ids
-    edges = {f.edge for f in model.flows}
     # A standard layer is known here whether or not the model has an agent:
     # a context flow with no agent is the placement rule's finding.
     layer_ids = {layer.id for layer in STANDARD_LAYERS + AGENT_LAYERS + meaning.layers}
@@ -561,24 +577,16 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
         if own.id in RESERVED_LAYER_IDS:
             out.append(f"layer {own.id} is a standard layer. Do not declare it as a custom layer")
     for f in model.flows:
-        if f.edge not in meaning.relations:
-            out.append(f"flow {f.src} -> {f.dst} has no sentence in relations")
+        if flow_ids.lookup(meaning.relations, f) is None:
+            out.append(f"flow {f.name} has no sentence in relations")
         try:
-            layer = meaning.layer_for(f.edge, f.kind)
+            layer = meaning.layer_for(f, f.kind)
         except KeyError:
-            out.append(f"flow {f.src} -> {f.dst} has kind {f.kind} with no layer")
+            out.append(f"flow {f.name} has kind {f.kind} with no layer")
             continue
         if layer not in layer_ids:
-            out.append(f"flow {f.src} -> {f.dst} has unknown layer {layer}")
-    for edge in meaning.relations:
-        if edge not in edges:
-            out.append(f"relations has an unknown flow: {edge[0]} -> {edge[1]}")
-    for edge in meaning.layer_overrides:
-        if edge not in edges:
-            out.append(f"layer_overrides has an unknown flow: {edge[0]} -> {edge[1]}")
-    for edge in meaning.verb_overrides:
-        if edge not in edges:
-            out.append(f"verb_overrides has an unknown flow: {edge[0]} -> {edge[1]}")
+            out.append(f"flow {f.name} has unknown layer {layer}")
+    out += flow_ids.key_problems(model, meaning)
     for cid in ids:
         if cid not in meaning.plain:
             out.append(f"{cid} has no plain word")
@@ -586,11 +594,11 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
         if cid not in ids:
             out.append(f"plain has an unknown component: {cid}")
     for j in meaning.journeys:
-        out.extend(_journey_problems(j, ids, edges))
+        out.extend(_journey_problems(j, ids, model.flows))
     return out
 
 
-def _journey_problems(journey: Journey, ids: set[str], edges: set[Edge]) -> list[str]:
+def _journey_problems(journey: Journey, ids: set[str], flows: tuple[Flow, ...]) -> list[str]:
     """Find unknown sequence references, in step order."""
     out: list[str] = []
     if not journey.steps:
@@ -601,8 +609,9 @@ def _journey_problems(journey: Journey, ids: set[str], edges: set[Edge]) -> list
             for cid in members:
                 if cid not in ids:
                     out.append(f"{where} {role} has unknown component {cid}")
-        if step.edge not in edges:
-            out.append(f"{where} has an unknown flow: {step.edge[0]} -> {step.edge[1]}")
+        problem = flow_ids.step_flow(step, flows)[1] or ("" if step.say.strip() else "has no say")
+        if problem:
+            out.append(f"{where} {problem}")
     return out
 
 
