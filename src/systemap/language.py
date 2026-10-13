@@ -12,7 +12,7 @@ it, so they do not load a parser.
 from __future__ import annotations
 
 import importlib
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -64,6 +64,12 @@ class RepositoryAdapter(Protocol):
         ...
 
     def package_dir(self, directory: Path) -> bool: ...
+
+    def config_paths(self, root: Path, folders: Sequence[Path]) -> list[Path]:
+        """Give the configuration files that the adapter reads for the root and the source
+        folders. A path can name a file that does not exist yet. The live watcher watches
+        these files."""
+        ...
 
     def root_name_problem(self, rel: str, name: str) -> str: ...
 

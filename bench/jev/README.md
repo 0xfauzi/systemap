@@ -2956,3 +2956,51 @@ Headless Chrome draws with software rendering. The absolute times are not the ti
 
 The test `test_a_pan_does_not_read_the_mark_boxes_again` counts the box reads under the Node page driver.
 The driver now has a MutationObserver.
+
+## Does TypeScript language detection stay fast with a large node_modules folder? (2026-10-13)
+
+Result `followup-detect`: `TypeScriptRepository.detect` and `discover_typescript_roots` used `rglob`.
+Thus they read each folder in node_modules, and only then removed its files.
+The change uses `source_files`, which does not enter the `SOURCE_SKIP` folders.
+
+`bench/typescript_detect.py` makes two fixtures, each with and without 40,000 files in node_modules.
+In `config_only`, the root has tsconfig.json and no TypeScript source outside node_modules.
+In `workspace`, the package root `packages/web` has 40 modules in `src` and the node_modules folder.
+The acceptance value was written before the change: for each call, the median time with node_modules must be at most 1.2 times the median time without node_modules.
+
+Each value is the median of 11 samples on one macOS computer with Python 3.11.10.
+One sample is the mean time of one call in a loop of at least 20 ms.
+The first version of the script timed one call in each sample. After the change, its ratios were from 0.69 to 1.49 between runs, because one call takes approximately 30 microseconds.
+Thus the loop replaced the single call. The acceptance value did not change.
+
+| revision | call | without node_modules (ms) | with node_modules (ms) | ratio |
+|---|---|---|---|---|
+| base (06468a2), first run | `discover_typescript_roots(config_only)` | 0.060 | 234.7 | 3911.65 |
+| base (06468a2), first run | `detect(config_only)` | 0.073 | 233.2 | 3214.40 |
+| base (06468a2), first run | `detect(config_only, [config_only])` | 0.048 | 130.6 | 2708.61 |
+| base (06468a2), first run | `detect(workspace, [packages/web])` | 0.052 | 134.6 | 2600.73 |
+| base (06468a2), second run | the four calls, in the same order | 0.060, 0.074, 0.049, 0.052 | 233.3, 230.7, 130.2, 133.9 | 3868.60, 3124.35, 2671.27, 2582.20 |
+| change, first run | the four calls, in the same order | 0.0277, 0.0410, 0.0238, 0.0405 | 0.0285, 0.0421, 0.0245, 0.0412 | 1.029, 1.025, 1.029, 1.017 |
+| change, second run | the four calls, in the same order | 0.0279, 0.0417, 0.0241, 0.0416 | 0.0285, 0.0424, 0.0246, 0.0417 | 1.022, 1.016, 1.020, 1.005 |
+| change, third run | the four calls, in the same order | 0.0281, 0.0414, 0.0241, 0.0414 | 0.0286, 0.0424, 0.0246, 0.0416 | 1.020, 1.023, 1.021, 1.005 |
+
+The results of the calls did not change. The result satisfies the acceptance value.
+The test `tests/test_typescript_detect_skip.py` records each folder that the calls open, and it finds no folder in node_modules, .git, or .venv.
+
+## Does the live watcher stay fast when the adapter gives its configuration files? (2026-10-13)
+
+Result `followup-extends`: the language adapter now gives the configuration files that it reads (`config_paths`).
+The TypeScript adapter follows `extends` and `references`, so the watcher reads each tsconfig file at each scan.
+The adapter also walks the source folders for its configuration names. Thus the source folders get two walks.
+
+Acceptance (written before the change): on this repository, the median time of `live_watch.watched` after the change is at most 2 times the median before the change.
+Each value is the median of 31 calls on one macOS computer.
+
+| revision | watched files | median (ms) |
+|---|---|---|
+| base (06468a2) | 277 | 1.44 |
+| change, first run | 279 | 1.74 |
+| change, second run | 279 | 1.75 |
+
+The ratio is 1.21. The result satisfies the acceptance value.
+The change added two source modules between the two measurements. On the same tree, the base and the change give the same 279 paths.

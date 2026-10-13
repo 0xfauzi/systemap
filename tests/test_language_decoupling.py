@@ -308,6 +308,7 @@ ADAPTERS = {
     "typescript.py": "The TypeScript adapter.",
     "typescript_repo.py": "The TypeScript repository adapter.",
     "typescript_config.py": "The tsconfig reader of the TypeScript adapter.",
+    "typescript_config_files.py": "The TypeScript configuration files for the live watcher.",
     "typescript_entry.py": "The TypeScript entry point reader.",
     "typescript_imports.py": "The TypeScript import reader.",
     "typescript_calls.py": "The TypeScript call-site reader.",

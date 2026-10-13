@@ -13,21 +13,22 @@ import importlib.metadata
 import json
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
 from systemap import config, identifier
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_config import (
-    DECLARATION_SUFFIXES,
     SOURCE_SKIP,
     SOURCE_SUFFIXES,
     compiler_settings,
     discover_typescript_roots,
     load_typescript_config,
     package_json,
+    source_files,
 )
+from systemap.typescript_config_files import typescript_config_paths
 
 TSCONFIG = "tsconfig.json"
 PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
@@ -111,10 +112,6 @@ def compiler_record(compiler: Any, repo: Path) -> dict[str, str]:
     return {"compiler": hashlib.sha256(settings.encode()).hexdigest()}
 
 
-def _source_file(path: Path) -> bool:
-    return path.suffix in SOURCE_SUFFIXES and not path.name.endswith(DECLARATION_SUFFIXES)
-
-
 class TypeScriptRepository:
     """Give the TypeScript operations that do not extract facts."""
 
@@ -142,11 +139,12 @@ class TypeScriptRepository:
         A tsconfig.json file without a source root is weaker evidence."""
         folders = tuple(folders)
         if folders:
+            # The walk does not enter node_modules and the other SOURCE_SKIP folders.
             found = any(
-                _source_file(path) and not skipped(path, folder, SOURCE_SKIP)
+                path.is_file()
                 for folder in folders
                 if folder.is_dir()
-                for path in folder.rglob("*")
+                for path in source_files(folder, SOURCE_SKIP)
             )
             return SOURCE if found else NO_SOURCE
         if discover_typescript_roots(root):
@@ -157,6 +155,11 @@ class TypeScriptRepository:
         """A TypeScript output directory is never source, so no directory is kept."""
         del directory
         return False
+
+    def config_paths(self, root: Path, folders: Sequence[Path]) -> list[Path]:
+        """Give package.json and tsconfig.json near the folders, and each tsconfig file
+        that a tsconfig file names in `extends` or `references`."""
+        return typescript_config_paths(root, folders)
 
     def root_name_problem(self, rel: str, name: str) -> str:
         del rel, name

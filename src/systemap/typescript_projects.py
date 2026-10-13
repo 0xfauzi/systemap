@@ -23,6 +23,7 @@ from systemap.typescript_config import (
     DECLARATION_SUFFIXES,
     SOURCE_SUFFIXES,
     TypeScriptConfig,
+    config_present,
     input_files,
     load_project_config,
     package_json,
@@ -193,7 +194,7 @@ class TypeScriptProjects:
         for candidate in (directory, *directory.parents):
             if candidate == self.repo or not candidate.is_relative_to(self.repo):
                 return None
-            if (candidate / "package.json").is_file() and package_json(candidate):
+            if config_present(candidate / "package.json") and package_json(candidate, self.repo):
                 return candidate
         return None
 
@@ -215,7 +216,7 @@ class TypeScriptProjects:
             return self._nearest[directory]
         found: Path | None = None
         if directory.is_relative_to(self.repo):
-            if (directory / CONFIG_NAME).is_file():
+            if config_present(directory / CONFIG_NAME):
                 found = directory / CONFIG_NAME
             elif directory != self.repo:
                 found = self._nearest_path(directory.parent)
