@@ -4,9 +4,6 @@ Records contain module imports, public surface, owned types, errors, public name
 third-party imports, test references, and entry points. Test references do not
 prove test coverage. The model module contains authored purpose statements.
 The page uses different styles for source facts and authored meaning.
-
-`FIELDS` gives every written field. The skill schema reference comes from this
-table. A test compares the reference with the table.
 """
 
 from __future__ import annotations
@@ -22,7 +19,16 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import python_calls, python_entry, python_repo, repo_files
+from systemap import (
+    python_calls,
+    python_entry,
+    python_exports,
+    python_repo,
+    python_syntax,
+    python_tests,
+    repo_files,
+    source_text,
+)
 from systemap.completeness import parse_state
 
 # The shared extraction steps are in `extraction`. These names stay for the callers of
@@ -32,14 +38,16 @@ from systemap.extraction import build as build
 from systemap.extraction import drift as drift
 from systemap.extraction import language_for as language_for
 from systemap.extraction import mapping_drift as mapping_drift
-from systemap.model import public_names
+from systemap.pattern_match import matches_test_pattern
 from systemap.python_imports import python_unresolved
 from systemap.python_repo import PythonRepository
-from systemap.source_facts import empty_markers, standard_label
+from systemap.source_facts import standard_label
 
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 PACKAGE_MODULE = "__init__.py"
+# The `type X = ...` statement exists from Python 3.12. An earlier parser cannot read it.
+TYPE_ALIAS: tuple[type, ...] = (ast.TypeAlias,) if hasattr(ast, "TypeAlias") else ()
 
 
 class PythonLanguage(PythonRepository):
@@ -52,8 +60,12 @@ class PythonLanguage(PythonRepository):
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
-        del repo, tests_dirs, test_patterns
-        return python_repo.python_paths(root)
+        del tests_dirs
+        return (
+            path
+            for path in python_repo.python_paths(root)
+            if not matches_test_pattern(path.relative_to(repo).as_posix(), test_patterns)
+        )
 
     def context(
         self,
@@ -61,9 +73,9 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
-    ) -> None:
-        del repo, paths, tests_dirs, test_patterns
-        return None
+    ) -> python_tests.PythonTests:
+        del repo, paths, tests_dirs
+        return python_tests.PythonTests(test_patterns)
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         return module_of(path, root, name)
@@ -78,16 +90,15 @@ class PythonLanguage(PythonRepository):
         return path.name == PACKAGE_MODULE
 
     def empty_marker(self, record: Mapping[str, Any], raw: str) -> bool:
-        """Find an `__init__.py` file without public names, internal imports, external
-        imports, parse errors, unknown records, or top-level calls.
+        """Find an `__init__.py` file with no statement that holds code.
 
-        A root that re-exports names or imports modules is not empty."""
-        del raw
+        A file that was not read or parsed is not empty, because its statements are not
+        known. `python_syntax.holds_no_code` gives the statements that hold no code."""
         if not str(record.get("file", "")).endswith(PACKAGE_MODULE):
             return False
-        if record.get("parse_error") or record.get("unknown") or record.get("executes"):
+        if not record.get("completeness", {}).get("parsed"):
             return False
-        return not public_names(record) and not record.get("imports") and not record.get("external")
+        return python_syntax.holds_no_code(raw)
 
     def entry_label(self, point: Mapping[str, str]) -> str:
         return standard_label(point)
@@ -97,9 +108,10 @@ class PythonLanguage(PythonRepository):
         return {}
 
     def extra_facts(self, context: Any, entry_issues: list[dict[str, str]]) -> dict[str, Any]:
-        """Give the issue lists. An empty list of entry point issues is not written."""
-        del context
-        return {"entry_point_issues": entry_issues} if entry_issues else {}
+        """Give the issue lists. An empty issue list is not written."""
+        test_issues = getattr(context, "test_issues", [])
+        lists = {"entry_point_issues": entry_issues, "test_file_issues": test_issues}
+        return {key: value for key, value in lists.items() if value}
 
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         if not path.endswith(".py"):
@@ -185,8 +197,9 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         context: Any,
     ) -> dict[str, list[dict[str, Any]]]:
-        del context
-        return collect_tests(repo, tests_dirs, prefixes, set(paths))
+        isolated = python_tests.PythonTests()
+        tests = context if isinstance(context, python_tests.PythonTests) else isolated
+        return python_tests.collect_tests(repo, tests_dirs, prefixes, set(paths), tests)
 
     def entry_points(
         self,
@@ -208,275 +221,15 @@ class PythonLanguage(PythonRepository):
         return parse_surface(raw)
 
     def test_names(self, raw: str, path: str = "") -> list[str]:
-        return test_names(raw)
+        return python_tests.test_names(raw)
 
     def is_test_file(
         self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()
     ) -> bool:
-        del test_patterns
-        if not path.endswith(".py") or not path.split("/")[-1].startswith("test_"):
-            return False
-        return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
+        return python_tests.is_test_file(path, tests_dirs, test_patterns)
 
 
 PYTHON = PythonLanguage()
-
-
-# Every field the extractor writes: (scope, field, what it holds). The
-# scopes are the file itself, each module record under `components`, and
-# each record under `entry_points`. `facts_doc` renders this table for the
-# skill's schema reference; the test compares the rendered text with the
-# shipped reference and the table with what `build` actually writes.
-FIELDS: tuple[tuple[str, str, str], ...] = (
-    (
-        "facts",
-        "version",
-        "The facts format is 7, with portable syntax hashes, compiler provenance, "
-        "module completeness, the folder package in `package`, and `call_sites`. "
-        "`extract --check` marks older formats stale",
-    ),
-    (
-        "facts",
-        "built_at_commit",
-        "The commit read during extraction (`HEAD`), or empty outside Git. The page "
-        "prints `facts from <sha>`. Extraction occurs before the commit that records the facts",
-    ),
-    ("facts", "packages", "The import names of package roots"),
-    (
-        "facts",
-        "provenance",
-        "The parser, the compiler settings, and the extraction inputs. A change to the "
-        "extraction inputs makes a new source review necessary, even without source-file "
-        "changes. A parser or compiler change alone does not, because these values can be "
-        "different on another computer",
-    ),
-    (
-        "facts",
-        "tests_dirs",
-        "Root-relative test directories: configured `tests_dir`, or every directory "
-        "with the name `tests` or `test`",
-    ),
-    ("facts", "spec_sections", "The `##` headings in `spec_path`, with `level` and `title`"),
-    ("facts", "entry_points", "One record for each entry point, with the fields below"),
-    (
-        "facts",
-        "entry_point_issues",
-        "Package entry targets or Python decorators with unresolved framework "
-        "bindings. The list is empty if there are none",
-    ),
-    (
-        "facts",
-        "test_file_issues",
-        "TypeScript test files with unresolved imports or names after a parse error. "
-        "The list is empty if there are none",
-    ),
-    (
-        "facts",
-        "config_issues",
-        "TypeScript npm tsconfig packages in `extends` that cannot be read. The list is "
-        "empty if there are none",
-    ),
-    ("facts", "components", "One module record for each dotted name, with the fields below"),
-    ("module", "id", "The dotted module name"),
-    ("module", "file", "The root-relative source path"),
-    (
-        "module",
-        "package",
-        "The dotted name of the package that contains the module. The language adapter "
-        "writes it. A dot in a file name does not change it. A Python `__init__` module "
-        "is in the parent package of its own package. A package root gives its own name",
-    ),
-    ("module", "plane", "The second module-name segment if `planes` includes it, or `core`"),
-    ("module", "loc", "The file line count"),
-    (
-        "module",
-        "sha",
-        "The first twelve hex digits of the source SHA-1. This is the change-detector key",
-    ),
-    (
-        "module",
-        "source_sha256",
-        "The full SHA-256 of UTF-8 source text with normalized newlines, for source references",
-    ),
-    (
-        "module",
-        "syntax_sha",
-        "The parsed-syntax digest for source review. Comments and text format do not change it",
-    ),
-    (
-        "module",
-        "docstring",
-        "The first paragraph of the module description, with a length limit. The Python "
-        "adapter reads the module docstring. The TypeScript adapter reads the first "
-        "documentation comment",
-    ),
-    ("module", "functions", "Public functions with `name` and `signature`"),
-    (
-        "module",
-        "classes",
-        "Public classes other than errors, with `name` and public method signatures in `methods`",
-    ),
-    (
-        "module",
-        "errors",
-        "Public classes with Error or Exception in their names or bases. They use the "
-        "same fields as classes",
-    ),
-    ("module", "constants", "The first 14 UPPER_CASE assignments, with `name` and `value`"),
-    (
-        "module",
-        "names",
-        "Public module-level names in source order, with `kind`: `function`, `class`, "
-        "`error`, `constant` (UPPER_CASE), or `object` (other assignments such as "
-        "`app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` "
-        "includes local re-exports, with `reexport_of` and the kind in their source module. A "
-        "full-module import uses kind `module`. A `*` re-export of the module does not "
-        "give a name that has `star_export` set to `false`. The TypeScript adapter sets it "
-        "for `default`. `entry` and `interface` can use these names",
-    ),
-    (
-        "module",
-        "api",
-        "Full export identities for public-surface comparisons: exported name, "
-        "display bucket, and declaration fingerprint. The fingerprint excludes "
-        "callable bodies",
-    ),
-    ("module", "executes", "Python-only: a top-level call makes a package initializer nonempty"),
-    (
-        "module",
-        "empty_marker",
-        "`true` for a module that only marks a package and holds no code: a Python "
-        "`__init__.py` file or a TypeScript `index` file without names, imports, or "
-        "statements. Coverage does not include these modules",
-    ),
-    (
-        "module",
-        "unknown",
-        "TypeScript surface entries with unresolved syntax or kinds. Each has a "
-        "source line, reason, and short source excerpt",
-    ),
-    (
-        "module",
-        "uses",
-        "Imported local modules with the names taken from each. `*` means the full module",
-    ),
-    (
-        "module",
-        "call_sites",
-        "The local names that the module gets from a name of a module in `uses`, and the "
-        "lines that use them. Each record has `local`, `target`, `name` (`*` for the full "
-        "module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import "
-        "statement makes, or for a re-export without a local name, such as `export { a } "
-        "from`. It is `value` for a name that gets its value or type from that "
-        "name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each "
-        "use is `[line, function line, property]`. The function line is the line of the "
-        "named function or method that contains the use, or 0. The property is the "
-        "attribute that the use reads, or an empty string. The value is `null` if the "
-        "source did not parse",
-    ),
-    ("module", "imports", "The keys of `uses`"),
-    ("module", "imported_by", "Local modules that import this module"),
-    (
-        "module",
-        "external",
-        "Third-party dotted import names, such as `anthropic` or `google.adk`. "
-        "Standard-library and local-package imports are excluded. `model sdk` "
-        "findings read this field",
-    ),
-    (
-        "module",
-        "tests_total",
-        "The number of test functions with an import reference to this module",
-    ),
-    ("module", "tests_primary", "The number of those functions in a file with the module name"),
-    ("module", "tests", "Up to 25 test names, with primary tests first"),
-    (
-        "module",
-        "tests_digest",
-        "A digest of every qualified test identity. It also includes hidden identities",
-    ),
-    (
-        "module",
-        "parse_error",
-        "Python source read or parse errors, with line and parser version. Other "
-        "systemap modules read `completeness`",
-    ),
-    (
-        "module",
-        "completeness",
-        "The read condition of the module, with the same meaning for each language. "
-        "`parsed` is `false` if the extractor could not read or parse all of the source, "
-        "and `line` and `reason` then give the first problem. `unresolved_imports` lists "
-        "each local import, as the source writes it, that has no module in the facts. A "
-        "local import is a relative import, a path, a TypeScript path alias, or a name below a "
-        "package root. If `parsed` is `false`, the import list is not known and is `null`. "
-        "Third-party packages, standard-library modules, Node.js built-in modules, and imports "
-        "with a calculated module name are not in the list",
-    ),
-    (
-        "entry point",
-        "kind",
-        "`console_script`, `main_module`, `main_function`, `subcommand`, `public_function`, "
-        "`route`, `command`, `task`, or `plugin`",
-    ),
-    (
-        "entry point",
-        "name",
-        "The script name, `python -m` command, `main`, subcommand name, route, command "
-        "name, plugin hook, or function name",
-    ),
-    ("entry point", "module", "The module that defines the entry point"),
-    (
-        "entry point",
-        "target",
-        "The console-script function, the console script for a subcommand, or the "
-        "registered function. It is empty for other kinds",
-    ),
-    (
-        "entry point",
-        "label",
-        "The display name that the language adapter gives to the entry point. A sequence "
-        "can name it in `starts`",
-    ),
-)
-
-SCOPE_TITLES = {
-    "facts": "The file",
-    "module": "Each module, under `components`",
-    "entry point": "Each entry point, under `entry_points`",
-}
-
-
-def fields_of(scope: str) -> set[str]:
-    return {name for sc, name, _ in FIELDS if sc == scope}
-
-
-def facts_doc() -> str:
-    """Write the skill facts reference from `FIELDS`."""
-    out = [
-        "## The facts file",
-        "",
-        "`systemap extract` writes `docs/map/map.json` by default.",
-        "These fields come from `systemap.extract.FIELDS`.",
-    ]
-    for scope, title in SCOPE_TITLES.items():
-        out += ["", f"**{title}**", ""]
-        out += [f"- `{name}`: {what}." for sc, name, what in FIELDS if sc == scope]
-    out += [
-        "",
-        "**The extract summary**",
-        "",
-        "The numbers from `systemap extract` describe source facts.",
-        "They do not describe the purposes of the map components.",
-        "`modules` counts records under `components`.",
-        "`functions`, `classes`, and `errors` give the sums of those module fields.",
-        "`tests` gives the sum of `tests_total`. The count for test files with the module",
-        "name gives the sum of `tests_primary`.",
-        "",
-        "`empty package markers` counts the records with `empty_marker` set to true.",
-        "Coverage automatically excludes these records.",
-    ]
-    return "\n".join(out) + "\n"
 
 
 def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str:
@@ -513,21 +266,6 @@ def opening(text: str | None) -> str:
     return para if len(para) <= 320 else para[:319] + "\u2026"
 
 
-def first_line(text: str | None) -> str:
-    if not text:
-        return ""
-    for line in text.strip().splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return ""
-
-
-def sentence(test_name: str) -> str:
-    body = test_name[5:] if test_name.startswith("test_") else test_name
-    return body.replace("_", " ").strip() or test_name
-
-
 def parse_surface(
     raw: str,
     *,
@@ -552,6 +290,7 @@ def parse_surface(
     functions: list[dict[str, Any]] = []
     classes: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    types: list[dict[str, Any]] = []
     constants: list[dict[str, str]] = []
     # Every public module-level name with its kind, so an `entry` can be a
     # lower-case object (`app`, `root_agent`) as well as a function or class.
@@ -566,11 +305,15 @@ def parse_surface(
             _surface_class(node, names, classes, errors)
         elif isinstance(node, ast.Assign | ast.AnnAssign):
             _surface_assignment(node, names, constants)
+        elif isinstance(node, TYPE_ALIAS):
+            _surface_type_alias(node, names, types)
+    python_exports.mark_star_exports(statements, names)
     return {
         "docstring": opening(ast.get_docstring(tree)),
         "functions": functions,
         "classes": classes,
         "errors": errors,
+        "types": types,
         "constants": constants,
         "names": names,
         "api": _python_api(statements),
@@ -582,20 +325,9 @@ def parse_surface(
 
 def _surface_reexports(
     node: ast.ImportFrom, module: str, prefixes: frozenset[str]
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     source = _reexport_source(node, module, prefixes)
-    if source is None:
-        return []
-    names: list[dict[str, str]] = []
-    for alias in node.names:
-        public = alias.asname or alias.name
-        if alias.name == "*" or public.startswith("_"):
-            continue
-        entry = {"name": public, "kind": "reexport", "reexport_of": source}
-        if alias.asname:
-            entry["defined_as"] = alias.name
-        names.append(entry)
-    return names
+    return [] if source is None else python_exports.reexports(node.names, source)
 
 
 def _surface_function(
@@ -637,6 +369,16 @@ def _surface_class(
     names.append({"name": node.name, "kind": "error" if is_error else "class"})
 
 
+def _surface_type_alias(
+    node: ast.stmt, names: list[dict[str, str]], types: list[dict[str, Any]]
+) -> None:
+    name = getattr(getattr(node, "name", None), "id", "")
+    if not name or name.startswith("_"):
+        return
+    types.append({"name": name, "category": "type_alias", "methods": []})
+    names.append({"name": name, "kind": "type"})
+
+
 def _surface_assignment(
     node: ast.Assign | ast.AnnAssign,
     names: list[dict[str, str]],
@@ -675,7 +417,7 @@ def _python_class_api(node: ast.ClassDef) -> str:
     for child in node.body:
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
             if child.name == "__init__" or not child.name.startswith("_"):
-                members.append(signature(child))
+                members.append(python_syntax.decorated(child, signature(child)))
         elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
             if not child.target.id.startswith("_"):
                 members.append(f"{child.target.id}:{ast.dump(child.annotation)}")
@@ -698,7 +440,8 @@ def _python_api(body: list[ast.stmt]) -> list[dict[str, str]]:
 
 def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
-        return [{"name": node.name, "bucket": "operations", "fingerprint": signature(node)}]
+        fingerprint = python_syntax.decorated(node, signature(node))
+        return [{"name": node.name, "bucket": "operations", "fingerprint": fingerprint}]
     if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
         bases = [ast.unparse(base) for base in node.bases]
         error = node.name.endswith(("Error", "Exception")) or any(
@@ -715,10 +458,19 @@ def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
         return _python_api_reexports(node)
     if isinstance(node, ast.Assign | ast.AnnAssign):
         return _python_api_assignments(node)
+    if isinstance(node, TYPE_ALIAS):
+        name = getattr(getattr(node, "name", None), "id", "")
+        public = name and not name.startswith("_")
+        return [{"name": name, "bucket": "types", "fingerprint": ast.dump(node)}] if public else []
     return []
 
 
 def _python_api_reexports(node: ast.ImportFrom) -> list[dict[str, str]]:
+    """This function gives the export identity of each imported name.
+
+    `from .service import *` gives the name `*`. One module text cannot supply the names
+    that it gives, but the removal of the import is a change of the public surface.
+    """
     source = "." * node.level + (node.module or "")
     return [
         {
@@ -727,7 +479,7 @@ def _python_api_reexports(node: ast.ImportFrom) -> list[dict[str, str]]:
             "fingerprint": f"reexport:{source}:{alias.name}",
         }
         for alias in node.names
-        if (alias.asname or alias.name) != "*" and not (alias.asname or alias.name).startswith("_")
+        if not (alias.asname or alias.name).startswith("_")
     ]
 
 
@@ -784,7 +536,7 @@ def collect_module(
 ) -> dict[str, Any] | None:
     issue: dict[str, Any] | None = None
     try:
-        raw = repo_files.read_text(repo, repo_files.relative(repo, path), encoding="utf-8-sig")
+        raw = source_text.read(repo, path)
     except (OSError, UnicodeError) as exc:
         raw = ""
         issue = {
@@ -812,6 +564,7 @@ def collect_module(
             "functions": [],
             "classes": [],
             "errors": [],
+            "types": [],
             "constants": [],
             "names": [],
             "api": [],
@@ -887,155 +640,3 @@ def external_imports(raw: str, prefixes: set[str]) -> list[str]:
                 continue
             out.add(name)
     return sorted(out)
-
-
-def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]:
-    try:
-        raw = path.read_text(encoding="utf-8-sig")
-    except (OSError, UnicodeError):
-        return set()
-    return set(internal_uses(raw, prefixes, known))
-
-
-def test_names(raw: str) -> list[str]:
-    """Get test function identities, including their enclosing definitions."""
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
-        return []
-    found: list[str] = []
-
-    def visit(node: ast.AST, parents: tuple[str, ...]) -> None:
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-            parents = (*parents, node.name)
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name.startswith(
-                "test_"
-            ):
-                found.append(".".join(parents))
-        for child in ast.iter_child_nodes(node):
-            visit(child, parents)
-
-    visit(tree, ())
-    return found
-
-
-def collect_tests(
-    repo: Path, tests_dirs: tuple[str, ...], prefixes: set[str], known: set[str]
-) -> dict[str, list[dict[str, Any]]]:
-    """Map imported modules to test function references.
-
-    Use qualified test identities. An import reference does not prove coverage.
-    """
-    guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    seen: set[Path] = set()
-    files: list[Path] = []
-    for rel in tests_dirs:
-        test_dir = repo / rel
-        if not rel or not test_dir.is_dir():
-            continue
-        for path in sorted(test_dir.rglob("test_*.py")):
-            if path in seen or python_repo.skipped(path, test_dir, python_repo.PYTHON_SKIP):
-                continue
-            seen.add(path)
-            files.append(path)
-    for path in files:
-        try:
-            raw = repo_files.read_text(repo, repo_files.relative(repo, path), encoding="utf-8-sig")
-        except (OSError, UnicodeError):
-            continue
-        targets = set(internal_uses(raw, prefixes, known))
-        if not targets:
-            continue
-        names = test_names(raw)
-        stem = path.stem[5:] if path.stem.startswith("test_") else path.stem
-        for target in targets:
-            # A test file named after the module is its primary guard; a file
-            # that merely imports it exercises it. Both are true, and the
-            # distinction is what stops a shared helper from claiming every test.
-            primary = stem == target.split(".")[-1]
-            for name in names:
-                guards[target].append(
-                    {"name": f"{path.relative_to(repo).as_posix()}::{name}", "primary": primary}
-                )
-    return guards
-
-
-def read_facts(path: Path) -> dict[str, Any]:
-    """Read stored facts.
-
-    Give an empty table if the file is missing or the JSON parser cannot read it.
-    """
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return dict(data) if isinstance(data, dict) else {}
-
-
-def dumps(facts: dict[str, Any]) -> str:
-    """Write compact facts with sorted keys and one module record per line.
-
-    Indented output was 635 KB on a 144-module tree and exceeded a repository hook.
-    Compact module records have no spaces. A diff can compare records by module.
-    Top-level keys also use one line each.
-    """
-
-    def compact(value: Any) -> str:
-        return json.dumps(value, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
-
-    parts: list[str] = []
-    for key in sorted(facts):
-        value = facts[key]
-        if key == "components" and isinstance(value, dict):
-            records = ",\n".join(
-                f"{json.dumps(module)}:{compact(record)}"
-                for module, record in sorted(value.items())
-            )
-            parts.append(f'"components":{{\n{records}\n}}')
-        else:
-            parts.append(f"{json.dumps(key)}:{compact(value)}")
-    return "{\n" + ",\n".join(parts) + "\n}\n"
-
-
-def write_facts(path: Path, facts: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dumps(facts), encoding="utf-8", newline="\n")
-
-
-def summary(facts: dict[str, Any]) -> list[str]:
-    """Give extraction counts with their source fields.
-
-    These counts supply the change detector. The map does not show them.
-    `modules` counts `components`. Functions, classes, and errors use their module
-    fields. Test counts use `tests_total` and `tests_primary`.
-    Empty markers are package records without public names, imports, or execution.
-    """
-    comps = facts["components"]
-    guarded = sum(c["tests_total"] for c in comps.values())
-    primary = sum(c["tests_primary"] for c in comps.values())
-    dirs: list[str] = list(facts.get("tests_dirs", []))
-    if guarded:
-        tests = f"{guarded} test functions import a module, {primary} in a file with its name"
-    elif dirs:
-        # Zero is a finding, not a count: say where the extractor looked, so
-        # a tests directory it did not find is set in `tests_dir`.
-        tests = f"none import a module. The extractor searched {', '.join(dirs)}"
-    else:
-        tests = "none import a module. The extractor found no tests or test directory"
-    out = [
-        "facts for the change detector (these never appear on the map):",
-        f"  modules:          {len(comps)}",
-        f"  functions:        {sum(len(c['functions']) for c in comps.values())}",
-        f"  classes:          {sum(len(c['classes']) for c in comps.values())}",
-        f"  errors:           {sum(len(c['errors']) for c in comps.values())}",
-        f"  tests:            {tests}",
-    ]
-    markers = empty_markers(facts)
-    if markers:
-        out.append(
-            f"  empty package markers: {len(markers)} ({', '.join(markers)}). Each only marks a "
-            "package and holds no code. The coverage rule omits them."
-        )
-    return out

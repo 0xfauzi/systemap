@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from systemap import file_write
 from systemap.decision import DecisionError
 
 API = "https://api.typesafe.ai/v1"
@@ -258,33 +259,56 @@ def _agrees(ask: Ask, answers: Any) -> bool:
     return True
 
 
+def _read_cache(path: Path | None) -> tuple[dict[str, Any], dict[str, str]]:
+    """Give the entries and the releases of a cache file.
+
+    A file that is not JSON, or that has fields of an incorrect type, is not usable.
+    Its answers cannot be read. Thus the result is an empty cache, and the next request
+    goes to the provider again."""
+    if path is None or not path.exists():
+        return {}, {}
+    try:
+        held = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return {}, {}
+    entries = held.get("entries", {}) if isinstance(held, dict) else None
+    releases = held.get("releases", {}) if isinstance(held, dict) else None
+    if not isinstance(entries, dict) or not isinstance(releases, dict):
+        return {}, {}
+    return entries, {k: v for k, v in releases.items() if isinstance(v, str)}
+
+
 class Cache:
     """Keep disk answers by `cache_key` and replace the full file through a temporary file.
 
     `systemap.agent` also keeps responses here. Each caller selects its data format.
     `releases` keeps the last release date that the API gave for each model.
-    """
+
+    Two commands can save the same cache at the same time. A save holds a lock on the
+    cache. Then it reads the entries of the other writers and adds its own entries.
+    It writes the result through a temporary file of its own. The first read of an
+    existing file also holds the lock."""
 
     def __init__(self, path: Path | None) -> None:
         self.path = path
         self.entries: dict[str, Any] = {}
         self.releases: dict[str, str] = {}
         if path is not None and path.exists():
-            try:
-                held = json.loads(path.read_text(encoding="utf-8"))
-                self.entries = held.get("entries", {})
-                self.releases = dict(held.get("releases", {}))
-            except (ValueError, AttributeError, TypeError):
-                self.entries, self.releases = {}, {}
+            # On Windows, a read cannot occur while a different process replaces the file.
+            with file_write.locked(path):
+                self.entries, self.releases = _read_cache(path)
 
     def save(self) -> None:
         if self.path is None:
             return
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(".tmp")
-        held = {"version": 1, "entries": self.entries, "releases": self.releases}
-        tmp.write_text(json.dumps(held), encoding="utf-8")
-        tmp.replace(self.path)
+        with file_write.locked(self.path):
+            entries, releases = _read_cache(self.path)
+            entries.update(self.entries)
+            releases.update(self.releases)
+            self.entries, self.releases = entries, releases
+            held = {"version": 1, "entries": entries, "releases": releases}
+            file_write.write_atomic(self.path, json.dumps(held))
 
 
 @dataclass

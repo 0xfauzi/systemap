@@ -21,20 +21,21 @@ from typing import Any
 
 from systemap import (
     __version__,
+    answer_migrations,
     change,
     check,
     config,
-    decision_kinds,
     decisions_cli,
     delta,
+    delta_git,
     delta_jev,
     delta_link,
     describe,
     drift_order,
     explain,
-    extract,
     extract_check,
     extraction,
+    facts_file,
     failures,
     figure,
     history,
@@ -45,8 +46,10 @@ from systemap import (
     judgement_json,
     model_convert,
     nest,
+    out_paths,
     page,
     place,
+    place_source,
     providers,
     review,
     scaffold,
@@ -58,6 +61,7 @@ from systemap import facts as facts_mod
 from systemap import language as languages
 from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
+from systemap.journey_coverage import outside_map, reviewed_entries
 from systemap.model import Meaning, Model, import_rule_problems
 from systemap.model import problems as model_problems
 from systemap.serve import DEFAULT_PORT, make_server
@@ -127,8 +131,9 @@ def cmd_init(args: argparse.Namespace) -> int:
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root, language)
     adapter = languages.repository(language)
+    skill.check(root / skill.DEFAULT_DIR, root)
     say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=adapter))
-    skill_path = skill.write(root / skill.DEFAULT_DIR)
+    skill_path = skill.write(root / skill.DEFAULT_DIR, root)
     references = len(skill.files()) - 1
     say(
         f"The command wrote {skill_path.parent.relative_to(root).as_posix()}/ "
@@ -156,13 +161,13 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
     fresh = extraction.build(p.cfg)
-    stored = extract.read_facts(p.cfg.facts_path)
+    stored = facts_file.read_facts(p.cfg.facts_path)
     if args.check:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
-    extract.write_facts(p.cfg.facts_path, fresh)
-    say(*extract.summary(fresh))
+    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
+    say(*facts_file.summary(fresh))
     for m in p.tree.maps:
         for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
             say(f"  warning: {m.prefix}{line}")
@@ -199,7 +204,7 @@ def cmd_facts(args: argparse.Namespace) -> int:
         elif args.imports:
             lines = facts_mod.imports(facts, args.imports)
         else:
-            lines = facts_mod.overview(extract.summary(facts))
+            lines = facts_mod.overview(facts_file.summary(facts))
     except facts_mod.UnknownModule as exc:
         hint = f". The nearest name is {exc.closest}" if exc.closest else ""
         say(f"The facts contain no module {exc.name}{hint}", "run: systemap facts --modules")
@@ -212,7 +217,7 @@ def cmd_facts(args: argparse.Namespace) -> int:
 
 
 def _facts_or_stale(p: Project) -> dict[str, Any] | None:
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}", "run: systemap extract")
         return None
@@ -233,11 +238,17 @@ def _model_ok(p: Project, maps: list[nest.Map] | None = None) -> bool:
     return ok
 
 
-def _render_page(p: Project, m: nest.Map, facts: dict[str, Any], args: argparse.Namespace) -> str:
+def _render_page(
+    p: Project,
+    m: nest.Map,
+    facts: dict[str, Any],
+    args: argparse.Namespace,
+    source: change.SourceChange | None = None,
+) -> str:
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
     if base:
-        ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"))
+        ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"), source)
         ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
     return page.build(
         p.cfg,
@@ -258,9 +269,11 @@ def cmd_render(args: argparse.Namespace) -> int:
     if not _model_ok(p):
         return STALE
     code = OK
+    # One source comparison for all maps: it does not use the model of a map.
+    source = change.source_change(p.cfg, args.base, facts, args.head) if args.base else None
     for m in p.tree.maps:
-        html = _render_page(p, m, facts, args)
-        out = m.page_path(p.cfg)
+        html = _render_page(p, m, facts, args, source)
+        out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             current = out.read_text(encoding="utf-8") if out.is_file() else ""
             if current != html:
@@ -349,7 +362,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     _require_roots(p)
     if _empty(p):
         return STALE
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
@@ -374,7 +387,7 @@ def cmd_rules(args: argparse.Namespace) -> int:
     `--json` writes one JSON object. Notices for a person go to stderr.
     """
     p = _project(args)
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
     ruled = import_rules.run_tree(p.tree, facts)
     if not facts:
@@ -476,10 +489,10 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     results = _check_tree(p, fresh)
     if not stale_lines and check.tree_ok(results):
         note(ALREADY_CURRENT)
-        return OK
+        return _rules_check(p, fresh, True)
 
     note("map: The refresh uses the working tree.")
-    extract.write_facts(p.cfg.facts_path, fresh)
+    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
     written = [p.cfg.rel(p.cfg.facts_path)]
     if not check.tree_ok(results):
         say(*_report_tree(p, results, []))
@@ -488,7 +501,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return STALE
     for m in p.tree.maps:
         html = _render_page(p, m, fresh, argparse.Namespace())
-        out = m.page_path(p.cfg)
+        out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))
@@ -496,7 +509,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         html, collisions = figure.configured(p.cfg, p.tree, _map(p, fig.map), fresh, fig)
         for line in collisions:
             warn(line)
-        out = p.cfg.out_path / fig.out
+        out = out_paths.checked(p.cfg, p.cfg.out_path / fig.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))
@@ -514,7 +527,8 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return STALE
     note(f"map: The command updated {', '.join(written)}")
     note(f"map: Commit {p.cfg.out_dir}/ to record this system state.")
-    return OK
+    # The command examines the import rules and gives the exit code as systemap check does.
+    return _rules_check(p, fresh, True)
 
 
 # ---- judgement -------------------------------------------------------------
@@ -546,7 +560,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     """Print the judgement report as text for a person."""
     if _empty(p):
         return OK
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         say(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
@@ -557,7 +571,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
-    warn(*decision_kinds.warnings(p.cfg.judgement_answered))
+    warn(*answer_migrations.warnings(p.cfg.judgement_answered))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -571,7 +585,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
         warn(NO_COMPONENTS)
         say(json.dumps(judgement_json.empty(p.cfg.require_reviews), indent=2))
         return OK
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         warn(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
@@ -580,7 +594,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
-    warn(*notes, *decision_kinds.warnings(p.cfg.judgement_answered))
+    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
@@ -611,6 +625,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     cfg = providers.chosen(p.cfg, args.provider)
     selected = jev_cli.uses_jev(cfg, args.decide)
     asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
+    say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
@@ -628,7 +643,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     If a model has components, also print possible nested maps.
     """
     cfg = config.load(_root(args))
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     if not facts:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
@@ -650,11 +665,8 @@ def cmd_history(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    try:
-        shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
-    except delta.DeltaError as exc:
-        say(f"history: {exc}")
-        return STALE
+    # A Git error gives DeltaError. `failures.run` gives its message and exit code 2.
+    shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
     if len(shas) < 2:
         say(history.too_few(len(shas), args.since))
         return OK
@@ -662,11 +674,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         f"history: The command reads facts at {len(shas)} commits. The cache reduces "
         f"the time of later runs."
     )
-    try:
-        windows = trend.walk(p.cfg, p.tree.top.model, shas)
-    except delta.DeltaError as exc:
-        say(f"history: {exc}")
-        return STALE
+    windows = trend.walk(p.cfg, p.tree.top.model, shas)
     say(*trend.report(windows, p.cfg.root, args.since, args.every, args.top))
     return OK
 
@@ -693,7 +701,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
+    covered = reviewed_entries(m.meaning for m in p.tree.maps)
     code = OK
     for m in p.tree.maps:
         # A card without a position is placed for this look, as `systemap
@@ -718,6 +727,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
             p.cfg.observed_by,
             placement.placed,
             searched=(placement.tried, placement.routed) if placement.fresh else None,
+            scope=(covered, outside_map(m.model, m.top, facts)),
         )
         say(*(m.prefix + line for line in lines))
     return code
@@ -746,18 +756,9 @@ def cmd_place(args: argparse.Namespace) -> int:
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))
             continue
-        source = place.write(m.path, placement)
-        # The file is read back and compared with what was computed, so a
-        # card the edit could not reach is reported, never assumed written.
-        reloaded, _meaning = config.load_model(m.path, m.rel)
-        wrong = place.unwritten(reloaded, placement)
-        if wrong:
-            m.path.write_text(source, encoding="utf-8", newline="\n")
-            raise place.PlaceError(
-                f"The command could not write a position for {', '.join(wrong)} in {m.rel}: "
-                f"the source has no explicit Component(id=...) call. Use systemap place "
-                f"--print to show x and y. Add these values manually."
-            )
+        # The writer loads the file again and compares all positions, boxes, and the
+        # canvas. If it cannot load the file or a value is different, it restores the file.
+        place_source.write(m.path, m.rel, placement, place.apply(m.model, placement), _reload)
         laid = ". The command set all boxes and the canvas" if placement.fresh else ""
         say(f"{m.prefix}place: The command wrote {m.rel}: {place.head(placement)}{laid}")
         if placement.fresh:
@@ -766,6 +767,10 @@ def cmd_place(args: argparse.Namespace) -> int:
     if wrote:
         say("run: systemap check")
     return OK
+
+
+def _reload(path: Path, label: str) -> Model:
+    return config.load_model(path, label)[0]
 
 
 # ---- serve -----------------------------------------------------------------
@@ -804,7 +809,7 @@ def cmd_skill(args: argparse.Namespace) -> int:
         sys.stdout.write(skill.text())
         return OK
     target = Path(args.dir).resolve() if args.dir else _root(args) / skill.DEFAULT_DIR
-    path = skill.write(target)
+    path = skill.write(target, None if args.dir else _root(args))
     references = len(skill.files()) - 1
     say(
         f"The command wrote {path}",

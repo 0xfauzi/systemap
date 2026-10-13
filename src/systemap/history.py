@@ -3,26 +3,42 @@
 The cache path is `.systemap/facts/<sha>-<scope>.json`. The scope includes extraction
 settings and parser versions, because these can change the facts for the same commit.
 The reader does not write to the working tree. The maintainer can delete the cache.
+
+A revision from a person goes to `delta.resolve` first. Then the Git commands get only
+the full commit SHA after `--end-of-options`. Thus Git does not read a revision as an
+option. Each cache writer uses a different temporary file. Thus two processes can write
+the same cache file at the same time. Each read and each write of a cache file holds the
+lock `.systemap/facts/facts.lock`.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from systemap import delta, extraction
+from systemap import delta, delta_git, extraction, file_write
 from systemap import language as languages
 from systemap.config import Config
 
 # How much of a diff is read into a question: enough to see what changed.
 DIFF_CAP = 20_000
+# A full commit SHA: SHA-1 or SHA-256.
+FULL_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 
 def cache_dir(cfg: Config) -> Path:
     return cfg.root / ".systemap" / "facts"
+
+
+def lock_of(cfg: Config) -> Path:
+    """This function gives the path for `file_write.locked` for the facts cache.
+
+    The lock file is `.systemap/facts/facts.lock`."""
+    return cache_dir(cfg) / "facts"
 
 
 def cache_scope(cfg: Config, parser: str) -> str:
@@ -30,26 +46,44 @@ def cache_scope(cfg: Config, parser: str) -> str:
 
     The language adapter gives the parser version. A change of the parser version gives
     a different scope, because the parser can change the facts for the same commit."""
-    key = f"{cfg!r}|format={extraction.FORMAT}|parser={parser}"
+    key = f"{cfg!r}|format={extraction.FORMAT}|tree={delta_git.TREE_READER}|parser={parser}"
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
 def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
-    """This function reads facts at sha, with a cache for the same extraction inputs."""
+    """This function reads facts at sha, with a cache for the same extraction inputs.
+
+    The sha must be a full commit SHA. A different value gives DeltaError, because a Git
+    ref such as HEAD can move, and the cache file name contains the value."""
+    if not FULL_SHA.fullmatch(sha):
+        raise delta.DeltaError(
+            f"The facts cache accepts only a full commit SHA. {sha} is not a full commit SHA."
+        )
     scope = cache_scope(cfg, languages.repository(cfg.language).parser_version())
     path = cache_dir(cfg) / f"{sha}-{scope}.json"
-    if path.exists():
-        try:
-            held: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-            return held
-        except ValueError:
-            pass
+    held = _cached(cfg, path)
+    if held is not None:
+        return held
     facts = delta.facts_at(cfg, sha)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(facts), encoding="utf-8")
-    tmp.replace(path)
+    with file_write.locked(lock_of(cfg)):
+        file_write.write_atomic(path, json.dumps(facts))
     return facts
+
+
+def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
+    """This function gives the cached facts in path, or None if the file is not usable.
+
+    The read holds the lock of the facts cache. On Windows, a read cannot occur while a
+    different process replaces the file."""
+    if not path.exists():
+        return None
+    with file_write.locked(lock_of(cfg)):
+        try:
+            held: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            return None
+    return held
 
 
 def git(root: Path, *args: str) -> str:
@@ -72,9 +106,19 @@ def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[s
 
     The initial commit in each window supplies the sample. Commit activity does not
     change the number of samples. The last sample is the ref, if its commit is in the
-    range. A commit outside the range is not a sample.
+    range. A commit outside the range is not a sample. A ref that Git cannot resolve to
+    a commit gives DeltaError.
     """
-    lines = git(root, "log", "--first-parent", f"--since={since}", "--format=%H %cI", ref)
+    head = delta.resolve(root, ref)
+    lines = git(
+        root,
+        "log",
+        "--first-parent",
+        f"--since={since}",
+        "--format=%H %cI",
+        "--end-of-options",
+        head,
+    )
     rows = [line.split(" ", 1) for line in lines.splitlines() if " " in line]
     kept: list[str] = []
     last: str | None = None
@@ -83,7 +127,6 @@ def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[s
         if last is None or _days_between(last, day) >= every_days:
             kept.append(sha)
             last = day
-    head = git(root, "rev-parse", ref).strip()
     if head in {sha for sha, _when in rows} - set(kept):
         kept.append(head)
     return kept
@@ -104,7 +147,9 @@ def _days_between(a: str, b: str) -> int:
 
 def changed_files(root: Path, base: str, head: str) -> list[str]:
     """This function gives changed file paths from Git."""
-    out = git(root, "diff", "--name-only", "-z", f"{base}..{head}", "--no-renames")
+    out = git(
+        root, "diff", "--name-only", "-z", "--no-renames", "--end-of-options", f"{base}..{head}"
+    )
     return [p for p in out.split("\0") if p]
 
 
@@ -114,5 +159,5 @@ def diff_of(root: Path, base: str, head: str, paths: list[str], cap: int = DIFF_
     """
     if not paths:
         return ""
-    out = git(root, "diff", "--unified=3", f"{base}..{head}", "--", *paths)
+    out = git(root, "diff", "--unified=3", "--end-of-options", f"{base}..{head}", "--", *paths)
     return out[:cap]

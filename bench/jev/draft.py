@@ -29,7 +29,7 @@ from typing import Any
 from common import HERE, NONE, Repo, choice, module_state, owner_criteria
 from turns import RUNS, calls
 
-from systemap import config, extract, jev, nest
+from systemap import config, facts_file, jev, nest
 from systemap.audit import OWNER_Q
 from systemap.model import claimed
 from systemap.source_facts import is_empty_marker
@@ -114,7 +114,7 @@ def repos(run: Path) -> tuple[Repo, Repo, int] | None:
     model, meaning, edits = found
     root = run / "repo"
     cfg = config.load(root)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     mods = [m for m, r in facts["components"].items() if not is_empty_marker(r)]
     top = nest.load(cfg).top
     name = run.name.split("-first-map")[0]

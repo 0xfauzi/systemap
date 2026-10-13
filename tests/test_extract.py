@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import config, extract, extraction, python_repo, skill, source_facts
+from systemap import config, extract, extraction, facts_file, python_repo, skill, source_facts
 from systemap.cli import main
 
 
@@ -141,6 +141,8 @@ ENTRY_TREE: dict[str, str] = {
 
 
 def test_extract_records_entry_points(tmp_path: Path) -> None:
+    script = {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"}
+    SCRIPT = source_facts.entry_identity(script)
     write_tree(tmp_path, ENTRY_TREE)
     facts = extract.build(config.load(tmp_path))
     assert facts["entry_points"] == [
@@ -149,6 +151,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "pkg",
             "module": "pkg.cli",
             "target": "main",
+            "same_as": "",
+            "symbol": "main",
             "label": "pkg (console script)",
         },
         {
@@ -156,6 +160,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "open_thing",
             "module": "pkg",
             "target": "",
+            "same_as": "",
+            "symbol": "open_thing",
             "label": "open_thing() in pkg",
         },
         {
@@ -163,6 +169,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "python -m pkg",
             "module": "pkg.__main__",
             "target": "",
+            "same_as": SCRIPT,
+            "symbol": "",
             "label": "python -m pkg",
         },
         {
@@ -170,6 +178,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "main",
             "module": "pkg.cli",
             "target": "main",
+            "same_as": SCRIPT,
+            "symbol": "main",
             "label": "main() in pkg.cli",
         },
         {
@@ -177,6 +187,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "init",
             "module": "pkg.cli",
             "target": "pkg",
+            "same_as": "",
+            "symbol": "",
             "label": "pkg init (subcommand)",
         },
         {
@@ -184,6 +196,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "check",
             "module": "pkg.cli",
             "target": "pkg",
+            "same_as": "",
+            "symbol": "",
             "label": "pkg check (subcommand)",
         },
         {
@@ -191,6 +205,8 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "main",
             "module": "pkg.worker",
             "target": "main",
+            "same_as": "",
+            "symbol": "main",
             "label": "main() in pkg.worker",
         },
     ]
@@ -403,19 +419,19 @@ def test_zero_tests_is_said_in_one_line_naming_the_directories(tmp_path: Path) -
     (tmp_path / "tests/test_other.py").unlink()
     facts = extract.build(config.load(tmp_path))
     assert facts["tests_dirs"] == ["tests"]
-    lines = extract.summary(facts)
+    lines = facts_file.summary(facts)
     assert "  tests:            none import a module. The extractor searched tests" in lines
     (tmp_path / "tests").rmdir()
     facts = extract.build(config.load(tmp_path))
     assert facts["tests_dirs"] == []
     assert (
         "  tests:            none import a module. The extractor found no tests or test directory"
-        in extract.summary(facts)
+        in facts_file.summary(facts)
     )
     write_tree(tmp_path, TINY_PACKAGE)
     assert (
         "  tests:            3 test functions import a module, 2 in a file with its name"
-        in extract.summary(extract.build(config.load(tmp_path)))
+        in facts_file.summary(extract.build(config.load(tmp_path)))
     )
 
 
@@ -493,21 +509,24 @@ def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
     write_tree(tmp_path, {**TINY_PACKAGE, **ENTRY_TREE})
     cfg = config.load(tmp_path)
     facts = extract.build(cfg)
-    assert set(facts) <= extract.fields_of("facts")
-    assert extract.fields_of("facts") - set(facts) == {
+    assert set(facts) <= facts_file.fields_of("facts")
+    assert facts_file.fields_of("facts") - set(facts) == {
         "entry_point_issues",
         "test_file_issues",
         "config_issues",
     }
     for record in facts["components"].values():
-        assert set(record) <= extract.fields_of("module"), record["id"]
-        assert extract.fields_of("module") - set(record) == {"unknown", "parse_error"}, record["id"]
+        assert set(record) <= facts_file.fields_of("module"), record["id"]
+        assert facts_file.fields_of("module") - set(record) == {"unknown", "parse_error"}, record[
+            "id"
+        ]
     assert facts["entry_points"], "the tree has entry points to compare"
     for point in facts["entry_points"]:
-        assert set(point) == extract.fields_of("entry point")
+        assert set(point) <= facts_file.fields_of("entry point")
+        assert facts_file.fields_of("entry point") - set(point) <= {"same_as"}
     reference = skill.files()["references/schema.md"]
-    assert reference.endswith(extract.facts_doc()), (
-        "references/schema.md's facts section differs from extract.FIELDS; regenerate it"
+    assert reference.endswith(facts_file.facts_doc()), (
+        "references/schema.md's facts section differs from facts_file.FIELDS; regenerate it"
     )
 
 
@@ -516,9 +535,9 @@ def test_facts_file_is_compact_and_one_record_per_line(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     facts = extract.build(cfg)
-    extract.write_facts(cfg.facts_path, facts)
+    facts_file.write_facts(cfg.facts_path, facts)
     text = cfg.facts_path.read_text(encoding="utf-8")
-    assert extract.read_facts(cfg.facts_path) == facts, "round-trips"
+    assert facts_file.read_facts(cfg.facts_path) == facts, "round-trips"
     lines = text.splitlines()
     assert lines[0] == "{" and lines[-1] == "}" and text.endswith("\n")
     assert not any(line.startswith(" ") for line in lines), "no indentation"

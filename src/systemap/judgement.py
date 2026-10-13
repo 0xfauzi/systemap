@@ -22,7 +22,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, evidence, explain, judgement_evidence, nest, step_refs
+from systemap import (
+    answer_migrations,
+    card_review,
+    evidence,
+    explain,
+    judgement_evidence,
+    nest,
+    step_refs,
+)
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
@@ -32,6 +40,7 @@ from systemap.journey_coverage import (
 from systemap.journey_coverage import (
     _entry_lines,
     journey_problems,
+    outside_map,
     reviewed_entries,
     ways_in_without_journey,
 )
@@ -40,7 +49,6 @@ from systemap.journey_coverage import (
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
 from systemap.source_facts import package_of, unknown_fact_lines
-from systemap.source_text import text_digest
 
 __all__ = ["mentioned"]
 
@@ -53,6 +61,11 @@ MODEL_SDKS: tuple[str, ...] = tuple(
     dict.fromkeys(
         sdk for name in languages.names() for sdk in languages.repository(name).model_sdks
     )
+)
+# The import name separators of all adapters. A caller that knows the language gives the
+# separator of its adapter.
+IMPORT_SEPARATORS: tuple[str, ...] = tuple(
+    dict.fromkeys(languages.repository(name).import_separator for name in languages.names())
 )
 
 
@@ -281,14 +294,14 @@ def declared_flows(
     ]
 
 
-def sdk_of(name: str, sdks: Iterable[str]) -> str:
+def sdk_of(name: str, sdks: Iterable[str], separators: Iterable[str] = IMPORT_SEPARATORS) -> str:
     """This function finds the configured SDK for an import name, or gives an empty string.
 
-    A Python import name continues after a dot. An npm import name continues after a
-    slash, for a subpath or for a package in a scope.
+    The import name is the SDK, or it continues after a separator of the language adapter.
     """
+    after = tuple(separators)
     for sdk in sdks:
-        if name == sdk or name.startswith((sdk + ".", sdk + "/")):
+        if name == sdk or name.startswith(tuple(sdk + sep for sep in after)):
             return sdk
     return ""
 
@@ -299,6 +312,7 @@ def model_sdk_imports(
     sdks: Iterable[str] = MODEL_SDKS,
     *,
     skip: Collection[str] = (),
+    separators: Iterable[str] = IMPORT_SEPARATORS,
 ) -> list[str]:
     """This function finds model SDK imports in components without model-call markers.
 
@@ -314,7 +328,8 @@ def model_sdk_imports(
         p = owner.get(module)
         if not p or p in runs_a_model or module in skip:
             continue
-        hit = sorted({sdk_of(n, sdk_list) for n in components[module].get("external", [])} - {""})
+        external = components[module].get("external", [])
+        hit = sorted({sdk_of(n, sdk_list, separators) for n in external} - {""})
         for sdk in hit:
             out.append(
                 f"model sdk: module {module} imports {sdk} and its component {p} is not an agent"
@@ -353,11 +368,14 @@ def run(
     journeys_text: str | None = None,
     covered: Collection[str] | None = None,
     skip: Collection[str] = (),
+    repository: bool = True,
+    separators: Iterable[str] = IMPORT_SEPARATORS,
 ) -> list[str]:
     """This function gives the judgement diagnostics for one map.
 
     The journeys_text and skip arguments supply nested-map sequence data and excluded
-    modules.
+    modules. Only `repository` gives the lines about the full repository. Thus a tree of
+    maps gives these lines one time.
     """
     return (
         single_module(model, facts)
@@ -374,8 +392,8 @@ def run(
         + no_endpoint_source(model, facts.get("components", {}))
         + step_refs.problems(model, meaning, facts)
         + stale_source_reviews(model, meaning, facts)
-        + model_sdk_imports(model, facts, sdks, skip=skip)
-        + unknown_fact_lines(facts)
+        + model_sdk_imports(model, facts, sdks, skip=skip, separators=separators)
+        + unknown_fact_lines(facts, skip, repository)
     )
 
 
@@ -394,7 +412,8 @@ def flow_review(
             f"artifact, or change the flow."
         )
         for flow in model.flows
-        if states.of(flow).state == evidence.STRUCTURAL or states.of(flow).unresolved_refs
+        if states.of(flow).state == evidence.STRUCTURAL
+        or (states.of(flow).unresolved_refs and states.of(flow).state != evidence.EXTERNAL)
     ]
 
 
@@ -473,6 +492,8 @@ def run_tree(
     facts: dict[str, Any],
     sdks: Iterable[str] = MODEL_SDKS,
     observed_by: Iterable[str] = (),
+    *,
+    separators: Iterable[str] = IMPORT_SEPARATORS,
 ) -> list[str]:
     """This function gives judgement diagnostics for all maps with map prefixes.
 
@@ -480,13 +501,20 @@ def run_tree(
     maps supply entry point coverage.
     """
     covered = reviewed_entries(m.meaning for m in tree.maps)
-    components = facts.get("components", {})
     out: list[str] = []
     for m in tree.maps:
-        skip = {mod for c in m.model.opening for mod in claimed(c, components)}
-        if not m.top:
-            skip |= set(components) - set(_owner_of(m.model, facts))
-        lines = run(m.model, m.meaning, facts, sdks, observed_by, covered=covered, skip=skip)
+        skip = outside_map(m.model, m.top, facts)
+        lines = run(
+            m.model,
+            m.meaning,
+            facts,
+            sdks,
+            observed_by,
+            covered=covered,
+            skip=skip,
+            repository=m.top,
+            separators=separators,
+        )
         out += [m.prefix + line for line in lines]
     return out
 
@@ -523,8 +551,9 @@ def evidence_for_tree(
         )
         if state is None:
             if m.id not in model_hashes:
-                model_hashes[m.id] = text_digest(m.path.read_bytes())
-            state = judgement_evidence.full_state(components, root, model_hashes[m.id])
+                model_hashes[m.id] = judgement_evidence.model_digest(m)
+            points = judgement_evidence.entry_points(m, facts, key)
+            state = judgement_evidence.full_state(components, root, model_hashes[m.id], points)
         encoded = json.dumps(state, sort_keys=True, default=str).encode()
         out[key] = hashlib.sha256(encoded).hexdigest()
     return out
@@ -534,8 +563,10 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
     """This function gives the evidence digest for an exact answer or group of exact items."""
     chosen = list(items)
     if len(chosen) == 1:
-        return evidence.get(chosen[0], "unavailable")
-    state = [(line, evidence.get(line, "unavailable")) for line in chosen]
+        return evidence.get(answer_migrations.current_line(chosen[0]), "unavailable")
+    state = [
+        (line, evidence.get(answer_migrations.current_line(line), "unavailable")) for line in chosen
+    ]
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
@@ -564,7 +595,7 @@ def answers(answer: Answer, line: str) -> bool:
     without that prefix.
     """
     if answer.items:
-        return line in answer.items
+        return line in answer_migrations.current_items(answer.items)
     line = unprefixed(line)
     if answer.crossing is not None:
         found = CROSSING_LINE.match(line)
@@ -638,7 +669,8 @@ def _accepted_answers(
 
 
 def _policy_line(answer: Answer, matches: list[str]) -> str:
-    new = sum(line not in answer.reviewed for line in matches)
+    reviewed = answer_migrations.current_items(answer.reviewed)
+    new = sum(line not in reviewed for line in matches)
     return (
         f"{answer.label} covers {len(matches)} lines at this snapshot. {new} lines are "
         f"outside the source-review baseline."
@@ -664,7 +696,9 @@ def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
     stale: list[str] = []
     for answer in given:
         if answer.items:
-            stale.extend(item for item in answer.items if item not in lines)
+            stale.extend(
+                item for item in answer.items if answer_migrations.current_line(item) not in lines
+            )
         elif not any(answers(answer, line) for line in lines):
             stale.append(answer.label)
     return stale

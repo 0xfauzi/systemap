@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import config, extract
+from systemap import config, extract, facts_file
 from systemap.typescript import parse_surface
 
 
@@ -33,7 +33,7 @@ def test_compiler_provenance_is_independent_of_checkout_path(tmp_path: Path) -> 
         write_tree(root, tree)
         snapshots.append(extract.build(config.load(root)))
     stored = tmp_path / "saved-facts.json"
-    extract.write_facts(stored, snapshots[0])
+    facts_file.write_facts(stored, snapshots[0])
     assert snapshots[0]["provenance"] == snapshots[1]["provenance"]
     assert extract.drift(snapshots[1], json.loads(stored.read_text(encoding="utf-8"))) == []
     (tmp_path / "second" / "tsconfig.json").write_text(

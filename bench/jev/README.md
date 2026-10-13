@@ -2844,3 +2844,214 @@ A new `draft.py` result can be different from the recorded result. The script wa
 
 `drift_head.py` operates when Python imports it. The `repo-maintenance-*` folders in `bench/scratch` are necessary.
 Without these folders, the import stops with `StopIteration`. With these folders, the import completed.
+
+## Does TypeScript source discovery stay fast with a large node_modules folder? (2026-10-13)
+
+`bench/typescript_discovery.py` makes two fixtures with 40 modules in the package root `packages/web`.
+One fixture also has 40,000 files in `packages/web/node_modules`.
+The acceptance value was written before the change: the median `extract.build` time with node_modules must be at most 1.2 times the time without node_modules.
+Each value is the median of 5 runs on one macOS computer with Python 3.11.10.
+
+| revision | build without node_modules (s) | build with node_modules (s) | ratio | `source_paths` with node_modules (s) |
+|---|---|---|---|---|
+| `origin/main` (d4b1514), first run | 0.0269 | 0.317 | 11.784 | 0.2842 |
+| `origin/main` (d4b1514), second run | 0.0345 | 0.4325 | 12.536 | not recorded |
+| `origin/main` (d4b1514), third run | 0.0343 | 0.3859 | 11.251 | not recorded |
+| `fix/ts-projects`, first run | 0.0365 | 0.0372 | 1.019 | 0.0004 |
+| `fix/ts-projects`, second run | 0.0369 | 0.0372 | 1.008 | not recorded |
+
+On `origin/main`, `TypeScriptLanguage.source_paths` did one `rglob` walk for each source suffix, and each walk went into node_modules.
+The change uses `source_files`, which does not go into the `SOURCE_SKIP` folders.
+The result satisfies the acceptance value.
+
+## Does the Git tree reader keep a large blob out of memory? (2026-10-13)
+
+Codex result change-14: `delta_git.write_tree` read all blobs of a commit into one byte string, and then copied each blob.
+The change reads each blob in parts of 1 MiB and writes the parts to the file.
+A thread sends the blob requests. Thus the reader does not stop for each request.
+
+Fixtures: `small` has 20 modules. `blob` has the same 20 modules and one file of 256 MiB of random bytes in `assets/`.
+`many` has 2000 modules. Each value is the median of 3 runs of `delta_git.facts_at` in a new process.
+"Memory increase" is the increase of the peak resident memory during the call.
+
+Acceptance (written before the change): for `blob`, the memory increase is at most 64 MiB above the increase for `small`.
+For each fixture, the median time after the change is at most 1.2 times the median time before the change.
+
+Command: `uv run python bench/jev/tree_reader_memory.py`. The base and the change operated two times each, in alternate order.
+The table also gives two earlier runs of the base.
+
+| fixture | base time (ms), 4 runs | change time (ms), 4 runs | time ratio of the medians | base memory increase | change memory increase |
+|---|---|---|---|---|---|
+| `small` | 25, 25, 26, 28 | 25, 25, 27, 43 | 1.02 | 0.5 MiB | 0.4 to 0.5 MiB |
+| `blob` | 189, 239, 242, 246 | 108, 109, 124, 191 | 0.48 | 888 to 898 MiB | 2.5 to 4.5 MiB |
+| `many` | 1562, 1571, 1774, 2028 | 1551, 1694, 1808, 1819 | 1.05 | 10.6 to 11.1 MiB | 10.0 to 10.3 MiB |
+
+For `blob` minus `small`, the change gives 2.0 to 4.1 MiB. The base gave 887 to 898 MiB.
+The result satisfies the two acceptance values.
+A first version of the change sent one request and read one blob at a time. For `many`, its times were 2044 and 2306 ms.
+That version did not satisfy the time value. Thus the change uses a thread for the requests.
+
+The tree reader continues to write each blob of the commit, also the blobs that the extraction does not read.
+Codex proposed a selection of the necessary files. The selection is not in the change, because the language adapters do not give a list of the extraction inputs before the extraction.
+
+## Does a render with nested maps compare the source one time? (2026-10-13)
+
+Codex result change-20: `change.for_page` compared all changed source files again for each map.
+The change makes the source comparison one time with `change.source_change` and gives it to each map.
+The change also reads the blobs of each side with one Git process. Before the change, each file had one `git show` process.
+
+Fixture: 200 modules and 200 test files. The head commit adds one function to each module and one test to each test file.
+The script uses `change.for_page` for K maps with the same model. Each value is the median of 3 runs in a new process.
+
+Acceptance (written before the change): the median time for K = 5 is at most 1.5 times the median time for K = 1.
+The peak resident memory increase for K = 5 is at most 1.2 times the value before the change.
+
+Command: `uv run python bench/jev/change_reuse.py`.
+
+| run | K = 1 time | K = 5 time | ratio | K = 5 memory increase |
+|---|---|---|---|---|
+| base | 3795 ms | 18649 ms | 4.91 | 3.6 MiB |
+| change, first run | 332 ms | 394 ms | 1.19 | 2.3 MiB |
+| change, second run | 263 ms | 262 ms | 1.00 | 2.3 MiB |
+
+The full test suite operated at the same time as the first run of the change.
+The result satisfies the two acceptance values.
+The test `test_a_render_with_nested_maps_parses_each_changed_file_once_for_each_side` counts the surface parses of `systemap render --base` with three maps.
+
+## Does the label script read the mark boxes on each pan frame? (2026-10-13)
+
+Follow-up followup-labels-time: commit 57f8180 (Codex result schematic-5) put the boxes of the sequence marks in the label key.
+Thus each relabel call read the box of each mark, also when no mark changed.
+
+The repair keeps the boxes in drawing units.
+A MutationObserver on the marks, on the page root and on the body removes the kept boxes. A font load also removes them.
+Without MutationObserver, each call reads the boxes, as before the repair.
+
+Acceptance (written before the measurement): the median time of one relabel call with a sequence is at most 1.2 times the time before 57f8180.
+The pan case is the acceptance case.
+
+The script makes the self-map page three times, each with a different start of the relabel function.
+The three functions are `before` (57f8180^), `read` (57f8180), and `current`.
+Headless Chrome opens each page at 1600 by 900 pixels.
+In the pan case, a change to the transform of the map view occurs before each call. The script subtracts the time of the transform changes.
+In the static case, the calls occur with no change between them.
+Each value is the median of 11 samples of 2000 calls.
+
+Command: `uv run python bench/jev/relabel_time.py`.
+
+| State | Case | Marks | before (us) | read (us) | current (us) | current / before |
+|---|---|---|---|---|---|---|
+| whole route | pan | 6 | 5.45 | 9.80 | 5.25 | 0.96 |
+| whole route | static | 6 | 1.90 | 6.10 | 2.00 | 1.05 |
+| step 1 | pan | 6 | 5.45 | 9.65 | 5.20 | 0.95 |
+| step 1 | static | 6 | 1.95 | 6.15 | 2.00 | 1.03 |
+
+The `read` function did not satisfy the acceptance value: 1.80 times `before` in the pan case, and 3.2 times in the static case.
+The `current` function satisfies the acceptance value.
+Four earlier measurements with 5 samples gave `before` pan values from 5.35 to 13.30 us. Thus the script now uses 11 samples.
+The table gives the first measurement with 11 samples. Other processes operated on the computer during the measurements.
+The second measurement gave 1.19 (whole route) and 0.88 (step 1) for `current / before` in the pan case. The third gave 0.96 and 0.95.
+Thus the margin to the acceptance value is small when the computer has a high load.
+Headless Chrome draws with software rendering. The absolute times are not the times of a browser on a desktop computer.
+
+The test `test_a_pan_does_not_read_the_mark_boxes_again` counts the box reads under the Node page driver.
+The driver now has a MutationObserver.
+
+## Does TypeScript language detection stay fast with a large node_modules folder? (2026-10-13)
+
+Result `followup-detect`: `TypeScriptRepository.detect` and `discover_typescript_roots` used `rglob`.
+Thus they read each folder in node_modules, and only then removed its files.
+The change uses `source_files`, which does not enter the `SOURCE_SKIP` folders.
+
+`bench/typescript_detect.py` makes two fixtures, each with and without 40,000 files in node_modules.
+In `config_only`, the root has tsconfig.json and no TypeScript source outside node_modules.
+In `workspace`, the package root `packages/web` has 40 modules in `src` and the node_modules folder.
+The acceptance value was written before the change: for each call, the median time with node_modules must be at most 1.2 times the median time without node_modules.
+
+Each value is the median of 11 samples on one macOS computer with Python 3.11.10.
+One sample is the mean time of one call in a loop of at least 20 ms.
+The first version of the script timed one call in each sample. After the change, its ratios were from 0.69 to 1.49 between runs, because one call takes approximately 30 microseconds.
+Thus the loop replaced the single call. The acceptance value did not change.
+
+| revision | call | without node_modules (ms) | with node_modules (ms) | ratio |
+|---|---|---|---|---|
+| base (06468a2), first run | `discover_typescript_roots(config_only)` | 0.060 | 234.7 | 3911.65 |
+| base (06468a2), first run | `detect(config_only)` | 0.073 | 233.2 | 3214.40 |
+| base (06468a2), first run | `detect(config_only, [config_only])` | 0.048 | 130.6 | 2708.61 |
+| base (06468a2), first run | `detect(workspace, [packages/web])` | 0.052 | 134.6 | 2600.73 |
+| base (06468a2), second run | the four calls, in the same order | 0.060, 0.074, 0.049, 0.052 | 233.3, 230.7, 130.2, 133.9 | 3868.60, 3124.35, 2671.27, 2582.20 |
+| change, first run | the four calls, in the same order | 0.0277, 0.0410, 0.0238, 0.0405 | 0.0285, 0.0421, 0.0245, 0.0412 | 1.029, 1.025, 1.029, 1.017 |
+| change, second run | the four calls, in the same order | 0.0279, 0.0417, 0.0241, 0.0416 | 0.0285, 0.0424, 0.0246, 0.0417 | 1.022, 1.016, 1.020, 1.005 |
+| change, third run | the four calls, in the same order | 0.0281, 0.0414, 0.0241, 0.0414 | 0.0286, 0.0424, 0.0246, 0.0416 | 1.020, 1.023, 1.021, 1.005 |
+
+The results of the calls did not change. The result satisfies the acceptance value.
+The test `tests/test_typescript_detect_skip.py` records each folder that the calls open, and it finds no folder in node_modules, .git, or .venv.
+
+## Does the live watcher stay fast when the adapter gives its configuration files? (2026-10-13)
+
+Result `followup-extends`: the language adapter now gives the configuration files that it reads (`config_paths`).
+The TypeScript adapter follows `extends` and `references`, so the watcher reads each tsconfig file at each scan.
+The adapter also walks the source folders for its configuration names. Thus the source folders get two walks.
+
+Acceptance (written before the change): on this repository, the median time of `live_watch.watched` after the change is at most 2 times the median before the change.
+Each value is the median of 31 calls on one macOS computer.
+
+| revision | watched files | median (ms) |
+|---|---|---|
+| base (06468a2) | 277 | 1.44 |
+| change, first run | 279 | 1.74 |
+| change, second run | 279 | 1.75 |
+
+The ratio is 1.21. The result satisfies the acceptance value.
+The change added two source modules between the two measurements. On the same tree, the base and the change give the same 279 paths.
+
+## Does the Python file list stay fast with a large node_modules folder? (2026-10-13)
+
+Result `followup-python-paths`: `python_repo.python_paths` used `rglob`.
+Thus it read each folder in node_modules, .venv, and the other skipped folders, and only then removed their files.
+The change uses `os.walk` and does not go into the `PYTHON_SKIP` folders. The TypeScript detection uses the same method.
+
+`bench/python_paths.py` makes two fixtures, each with and without 40,000 files in node_modules.
+In `package`, the package root `src/app` has 40 modules and the node_modules folder. Half of the files in node_modules are `.py` files.
+In `no_source`, the folder has Python files only in node_modules.
+The acceptance value was written before the change: for each call, the median time with node_modules must be at most 1.2 times the median time without node_modules.
+
+Each value is the median of 11 samples on one macOS computer with Python 3.11.10.
+One sample is the mean time of one call in a loop of 20 ms or more.
+
+| revision | call | without node_modules (ms) | with node_modules (ms) | ratio |
+|---|---|---|---|---|
+| base (b168c9c), first run | `list(python_paths(package/src/app))` | 0.2294 | 101.8 | 443.78 |
+| base (b168c9c), first run | `detect(package, [package/src/app])` | 0.0283 | 0.0289 | 1.02 |
+| base (b168c9c), first run | `detect(no_source, [no_source])` | 0.0227 | 101.7 | 4472.93 |
+| base (b168c9c), second run | the three calls, in the same order | 0.2282, 0.0281, 0.0228 | 100.1, 0.0287, 97.93 | 438.81, 1.019, 4286.85 |
+| change, first run | the three calls, in the same order | 0.1583, 0.0308, 0.0139 | 0.1571, 0.0337, 0.0147 | 0.992, 1.094, 1.058 |
+| change, second run | the three calls, in the same order | 0.2065, 0.0342, 0.0150 | 0.1597, 0.0323, 0.0143 | 0.773, 0.946, 0.953 |
+| change, third run | the three calls, in the same order | 0.1706, 0.0303, 0.0148 | 0.1632, 0.0318, 0.0143 | 0.957, 1.047, 0.967 |
+
+For `detect(package, [package/src/app])`, the base also did not read node_modules, because the call stops at the first Python file.
+The results of the calls did not change. The result satisfies the acceptance value.
+On this repository, the base and the change give the same 138 Python files for the package root `src/systemap`.
+The test `tests/test_python_paths_skip.py` records each folder that the calls open, and it finds no folder with a `PYTHON_SKIP` name.
+
+### The test file list (2026-10-13)
+
+`python_tests.test_files` also used `rglob("test_*.py")` in each test folder, and only then removed the paths in skipped folders.
+The change uses `python_paths(test_dir, "test_*.py")`. It sorts the result, thus the order of the list does not change.
+The acceptance value was written before the change: the same ratio of 1.2 or less, for the new call `test_files(tests, ("tests",), ())`.
+In the new fixture `tests`, the folder `tests` has 40 test modules and the node_modules folder. Half of the files in node_modules are `test_*.py` files.
+The script now has four calls. The fourth value in each cell is the `test_files` call. The base is 8868b3e, the commit of the `python_paths` change.
+
+| revision | without node_modules (ms) | with node_modules (ms) | ratio |
+|---|---|---|---|
+| base (8868b3e), first run | 0.1434, 0.0292, 0.0165, 0.3015 | 0.1412, 0.0295, 0.0130, 113.8 | 0.985, 1.010, 0.787, 377.36 |
+| base (8868b3e), second run | 0.1432, 0.0283, 0.0123, 0.2115 | 0.1398, 0.0269, 0.0124, 109.9 | 0.976, 0.950, 1.002, 519.63 |
+| change, first run | 0.1395, 0.0269, 0.0121, 0.1373 | 0.1373, 0.0272, 0.0126, 0.1384 | 0.984, 1.012, 1.038, 1.008 |
+| change, second run | 0.1390, 0.0264, 0.0120, 0.1385 | 0.1391, 0.0272, 0.0124, 0.1401 | 1.000, 1.029, 1.033, 1.012 |
+| change, third run | 0.1463, 0.0279, 0.0119, 0.1387 | 0.1413, 0.0280, 0.0125, 0.1389 | 0.966, 1.001, 1.045, 1.001 |
+
+The results of the calls did not change. The result satisfies the acceptance value.
+On this repository, the base and the change give the same 136 test files in the same order.
+The other `glob` calls in the Python adapter do not go into a skipped folder by default.
+`_loose_files` uses `glob("*.py")` in each folder of `config.walk`, and `config.walk` does not go into the skipped folders.
+`workspace_members` uses the `[tool.uv.workspace] members` patterns of the user. The change keeps the selection of uv for these patterns.

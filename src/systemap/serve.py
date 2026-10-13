@@ -44,13 +44,14 @@ from systemap import (
     extraction,
     figure,
     history,
-    model_load,
     nest,
+    out_paths,
     page,
     page_live,
+    repo_files,
 )
-from systemap import language as languages
 from systemap.config import ArgumentError, Config, ConfigError
+from systemap.live_watch import watch, watched
 from systemap.model import problems as model_problems
 
 DEFAULT_PORT = 8765
@@ -59,13 +60,9 @@ DEFAULT_PORT = 8765
 BASES = ("origin/HEAD", "origin/main", "main", "origin/master", "master")
 # The figure beside the page: the change figure, or the system figure without a change.
 FIGURE = "change.svg"
-# The time between two scans of the watched files.
-SCAN_SECONDS = 1.0
 # The time between two comment lines on an event connection. A write to a closed
 # connection gives an error, so the server finds closed connections.
 KEEP_SECONDS = 15.0
-# The configuration files and the files that extraction records in its provenance.
-CONFIG_FILES = (config.CONFIG_FILE, "pyproject.toml", "package.json", "tsconfig.json")
 
 
 def _listen(handler: Callable[..., BaseHTTPRequestHandler], port: int) -> ThreadingHTTPServer:
@@ -95,6 +92,24 @@ class PageHandler(SimpleHTTPRequestHandler):
             return True
         self.send_error(403, "The server answers only requests to 127.0.0.1 or localhost.")
         return False
+
+    def send_head(self) -> Any:
+        """Refuse a file that a symbolic link puts outside the served directory."""
+        if not self._inside():
+            self.send_error(404, "File not found")
+            return None
+        return super().send_head()
+
+    def _inside(self) -> bool:
+        """Tell if the requested file, and the index file of a directory, are in the
+        served directory after the resolution of symbolic links."""
+        path = Path(self.translate_path(self.path))
+        targets = [path, path / "index.html", path / "index.htm"] if path.is_dir() else [path]
+        return all(
+            repo_files.inside(Path(self.directory), target)
+            for target in targets
+            if target.is_symlink() or target.exists()
+        )
 
 
 def make_server(directory: Path, port: int) -> ThreadingHTTPServer:
@@ -137,9 +152,11 @@ def render_tree(root: Path, base: str) -> Rendered:
     tree = nest.load(cfg)
     _no_problems(tree)
     facts = extraction.build(cfg)
-    compared = {m.id: _compare(cfg, m, base, facts) for m in tree.maps}
+    # One source comparison for all maps: it does not use the model of a map.
+    source = change.source_change(cfg, base, facts, change.WORKING_TREE) if base else None
+    compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
     files = {
-        m.page_path(cfg).relative_to(cfg.out_path).as_posix(): page.build(
+        out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): page.build(
             cfg,
             m.model,
             m.meaning,
@@ -172,10 +189,16 @@ def _no_problems(tree: nest.Tree) -> None:
         raise ConfigError("\n".join([*lines, f"Correct {files}. Then use systemap check."]))
 
 
-def _compare(cfg: Config, m: nest.Map, base: str, facts: dict[str, Any]) -> dict[str, Any]:
+def _compare(
+    cfg: Config,
+    m: nest.Map,
+    base: str,
+    facts: dict[str, Any],
+    source: change.SourceChange | None,
+) -> dict[str, Any]:
     if not base:
         return {"has_change": False}
-    return change.for_page(cfg, m, base, facts, change.WORKING_TREE)
+    return change.for_page(cfg, m, base, facts, change.WORKING_TREE, source)
 
 
 def _figure(
@@ -263,6 +286,8 @@ class LiveMap:
         self._closed = False
         self._readers: list[queue.Queue[str | None]] = []
         self._thread: threading.Thread | None = None
+        # The names of the files of the last write. A later write removes the others.
+        self._names: set[str] = set()
         self._write({"index.html": page_live.waiting_page()}, 0)
 
     # -- versions --
@@ -287,11 +312,16 @@ class LiveMap:
 
     def _run(self) -> None:
         again = True
-        while again:
-            self._once()
+        try:
+            while again:
+                self._once()
+                with self._lock:
+                    again, self._again = self._again and not self._closed, False
+                    self._busy = again
+        finally:
+            # An exception stops the loop. A later request must start a new version.
             with self._lock:
-                again, self._again = self._again and not self._closed, False
-                self._busy = again
+                self._busy = False
 
     def _once(self) -> None:
         with self._lock:
@@ -305,7 +335,11 @@ class LiveMap:
         except Exception as exc:  # noqa: BLE001 - a failed render keeps the last page
             self._failed(version, _error_text(exc))
             return
-        self._done(version, dataclasses.replace(result, seconds=time.perf_counter() - started))
+        try:
+            self._done(version, dataclasses.replace(result, seconds=time.perf_counter() - started))
+        except (OSError, ConfigError) as exc:
+            # The command could not write the pages. The last good version stays the result.
+            self._failed(version, _error_text(exc))
 
     def _failed(self, version: int, text: str) -> None:
         with self._lock:
@@ -341,17 +375,23 @@ class LiveMap:
         self._send("rendered", {"version": version})
 
     def _write(self, files: dict[str, str], version: int) -> None:
-        """Write the files. A page gets the script. The caller holds the lock."""
+        """Write the files, and remove the files of the last write that are not in `files`.
+
+        A page gets the script. A name outside the directory gives ConfigError before the
+        command writes a file. The caller holds the lock."""
         if self._closed:
             return
+        paths = {name: out_paths.served(self.out, name) for name in files}
         for name, text in files.items():
-            path = self.out / name
+            path = paths[name]
             path.parent.mkdir(parents=True, exist_ok=True)
             if name.endswith(".html"):
                 text = page_live.with_script(text, version)
             part = path.with_name(path.name + ".part")
             part.write_text(text, encoding="utf-8", newline="\n")
             os.replace(part, path)
+        _remove(self.out, self._names - set(files))
+        self._names = set(files)
 
     # -- state --
 
@@ -414,6 +454,20 @@ class LiveMap:
             readers = list(self._readers)
         for reader in readers:
             reader.put(None)
+
+
+def _remove(out: Path, names: Iterable[str]) -> None:
+    """Remove the files of a previous version, and the directories that become empty.
+
+    An open page of a removed map then gets no page, and it does not load again and again.
+    """
+    for name in names:
+        path = out / name
+        path.unlink(missing_ok=True)
+        for folder in path.parents:
+            if folder == out or not folder.is_relative_to(out) or any(folder.iterdir()):
+                break
+            folder.rmdir()
 
 
 def _event(name: str, data: dict[str, Any]) -> str:
@@ -495,72 +549,6 @@ def make_live_server(live: LiveMap, port: int) -> ThreadingHTTPServer:
     httpd = _listen(partial(LiveHandler, live), port)
     live.url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     return httpd
-
-
-# ---- the watched files -----------------------------------------------------------------
-
-
-def watched(root: Path, models: Iterable[Path] = ()) -> list[Path]:
-    """Give the files that the command reads: the configuration, the model files, and the
-    source and test files of the configured language.
-
-    If the configuration does not load, give the configuration files only.
-    """
-    found = [root / name for name in CONFIG_FILES]
-    try:
-        cfg = config.load(root)
-    except ConfigError:
-        return found
-    for folder in {cfg.model_path.parent, *(path.parent for path in models)}:
-        found += sorted(folder.glob(model_load.MODEL_FILES))
-    if not cfg.language:
-        return found
-    adapter = languages.repository(cfg.language)
-    tests = [root / rel for rel in cfg.test_dirs if rel]
-    folders = [package for package, _name in cfg.roots] + tests
-    # Output folders hold no source of the project, for each language.
-    skip = adapter.skip_dirs | config.OUTPUT_DIRS
-    for folder in folders:
-        found += _files(folder, adapter.source_suffixes, skip)
-    return found
-
-
-def _files(folder: Path, suffixes: tuple[str, ...], skip: frozenset[str]) -> Iterator[Path]:
-    """Give the files with the suffixes below the folder. Skip the folders without source."""
-    for here, folders, names in os.walk(folder):
-        folders[:] = [name for name in folders if name not in skip]
-        yield from (Path(here) / name for name in names if name.endswith(suffixes))
-
-
-def scan(paths: Iterable[Path]) -> dict[str, tuple[int, int]]:
-    """Give the change time and the size of each file that exists."""
-    found: dict[str, tuple[int, int]] = {}
-    for path in paths:
-        try:
-            stat = path.stat()
-        except OSError:
-            continue
-        found[str(path)] = (stat.st_mtime_ns, stat.st_size)
-    return found
-
-
-def watch(
-    live: LiveMap,
-    files: Callable[[], Iterable[Path]],
-    stop: threading.Event,
-    seconds: float = SCAN_SECONDS,
-) -> None:
-    """Scan the files at each interval. After a change, request a version when the next
-    scan finds no more change."""
-    last = scan(files())
-    changed = False
-    while not stop.wait(seconds):
-        now = scan(files())
-        if now != last:
-            last, changed = now, True
-        elif changed:
-            changed = False
-            live.request()
 
 
 # ---- the command ---------------------------------------------------------------------

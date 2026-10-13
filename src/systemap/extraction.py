@@ -26,8 +26,14 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 
 # A stored file of an older facts format is reported as stale. Format 6: the `package`
 # fact is the folder package that the adapter gives, not the first module-name part.
-# Format 7: each module record has the `call_sites` fact.
-FORMAT = 7
+# Format 7: each module record has the `call_sites` fact. Format 8: a Python `api`
+# fingerprint includes decorators, and the Python `empty_marker` fact reads each
+# top-level statement. Each re-export has `defined_in` and `defined_as`, the identity
+# of its definition. A TypeScript type-only export has `type_only`, and `api` has a
+# record for each `*` re-export. A type declaration that is not a class is in
+# `types`, with its category, and not in `classes`. Each entry point has the
+# `same_as` fact. Cached facts of format 7 have the earlier values.
+FORMAT = 8
 TESTS_KEPT = 25
 
 
@@ -98,7 +104,7 @@ def _module_facts(
     record["package"] = package_for(cfg, language, module, path)
     record["plane"] = plane_of(module, cfg.planes)
     try:
-        raw = repo_files.read_text(cfg.root, repo_files.relative(cfg.root, path), "utf-8-sig")
+        raw = source_text.read(cfg.root, path)
     except (OSError, UnicodeError):
         raw = ""
     uses = language.internal_uses(
@@ -369,6 +375,7 @@ def _component_drift(
         "functions",
         "classes",
         "errors",
+        "types",
         "constants",
         "unknown",
         "parse_error",

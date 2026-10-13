@@ -17,7 +17,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import config_decisions, decision_kinds, flow_ids, model_load
+from systemap import (
+    config_decisions,
+    decision_kinds,
+    flow_ids,
+    model_fields,
+    model_load,
+    model_names,
+    repo_files,
+)
 from systemap import language as languages
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
@@ -279,14 +287,32 @@ def find_root(start: Path) -> Path | None:
     including the start directory.
     """
     for candidate in (start, *start.parents):
-        if (candidate / CONFIG_FILE).is_file():
+        if repo_files.present(candidate / CONFIG_FILE):
             return candidate
         pyproject = candidate / "pyproject.toml"
-        if pyproject.is_file() and "[tool.systemap]" in pyproject.read_text(encoding="utf-8-sig"):
+        if repo_files.present(pyproject) and configures(pyproject):
             return candidate
         if (candidate / ".git").exists():
             return candidate
     return None
+
+
+def configures(pyproject: Path) -> bool:
+    """Tell if pyproject.toml has a tool.systemap table.
+
+    If the file is not correct TOML and it contains the text tool.systemap, the result is
+    `True`. Then the configuration reader gives the TOML error for that file. A file
+    that the reader refuses, such as a link out of the folder, also gives `True`."""
+    try:
+        text = repo_files.read_text(pyproject.parent, pyproject.name, encoding="utf-8-sig")
+    except (OSError, UnicodeError):
+        return True
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return "tool.systemap" in text
+    tool = data.get("tool")
+    return isinstance(tool, dict) and isinstance(tool.get("systemap"), dict)
 
 
 PackageDir = Callable[[Path], bool]
@@ -375,17 +401,17 @@ def read_raw(root: Path) -> tuple[dict[str, Any], str]:
     """This function reads the configuration table from systemap.toml first, then
     pyproject.toml.
     """
-    toml = root / CONFIG_FILE
-    if toml.is_file():
+    if repo_files.present(root / CONFIG_FILE):
         try:
-            return tomllib.loads(toml.read_text(encoding="utf-8-sig")), CONFIG_FILE
-        except tomllib.TOMLDecodeError as exc:
+            text = repo_files.read_text(root, CONFIG_FILE, encoding="utf-8-sig")
+            return tomllib.loads(text), CONFIG_FILE
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
             raise ConfigError(f"{CONFIG_FILE}: {exc}") from exc
-    pyproject = root / "pyproject.toml"
-    if pyproject.is_file():
+    if repo_files.present(root / "pyproject.toml"):
         try:
-            data = tomllib.loads(pyproject.read_text(encoding="utf-8-sig"))
-        except tomllib.TOMLDecodeError as exc:
+            text = repo_files.read_text(root, "pyproject.toml", encoding="utf-8-sig")
+            data = tomllib.loads(text)
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
             raise ConfigError(f"pyproject.toml: {exc}") from exc
         section = data.get("tool", {}).get("systemap")
         if isinstance(section, dict):
@@ -750,6 +776,7 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     code, with SYSTEMAP_TRUST_MODEL_CODE=1 (see model_load). The optional label supplies
     the path name in error messages. A refusal or an import error gives a configuration
     diagnostic. A sequence step that names its flow by id gets the edge of that flow.
+    A name that the page cannot use (see model_names) gives a configuration diagnostic.
     """
     if not path.is_file():
         raise ConfigError(f"The model module is missing: {path}")
@@ -764,4 +791,9 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
         raise ConfigError(f"{label}: MODEL must be a systemap.Model")
     if not isinstance(meaning, Meaning):
         raise ConfigError(f"{label}: MEANING must be a systemap.Meaning")
+    found = model_fields.problem(model, Model, "MODEL")
+    found = found or model_fields.problem(meaning, Meaning, "MEANING")
+    found = found or model_names.problem(model, meaning)
+    if found:
+        raise ConfigError(f"{label}: {found}")
     return model, flow_ids.resolve(model, meaning)

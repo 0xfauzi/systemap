@@ -27,7 +27,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from systemap import cli, config, extract, nest, page
+from systemap import cli, config, facts_file, nest, page
 from systemap import theme as theme_mod
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -74,7 +74,7 @@ def render(root: Path) -> str:
     cfg = config.load(root)
     tree = nest.load(cfg)
     m = tree.top
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     if not facts:
         raise SystemExit("No facts are available. First run systemap refresh.")
     return page.build(

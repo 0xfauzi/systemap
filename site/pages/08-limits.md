@@ -36,7 +36,8 @@ A person or an agent can record a current digest without a source examination. N
 - systemap reads only Python and TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`).
   It does not read declaration files, such as `.d.ts`, or framework-specific routes.
 - Syntax that systemap cannot parse, or a package target that it cannot map, gets an unknown record.
-  `check` does not reject the map for it. `judgement --strict` accepts it only after a correction or an accepted answer.
+  `judgement --strict` accepts it only after a correction or an accepted answer.
+  A source file or a test file that systemap cannot parse also makes `check` exit 1. `check` does not reject the map for a package target that it cannot map.
 - The [Jev measurements](reference.html#what-questions-does-jev-answer) and the [OpenAI measurements](reference.html#which-decision-provider-answers-the-questions) used Python repositories only.
   No TypeScript row set is available. Thus `decision flow` is not a default question of `audit`.
 - If a module did not parse, its `unresolved_imports` value is not known. An import rule for that module gives `unknown`, not `pass`.

@@ -157,7 +157,7 @@ def test_card_descriptions_use_the_measured_font(sample: Sample) -> None:
     svg, _detail = render_schematic(sample.model, sample.meaning, sample.theme, sample.facts)
     assert PLAIN_FONT == 'Arial,"Liberation Sans",Arimo,sans-serif'
     assert (
-        f'[data-layer="job"] text{{font-family:{PLAIN_FONT};'
+        f'[data-part="job"] text{{font-family:{PLAIN_FONT};'
         "font-kerning:none;font-variant-ligatures:none}"
     ) in svg
 

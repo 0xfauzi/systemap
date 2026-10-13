@@ -13,6 +13,9 @@ import ast
 from pathlib import Path
 from typing import Any
 
+from systemap.call_sites import WHOLE
+from systemap.source_facts import entry_identity
+
 # A decorator of these names, on a function, registers a way in.
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 COMMAND_DECORATORS = ("command", "group")
@@ -410,7 +413,69 @@ def entry_points(
         ]
         out += in_source(module, sources.get(module, ""))
     out += in_pyproject(read_pyproject(repo), components)
-    return _once_each(out)
+    return started_symbols(same_operations(_once_each(out), components))
+
+
+# The Python kinds whose `target` is the started name in the module of the entry point.
+TARGET_IS_SYMBOL = frozenset(
+    {"console_script", "main_function", "route", "command", "task", "plugin"}
+)
+
+
+def started_symbols(points: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Write `symbol` on each entry point: the name in its module that it starts.
+
+    A public function starts the function of its name. A kind in TARGET_IS_SYMBOL starts
+    its target. A dotted target (a Django view such as `views.index`, or a plugin
+    attribute) is not one name in the module. A `__main__` module starts its full module,
+    and a subcommand target is the name of its console script. These give "".
+    """
+    for point in points:
+        target = point.get("target", "")
+        if point["kind"] == "public_function":
+            point["symbol"] = point["name"]
+        elif point["kind"] in TARGET_IS_SYMBOL and "." not in target:
+            point["symbol"] = target
+        else:
+            point["symbol"] = ""
+    return points
+
+
+def same_operations(
+    points: list[dict[str, str]], components: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Write `same_as` on an entry point that starts the function of a console script.
+
+    `same_as` gives the identity of that console script. A `main` function starts it
+    when the script has the same module and the target `main`. A `__main__` module
+    starts it when it uses the target function from the module of the script. An import
+    of a different name from that module does not show the same operation.
+    """
+    scripts = [p for p in points if p["kind"] == "console_script" and p["target"]]
+    for point in points:
+        script = next((s for s in scripts if _starts(point, s, components)), None)
+        # The adapter always writes the field. An empty string tells that no other entry
+        # point starts the same operation. A missing field is not known.
+        point["same_as"] = entry_identity(script) if script is not None else ""
+    return points
+
+
+def _starts(point: dict[str, str], script: dict[str, str], components: dict[str, Any]) -> bool:
+    if point["kind"] == "main_function":
+        return (point["module"], point["target"]) == (script["module"], script["target"])
+    if point["kind"] != "main_module":
+        return False
+    sites = components.get(point["module"], {}).get("call_sites") or []
+    return any(
+        site["target"] == script["module"] and _uses_name(site, script["target"]) for site in sites
+    )
+
+
+def _uses_name(site: dict[str, Any], name: str) -> bool:
+    """Find a use of the imported name, or of the name as an attribute of the module."""
+    if site["name"] == name:
+        return bool(site["uses"])
+    return site["name"] == WHOLE and any(use[2] == name for use in site["uses"])
 
 
 def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:

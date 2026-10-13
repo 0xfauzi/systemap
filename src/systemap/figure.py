@@ -9,6 +9,7 @@ libraries.
 from __future__ import annotations
 
 import contextlib
+import html
 import json
 import re
 from collections.abc import Iterator, Mapping
@@ -22,6 +23,13 @@ from systemap.schematic import interactive_script, kind_rows, layer_rows, legend
 from systemap.schematic import render as render_schematic
 
 GENERATOR = "systemap"
+# The SVG ID is an HTML ID, a CSS selector and a script string. It must be a safe token.
+SVG_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]*")
+
+
+def esc(text: object) -> str:
+    """Give authored text as HTML text. The text cannot add an element."""
+    return html.escape(str(text), quote=False)
 
 
 class FigureError(Exception):
@@ -85,7 +93,7 @@ def figure(
         f'margin-right:1.1em;white-space:nowrap">'
         f'<span style="width:.75em;height:.75em;border-radius:2px;'
         f"background:{fill};border:1px solid {stroke};"
-        f'display:inline-block"></span>{label}</span>'
+        f'display:inline-block"></span>{esc(label)}</span>'
         for fill, stroke, label in legend
     )
     swatches += "".join(
@@ -94,7 +102,7 @@ def figure(
         f'<span style="width:.75em;height:.75em;border-radius:2px;'
         f"background:{t['state']['built'][0]};border:1px solid {t['state']['built'][1]};"
         f"{MARK_STYLE[mark].format(bg=t['state']['built'][0], ink=t['state']['built'][1])};"
-        f'display:inline-block"></span>{kind}</span>'
+        f'display:inline-block"></span>{esc(kind)}</span>'
         for kind, mark in kind_rows(t, model)
     )
     if model.opening:
@@ -113,7 +121,7 @@ def figure(
         f'<span style="display:inline-flex;align-items:center;gap:.4em;'
         f'margin-right:1.1em;white-space:nowrap">'
         f'<span style="width:1em;height:3px;border-radius:2px;background:{colour};'
-        f'display:inline-block"></span>{label}</span>'
+        f'display:inline-block"></span>{esc(label)}</span>'
         for lid, colour, label in layer_rows(t, model, meaning)
         if lid in drawn
     )
@@ -231,9 +239,12 @@ def make(
     FigureError. The bare option gives SVG only. The layer and map_id arguments select a
     layer and nested map.
     """
-    page_url = f"{cfg.out_dir}/{map_id}/index.html" if map_id else f"{cfg.out_dir}/index.html"
-    facts_url = f"{cfg.out_dir}/{cfg.facts_file}"
-    inside = f"Inside {map_id.rpartition('/')[2]}: " if map_id else ""
+    _check_svg_id(svg_id)
+    # The configuration and the model give these names, so the caption has them as text.
+    caption = esc(caption)
+    page_url = esc(f"{cfg.out_dir}/{map_id}/index.html" if map_id else f"{cfg.out_dir}/index.html")
+    facts_url = esc(f"{cfg.out_dir}/{cfg.facts_file}")
+    inside = f"Inside {esc(map_id.rpartition('/')[2])}: " if map_id else ""
     mode = mode or ("change" if (base or components) else "system")
     known = model.ids
     reading = _reading(model, meaning, layer)
@@ -291,11 +302,11 @@ def make(
         sub = reading.sub[:1].upper() + reading.sub[1:] if reading.sub else ""
         caption = caption or (
             f"{inside}"
-            f"{reading.label}"
+            f"{esc(reading.label)}"
             ": "
-            f"{reading.question}"
+            f"{esc(reading.question)}"
             " "
-            f"{(sub + '. ' if sub else '')}"
+            f"{esc(sub + '. ' if sub else '')}"
             "This figure shows one layer. The page at <code>"
             f"{page_url}"
             "</code> has all layers. The generator is <code>"
@@ -348,6 +359,15 @@ def make(
         t, model, meaning, svg, caption, rows, svg_id, detail if interactive else None, layer
     )
     return out, collisions
+
+
+def _check_svg_id(svg_id: str) -> None:
+    """Give ArgumentError if the SVG ID is not a safe HTML ID."""
+    if SVG_ID.fullmatch(svg_id) is None:
+        raise ArgumentError(
+            f"The SVG ID {svg_id!r} is not a safe HTML ID. Give an ID that starts with a "
+            f"letter and contains only letters, digits, - and _."
+        )
 
 
 def _reading(model: Model, meaning: Meaning, layer: str) -> Layer | None:

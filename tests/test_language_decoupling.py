@@ -302,9 +302,13 @@ ADAPTERS = {
     "python_entry.py": "The Python entry point reader.",
     "python_imports.py": "The Python import resolver.",
     "python_calls.py": "The Python call-site reader.",
+    "python_syntax.py": "The Python package marker and decorator rules.",
+    "python_tests.py": "The Python test reader.",
+    "python_exports.py": "The Python rules for a star re-export.",
     "typescript.py": "The TypeScript adapter.",
     "typescript_repo.py": "The TypeScript repository adapter.",
     "typescript_config.py": "The tsconfig reader of the TypeScript adapter.",
+    "typescript_config_files.py": "The TypeScript configuration files for the live watcher.",
     "typescript_entry.py": "The TypeScript entry point reader.",
     "typescript_imports.py": "The TypeScript import reader.",
     "typescript_calls.py": "The TypeScript call-site reader.",
@@ -316,7 +320,7 @@ ADAPTERS = {
 # The model-file readers. A model file is Python for each source language, so these
 # modules parse Python text. They do not read repository source.
 MODEL_READERS = {
-    "place.py": "It edits the positions in the Python model file.",
+    "place_source.py": "It edits the positions in the Python model file.",
     "journeys.py": "It writes sequences into the Python model file.",
     "model_load.py": "It reads the Python model file without running it.",
     "model_convert.py": "It converts the Python model file to a new schema.",

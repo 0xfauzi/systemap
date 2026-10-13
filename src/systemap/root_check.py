@@ -2,7 +2,9 @@
 
 An earlier `systemap init` wrote the model and out_dir keys after the [package_roots] line.
 TOML reads these keys as package roots. If such an entry has the default value of its key,
-the entry has no effect, and the check removes it. Each other entry must be a directory.
+the entry has no effect, and the check removes it. Each other entry must be a directory
+in the repository. If a symbolic link refers to a directory that is not in the
+repository, the entry is not in the repository.
 The language adapter examines the module name of each root.
 """
 
@@ -13,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import language as languages
+from systemap import repo_files
 
 # The keys that an earlier init wrote after the [package_roots] line, with defaults.
 SETTINGS_IN_ROOTS = {"model": "map/model.py", "out_dir": "docs/map"}
@@ -37,6 +40,11 @@ def checked_roots(
     adapter = languages.repository(language) if language else None
     kept = tuple((rel, name) for rel, name in roots if not _repeats_setting(raw, rel, name))
     for rel, name in kept:
+        if not repo_files.inside(root, root / rel):
+            raise ValueError(
+                f"{where}: The package root {rel} is not in the repository. Correct the path "
+                f"in [package_roots]."
+            )
         name_problem = adapter.root_name_problem(rel, name) if adapter else ""
         if name_problem or not (root / rel).is_dir():
             raise ValueError(f"{where}: {_problem(rel, name_problem, settings)}")

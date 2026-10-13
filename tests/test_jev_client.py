@@ -9,6 +9,8 @@ from __future__ import annotations
 import http.client
 import io
 import json
+import subprocess
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -260,3 +262,58 @@ def test_a_model_name_with_control_characters_is_printed_without_them() -> None:
     client = jev.Jev(send)
     client.ask([owner_ask()])
     assert "\n" not in client.usage.line()
+
+
+# ---- the cache file: incorrect data and writers at the same time -------------------
+
+
+@pytest.mark.parametrize("held", [{"entries": None}, {"entries": []}, {"releases": []}, []])
+def test_a_cache_with_incorrect_data_is_an_empty_cache(held: Any, tmp_path: Path) -> None:
+    """change-21: the acceptance value is a complete request and 1 sent call.
+
+    A cache file that is JSON but has incorrect fields is not usable. The client
+    starts with an empty cache, as for a file that is not JSON."""
+    cache = tmp_path / "jev.json"
+    cache.write_text(json.dumps(held), encoding="utf-8")
+    client = jev.Jev(Scripted(), cache=jev.Cache(cache))
+    assert client.ask([owner_ask()])["a"]["owner"]["choice"] == "Reader"
+    assert client.usage.sent == 1
+    assert isinstance(json.loads(cache.read_text(encoding="utf-8"))["entries"], dict)
+
+
+WRITER = """
+import sys, time
+from pathlib import Path
+from systemap import jev
+path, name, rounds = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3])
+while not (path.parent / "go").exists():
+    time.sleep(0.001)
+cache = jev.Cache(path)
+for n in range(rounds):
+    cache.entries[f"{name}-{n}"] = {"n": n}
+    cache.save()
+"""
+
+
+def test_writers_at_the_same_time_keep_each_entry(tmp_path: Path) -> None:
+    """change-13: the acceptance value is 0 failed writers and 6 x 30 entries in the file.
+
+    Six processes write to one cache file at the same time. Each process saves after
+    each new entry, as the agent cache does. No temporary file stays."""
+    path = tmp_path / "jev.json"
+    writers, rounds = 6, 30
+    procs = [
+        subprocess.Popen(
+            [sys.executable, "-c", WRITER, str(path), f"w{k}", str(rounds)],
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for k in range(writers)
+    ]
+    (tmp_path / "go").write_text("", encoding="utf-8")
+    errors = [p.communicate(timeout=120)[1] for p in procs]
+    failed = [e for p, e in zip(procs, errors, strict=True) if p.returncode != 0]
+    assert failed == [], failed[0][-500:] if failed else ""
+    held = json.loads(path.read_text(encoding="utf-8"))["entries"]
+    assert len(held) == writers * rounds
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["go", "jev.json", "jev.json.lock"]

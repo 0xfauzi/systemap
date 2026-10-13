@@ -36,7 +36,7 @@ from typing import Any
 import pytest
 from conftest import init_two_cards, write_tree
 
-from systemap import card_review, config, decisions, extract, nest
+from systemap import card_review, config, decisions, extract, facts_file, nest
 from systemap.cli import main
 
 FIXTURE = Path(__file__).parent / "fixtures" / "typescript-app"
@@ -369,7 +369,7 @@ def test_a_component_review_waits_for_a_contradicted_flow(
     write_tree(tmp_path, SOURCE)
     init_two_cards(tmp_path, "--no-ci")
     assert main(["--root", str(tmp_path), "extract"]) == 0
-    facts = extract.read_facts(config.load(tmp_path).facts_path)
+    facts = facts_file.read_facts(config.load(tmp_path).facts_path)
     refs = tuple(
         f"pkg.{n}@{facts['components'][f'pkg.{n}']['source_sha256']}" for n in ("reader", "writer")
     )

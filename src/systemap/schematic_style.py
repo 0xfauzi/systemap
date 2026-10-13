@@ -38,7 +38,7 @@ def _node_style(s: str, t: Palette) -> str:
     line = tok(t, "card_line", "line_2")
     return (
         f"{s} .node{{cursor:pointer;outline:none;transition:opacity .16s ease-out}}"
-        f'{s} .node [data-layer="job"] text{{font-family:{PLAIN_FONT};'
+        f'{s} .node [data-part="job"] text{{font-family:{PLAIN_FONT};'
         "font-kerning:none;font-variant-ligatures:none}"
         # Only the page script sets --subject. A figure without the script
         # keeps the stroke that the renderer gives each card.
@@ -147,12 +147,22 @@ def _svg_style(svg_id: str, t: Palette) -> str:
     )
 
 
+def layer_marker(lid: str) -> str:
+    """Give the arrowhead name of a layer.
+
+    The prefix `l-` makes it different from the change arrowheads `change`, `reach` and
+    `flow`, which have no prefix."""
+    return f"l-{lid}"
+
+
 def _defs(svg_id: str, t: Palette) -> str:
     """Make arrowheads for layer and change colors.
 
     Arrowheads use SVG user units. Line thickness changes emphasis without
-    a change to the arrowhead size. The arrowhead shows direction."""
-    heads = {lid: t.layer(lid) for lid in t.t["layers"]}
+    a change to the arrowhead size. The arrowhead shows direction. A layer
+    arrowhead has the name from `layer_marker`. Thus a custom layer with the
+    name `change` or `reach` keeps its layer color."""
+    heads = {layer_marker(lid): t.layer(lid) for lid in t.t["layers"]}
     heads["change"] = t["change"]
     heads["reach"] = t["reach"]
     out = ["<defs>"]

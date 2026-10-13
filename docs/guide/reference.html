@@ -62,7 +62,7 @@ The command exits 1 if a rule rejects the map.</p>
 <tbody>
 <tr>
 <td>coverage</td>
-<td>No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is an <code>__init__</code> with no public names or imports. The rule automatically excludes these markers.</td>
+<td>No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is a Python <code>__init__.py</code> file or a TypeScript <code>index</code> file that holds no code. The rule automatically excludes these markers.</td>
 </tr>
 <tr>
 <td>entry</td>
@@ -70,7 +70,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>interface</td>
-<td>The first identifier of an <code>interface</code> is absent from the component's public names and re-exports. The identifier ends at <code>(</code>, <code>.</code>, <code>-&gt;</code>, or whitespace. Both parts of <code>Class.method</code> must be available. The finding gives the nearest defined name.</td>
+<td>The first identifier of an <code>interface</code> is absent from the component's public names and re-exports. An identifier can contain Unicode letters. It ends at the first character that an identifier cannot contain, such as <code>(</code>, <code>.</code>, <code>-</code>, or whitespace. Both parts of <code>Class.method</code> must be available. The finding gives the nearest defined name.</td>
 </tr>
 <tr>
 <td>nesting</td>
@@ -78,7 +78,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>placement</td>
-<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no <code>id</code>. Two flows have the same <code>id</code>, or an <code>id</code> contains a character other than a letter, a digit, <code>_</code>, <code>.</code>, or <code>-</code>. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number.</td>
+<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. A flow has the same component at the two ends. Two flows have the same ordered pair, and one of them has no <code>id</code>. Two flows have the same <code>id</code>, or an <code>id</code> contains a character other than a letter, a digit, <code>_</code>, <code>.</code>, or <code>-</code>. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id.</td>
 </tr>
 <tr>
 <td>routes</td>
@@ -94,7 +94,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>meaning</td>
-<td>A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the <code>(SRC, DST)</code> key of a pair with two or more flows. A sequence step names such a pair with <code>edge</code>. A flow has no sentence. A step has no <code>say</code>. A custom layer uses a standard id.</td>
+<td>A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the <code>(SRC, DST)</code> key of a pair with two or more flows. A sequence step names such a pair with <code>edge</code>. A flow has no sentence, or its sentence contains only spaces. A step has no <code>say</code>. A custom layer uses a standard id.</td>
 </tr>
 <tr>
 <td>import rules</td>
@@ -159,7 +159,7 @@ The renderer and the checks use the evidence state of the stored source snapshot
 <tr>
 <td><code>external</code></td>
 <td>An actor is at one end. The flow crosses the code boundary.</td>
-<td>A solid line. The panel identifies the endpoint outside the source code.</td>
+<td>A solid line. The panel identifies the endpoint outside the source code. The panel also shows the <code>source_refs</code> and each reference that does not resolve. <code>systemap review</code> refuses a reference that does not resolve.</td>
 </tr>
 <tr>
 <td><code>declared</code></td>
@@ -339,9 +339,15 @@ These claims are the component fields, the plain name, and the flows, sequences,
 The <code>source_review</code> value, the flow review digests, and the source digests in <code>source_refs</code> are not claims.</li>
 <li>For each module that the line names, and each module of a named component, the module facts and the source file.</li>
 <li>For a <code>crossing import</code> line, the imports between the two components and the source of the two modules of each import.</li>
+<li>For an <code>entry point</code> line, the entry point records of its modules. A record has the <code>kind</code>, <code>module</code>, <code>target</code>, and <code>name</code> values.</li>
 </ul>
 <p>Thus a change to a different component, or to a <code>source_review</code> value, does not open the finding again.
-A line that names no component and no module uses the full evidence: the model file and all modules.</p>
+A line that names no component and no module uses the full evidence: the model files and all modules.
+The model files are the model file and each model file that it imports.
+An <code>entry point</code> line with the full evidence also has all entry point records.</p>
+<p>Migration: the full evidence of a model file that imports other model files changed.
+The evidence of each <code>entry point</code> line also changed.
+Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration to systemap 3.1.0: the earlier evidence digest of a line that is not a <code>crossing import</code> contained the full model file and all modules.
 Thus each of these exact answers is pending one time after the update.
 The digests of <code>crossing import</code> answers do not change.</p>
@@ -431,7 +437,9 @@ Its key includes the model, release date, state, and question.
 A map without changes uses cached answers at no additional cost.
 A new model release causes new questions.
 If the model list is not available and the cache has every answer for the last known
-release, the command uses the cache. The usage line says so.</p>
+release, the command uses the cache. The usage line says so.
+Two commands can write the cache at the same time.
+A save holds a lock on the file <code>jev-cache.json.lock</code> and keeps the entries of the two commands.</p>
 <p>Audit answers use <code>[judgement] answered</code> with <code>item</code>, <code>items</code>, or a kind such as
 <code>&quot;decision flow&quot;</code>. <code>audit</code> reads only answers for the kinds in its report.
 A kind excluded from the report does not make its answer stale.
@@ -630,6 +638,33 @@ systemap calculates the digest of a line from the same line with its previous na
 Thus an exact answer with one item keeps its <code>evidence</code> value after you change the name.
 But the digest of an <code>items</code> group also contains the text of each item.
 Thus a group with changed names gets a new digest, and <code>audit</code> prints a <code>pending answer</code> line.</p>
+<p>The <code>unknown surface</code> line for a source parse error also has a new form, because a line must not name one language.
+The earlier line ended with <code>under Python 3.11.10</code>. The new line ends with <code>(parser version 3.11.10)</code>.
+In this release, an answer item in the earlier form is an answer for the line in the new form.
+The evidence digest of the item does not change.</p>
+<p>Two other <code>unknown surface</code> lines also have a new form for the same cause:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
+<table>
+<thead>
+<tr>
+<th>Earlier text in the line</th>
+<th>New text in the line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>the npm tsconfig package could not be read</code></td>
+<td><code>the configuration package could not be read</code></td>
+</tr>
+<tr>
+<td><code>The parser could not parse the TypeScript syntax.</code></td>
+<td><code>The parser could not parse the source syntax.</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The same rule applies to these two lines.</p>
+<p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
@@ -650,9 +685,13 @@ components. Layer selection then gives little separation.</p>
 <p>A component can have <code>map=&quot;gateway.py&quot;</code>.
 This path is relative to its model file.
 The target module exports <code>MODEL</code> and <code>MEANING</code>.
-The nested map shows the parent component's internal structure.</p>
+The nested map shows the parent component's internal structure.
+The component ID is also the directory name of the nested page.
+Thus the ID must not contain <code>/</code> or <code>\</code>, and it must not be <code>.</code> or <code>..</code>.</p>
 <p>Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
+Only one component can open a nested model file.
+The map tree rejects a second component that opens the same file.
 Symbol claims are permitted.
 Empty package markers are excluded.
 Nested actors must be components from the parent map.
@@ -681,6 +720,12 @@ A <code>[[figures]]</code> entry also accepts <code>map</code>.</p>
 <p><code>describe</code> and <code>judgement</code> use map-id prefixes.
 An <code>item</code> answer contains the printed line.
 A family answer can apply to all maps.</p>
+</li>
+<li>
+<p>An <code>unknown surface</code> line about a module occurs one time, in the map that owns the module.
+An <code>unknown surface</code> line about the repository occurs one time, in the top map.
+Migration: an earlier exact answer for such a line can have a different map prefix.
+If its <code>item</code> without the prefix agrees with one current line, the answer applies to that line.</p>
 </li>
 <li>
 <p><code>delta</code> compares each map's claimed modules.
@@ -775,6 +820,12 @@ in the environment of the command. Then systemap runs each model file as Python 
 as version 2.0 did. Only the value <code>1</code> gives this permission.
 systemap does not read this permission from <code>systemap.toml</code>, because the repository controls that file.
 To write a model file with code again as literal values, use <code>systemap convert</code>.</p>
+<p>The page and the figures use some model names as CSS names and SVG IDs.
+Thus systemap refuses these names when it reads the model, and the command exits 2:</p>
+<ul>
+<li>A custom layer ID that contains a character other than a letter, a digit, <code>_</code>, or <code>-</code>.</li>
+<li>The component IDs <code>_meta</code> and <code>__proto__</code>. The page data uses these keys.</li>
+</ul>
 <p>The full schema and examples are in
 <a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/SKILL.md"><code>SKILL.md</code></a> and its
 <a href="https://github.com/0xfauzi/systemap/tree/main/src/systemap/skill/references"><code>references/</code></a>.</p>
@@ -789,7 +840,11 @@ The input is a command option, <code>systemap.toml</code> or the model module, a
 <p>Writes <code>systemap.toml</code>, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
 The command does not replace <code>systemap.toml</code>, the model, or the workflow.
+If <code>pyproject.toml</code> has a <code>[tool.systemap]</code> table and <code>systemap.toml</code> is missing,
+the command does not write <code>systemap.toml</code>, because the commands read that file before the table.
+Then it writes the model at the <code>model</code> path of the table.
 It writes the skill directory again on each run.
+If a symbolic link puts a file in a location that is not in the repository, the command writes no file and exits 2.
 It prints the instruction for your agent.
 <code>--no-ci</code> does not include the workflow.</p>
 <p>The workflow has the variable <code>SYSTEMAP_CI</code>. Its default value is <code>advisory</code>:
@@ -815,10 +870,23 @@ If the module did not parse, <code>unresolved_imports</code> is null, because th
 A component with a module that did not parse gets no source review digest. An import rule for that module gives <code>unknown</code>.</li>
 <li><code>call_sites</code>: the lines that use each imported name, and the lines that use a local name that gets its value from an imported name.
 The <code>decision flow</code> question reads this fact.</li>
+<li><code>classes</code> and <code>types</code>: <code>classes</code> holds only class declarations.
+<code>types</code> holds each other type declaration, with its name, its category (<code>interface</code>, <code>enum</code>, or <code>type_alias</code>), and its methods.</li>
+<li><code>defined_in</code> and <code>defined_as</code> on each re-export: the module and the symbol that define it.</li>
+<li><code>same_as</code> on each entry point: the identity of a different entry point with the same start, or an empty string.
+A missing value is not known. Then the entry point must have its own sequence.</li>
+<li><code>symbol</code> on each entry point: the name in its module that the entry point starts, or an empty string.</li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 7.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 8.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
+<p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
+The record gives an <code>unknown surface</code> line and a <code>source inventory unresolved</code> line. Then <code>refresh</code> and <code>check</code> exit 1.</p>
+<p>systemap reads <code>systemap.toml</code>, <code>pyproject.toml</code>, <code>package.json</code>, and each <code>tsconfig.json</code> file only in the repository.
+A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
+The error gives the path and the cause.
+A missing configuration file gives an empty table, as before.
+A <code>tsconfig.json</code> target in the <code>node_modules</code> folder of the repository stays permitted.</p>
 <ul>
 <li><code>--check</code> exits 1 if stored facts differ from the source tree.
 It also exits 1 if a model claim names a module that the source tree does not have.
@@ -859,7 +927,13 @@ importers, external imports, and test count. It does not print test names.</p>
 <p>A component must have a position before you render the map.
 This command writes positions for unpositioned components on all maps.
 The command keeps positions already in the model.
-Only <code>x=</code>, <code>y=</code>, boxes, and the canvas change.</p>
+Only <code>x=</code>, <code>y=</code>, boxes, and the canvas change.
+The command changes keyword values and positional values.
+After the write, the command loads the model file again.
+It compares each position, box, and the canvas with the calculated values.
+If the command cannot load the file or a value is different, it restores the previous file contents.
+This error causes exit 1.
+For example, a box in an imported file is different, because the command changes only the model file.</p>
 <p>Regions use a two-column grid with routing corridors.
 The search selects the region order with the best score.
 Barycenter sweeps through flows select component order within regions.
@@ -899,7 +973,14 @@ The Changes panel lists the map changes: the components, flows, sequences, and r
 that the change added, removed, or changed in the model.
 The list compares the committed model at the merge base with the model on disk.
 A new digest for the same cited module or symbol is not a flow change.
-If the base model does not load, the panel gives the reason.</p>
+If the base model does not load, the panel gives the reason.
+The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
+If systemap cannot read a changed source file, the changes of its module are not known.
+The panel gives the read problem. A missing file is a removal.
+If systemap cannot read a changed test file, the panel gives the file and the problem.
+The page has no test changes for that file.
+The panel also gives each changed path that the Git tree reader refuses, with its cause.
+The changes of such a path are not known.</p>
 </li>
 </ul>
 <h3 id="systemap-check-brief"><code>systemap check [--brief]</code></h3>
@@ -929,13 +1010,22 @@ The legend contains only that layer.</p>
 <li>
 <p>An <code>--out</code> filename with a <code>.svg</code> suffix writes the drawing without a frame.</p>
 </li>
+<li>
+<p><code>--svg-id ID</code> sets the HTML ID of the drawing. The default is <code>lessonmap</code>.
+The ID must start with a letter and contain only letters, digits, <code>-</code>, and <code>_</code>.</p>
+</li>
 </ul>
+<p>The figure shows the layer names, the caption, and the other model and configuration text as text, not as HTML.</p>
 <h3 id="systemap-refresh"><code>systemap refresh</code></h3>
 <p>Executes extraction and the checks, and renders the page and the configured figures,
 in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 <code>map: The page agrees with the rendered model fields and the facts.</code>
 A rejected check causes exit 1, and the command renders nothing.
+After a check without errors, the command examines the import rules, as <code>systemap check</code> does.
+It prints the rule results. A rule with the result <code>fail</code> causes exit 1.
+With <code>[rules] unknown = &quot;fail&quot;</code>, a rule with the result <code>unknown</code> also causes exit 1.
+The command writes its outputs before it examines the rules.
 <code>-q</code> or <code>--quiet</code> prints only errors and check results.</p>
 <h3 id="systemap-suggest-decide"><code>systemap suggest [--decide]</code></h3>
 <p>Proposes the first module groups for revision.
@@ -1153,7 +1243,14 @@ Python and TypeScript use the configured language adapter, as the working tree
 does. The report shows moved, added, and removed modules with their
 components and model files.
 Delta reads the committed files. The Git attributes <code>export-subst</code> and
-<code>export-ignore</code> do not change them.</p>
+<code>export-ignore</code> do not change them.
+Delta compares the head with the merge base of the two refs.
+If Git finds no merge base, the command gives an error and exits 2.
+Delta does not use a different commit as the base.
+Delta does not write a committed path that contains <code>..</code>, a backslash, or a colon.
+Thus the facts at a commit are the same on each platform.
+Before the report, delta gives each refused path and its cause under <code>Not in this comparison</code>.
+The changes of a refused path are not known. A refused module is not a removed module.</p>
 <p>Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
@@ -1242,13 +1339,18 @@ Jev compares the task with each component's function.
 The projection includes components with probability of at least 0.05.
 The report includes flows, sequences, and rules for each component.
 It lists six of each, then gives a count.
-The projection is in <code>.systemap/plans/&lt;id&gt;.json</code>.</p>
+The projection is in <code>.systemap/plans/&lt;id&gt;.json</code>.
+The ID has three parts: the date, a digest of the full task, and the first four words of the task.
+The same task on the same date gives the same ID.
+If the plan file of the ID contains a different task, the command does not replace it. It exits 1 and gives the file.</p>
 <p>The measured threshold of 0.05 is in <code>bench/jev/plan_eval.py</code>.
 Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
 <ul>
 <li>
 <p><code>--check ID --base REF</code> compares the projection with changed components
 since <code>REF</code>. The default base is <code>origin/main</code>.
+The current model gives the component of each module.
+If the current model does not claim a removed module, the model at the <code>REF</code> commit gives its component.
 It exits 1 for changed components outside the plan.</p>
 </li>
 <li>
@@ -1279,7 +1381,13 @@ Each request contains the language policy of the <code>[writing]</code> profile.
 The command rejects a step with no authored flow and gives a finding.
 The command also rejects a step source record that does not resolve.
 It rejects a step source record in no module of an acting or measured component of the step.
-The command does not write that step.</p>
+The command does not write that step.
+The agent cache keeps only an answer that gives an accepted sequence.
+Thus, after a rejected answer, the next command sends the question to the agent again.</p>
+<p>The agent can write no more than 200,000 bytes to stdout.
+If it writes more, the command stops the agent, and the request does not complete.
+If a request does not complete, the command writes the accepted sequences of the other requests.
+Then it names each request that did not complete and exits 1.</p>
 <p>Accepted sequences enter the model with <code>drafted=True</code>.
 The command writes them into the <code>JOURNEYS = (...)</code> tuple of the model.
 The tuple can have a type annotation, as in the model from <code>init</code>.
@@ -1288,7 +1396,7 @@ removes the mark.</p>
 <p>By default, the command writes no more than three sequences.</p>
 <ul>
 <li>
-<p><code>--limit N</code> writes no more than N sequences.</p>
+<p><code>--limit N</code> writes no more than N sequences. N must be 1 or more.</p>
 </li>
 <li>
 <p><code>--dry-run</code> lists proposed sequences without file changes.</p>
@@ -1304,13 +1412,16 @@ The defaults are <code>1 year ago</code>, one sample every 14 days, and the five
 windows (<code>--top</code> default 5). Each window compares two samples.
 Facts use the cache <code>.systemap/facts/&lt;sha&gt;-&lt;scope&gt;.json</code>.</p>
 <p>Each window shows module and entry additions or removals, component size
-changes, and new crossing imports.
-It shows the commits that added new modules.
+changes, and new and removed crossing imports.
+It shows the commits that added the files of new modules.
+A commit that only changes such a file is not in the list.
 All samples use the component assignments in the selected map.
 Thus, a moved module counts under its component in the selected map.
 TypeScript samples include <code>.ts</code>, <code>.tsx</code>, tests, and package entry points.</p>
 <ul>
-<li><code>--ref REF</code> starts from that branch or commit instead of <code>HEAD</code>.</li>
+<li><code>--ref REF</code> starts from that branch or commit instead of <code>HEAD</code>.
+Git must resolve <code>REF</code> to a commit. A value that starts with <code>-</code> is not an option to Git.
+If Git cannot resolve <code>REF</code>, or if a Git command fails, the command exits 2.</li>
 </ul>
 <h3 id="systemap-explain-kind"><code>systemap explain [KIND]</code></h3>
 <p>Prints one finding kind's meaning, effect on the map, and necessary action.
@@ -1622,7 +1733,8 @@ If the port is not available, the command exits 2.
 Then use <code>--port 0</code> to select an available port, or give a different port.
 The server answers only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port.
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
-<code>systemap live</code> has the same rule.</p>
+The server answers 404 for a symbolic link to a file that is not in the output directory.
+<code>systemap live</code> has the same rules.</p>
 <h3 id="systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></h3>
 <p>Renders the page of the working tree and supplies it through HTTP on the loopback address.
 The facts come from the source files in memory. The models come from the model files.
@@ -1635,7 +1747,9 @@ The command renders one version at a time.
 If a request occurs while the command renders, the command renders one more version after the current version.
 If the command cannot render a version, the last page stays and the command gives the error.
 Examples are a model file that does not load, a source syntax error, and an extraction error.
-If the first version fails, the page gives the error.</p>
+If the first version fails, the page gives the error.
+If the command cannot write the pages of a version, the command gives the error, and the next version renders.
+After a good version, the command removes the pages of the maps that the version does not have.</p>
 <ul>
 <li>
 <p><code>--base REF</code> sets the base of the Changes view.
@@ -1648,6 +1762,8 @@ and the untracked files that Git does not ignore.</p>
 <li>
 <p>Without <code>--no-watch</code>, the command scans the configuration files, the model files,
 and the source and test files one time each second.
+The scan includes the language configuration files below each package root, such as <code>packages/web/src/lib/package.json</code>.
+It also includes these files in the folders between a package root and the repository root, such as <code>packages/web/tsconfig.json</code>.
 When a scan finds a change and the next scan finds no more change, the command renders the page again.</p>
 </li>
 <li>
@@ -1737,12 +1853,12 @@ Thus the command waits until the files stop changing before it renders the page.
 <h3 id="systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></h3>
 <p>Reinstalls the skill directory from <code>init</code>: <code>SKILL.md</code> and <code>references/</code>.</p>
 <ul>
-<li>
-<p><code>--dir PATH</code> writes to another directory.</p>
-</li>
-<li>
-<p><code>--print</code> writes <code>SKILL.md</code> to stdout.</p>
-</li>
+<li><code>--dir PATH</code> writes to another directory.</li>
+</ul>
+<p>Each skill file must be in the repository (in <code>PATH</code> with <code>--dir</code>) after the resolution of symbolic links.
+If a file is not, the command writes no file and exits 2.</p>
+<ul>
+<li><code>--print</code> writes <code>SKILL.md</code> to stdout.</li>
 </ul>
 <h2 id="what-can-you-configure">What can you configure?</h2>
 <p>Use <code>systemap.toml</code> at the repository root or <code>[tool.systemap]</code> in
@@ -1771,7 +1887,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[package_roots]</code></td>
 <td>Python packages, or <code>src</code> then repository root for TypeScript</td>
-<td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
+<td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory in the repository. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
 </tr>
 <tr>
 <td><code>tests_dir</code></td>
@@ -1796,7 +1912,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>facts_file</code></td>
 <td><code>map.json</code></td>
-<td>The facts filename inside <code>out_dir</code>.</td>
+<td>The facts filename inside <code>out_dir</code>. A path that is not in <code>out_dir</code> gives exit code 2.</td>
 </tr>
 <tr>
 <td><code>spec_path</code></td>
@@ -1881,12 +1997,12 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[theme]</code></td>
 <td><code>dark</code></td>
-<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>.</td>
+<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>&quot;</code>, <code>;</code>, <code>{</code>, or <code>}</code>. A font value (<code>font_ui</code>, <code>font_mono</code>) can contain <code>&quot;</code>. A <code>[theme.marks]</code> value must be <code>ring</code>, <code>notch</code>, or <code>dotted</code>. A key in a theme table, such as <code>[theme.delta]</code>, can contain only letters, digits, <code>_</code>, and <code>-</code>. The page uses these keys in CSS names.</td>
 </tr>
 <tr>
 <td><code>[[figures]]</code></td>
 <td>none</td>
-<td>Figures for <code>refresh</code>. Keys are <code>out</code>, <code>mode</code> (<code>system</code> or <code>reach</code>), <code>components</code>, <code>caption</code>, <code>interactive</code>, <code>layer</code>, and <code>map</code>. <code>layer</code> selects that layer's flows. <code>map</code> identifies a nested map. An <code>out</code> with <code>.svg</code> suffix writes the drawing alone.</td>
+<td>Figures for <code>refresh</code>. Keys are <code>out</code>, <code>mode</code> (<code>system</code> or <code>reach</code>), <code>components</code>, <code>caption</code>, <code>interactive</code>, <code>layer</code>, and <code>map</code>. <code>layer</code> selects that layer's flows. <code>map</code> identifies a nested map. An <code>out</code> with <code>.svg</code> suffix writes the drawing alone. An <code>out</code> that is not in <code>out_dir</code> gives exit code 2.</td>
 </tr>
 </tbody>
 </table>
@@ -1917,7 +2033,17 @@ Unknown keys are rejected.</p>
 </table>
 </div>
 <p>TypeScript discovery does not include <code>.d.ts</code>, <code>.d.mts</code>, and <code>.d.cts</code> declaration files.
-The <code>external</code> imports do not include Node.js built-in modules, such as <code>node:fs</code> and <code>path</code>.
+The <code>external</code> imports do not include Node.js built-in modules, such as <code>node:fs</code> and <code>path</code>.</p>
+<p>The suffix of an import selects the source suffix, as in <code>tsc</code>.
+<code>.js</code> selects <code>.ts</code> or <code>.tsx</code>, <code>.mjs</code> selects <code>.mts</code>, and <code>.cjs</code> selects <code>.cts</code>.
+An import without a suffix selects <code>.ts</code> or <code>.tsx</code>.
+If <code>tsc</code> cannot resolve a relative import, the import has no target.</p>
+<p>A source file that systemap cannot read keeps its module record, with a read problem.
+A <code>package.json</code> file that systemap cannot read gives a configuration error.
+This also applies to a <code>package.json</code> file without a JSON object.</p>
+<p>A TypeScript test name contains the names of the <code>describe</code> or <code>suite</code> functions that contain the test.
+The text <code>&gt;</code> is between two names, as in <code>orders &gt; saves an order</code>.
+If a file has two tests with the same name, the second name gets <code> #2</code>.
 A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in <code>tsconfig.json</code> <code>extends</code> gives an <code>unknown surface</code>
 finding. Extraction continues with the compiler options that it can read.</p>
@@ -1930,7 +2056,9 @@ A plain relative path uses the directory of the file that declares it.</p>
 <li>
 <p>TypeScript 5 uses the longest common directory of selected non-declaration
 files. The <code>files</code>, <code>include</code>, and <code>exclude</code> options select files.
-These files include tests.</p>
+An <code>include</code> pattern can select files that are not in the <code>tsconfig.json</code>
+directory, but only files in the repository.
+The selected files include tests and the source files that these files import.</p>
 </li>
 <li>
 <p>TypeScript 6 and later use the <code>tsconfig.json</code> directory.</p>
@@ -1939,6 +2067,11 @@ These files include tests.</p>
 <p><code>composite</code> uses the <code>tsconfig.json</code> directory on all versions.</p>
 </li>
 </ul>
+<p>Each source file uses the compiler options of one <code>tsconfig.json</code> project.
+The nearest <code>tsconfig.json</code> file gives the project if its files or their imports contain the file.
+Then the first project in <code>references</code> that selects the file gives the project.
+Then the first project in <code>references</code> with files that import the file gives the project.
+These imports can go through other files.</p>
 <p>The version comes from <code>node_modules/typescript/package.json</code>, then the
 <code>typescript</code> range in <code>package.json</code>.
 If the two files do not give a version, systemap tries the two roots.

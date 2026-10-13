@@ -8,12 +8,10 @@ it uses free slots inside the existing boxes.
 
 from __future__ import annotations
 
-import ast
 import itertools
 import math
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 
 from systemap.model import CARD_H, CARD_W, Box, Model, Region
 from systemap.route import place_labels, route_all
@@ -24,6 +22,7 @@ from systemap.schematic import (
     LABEL_H,
     SUB_CHAR,
     geometry,
+    region_header,
     wrap_all,
 )
 
@@ -560,6 +559,14 @@ def _groups(model: Model) -> list[list[Region]]:
     return list(by.values())
 
 
+def _grouped(model: Model) -> tuple[Region, ...]:
+    """This function gives the model sequence of the regions, with the regions of each
+    container together. The layout and _orders use this sequence. In the model, a region of
+    one container can be between two regions of a different container.
+    """
+    return tuple(r for group in _groups(model) for r in group)
+
+
 def _orders(model: Model) -> Iterator[tuple[Region, ...]]:
     """This function gives region-order combinations within each container, with the model
     order first.
@@ -585,6 +592,7 @@ def _search(model: Model) -> Placement:
     # Every order laid out and estimated, keyed by its ids; the estimate
     # carries the index so a tie goes to the order tried first.
     seen: dict[tuple[str, ...], tuple[tuple[int, float, int], Placement]] = {}
+    grouped = _grouped(model)
 
     def try_order(order: tuple[Region, ...]) -> tuple[int, float, int]:
         ids = tuple(r.id for r in order)
@@ -600,7 +608,7 @@ def _search(model: Model) -> Placement:
         for order in _orders(model):
             try_order(order)
     else:
-        try_order(model.regions)
+        try_order(grouped)
         weights = _region_weights(model)
         listed_ids = [r.id for r in model.regions]
         groups = [_greedy(group, weights, listed_ids) for group in _groups(model)]
@@ -622,7 +630,7 @@ def _search(model: Model) -> Placement:
             best, current = improved
             groups = [[r for r in current if r.container == group[0].container] for group in groups]
 
-    listed = tuple(r.id for r in model.regions)
+    listed = tuple(r.id for r in grouped)
     ranked = sorted(seen, key=lambda ids: seen[ids][0])
     shortlist = ranked[:ROUTED]
     if listed not in shortlist:
@@ -673,7 +681,9 @@ def order_line(placement: Placement) -> str:
 # ---- filling the holes: some cards pinned ----------------------------------------
 
 
-def _overlaps(slot: _Slot, h: int, box: Box, pad_x: int, pad_y: int) -> bool:
+def _overlaps(
+    slot: _Slot, h: int, box: tuple[float, float, float, float], pad_x: int, pad_y: int
+) -> bool:
     bx, by, bw, bh = box
     return (
         slot.x < bx + bw + pad_x
@@ -681,6 +691,13 @@ def _overlaps(slot: _Slot, h: int, box: Box, pad_x: int, pad_y: int) -> bool:
         and slot.y < by + bh + pad_y
         and by - pad_y < slot.y + h
     )
+
+
+def _region_walls(model: Model) -> list[tuple[float, float, float, float]]:
+    """This function gives each region box and region header box. A card in a container
+    slot must not touch them.
+    """
+    return [*(r.box for r in model.regions), *(region_header(r)[0] for r in model.regions)]
 
 
 def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
@@ -700,24 +717,27 @@ def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
         if home not in regions and home not in containers:
             raise PlaceError(f"{c.id} specifies an unknown region or container {home}")
         free.setdefault(home, []).append(c.id)
-    taken = [c.box for c in pinned]
+    taken: list[tuple[float, float, float, float]] = [c.box for c in pinned]
+    walls = _region_walls(model)
     slots: dict[str, list[_Slot]] = {}
     columns: dict[str, _Column] = {}
     for home, ids in free.items():
         if home in regions:
             box = regions[home]
             top = REGION_PAD_TOP
+            blocked = taken
         else:
             box = containers[home]
             holder = next(b for b in model.containers if b.id == home)
             top = container_top(holder.sub, box[2])
+            blocked = taken + walls
         tallest = max(CARD_H[model.kind_of(i)] for i in ids)
         room = [
             s
             for s in region_slots(box, top)
             if s.x + CARD_W <= box[0] + box[2]
             and s.y + tallest <= box[1] + box[3]
-            and not any(_overlaps(s, tallest, t, COL_GUTTER - 1, ROW_GUTTER - 1) for t in taken)
+            and not any(_overlaps(s, tallest, t, COL_GUTTER - 1, ROW_GUTTER - 1) for t in blocked)
         ]
         if len(room) < len(ids):
             fix = (
@@ -834,167 +854,3 @@ def lines(placement: Placement) -> list[str]:
         out += [f"  container {cid}: box={box}" for cid, box in placement.containers.items()]
         out.append(f"  canvas: {placement.canvas}")
     return out
-
-
-# ---- writing the positions into the model module -----------------------------------
-
-
-def _name_of(node: ast.expr) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return ""
-
-
-def _const_str(node: ast.expr | None) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    return None
-
-
-def _kw(call: ast.Call, name: str) -> ast.keyword | None:
-    return next((k for k in call.keywords if k.arg == name), None)
-
-
-def _id_of(call: ast.Call) -> str | None:
-    kw = _kw(call, "id")
-    return _const_str(kw.value if kw else (call.args[0] if call.args else None))
-
-
-def _box_node(call: ast.Call) -> ast.expr | None:
-    kw = _kw(call, "box")
-    if kw is not None:
-        return kw.value
-    return call.args[2] if len(call.args) > 2 else None
-
-
-# What the source positions are read from: an expression or a keyword.
-_Located = ast.expr | ast.keyword
-
-
-@dataclass(frozen=True)
-class _Edit:
-    start: int
-    end: int
-    text: bytes
-
-
-def _offsets(source: bytes) -> list[int]:
-    """This function calculates byte offsets for source lines to convert AST positions."""
-    out = [0]
-    for k, b in enumerate(source):
-        if b == 0x0A:
-            out.append(k + 1)
-    return out
-
-
-def edits(source: str, placement: Placement) -> list[_Edit]:
-    """This function prepares source-byte edits for component positions and layout boxes.
-
-    It replaces existing x and y arguments or inserts missing arguments in explicit
-    Component calls.
-    """
-    raw = source.encode("utf-8")
-    starts = _offsets(raw)
-
-    def at(line: int, col: int) -> int:
-        return starts[line - 1] + col
-
-    def span(node: _Located) -> tuple[int, int]:
-        assert node.end_lineno is not None and node.end_col_offset is not None
-        return at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
-
-    out: list[_Edit] = []
-    seen: set[str] = set()
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Call):
-            continue
-        name = _name_of(node.func)
-        if name == "Component":
-            cid = _id_of(node)
-            if cid is None or cid not in placement.positions or cid in seen:
-                continue
-            seen.add(cid)
-            x, y = placement.positions[cid]
-            missing: list[tuple[str, int]] = []
-            for key, value in (("x", x), ("y", y)):
-                kw = _kw(node, key)
-                if kw is None:
-                    missing.append((key, value))
-                else:
-                    a, b = span(kw.value)
-                    out.append(_Edit(a, b, str(value).encode()))
-            if missing:
-                out.append(_insertion(raw, node, missing, span))
-        elif name in ("Region", "Container") and placement.fresh:
-            table = placement.regions if name == "Region" else placement.containers
-            rid = _id_of(node)
-            box = _box_node(node)
-            if rid is None or rid not in table or box is None:
-                continue
-            a, b = span(box)
-            out.append(_Edit(a, b, repr(tuple(table[rid])).encode()))
-        elif name == "Model" and placement.fresh:
-            kw = _kw(node, "canvas")
-            if kw is not None:
-                a, b = span(kw.value)
-                out.append(_Edit(a, b, repr(tuple(placement.canvas)).encode()))
-    return out
-
-
-def _insertion(
-    raw: bytes,
-    call: ast.Call,
-    missing: list[tuple[str, int]],
-    span: Callable[[_Located], tuple[int, int]],
-) -> _Edit:
-    """This function formats missing x and y arguments in the existing call style."""
-    last = max(
-        (*call.args, *(k.value for k in call.keywords)),
-        key=lambda n: span(n)[1],
-    )
-    _a, end = span(last)
-    _call_start, call_end = span(call)
-    between = raw[end : call_end - 1]
-    if b"\n" in between:
-        line_start = raw.rfind(b"\n", 0, span(last)[0]) + 1
-        indent = raw[line_start : span(last)[0]]
-        indent = indent[: len(indent) - len(indent.lstrip())]
-        # The last argument may be a keyword: its line's indent is the one.
-        kw = next((k for k in call.keywords if k.value is last), None)
-        if kw is not None:
-            line_start = raw.rfind(b"\n", 0, span(kw)[0]) + 1
-            indent = raw[line_start : span(kw)[0]]
-        text = b"".join(b",\n" + indent + f"{k}={v}".encode() for k, v in missing)
-        return _Edit(end, end, text)
-    text = b"".join(f", {k}={v}".encode() for k, v in missing)
-    return _Edit(end, end, text)
-
-
-def written(source: str, placement: Placement) -> str:
-    """This function gives the model source with placement edits."""
-    raw = bytearray(source.encode("utf-8"))
-    for edit in sorted(edits(source, placement), key=lambda e: (e.start, e.end), reverse=True):
-        raw[edit.start : edit.end] = edit.text
-    return raw.decode("utf-8")
-
-
-def write(path: Path, placement: Placement) -> str:
-    """Write the placement into the model file and return the previous source.
-
-    The caller reloads the model and uses unwritten to find positions that the edit did
-    not change.
-    """
-    source = path.read_text(encoding="utf-8-sig")
-    path.write_text(written(source, placement), encoding="utf-8", newline="\n")
-    return source
-
-
-def unwritten(reloaded: Model, placement: Placement) -> list[str]:
-    """This function finds calculated positions that the reloaded model does not contain."""
-    return sorted(
-        cid
-        for cid, (x, y) in placement.positions.items()
-        if (reloaded.component(cid).x, reloaded.component(cid).y) != (x, y)
-    )

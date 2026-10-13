@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from systemap.call_sites import IMPORT, VALUE, WHOLE, Binding, records
-from systemap.typescript_syntax import syntax_tree
+from systemap.typescript_syntax import string_value, syntax_tree
 
 RECEIVER = "this"
 DEFAULT = "default"
@@ -67,12 +67,7 @@ def _dotted(node: Any | None) -> str | None:
 
 
 def _source(node: Any) -> str:
-    source = node.child_by_field_name("source")
-    fragment = next(
-        (c for c in (source.named_children if source else []) if c.type == "string_fragment"),
-        None,
-    )
-    return _text(fragment)
+    return string_value(node.child_by_field_name("source"))
 
 
 def _first_name(node: Any) -> Any | None:

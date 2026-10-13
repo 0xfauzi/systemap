@@ -42,6 +42,7 @@ from systemap import (
     config,
     drift_order,
     extract,
+    facts_file,
     jev,
     journeys,
     judgement,
@@ -184,7 +185,7 @@ def project(
 
 def loaded(root: Path) -> tuple[config.Config, nest.Tree, dict[str, Any]]:
     cfg = config.load(root)
-    return cfg, nest.load(cfg), extract.read_facts(cfg.facts_path)
+    return cfg, nest.load(cfg), facts_file.read_facts(cfg.facts_path)
 
 
 # ---- acceptance 1 -----------------------------------------------------------------
@@ -238,7 +239,7 @@ def test_the_drift_request_bodies_do_not_hold_an_outside_file(
     root, secret, language = project
     cfg, _tree, facts = loaded(root)
     bad = tampered(facts, bad_path(form, root, secret, language))
-    cfg.facts_path.write_text(extract.dumps(bad), encoding="utf-8")
+    cfg.facts_path.write_text(facts_file.dumps(bad), encoding="utf-8")
     sent = Transport()
     monkeypatch.setenv(jev.KEY_ENV, "a test key")
     monkeypatch.setattr(jev, "http_send", lambda key, base=jev.API: sent)
@@ -304,7 +305,7 @@ def test_extraction_does_not_read_a_link_to_an_outside_file(
         "reason": OUTSIDE_REASON,
         "unresolved_imports": None,
     }
-    assert MARKER not in extract.dumps(facts)
+    assert MARKER not in facts_file.dumps(facts)
 
 
 # ---- acceptance 3 -----------------------------------------------------------------

@@ -32,8 +32,6 @@ USED_LANE_FACTOR = 5.0
 USED_PORT_COST = 500.0
 FOREIGN_REGION_COST = 40.0
 
-SIDES = ("left", "right", "top", "bottom")
-
 
 @dataclass
 class Route:
@@ -194,21 +192,6 @@ def _gaps(spans: list[tuple[float, float]], lo: float, hi: float) -> list[tuple[
     if hi > cursor:
         out.append((cursor, hi))
     return out
-
-
-def _seg_hits(a: Point, b: Point, box: Box) -> bool:
-    """This function finds whether segment a-b crosses the box interior."""
-    bx, by, bw, bh = box
-    (x0, y0), (x1, y1) = a, b
-    if abs(y0 - y1) < 1e-9:
-        if not (by < y0 < by + bh):
-            return False
-        lo, hi = min(x0, x1), max(x0, x1)
-        return lo < bx + bw and hi > bx
-    if not (bx < x0 < bx + bw):
-        return False
-    lo, hi = min(y0, y1), max(y0, y1)
-    return lo < by + bh and hi > by
 
 
 def _inside(p: Point, box: Box) -> bool:

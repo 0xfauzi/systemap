@@ -28,9 +28,13 @@ Each item gives the change, and then the step that you must do.
   Step: to keep the suggestions, give `delta --decide`, or set `[jev] enabled = true` in `systemap.toml`.
   `[jev] enabled = false` stops the hint.
 
-- The facts format is now 7. A facts file of an earlier format is stale.
+- The facts format is now 8. A facts file of an earlier format is stale.
   Thus `systemap check` and `systemap extract --check` exit 1 until you extract the facts again.
   Format 5 added the `completeness` record. Format 6 changed the meaning of `package`. Format 7 added the `call_sites` fact.
+
+  Format 8 added the `types` fact, and `classes` holds only class declarations.
+  It also added `defined_in` and `defined_as` on each re-export, `type_only` on each TypeScript type-only export, and `same_as` and `symbol` on each entry point.
+  A Python function fingerprint includes its decorators.
 
   The `package` fact is now the folder package that the language adapter gives.
   Before this change, systemap calculated the package from the dotted module name.
@@ -78,6 +82,82 @@ Each item gives the change, and then the step that you must do.
   The "Security repairs" list below gives the cause.
 
   Step: put the model file in the repository, and set `model` to its path.
+
+- `systemap.toml`, `pyproject.toml`, `package.json`, and each `tsconfig.json` file are read only in the repository.
+  A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
+  A `package.json` file that systemap cannot read, or that has no JSON object, also gives a configuration error.
+  A `tsconfig.json` target in the `node_modules` folder of the repository stays permitted.
+  A package root that is not in the repository is a configuration error.
+
+  Step: put each configuration file and each package root in the repository. Correct each `package.json` file that the error names.
+
+- A flow from a component to itself is a check error. The line starts with `placement: flow A -> A has the same component at the two ends`.
+  The model check also refuses two sequences with one ID, and two components that open the same nested model file.
+  A component that opens a map must have an ID that is one path segment.
+  Two regions or containers with the same ID are also an error.
+
+  Step: remove or correct each flow, sequence, and component that `systemap check` gives.
+
+- `systemap refresh` examines the import rules after its checks, as `systemap check` does.
+  A rule with the result `fail` makes `refresh` exit 1. The command writes its outputs first.
+
+  Step: correct the import, or change the rule.
+
+- A Python test file that systemap cannot read or parse gives a `test_file_issues` record, as a TypeScript test file does.
+  Then `systemap refresh` and `systemap check` exit 1, and they give the file and the line.
+
+  Step: correct the syntax of the test file, or exclude the file.
+
+- A TypeScript test name contains the names of the `describe` or `suite` functions that contain the test, for example `orders > saves an order`.
+  If a file has two tests with the same name, the second name gets ` #2`. Thus the test identities in the facts change.
+
+  Step: operate `systemap refresh`, and commit the facts file.
+
+- `systemap figure --caption` and `[[figures]] caption` are text, not HTML. The figure also shows layer names and other model text as text.
+  The `--svg-id` value must start with a letter and contain only letters, digits, `-`, and `_`.
+
+  Step: remove HTML from each caption.
+
+- The theme values and the model names go into the page as CSS and HTML. Thus systemap refuses unsafe values:
+
+  - A theme value that contains `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value can contain `"`.
+  - A key in a theme table that contains a character other than a letter, a digit, `_`, or `-`.
+  - A `[theme.marks]` value other than `ring`, `notch`, or `dotted`.
+  - A custom layer ID that contains a character other than a letter, a digit, `_`, or `-`.
+  - The component IDs `_meta` and `__proto__`.
+
+  Step: correct each value that the error names.
+
+- Some finding lines have a new form, because a shared finding line must not name one language.
+  In this release, an answer item in the earlier form is an answer for the line in the new form, with the same evidence digest.
+  `judgement` prints one warning for each earlier item.
+
+  | earlier text in the line | new text in the line |
+  |---|---|
+  | `under Python 3.11.10` | `(parser version 3.11.10)` |
+  | `the npm tsconfig package could not be read` | `the configuration package could not be read` |
+  | `The parser could not parse the TypeScript syntax.` | `The parser could not parse the source syntax.` |
+
+  Step: replace each earlier item in `[judgement] answered` with the line that the warning gives.
+
+- An `unknown surface` line about a module occurs one time, in the map that owns the module.
+  An earlier exact answer with a different map prefix applies to the moved line.
+
+- Two more evidence digests changed. Each changed exact answer is pending one time after the upgrade:
+
+  - The evidence of an `entry point` line contains the entry point records.
+  - The full evidence contains each model file that the model file imports.
+
+  Step: examine the source again. Then write the digest from the `pending answer` line in `evidence`.
+
+- `delta` exits 2 if Git finds no merge base of the two refs. Before this change, `delta` used the base commit as the merge base.
+  `history` exits 2 if Git cannot resolve `--ref` or if a Git command fails.
+
+- `systemap place` loads the model file again after its write. If a position is different, it restores the earlier file and exits 1.
+  `systemap journeys --limit` must be 1 or more. `journeys` exits 1 and names each request that did not complete.
+
+- `init` writes no `systemap.toml` if `pyproject.toml` has a `[tool.systemap]` table. It writes the model at the `model` path of that table.
+  The facts file and each configured figure must be in `out_dir`. A different path gives exit code 2.
 
 ### New commands and options
 
@@ -196,8 +276,66 @@ Each repair has a Python test and a TypeScript test. These are examples of the r
 - An empty `index.ts` file was reported as a module without a component.
 - A TypeScript repository without the `language` key got the Python adapter.
 
-One finding line says "under Python" for the `parse_error` fact, which only the Python adapter writes.
-The line is a finding identifier. Thus a change of the line is necessary in a different release, with a migration.
+The code review below found more language coupling. These repairs are also in this release:
+
+- The TypeScript adapter recorded interfaces, enums, and type aliases in `classes`. The new `types` fact holds them.
+- The Changes panel said "classes" for all types. It says "Added types" and gives the category of each type.
+- Shared code found the alias of a Python console script from two Python entry point kinds. Each adapter writes `same_as` and `symbol`.
+- `judgement` read a dot in an npm package name as a separator. Each adapter gives its import separator.
+- Three finding lines named one language. The new lines name no language, and the earlier lines stay correct for one release.
+- `systemap live` watched `package.json` and `tsconfig.json` in a Python repository. It watches the configuration files of the configured adapter.
+
+### Repairs from the code review
+
+A Codex code review (`gpt-6.1-sol`, high reasoning, read-only) examined the code at d4b1514.
+It gave 101 results: 9 high, 79 moderate, and 13 low.
+For each result, a test showed the failure before the repair, and the same test passed after the repair.
+The follow-up repairs and the Windows repairs are also in this release.
+
+| area | results | examples of repairs |
+|---|---|---|
+| language adapters | 28 | TypeScript resolution agrees with `tsc` for `.mjs`, `.cjs`, failed relative imports, and project selection. Re-exports keep their defining module. Python star re-exports and decorators are recorded. |
+| model, evidence, and judgement | 14 | Interface names can contain Unicode letters. An empty relation sentence is a finding. A model value with an incorrect type gives a configuration error. |
+| change detection, delta, sequences, plans, and caches | 25 | A file that a side cannot read is not known, not removed. A sequence ID that the map uses is refused. The Jev cache keeps the entries of two writers. |
+| commands | 16 | `place` restores the model file after an incorrect write. `refresh` examines the import rules. `live`, `init`, and `skill` write only in their directories. |
+| page | 10 | A flow artifact with the name `constructor` does not stop the page script. A removed sequence or flow gives no selection after a live load. |
+| schematic | 8 | Theme keys, layer IDs, and component IDs that are not safe are refused. The inline JSON escapes `<!--`. |
+
+These are the Windows repairs:
+
+- The agent runner sends and reads UTF-8 bytes.
+- A cache read holds the lock of its cache.
+- `place` and `review` write LF line ends.
+- Messages give paths with forward slashes.
+
+#### Security repairs from the code review
+
+- systemap reads `package.json`, `systemap.toml`, `pyproject.toml`, and each `tsconfig.json` target only in the repository. The live watcher does not watch a path that is not in the repository.
+- The Git tree reader refuses a committed path with a backslash, a colon, a `..` part, or a `.git` part.
+  It also refuses a link that goes out of the tree. `delta` and the Changes view give each refused path as not known.
+- `history` resolves `--ref` to a commit before it calls `git log`. A pull request value that starts with `-` does not go to `gh`. The facts cache accepts only a full commit SHA.
+- `live`, `init`, and `skill` write no file through a symbolic link that goes out of their directory. `serve` and `live` answer 404 for a symbolic link to a file that is not in the served directory.
+- The figure gives captions, layer names, and model text as text, not as HTML. Theme values, theme keys, layer IDs, and SVG IDs cannot add HTML or CSS.
+- The agent runner stops an agent that writes more than 200,000 bytes to stdout.
+
+#### Performance
+
+Each repair below had an acceptance value before the change. `bench/jev/README.md` gives the method and each run.
+The times are medians on one macOS computer. The fixtures have 40,000 files in `node_modules` where the table says so.
+
+| measurement | before | after | acceptance value |
+|---|---|---|---|
+| TypeScript `extract.build`, time with `node_modules` divided by time without | 11.251 to 12.536 | 1.008 to 1.019 | 1.2 or less |
+| TypeScript language detection, the same ratio for four calls | 2582.20 to 3911.65 | 1.005 to 1.029 | 1.2 or less |
+| Python file list, the same ratio for three calls | 438.81 to 4472.93 for the two calls that read `node_modules` | 0.773 to 1.094 | 1.2 or less |
+| Python test file list, the same ratio | 377.36 and 519.63 | 1.001 to 1.012 | 1.2 or less |
+| Git tree reader, memory increase for a 256 MiB file, compared with 20 modules | 887 to 898 MiB | 2.0 to 4.1 MiB | 64 MiB or less |
+| Git tree reader, time for 2000 modules (4 runs) | 1562 to 2028 ms | 1551 to 1819 ms, a ratio of 1.05 for the medians | a ratio of 1.2 or less |
+| render with 5 nested maps, time divided by the time for 1 map | 4.91 | 1.19 and 1.00 | 1.5 or less |
+| page label script with sequence marks in a pan, time divided by the time before the mark boxes | 1.80 (first repair) | 0.95 and 0.96 | 1.2 or less |
+| live watcher scan on this repository | 1.44 ms | 1.74 and 1.75 ms | 2 times the earlier time or less |
+
+The label script measurement has a small margin when the computer has a high load. A second measurement gave 1.19 and 0.88.
 
 ## 3.0.0 - 2026-10-12
 

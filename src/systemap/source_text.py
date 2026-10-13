@@ -19,16 +19,38 @@ from systemap import repo_files
 LOCAL_INPUTS = ("parser", "compiler")
 
 
+def decode(data: bytes) -> str:
+    """This function gives the source text of the bytes of one source file.
+
+    The text is UTF-8, with or without a byte order mark, as Python and TypeScript read
+    it. The function removes the mark. It changes CRLF and CR newlines to LF, as universal
+    newlines do. Bytes that are not UTF-8 give UnicodeError.
+
+    The extraction and the change detection use this function. Thus the two get the same
+    text from the same bytes, in a file or in a Git blob.
+    """
+    text = data.decode("utf-8-sig")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def read(repo: Path, path: Path) -> str:
+    """This function gives the source text of a regular file in the repository.
+
+    `decode` gives the text. A file that `repo_files` refuses gives OSError. Bytes that
+    are not UTF-8 give UnicodeError.
+    """
+    return decode(repo_files.read_bytes(repo, repo_files.relative(repo, path)))
+
+
 def read_problems(path: Path, repo: Path) -> tuple[str, list[str]]:
     """This function gives the source text and its read problems.
 
-    The text is UTF-8, with or without a byte order mark, as Python and TypeScript read
-    it. Universal newlines make CRLF text equal to LF text. Text that is not UTF-8 gives
-    empty text and one problem. A file that `repo_files` refuses also gives empty text and
-    one problem. A different OSError goes to the caller.
+    `decode` gives the text. Text that is not UTF-8 gives empty text and one problem. A
+    file that `repo_files` refuses also gives empty text and one problem. A different
+    OSError goes to the caller.
     """
     try:
-        return repo_files.read_text(repo, repo_files.relative(repo, path), "utf-8-sig"), []
+        return read(repo, path), []
     except (UnicodeError, repo_files.RepoPathError) as exc:
         return "", [f"source could not be read: {repo_files.reason(exc)}"]
 

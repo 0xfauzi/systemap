@@ -67,7 +67,7 @@ def test_typescript_module_that_does_not_parse_gets_no_review_digest(tmp_path: P
     broken = facts["components"]["web.broken"]
     assert broken["completeness"]["parsed"] is False
     assert broken["completeness"]["line"] == 2
-    assert "could not parse the TypeScript syntax" in broken["completeness"]["reason"]
+    assert "could not parse the source syntax" in broken["completeness"]["reason"]
     # A TypeScript parse failure does not use the Python-only field.
     assert "parse_error" not in broken
     assert broken["completeness"]["unresolved_imports"] is None

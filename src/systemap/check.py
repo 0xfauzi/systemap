@@ -20,7 +20,17 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, extraction, figure, nest, page, source_facts
+from systemap import (
+    explain,
+    extraction,
+    facts_file,
+    figure,
+    identifier,
+    nest,
+    page,
+    reexports,
+    source_facts,
+)
 from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
@@ -359,20 +369,18 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 
 # ---- interface: the signature names something the modules define ------------------
 
-# The leading identifier of an interface line, and the method after a dot
-# when the line reads `Class.method`. A name can contain `$`, as a TypeScript
-# name can. The token ends at `(`, `.`, `->`, whitespace or any other character.
-INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_$][\w$]*)(?:\.([A-Za-z_$][\w$]*))?")
-
 
 def interface_head(text: str) -> tuple[str, str] | None:
-    """This function reads the initial interface identifier and optional method name, or
-    gives `None` if there is no identifier.
+    """This function reads the initial interface identifier and the method name after a
+    dot (`Class.method`), or gives `None`. An identifier can contain Unicode letters.
     """
-    found = INTERFACE_HEAD.match(text)
-    if found is None:
+    start = len(text) - len(text.lstrip())
+    name = identifier.read(text, start)
+    if not name:
         return None
-    return found.group(1), found.group(2) or ""
+    after = start + len(name)
+    method = identifier.read(text, after + 1) if text[after : after + 1] == "." else ""
+    return name, method
 
 
 def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
@@ -381,7 +389,7 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
     The first language adapter that reads a name from the signature gives the name."""
     signatures = [
         sig
-        for group in ("classes", "errors")
+        for group in ("classes", "errors", "types")
         for cls in record.get(group, [])
         if cls.get("name") == class_name
         for sig in cls.get("methods", [])
@@ -392,15 +400,6 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
 def _method_name(signature: str) -> str:
     adapters = (languages.repository(name) for name in languages.names())
     return next((found for a in adapters if (found := a.method_name(signature))), "")
-
-
-def _reexport_sources(record: Mapping[str, Any], name: str) -> list[str]:
-    """This function finds the source modules for re-exported public names."""
-    return [
-        str(n["reexport_of"])
-        for n in record.get("names", [])
-        if n.get("name") == name and n.get("reexport_of")
-    ]
 
 
 def _closest(name: str, candidates: Iterable[str]) -> str:
@@ -470,34 +469,20 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
 def _interface_methods(
     modules: list[str], symbols: list[tuple[str, str]], components: Mapping[str, Any], name: str
 ) -> set[str]:
-    """This function gives public methods from a class claim and its re-exports."""
-    methods: set[str] = set()
-    for m in modules:
-        methods |= method_names(components[m], name)
-        # A class re-exported by a package __init__ keeps its methods in
-        # the module that defines it.
-        methods |= _reexport_methods(components[m], components, name)
-    for m, n in symbols:
-        if n == name and m in components:
-            methods |= method_names(components[m], name)
-    return methods
+    """This function gives the public methods of each definition of the name.
 
-
-def _reexport_methods(
-    record: Mapping[str, Any], components: Mapping[str, Any], name: str
-) -> set[str]:
+    A re-export gives the module and the symbol of its definition. A name that refers to
+    a full module gives the public names of that module."""
+    holders = [*modules, *(m for m, n in symbols if n == name and m in components)]
     methods: set[str] = set()
-    for source in _reexport_sources(record, name):
-        if source not in components:
-            continue
-        methods |= method_names(components[source], name)
-        if any(
-            entry.get("name") == name
-            and entry.get("kind") == "module"
-            and entry.get("reexport_of") == source
-            for entry in record.get("names", [])
-        ):
-            methods |= public_names(components[source])
+    for holder in holders:
+        for module, symbol in reexports.definitions(components[holder], holder, name):
+            if module not in components:
+                continue
+            if symbol == source_facts.WHOLE_MODULE:
+                methods |= public_names(components[module])
+            else:
+                methods |= method_names(components[module], symbol)
     return methods
 
 
@@ -529,7 +514,7 @@ def stale(
     generated output.
     """
     fresh = fresh if fresh is not None else extraction.build(cfg)
-    stored = extract.read_facts(cfg.facts_path)
+    stored = facts_file.read_facts(cfg.facts_path)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not

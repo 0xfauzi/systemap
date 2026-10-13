@@ -33,7 +33,7 @@ def run(*argv: str) -> int:
 def drawn_edges(svg: str) -> list[tuple[str, str, str]]:
     """(from, to, layer) of every edge the drawing holds."""
     return re.findall(
-        r'class="flow \w+" data-edge="\d+" data-from="([^"]+)" data-to="([^"]+)" '
+        r'class="flow" data-edge="\d+" data-from="([^"]+)" data-to="([^"]+)" '
         r'data-art="[^"]*" data-kind="\w+" data-layer="(\w+)"',
         svg,
     )
@@ -75,7 +75,7 @@ def test_structure_has_no_edges_and_system_crosses_the_boundary(sample: Sample) 
     assert drawn_edges(svg) == [("User", "Reader", "data")], "the one edge with an actor end"
     hue = sample.theme["layers"]["data"]
     assert f'stroke="{hue}"' in svg, "a derived reading keeps the color of the flow kind"
-    assert 'marker-end="url(#schematic-m-data)"' in svg
+    assert 'marker-end="url(#schematic-m-l-data)"' in svg
     # An override moves one edge to the model's own layer, and the figure follows.
     svg, _ = render_schematic(
         sample.model, sample.meaning, sample.theme, sample.facts, layer="memory"

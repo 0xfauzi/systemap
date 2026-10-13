@@ -29,7 +29,7 @@ from conftest import write_tree
 from test_live_change import git, make_repo
 from test_nested import nested  # noqa: F401 - a fixture
 
-from systemap import change, config, explain, extract, figure, nest, page_live, serve
+from systemap import change, config, explain, extract, figure, live_watch, nest, page_live, serve
 from systemap.cli import main
 from systemap.config import ConfigError
 
@@ -337,7 +337,7 @@ def test_an_unknown_base_gives_exit_code_2(repo: Path, capsys: pytest.CaptureFix
 
 def test_the_watched_files_are_the_inputs_of_a_render(repo: Path) -> None:
     write_tree(repo, {"tests/test_reader.py": "def test_read() -> None:\n    pass\n"})
-    names = {p.relative_to(repo).as_posix() for p in serve.watched(repo) if p.exists()}
+    names = {p.relative_to(repo).as_posix() for p in live_watch.watched(repo) if p.exists()}
     assert names == {
         "systemap.toml",
         "map/model.py",
@@ -384,7 +384,7 @@ def test_the_scan_requests_one_render_after_the_changes_stop(repo: Path) -> None
         seen.append(requests.count)
 
     ticks = Ticks(quiet, quiet, write(0), write(1), write(2), quiet, quiet, quiet)
-    serve.watch(requests, lambda: serve.watched(repo), ticks, 0)
+    live_watch.watch(requests, lambda: live_watch.watched(repo), ticks, 0)
     # No request before a change, one request after the changes stop, and no more.
     assert seen == [0, 0, 0, 1, 1]
     assert requests.count == 1

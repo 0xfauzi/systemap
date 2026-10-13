@@ -126,11 +126,14 @@ The answers are suggestions under their own heading. They do not change the delt
 <h2 id="changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</h2>
 <p>These changes can change the result of a CI job after you install 3.1.0:</p>
 <ul>
-<li>The facts format is 7. A facts file of an earlier format is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code>, and commit the facts file.</li>
+<li>The facts format is 8. A facts file of an earlier format is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code>, and commit the facts file.</li>
 <li>Each exact answer that is not for a <code>crossing import</code> line is pending one time. <code>judgement</code> prints the new digest. Examine the source again, and write the digest in <code>evidence</code>.</li>
-<li>The <code>jev ...</code> finding kinds are now <code>decision ...</code> kinds. The previous names give a warning for one release.</li>
+<li>The <code>jev ...</code> finding kinds are now <code>decision ...</code> kinds. Three <code>unknown surface</code> lines have a new form. The earlier names and lines give a warning for one release.</li>
 <li>With <code>[judgement] require_reviews = true</code>, a component without a <code>source_review</code> digest is a finding, and <code>judgement --strict</code> exits 1.</li>
-<li>An import rule with the result <code>fail</code> makes <code>check</code> exit 1.</li>
+<li>An import rule with the result <code>fail</code> makes <code>check</code> and <code>refresh</code> exit 1.</li>
+<li>A flow from a component to itself is a <code>check</code> error.</li>
+<li>A Python test file that systemap cannot read or parse makes <code>refresh</code> and <code>check</code> exit 1.</li>
+<li>A configuration file or a <code>package.json</code> file that is not a regular file in the repository gives a configuration error.</li>
 </ul>
 <p><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">CHANGELOG.md</a> gives each change and its steps.</p>
 <h2 id="the-changes-view">The Changes view</h2>

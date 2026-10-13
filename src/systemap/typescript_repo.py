@@ -13,29 +13,30 @@ import importlib.metadata
 import json
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config
+from systemap import config, identifier
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_config import (
-    DECLARATION_SUFFIXES,
     SOURCE_SKIP,
     SOURCE_SUFFIXES,
     compiler_settings,
     discover_typescript_roots,
     load_typescript_config,
     package_json,
+    source_files,
 )
+from systemap.typescript_config_files import typescript_config_paths
 
 TSCONFIG = "tsconfig.json"
 PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
 # The method name in a recorded method header. A header starts with optional modifiers
-# and an optional `*`.
+# and an optional `*`. The name can contain Unicode letters (`identifier.complete`).
 METHOD = re.compile(
     r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
+    r"\*?\s*([^\s?!<(]+)\s*[?!]?\s*[<(]"
 )
 # npm package names of model SDKs and agent frameworks. A scope such as `@ai-sdk`
 # matches each package in that scope. A name matches as a prefix of the import name.
@@ -111,10 +112,6 @@ def compiler_record(compiler: Any, repo: Path) -> dict[str, str]:
     return {"compiler": hashlib.sha256(settings.encode()).hexdigest()}
 
 
-def _source_file(path: Path) -> bool:
-    return path.suffix in SOURCE_SUFFIXES and not path.name.endswith(DECLARATION_SUFFIXES)
-
-
 class TypeScriptRepository:
     """Give the TypeScript operations that do not extract facts."""
 
@@ -122,6 +119,9 @@ class TypeScriptRepository:
     source_suffixes: tuple[str, ...] = SOURCE_SUFFIXES
     skip_dirs = SOURCE_SKIP
     model_sdks = MODEL_SDKS
+    # An npm import name continues after a slash, for a subpath or a package in a scope.
+    # A dot is part of an npm package name: `chart.js` is not a part of `chart`.
+    import_separator = "/"
     config_files: tuple[str, ...] = ("package.json", "tsconfig.json")
     install_extra = "typescript"
     roots_note = (
@@ -139,11 +139,12 @@ class TypeScriptRepository:
         A tsconfig.json file without a source root is weaker evidence."""
         folders = tuple(folders)
         if folders:
+            # The walk does not enter node_modules and the other SOURCE_SKIP folders.
             found = any(
-                _source_file(path) and not skipped(path, folder, SOURCE_SKIP)
+                path.is_file()
                 for folder in folders
                 if folder.is_dir()
-                for path in folder.rglob("*")
+                for path in source_files(folder, SOURCE_SKIP)
             )
             return SOURCE if found else NO_SOURCE
         if discover_typescript_roots(root):
@@ -154,6 +155,11 @@ class TypeScriptRepository:
         """A TypeScript output directory is never source, so no directory is kept."""
         del directory
         return False
+
+    def config_paths(self, root: Path, folders: Sequence[Path]) -> list[Path]:
+        """Give package.json and tsconfig.json near the folders, and each tsconfig file
+        that a tsconfig file names in `extends` or `references`."""
+        return typescript_config_paths(root, folders)
 
     def root_name_problem(self, rel: str, name: str) -> str:
         del rel, name
@@ -182,7 +188,7 @@ class TypeScriptRepository:
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)
-        return found.group(1) if found else ""
+        return found.group(1) if found and identifier.complete(found.group(1)) else ""
 
 
 TYPESCRIPT_REPOSITORY = TypeScriptRepository()

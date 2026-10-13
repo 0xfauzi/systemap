@@ -56,12 +56,13 @@ Do these checks before a commit:
 ```sh
 uv run pytest
 uv run pre-commit run --all-files
+uv run mypy src --strict
 uv run systemap refresh
 uv run systemap check
 uv run systemap judgement
 ```
 
-The checks include ruff, mypy, complexity, file length, and skill copy consistency.
+The pre-commit checks include ruff, complexity, and file length. Pre-commit does not operate mypy. Thus, operate mypy independently, as CI does.
 New or increased cognitive complexity must not exceed 15.
 Cyclomatic complexity must not increase.
 Python files must not exceed 800 lines. `SKILL.md` must not exceed 240 lines.

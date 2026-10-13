@@ -203,6 +203,23 @@ def change_defs(svg_id: str, P: Palette, marks: ChangeMarks) -> str:
     )
 
 
+def change_style(svg_id: str, marks: ChangeMarks) -> str:
+    """Give the CSS rules for the flows of a comparison figure, for each SVG ID.
+
+    A selection or a preview adds `hot` or `peek` to a hidden flow. Then the flow and its
+    label show. A flow without a source review also shows when it has the class `off`.
+    The figure contains these rules. Thus a figure without the page CSS obeys them."""
+    if not marks.comparison:
+        return ""
+    s = f"#{svg_id}"
+    return (
+        f'<style>{s} :is(.flow,.flowlbl)[data-change="lost"].off{{opacity:1;'
+        "visibility:visible;pointer-events:auto}"
+        f'{s} .flow[data-change="lost"].off{{pointer-events:stroke}}'
+        f'{s} :is(.flow,.flowlbl)[data-change="rest"]:is(.hot,.peek){{display:inline}}</style>'
+    )
+
+
 def change_meta(marks: ChangeMarks) -> dict[str, Any]:
     """Give the change marks for the detail JSON of a comparison."""
     if not marks.comparison:

@@ -7,7 +7,17 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import change, config, delta, extract, history, nest, source_facts, typescript_config
+from systemap import (
+    change,
+    config,
+    delta,
+    extract,
+    facts_file,
+    history,
+    nest,
+    source_facts,
+    typescript_config,
+)
 from systemap.cli import main
 from systemap.typescript import TYPESCRIPT, parse_surface
 from systemap.typescript import test_names as names_of_tests
@@ -75,11 +85,12 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
     assert service["constants"] == [{"name": "LIMIT", "value": "3"}]
     assert service["uses"] == {"web.client": ["fetchUser"], "web.types": ["User"]}
     assert service["external"] == ["zod"]
-    assert service["tests"] == ["tests/service.test.ts::serves a user"]
+    assert service["tests"] == ["tests/service.test.ts::service > serves a user"]
     assert service["tests_primary"] == 1
 
     assert facts["components"]["web.index"]["names"] == [
         {"name": "serve", "kind": "function", "reexport_of": "web.service"}
+        | {"defined_in": "web.service", "defined_as": "serve"}
     ]
     assert facts["entry_points"] == [
         {
@@ -87,6 +98,8 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
             "name": "web",
             "module": "web.cli",
             "target": "",
+            "same_as": "",
+            "symbol": "",
             "label": "web (console script)",
         },
         {
@@ -94,6 +107,8 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
             "name": "serve",
             "module": "web.index",
             "target": "",
+            "same_as": "",
+            "symbol": "serve",
             "label": "serve() in web.index",
         },
     ]
@@ -122,6 +137,8 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "name": "request",
             "module": "acme.web.api",
             "target": "",
+            "same_as": "",
+            "symbol": "request",
             "label": "request() in acme.web.api",
         },
         {
@@ -129,6 +146,8 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "name": "app",
             "module": "acme.web.index",
             "target": "",
+            "same_as": "",
+            "symbol": "app",
             "label": "app() in acme.web.index",
         },
     ]
@@ -162,13 +181,14 @@ def test_typescript_surface_and_change_use_the_same_parser() -> None:
         "added": {"operations": [], "types": [], "refusals": [], "constants": []},
         "removed": {"operations": [], "types": [], "refusals": [], "constants": []},
         "changed": {"operations": ["read"], "types": [], "refusals": [], "constants": []},
+        "categories": {},
     }
 
 
 def test_typescript_test_names_are_literal_and_nested() -> None:
     assert names_of_tests(
         'test("one", () => {}); describe("group", () => { it("two", () => {}) });'
-    ) == ["one", "two"]
+    ) == ["one", "group > two"]
     assert names_of_tests("test(name, () => {})") == []
 
 
@@ -223,9 +243,13 @@ def test_typescript_star_exports_expand_public_names(tmp_path: Path) -> None:
     )
     facts = extract.build(config.load(tmp_path))
     assert facts["components"]["web.index"]["names"] == [
-        {"name": "available", "kind": "function", "reexport_of": "web.more"},
-        {"name": "value", "kind": "object", "reexport_of": "web.more"},
-        {"name": "more", "kind": "object", "reexport_of": "web.more"},
+        {"name": "available", "kind": "function", "reexport_of": "web.more"}
+        | {"defined_in": "web.more", "defined_as": "available"},
+        {"name": "value", "kind": "object", "reexport_of": "web.more"}
+        | {"defined_in": "web.more", "defined_as": "value"},
+        # A namespace re-export refers to the full module.
+        {"name": "more", "kind": "object", "reexport_of": "web.more"}
+        | {"defined_in": "web.more", "defined_as": "*"},
     ]
 
 
@@ -269,6 +293,8 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
             "name": "web",
             "module": "web.cli",
             "target": "",
+            "same_as": "",
+            "symbol": "",
             "label": "web (console script)",
         },
         {
@@ -276,6 +302,8 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
             "name": "api",
             "module": "web.index",
             "target": "",
+            "same_as": "",
+            "symbol": "api",
             "label": "api() in web.index",
         },
     ]
@@ -284,9 +312,9 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
         "package_export",
     }
     assert facts["test_file_issues"] == []
-    assert set(facts) == extract.fields_of("facts")
+    assert set(facts) == facts_file.fields_of("facts")
     assert all(
-        extract.fields_of("module") - set(record) == {"parse_error", "executes"}
+        facts_file.fields_of("module") - set(record) == {"parse_error", "executes"}
         for record in facts["components"].values()
     )
 
@@ -328,7 +356,7 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     )
     facts = extract.build(config.load(tmp_path))
     issue = facts["components"]["web.broken"]["unknown"][0]
-    assert "could not parse the TypeScript syntax" in issue["reason"]
+    assert "could not parse the source syntax" in issue["reason"]
     assert source_facts.unknown_fact_lines(facts) == [
         f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
     ]
@@ -467,14 +495,18 @@ def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(
         {"name": "UserView", "signature": "function UserView(): JSX.Element"}
     ]
     assert facts["components"]["acme.web.index"]["names"] == [
-        {"name": "serve", "kind": "function", "reexport_of": "acme.web.service"},
+        {"name": "serve", "kind": "function", "reexport_of": "acme.web.service"}
+        | {"defined_in": "acme.web.service", "defined_as": "serve"},
         {
             "name": "default",
             "kind": "function",
             "reexport_of": "acme.web.service",
             "star_export": False,
+            "defined_in": "acme.web.service",
+            "defined_as": "serve",
         },
-        {"name": "UserView", "kind": "function", "reexport_of": "acme.web.view"},
+        {"name": "UserView", "kind": "function", "reexport_of": "acme.web.view"}
+        | {"defined_in": "acme.web.view", "defined_as": "UserView"},
     ]
 
     assert main(["--root", str(tmp_path), "refresh"]) == 0
@@ -624,22 +656,6 @@ def test_configured_typescript_test_patterns_match_extract_and_delta(tmp_path: P
     ]
 
 
-def test_init_refuses_an_ambiguous_python_and_typescript_repository(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    write_tree(
-        tmp_path,
-        {
-            "pkg/__init__.py": "",
-            "package.json": '{"name":"web"}',
-            "tsconfig.json": '{"compilerOptions":{}}',
-            "src/index.ts": "export const app = 1;",
-        },
-    )
-    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 2
-    assert "The source contains python and typescript files" in capsys.readouterr().err
-
-
 def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
     tmp_path: Path,
 ) -> None:
@@ -704,6 +720,8 @@ def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path
         "name": "web",
         "module": "web.cli",
         "target": "",
+        "same_as": "",
+        "symbol": "",
         "label": "web (console script)",
     } in facts["entry_points"]
     assert facts["entry_point_issues"] == []
@@ -768,5 +786,7 @@ def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path)
     assert bins() == {"web": "web.cli", "deep": "web.cli"}
     ts_cfg = typescript_config.load_typescript_config(tmp_path)
     assert ts_cfg.typescript_major is None
-    roots = typescript_config.root_candidates(ts_cfg, typescript_config.input_files(ts_cfg))
+    roots = typescript_config.root_candidates(
+        ts_cfg, typescript_config.input_files(ts_cfg, tmp_path)
+    )
     assert roots == ((tmp_path / "source").resolve(), tmp_path.resolve())

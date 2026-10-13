@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Collection, Iterable
 from typing import Any
 
-from systemap.evidence import mentioned
-from systemap.model import Journey, Meaning
+from systemap.evidence import mentioned, owners
+from systemap.model import Journey, Meaning, Model, claimed
 from systemap.source_facts import entry_identity, entry_label
 
 # Past this many uncovered ways in of one kind into one card, they are asked
@@ -32,6 +32,19 @@ def reviewed_entries(meanings: Iterable[Meaning]) -> set[str]:
     return out
 
 
+def outside_map(model: Model, top: bool, facts: dict[str, Any]) -> set[str]:
+    """Give the modules with entry points that a different map of the tree includes.
+
+    A component that opens a map gives its modules to that map. A nested map has only
+    the modules of its own components. Judgement and `describe` use this same scope.
+    """
+    components = facts.get("components", {})
+    skip = {module for card in model.opening for module in claimed(card, components)}
+    if not top:
+        skip |= set(components) - set(owners(model, facts))
+    return skip
+
+
 def ways_in_without_journey(
     meaning: Meaning,
     facts: dict[str, Any],
@@ -40,33 +53,33 @@ def ways_in_without_journey(
     owner: dict[str, str] | None = None,
     covered: Collection[str] | None = None,
 ) -> list[dict[str, str]]:
-    """This function finds entry points without exact sequence coverage in the inventory."""
+    """This function finds entry points without exact sequence coverage in the inventory.
+
+    The language adapter writes `same_as` on an entry point that starts the same operation
+    as a different entry point. The list does not include it if the facts contain that
+    different entry point. Without `same_as`, each entry point is a different operation.
+    """
     points: list[dict[str, str]] = facts.get("entry_points", [])
     del text, owner
     reviewed = set(covered) if covered is not None else reviewed_entries((meaning,))
-    scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
-    components = facts.get("components", {})
+    identities = {entry_identity(p) for p in points}
     return [
         p
         for p in points
         if p["module"] not in skip
-        and not _same_script(p, scripts, components)
+        and not _same_code(p, identities)
         and entry_identity(p) not in reviewed
     ]
 
 
-def _same_script(
-    p: dict[str, str], scripts: dict[str, dict[str, str]], components: dict[str, Any]
-) -> bool:
-    """This function identifies an entry point that refers to the same console script under
-    another name.
+def _same_code(p: dict[str, str], identities: set[str]) -> bool:
+    """Find an entry point that starts the same code as a different entry point.
+
+    The adapter writes the identity of the other entry point in `same_as`. If `same_as` is
+    empty or missing, the entry point is not an alias. Then it must have a sequence.
     """
-    module = p["module"]
-    if p["kind"] == "main_function":
-        return scripts.get(module, {}).get("target") == "main"
-    if p["kind"] == "main_module":
-        return any(m in scripts for m in components.get(module, {}).get("uses", {}))
-    return False
+    same = p.get("same_as") or ""
+    return bool(same) and same != entry_identity(p) and same in identities
 
 
 def crowd_label(how_many: int, kind: str, card: str) -> str:
