@@ -97,9 +97,10 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `entry point` | An entry point has no sequence coverage. | Write its sequence or record why it is not necessary. |
    | `journey start` | A sequence starts at an unknown entry point. | Use the facts label or an empty `starts` value. |
    | `drafted journey` | An agent sequence still has no source examination. | Examine every step. Correct errors before removal of `drafted=True`. |
+   | `step source` | A step source record does not resolve, or it is in no module of an acting or measured component. | Cite a current record from a module of a step component, or change the step. |
    | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
-   | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow 'SRC->DST'`. |
+   | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow ID` or `--flow 'SRC->DST'`. |
    | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
    | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then send a verdict with `systemap decisions`, or run `systemap review ID`. |
 | `missing source review` | With `[judgement] require_reviews = true`, a source component has no `source_review` digest. | Examine its source and all its claims. Then send a verdict with `systemap decisions`. |
@@ -149,8 +150,8 @@ An actor is a person or system outside the mapped source.
 A flow carries one artifact between two components.
 Standard kinds are `data`, `control`, `context`, and `tool`.
 Each other kind must have a declaration in `flow_kinds` and a layer assignment.
-Use one to three words for an artifact noun phrase. Write one relation sentence from the source component.
-Write one short name in `plain` for each component.
+Use one to three words for an artifact noun phrase. Write one relation sentence from the source component. Write one short name in `plain` for each component.
+Two or more flows on one ordered pair must each have an `id`. Use the id as the `relations` key and in `Step(flow=...)`.
 
 Every flow has an evidence state:
 
@@ -172,8 +173,7 @@ Select the region for each component. Use `systemap place` for positions.
 A route must not cross an unrelated region.
 Use `pinned=True` only for a position that must stay fixed.
 
-A component with more than ten modules can have a nested map.
-Maps with more than forty components also receive a nested-map suggestion.
+A component with more than ten modules can have a nested map. Maps with more than forty components also receive a nested-map suggestion.
 `map="gateway.py"` identifies a model beside the parent model.
 Its internal components must cover all of the parent's module claims, without additions.
 Its actors represent adjacent components. Commands examine every nested map.

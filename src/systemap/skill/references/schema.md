@@ -191,7 +191,7 @@ See `references/layout.md` for thresholds and commands.
 
 ## Flow
 
-`Flow(src, dst, artifact, kind, source_refs=(), review_digest="")`
+`Flow(src, dst, artifact, kind, source_refs=(), review_digest="", id="")`
 
 A flow carries one artifact from component `src` to component `dst`.
 Use an artifact noun phrase of one to three words.
@@ -202,10 +202,27 @@ A context destination must be an agent or `calls_model` component.
 A tool source must be an agent or `calls_model` component.
 Every flow must have a relation sentence.
 
-One flow per ordered pair is permitted.
-The pair is the key for its sentence, direction verbs, and connection diagram.
-For multiple transfers in one direction, select the artifact that is most important to the reader.
+The flow identifier is the `id`. A flow without an `id` has the identifier `SRC->DST`.
+Use the identifier as the key in `relations`, `layer_overrides`, and `verb_overrides`.
+The `(src, dst)` pair is also a correct key, but only for a pair that one flow connects.
 Represent the other direction as a separate flow with its own sentence.
+
+One flow per ordered pair is permitted without an `id`.
+Two or more flows can connect one ordered pair only if each of these flows has its own `id`.
+An `id` contains only letters, digits, `_`, `.`, and `-`.
+Each flow then has its own sentence, review digest, finding lines, and label on the map.
+A finding line names such a flow as `SRC -> DST [ID]`.
+
+```python
+FLOWS = (
+    Flow("OrderService", "OrderQueue", "order", "data", id="submit-order"),
+    Flow("OrderService", "OrderQueue", "cancel", "control", id="cancel-order"),
+)
+RELATIONS = {
+    "submit-order": "The service puts a new order in the queue.",
+    "cancel-order": "The service tells the queue to remove an order.",
+}
+```
 
 An import, common module, or configured mechanism gives `structural` evidence only.
 `observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
@@ -216,6 +233,7 @@ The page shows `observed` as "current source review". It is a recorded source re
 A reference has the form `module[:symbol]@<source_sha256>`.
 The facts file gives the `source_sha256` of each module in `components`. The section "The facts file" gives its fields.
 `systemap review --flow 'SRC->DST'` writes the current `review_digest` of one flow.
+Use `--flow ID` for a flow with an `id`. The `SRC->DST` form is correct only for a pair that one flow connects.
 It does not examine the claims for you. Examine the source before you record the values.
 
 A source change gives a new `source_sha256`.
@@ -290,12 +308,20 @@ A nonempty sequence covers only those identities.
 
 ## Step
 
-`Step(acts, measures, edge, say)`
+`Step(acts, measures, edge=("", ""), say="", flow="", source_refs=())`
 
 `acts` identifies the components that act.
 `measures` identifies components that monitor or record the step. If none applies, use `()`.
-`edge` is the `(src, dst)` pair of an existing flow.
+`flow` is the identifier of an existing flow, for example `flow="cancel-order"`.
+`edge` is the `(src, dst)` pair of an existing flow. Use it only for a pair that one flow connects.
+Give `flow` or `edge`. If two or more flows connect the pair, `flow` is necessary.
 `say` gives one sentence about the action and result, under the writing profile.
+
+`source_refs` is optional. It has the same `module[:symbol]@<source_sha256>` form as for a flow.
+Each record must resolve in the current facts.
+Each record must also be in a module of an acting or measured component of the step.
+If a record does not agree with these rules, `systemap judgement` gives a `step source` finding.
+`systemap journeys` refuses an agent step with such a record.
 
 ## Layer
 
@@ -329,18 +355,21 @@ accent = "#1D1B17"
 | `plain` | One short display name for every component identifier. |
 | `layers` | Custom layers, after standard layers. |
 | `layer_of_kind` | A layer identifier for each custom flow kind. |
-| `relations` | One sentence per `(src, dst)` pair, from the source component. |
+| `relations` | One sentence per flow, from the source component. The key is the flow identifier or the `(src, dst)` pair. |
 | `journeys` | The tuple of sequences. |
-| `layer_overrides` | A different layer for a specified flow pair. |
+| `layer_overrides` | A different layer for a specified flow. The key is the same as in `relations`. |
 | `verbs` | Source and destination direction verbs for a layer, such as `("sends to", "receives from")`. |
-| `verb_overrides` | Direction verbs for one flow pair. |
+| `verb_overrides` | Direction verbs for one flow. The key is the same as in `relations`. |
 
 ## Structural checks
 
 The checker rejects these conditions:
 
 - Missing positions, cards that overlap, and components outside their region or container.
-- Unknown flow endpoints, invalid kinds, duplicate ordered pairs, and invalid context or tool endpoints.
+- Unknown flow endpoints, invalid kinds, and invalid context or tool endpoints.
+- Two flows on one ordered pair without an `id` on each, an incorrect `id`, and an `id` on two flows.
+- A pair key in `relations`, `layer_overrides`, or `verb_overrides` for a pair with two or more flows.
+- A step with an unknown flow, or with the pair of two or more flows.
 - Unknown invariant components and duplicate invariant numbers.
 - Import rules with a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant.
 - Imports against an import rule.

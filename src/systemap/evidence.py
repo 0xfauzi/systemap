@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap.model import (
+    Component,
     Edge,
     Flow,
     Meaning,
@@ -89,6 +90,39 @@ class Evidence:
         return next((text for found, text in reasons if found), "")
 
 
+class ByFlow(dict[Edge | str, Evidence]):
+    """The evidence of each flow.
+
+    The key of a flow without an id is its pair `(SRC, DST)`, as before flow ids. The key
+    of a flow with an id is the id. `of` gives the evidence of one flow. A pair also
+    selects the evidence of a flow with an id if one flow connects the pair.
+    """
+
+    def __init__(self, flows: Iterable[Flow]) -> None:
+        super().__init__()
+        self.pairs: dict[Edge, list[Edge | str]] = {}
+        for f in flows:
+            self.pairs.setdefault(f.edge, []).append(slot(f))
+
+    def of(self, flow: Flow) -> Evidence:
+        return self[slot(flow)]
+
+    def _pair_key(self, key: object) -> Edge | str | None:
+        keys = self.pairs.get(key) if isinstance(key, tuple) else None
+        return keys[0] if keys is not None and len(keys) == 1 else None
+
+    def __missing__(self, key: object) -> Evidence:
+        found = self._pair_key(key)
+        if found is None or found == key:
+            raise KeyError(key)
+        return self[found]
+
+
+def slot(flow: Flow) -> Edge | str:
+    """This function gives the key of a flow in `ByFlow`: the id, or the pair without an id."""
+    return flow.id or flow.edge
+
+
 def _resolves(ref: str, facts: dict[str, Any]) -> bool:
     """This function resolves a module or symbol reference against the extracted source
     snapshot.
@@ -111,8 +145,12 @@ def _resolves(ref: str, facts: dict[str, Any]) -> bool:
 
 
 def flow_claim_digest(flow: Flow, meaning: Meaning) -> str:
-    """This function calculates the digest for the exact flow claim."""
-    claim = (flow.src, flow.dst, flow.artifact, flow.kind, meaning.relations.get(flow.edge, ""))
+    """This function calculates the digest for the exact flow claim.
+
+    The claim contains the id only for a flow with an id. Thus a flow without an id keeps
+    the digest that it had before flow ids."""
+    claim: tuple[str, ...] = (flow.src, flow.dst, flow.artifact, flow.kind, meaning.relation(flow))
+    claim += (flow.id,) if flow.id else ()
     data = json.dumps(claim, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
@@ -122,13 +160,30 @@ def _review(
 ) -> tuple[tuple[str, ...], tuple[str, ...], bool, bool]:
     refs = tuple(flow.source_refs)
     changed = bool(refs) and flow.review_digest != flow_claim_digest(flow, meaning)
+    ends = [c for c in model.components if c.id in flow.edge]
+    unresolved, outside = check_refs(refs, ends, facts)
+    no_endpoint = bool(refs) and bool(endpoint_claims(flow, model)) and outside == refs
+    return refs, unresolved, changed, no_endpoint
+
+
+def check_refs(
+    refs: tuple[str, ...], cards: Iterable[Component], facts: dict[str, Any]
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """This function examines source records against the facts and a set of components.
+
+    It gives the records that do not resolve at this source snapshot, and the records in
+    no module of the components. Flows and sequence steps use this same procedure. If no
+    component has a module claim, no record is outside, because the rule does not apply.
+    """
+    components = facts.get("components", {})
     unresolved = tuple(ref for ref in refs if not _resolves(ref, facts))
-    return (
-        refs,
-        unresolved,
-        changed,
-        bool(refs) and not cites_an_endpoint(flow, model, facts.get("components", {})),
+    patterns = [p for card in cards for p in card.implemented_by]
+    outside = tuple(
+        ref
+        for ref in refs
+        if patterns and not any(_covers(p, ref_module(ref), components) for p in patterns)
     )
+    return unresolved, outside
 
 
 def ref_module(ref: str) -> str:
@@ -215,7 +270,7 @@ def mechanism_of(flow: Flow, meaning: Meaning, observed_by: Iterable[str]) -> st
     """This function finds the initial configured mechanism in the flow description or
     artifact.
     """
-    text = f"{flow.artifact}\n{meaning.relations.get(flow.edge, '')}"
+    text = f"{flow.artifact}\n{meaning.relation(flow)}"
     for name in observed_by:
         if mentioned(name, text):
             return name
@@ -227,8 +282,8 @@ def of_model(
     meaning: Meaning,
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
-) -> dict[Edge, Evidence]:
-    """This function gives each flow evidence state by edge.
+) -> ByFlow:
+    """This function gives each flow evidence state by flow identifier.
 
     The result keeps structural facts separate from source evidence, even if the flow
     has a source review.
@@ -236,14 +291,14 @@ def of_model(
     joined = joined_by_import(model, facts)
     shared = sharing_a_module(model, facts)
     mechanisms = list(observed_by)
-    out: dict[Edge, Evidence] = {}
+    out = ByFlow(model.flows)
     for f in model.flows:
         import_present = frozenset(f.edge) in joined
         sharing = frozenset(f.edge) in shared
         mechanism = mechanism_of(f, meaning, mechanisms)
         refs, unresolved, claim_changed, no_endpoint = _review(f, meaning, facts, model)
         if model.kind_of(f.src) == "actor" or model.kind_of(f.dst) == "actor":
-            out[f.edge] = Evidence(EXTERNAL)
+            out[slot(f)] = Evidence(EXTERNAL)
         else:
             state = (
                 OBSERVED
@@ -252,7 +307,7 @@ def of_model(
                 if import_present or sharing or mechanism
                 else DECLARED
             )
-            out[f.edge] = Evidence(
+            out[slot(f)] = Evidence(
                 state,
                 mechanism,
                 sharing,
@@ -275,7 +330,7 @@ def declared(
     order.
     """
     states = of_model(model, meaning, facts, observed_by)
-    return [f for f in model.flows if states[f.edge].state == DECLARED]
+    return [f for f in model.flows if states.of(f).state == DECLARED]
 
 
 def structural(
@@ -286,4 +341,4 @@ def structural(
 ) -> list[Flow]:
     """This function gives flows with structural evidence but no resolved source review."""
     states = of_model(model, meaning, facts, observed_by)
-    return [f for f in model.flows if states[f.edge].state == STRUCTURAL]
+    return [f for f in model.flows if states.of(f).state == STRUCTURAL]

@@ -14,7 +14,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,6 +34,7 @@ from systemap.judgement import apply_answers, crossing_line, crossing_pairs
 from systemap.judgement_evidence import answer_state
 from systemap.model import (
     Component,
+    Edge,
     Meaning,
     Model,
     claimed,
@@ -508,24 +509,22 @@ def _answered(
 
 def _flow_review_lines(
     model: Model,
-    ev_base: dict[tuple[str, str], evidence.Evidence],
-    ev_head: dict[tuple[str, str], evidence.Evidence],
+    ev_base: Mapping[Edge | str, evidence.Evidence],
+    ev_head: Mapping[Edge | str, evidence.Evidence],
     at_base: str,
     model_file: str,
 ) -> list[Line]:
     """This function gives flows with lost source or structural evidence."""
     lines: list[Line] = []
     for f in model.flows:
-        was_observed = ev_base[f.edge].state == evidence.OBSERVED
-        if was_observed and ev_head[f.edge].state == evidence.DECLARED:
+        was_observed = ev_base[evidence.slot(f)].state == evidence.OBSERVED
+        if was_observed and ev_head[evidence.slot(f)].state == evidence.DECLARED:
             lines.append(
                 Line(
                     "evidence lost",
                     (
                         "evidence lost: "
-                        f"{f.src}"
-                        " -> "
-                        f"{f.dst}"
+                        f"{f.name}"
                         " ("
                         f"{f.artifact}"
                         ") had a current source review"
@@ -538,31 +537,29 @@ def _flow_review_lines(
                     decide=True,
                 )
             )
-        elif was_observed and ev_head[f.edge].state != evidence.OBSERVED:
+        elif was_observed and ev_head[evidence.slot(f)].state != evidence.OBSERVED:
             lines.append(
                 Line(
                     "source evidence lost",
                     (
-                        f"source evidence lost: {f.src} -> {f.dst} ({f.artifact}) was source "
-                        f"reviewed{at_base} and is now {ev_head[f.edge].state}. Examine its source "
-                        f"references, direction, and artifact."
+                        f"source evidence lost: {f.name} ({f.artifact}) was source "
+                        f"reviewed{at_base} and is now {ev_head[evidence.slot(f)].state}. "
+                        "Examine its source references, direction, and artifact."
                     ),
                     (f.src, f.dst),
                     decide=True,
                 )
             )
         if (
-            ev_base[f.edge].state == evidence.STRUCTURAL
-            and ev_head[f.edge].state == evidence.DECLARED
+            ev_base[evidence.slot(f)].state == evidence.STRUCTURAL
+            and ev_head[evidence.slot(f)].state == evidence.DECLARED
         ):
             lines.append(
                 Line(
                     "structural evidence lost",
                     (
                         "structural evidence lost: "
-                        f"{f.src}"
-                        " -> "
-                        f"{f.dst}"
+                        f"{f.name}"
                         " ("
                         f"{f.artifact}"
                         ") had an import or declared mechanism at the base commit. "

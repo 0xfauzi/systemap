@@ -31,13 +31,14 @@ SCRIPT = r"""
   var MODES = ['understand', 'trace', 'change'];
   function edgeKey(map, i){
     var e = map.edges[i];
-    return e ? {from:e.from, to:e.to, art:e.art} : null;
+    return e ? {from:e.from, to:e.to, art:e.art, id:e.id} : null;
   }
   function edgeAt(map, key){
     if(!key){ return -1; }
     for(var i = 0; i < map.edges.length; i++){
       var e = map.edges[i];
-      if(e.from === key.from && e.to === key.to && e.art === key.art){ return i; }
+      if(e.from === key.from && e.to === key.to && e.art === key.art
+        && (!key.id || e.id === key.id)){ return i; }
     }
     return -1;
   }

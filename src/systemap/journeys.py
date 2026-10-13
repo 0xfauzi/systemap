@@ -3,6 +3,8 @@
 The configured agent examines source code from the entry point.
 It writes ordered steps under the language policy of the configured writing profile.
 systemap refuses steps with absent flows or unknown component identifiers.
+It also refuses a step source record that does not resolve, or that is in no module of
+an acting or measured component of the step.
 Accepted drafts have `drafted=True` until the maintainer examines them against source.
 
 The earlier import-based experiment had overlap 0.28 against acceptance value 0.60.
@@ -13,6 +15,7 @@ The CLI module imported components that the actual sequence did not use.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import hashlib
 import io
 import json
@@ -22,8 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from systemap import flow_ids, repo_files, step_refs
 from systemap import journey_coverage as judgement
-from systemap import repo_files
 from systemap.agent import Agent
 from systemap.evidence import owners
 from systemap.model import Journey, Meaning, Model, Step
@@ -44,6 +47,10 @@ Read the source code from the entry point below. Write only JSON with this shape
 
 Requirements:
 - Keep every edge identical to a listed flow.
+- If a listed flow has a fifth value, that value is its id. For that flow, write
+  "flow": "ID", not "edge".
+- You can add "source_refs": ["module:symbol@sha256"] to a step. Each record must be
+  in a module of an acting or measured component, with the current source digest.
 - Use only listed component identifiers in acts and measures.
 - Use measures for a component that monitors or records the step. Otherwise, use an empty list.
 - Write four to eight steps.
@@ -149,7 +156,8 @@ def context(model: Model, meaning: Meaning, facts: dict[str, Any], group: Group)
             for c in model.components
         },
         "flows": [
-            [f.src, f.dst, f.artifact, meaning.relations.get(f.edge, "")] for f in model.flows
+            [f.src, f.dst, f.artifact, meaning.relation(f), *([f.id] if f.id else [])]
+            for f in model.flows
         ],
         "journeys_already_written": [j.label for j in meaning.journeys],
     }
@@ -186,45 +194,75 @@ def _asked(facts: dict[str, Any], group: Group) -> dict[str, Any]:
     }
 
 
-def _steps(raw: Any, model: Model, problems: list[str]) -> tuple[Step, ...]:
-    cards = {c.id for c in model.components}
-    flows = {f.edge for f in model.flows}
+def _steps(
+    raw: Any, model: Model, problems: list[str], facts: dict[str, Any] | None = None
+) -> tuple[Step, ...]:
     out: list[Step] = []
     if not isinstance(raw, list):
         problems.append("steps must be a list")
         return ()
     for k, step in enumerate(raw, start=1):
-        if not isinstance(step, dict):
-            problems.append(f"step {k} must be an object")
-            continue
-        if (
-            not all(
-                isinstance(step.get(key), list)
-                and all(isinstance(value, str) for value in step[key])
-                for key in ("edge", "acts", "measures")
-            )
-            or not isinstance(step.get("say"), str)
-            or not step["say"].strip()
-        ):
-            problems.append(f"step {k} must have lists of component identifiers and a sentence")
-            continue
-        edge = tuple(step["edge"])
-        acts = tuple(step["acts"])
-        measures = tuple(step["measures"])
-        unknown = sorted({*acts, *measures, *edge} - cards)
-        if len(edge) != 2 or edge not in flows:
-            problems.append(
-                f"step {k} traces {' -> '.join(edge) or 'nothing'}, which is not a flow"
-            )
-        elif unknown:
-            problems.append(f"step {k} has unknown component identifiers: {', '.join(unknown)}")
+        made, problem = _step(step, model, facts)
+        if made is None:
+            problems.append(f"step {k} {problem}")
         else:
-            out.append(Step(acts=acts, measures=measures, edge=edge, say=step["say"]))
+            out.append(made)
     return tuple(out)
 
 
-def read_answer(text: str, model: Model, group: Group) -> Draft:
-    """Parse the draft sequence or give the reasons for refusal."""
+def _strings(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _step(raw: Any, model: Model, facts: dict[str, Any] | None) -> tuple[Step | None, str]:
+    """Make one step from the agent answer, or give None and the problem."""
+    step = _parsed(raw)
+    if step is None:
+        return None, "must have lists of component identifiers and a sentence"
+    if not step.flow and step.edge not in {f.edge for f in model.flows}:
+        return None, f"traces {' -> '.join(step.edge) or 'nothing'}, which is not a flow"
+    found, problem = flow_ids.step_flow(step, model.flows)
+    if found is None:
+        return None, problem
+    cards = {c.id: c for c in model.components}
+    unknown = sorted({*step.acts, *step.measures, *found.edge} - cards.keys())
+    if unknown:
+        return None, f"has unknown component identifiers: {', '.join(unknown)}"
+    if step.source_refs and facts is None:
+        return None, "has source_refs, but no facts are available to examine them"
+    members = [cards[c] for c in dict.fromkeys((*step.acts, *step.measures))]
+    reasons = step_refs.reasons(step.source_refs, members, facts or {})
+    if reasons:
+        return None, "; ".join(reasons)
+    return dataclasses.replace(step, edge=found.edge), ""
+
+
+def _parsed(raw: Any) -> Step | None:
+    """Read the fields of one step. Give None if a field has an incorrect type."""
+    if not isinstance(raw, dict):
+        return None
+    flow, refs, say = raw.get("flow", ""), raw.get("source_refs", []), raw.get("say")
+    lists = all(_strings(raw.get(key)) for key in ("acts", "measures"))
+    if not lists or not _strings(raw.get("edge", [])) or not _strings(refs):
+        return None
+    if not isinstance(flow, str) or not isinstance(say, str) or not say.strip():
+        return None
+    return Step(
+        acts=tuple(raw["acts"]),
+        measures=tuple(raw["measures"]),
+        edge=tuple(raw.get("edge", [])) or flow_ids.NO_EDGE,
+        say=say,
+        flow=flow,
+        source_refs=tuple(refs),
+    )
+
+
+def read_answer(
+    text: str, model: Model, group: Group, facts: dict[str, Any] | None = None
+) -> Draft:
+    """Parse the draft sequence or give the reasons for refusal.
+
+    The facts are necessary to examine the source records of the steps."""
     entry = group.one
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end < start:
@@ -238,7 +276,7 @@ def read_answer(text: str, model: Model, group: Group) -> Draft:
     if not isinstance(raw, dict):
         return Draft(entry=entry, problems=("the agent's JSON must be an object",), answer=text)
     problems: list[str] = []
-    steps = _steps(raw.get("steps"), model, problems)
+    steps = _steps(raw.get("steps"), model, problems, facts)
     if not steps:
         problems.append("no sequence step could be used")
     if problems:
@@ -262,7 +300,7 @@ def write_one(
     supplied = context(model, meaning, facts, group)
     supplied["source_snapshot"] = _source_snapshot(agent.root, facts)
     answer = agent.ask(question, supplied)
-    return read_answer(answer, model, group)
+    return read_answer(answer, model, group, facts)
 
 
 def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:
@@ -361,10 +399,22 @@ def as_source(journey: Journey) -> list[str]:
             "            Step(",
             f"                acts=({acts}{',' if len(step.acts) == 1 else ''}),",
             f"                measures=({measures}{',' if len(step.measures) == 1 else ''}),",
-            f"                edge=({json.dumps(step.edge[0], ensure_ascii=False)}, "
-            f"{json.dumps(step.edge[1], ensure_ascii=False)}),",
+            _step_flow_line(step),
             f"                say={json.dumps(step.say, ensure_ascii=False)},",
-            "            ),",
         ]
+        if step.source_refs:
+            refs = ", ".join(json.dumps(ref, ensure_ascii=False) for ref in step.source_refs)
+            out.append(f"                source_refs=({refs},),")
+        out.append("            ),")
     out += ["        ),", "    ),"]
     return out
+
+
+def _step_flow_line(step: Step) -> str:
+    """Give the source line that names the flow of a step: its id, or else its edge."""
+    if step.flow:
+        return f"                flow={json.dumps(step.flow, ensure_ascii=False)},"
+    return (
+        f"                edge=({json.dumps(step.edge[0], ensure_ascii=False)}, "
+        f"{json.dumps(step.edge[1], ensure_ascii=False)}),"
+    )

@@ -100,10 +100,10 @@ def check_routes(meta: dict[str, Any], model: Model) -> tuple[list[str], int, in
     through = 0
     across = 0
     for i, f in enumerate(model.flows):
-        src, dst, art = f.src, f.dst, f.artifact
+        src, dst, art, name = f.src, f.dst, f.artifact, f.name
         pts = paths.get(str(i)) or paths.get(i)
         if not pts:
-            out.append(f"route: {src} -> {dst} ('{art}') has no path")
+            out.append(f"route: {name} ('{art}') has no path")
             continue
         segs = list(zip(pts, pts[1:], strict=False))
         hit_cards = sorted(
@@ -117,14 +117,14 @@ def check_routes(meta: dict[str, Any], model: Model) -> tuple[list[str], int, in
             if rid not in (region_of[src], region_of[dst])
             and any(_seg_hits(a, b, box) for a, b in segs)
         )
-        why = next((n for n in notes if n.startswith(f"{src} -> {dst}:")), "")
+        why = next((n for n in notes if n.startswith(f"{name}:")), "")
         reason = f" ({why.split(': ', 1)[1]})" if why else ""
         if hit_cards:
             through += 1
-            out.append(f"route: {src} -> {dst} passes through {', '.join(hit_cards)}{reason}")
+            out.append(f"route: {name} passes through {', '.join(hit_cards)}{reason}")
         if hit_regions:
             across += 1
-            out.append(f"route: {src} -> {dst} crosses region {', '.join(hit_regions)}{reason}")
+            out.append(f"route: {name} crosses region {', '.join(hit_regions)}{reason}")
     return out, through, across
 
 

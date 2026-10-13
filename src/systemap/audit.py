@@ -225,17 +225,17 @@ def plan_flows(
             continue
         code = code_between(root, facts, by, (f.src, f.dst), language)
         if not code:
-            plan.unasked.append(f"{f.src} -> {f.dst} ({f.artifact})")
+            plan.unasked.append(f"{f.name} ({f.artifact})")
             continue
         brief = {x: card_brief(m.model, m.meaning, x) for x in (f.src, f.dst)}
         claim = {
             "from": f.src,
             "to": f.dst,
             "artifact": f.artifact,
-            "sentence": m.meaning.relations.get(f.edge, ""),
+            "sentence": m.meaning.relation(f),
         }
         state = {"claim": claim, "ends": brief, "code": code}
-        key = f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}"
+        key = f"{m.id}|flow|{f.key}:{f.artifact}"
         plan.add(PredicateQuestion(key, "holds", VERIFY_Q, state), ("flow", m, f))
 
 
@@ -350,11 +350,11 @@ def sentence_line(
 
 def flow_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
     _, m, f = read
-    p = decision.probability(answer, f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}")
+    p = decision.probability(answer, f"{m.id}|flow|{f.key}:{f.artifact}")
     if p is None or p >= decision.value(limits, "flow_below"):
         return None
     text = (
-        f"{decision_kinds.FLOW}: {f.src} -> {f.dst} ('{f.artifact}'): "
+        f"{decision_kinds.FLOW}: {f.name} ('{f.artifact}'): "
         "the code where they meet may not carry it"
     )
     return Line(m.prefix + text, (f"P(carries it) {p:.2f}",))

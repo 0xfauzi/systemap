@@ -38,6 +38,7 @@ from typing import Any
 from systemap import (
     decision,
     delta,
+    flow_ids,
     history,
     jev,
     jev_provider,
@@ -246,6 +247,7 @@ def claims_of(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]
 
     The map path and the flow review digests are not claims about the source.
     """
+    meaning = flow_ids.resolve(model, meaning)
     return {
         "component": {
             "id": card.id,
@@ -265,13 +267,14 @@ def claims_of(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]
                 "artifact": flow.artifact,
                 "kind": flow.kind,
                 "source_refs": list(flow.source_refs),
-                "relation": meaning.relations.get(flow.edge, ""),
+                "relation": meaning.relation(flow),
+                **({"id": flow.id} if flow.id else {}),
             }
             for flow in model.flows
             if card.id in flow.edge
         ],
         "sequences": [
-            dataclasses.asdict(journey)
+            flow_ids.journey_record(journey)
             for journey in meaning.journeys
             if _touches(journey, card.id)
         ],

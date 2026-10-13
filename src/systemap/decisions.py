@@ -176,8 +176,7 @@ def _card_claim(card: Component, model: Model, meaning: Meaning) -> str:
         f"entry: {card.entry}",
     ]
     rows += [
-        f"flow: {f.src} {ARROW} {f.dst} ({f.artifact}, {f.kind}): "
-        f"{meaning.relations.get(f.edge, '')}"
+        f"flow: {f.name} ({f.artifact}, {f.kind}): {meaning.relation(f)}"
         for f in model.flows
         if card.id in f.edge
     ]
@@ -196,8 +195,8 @@ def _card_claim(card: Component, model: Model, meaning: Meaning) -> str:
 
 def _flow_claim(flow: Flow, meaning: Meaning) -> str:
     return (
-        f"flow {flow.src} {ARROW} {flow.dst} ({flow.artifact}, {flow.kind}): "
-        f"{meaning.relations.get(flow.edge, '')}\nsource_refs: {', '.join(flow.source_refs)}"
+        f"flow {flow.name} ({flow.artifact}, {flow.kind}): "
+        f"{meaning.relation(flow)}\nsource_refs: {', '.join(flow.source_refs)}"
     )
 
 
@@ -248,14 +247,15 @@ def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
         digest = evidence.flow_claim_digest(flow, m.meaning)
         if not flow.source_refs or flow.review_digest == digest:
             continue
-        unresolved = states[flow.edge].unresolved_refs
+        unresolved = states.of(flow).unresolved_refs
         blocked = (
             f"Source records do not agree with the current source: {', '.join(unresolved)}. "
             "Examine the source. Then correct source_refs."
             if unresolved
             else ""
         )
-        target = f"{flow.src}{ARROW}{flow.dst}"
+        # The target of a flow without an id is SRC->DST, as before flow ids.
+        target = flow.key
         modules = endpoint_modules(flow, m.model, facts)
         modules += [evidence.ref_module(ref) for ref in flow.source_refs]
         out.append(
@@ -295,8 +295,9 @@ def _covered(review_requests: list[Request], m: nest.Map, line: str) -> bool:
         if request.type == SOURCE_REVIEW:
             heads = (f"stale source review: {request.target} ", review_policy.line(request.target))
         else:
-            src, _arrow, dst = request.target.partition(ARROW)
-            heads = (f"flow review: {src} -> {dst} (", f"declared flow: {src} -> {dst} (")
+            flow = next((f for f in m.model.flows if f.key == request.target), None)
+            name = flow.name if flow is not None else request.target
+            heads = (f"flow review: {name} (", f"declared flow: {name} (")
         if bare.startswith(heads):
             return True
     return False
