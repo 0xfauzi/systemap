@@ -101,16 +101,21 @@ The command exits 1 if a rule rejects the map.</p>
 <td>A resolved import is against an import rule of the model. The result of the rule is <code>fail</code>. A rule has a duplicate id, an unknown <code>kind</code> value, an unknown component, or an unknown invariant. The heading of these rule findings is <code>import rule fields</code>.</td>
 </tr>
 <tr>
-<td>source inventory</td>
-<td>The extractor cannot read or parse a source module. The heading is <code>source inventory unresolved</code>. A test file that the extractor cannot read or parse does not reject the map. <code>check</code> prints it as an <code>unknown surface</code> line.</td>
-</tr>
-<tr>
 <td>stale</td>
 <td>Facts, a page, or a figure are older than the source tree or model. Each map has a page.</td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>A source module or test file that the extractor cannot read or parse does not reject the map.
+systemap is not a syntax checker, and a parser limit must not stop <code>check</code> for correct source.
+<code>check</code> prints such a module in the <code>source inventory unresolved</code> group, with the fix line of its cause.
+Each result that reads the module is not known, and not a pass:</p>
+<ul>
+<li>The component that claims the module has no source review digest. Thus <code>judgement</code> gives a <code>stale source review</code> line for it.</li>
+<li>An import rule that reads the module gives <code>unknown</code>.</li>
+<li>A missing entry, interface, or symbol name of the component is not known. <code>check</code> and <code>delta</code> do not report it.</li>
+</ul>
 <p>A meaning error, an import rule field error, or a placement error stops the check before it renders the map.
 Then the <code>map layout</code> line says that the check did not render the map.
 The <code>map layout</code> heading contains only the findings of positions, routes, labels, and text size.</p>
@@ -1060,7 +1065,7 @@ A rejected check causes exit 1, and the command renders nothing.
 The last line gives the necessary action. If a second refresh gives the same result, the action is not <code>refresh</code>.
 If an output is stale after the command wrote it, the heading is <code>stale after refresh</code>.
 An example is a configured figure with the path of the page.
-After a check without errors, the command prints the <code>unknown surface</code> group, as <code>systemap check</code> does.
+After a check without errors, the command prints the <code>source inventory unresolved</code> group and the <code>unknown surface</code> group, as <code>systemap check</code> does.
 After a check without errors, the command examines the import rules, as <code>systemap check</code> does.
 It prints the rule results. A rule with the result <code>fail</code> causes exit 1.
 With <code>[rules] unknown = &quot;fail&quot;</code>, a rule with the result <code>unknown</code> also causes exit 1.

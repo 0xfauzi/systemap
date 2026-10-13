@@ -479,12 +479,19 @@ CHECK = {
         do="Use `systemap refresh`. Then commit the output directory.",
     ),
     "source inventory unresolved": Lesson(
-        means="The extractor could not read or parse all of a source module.",
-        why=(
-            "The facts do not have the names, imports, or entry points of the module. "
-            "Thus the map cannot show the module correctly."
+        means=(
+            "The extractor could not read or parse all of a source module. The module is a "
+            "not-known record, and `systemap check` does not reject the map for it."
         ),
-        do="Correct the source file, or use a compatible parser. Then use `systemap refresh`.",
+        why=(
+            "The facts do not have the names, imports, or entry points of the module. Thus "
+            "its component has no current source review, and an import rule that reads it "
+            "is unknown."
+        ),
+        do=(
+            "Do the step in the `fix` line for the cause. If the parser cannot read correct "
+            "source, record an answer for the `unknown surface` line of the module."
+        ),
     ),
     "stale after refresh": Lesson(
         means="After a refresh, a written output is different from the rendered output.",

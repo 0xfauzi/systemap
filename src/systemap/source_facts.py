@@ -171,15 +171,25 @@ def _unknown_repository_lines(facts: dict[str, Any]) -> list[tuple[str, str]]:
 
 
 def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:
-    """List the modules that the extractor could not read or parse.
+    """List the modules that the extractor could not read or parse."""
+    return [line for line, _cause in inventory_issue_causes(facts)]
 
-    These lines reject the map, because the module claims, imports, and entry points of
-    the module are not known. A test file that the extractor could not read or parse
-    does not give a line here. Its record is a not-known record that
-    `unknown_fact_lines` gives, as for other not-known records.
+
+def inventory_issue_causes(facts: dict[str, Any]) -> list[tuple[str, str]]:
+    """Give each module that the extractor could not read or parse, with its cause.
+
+    These records are not known. They do not reject the map. Each result that reads the
+    module stays not known: the component has no current source review digest, and an
+    import rule that reads the module is `unknown`. A test file that the extractor could
+    not read or parse does not give a line here. `unknown_fact_lines` gives it.
     """
-    out: list[str] = []
+    out: list[tuple[str, str]] = []
     for module, record in sorted(facts.get("components", {}).items()):
         if not source_parsed(record):
-            out.append(f"source inventory unresolved: {module} ({record['file']})")
+            state = record.get("completeness")
+            cause = unknown_causes.of(state) if isinstance(state, Mapping) else NOT_KNOWN
+            out.append((f"source inventory unresolved: {module} ({record['file']})", cause))
     return out
+
+
+NOT_KNOWN = unknown_causes.NOT_KNOWN

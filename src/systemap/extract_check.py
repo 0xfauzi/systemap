@@ -9,12 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from systemap import check, check_actions, extraction, nest
+from systemap import check, extraction, nest
 
 # More lines than this in one group give a count line in their place.
 SHOWN = 25
-# The start of a line from `source_facts.inventory_issue_lines`.
-INVENTORY = "source inventory unresolved: "
 
 
 def report(
@@ -24,27 +22,15 @@ def report(
     stale, model = problems(fresh, stored, tree, prefixes)
     if not stale and not model:
         return [f"map: The map agrees with the source tree: {len(fresh['components'])} modules."], 0
-    out = _stale_groups(stale)
+    out: list[str] = []
+    if stale:
+        out += _group("map: The map is stale", stale)
+        out.append("run: systemap extract")
     if model:
         lines = [line for group in model.values() for line in group]
         out += _group("map: The model does not agree with the source tree", lines)
         out += [f"Correct {rel}. Then use systemap check." for rel in model]
     return out, 1
-
-
-def _stale_groups(stale: list[str]) -> list[str]:
-    """Give the stale facts, and then the modules that the extractor cannot read or parse.
-
-    A new extraction does not change such a module. Thus its action is not `extract`."""
-    unread = [line for line in stale if INVENTORY in line]
-    drift = [line for line in stale if INVENTORY not in line]
-    out: list[str] = []
-    if drift:
-        out += [*_group("map: The map is stale", drift), "run: systemap extract"]
-    if unread:
-        out += _group("map: The extractor cannot read or parse these modules", unread)
-        out.append(check_actions.INVENTORY_ACTION)
-    return out
 
 
 def problems(

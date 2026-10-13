@@ -8,6 +8,7 @@ TypeScript fixture. Each acceptance value is in the docstring of its test.
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import json
 import shutil
@@ -18,19 +19,23 @@ from conftest import STARTER_MODULES, init_two_cards, sample_model, write_tree
 
 from systemap import (
     answer_migrations,
+    card_review,
     check,
-    check_actions,
     config,
     delta_report,
     extract,
+    facts_file,
+    import_rules,
     journey_coverage,
     judgement,
+    nest,
     source_facts,
     unknown_causes,
 )
 from systemap.cli import NO_COMPONENTS, main
 from systemap.config import Answer
 from systemap.delta import Delta, Line
+from systemap.model import ImportRule
 
 TS_FIXTURE = Path(__file__).parent / "fixtures" / "typescript-app"
 LANGUAGES = ("python", "typescript")
@@ -111,7 +116,7 @@ def test_each_cause_that_rejects_the_map_prints_its_line() -> None:
         found += 1
         report = "\n".join(check.report(model, result))
         assert marker in report, item.name
-    assert found >= 6
+    assert found >= 5
     rejected = dataclasses.replace(base, coverage=check.Coverage(True, 0, 1, 0, ("cov line",)))
     assert "cov line" in "\n".join(check.report(model, rejected))
 
@@ -122,37 +127,84 @@ BAD_MODULES = {
 }
 
 
+# A claimed module for each language, the component that claims it, and two texts: a
+# real syntax error, and correct source that the parser refuses. Python 3.12 added the
+# `type` statement, so the Python parser of 3.11 refuses it. tree-sitter-typescript
+# 0.23.2 refuses a generic call with a `typeof import()` type argument and a comma
+# after the last argument (trial-16).
+UNREAD = {
+    "python": ("pkg/reader.py", "pkg.reader", "Reader"),
+    "typescript": ("src/service.ts", "acme.web.service", "Application"),
+}
+SOURCES = {
+    ("python", "syntax error"): "def read(source: str -> str:\n    return source\n",
+    (
+        "python",
+        "parser limit",
+    ): "type Alias = int\n\n\ndef read(source: str) -> str:\n    return source\n",
+    ("typescript", "syntax error"): "export function serve(id: string {\n",
+    (
+        "typescript",
+        "parser limit",
+    ): 'declare function load<T>(name: string): T;\nexport const mod = load<typeof import("./client")>(\n  "x",\n);\n',
+}
+
+
+def _python_refuses(text: str) -> bool:
+    try:
+        ast.parse(text)
+    except SyntaxError:
+        return True
+    return False
+
+
 @pytest.mark.parametrize("language", LANGUAGES)
-def test_a_module_that_does_not_parse_gives_its_line_and_no_refresh_loop(
-    tmp_path: Path, language: str, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("form", ["syntax error", "parser limit"])
+def test_a_module_that_does_not_parse_is_not_known_and_does_not_reject_the_map(
+    tmp_path: Path, language: str, form: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance: in 2 of 2 languages, a module that does not parse, with a coverage
-    ignore, makes `refresh` and `check` exit 1. Each output contains the group
-    `source inventory unresolved: 1 problem` with the line `<module> (<file>)`. No output
-    contains "run: systemap refresh". After the refresh, `extract --check` exits 1 and
-    does not tell the person to use `extract` again."""
+    """Acceptance: in 2 of 2 languages, for a real syntax error and for correct source that
+    the parser refuses, in a claimed module with a recorded source review:
+
+    - `refresh`, `check`, and `extract --check` exit 0.
+    - `refresh` and `check` print `source inventory unresolved: 1 module`, the line
+      `<module> (<file>)`, and the fix line of the cause `syntax`. No output contains
+      "run: systemap refresh".
+    - The component has no source review digest, and its review state is `stale`.
+    - An import rule that reads the module gives `unknown`.
+    - `judgement` prints `stale source review: <component>`."""
+    file, module, card = UNREAD[language]
+    text = SOURCES[(language, form)]
+    if language == "python" and not _python_refuses(text):
+        pytest.skip("This Python version parses the `type` statement.")
     root = mapped_project(tmp_path, language)
-    file, text, module = BAD_MODULES[language]
+    assert run(root, "review", card) == 0
+    assert run(root, "refresh") == 0
     write_tree(root, {file: text})
-    append(
-        root / "systemap.toml",
-        f'\n[coverage]\nignore = [{{module = "{module}", reason = "trial fixture"}}]\n',
-    )
     capsys.readouterr()
-    expected = "source inventory unresolved: 1 problem\n"
-    assert run(root, "refresh") == 1
+    assert run(root, "refresh") == 0
     refreshed = capsys.readouterr().out
-    assert run(root, "check") == 1
+    assert run(root, "check") == 0
     out = capsys.readouterr().out
     for text_out in (refreshed, out):
-        assert f"\n  {module} ({file})\n" in text_out, text_out
-        assert expected in text_out
+        assert "source inventory unresolved: 1 module\n" in text_out, text_out
+        assert f"\n  {module} ({file})\n" in text_out
+        assert f"  fix: {unknown_causes.FIX[unknown_causes.SYNTAX]}" in text_out
         assert LOOP not in text_out
-    assert run(root, "extract", "--check") == 1
-    extracted = capsys.readouterr().out
-    assert f"source inventory unresolved: {module} ({file})" in extracted
-    assert "run: systemap extract" not in extracted
-    assert check_actions.INVENTORY_ACTION in extracted
+    assert run(root, "extract", "--check") == 0
+    cfg = config.load(root)
+    facts = facts_file.read_facts(cfg.facts_path)
+    assert facts["components"][module]["completeness"]["cause"] == unknown_causes.SYNTAX
+    top = nest.load(cfg).top
+    component = next(c for c in top.model.components if c.id == card)
+    assert card_review.digest(component, top.model, top.meaning, facts) is None
+    assert card_review.state(component, top.model, top.meaning, facts) == card_review.STALE
+    rule = ImportRule("no-cycle", "forbid_cycle", (card,))
+    ruled = import_rules.evaluate(dataclasses.replace(top.model, import_rules=(rule,)), facts)
+    assert [outcome.result for outcome in ruled] == [import_rules.UNKNOWN]
+    capsys.readouterr()
+    run(root, "judgement")
+    assert f"stale source review: {card} " in capsys.readouterr().out
 
 
 def test_refresh_does_not_ask_for_a_second_refresh_that_gives_the_same_result(

@@ -308,6 +308,47 @@ def _no_modules(model: Model, components: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def names_not_known(c: Component, components: Mapping[str, Any]) -> bool:
+    """Tell if the public names of the component are not known.
+
+    A claimed module, or the module of a symbol claim, that the extractor could not read
+    or parse has names that are not known. Then a name that the facts do not give is not
+    known: it is not a pass and not a failure. The `source inventory unresolved` group
+    gives the module."""
+    modules = [*claimed(c, components), *(m for m, _name in symbol_claims(c))]
+    return any(m in components and _not_parsed(components[m]) for m in modules)
+
+
+def _not_parsed(record: Mapping[str, Any]) -> bool:
+    """Tell if the adapter wrote that it could not read or parse all of the module.
+
+    A record without a `completeness` record keeps the earlier check result."""
+    state = record.get("completeness")
+    return isinstance(state, Mapping) and state.get("parsed") is False
+
+
+def _symbol_problem(
+    c: Component, module: str, name: str, components: Mapping[str, Any], owned: set[str]
+) -> str | None:
+    """Give the problem of one symbol claim, or None for a correct claim.
+
+    An empty string tells that the claim is not known: the module did not parse, and the
+    facts do not give the name. The claim then gives no line."""
+    symbol = f"{module}:{name}"
+    if module not in components:
+        return f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
+    if name not in public_names(components[module]):
+        if _not_parsed(components[module]):
+            return ""
+        return f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
+    if module not in owned:
+        return (
+            f"{c.id} has a symbol claim for {symbol} in a module with no owner. A symbol "
+            f"claim must have a module owner on the map."
+        )
+    return None
+
+
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
     """This function validates component modules, symbol claims, and entries against the
     facts.
@@ -334,24 +375,11 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
                 )
         symbols: list[str] = []
         for module, name in symbol_claims(c):
-            symbol = f"{module}:{name}"
-            if module not in components:
-                out.append(
-                    f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
-                )
-                continue
-            if name not in public_names(components[module]):
-                out.append(
-                    f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
-                )
-                continue
-            if module not in owned:
-                out.append(
-                    f"{c.id} has a symbol claim for {symbol} in a module with no owner. A symbol "
-                    f"claim must have a module owner on the map."
-                )
-                continue
-            symbols.append(symbol)
+            problem = _symbol_problem(c, module, name, components, owned)
+            if problem is None:
+                symbols.append(f"{module}:{name}")
+            elif problem:
+                out.append(problem)
         modules = claimed(c, components)
         if not modules and not symbols:
             if not c.implemented_by:
@@ -362,7 +390,7 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
             if c.kind not in ENTRY_OPTIONAL:
                 out.append(f"{c.id} has no entry. Its modules are {held}")
             continue
-        if not defines_entry(c, facts):
+        if not defines_entry(c, facts) and not names_not_known(c, components):
             out.append(
                 f"{c.id} has entry {c.entry}, but its modules do not define this entry ({held})."
             )
@@ -428,9 +456,9 @@ def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
 
 def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
     """This function gives the interface diagnostic for one component, or an empty string
-    if the interface is correct.
+    if the interface is correct or not known.
     """
-    if c.kind == "actor" or not c.interface.strip():
+    if c.kind == "actor" or not c.interface.strip() or names_not_known(c, components):
         return ""
     modules = claimed(c, components)
     symbols = symbol_claims(c)
@@ -497,11 +525,7 @@ def stale_facts(
     """This function compares stored facts with fresh facts and finds claims for missing
     source modules.
     """
-    problems = (
-        extraction.drift(fresh, stored)
-        + extraction.mapping_drift(fresh, model, prefixes)
-        + source_facts.inventory_issue_lines(fresh)
-    )
+    problems = extraction.drift(fresh, stored) + extraction.mapping_drift(fresh, model, prefixes)
     if not stored:
         problems.insert(0, "No extracted facts are available.")
     return problems
@@ -574,9 +598,12 @@ class Result:
     nesting: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
     unknown_surface: list[str] = field(default_factory=list)
-    inventory_issues: list[str] = field(default_factory=list)
-    # The causes of the `unknown_surface` lines, for their fix lines. They do not reject.
+    # The modules that the extractor could not read or parse. They do not reject the map.
+    inventory_issues: tuple[str, ...] = ()
+    # The causes of the `unknown_surface` lines and the `inventory_issues` lines, for
+    # their fix lines.
     unknown_causes: tuple[str, ...] = ()
+    inventory_causes: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -587,7 +614,6 @@ class Result:
             and not self.interface
             and not self.nesting
             and not self.stale
-            and not self.inventory_issues
         )
 
 
@@ -617,6 +643,7 @@ def run(
         problems += check_type_size(svg)
     counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
     unknown = source_facts.unknown_fact_causes(facts) if coverage else []
+    unread = source_facts.inventory_issue_causes(facts) if coverage else []
     return Result(
         problems,
         through,
@@ -625,8 +652,9 @@ def run(
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
         unknown_surface=[line for line, _cause in unknown],
-        inventory_issues=source_facts.inventory_issue_lines(facts) if coverage else [],
+        inventory_issues=tuple(line for line, _cause in unread),
         unknown_causes=tuple(dict.fromkeys(cause for _line, cause in unknown)),
+        inventory_causes=tuple(dict.fromkeys(cause for _line, cause in unread)),
     )
 
 

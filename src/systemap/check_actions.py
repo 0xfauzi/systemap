@@ -2,7 +2,7 @@
 
 The action is for the check error with the highest priority. An action never tells the
 person to use the same command again when a second use gives the same result. For
-example, a refresh does not change a module that the extractor cannot read or parse.
+example, a refresh does not change an output that it wrote with a different path.
 """
 
 from __future__ import annotations
@@ -15,10 +15,6 @@ from systemap.config import CONFIG_FILE, Config
 if TYPE_CHECKING:
     from systemap import check, nest
 
-INVENTORY_ACTION = (
-    "Make sure that systemap can read and parse each file in the source inventory "
-    "unresolved group. Then use systemap check."
-)
 STALE_AFTER_REFRESH = (
     "A second refresh writes the same outputs. Do the step in the fix line of the stale "
     "after refresh group."
@@ -44,8 +40,6 @@ def fix_line(tree: nest.Tree, cfg: Config, results: Mapping[str, check.Result]) 
         result = results[m.id]
         if result.entry or result.interface or result.nesting:
             return f"Correct {m.rel}. Then use systemap check."
-    if top.inventory_issues:
-        return INVENTORY_ACTION
     return "run: systemap refresh"
 
 

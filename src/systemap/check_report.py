@@ -24,10 +24,6 @@ IMPORT_RULE = "import rule: "
 PLACEMENT = "placement: "
 MODEL_PREFIXES = (MEANING, IMPORT_RULE, PLACEMENT)
 
-INVENTORY_FIX = (
-    "  fix: Make sure that systemap can read and parse each file in the list. Then use "
-    "systemap check."
-)
 STALE_FIX = "  fix: Use systemap refresh. Then commit the output directory."
 STALE_AFTER_REFRESH_FIX = (
     "  fix: Make sure that each output in the configuration has a different path. If the "
@@ -106,7 +102,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         )
     ]
     out += _coverage(result.coverage, model_file)
-    out += inventory_report(result.inventory_issues)
+    out += inventory_report(result.inventory_issues, result.inventory_causes)
     out += _group(
         "nesting",
         result.nesting,
@@ -155,15 +151,16 @@ def _coverage(cov: Coverage, model_file: str) -> list[str]:
     return out
 
 
-def inventory_report(lines: Sequence[str]) -> list[str]:
-    """Give the modules that the extractor could not read or parse. They reject the map."""
+def inventory_report(lines: Sequence[str], causes: Iterable[str] = ()) -> list[str]:
+    """Give the modules that the extractor could not read or parse, and one fix line for
+    each cause. These records are not known. They do not reject the map."""
     if not lines:
         return []
     kind = "source inventory unresolved"
     return [
-        f"{kind}: {plural(len(lines), 'problem')}",
+        f"{kind}: {plural(len(lines), 'module')}",
         *(f"  {line.removeprefix(f'{kind}: ')}" for line in lines),
-        INVENTORY_FIX,
+        *unknown_causes.fix_lines(list(causes) or [unknown_causes.NOT_KNOWN]),
     ]
 
 
@@ -193,6 +190,14 @@ def _layout(model: Model, problems: Sequence[str], model_file: str) -> list[str]
     return [
         f"map layout: has no errors ({n} components, {len(model.flows)} orthogonal "
         f"flow paths with labels, no text size less than {TEXT_PX:g}px)"
+    ]
+
+
+def not_known(result: Result) -> list[str]:
+    """Give the not-known records of one map. They do not reject the map."""
+    return [
+        *inventory_report(result.inventory_issues, result.inventory_causes),
+        *unknown_surface_report(result.unknown_surface, result.unknown_causes),
     ]
 
 

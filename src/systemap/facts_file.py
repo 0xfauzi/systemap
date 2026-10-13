@@ -228,7 +228,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "completeness",
         "The read condition of the module, with the same meaning for each language. "
         "`parsed` is `false` if the extractor could not read or parse all of the source, "
-        "and `line` and `reason` then give the first problem. `unresolved_imports` lists "
+        "and `line`, `reason`, and `cause` then give the first problem. Such a module does "
+        "not reject the map. `unresolved_imports` lists "
         "each local import, as the source writes it, that has no module in the facts. A "
         "local import is a relative import, a path, a TypeScript path alias, or a name below a "
         "package root. If `parsed` is `false`, the import list is not known and is `null`. "

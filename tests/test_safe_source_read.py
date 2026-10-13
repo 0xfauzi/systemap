@@ -303,6 +303,7 @@ def test_extraction_does_not_read_a_link_to_an_outside_file(
         "parsed": False,
         "line": 0,
         "reason": OUTSIDE_REASON,
+        "cause": "read",
         "unresolved_imports": None,
     }
     assert MARKER not in facts_file.dumps(facts)

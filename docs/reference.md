@@ -23,8 +23,16 @@ The command exits 1 if a rule rejects the map.
 | type size | Text is smaller than 11 px at native scale. |
 | meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. The heading of these findings is `map meaning`. |
 | import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. The heading of these rule findings is `import rule fields`. |
-| source inventory | The extractor cannot read or parse a source module. The heading is `source inventory unresolved`. A test file that the extractor cannot read or parse does not reject the map. `check` prints it as an `unknown surface` line. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
+
+A source module or test file that the extractor cannot read or parse does not reject the map.
+systemap is not a syntax checker, and a parser limit must not stop `check` for correct source.
+`check` prints such a module in the `source inventory unresolved` group, with the fix line of its cause.
+Each result that reads the module is not known, and not a pass:
+
+- The component that claims the module has no source review digest. Thus `judgement` gives a `stale source review` line for it.
+- An import rule that reads the module gives `unknown`.
+- A missing entry, interface, or symbol name of the component is not known. `check` and `delta` do not report it.
 
 A meaning error, an import rule field error, or a placement error stops the check before it renders the map.
 Then the `map layout` line says that the check did not render the map.
@@ -795,7 +803,7 @@ A rejected check causes exit 1, and the command renders nothing.
 The last line gives the necessary action. If a second refresh gives the same result, the action is not `refresh`.
 If an output is stale after the command wrote it, the heading is `stale after refresh`.
 An example is a configured figure with the path of the page.
-After a check without errors, the command prints the `unknown surface` group, as `systemap check` does.
+After a check without errors, the command prints the `source inventory unresolved` group and the `unknown surface` group, as `systemap check` does.
 After a check without errors, the command examines the import rules, as `systemap check` does.
 It prints the rule results. A rule with the result `fail` causes exit 1.
 With `[rules] unknown = "fail"`, a rule with the result `unknown` also causes exit 1.

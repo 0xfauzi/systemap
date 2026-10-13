@@ -319,13 +319,7 @@ def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
 
 def _unknown_report(p: Project, results: dict[str, check.Result]) -> list[str]:
     """Give the not-known records of a check that passed. They do not reject the map."""
-    return [
-        m.prefix + line
-        for m in p.tree.maps
-        for line in check_report.unknown_surface_report(
-            results[m.id].unknown_surface, results[m.id].unknown_causes
-        )
-    ]
+    return [m.prefix + line for m in p.tree.maps for line in check_report.not_known(results[m.id])]
 
 
 def _report_tree(
