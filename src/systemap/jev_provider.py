@@ -81,6 +81,10 @@ class JevProvider:
         return len(self.client.pending([ask_of(q) for q in questions]))
 
 
-def from_env(model: str, cache_path: Path | None, send: jev.Send | None = None) -> JevProvider:
-    """Make the provider with an injected transport, or HTTPS with an environment key."""
-    return JevProvider(jev.from_env(model, cache_path, send))
+def from_env(
+    model: str, cache_path: Path | None, send: jev.Send | None = None, root: Path | None = None
+) -> JevProvider:
+    """Make the provider with an injected transport, or HTTPS with an environment key.
+
+    `root` is the folder that contains the cache file: the repository root."""
+    return JevProvider(jev.from_env(model, cache_path, send, root))

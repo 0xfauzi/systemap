@@ -17,6 +17,7 @@ from systemap import (
     nest,
     source_facts,
     typescript_config,
+    typescript_roots,
 )
 from systemap.cli import main
 from systemap.typescript import TYPESCRIPT, parse_surface
@@ -342,6 +343,7 @@ def test_compiled_package_entries_use_unique_source_fallback(tmp_path: Path) -> 
             "name": "web",
             "target": "dist/missing.js (+1 more)",
             "reason": "2 package.json export targets have no resolved TypeScript modules.",
+            "cause": "target",
         }
     ]
 
@@ -358,7 +360,7 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     issue = facts["components"]["web.broken"]["unknown"][0]
     assert "could not parse the source syntax" in issue["reason"]
     assert source_facts.unknown_fact_lines(facts) == [
-        f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
+        f"unknown surface: module web.broken (src/broken.ts): {issue['reason']}"
     ]
 
 
@@ -380,7 +382,9 @@ def test_missing_npm_tsconfig_and_declaration_files_do_not_stop_extract(tmp_path
     facts = extract.build(cfg)
     assert sorted(facts["components"]) == ["web.index", "web.value"]
     assert facts["components"]["web.index"]["uses"] == {"web.value": ["value"]}
-    assert facts["config_issues"] == [{"file": "tsconfig.json", "reference": "@vendor/tsconfig"}]
+    assert facts["config_issues"] == [
+        {"file": "tsconfig.json", "reference": "@vendor/tsconfig", "cause": "package"}
+    ]
     assert "tsconfig.json extends '@vendor/tsconfig'" in source_facts.unknown_fact_lines(facts)[0]
     assert TYPESCRIPT.module_for_path(tmp_path, "src/types.d.ts", cfg.roots) is None
 
@@ -668,7 +672,7 @@ def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
             "src/nested/one.ts": "export const ONE = 1;",
         },
     )
-    assert typescript_config.discover_typescript_roots(tmp_path) == [("src", "web")]
+    assert typescript_roots.discover_typescript_roots(tmp_path) == [("src", "web")]
 
     write_tree(tmp_path, {"src/some-file.ts": "", "src/some_file.ts": ""})
     with pytest.raises(config.ConfigError, match="module id web.some_file is shared"):

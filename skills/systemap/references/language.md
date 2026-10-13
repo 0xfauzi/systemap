@@ -314,6 +314,8 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | source evidence | Source records and review data that support a map claim (category 19). |
 | stroke pattern | The SVG line marks that show a map evidence state (category 19). |
 | threshold curve | The measured results across specified threshold values (category 7). |
+| declaration file | A source file that gives only type declarations and no executable code, such as a TypeScript `.d.ts` file. A declaration file has no module record. |
+| script file | A file of executable code in the repository that the extractor does not read as source code, such as a JavaScript file in a TypeScript repository. A script file has no module record. |
 | exact match | A full identity comparison with no wildcard or substring matching. |
 | source pattern | A module name or wildcard expression used for component assignment. |
 | wildcard | A pattern symbol that matches a specified set of names. |

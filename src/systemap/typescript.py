@@ -9,7 +9,13 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import repo_files, typescript_calls, typescript_entry
+from systemap import (
+    repo_files,
+    typescript_calls,
+    typescript_entry,
+    typescript_package_imports,
+    unknown_causes,
+)
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
 from systemap.pattern_match import matches_test_pattern
@@ -31,6 +37,7 @@ from systemap.typescript_projects import (
     path_choices,
     without_script_suffix,
 )
+from systemap.typescript_reexport_targets import Targets, resolve_reexports
 from systemap.typescript_repo import (
     TypeScriptRepository,
     compiler_record,
@@ -40,7 +47,7 @@ from systemap.typescript_repo import (
 )
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
-from systemap.typescript_syntax import string_value, syntax_tree
+from systemap.typescript_syntax import specifier_name, string_value, syntax_tree
 from systemap.typescript_tests import test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -90,6 +97,8 @@ class TypeScriptContext:
     test_issues: list[dict[str, Any]] = field(default_factory=list)
     # The tsconfig project of each file. Without it, the top-level compiler applies.
     projects: TypeScriptProjects | None = None
+    # The nearest package.json above each folder (`typescript_package_imports`).
+    package_scopes: dict[Path, Any] = field(default_factory=dict)
 
     def compiler_for(self, path: Path) -> TypeScriptConfig:
         """This function gives the compiler settings of the project that contains a file."""
@@ -119,7 +128,7 @@ def _test_file_guards(
     try:
         raw, problems = read_problems(path, repo)
     except OSError as exc:
-        raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
+        raw, problems = "", [unknown_causes.read_problem(exc)]
     root = syntax_tree(raw, path.as_posix())
     if root.has_error:
         context.test_issues.append(
@@ -130,8 +139,8 @@ def _test_file_guards(
         )
         return {}
     context.test_issues.extend(
-        {"file": path.relative_to(repo).as_posix(), "problem": _problem(0, reason, "")}
-        for reason in problems
+        {"file": path.relative_to(repo).as_posix(), "problem": _problem(0, *problem, "")}
+        for problem in problems
     )
     targets = {
         target
@@ -187,6 +196,9 @@ def _target_from_path(
     found = _first_target(targets, context.modules_by_path)
     if found is not None or specifier.startswith("."):
         return found
+    package = typescript_package_imports.resolve(specifier, importer, context)
+    if package is not None:
+        return package.module
     normalized = _module_name(without_script_suffix(specifier))
     return next((name for name in (normalized, f"{normalized}.index") if name in paths), None)
 
@@ -259,11 +271,8 @@ def _imported_names(node: Any) -> set[str]:
     if any(child.type == "identifier" for child in clause.named_children):
         out.add("default")
     for specifier in (child for child in _walk(clause) if child.type == "import_specifier"):
-        original = next(
-            (child for child in specifier.named_children if child.type == "identifier"), None
-        )
-        if original is not None:
-            out.add(_text(original))
+        if original := specifier_name(specifier.child_by_field_name("name")):
+            out.add(original)
     return out
 
 
@@ -273,16 +282,9 @@ def _exported_names(node: Any) -> set[str]:
         return {WHOLE_MODULE}
     out: set[str] = set()
     for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
-        original = next(
-            (
-                child
-                for child in specifier.named_children
-                if child.type in ("identifier", "type_identifier")
-            ),
-            None,
-        )
-        if original is not None:
-            out.add(_text(original))
+        # A string name, as in `export { 'a-b' as c } from`, is the name in the module.
+        if original := specifier_name(specifier.child_by_field_name("name")):
+            out.add(original)
     return out or {WHOLE_MODULE}
 
 
@@ -406,8 +408,8 @@ def _node_module(specifier: str) -> bool:
     return specifier.startswith("node:") or specifier in NODE_MODULES
 
 
-def _problem(line: int, reason: str, source: str) -> dict[str, Any]:
-    return {"line": line, "reason": reason, "source": source[:120]}
+def _problem(line: int, reason: str, cause: str, source: str) -> dict[str, Any]:
+    return {"line": line, "reason": reason, "source": source[:120], "cause": cause}
 
 
 def _mark_star_exports(names: list[dict[str, Any]]) -> None:
@@ -420,49 +422,14 @@ def _mark_star_exports(names: list[dict[str, Any]]) -> None:
             entry["star_export"] = False
 
 
-def _resolve_reexports(
-    surface: dict[str, Any],
-    path: Path,
-    module: str,
-    known: set[str],
-    paths: dict[str, Path],
-    context: TypeScriptContext,
-) -> None:
-    """This function replaces each re-export specifier with its module.
-
-    A re-export from an npm package keeps the package name and has no unknown record.
-    A `*` re-export from an npm package gives no public name.
-    """
-    surface["names"] = [
-        entry
-        for entry in surface["names"]
-        if not entry.get("reexport_of")
-        or _resolve_reexport(entry, surface, path, module, known, paths, context)
-    ]
-
-
-def _resolve_reexport(
-    entry: dict[str, Any],
-    surface: dict[str, Any],
-    path: Path,
-    module: str,
-    known: set[str],
-    paths: dict[str, Path],
-    context: TypeScriptContext,
-) -> bool:
-    source = entry["reexport_of"]
-    target = _resolve(source, module, known, paths, context)
-    if target:
-        entry["reexport_of"] = target
-        return True
-    star = entry.pop("star", None)
-    entry["kind"] = "unknown"
-    if _is_package(source, path, context):
-        return not star
-    surface["unknown"].append(
-        _problem(1, f"the re-export target {source!r} is outside the extracted module set.", source)
+def _reexport_targets(
+    path: Path, module: str, known: set[str], paths: dict[str, Path], context: TypeScriptContext
+) -> Targets:
+    return Targets(
+        lambda source: _resolve(source, module, known, paths, context),
+        lambda source: _is_package(source, path, context),
+        lambda source: typescript_package_imports.declaration_file(source, path, context),
     )
-    return True
 
 
 def _unresolved(
@@ -483,20 +450,39 @@ def _unresolved(
     for specifier, _names in _imports(root):
         if _node_module(specifier) or _resolve(specifier, module, known, paths, context):
             continue
-        name = _module_name(specifier)
-        local = any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
-        if importer is not None:
-            local = local or not _is_package(specifier, importer, context)
-        else:
-            local = local or specifier.startswith(".")
-        out.add((specifier, local))
+        package = typescript_package_imports.npm_package(specifier, importer, context)
+        if package:
+            # A subpath import can name an npm package or a Node.js module.
+            out.update(() if _node_module(package) else ((package, False),))
+            continue
+        if typescript_package_imports.declaration_file(specifier, importer, context):
+            # A declaration file gives only types. It has no module, so no import rule
+            # can apply to it, and it is not an unresolved import.
+            continue
+        out.add((specifier, _local(specifier, importer, prefixes, context)))
     return out
 
 
+def _local(
+    specifier: str, importer: Path | None, prefixes: set[str], context: TypeScriptContext
+) -> bool:
+    name = _module_name(specifier)
+    if any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes):
+        return True
+    if importer is not None:
+        return not _is_package(specifier, importer, context)
+    return specifier.startswith(".")
+
+
 def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> bool:
-    """This function tells if an import that does not resolve names an npm package."""
-    return not specifier.startswith((".", "/")) and not is_alias(
-        specifier, context.compiler_for(importer)
+    """This function tells if an import that does not resolve names an npm package.
+
+    A self-name import and a subpath import (`#name`) name the same package.
+    """
+    return (
+        not specifier.startswith((".", "/"))
+        and not is_alias(specifier, context.compiler_for(importer))
+        and not typescript_package_imports.is_local(specifier, importer, context)
     )
 
 
@@ -577,7 +563,7 @@ class TypeScriptLanguage(TypeScriptRepository):
             "entry_point_issues": entry_issues,
             "test_file_issues": context.test_issues,
             "config_issues": [
-                {"file": file, "reference": reference}
+                {"file": file, "reference": reference, "cause": unknown_causes.PACKAGE}
                 for file, reference in context.compiler.issues
             ],
         }
@@ -609,9 +595,9 @@ class TypeScriptLanguage(TypeScriptRepository):
             raw, problems = read_problems(path, repo)
         except OSError as exc:
             # The module stays in the facts, with a read problem: its surface is not known.
-            raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
+            raw, problems = "", [unknown_causes.read_problem(exc)]
         surface = parse_surface(raw, path.as_posix())
-        problem = _problem(0, problems[0], "") if problems else None
+        problem = _problem(0, *problems[0], "") if problems else None
         if surface is None:
             problem = parse_problem(raw, path.as_posix())
             surface = {
@@ -625,8 +611,9 @@ class TypeScriptLanguage(TypeScriptRepository):
                 "api": [],
                 "unknown": [problem],
             }
-        surface["unknown"].extend(_problem(0, reason, "") for reason in problems)
-        _resolve_reexports(surface, path, module, known, paths, context)
+        surface["unknown"].extend(_problem(0, *found, "") for found in problems)
+        targets = _reexport_targets(path, module, known, paths, context)
+        resolve_reexports(surface, raw, path.as_posix(), targets)
         _mark_star_exports(surface["names"])
         return {
             "file": path.relative_to(repo).as_posix(),

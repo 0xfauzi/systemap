@@ -40,14 +40,20 @@ def test_init_then_refresh_round_trip(tmp_path: Path, capsys: pytest.CaptureFixt
     assert out.rstrip().endswith(
         "Make a map of this repository with systemap. Obey the systemap skill and its writing rules."
     )
-    # One note names the two gates a strict repository runs, with the exact
-    # pyproject lines deptry needs; mypy is answered in the file itself.
+    # The note names the mypy setting, which the model file supplies. This repository
+    # does not use deptry (trial-20), so the note has no deptry lines.
     assert "\n".join(scaffold.TOOLING_NOTE) + "\nNext," in out
-    assert "mypy --strict" in out and "deptry" in out
-    assert (
-        '\n    [tool.deptry.per_rule_ignores]\n    DEP001 = ["systemap"]\n    DEP003 = ["systemap"]\n'
-        in out
+    assert "mypy --strict" in out and "deptry" not in out
+    write_tree(tmp_path, {"pyproject.toml": "[tool.deptry]\nexclude = []\n"})
+    assert scaffold.tooling_note(tmp_path, cli.languages.repository("python")) == (
+        *scaffold.TOOLING_NOTE[:2],
+        "  deptry: add these lines to pyproject.toml",
+        "    [tool.deptry.per_rule_ignores]",
+        '    DEP001 = ["systemap"]',
+        '    DEP003 = ["systemap"]',
+        scaffold.TOOLING_NOTE[2],
     )
+    (tmp_path / "pyproject.toml").unlink()
     model = (tmp_path / "map/model.py").read_text(encoding="utf-8")
     assert "from systemap import (  # type: ignore[import-not-found, unused-ignore]\n" in model
     assert "[writing] profile" in model

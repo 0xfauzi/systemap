@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import TWO_CARD_MODEL, Sample, init_two_cards, write_tree
 
-from systemap import check, route
+from systemap import check, check_actions, route
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.model import Container
@@ -329,10 +329,11 @@ def test_refresh_exits_1_when_the_check_fails_after_writing(
     capsys.readouterr()
     assert run("--root", str(tmp_path), "refresh") == 1
     out = capsys.readouterr().out
-    assert "stale: 1 problem" in out
+    # A second refresh writes the same outputs, so the action is not a refresh (trial-1).
+    assert "stale after refresh: 1 problem" in out
     assert "docs/map/index.html differs (simulated)" in out
     assert out.rstrip().endswith(
-        "map: The check found an error after the refresh. run: systemap refresh"
+        f"map: The check found an error after the refresh. {check_actions.STALE_AFTER_REFRESH}"
     )
     assert calls["n"] == 2, "the check ran once before writing and once after"
 

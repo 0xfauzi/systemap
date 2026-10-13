@@ -9,11 +9,24 @@ Thus an `item` of a recorded exact answer can name a line that does not occur. I
 item without its map prefix agrees with one and only one current line without its map
 prefix, the item applies to that current line. The configuration text does not change.
 The evidence digest of the current line must agree with the recorded digest.
+
+The line for a re-export target outside the extracted module set also changed (facts
+format 9 to 10). The earlier line had the location `:1` for each statement, and one line
+for each name. The current line ends with the names. `answer_migrations` removes the
+`:1`, but it cannot add the names, because they come from the source. Thus this module
+keeps this migration: an item in the earlier form, without names, applies to a current
+line if the module, the file, and the target agree with one and only one current line of
+this form. A line for a declaration file has a different meaning. Thus an earlier item
+does not apply to it.
+
+The migrations that need only the item text, such as the parse line without its excerpt
+and parser version, are in `answer_migrations`.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Iterable
 
 from systemap import answer_migrations
@@ -22,6 +35,13 @@ from systemap.judgement import unprefixed
 
 # The kind of the lines that moved. Items of other kinds do not change.
 MOVED_KIND = "unknown surface: "
+# A re-export target line, in the earlier form or in the current form. The key is the
+# line without the line number of the location and without the names.
+TARGET_LINE = re.compile(
+    r"^(?P<head>(?:\S+: )?unknown surface: module \S+ \(.+?)(?::\d+)?\): "
+    r"(?P<reason>the re-export target .+ is outside the extracted module set\.)"
+    r"(?: Names: .*)?$"
+)
 
 
 def current_lines(answers: Iterable[Answer], lines: list[str]) -> list[Answer]:
@@ -32,6 +52,8 @@ def current_lines(answers: Iterable[Answer], lines: list[str]) -> list[Answer]:
         bare = unprefixed(line)
         if bare.startswith(MOVED_KIND):
             by_bare.setdefault(bare, []).append(line)
+        if target := _target_key(line):
+            by_bare.setdefault(target, []).append(line)
     out: list[Answer] = []
     for answer in answers:
         items = tuple(_current(item, present, by_bare) for item in answer.items)
@@ -46,4 +68,14 @@ def _current(item: str, present: set[str], by_bare: dict[str, list[str]]) -> str
     if now in present:
         return item
     found = by_bare.get(unprefixed(now), [])
+    if not found and " Names: " not in now and (target := _target_key(now)):
+        # Only the earlier form, without names: a current item must agree on its names.
+        found = by_bare.get(target, [])
     return found[0] if len(found) == 1 else item
+
+
+def _target_key(line: str) -> str:
+    """Give the key of a re-export target line, or an empty string. The key keeps the
+    map prefix, because the line of each map is a different line."""
+    found = TARGET_LINE.match(line)
+    return f"{found['head']}): {found['reason']}" if found else ""

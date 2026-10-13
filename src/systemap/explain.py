@@ -61,15 +61,19 @@ JUDGEMENT = {
         ),
     ),
     "thin layer": Lesson(
-        means="A layer has less than two components.",
+        means="A layer has less than two components. A layer with no components has no flows.",
         why=(
-            "A layer with one component gives little information about the connections in "
-            "the system."
+            "A layer with less than two components gives no information or a small quantity "
+            "of information about the connections in the system."
         ),
         do=("Add the flows for this layer, or give the reason that this layer is not necessary."),
     ),
     "entry point": Lesson(
-        means="An entry point has no sequence.",
+        means=(
+            "An entry point has no sequence. The line gives the component of the module "
+            "that the entry point names. The function that the entry point starts can be "
+            "in a different component."
+        ),
         why=(
             "An entry point starts a system operation. Without a sequence, the map does "
             "not give the steps of this operation."
@@ -203,6 +207,7 @@ JUDGEMENT = {
         means=(
             "The language adapter could not read part of the source. Or, it could not find "
             "the target of an entry point, an import, or a configuration file. Or, a "
+            "re-export target is a declaration file, which has no module. Or, a "
             "configuration file extends a configuration package that the adapter could not "
             "read. If the parser could not read a full file, the line gives the parser version."
         ),
@@ -211,11 +216,10 @@ JUDGEMENT = {
             "connections can be incorrect."
         ),
         do=(
-            "Read the source excerpt. If the line gives a parser version, use a parser version "
-            "that can read the syntax. Or, change the parser to read the syntax. "
-            "Or, remove the files that are not part of the system from the source roots. "
-            "If the line gives a configuration package, install the package. Then do "
-            "`systemap extract` again."
+            "Do the step in the `fix` line for the cause of the line. `systemap judgement` "
+            "gives the cause in a `cause` row below the line. If the source is correct, "
+            "record an answer for the line. `systemap check` does not reject the map for "
+            "these lines."
         ),
     ),
 }
@@ -481,9 +485,42 @@ CHECK = {
         do="Use `systemap refresh`. Then commit the output directory.",
     ),
     "source inventory unresolved": Lesson(
-        means="The parser could not read all of a source file or test file.",
-        why="A missing file can omit ownership, imports, entries, or tests from the facts.",
-        do="Use a compatible parser, or correct the source. Then use `systemap refresh`.",
+        means=(
+            "The extractor could not read or parse all of a source module. The module is a "
+            "not-known record, and `systemap check` does not reject the map for it."
+        ),
+        why=(
+            "The facts do not have the names, imports, or entry points of the module. Thus "
+            "its component has no current source review, and an import rule that reads it "
+            "is unknown."
+        ),
+        do=(
+            "Do the step in the `fix` line for the cause. If the parser cannot read correct "
+            "source, record an answer for the `unknown surface` line of the module."
+        ),
+    ),
+    "stale after refresh": Lesson(
+        means="After a refresh, a written output is different from the rendered output.",
+        why=(
+            "A second refresh writes the same outputs again. Thus the difference does not go away."
+        ),
+        do=(
+            "Make sure that no two outputs in the configuration have the same path. If the "
+            "paths are different, report the problem to the systemap project."
+        ),
+    ),
+    "map meaning": Lesson(
+        means=(
+            "The meaning of the model has a missing sentence, plain word, layer, or step. Or, "
+            "it refers to an unknown component or flow."
+        ),
+        why="The reader uses these words to know the work of each component and flow.",
+        do="Add the missing words, or correct the component or flow id. Then use `systemap check`.",
+    ),
+    "import rule fields": Lesson(
+        means="An import rule in the model has an incorrect id, `kind` value, or component.",
+        why="The check cannot compare an incorrect rule with the imports in the facts.",
+        do="Correct the import rule in the model. Then use `systemap check`.",
     ),
     "extraction inputs changed": Lesson(
         means="The configuration or parser inputs changed after systemap wrote the facts.",
@@ -519,6 +556,14 @@ CHECK = {
             "Correct the source or the import. Then use `systemap refresh`. To make this "
             'result stop the check, set `unknown = "fail"` in `[rules]`.'
         ),
+    ),
+    "unknown records changed": Lesson(
+        means=(
+            "The test files that the extractor could not read or parse changed after "
+            "systemap wrote the facts."
+        ),
+        why="The facts file does not show the current unknown records.",
+        do="Use `systemap refresh`. Then read the unknown surface lines.",
     ),
     "derived facts changed": Lesson(
         means="Imports or other extracted facts changed for a module.",

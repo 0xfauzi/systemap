@@ -28,13 +28,18 @@ Each item gives the change, and then the step that you must do.
   Step: to keep the suggestions, give `delta --decide`, or set `[jev] enabled = true` in `systemap.toml`.
   `[jev] enabled = false` stops the hint.
 
-- The facts format is now 8. A facts file of an earlier format is stale.
+- The facts format is now 11. A facts file of an earlier format is stale.
   Thus `systemap check` and `systemap extract --check` exit 1 until you extract the facts again.
   Format 5 added the `completeness` record. Format 6 changed the meaning of `package`. Format 7 added the `call_sites` fact.
 
   Format 8 added the `types` fact, and `classes` holds only class declarations.
   It also added `defined_in` and `defined_as` on each re-export, `type_only` on each TypeScript type-only export, and `same_as` and `symbol` on each entry point.
   A Python function fingerprint includes its decorators.
+
+  Format 9 added a `cause` to each unknown record. The `fix:` line of the record comes from its cause.
+  Format 10 gives one unknown record for each TypeScript re-export statement without a module target, with the line and the names of the statement.
+  A declaration file target has the cause `declaration file`, and an import of a declaration file is not an unresolved import.
+  Format 11 keeps the excerpt and the parser version of a TypeScript parse record in their own fields, not in the reason.
 
   The `package` fact is now the folder package that the language adapter gives.
   Before this change, systemap calculated the package from the dotted module name.
@@ -103,10 +108,22 @@ Each item gives the change, and then the step that you must do.
 
   Step: correct the import, or change the rule.
 
-- A Python test file that systemap cannot read or parse gives a `test_file_issues` record, as a TypeScript test file does.
-  Then `systemap refresh` and `systemap check` exit 1, and they give the file and the line.
+- A source module or a test file that the parser cannot read or parse does not reject the map.
+  In 3.0.0, a source module that did not parse made `check` exit 1. A parser can refuse correct source, and systemap is not a syntax checker.
+  `check` and `refresh` print the module or the test file in the `source inventory unresolved` group, with its cause and its `fix:` line.
+  Each result that reads such a module is not known: the component gets no source review digest, and an import rule gives `unknown`.
+  A Python test file that cannot be parsed gives a `test_file_issues` record, as a TypeScript test file does.
 
-  Step: correct the syntax of the test file, or exclude the file.
+  Step: if `judgement` gives a `stale source review` line for such a component, examine the module that did not parse.
+
+- `systemap judgement --strict` exits 1 for a model without components, as `systemap check` does.
+
+  Step: write the components before you use `judgement --strict` in CI.
+
+- `systemap judgement --json` has schema version 3.
+  Each open row has `cause`, the cause of an `unknown surface` finding, and `sources`, the file, line, excerpt, and parser version of its records.
+
+  Step: if a program reads the JSON object, make sure that it accepts version 3.
 
 - A TypeScript test name contains the names of the `describe` or `suite` functions that contain the test, for example `orders > saves an order`.
   If a file has two tests with the same name, the second name gets ` #2`. Thus the test identities in the facts change.
@@ -128,17 +145,31 @@ Each item gives the change, and then the step that you must do.
 
   Step: correct each value that the error names.
 
-- Some finding lines have a new form, because a shared finding line must not name one language.
-  In this release, an answer item in the earlier form is an answer for the line in the new form, with the same evidence digest.
-  `judgement` prints one warning for each earlier item.
+- Some finding lines have a new form. A shared finding line must not name one language.
+  A finding line also contains only the parts that identify the finding: no line number, source excerpt, parser version, or time.
+  The judgement report gives these values in the `at:`, `excerpt:`, and `parser version:` rows below the line.
 
-  | earlier text in the line | new text in the line |
+  | earlier text in the line | current text in the line |
   |---|---|
-  | `under Python 3.11.10` | `(parser version 3.11.10)` |
+  | `module M (src/a.ts:254): ...` | `module M (src/a.ts): ...` |
+  | `test file tests/a.spec.ts:3: ...` | `test file tests/a.spec.ts: ...` |
+  | `... Source excerpt: '<text>'` at the end | no text |
+  | `under Python 3.11.10` or `(parser version 3.11.10)` at the end | no text |
   | `the npm tsconfig package could not be read` | `the configuration package could not be read` |
   | `The parser could not parse the TypeScript syntax.` | `The parser could not parse the source syntax.` |
+  | `7 public_functions into Api` | `7 public functions into Api` |
+
+  In this release, an answer item in an earlier form is an answer for the line in the current form.
+  `judgement` prints one warning for each earlier item.
+  The evidence of an `unknown surface` line of a module or a test file now contains its records and the cited source lines.
+  Thus each exact answer for such a line is pending one time after the upgrade.
+  After this change, a new line above the cited statement does not open the answer again. A change of the statement opens it.
+
+  A TypeScript re-export of a declaration file gave one line for each name, each at line 1. It now gives one line for each statement.
+  An answer for the earlier line applies to the one current line of the same map, module, file, and target.
 
   Step: replace each earlier item in `[judgement] answered` with the line that the warning gives.
+  Then examine the source of each `pending answer` line, and write its digest in `evidence`.
 
 - An `unknown surface` line about a module occurs one time, in the map that owns the module.
   An earlier exact answer with a different map prefix applies to the moved line.
@@ -159,6 +190,38 @@ Each item gives the change, and then the step that you must do.
 - `init` writes no `systemap.toml` if `pyproject.toml` has a `[tool.systemap]` table. It writes the model at the `model` path of that table.
   The facts file and each configured figure must be in `out_dir`. A different path gives exit code 2.
 
+- A configured cache path (`[jev]`, `[openai]`, or `[agent]`), `out_dir`, or `model` that is absolute or that has a `..` part is a configuration error.
+  A pull request can change `systemap.toml`. Thus CI must not write to a location that is not in the repository.
+  A `pyproject.toml` file that is not correct TOML is a configuration error. Before this change, it gave an empty table.
+
+  Step: give each of these paths relative to the repository root. Correct the TOML that the error names.
+
+- systemap reads a cache file, an output file, the facts file, the decision store, and a plan only in their root.
+  A link to a different folder, a FIFO, or a device gives an error with its cause and exit code 1.
+  A repository file that is a link out of the repository or a FIFO gives a configuration error. A missing file gives the same result as before.
+
+  Step: remove the link or the FIFO that the error names.
+
+- For TypeScript, `init` selects the package root from the one source folder of the `tsconfig.json` `include` entries.
+  It also writes `test_patterns` for the type-test folders and files that it finds.
+  If `init` selects no root, `init` and `extract` give the cause and the `[package_roots]` table to write.
+
+  Step: for a new configuration, examine the `[package_roots]` and `test_patterns` values that `init` writes.
+
+- Some TypeScript and Python facts changed. The coverage, crossing import, and entry point findings can change:
+
+  - An import of the package name of the same package, and a `package.json` subpath import (`#name`), are internal imports.
+  - A string export name, such as `export { x as 'module.exports' }`, is the public name.
+  - Python overload signatures give one public name.
+  - A console script, a main function, and a command that start the same function give one entry point.
+  - A license notice is not a module description.
+  - A component `entry` can be the label of an entry point that starts no single public name, such as a package bin.
+
+  Step: operate `systemap refresh`, `systemap check`, and `systemap judgement`, and correct each new finding.
+
+- Some printed text changed. `check` gives meaning errors under `map meaning`, and import rule field errors under `import rule fields`.
+  The `delta` count text is `N of M components have changes`.
+
 ### New commands and options
 
 - `systemap review COMPONENT` writes the current `source_review` digest of one component into the model file.
@@ -170,7 +233,7 @@ Each item gives the change, and then the step that you must do.
 - `systemap judgement --json` writes one JSON object for programs.
   The object gives each open line with its kind, its detail lines, and the evidence digest that an exact answer must have.
   It also gives the answers, the stale answers, the source review counts, and the counts for each kind.
-  The schema version is 1. The exit codes are the same as in the text mode.
+  The schema version is 3. The exit codes are the same as in the text mode.
 
 - `systemap decisions pending`, `systemap decisions submit FILE`, and `systemap decisions status` give the claims of the map to a coding agent.
   The agent examines each claim and sends a verdict: `supported`, `contradicted`, or `insufficient_evidence`.
@@ -263,6 +326,16 @@ Each item gives the change, and then the step that you must do.
   After this change, the value must be a 64-character hexadecimal digest. If it is not, Git is not called.
   `git grep` gets the commit after `--end-of-options`. The ref resolution of `delta` also uses `--end-of-options`.
 
+- Each file read and each file write stays in the repository or in its specified root.
+  Before this change, some reads used a path with no limit, and a FIFO could make a command wait with no end.
+  A repository file is read only if it is a regular file in the repository. A cache file or an output file is read, written, and locked only in its root.
+  A link at the cache folder or at a parent folder is refused. A write replaces a link, and it does not write to the target of the link.
+  A refused source file gives its cause in the decision request and in the evidence state, not "missing source".
+
+  A guard test, `tests/test_read_guard.py`, reads the syntax tree of each module in `src/systemap`.
+  It gives a failure for each file read or write that is not in an allow-list. Each allow-list entry gives its cause.
+  Before this change, the test found 47 reads and writes. 19 of them were defects.
+
 ### Language repairs
 
 Before this change, shared code selected some behavior from the language name or the file suffix.
@@ -336,6 +409,30 @@ The times are medians on one macOS computer. The fixtures have 40,000 files in `
 | live watcher scan on this repository | 1.44 ms | 1.74 and 1.75 ms | 2 times the earlier time or less |
 
 The label script measurement has a small margin when the computer has a high load. A second measurement gave 1.19 and 0.88.
+
+### Trials on open-source repositories
+
+Three trials operated systemap on open-source repositories before this release.
+For each problem, a test showed the failure before the repair.
+
+| trial | repositories | problems | not repaired |
+|---|---|---|---|
+| 1 | pallets/click, encode/httpx, sindresorhus/ky, vitejs/vite | 20: 16 that the source shows, and 4 that are not sure | 2 |
+| 2 | the same four repositories | 6 | 0 |
+| 3 | sindresorhus/ky, vitejs/vite | 8 | 0 |
+
+The most important repairs:
+
+- A source module or a test file that the parser cannot read is not known. It does not reject the map. Before this change, `check` always gave exit 1 on vite.
+- Each unknown record has a cause and a `fix:` line that the user can do.
+- A recorded answer stays applicable when lines move above the cited statement. A finding line has no line number, excerpt, or parser version.
+- TypeScript self-name imports and `#` subpath imports are internal imports. `init` selects the package root from the `tsconfig.json` `include` entries.
+- Python overloads give one public name, and one CLI function gives one entry point.
+
+Two problems of trial 1 are not repaired:
+
+- A comment on a constant can become a TypeScript module description. A measurement is necessary before a change.
+- A name that is not in a literal `__all__` stays a public name, because the modules of the package import such names.
 
 ## 3.0.0 - 2026-10-12
 

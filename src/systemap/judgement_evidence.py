@@ -15,6 +15,12 @@ An `entry point` line also has the entry point records of its modules, or all re
 if it has the full evidence. A record gives the kind, the module, the target, and the
 name. Thus a new target of an entry point changes the evidence.
 
+An `unknown surface` line of a module or a test file cites one or more statements. Its
+evidence is each unknown record without its line number and parser version, and the
+text of the source line at that number (`located_state`). A new line above a statement
+does not change the evidence. A change to a statement changes the record or the source
+line, and thus the evidence.
+
 This module uses only language-neutral facts: the module records, their `file` fields,
 and the entry point records.
 """
@@ -29,7 +35,7 @@ from typing import Any
 
 from systemap import card_review, model_load, nest, repo_files
 from systemap.model import Component, claimed, is_symbol
-from systemap.source_facts import entry_identity
+from systemap.source_facts import Located, entry_identity
 from systemap.source_text import text_digest
 
 # The start of an entry point line, after the map prefix (`journey_coverage`).
@@ -39,14 +45,19 @@ ENTRY_LINE = "entry point "
 def _source_hash(root: Path, record: dict[str, Any]) -> str:
     """This function hashes source bytes because saved facts can predate an uncommitted
     edit. CRLF and LF checkouts of the same text give the same digest.
+
+    A missing file gives "missing source". A file that `repo_files` refuses gives its
+    cause, for example "refused source: link out of the repository".
     """
     name = record.get("file")
     if not isinstance(name, str):
         return "unknown source"
     try:
         return text_digest(repo_files.read_bytes(root, name))
-    except OSError:
+    except FileNotFoundError:
         return "missing source"
+    except OSError as exc:
+        return f"refused source: {repo_files.refusal(exc)}"
 
 
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
@@ -174,6 +185,40 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
     if points is not None:
         state["entry_points"] = points
     return state
+
+
+def located_state(root: Path, found: list[Located]) -> Any:
+    """Give the evidence of an `unknown surface` line with one or more cited statements,
+    or None.
+
+    For each record, the evidence has the record without its line number and parser
+    version, and the text of the source line at that number. None tells the caller to use
+    the module evidence: the line has no record, or a record has no line number.
+    """
+    if not found or any(item.line <= 0 for item in found):
+        return None
+    texts: dict[str, list[str]] = {}
+    for item in found:
+        if item.file not in texts:
+            texts[item.file] = _source_rows(root, item.file)
+    return [
+        {
+            "record": {k: v for k, v in item.record.items() if k not in ("line", "parser")},
+            "statement": (
+                texts[item.file][item.line - 1].rstrip()
+                if item.line <= len(texts[item.file])
+                else "missing source"
+            ),
+        }
+        for item in found
+    ]
+
+
+def _source_rows(root: Path, file: str) -> list[str]:
+    try:
+        return repo_files.read_bytes(root, file).decode("utf-8", "replace").splitlines()
+    except OSError:
+        return []
 
 
 def answer_state(

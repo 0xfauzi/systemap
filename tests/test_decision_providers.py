@@ -125,7 +125,7 @@ def test_suggest_gives_no_pair_for_a_refusal(two_cards: tuple[Path, Refusing]) -
     cfg = load_config(root)
     from systemap import facts_file
 
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts is not None
     out = jev_cli.suggest_groups(cfg, facts, refusing)
     assert refusing.asked and all(q.name == "same" for q in refusing.asked)

@@ -223,7 +223,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
     from systemap.config import load
 
     add_child_route(nested)
-    facts = facts_file.read_facts(load(nested).facts_path)
+    facts = facts_file.read_facts(load(nested).facts_path, load(nested).root)
     assert facts is not None
     point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
     identity = source_facts.entry_identity(point)
@@ -773,7 +773,7 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
     ) in out
     assert "The map needs an update (" in out
     assert "source review:" in out
-    assert "4 of 9 components specified" in out
+    assert "4 of 9 components have changes" in out
 
 
 def test_suggest_reads_the_tree_from_the_command(

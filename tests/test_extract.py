@@ -430,7 +430,8 @@ def test_zero_tests_is_said_in_one_line_naming_the_directories(tmp_path: Path) -
     )
     write_tree(tmp_path, TINY_PACKAGE)
     assert (
-        "  tests:            3 test functions import a module, 2 in a file with its name"
+        "  tests:            3 pairs of a test function and a module that it imports, "
+        "2 in a test file with the module name"
         in facts_file.summary(extract.build(config.load(tmp_path)))
     )
 
@@ -535,9 +536,9 @@ def test_facts_file_is_compact_and_one_record_per_line(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     facts = extract.build(cfg)
-    facts_file.write_facts(cfg.facts_path, facts)
+    facts_file.write_facts(cfg.facts_path, facts, cfg.root)
     text = cfg.facts_path.read_text(encoding="utf-8")
-    assert facts_file.read_facts(cfg.facts_path) == facts, "round-trips"
+    assert facts_file.read_facts(cfg.facts_path, cfg.root) == facts, "round-trips"
     lines = text.splitlines()
     assert lines[0] == "{" and lines[-1] == "}" and text.endswith("\n")
     assert not any(line.startswith(" ") for line in lines), "no indentation"

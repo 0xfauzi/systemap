@@ -105,7 +105,7 @@
    "7511211c6de6927dfee235098d195b3cf8e62852d977b9a9bdf536a42a37bf4c"
   ],
   "out": [
-   "delta: HEAD~1 (<commit>) -> HEAD (<commit>): 1 module changed, 2 added, 1 removed, 0 moved. 2 of 2 components specified",
+   "delta: HEAD~1 (<commit>) -> HEAD (<commit>): 1 module changed, 2 added, 1 removed, 0 moved. 2 of 2 components have changes",
    "The map needs an update (6):",
    "  added: pkg.intake, No component has a claim for it. Add it to a component implemented_by in map/model.py, or give a reason to ignore it in [coverage]",
    "      why: Without a component for the module, the map omits part of the system.",

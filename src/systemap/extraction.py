@@ -32,8 +32,15 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # of its definition. A TypeScript type-only export has `type_only`, and `api` has a
 # record for each `*` re-export. A type declaration that is not a class is in
 # `types`, with its category, and not in `classes`. Each entry point has the
-# `same_as` fact. Cached facts of format 7 have the earlier values.
-FORMAT = 8
+# `same_as` fact. Cached facts of format 7 have the earlier values. Format 9: each
+# unknown record has the `cause` that `unknown_causes` specifies. Format 10: a TypeScript
+# re-export target without a module gives one unknown record for each statement, at its
+# line and with its names, and a declaration file target has the cause `declaration file`.
+# An import of a declaration file is not an unresolved import. A string export name is
+# the public name. Format 11: a TypeScript parse record has a fixed reason, the excerpt in
+# `source`, and the parser version in `parser`, because a finding line must not contain
+# them. An indirect re-export without a module gives the record of a direct re-export.
+FORMAT = 11
 TESTS_KEPT = 25
 
 
@@ -231,6 +238,24 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
         record["tests"] = [t["name"] for t in unique[:TESTS_KEPT]]
 
 
+def _config_digests(root: Path, names: tuple[str, ...]) -> dict[str, str]:
+    """Give the digest of each configuration file of the language that is present.
+
+    The function reads only a regular file in the repository, with `repo_files`. A link
+    out of the repository and a FIFO give a ConfigError with the path and the cause.
+    """
+    files: dict[str, str] = {}
+    for relative in names:
+        path = root / relative
+        if not repo_files.present(path):
+            continue
+        try:
+            files[relative] = source_text.text_digest(repo_files.read_bytes(root, relative))
+        except OSError as exc:
+            raise ConfigError(f"The parser could not read {path}: {exc}") from exc
+    return files
+
+
 def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[str, Any]:
     settings = {
         "language": cfg.language,
@@ -242,11 +267,7 @@ def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[st
         # Installed npm packages can change the compiler settings: a separate record.
         "compiler": None,
     }
-    files: dict[str, str] = {}
-    for relative in language.config_files:
-        path = cfg.root / relative
-        if path.is_file():
-            files[relative] = source_text.text_digest(path.read_bytes())
+    files = _config_digests(cfg.root, language.config_files)
     # The drift comparison finds a change of the facts that a parser version gives.
     return {
         "parser": language.parser_version(),
@@ -322,6 +343,7 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
     if stored and source_text.inputs_changed(stored.get("provenance"), fresh.get("provenance")):
         out.append("extraction inputs changed since the map was built")
     out.extend(_entry_drift(fresh, stored))
+    out.extend(_issue_drift(fresh, stored))
     added = sorted(set(new_c) - set(old_c))
     gone = sorted(set(old_c) - set(new_c))
     moved = sorted(m for m in set(new_c) & set(old_c) if new_c[m]["sha"] != old_c[m]["sha"])
@@ -342,6 +364,18 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
         out.append(f"code changed since the map was built: {m}")
     out.extend(_component_drift(new_c, old_c, moved, guards_changed))
     return out
+
+
+def _issue_drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
+    """Compare the unknown records of the test files.
+
+    A test file that does not parse changes no module record. Without this comparison,
+    the stored facts do not get its unknown record. The comparison does not include
+    `config_issues`: an installed configuration package can be different on another
+    computer for the same commit."""
+    if not stored or fresh.get("test_file_issues", []) == stored.get("test_file_issues", []):
+        return []
+    return ["unknown records changed since the map was built: test files"]
 
 
 def _entry_drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:

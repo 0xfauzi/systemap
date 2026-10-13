@@ -221,7 +221,7 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     out = capsys.readouterr().out
     lines = out.splitlines()
     assert lines[0] == (
-        f"delta: HEAD~1 ({base}) -> HEAD ({git(repo, 'rev-parse', 'HEAD')[:7]}): 4 modules changed, 6 added, 3 removed, 2 moved. 5 of 6 components specified"
+        f"delta: HEAD~1 ({base}) -> HEAD ({git(repo, 'rev-parse', 'HEAD')[:7]}): 4 modules changed, 6 added, 3 removed, 2 moved. 5 of 6 components have changes"
     )
     expected_open = [
         "moved: pkg.old_tool -> pkg.tools.tool (same content). Writer specifies pkg.old_tool in implemented_by. Change this claim to pkg.tools.tool in map/model.py",
@@ -283,7 +283,7 @@ def test_nothing_to_do_and_no_change_exit_zero(
     git(repo, "commit", "-q", "-am", "body")
     assert main(["--root", str(repo), "delta", "--base", "HEAD~1"]) == 1
     out = capsys.readouterr().out
-    assert "1 module changed, 0 added, 0 removed, 0 moved. 1 of 6 components specified" in out
+    assert "1 module changed, 0 added, 0 removed, 0 moved. 1 of 6 components have changes" in out
     assert "source review: Writer has changed code in pkg.writer" in out
     assert main(["--root", str(repo), "delta", "--base", "HEAD"]) == 0
     out = capsys.readouterr().out

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    notice_text,
     python_calls,
     python_entry,
     python_exports,
@@ -28,6 +29,7 @@ from systemap import (
     python_tests,
     repo_files,
     source_text,
+    unknown_causes,
 )
 from systemap.completeness import parse_state
 
@@ -254,16 +256,12 @@ def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 
 def opening(text: str | None) -> str:
-    """Get the first docstring paragraph, with a length limit.
+    """Get the first docstring paragraph that is not a license notice, with a length
+    limit (`notice_text`).
 
     The page shows a module's opening text and a link to the source file.
-    Full docstrings doubled the facts file, but the page did not render that text.
     """
-    if not text:
-        return ""
-    para = text.strip().split("\n\n")[0]
-    para = " ".join(para.split())
-    return para if len(para) <= 320 else para[:319] + "\u2026"
+    return notice_text.description(text)
 
 
 def parse_surface(
@@ -337,7 +335,10 @@ def _surface_function(
 ) -> None:
     if node.name.startswith("_"):
         return
-    names.append({"name": node.name, "kind": "function"})
+    # Overload signatures give one public name, as in the TypeScript adapter. Each
+    # signature keeps its record in `functions`.
+    if {"name": node.name, "kind": "function"} not in names:
+        names.append({"name": node.name, "kind": "function"})
     functions.append({"name": node.name, "signature": signature(node)})
 
 
@@ -543,6 +544,7 @@ def collect_module(
             "line": 0,
             "reason": f"source could not be read: {repo_files.reason(exc)}",
             "parser": sys.version.split()[0],
+            "cause": unknown_causes.read_cause(exc),
         }
     surface = (
         parse_surface(raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes)
@@ -558,6 +560,7 @@ def collect_module(
                     "line": getattr(exc, "lineno", 0) or 0,
                     "reason": f"source could not be parsed: {type(exc).__name__}",
                     "parser": sys.version.split()[0],
+                    "cause": unknown_causes.SYNTAX,
                 }
         surface = {
             "docstring": "",

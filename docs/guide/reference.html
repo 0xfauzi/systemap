@@ -66,7 +66,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>entry</td>
-<td>A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty <code>entry</code>. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
+<td>A component claims no module or an absent module. Its modules do not define its entry name. An entry can also be the name or label of an entry point of its modules that does not start one public name. Stores and context components can have an empty <code>entry</code>. A component can also have an empty <code>entry</code> if its modules define no public name and start no entry point. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
 </tr>
 <tr>
 <td>interface</td>
@@ -94,11 +94,11 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>meaning</td>
-<td>A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the <code>(SRC, DST)</code> key of a pair with two or more flows. A sequence step names such a pair with <code>edge</code>. A flow has no sentence, or its sentence contains only spaces. A step has no <code>say</code>. A custom layer uses a standard id.</td>
+<td>A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the <code>(SRC, DST)</code> key of a pair with two or more flows. A sequence step names such a pair with <code>edge</code>. A flow has no sentence, or its sentence contains only spaces. A step has no <code>say</code>. A custom layer uses a standard id. The heading of these findings is <code>map meaning</code>.</td>
 </tr>
 <tr>
 <td>import rules</td>
-<td>A resolved import is against an import rule of the model. The result of the rule is <code>fail</code>. A rule has a duplicate id, an unknown <code>kind</code> value, an unknown component, or an unknown invariant.</td>
+<td>A resolved import is against an import rule of the model. The result of the rule is <code>fail</code>. A rule has a duplicate id, an unknown <code>kind</code> value, an unknown component, or an unknown invariant. The heading of these rule findings is <code>import rule fields</code>.</td>
 </tr>
 <tr>
 <td>stale</td>
@@ -107,6 +107,18 @@ The command exits 1 if a rule rejects the map.</p>
 </tbody>
 </table>
 </div>
+<p>A source module or test file that the extractor cannot read or parse does not reject the map.
+systemap is not a syntax checker, and a parser limit must not stop <code>check</code> for correct source.
+<code>check</code> prints such a module in the <code>source inventory unresolved</code> group, with the fix line of its cause.
+Each result that reads the module is not known, and not a pass:</p>
+<ul>
+<li>The component that claims the module has no source review digest. Thus <code>judgement</code> gives a <code>stale source review</code> line for it.</li>
+<li>An import rule that reads the module gives <code>unknown</code>.</li>
+<li>A missing entry, interface, or symbol name of the component is not known. <code>check</code> and <code>delta</code> do not report it.</li>
+</ul>
+<p>A meaning error, an import rule field error, or a placement error stops the check before it renders the map.
+Then the <code>map layout</code> line says that the check did not render the map.
+The <code>map layout</code> heading contains only the findings of positions, routes, labels, and text size.</p>
 <p>An import rule can also have the result <code>unknown</code>.
 This result occurs if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
 <code>check</code> prints each <code>unknown</code> result as a warning and does not reject the map.
@@ -248,7 +260,7 @@ For each finding, change the model or record the reason for its stored state.</p
 </tr>
 <tr>
 <td>entry point X has no sequence (component C)</td>
-<td>The identity of the entry point is not in the <code>covers</code> of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example <code>entry point 6 routes into C have no sequence (component C)</code>.</td>
+<td>The identity of the entry point is not in the <code>covers</code> of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example <code>entry point 6 routes into C have no sequence (component C)</code>. C is the component of the module that the entry point names. The function that it starts can be in a different component, for example a console script that names a function that its package imports.</td>
 </tr>
 <tr>
 <td>crossing import</td>
@@ -340,11 +352,17 @@ The <code>source_review</code> value, the flow review digests, and the source di
 <li>For each module that the line names, and each module of a named component, the module facts and the source file.</li>
 <li>For a <code>crossing import</code> line, the imports between the two components and the source of the two modules of each import.</li>
 <li>For an <code>entry point</code> line, the entry point records of its modules. A record has the <code>kind</code>, <code>module</code>, <code>target</code>, and <code>name</code> values.</li>
+<li>For an <code>unknown surface</code> line of a module or a test file, the records of the line and the text of each cited source line.
+The records do not include the line number and the parser version.
+A new line above the statement does not change this evidence. A change to the statement changes it.
+A record without a line number uses the module evidence.</li>
 </ul>
 <p>Thus a change to a different component, or to a <code>source_review</code> value, does not open the finding again.
 A line that names no component and no module uses the full evidence: the model files and all modules.
 The model files are the model file and each model file that it imports.
 An <code>entry point</code> line with the full evidence also has all entry point records.</p>
+<p>Migration from facts format 10: the evidence of an <code>unknown surface</code> line of a module or a test file changed.
+Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.
 The evidence of each <code>entry point</code> line also changed.
 Thus each of these exact answers is pending one time after the update.</p>
@@ -664,7 +682,64 @@ The evidence digest of the item does not change.</p>
 </table>
 </div>
 <p>The same rule applies to these two lines.</p>
+<p>The <code>entry point</code> line for a group of entry points gave the kind identifier, for example
+<code>entry point 7 public_functions into Api have no sequence (component Api)</code>.
+The new line gives the <code>kind</code> value with a space in place of each <code>_</code>: <code>entry point 7 public functions into Api have no sequence (component Api)</code>.
+The same rule applies to this line. A kind without <code>_</code>, for example <code>route</code>, does not change.</p>
+<p>The <code>unknown surface</code> line for a TypeScript parse error also changed.
+Its source excerpt is the line of the error and the line before it, because the error can be one token, such as <code>','</code>.
+From facts format 11, the excerpt and the parser version are in rows below the line.
+The line ends with <code>The parser could not parse the source syntax.</code>
+An answer item in an earlier form applies to the current line of the same module.</p>
+<p>The parser can also refuse correct syntax.
+tree-sitter-typescript 0.23.2 refuses a generic function call with a <code>typeof import()</code> type argument and a comma after the last argument.
+For example, <code>f&lt;typeof import('./a')&gt;(g(),)</code> is correct TypeScript.
+At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.</p>
 <p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
+<p>The <code>unknown surface</code> line for a re-export target outside the extracted module set also changed (facts format 10).
+The earlier line had the location <code>:1</code>, and a statement with two or more names gave one equal line for each name.
+The new line ends with the names, for example <code>Names: Shape, Size.</code> The <code>at:</code> row gives the line of the statement.
+An answer item in the earlier form can apply to a current line.
+The map, the module, the file, and the target must agree with one and only one current line.
+The evidence digest must agree.
+A target that is a declaration file has a different line with the cause <code>declaration file</code>.
+An answer item in the earlier form does not apply to that line, because the meaning changed.
+Thus <code>judgement</code> gives the earlier item as a stale answer.
+The command prints no warning for an item in the earlier form of this line.</p>
+<p>Facts format 11 removes each value from an <code>unknown surface</code> line that changes while the finding stays the same.
+A recorded answer then stays applicable when a line is added above the cited statement.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
+<table>
+<thead>
+<tr>
+<th>Earlier text in the line</th>
+<th>New text in the line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>module M (src/a.ts:254): ...</code></td>
+<td><code>module M (src/a.ts): ...</code></td>
+</tr>
+<tr>
+<td><code>test file tests/a.spec.ts:3: ...</code></td>
+<td><code>test file tests/a.spec.ts: ...</code></td>
+</tr>
+<tr>
+<td><code>... Source excerpt: '&lt;text&gt;' (parser version &lt;version&gt;)</code></td>
+<td><code>...</code></td>
+</tr>
+<tr>
+<td><code>... source could not be parsed: SyntaxError (parser version 3.11.10)</code></td>
+<td><code>... source could not be parsed: SyntaxError</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The judgement report gives these values in rows below the line, and <code>judgement --json</code> gives them in <code>open[].sources</code>.
+An answer item in an earlier form applies to the line in the new form.
+<code>judgement</code> prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+Two records with different line numbers can give the same line. Then one answer applies to the two records.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
@@ -836,6 +911,14 @@ Exit codes are <code>0</code> for current, <code>1</code> for stale or rejected,
 configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, <code>systemap.toml</code> or the model module, a <code>tsconfig.json</code> file, or a Git ref.</p>
+<p>A command reads and writes a cache file or an output file only in the repository.
+If the file or one of its folders is a link out of the repository, the command stops with exit code <code>1</code>.
+A FIFO or a device at the file also stops the command with exit code <code>1</code>.
+The error gives the file and the cause.
+Remove the file or the link. Then use the command again.</p>
+<p>A write replaces a link in the repository. It does not write to the target of the link.
+The configured cache files, <code>out_dir</code>, and <code>model</code> must be paths in the repository, without a <code>..</code> part.
+An absolute path or a path with a <code>..</code> part gives exit code <code>2</code>.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
@@ -854,8 +937,31 @@ You can change the value in the workflow file later.
 If systemap cannot run (exit code 2 or more), the job fails with both values.</p>
 <p>If the repository has no Python package and a directory has a <code>tsconfig.json</code> file,
 <code>init</code> selects TypeScript.
-If the repository root has no <code>tsconfig.json</code> file, <code>init</code> writes no package roots.
-Then set <code>[package_roots]</code> for each application package.</p>
+For TypeScript, <code>init</code> selects the package root with this rule, in this sequence:</p>
+<ol>
+<li>The repository root must have a <code>tsconfig.json</code> file.</li>
+<li>If each <code>include</code> entry of <code>tsconfig.json</code> names a folder, and one of these folders has source, that folder is the root.
+An entry such as <code>source/**/*</code> names the folder <code>source</code>.
+A test folder or a type-test folder does not count.
+An entry that names a file, such as <code>vite.config.ts</code>, stops this step.</li>
+<li>Then the root is <code>src</code> if it has source, then the repository root.</li>
+</ol>
+<p>For example, the ky repository has <code>&quot;include&quot;: [&quot;source&quot;]</code>. Thus <code>init</code> writes <code>&quot;source&quot; = &quot;ky&quot;</code>.
+A configuration without <code>[package_roots]</code> uses the same rule.</p>
+<p>If the rule selects no root, <code>init</code> writes no package roots and prints the cause.
+It also prints the <code>[package_roots]</code> table to write in <code>systemap.toml</code>.
+The table has one line for each folder with a <code>tsconfig.json</code> file, with the same rule in that folder.
+Keep only the lines of the packages of the system.
+<code>extract</code> and the other commands print the same text until you set the table.</p>
+<p><code>init</code> also writes <code>test_patterns</code> for the TypeScript type tests that it finds.
+A type test is a file that only <code>tsc</code> examines, for example with tsd or <code>expectTypeOf</code>.
+These files are test files, not modules of the map:</p>
+<ul>
+<li>A folder with the name <code>test-d</code>, the default folder of tsd, or the folder in the <code>tsd.directory</code> key of <code>package.json</code>.</li>
+<li>A folder with a name such as <code>__tests_dts__</code>: <code>__test</code> or <code>__tests</code>, more text, and <code>__</code>.</li>
+<li>A file with a name that ends in <code>.test-d.ts</code> or <code>.spec-d.ts</code>, as tsd and Vitest typecheck use.</li>
+</ul>
+<p>The <code>test_patterns</code> key shows the rule in the configuration. You can change it there.</p>
 <h3 id="systemap-extract-check"><code>systemap extract [--check]</code></h3>
 <p>Reads the source tree and writes <code>docs/map/map.json</code>.
 Module records contain public surface, public names, internal imports, external
@@ -864,24 +970,41 @@ Package <code>__init__</code> records include re-exports.
 The other commands read this file.</p>
 <p>Each language adapter also writes these facts with the same meaning for Python and TypeScript:</p>
 <ul>
-<li><code>package</code>: the folder package of the module. A dot in a file name does not make a package.</li>
-<li><code>completeness</code>: <code>parsed</code>, <code>line</code>, <code>reason</code>, and <code>unresolved_imports</code>.
+<li>
+<p><code>package</code>: the folder package of the module. A dot in a file name does not make a package.</p>
+</li>
+<li>
+<p><code>completeness</code>: <code>parsed</code>, <code>line</code>, <code>reason</code>, and <code>unresolved_imports</code>.
 If the module did not parse, <code>unresolved_imports</code> is null, because the value is not known.
-A component with a module that did not parse gets no source review digest. An import rule for that module gives <code>unknown</code>.</li>
-<li><code>call_sites</code>: the lines that use each imported name, and the lines that use a local name that gets its value from an imported name.
-The <code>decision flow</code> question reads this fact.</li>
-<li><code>classes</code> and <code>types</code>: <code>classes</code> holds only class declarations.
-<code>types</code> holds each other type declaration, with its name, its category (<code>interface</code>, <code>enum</code>, or <code>type_alias</code>), and its methods.</li>
-<li><code>defined_in</code> and <code>defined_as</code> on each re-export: the module and the symbol that define it.</li>
-<li><code>same_as</code> on each entry point: the identity of a different entry point with the same start, or an empty string.
-A missing value is not known. Then the entry point must have its own sequence.</li>
-<li><code>symbol</code> on each entry point: the name in its module that the entry point starts, or an empty string.</li>
+A component with a module that did not parse gets no source review digest. An import rule for that module gives <code>unknown</code>.</p>
+</li>
+<li>
+<p><code>call_sites</code>: the lines that use each imported name, and the lines that use a local name that gets its value from an imported name.
+The <code>decision flow</code> question reads this fact.</p>
+</li>
+<li>
+<p><code>classes</code> and <code>types</code>: <code>classes</code> holds only class declarations.
+<code>types</code> holds each other type declaration, with its name, its category (<code>interface</code>, <code>enum</code>, or <code>type_alias</code>), and its methods.</p>
+</li>
+<li>
+<p><code>defined_in</code> and <code>defined_as</code> on each re-export: the module and the symbol that define it.</p>
+</li>
+<li>
+<p><code>same_as</code> on each entry point: the identity of a different entry point with the same start, or an empty string.
+A missing value is not known. Then the entry point must have its own sequence.</p>
+</li>
+<li>
+<p><code>symbol</code> on each entry point: the name in its module that the entry point starts, or an empty string.</p>
+</li>
+<li>
+<p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
+</li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 8.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 11.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
-The record gives an <code>unknown surface</code> line and a <code>source inventory unresolved</code> line. Then <code>refresh</code> and <code>check</code> exit 1.</p>
+The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.</p>
 <p>systemap reads <code>systemap.toml</code>, <code>pyproject.toml</code>, <code>package.json</code>, and each <code>tsconfig.json</code> file only in the repository.
 A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
 The error gives the path and the cause.
@@ -923,6 +1046,12 @@ importers, external imports, and test count. It does not print test names.</p>
 <p><code>--imports NAME</code> prints imports and importers for one module.</p>
 </li>
 </ul>
+<p>The module description is the first paragraph of the Python module docstring, or of the first TypeScript comment before the first statement.
+A license notice is not a description.
+A text is a notice if it starts with <code>Copyright</code>, <code>©</code>, <code>(c)</code>, <code>SPDX-</code>, <code>Licensed under</code>, <code>@license</code>, or <code>@preserve</code>, in capital or small letters.
+For TypeScript, a comment that starts with <code>/*!</code> or <code>//!</code> is also a notice.
+The <code>//</code> comments directly below a notice are part of the notice.
+Then the next TypeScript comment can give the description.</p>
 <h3 id="systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></h3>
 <p>A component must have a position before you render the map.
 This command writes positions for unpositioned components on all maps.
@@ -959,7 +1088,9 @@ Use it after you add or remove components.</p>
 </li>
 </ul>
 <h3 id="systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></h3>
-<p>Writes the page from the facts and model.</p>
+<p>Writes the page from the facts and model.
+Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
+Thus they do not tell you to use <code>systemap extract</code> when <code>extract</code> cannot operate.</p>
 <ul>
 <li>
 <p><code>--check</code> exits 1 if the page is stale.
@@ -987,10 +1118,72 @@ The changes of such a path are not known.</p>
 <p>Executes all rules on all maps.
 A rejected map causes exit 1.
 Each finding gives a correction.
-Two rows below a rejected rule give its effect and the necessary action.</p>
+Two rows below a rejected rule give its effect and the necessary action.
+Each condition that rejects the map prints its lines.</p>
 <ul>
 <li><code>--brief</code> does not include these two rows.</li>
 </ul>
+<p>The <code>unknown surface</code> group gives the records that the extractor could not read or connect.
+These records do not reject the map.
+The adapter writes the cause of each record in the <code>cause</code> field.
+Below each line, the <code>at:</code>, <code>excerpt:</code>, and <code>parser version:</code> rows give the values that are not in the line, as <code>systemap judgement</code> gives them.
+The group gives one <code>fix:</code> line for each cause that occurs:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-check-brief">
+<table>
+<thead>
+<tr>
+<th>Cause</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read</code></td>
+<td>systemap could not read the file, or the repository rules refused it.</td>
+</tr>
+<tr>
+<td><code>encoding</code></td>
+<td>The file is not UTF-8 text.</td>
+</tr>
+<tr>
+<td><code>syntax</code></td>
+<td>The parser could not parse the source.</td>
+</tr>
+<tr>
+<td><code>declaration</code></td>
+<td>The parser read the syntax, but it has no record for the declaration or export form.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>A reference has a target that is not a module in the facts. An example is a package bin target that is not in the repository.</td>
+</tr>
+<tr>
+<td><code>declaration file</code></td>
+<td>A re-export target is a declaration file, such as a TypeScript <code>.d.ts</code> file. A declaration file gives only types and has no module. The line gives the names of the statement.</td>
+</tr>
+<tr>
+<td><code>script file</code></td>
+<td>A package bin target is a JavaScript file in the repository with no source module. The extractor does not read it, and <code>[package_roots]</code> cannot make it a module.</td>
+</tr>
+<tr>
+<td><code>package</code></td>
+<td>A configuration file extends a configuration package that systemap could not read.</td>
+</tr>
+<tr>
+<td><code>binding</code></td>
+<td>The framework binding of a registration is not known.</td>
+</tr>
+<tr>
+<td><code>reexport</code></td>
+<td>The names that a re-export gives are not known.</td>
+</tr>
+<tr>
+<td><code>not known</code></td>
+<td>The record has no cause, because the facts have an older format.</td>
+</tr>
+</tbody>
+</table>
+</div>
 <h3 id="systemap-figure-out-file"><code>systemap figure --out FILE</code></h3>
 <p>Uses the page generator to render one figure for a document.</p>
 <ul>
@@ -1022,6 +1215,10 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 <code>map: The page agrees with the rendered model fields and the facts.</code>
 A rejected check causes exit 1, and the command renders nothing.
+The last line gives the necessary action. If a second refresh gives the same result, the action is not <code>refresh</code>.
+If an output is stale after the command wrote it, the heading is <code>stale after refresh</code>.
+An example is a configured figure with the path of the page.
+After a check without errors, the command prints the <code>source inventory unresolved</code> group and the <code>unknown surface</code> group, as <code>systemap check</code> does.
 After a check without errors, the command examines the import rules, as <code>systemap check</code> does.
 It prints the rule results. A rule with the result <code>fail</code> causes exit 1.
 With <code>[rules] unknown = &quot;fail&quot;</code>, a rule with the result <code>unknown</code> also causes exit 1.
@@ -1055,7 +1252,8 @@ Accepted answers under <code>[judgement] answered</code> suppress findings.
 The first finding of each kind has rows about its effect and necessary action.</p>
 <ul>
 <li>
-<p><code>--strict</code> exits 1 while a finding is open. If not, the exit code is 0.</p>
+<p><code>--strict</code> exits 1 while a finding is open. If not, the exit code is 0.
+A model without components also gives exit 1 with <code>--strict</code>, as <code>systemap check</code> does.</p>
 </li>
 <li>
 <p><code>--kind KIND</code> prints one kind.</p>
@@ -1065,6 +1263,18 @@ The first finding of each kind has rows about its effect and necessary action.</
 </li>
 <li>
 <p><code>--brief</code> does not include the two explanation rows.</p>
+</li>
+<li>
+<p>Below each <code>unknown surface</code> line, a <code>cause:</code> row gives the cause that the adapter wrote.
+After the lines, the report gives one <code>fix:</code> line for each cause, as <code>systemap check</code> does.
+<code>--brief</code> does not remove these rows.</p>
+</li>
+<li>
+<p>Below the <code>cause:</code> row, the line of a module record or a test file record gives its source rows.
+An <code>at:</code> row gives the file and the line of each cited statement.
+An <code>excerpt:</code> row gives the source excerpt. A <code>parser version:</code> row gives the version of the parser that refused the source.
+A finding line is the identity of the finding. Thus it does not contain these values (facts format 11).
+If two statements of one module give the same line, the line occurs one time with two <code>at:</code> rows.</p>
 </li>
 <li>
 <p>If the decision store has unknown decision requests, the report gives each one after the review counts.
@@ -1079,7 +1289,8 @@ Notices for a person go to stderr.</p>
 </li>
 <li>
 <p>With <code>--json</code>, <code>--kind KIND</code> selects the rows of <code>open</code>. The counts include all kinds.
-For a model without components, the lists are empty and the exit code is 0.</p>
+For a model without components, the lists are empty.
+The exit code is 1 with <code>--strict</code>, and 0 without it.</p>
 </li>
 <li>
 <p><code>--order-by-drift</code> sends one Jev question for each open <code>stale source review</code> line.
@@ -1119,7 +1330,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 1.</td>
+<td>The version of this schema. The value is 3. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1145,6 +1356,16 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>open[].evidence</code></td>
 <td>string or null</td>
 <td>The digest that an exact answer for this one line must have in <code>evidence</code>. The value is null if the evidence is not available.</td>
+</tr>
+<tr>
+<td><code>open[].cause</code></td>
+<td>string or null</td>
+<td>The cause of an <code>unknown surface</code> finding, for example <code>syntax</code> or <code>declaration file</code>. The <code>systemap check</code> section gives the causes. For other kinds, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].sources</code></td>
+<td>list of objects or null</td>
+<td>The source records of an <code>unknown surface</code> finding of a module or a test file. Each object has <code>file</code>, <code>line</code>, <code>excerpt</code>, and <code>parser</code>. A value that the record does not give is null. For other findings, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].drift</code></td>
@@ -1251,6 +1472,7 @@ Delta does not write a committed path that contains <code>..</code>, a backslash
 Thus the facts at a commit are the same on each platform.
 Before the report, delta gives each refused path and its cause under <code>Not in this comparison</code>.
 The changes of a refused path are not known. A refused module is not a removed module.</p>
+<p>The first line gives the module counts. Then <code>N of M components have changes</code> gives the quantity of components that the delta lines name.</p>
 <p>Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
@@ -1408,8 +1630,11 @@ reason it cannot write them.</p>
 </ul>
 <h3 id="systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></h3>
 <p>Reads source samples across repository history.
-The defaults are <code>1 year ago</code>, one sample every 14 days, and the five largest
-windows (<code>--top</code> default 5). Each window compares two samples.
+The defaults are <code>1 year ago</code>, a minimum interval of 14 days between two adjacent samples (<code>--every</code>),
+and the five largest windows (<code>--top</code> default 5). Each window compares two samples.
+A sample is the first commit after the minimum interval from the previous sample.
+The last sample is the ref, also if the interval before it is smaller.
+Thus a repository with a small number of commits gives intervals of more than <code>--every</code> days.
 Facts use the cache <code>.systemap/facts/&lt;sha&gt;-&lt;scope&gt;.json</code>.</p>
 <p>Each window shows module and entry additions or removals, component size
 changes, and new and removed crossing imports.
@@ -1886,7 +2111,7 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[package_roots]</code></td>
-<td>Python packages, or <code>src</code> then repository root for TypeScript</td>
+<td>Python packages, or for TypeScript the one source folder of the <code>tsconfig.json</code> <code>include</code> entries, then <code>src</code>, then the repository root (see <code>systemap init</code>)</td>
 <td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory in the repository. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
 </tr>
 <tr>
@@ -1897,7 +2122,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>test_patterns</code></td>
 <td>none</td>
-<td>Additional repository-relative test globs. Extraction and <code>delta</code> use the same patterns.</td>
+<td>Additional repository-relative test globs. Extraction and <code>delta</code> use the same patterns. For TypeScript, <code>init</code> writes the type-test folders and files that it finds (see <code>systemap init</code>).</td>
 </tr>
 <tr>
 <td><code>model</code></td>
@@ -2034,6 +2259,22 @@ Unknown keys are rejected.</p>
 </div>
 <p>TypeScript discovery does not include <code>.d.ts</code>, <code>.d.mts</code>, and <code>.d.cts</code> declaration files.
 The <code>external</code> imports do not include Node.js built-in modules, such as <code>node:fs</code> and <code>path</code>.</p>
+<p>Two types of import name a file of the same package through <code>package.json</code>. Thus they are internal imports:</p>
+<ul>
+<li>A self-name import names the package, as <code>import ky from &quot;ky&quot;</code> in the ky package.
+The nearest <code>package.json</code> above the file must have this <code>name</code> and an <code>exports</code> key.</li>
+<li>A subpath import starts with <code>#</code>, as <code>#types/hot</code>. The <code>imports</code> key of the nearest <code>package.json</code> gives the file.
+A target that names an npm package gives that package in <code>external</code>.</li>
+</ul>
+<p>systemap uses the rules of Node.js and TypeScript for these imports:
+<a href="https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name">Self-referencing a package using its name</a>,
+<a href="https://nodejs.org/api/packages.html#subpath-imports">Subpath imports</a>, and
+<a href="https://www.typescriptlang.org/docs/handbook/modules/reference.html">package.json &quot;imports&quot; and self-name imports</a>.</p>
+<p>The conditions are <code>types</code>, <code>node</code>, <code>import</code>, and <code>default</code>. A <code>.cts</code> file uses <code>require</code> and not <code>import</code>.
+systemap does not read <code>moduleResolution</code> or <code>customConditions</code>.</p>
+<p>A target in <code>outDir</code> maps to its source file, as for a package entry point.
+A declaration file has no module. Thus an import with a declaration file as its target is an unresolved local import.
+An import without a target, for example a <code>#</code> name that <code>imports</code> does not have, is also an unresolved local import.</p>
 <p>The suffix of an import selects the source suffix, as in <code>tsc</code>.
 <code>.js</code> selects <code>.ts</code> or <code>.tsx</code>, <code>.mjs</code> selects <code>.mts</code>, and <code>.cjs</code> selects <code>.cts</code>.
 An import without a suffix selects <code>.ts</code> or <code>.tsx</code>.

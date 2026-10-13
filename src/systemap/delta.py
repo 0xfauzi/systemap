@@ -28,7 +28,7 @@ from systemap import (
     source_facts,
 )
 from systemap import moves as moves_mod
-from systemap.check import interface_head, interface_problem
+from systemap.check import interface_head, interface_problem, names_not_known
 from systemap.config import Config
 from systemap.judgement import apply_answers, crossing_line, crossing_pairs
 from systemap.judgement_evidence import answer_state
@@ -361,7 +361,12 @@ def compute(
     for c_base, c_head in zip(base_model.components, head_model.components, strict=True):
         if c_head.kind == "actor" or c_head.id in touched:
             continue
-        if c_head.entry and defines_entry(c_base, base) and not defines_entry(c_head, head):
+        if (
+            c_head.entry
+            and defines_entry(c_base, base)
+            and not defines_entry(c_head, head)
+            and not names_not_known(c_head, head.get("components", {}))
+        ):
             lines.append(
                 Line(
                     "entry vanished",

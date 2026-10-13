@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from systemap import file_write
 from systemap.source_facts import empty_markers
 
 # Every field the extractor writes: (scope, field, what it holds). The
@@ -22,10 +23,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 8, with portable syntax hashes, compiler provenance, "
+        "The facts format is 11, with portable syntax hashes, compiler provenance, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
-        "Each re-export has `defined_in` and `defined_as`. "
+        "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
+        "`cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, "
+        "`declaration file`, `script file`, `package`, `binding`, or `reexport`. "
         "`extract --check` marks older formats stale",
     ),
     (
@@ -55,22 +58,24 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "facts",
         "entry_point_issues",
         "Package entry targets or Python decorators with unresolved framework "
-        "bindings. The list is empty if there are none",
+        "bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. "
+        "The list is empty if there are none",
     ),
     (
         "facts",
         "test_file_issues",
         "Test files that could not be read or parsed. Each record has `file`, and a "
-        "`problem` with `line`, `reason`, and `source`. "
-        "The test functions of these files are not known. The Python adapter does not "
-        "write an empty list",
+        "`problem` with `line`, `reason`, `source`, and `cause`. "
+        "The test functions of these files are not known. `check` prints these records "
+        "and does not fail. The Python adapter does not write an empty list",
     ),
     (
         "facts",
         "config_issues",
         "The configuration packages that a configuration file extends, and that the adapter "
-        "cannot read. Only the TypeScript adapter writes this field, for an npm package in "
-        "the `extends` key of a tsconfig file. The list is empty if there are none",
+        "cannot read. Each record has `file`, `reference`, and `cause`. Only the TypeScript "
+        "adapter writes this field, for an npm package in the `extends` key of a tsconfig "
+        "file. The list is empty if there are none",
     ),
     ("facts", "components", "One module record for each dotted name, with the fields below"),
     ("module", "id", "The dotted module name"),
@@ -106,7 +111,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "adapter reads the module docstring. The TypeScript adapter reads the first "
         "documentation comment",
     ),
-    ("module", "functions", "Public functions with `name` and `signature`"),
+    (
+        "module",
+        "functions",
+        "Public functions with `name` and `signature`. A function with overload "
+        "signatures has one record for each signature, and one record in `names`",
+    ),
     (
         "module",
         "classes",
@@ -143,7 +153,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "are `null` if the defining module is not known. A `*` re-export of the module does not "
         "give a name that has `star_export` set to `false`. A name with `star_export` set to "
         "`null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for "
-        "`default`. The Python adapter sets the value from `__all__`. "
+        "`default`. The Python adapter sets the value from `__all__`. A Python name that is "
+        "not in `__all__` stays in `names`, because an import of that name can use it. "
         "`type_only` is `true` for a type-only export. A type-only export is not an entry "
         "point, because the emitted code has no value for it. A name without `type_only` "
         "is not type-only. Python has no type-only export. `entry` and `interface` "
@@ -171,7 +182,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "unknown",
         "TypeScript surface entries with unresolved syntax or kinds. Each has a "
-        "source line, reason, and short source excerpt",
+        "source line, reason, short source excerpt, and `cause`. A parse record also has "
+        "`parser`, the parser version. The finding line gives only the reason. The line, "
+        "the excerpt, and the parser version go into rows below the line",
     ),
     (
         "module",
@@ -216,15 +229,16 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "module",
         "parse_error",
-        "Python source read or parse errors, with line and parser version. Other "
-        "systemap modules read `completeness`",
+        "Python source read or parse errors, with line, parser version, and `cause`. "
+        "Other systemap modules read `completeness`",
     ),
     (
         "module",
         "completeness",
         "The read condition of the module, with the same meaning for each language. "
         "`parsed` is `false` if the extractor could not read or parse all of the source, "
-        "and `line` and `reason` then give the first problem. `unresolved_imports` lists "
+        "and `line`, `reason`, and `cause` then give the first problem. Such a module does "
+        "not reject the map. `unresolved_imports` lists "
         "each local import, as the source writes it, that has no module in the facts. A "
         "local import is a relative import, a path, a TypeScript path alias, or a name below a "
         "package root. If `parsed` is `false`, the import list is not known and is `null`. "
@@ -271,8 +285,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "same_as",
         "The identity of a different entry point that starts the same operation. The "
         "language adapter writes it only from an accurate indication. The Python adapter "
-        "writes it for a `main` function or a `__main__` module that starts the function of "
-        "a console script. Coverage then counts the two entry points as one. An empty "
+        "writes it for a console script, a `main` function, or a command that starts the "
+        "same function as an entry point before it. An import binding of the function is "
+        "permitted if it is the only module-level binding of the name, other than in an "
+        "`except` clause. The Python adapter also writes it for a `__main__` module that "
+        "imports that function and uses it. Coverage then counts the two entry points as "
+        "one. An empty "
         "string tells that the adapter found no such entry point. Then this entry point "
         "must have a sequence. If the field is missing, the value is not known. Then the "
         "entry point also must have a sequence",
@@ -309,8 +327,10 @@ def facts_doc() -> str:
         "They do not describe the purposes of the map components.",
         "`modules` counts records under `components`.",
         "`functions`, `classes`, `types`, and `errors` give the sums of those module fields.",
-        "`tests` gives the sum of `tests_total`. The count for test files with the module",
-        "name gives the sum of `tests_primary`.",
+        "`tests` gives the sum of `tests_total`. Thus the count has one item for each pair",
+        "of a test function and a module that it imports. A test function that imports three",
+        "modules counts three times. The count for test files with the module name gives the",
+        "sum of `tests_primary`.",
         "",
         "`empty package markers` counts the records with `empty_marker` set to true.",
         "Coverage automatically excludes these records.",
@@ -318,15 +338,16 @@ def facts_doc() -> str:
     return "\n".join(out) + "\n"
 
 
-def read_facts(path: Path) -> dict[str, Any]:
-    """Read stored facts.
+def read_facts(path: Path, root: Path) -> dict[str, Any]:
+    """Read stored facts. The root is the repository root.
 
     Give an empty table if the file is missing or the JSON parser cannot read it.
+    A link out of the root (at the file or at a folder), a FIFO, and a device give
+    `file_write.RefusedFile` with the cause. They do not give an empty table.
     """
-    if not path.is_file():
-        return {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        text = file_write.read_text(root, path)
+        data = json.loads(text) if text is not None else {}
     except (OSError, json.JSONDecodeError):
         return {}
     return dict(data) if isinstance(data, dict) else {}
@@ -357,9 +378,9 @@ def dumps(facts: dict[str, Any]) -> str:
     return "{\n" + ",\n".join(parts) + "\n}\n"
 
 
-def write_facts(path: Path, facts: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dumps(facts), encoding="utf-8", newline="\n")
+def write_facts(path: Path, facts: dict[str, Any], root: Path) -> None:
+    """Write the facts. The folder must be in the root. A link at the path is replaced."""
+    file_write.write_atomic(root, path, dumps(facts))
 
 
 def summary(facts: dict[str, Any]) -> list[str]:
@@ -368,7 +389,7 @@ def summary(facts: dict[str, Any]) -> list[str]:
     These counts supply the change detector. The map does not show them.
     `modules` counts `components`. Functions, classes, types, and errors use their module
     fields. If a record has no `types`, the types count is not known. Test counts use
-    `tests_total` and `tests_primary`.
+    `tests_total` and `tests_primary`: one for each pair of a test function and a module.
     Empty markers are package records without public names, imports, or execution.
     """
     comps = facts["components"]
@@ -376,7 +397,10 @@ def summary(facts: dict[str, Any]) -> list[str]:
     primary = sum(c["tests_primary"] for c in comps.values())
     dirs: list[str] = list(facts.get("tests_dirs", []))
     if guarded:
-        tests = f"{guarded} test functions import a module, {primary} in a file with its name"
+        tests = (
+            f"{guarded} pairs of a test function and a module that it imports, "
+            f"{primary} in a test file with the module name"
+        )
     elif dirs:
         # Zero is a finding, not a count: say where the extractor looked, so
         # a tests directory it did not find is set in `tests_dir`.

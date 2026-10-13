@@ -128,8 +128,10 @@ def test_an_owner_answer_without_the_claimed_probability_is_not_kept(
     )
     cache = tmp_path / "jev.json"
     with pytest.raises(jev.JevError, match="no probability for"):
-        jev_provider.JevProvider(jev.Jev(partial, cache=jev.Cache(cache))).decide(plan.questions)
-    assert jev.Cache(cache).entries == {}
+        jev_provider.JevProvider(
+            jev.Jev(partial, cache=jev.Cache(cache, root=cache.parent))
+        ).decide(plan.questions)
+    assert jev.Cache(cache, root=cache.parent).entries == {}
 
 
 def test_triage_and_plan_use_the_choice_when_jev_gives_no_probabilities(

@@ -10,6 +10,7 @@ The project does not need systemap as a declared dependency."""
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
@@ -26,6 +27,10 @@ class LanguageSetup(Protocol):
     roots_note: str
     roots_example: str
 
+    def discover_test_patterns(self, root: Path) -> list[str]: ...
+
+    def missing_roots_message(self, root: Path) -> str: ...
+
 
 # The model file that init writes. The model file is Python for each source language.
 MODEL_PATH = "map/model.py"
@@ -38,7 +43,7 @@ out_dir = "docs/map"
 # Test directories can be one path or a list of paths.
 # Without this key, the extractor finds directories with the name tests or test.
 # tests_dir = ["tests"]
-# spec_path = "docs/design.md"
+# spec_path = "docs/design.md"{test_patterns}
 
 # Keep these keys above the table lines. A key after a table header is part of that table.
 {roots_note}
@@ -375,15 +380,31 @@ jobs:
 # What `init` says about the repository's own gates: the model imports
 # systemap, which the repository need not depend on, so a strict type
 # checker and a dependency checker both need telling. mypy is answered in
-# the file; deptry by these lines, printed so they can be pasted.
+# the file; deptry by these lines, printed so they can be pasted. The deptry
+# lines are only for a repository that uses deptry.
 TOOLING_NOTE = (
     "note: map/model.py imports the systemap tool package:",
     "  mypy --strict: the import has # type: ignore[import-not-found, unused-ignore]",
+    "  run all repository CI commands on the map files",
+)
+DEPTRY_NOTE = (
     "  deptry: add these lines to pyproject.toml",
     "    [tool.deptry.per_rule_ignores]",
     '    DEP001 = ["systemap"]',
     '    DEP003 = ["systemap"]',
-    "  run all repository CI commands on the map files",
+)
+# The files that install, configure, or start deptry in a repository.
+DEPTRY_FILES = (
+    "pyproject.toml",
+    "setup.cfg",
+    "tox.ini",
+    "noxfile.py",
+    "Makefile",
+    ".pre-commit-config.yaml",
+    "requirements*.txt",
+    "requirements/*.txt",
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml",
 )
 
 # TOML basic strings and Python string literals use the same escapes for these characters.
@@ -402,11 +423,43 @@ def tooling_note(root: Path, language: LanguageSetup) -> tuple[str, ...]:
 
     The model file is Python. The repository tools read it if the source language uses
     the suffix of the model file, or if pyproject.toml is available. Otherwise the
-    repository has no tool settings for the model file."""
+    repository has no tool settings for the model file. The deptry lines are only for a
+    repository that uses deptry (`uses_deptry`)."""
     reads_model = PurePosixPath(MODEL_PATH).suffix in language.source_suffixes
     if not reads_model and not (root / "pyproject.toml").is_file():
         return ()
-    return TOOLING_NOTE
+    if not uses_deptry(root):
+        return TOOLING_NOTE
+    return (*TOOLING_NOTE[:2], *DEPTRY_NOTE, *TOOLING_NOTE[2:])
+
+
+def uses_deptry(root: Path) -> bool:
+    """True when a file in DEPTRY_FILES contains the word deptry.
+
+    The function reads only regular files in the repository. A link out of the
+    repository or a FIFO is not read. The result only selects a note, so such a file
+    counts as a file without the word.
+    """
+    for pattern in DEPTRY_FILES:
+        for path in sorted(root.glob(pattern)):
+            try:
+                text = repo_files.read_text(root, path.relative_to(root), errors="replace")
+            except OSError:
+                continue
+            if "deptry" in text.lower():
+                return True
+    return False
+
+
+def _test_patterns_block(patterns: Sequence[str]) -> str:
+    """Give the `test_patterns` key for the test files that init found, or no text."""
+    if not patterns:
+        return ""
+    values = ", ".join(quoted(pattern) for pattern in patterns)
+    return (
+        "\n# The language adapter found these test files. They are not modules of the map."
+        f"\ntest_patterns = [{values}]"
+    )
 
 
 def _roots_block(roots: list[tuple[str, str]], language: LanguageSetup) -> str:
@@ -452,6 +505,7 @@ def files(
     ci: str = ADVISORY,
     *,
     language: LanguageSetup,
+    test_patterns: Sequence[str] = (),
 ) -> dict[str, str]:
     """Get initial file paths and contents.
 
@@ -464,6 +518,7 @@ def files(
             name=quoted(name),
             roots_note=language.roots_note,
             roots=_roots_block(roots, language),
+            test_patterns=_test_patterns_block(test_patterns),
             package=package,
         ),
         MODEL_PATH: MODEL.format(
@@ -492,8 +547,12 @@ def write(
     """Write missing files. Give one output line for each written or existing file.
 
     Each file must be in the root after the resolution of symbolic links. Otherwise, give
-    ConfigError before the first write."""
-    planned, out = _existing_config(root, files(name, package, roots, ci, language=language))
+    ConfigError before the first write. If the new systemap.toml has no package roots,
+    the last line tells the maintainer the configuration to write."""
+    patterns = language.discover_test_patterns(root)
+    planned, out = _existing_config(
+        root, files(name, package, roots, ci, language=language, test_patterns=patterns)
+    )
     for rel in planned:
         if not repo_files.inside(root, root / rel):
             raise ConfigError(
@@ -508,6 +567,8 @@ def write(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8", newline="\n")
         out.append(f"wrote {rel}")
+    if not roots and f"wrote {config.CONFIG_FILE}" in out:
+        out.append(language.missing_roots_message(root))
     return out
 
 

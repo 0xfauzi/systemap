@@ -133,14 +133,14 @@ def test_reexport_resolution_and_relative_sources() -> None:
     }
 
 
-def test_facts_format_is_8_and_an_older_file_is_stale(tmp_path: Path) -> None:
+def test_facts_format_is_9_and_an_older_file_is_stale(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     fresh = extract.build(cfg)
-    assert fresh["version"] == extract.FORMAT == 8
+    assert fresh["version"] == extract.FORMAT == 11
     older = {**fresh, "version": 1}
     assert extract.drift(fresh, older) == [
-        "facts format 1 is older than the extractor's 8; the file records less than the "
+        "facts format 1 is older than the extractor's 11; the file records less than the "
         "extractor reads"
     ]
     assert extract.drift(fresh, fresh) == []
@@ -225,7 +225,7 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert run("--root", str(tmp_path), "facts", "--entry-points") == 0
     out = capsys.readouterr().out
     assert out.startswith(
-        "entry points: 0. A sequence specifies each applicable entry point. The target is "
+        "entry points: 0. A sequence specifies each applicable entry point. A target is "
     )
 
     assert run("--root", str(tmp_path), "facts", "--external") == 0
@@ -266,7 +266,7 @@ def test_entry_points_view_prints_the_target_beside_each() -> None:
         ]
     }
     assert facts_mod.entry_points(facts) == [
-        "entry points: 5. A sequence specifies each applicable entry point. The target is a console-script function or a subcommand script.",
+        "entry points: 5. A sequence specifies each applicable entry point. A target is the function or the script that the entry point starts.",
         "  pkg (console script): pkg.cli, target main",
         "  main() in pkg.cli: pkg.cli, target main",
         "  python -m pkg: pkg.__main__",

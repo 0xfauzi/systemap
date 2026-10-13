@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from systemap.call_sites import IMPORT, VALUE, WHOLE, Binding, records
-from systemap.typescript_syntax import string_value, syntax_tree
+from systemap.typescript_syntax import specifier_name, string_value, syntax_tree
 
 RECEIVER = "this"
 DEFAULT = "default"
@@ -76,8 +76,8 @@ def _first_name(node: Any) -> Any | None:
 
 def _specifier_sites(named: Any) -> Iterator[Site]:
     for spec in (c for c in named.named_children if c.type == "import_specifier"):
-        name = _text(spec.child_by_field_name("name"))
-        alias = _text(spec.child_by_field_name("alias"))
+        name = specifier_name(spec.child_by_field_name("name"))
+        alias = specifier_name(spec.child_by_field_name("alias"))
         yield alias or name, name, name, _line(spec)
 
 
@@ -118,8 +118,8 @@ def _export_sites(statement: Any) -> Iterator[tuple[str, str, str, int]]:
         yield (_text(name) if name is not None else WHOLE), WHOLE, source, _line(statement)
         return
     for spec in (c for c in clause.named_children if c.type == "export_specifier"):
-        name = _text(spec.child_by_field_name("name"))
-        alias = _text(spec.child_by_field_name("alias"))
+        name = specifier_name(spec.child_by_field_name("name"))
+        alias = specifier_name(spec.child_by_field_name("alias"))
         yield alias or name, name, source, _line(spec)
 
 

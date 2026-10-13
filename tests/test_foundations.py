@@ -42,11 +42,15 @@ def recorder(answers: list[str]) -> tuple[agent.Run, list[str]]:
 
 def test_the_agent_is_asked_once_and_remembered(tmp_path: Path) -> None:
     run, asked = recorder(["The parser now hands tokens to the store."])
-    one = agent.Agent("agent -p", tmp_path, agent.Cache(tmp_path / "c.json"), run_command=run)
+    one = agent.Agent(
+        "agent -p", tmp_path, agent.Cache(tmp_path / "c.json", root=tmp_path), run_command=run
+    )
     first = one.ask("What does this change mean?", {"cards": ["Parser"]})
     assert first == "The parser now hands tokens to the store."
     assert "Parser" in asked[0] and "What does this change mean?" in asked[0]
-    again = agent.Agent("agent -p", tmp_path, agent.Cache(tmp_path / "c.json"), run_command=run)
+    again = agent.Agent(
+        "agent -p", tmp_path, agent.Cache(tmp_path / "c.json", root=tmp_path), run_command=run
+    )
     assert again.ask("What does this change mean?", {"cards": ["Parser"]}) == first
     assert len(asked) == 1, "the second run read the cache"
     assert again.usage.cached == 1 and again.usage.called == 0
@@ -74,7 +78,7 @@ def test_without_a_command_nothing_runs_and_the_reason_is_said(tmp_path: Path) -
 
 def test_language_policy_reaches_the_agent_and_invalidates_old_answers(tmp_path: Path) -> None:
     run, asked = recorder(["The source supplies records."])
-    cache = agent.Cache(tmp_path / "language.json")
+    cache = agent.Cache(tmp_path / "language.json", root=tmp_path)
     old_key = agent.cache_key("agent -p", "Write a sequence.", None)
     cache.entries[old_key] = {"prose": "An old answer without the language policy."}
     cache.save()
@@ -244,7 +248,7 @@ def test_explain_lists_every_kind_and_prints_one_whole(
 
 
 def test_a_failing_check_group_is_taught_and_a_passing_one_is_not() -> None:
-    from systemap import check as check_mod
+    from systemap import check_report as check_mod
 
     clean = ["map routes: 0 edges through a card they do not connect"]
     assert check_mod._taught(clean) == clean, "a rule that passed is one line"

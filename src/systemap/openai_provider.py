@@ -363,11 +363,15 @@ def has_key() -> bool:
     return bool(os.environ.get(KEY_ENV, "").strip())
 
 
-def from_env(model: str, cache_path: Path | None, send: jev.Send | None = None) -> OpenAIProvider:
-    """Make the provider with an injected transport, or HTTPS with the environment key."""
+def from_env(
+    model: str, cache_path: Path | None, send: jev.Send | None = None, root: Path | None = None
+) -> OpenAIProvider:
+    """Make the provider with an injected transport, or HTTPS with the environment key.
+
+    `root` is the folder that contains the cache file: the repository root."""
     if send is None:
         key = os.environ.get(KEY_ENV, "").strip()
         if not key:
             raise OpenAIError(f"set {KEY_ENV} to call OpenAI. No data was sent")
         send = http_send(key)
-    return OpenAIProvider(with_retries(send), model, jev.Cache(cache_path))
+    return OpenAIProvider(with_retries(send), model, jev.Cache(cache_path, root=root))

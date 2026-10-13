@@ -185,7 +185,7 @@ def test_model_6_imported_model_file_changes_the_full_evidence(nested: Path) -> 
         "MEANING = Meaning(\n    layers=extra.LAYERS,\n",
     )
     cfg = config.load(nested)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts is not None
     line = "thin layer: extra shows 0 components"
     assert line in judgement.run_tree(nest.load(cfg), facts)
@@ -243,7 +243,7 @@ def test_model_7_external_flow_keeps_unresolved_records(tmp_path: Path) -> None:
 
 
 def _unknown_facts(root: Path) -> dict[str, Any]:
-    facts = facts_file.read_facts(config.load(root).facts_path)
+    facts = facts_file.read_facts(config.load(root).facts_path, config.load(root).root)
     assert facts is not None
     facts["components"]["pkg.gateway.app"]["unknown"] = [{"line": 3, "reason": "a dynamic import"}]
     facts["entry_point_issues"] = [
@@ -252,7 +252,7 @@ def _unknown_facts(root: Path) -> dict[str, Any]:
     return facts
 
 
-MODULE_LINE = "unknown surface: module pkg.gateway.app (pkg/gateway/app.py:3): a dynamic import"
+MODULE_LINE = "unknown surface: module pkg.gateway.app (pkg/gateway/app.py): a dynamic import"
 REPOSITORY_LINE = "unknown surface: console_script tool -> pkg.x:y: no module"
 
 

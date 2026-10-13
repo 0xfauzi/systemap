@@ -7,9 +7,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
+from typing import Any
 
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
+
+from systemap import unknown_causes
+from systemap.notice_text import description, is_notice
+from systemap.typescript_repo import TYPESCRIPT_REPOSITORY
 
 TS = Language(tree_sitter_typescript.language_typescript())
 TSX = Language(tree_sitter_typescript.language_tsx())
@@ -17,6 +22,8 @@ TSX = Language(tree_sitter_typescript.language_tsx())
 DIRECTIVE = re.compile(
     r"(?:eslint|prettier|istanbul|c8\s|tslint|jshint|global\s|@ts-|@jsx|/\s*<(?:reference|amd))"
 )
+# A legal comment of esbuild: minifiers keep it, because it holds a license notice.
+LEGAL = ("/*!", "//!")
 # The grammar does not read `export type * from` and the variance keywords `in` and `out`
 # in a type parameter list. A second parse replaces these keywords with spaces.
 _TYPE_STAR = re.compile(r"(?m)^([ \t]*export\s+)(type)(?=\s+\*)")
@@ -52,6 +59,36 @@ def _blank_keywords(match: re.Match[str]) -> str:
     return match.group(1) + re.sub(r"[^\n]", " ", match.group(2))
 
 
+# The text limit of a source excerpt in a parse problem.
+EXCERPT = 120
+
+
+def parse_problem(raw: str, path: str = "") -> dict[str, Any]:
+    """This function gives the first parser error for a retained module record.
+
+    The excerpt is the source line of the error and the line before it, because the
+    error node can be only one token, such as `,`. The `parser` field gives the parser
+    version. A valid file can fail when the grammar of that version does not read its
+    syntax.
+    """
+    root = _tree(raw, path)
+    node = next((child for child in _walk(root) if child.type == "ERROR" or child.is_missing), root)
+    row = node.start_point.row
+    source = _one_line(" ".join(raw.splitlines()[max(row - 1, 0) : row + 1]))
+    if len(source) > EXCERPT:
+        source = "\u2026" + source[-(EXCERPT - 1) :]
+    # The reason goes into a shared finding line. Thus it names no language. The line is
+    # the identity of the finding. Thus the excerpt and the parser version are separate
+    # fields. `answer_migrations` reads the earlier forms.
+    return {
+        "line": row + 1,
+        "reason": "The parser could not parse the source syntax.",
+        "source": source,
+        "parser": TYPESCRIPT_REPOSITORY.parser_version(),
+        "cause": unknown_causes.SYNTAX,
+    }
+
+
 def _root(raw: str, path: str = "") -> Node | None:
     root = syntax_tree(raw, path)
     return None if root.has_error else root
@@ -69,6 +106,14 @@ def _text(node: Node | None) -> str:
 
 def _one_line(text: str) -> str:
     return " ".join(text.split())
+
+
+def specifier_name(node: Node | None) -> str:
+    """This function gives the name of an import or export specifier part: an identifier,
+    or the value of a string, as in `export { a as 'module.exports' }`."""
+    if node is None:
+        return ""
+    return string_value(node) if node.type == "string" else _text(node)
 
 
 def string_value(node: Node | None) -> str:
@@ -115,17 +160,27 @@ def docstring(root: Node) -> str:
     """This function gives the first paragraph of the first comment before the first
     statement, without comment marks.
 
-    A tool directive such as `eslint-disable` or `@ts-check` is not a docstring.
+    A tool directive such as `eslint-disable` or `@ts-check` is not a docstring. A
+    license notice is not a docstring (`notice_text`): a legal comment that starts with
+    `/*!` or `//!`, or a comment that starts with a notice mark. The `//` comments on
+    the lines directly below a notice are part of the notice. The next comment can then
+    give the docstring.
     """
+    notice_end = -2
     for node in root.named_children:
         if node.type == "hash_bang_line":
             continue
         if node.type != "comment":
             return ""
-        text = _comment_text(_text(node))
-        if text and not DIRECTIVE.match(text):
-            paragraph = _one_line(text.split("\n\n")[0])
-            return paragraph if len(paragraph) <= 320 else paragraph[:319] + "\u2026"
+        raw = _text(node)
+        if raw.startswith("//") and node.start_point.row == notice_end + 1:
+            notice_end = node.end_point.row
+            continue
+        text = _comment_text(raw)
+        if raw.startswith(LEGAL) or (text and is_notice(text)):
+            notice_end = node.end_point.row
+        elif text and not DIRECTIVE.match(text):
+            return description(text)
     return ""
 
 

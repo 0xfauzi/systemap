@@ -10,13 +10,23 @@ value, and they do not give a pass.
 from __future__ import annotations
 
 import json
-from collections.abc import Collection, Mapping
-from typing import Any
+from collections.abc import Collection, Iterable, Mapping
+from typing import Any, NamedTuple
 
+from systemap import unknown_causes
 from systemap.model import source_parsed
 
 # The imported-name value that means "the full module".
 WHOLE_MODULE = "*"
+
+
+class Located(NamedTuple):
+    """The root-relative file, the source line (0 if not known), and the unknown record of
+    an `unknown surface` line."""
+
+    file: str
+    line: int
+    record: Mapping[str, Any]
 
 
 def standard_label(point: Mapping[str, str]) -> str:
@@ -109,58 +119,146 @@ def unknown_fact_lines(
     in the map that owns the module. The lines about entry points, test files, and
     configuration files apply to the full repository. Only `repository` gives them.
     """
-    modules = _unknown_module_lines(facts, skip)
-    return modules + _unknown_repository_lines(facts) if repository else modules
+    return [line for line, _cause in unknown_fact_causes(facts, skip, repository)]
 
 
-def _unknown_module_lines(facts: dict[str, Any], skip: Collection[str]) -> list[str]:
-    out: list[str] = []
+def unknown_fact_causes(
+    facts: dict[str, Any], skip: Collection[str] = (), repository: bool = True
+) -> list[tuple[str, str]]:
+    """Give each line of `unknown_fact_lines` with the cause that the adapter wrote.
+
+    A record without a cause has the cause `unknown_causes.NOT_KNOWN`. A line is the
+    identity of a finding. Thus it contains no line number, source excerpt, or parser
+    version (`located_records` gives them). Two records with the same line give one line,
+    with the cause of the first record.
+    """
+    modules = [
+        (text, unknown_causes.of(found.record)) for text, found in _module_issues(facts, skip)
+    ]
+    lines = modules + _unknown_repository_lines(facts) if repository else modules
+    first: dict[str, str] = {}
+    for line, cause in lines:
+        first.setdefault(line, cause)
+    return list(first.items())
+
+
+def _module_issues(facts: dict[str, Any], skip: Collection[str]) -> list[tuple[str, Located]]:
+    """Give the line and the source location of each unknown record of a module.
+
+    `answer_migrations` reads the earlier forms of these lines: with the line number in
+    the location, with a source excerpt, and with the parser version."""
+    out: list[tuple[str, Located]] = []
     for module, record in sorted(facts.get("components", {}).items()):
         if module in skip:
             continue
         file = record.get("file", module)
-        if issue := record.get("parse_error"):
-            location = f"{file}:{issue['line']}" if issue.get("line") else file
-            # `answer_migrations` reads the earlier form of this line, which named Python.
-            out.append(
-                f"unknown surface: module {module} ({location}): {issue['reason']} "
-                f"(parser version {issue['parser']})"
-            )
-        for issue in record.get("unknown", []):
-            line = issue.get("line", 0)
-            location = f"{file}:{line}" if line else file
-            out.append(f"unknown surface: module {module} ({location}): {issue['reason']}")
+        issues = [record["parse_error"]] if record.get("parse_error") else []
+        for issue in [*issues, *record.get("unknown", [])]:
+            line = f"unknown surface: module {module} ({file}): {issue['reason']}"
+            out.append((line, Located(file, int(issue.get("line") or 0), issue)))
     return out
 
 
-def _unknown_repository_lines(facts: dict[str, Any]) -> list[str]:
-    out: list[str] = []
+def _test_file_issues(facts: dict[str, Any]) -> list[tuple[str, Located]]:
+    """Give the line and the source location of each test file that could not be read."""
+    out: list[tuple[str, Located]] = []
+    for issue in facts.get("test_file_issues", []):
+        problem = issue["problem"]
+        line = f"unknown surface: test file {issue['file']}: {problem['reason']}"
+        out.append((line, Located(issue["file"], int(problem.get("line") or 0), problem)))
+    return out
+
+
+def _unknown_repository_lines(facts: dict[str, Any]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
     for issue in facts.get("entry_point_issues", []):
-        out.append(
+        line = (
             f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
             f"{issue['reason']}"
         )
-    for issue in facts.get("test_file_issues", []):
-        problem = issue["problem"]
-        out.append(
-            f"unknown surface: test file {issue['file']}:{problem.get('line', 0)}: "
-            f"{problem['reason']}"
-        )
+        out.append((line, unknown_causes.of(issue)))
+    out += [(line, unknown_causes.of(found.record)) for line, found in _test_file_issues(facts)]
     for issue in facts.get("config_issues", []):
         # `answer_migrations` reads the earlier form of this line, which named npm.
-        out.append(
+        line = (
             f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
             "the configuration package could not be read"
         )
+        out.append((line, unknown_causes.of(issue)))
     return out
+
+
+def located_records(facts: dict[str, Any]) -> dict[str, list[Located]]:
+    """Give the source location and the record of each record of an `unknown surface`
+    line of a module or a test file.
+
+    The location is not part of the line: a new line above a statement changes the line
+    number, but not the finding. Two records with the same line give one line with two
+    locations. `judgement_evidence.located_state` gives the evidence of the statements.
+    """
+    out: dict[str, list[Located]] = {}
+    for line, found in [*_module_issues(facts, ()), *_test_file_issues(facts)]:
+        out.setdefault(line, []).append(found)
+    return out
+
+
+def source_fields(found: Located) -> dict[str, Any]:
+    """Give the file, the line, the source excerpt, and the parser version of one record.
+
+    A value that the record does not give is None. These values change while the finding
+    stays the same. Thus they are not in the line. `judgement --json` gives these fields.
+    """
+    excerpt = found.record.get("source")
+    parser = found.record.get("parser")
+    return {
+        "file": found.file,
+        "line": found.line or None,
+        "excerpt": excerpt if found.line and isinstance(excerpt, str) and excerpt else None,
+        "parser": parser if isinstance(parser, str) and parser else None,
+    }
+
+
+def source_rows(sources: Iterable[Mapping[str, Any]]) -> list[str]:
+    """Give the text rows below an `unknown surface` line for the fields of its records:
+    `at:`, `excerpt:`, and `parser version:`. `judgement`, `check`, and `refresh` use
+    this one function."""
+    rows: list[str] = []
+    for source in sources:
+        rows += [f"at: {source['file']}:{source['line']}"] if source["line"] else []
+        rows += [f"excerpt: {source['excerpt']!r}"] if source["excerpt"] else []
+        rows += [f"parser version: {source['parser']}"] if source["parser"] else []
+    return rows
+
+
+def unknown_rows(facts: dict[str, Any]) -> dict[str, list[str]]:
+    """Give the source rows of each `unknown surface` line that has rows."""
+    found = {
+        line: source_rows(source_fields(item) for item in records)
+        for line, records in located_records(facts).items()
+    }
+    return {line: rows for line, rows in found.items() if rows}
 
 
 def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:
-    """List files with an unresolved source inventory."""
-    out: list[str] = []
+    """List the modules that the extractor could not read or parse."""
+    return [line for line, _cause in inventory_issue_causes(facts)]
+
+
+def inventory_issue_causes(facts: dict[str, Any]) -> list[tuple[str, str]]:
+    """Give each module that the extractor could not read or parse, with its cause.
+
+    These records are not known. They do not reject the map. Each result that reads the
+    module stays not known: the component has no current source review digest, and an
+    import rule that reads the module is `unknown`. A test file that the extractor could
+    not read or parse does not give a line here. `unknown_fact_lines` gives it.
+    """
+    out: list[tuple[str, str]] = []
     for module, record in sorted(facts.get("components", {}).items()):
         if not source_parsed(record):
-            out.append(f"source inventory unresolved: {module} ({record['file']})")
-    for issue in facts.get("test_file_issues", []):
-        out.append(f"source inventory unresolved: test file {issue['file']}")
+            state = record.get("completeness")
+            cause = unknown_causes.of(state) if isinstance(state, Mapping) else NOT_KNOWN
+            out.append((f"source inventory unresolved: {module} ({record['file']})", cause))
     return out
+
+
+NOT_KNOWN = unknown_causes.NOT_KNOWN

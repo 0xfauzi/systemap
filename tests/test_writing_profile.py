@@ -164,7 +164,7 @@ def test_an_asd_ste100_request_has_the_whole_policy(tmp_path: Path) -> None:
 
 def test_a_profile_change_requires_a_new_answer(tmp_path: Path) -> None:
     run, asked = recorder()
-    cache = agent.Cache(tmp_path / "agent.json")
+    cache = agent.Cache(tmp_path / "agent.json", root=tmp_path)
     plain = agent.Agent("agent -p", tmp_path, cache, run_command=run, profile="plain")
     strict = agent.Agent("agent -p", tmp_path, cache, run_command=run, profile="asd-ste100")
     plain.ask("Write a sequence.")

@@ -20,7 +20,6 @@ import argparse
 import contextlib
 import dataclasses
 import json
-import os
 import queue
 import shutil
 import signal
@@ -43,6 +42,7 @@ from systemap import (
     explain,
     extraction,
     figure,
+    file_write,
     history,
     nest,
     out_paths,
@@ -383,13 +383,10 @@ class LiveMap:
             return
         paths = {name: out_paths.served(self.out, name) for name in files}
         for name, text in files.items():
-            path = paths[name]
-            path.parent.mkdir(parents=True, exist_ok=True)
             if name.endswith(".html"):
                 text = page_live.with_script(text, version)
-            part = path.with_name(path.name + ".part")
-            part.write_text(text, encoding="utf-8", newline="\n")
-            os.replace(part, path)
+            # The temporary file and the replacement do not go through a link.
+            file_write.write_atomic(self.out, paths[name], text)
         _remove(self.out, self._names - set(files))
         self._names = set(files)
 

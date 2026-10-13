@@ -185,7 +185,7 @@ def project(
 
 def loaded(root: Path) -> tuple[config.Config, nest.Tree, dict[str, Any]]:
     cfg = config.load(root)
-    return cfg, nest.load(cfg), facts_file.read_facts(cfg.facts_path)
+    return cfg, nest.load(cfg), facts_file.read_facts(cfg.facts_path, cfg.root)
 
 
 # ---- acceptance 1 -----------------------------------------------------------------
@@ -279,7 +279,8 @@ def test_the_digests_and_the_snapshot_do_not_read_an_outside_file(
     bad = tampered(facts, bad_path(form, root, secret, language))
     state = judgement_evidence.answer_state(bad["components"], root, "", None)
     assert text_digest(secret.read_bytes()) not in json.dumps(state)
-    assert "missing source" in json.dumps(state)
+    # A refused file gives its cause, not "missing source".
+    assert "refused source: " in json.dumps(state)
     with pytest.raises(ValueError, match="is not available"):
         journeys._source_snapshot(root, bad)
 
@@ -303,6 +304,7 @@ def test_extraction_does_not_read_a_link_to_an_outside_file(
         "parsed": False,
         "line": 0,
         "reason": OUTSIDE_REASON,
+        "cause": "read",
         "unresolved_imports": None,
     }
     assert MARKER not in facts_file.dumps(facts)
@@ -381,6 +383,6 @@ def test_a_nested_map_outside_the_repository_is_refused(tmp_path: Path) -> None:
         .replace('model = "map/model.py"', 'model = "../outside/model.py"'),
         encoding="utf-8",
     )
-    assert config.load(root).model == "../outside/model.py"
+    # The configuration reader refuses the configured model path at load time.
     with pytest.raises(ConfigError, match="not in the repository"):
-        nest.load(config.load(root))
+        config.load(root)

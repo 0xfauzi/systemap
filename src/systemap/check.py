@@ -21,18 +21,23 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
-    explain,
     extraction,
     facts_file,
     figure,
+    file_write,
     identifier,
     nest,
+    out_paths,
     page,
     reexports,
     source_facts,
 )
 from systemap import language as languages
+from systemap.check_report import coverage_line as coverage_line
+from systemap.check_report import report as report
+from systemap.check_report import report_stale as report_stale
 from systemap.config import Config, Ignore
+from systemap.entry_names import missing_entry
 from systemap.model import (
     Component,
     Meaning,
@@ -306,14 +311,55 @@ def _no_modules(model: Model, components: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def names_not_known(c: Component, components: Mapping[str, Any]) -> bool:
+    """Tell if the public names of the component are not known.
+
+    A claimed module, or the module of a symbol claim, that the extractor could not read
+    or parse has names that are not known. Then a name that the facts do not give is not
+    known: it is not a pass and not a failure. The `source inventory unresolved` group
+    gives the module."""
+    modules = [*claimed(c, components), *(m for m, _name in symbol_claims(c))]
+    return any(m in components and _not_parsed(components[m]) for m in modules)
+
+
+def _not_parsed(record: Mapping[str, Any]) -> bool:
+    """Tell if the adapter wrote that it could not read or parse all of the module.
+
+    A record without a `completeness` record keeps the earlier check result."""
+    state = record.get("completeness")
+    return isinstance(state, Mapping) and state.get("parsed") is False
+
+
+def _symbol_problem(
+    c: Component, module: str, name: str, components: Mapping[str, Any], owned: set[str]
+) -> str | None:
+    """Give the problem of one symbol claim, or None for a correct claim.
+
+    An empty string tells that the claim is not known: the module did not parse, and the
+    facts do not give the name. The claim then gives no line."""
+    symbol = f"{module}:{name}"
+    if module not in components:
+        return f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
+    if name not in public_names(components[module]):
+        if _not_parsed(components[module]):
+            return ""
+        return f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
+    if module not in owned:
+        return (
+            f"{c.id} has a symbol claim for {symbol} in a module with no owner. A symbol "
+            f"claim must have a module owner on the map."
+        )
+    return None
+
+
 def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
     """This function validates component modules, symbol claims, and entries against the
     facts.
 
     A symbol claim must have a public symbol and a module owner. An actor has no
     source-code checks. A store or context component can have an empty entry. Other
-    components must have a defined public entry. Facts without modules do not agree
-    with a model that has source components.
+    components must have a defined entry (`systemap.entry_names` gives the forms). Facts
+    without modules do not agree with a model that has source components.
     """
     components = facts.get("components", {})
     if not facts:
@@ -332,24 +378,11 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
                 )
         symbols: list[str] = []
         for module, name in symbol_claims(c):
-            symbol = f"{module}:{name}"
-            if module not in components:
-                out.append(
-                    f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
-                )
-                continue
-            if name not in public_names(components[module]):
-                out.append(
-                    f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
-                )
-                continue
-            if module not in owned:
-                out.append(
-                    f"{c.id} has a symbol claim for {symbol} in a module with no owner. A symbol "
-                    f"claim must have a module owner on the map."
-                )
-                continue
-            symbols.append(symbol)
+            problem = _symbol_problem(c, module, name, components, owned)
+            if problem is None:
+                symbols.append(f"{module}:{name}")
+            elif problem:
+                out.append(problem)
         modules = claimed(c, components)
         if not modules and not symbols:
             if not c.implemented_by:
@@ -358,9 +391,9 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
         held = ", ".join(modules + symbols)
         if not c.entry:
             if c.kind not in ENTRY_OPTIONAL:
-                out.append(f"{c.id} has no entry. Its modules are {held}")
+                out.extend(missing_entry(c.id, modules, symbols, facts))
             continue
-        if not defines_entry(c, facts):
+        if not defines_entry(c, facts) and not names_not_known(c, components):
             out.append(
                 f"{c.id} has entry {c.entry}, but its modules do not define this entry ({held})."
             )
@@ -426,9 +459,9 @@ def check_interface(model: Model, facts: dict[str, Any]) -> list[str]:
 
 def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
     """This function gives the interface diagnostic for one component, or an empty string
-    if the interface is correct.
+    if the interface is correct or not known.
     """
-    if c.kind == "actor" or not c.interface.strip():
+    if c.kind == "actor" or not c.interface.strip() or names_not_known(c, components):
         return ""
     modules = claimed(c, components)
     symbols = symbol_claims(c)
@@ -445,8 +478,7 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
         )
     name, method = head
     if name not in names:
-        closest = _closest(name, names)
-        hint = f". The nearest name is {closest}" if closest else ""
+        hint = _name_hint(name, names, [components[m] for m in modules])
         return (
             f"{c.id} interface starts with {name}, but none of its modules defines this "
             f"name ({held}){hint}"
@@ -464,6 +496,26 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
             f"{method} ({held}){hint}"
         )
     return ""
+
+
+def _name_hint(name: str, names: set[str], records: list[Mapping[str, Any]]) -> str:
+    """Give the hint for an interface name that is not a public name.
+
+    A public name with the defining symbol `name` (`defined_as`) comes first, for example
+    the public name `default` of a module that exports the symbol `ky`. If there is no
+    such name, the hint gives the nearest spelling."""
+    given = sorted(
+        {
+            entry["name"]
+            for record in records
+            for entry in record.get("names") or []
+            if entry.get("defined_as") == name and entry.get("name") != name
+        }
+    )
+    if given:
+        return f". The public name for the symbol {name} is {', '.join(given)}"
+    closest = _closest(name, names)
+    return f". The nearest name is {closest}" if closest else ""
 
 
 def _interface_methods(
@@ -495,11 +547,7 @@ def stale_facts(
     """This function compares stored facts with fresh facts and finds claims for missing
     source modules.
     """
-    problems = (
-        extraction.drift(fresh, stored)
-        + extraction.mapping_drift(fresh, model, prefixes)
-        + source_facts.inventory_issue_lines(fresh)
-    )
+    problems = extraction.drift(fresh, stored) + extraction.mapping_drift(fresh, model, prefixes)
     if not stored:
         problems.insert(0, "No extracted facts are available.")
     return problems
@@ -514,7 +562,7 @@ def stale(
     generated output.
     """
     fresh = fresh if fresh is not None else extraction.build(cfg)
-    stored = facts_file.read_facts(cfg.facts_path)
+    stored = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not
@@ -546,10 +594,16 @@ def stale(
 
 
 def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
+    """Compare an output file with its rendered text.
+
+    The file must be in the output directory (`out_paths`). A link out of the repository,
+    a FIFO, and a device give `file_write.RefusedFile` with the cause.
+    """
     rel = cfg.rel(path)
-    if not path.is_file():
+    text = file_write.read_text(cfg.root, out_paths.checked(cfg, path))
+    if text is None:
         return [f"{rel} has no rendered output."]
-    if path.read_text(encoding="utf-8") != expected:
+    if text != expected:
         return [f"{rel} differs from the rendered output."]
     return []
 
@@ -572,7 +626,14 @@ class Result:
     nesting: list[str] = field(default_factory=list)
     stale: list[str] = field(default_factory=list)
     unknown_surface: list[str] = field(default_factory=list)
-    inventory_issues: list[str] = field(default_factory=list)
+    # The modules that the extractor could not read or parse. They do not reject the map.
+    inventory_issues: tuple[str, ...] = ()
+    # The causes of the `unknown_surface` lines and the `inventory_issues` lines, for
+    # their fix lines.
+    unknown_causes: tuple[str, ...] = ()
+    # The source rows below each `unknown_surface` line (`source_facts.source_rows`).
+    unknown_rows: Mapping[str, list[str]] = field(default_factory=dict)
+    inventory_causes: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -583,7 +644,6 @@ class Result:
             and not self.interface
             and not self.nesting
             and not self.stale
-            and not self.inventory_issues
         )
 
 
@@ -612,6 +672,8 @@ def run(
         problems += check_labels(meta)
         problems += check_type_size(svg)
     counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
+    unknown = source_facts.unknown_fact_causes(facts) if coverage else []
+    unread = source_facts.inventory_issue_causes(facts) if coverage else []
     return Result(
         problems,
         through,
@@ -619,8 +681,11 @@ def run(
         counted,
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
-        unknown_surface=source_facts.unknown_fact_lines(facts) if coverage else [],
-        inventory_issues=source_facts.inventory_issue_lines(facts) if coverage else [],
+        unknown_surface=[line for line, _cause in unknown],
+        inventory_issues=tuple(line for line, _cause in unread),
+        unknown_causes=tuple(dict.fromkeys(cause for _line, cause in unknown)),
+        unknown_rows=source_facts.unknown_rows(facts) if coverage else {},
+        inventory_causes=tuple(dict.fromkeys(cause for _line, cause in unread)),
     )
 
 
@@ -651,134 +716,3 @@ def tree_ok(results: Mapping[str, Result]) -> bool:
 
 def with_stale(result: Result, lines: list[str]) -> Result:
     return replace(result, stale=lines)
-
-
-def _plural(n: int, noun: str) -> str:
-    return f"{n} {noun}{'s' if n != 1 else ''}"
-
-
-def coverage_line(cov: Coverage) -> str:
-    """This function formats the coverage counts, including ignored modules and empty
-    package markers.
-    """
-    line = f"coverage: {cov.mapped} of {cov.total} modules mapped"
-    if cov.ignored:
-        line += f", {cov.ignored} ignored with a reason"
-    if cov.markers:
-        noun = "an empty package marker" if cov.markers == 1 else "empty package markers"
-        line += f", {cov.markers} {noun}"
-    return line
-
-
-def report(
-    model: Model,
-    result: Result,
-    model_file: str = "the model",
-    prefix: str = "",
-    teach: bool = True,
-) -> list[str]:
-    """This function gives the CLI report for one map.
-
-    The report includes diagnostic groups and necessary actions. The optional prefix
-    identifies a nested map. The `teach` option adds an explanation for each diagnostic
-    group.
-    """
-    lines = _report(model, result, model_file)
-    return [prefix + line for line in (_taught(lines) if teach else lines)]
-
-
-def _taught(lines: list[str]) -> list[str]:
-    """This function adds an explanation to each diagnostic group with errors."""
-    out: list[str] = []
-    for k, line in enumerate(lines):
-        out.append(line)
-        failed = k + 1 < len(lines) and lines[k + 1].startswith(" ")
-        if failed:
-            out += explain.rows(line.split(":")[0])
-    return out
-
-
-def report_stale(lines: list[str], teach: bool = True) -> list[str]:
-    """This function gives one stale-output report for the full map tree."""
-    if not lines:
-        return []
-    return [
-        f"stale: {_plural(len(lines), 'problem')}",
-        *(explain.rows("stale") if teach else []),
-        *(f"  {line}" for line in lines),
-        "  fix: Use systemap refresh. Then commit the output directory.",
-    ]
-
-
-def _report(model: Model, result: Result, model_file: str) -> list[str]:
-    through, across = result.through, result.across
-    out = [
-        (
-            f"map routes: {through} flow path{('s' if through != 1 else '')} across components "
-            f"other than their endpoints, {across} across regions other than their endpoint "
-            f"regions."
-        )
-    ]
-    cov = result.coverage
-    if not cov.counted:
-        pass
-    elif cov.checked:
-        out.append(coverage_line(cov))
-        out += [f"  {line}" for line in cov.problems]
-        if cov.problems:
-            out.append(
-                f"  fix: Give each module a component in {model_file}, or give a reason to "
-                f"ignore it in [coverage] in the configuration. Remove each ignore entry "
-                f"that a line identifies as not necessary or missing from the facts."
-            )
-    else:
-        out.append("coverage: No facts are available for the check. Use systemap extract.")
-    if result.nesting:
-        out.append(f"nesting: {_plural(len(result.nesting), 'problem')}")
-        out += [f"  {line}" for line in result.nesting]
-        out.append(
-            f"  fix: In {model_file}, give each module of the parent component one claim. "
-            f"Use other parent components as actors."
-        )
-    if result.entry:
-        out.append(f"entry: {_plural(len(result.entry), 'problem')}")
-        out += [f"  {line}" for line in result.entry]
-        out.append(
-            "  fix: The map shows code in the facts. "
-            f"In {model_file}, use modules from the facts. Set entry to a public "
-            f"name that one of these modules defines."
-        )
-    if result.interface:
-        out.append(f"interface: {_plural(len(result.interface), 'problem')}")
-        out += [f"  {line}" for line in result.interface]
-        out.append(
-            f"  fix: In {model_file}, start interface with a public name from the "
-            f"component modules, or leave it empty. Use Class.method for a method."
-        )
-    out.extend(_unknown_surface_report(result.unknown_surface))
-    problems = result.problems
-    if problems:
-        out.append(f"map layout: {_plural(len(problems), 'problem')}")
-        out += [f"  {line}" for line in problems]
-        out.append(f"  fix: Change {model_file}. Then use systemap check.")
-    else:
-        n = len(model.components)
-        out.append(
-            f"map layout: has no errors ({n} components, {len(model.flows)} orthogonal "
-            f"flow paths with labels, no text size less than {TEXT_PX:g}px)"
-        )
-    out += report_stale(result.stale)
-    return out
-
-
-def _unknown_surface_report(findings: list[str]) -> list[str]:
-    if not findings:
-        return []
-    return [
-        f"unknown surface: {_plural(len(findings), 'finding')}",
-        *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
-        (
-            "  fix: Add parser support for this syntax, write the file as UTF-8 "
-            "text, or restore the missing source mapping."
-        ),
-    ]

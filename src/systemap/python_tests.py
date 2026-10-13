@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import python_calls, python_repo, repo_files
+from systemap import python_calls, python_repo, unknown_causes
 from systemap.pattern_match import matches_test_pattern
 from systemap.source_text import read_problems
 
@@ -102,8 +102,10 @@ def _names(tree: ast.AST) -> list[str]:
     return found
 
 
-def _issue(relative: str, line: int, reason: str, source: str = "") -> dict[str, Any]:
-    return {"file": relative, "problem": {"line": line, "reason": reason, "source": source}}
+def _issue(relative: str, line: int, problem: tuple[str, str], source: str = "") -> dict[str, Any]:
+    reason, cause = problem
+    record = {"line": line, "reason": reason, "source": source, "cause": cause}
+    return {"file": relative, "problem": record}
 
 
 def _parse_test(repo: Path, path: Path, issues: list[dict[str, Any]]) -> ast.Module | None:
@@ -112,7 +114,7 @@ def _parse_test(repo: Path, path: Path, issues: list[dict[str, Any]]) -> ast.Mod
     try:
         raw, problems = read_problems(path, repo)
     except OSError as exc:
-        raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
+        raw, problems = "", [unknown_causes.read_problem(exc)]
     if problems:
         issues.append(_issue(relative, 0, problems[0]))
         return None
@@ -121,9 +123,8 @@ def _parse_test(repo: Path, path: Path, issues: list[dict[str, Any]]) -> ast.Mod
     except (SyntaxError, ValueError) as exc:
         line = getattr(exc, "lineno", 0) or 0
         excerpt = " ".join(str(getattr(exc, "text", "") or "").split())[:EXCERPT]
-        issues.append(
-            _issue(relative, line, f"source could not be parsed: {type(exc).__name__}", excerpt)
-        )
+        reason = f"source could not be parsed: {type(exc).__name__}"
+        issues.append(_issue(relative, line, (reason, unknown_causes.SYNTAX), excerpt))
         return None
 
 

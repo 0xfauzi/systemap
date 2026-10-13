@@ -33,7 +33,7 @@ def test_compiler_provenance_is_independent_of_checkout_path(tmp_path: Path) -> 
         write_tree(root, tree)
         snapshots.append(extract.build(config.load(root)))
     stored = tmp_path / "saved-facts.json"
-    facts_file.write_facts(stored, snapshots[0])
+    facts_file.write_facts(stored, snapshots[0], tmp_path)
     assert snapshots[0]["provenance"] == snapshots[1]["provenance"]
     assert extract.drift(snapshots[1], json.loads(stored.read_text(encoding="utf-8"))) == []
     (tmp_path / "second" / "tsconfig.json").write_text(

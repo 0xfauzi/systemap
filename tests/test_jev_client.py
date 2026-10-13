@@ -74,15 +74,15 @@ def test_an_answer_that_does_not_fit_its_question_is_a_jev_error(
     answers: Any, tmp_path: Path
 ) -> None:
     cache = tmp_path / "jev.json"
-    client = jev.Jev(Scripted(answers), cache=jev.Cache(cache))
+    client = jev.Jev(Scripted(answers), cache=jev.Cache(cache, root=cache.parent))
     with pytest.raises(jev.JevError, match="Jev gave"):
         client.ask([owner_ask()])
     # The answer is not kept, so the next run asks again and gets a correct answer.
     assert json.loads(cache.read_text(encoding="utf-8"))["entries"] == {}
     again = Scripted()
-    assert jev.Jev(again, cache=jev.Cache(cache)).ask([owner_ask()])["a"]["owner"]["choice"] == (
-        "Reader"
-    )
+    assert jev.Jev(again, cache=jev.Cache(cache, root=cache.parent)).ask([owner_ask()])["a"][
+        "owner"
+    ]["choice"] == ("Reader")
     assert len(again.posts) == 1
 
 
@@ -110,7 +110,7 @@ def test_a_choice_or_probability_that_was_not_offered_is_refused() -> None:
 
 def test_a_bad_answer_in_the_cache_is_asked_again(tmp_path: Path) -> None:
     cache = tmp_path / "jev.json"
-    first = jev.Jev(Scripted(), cache=jev.Cache(cache))
+    first = jev.Jev(Scripted(), cache=jev.Cache(cache, root=cache.parent))
     first.ask([owner_ask()])
     held = json.loads(cache.read_text(encoding="utf-8"))
     # An earlier version kept answers without examination.
@@ -118,7 +118,7 @@ def test_a_bad_answer_in_the_cache_is_asked_again(tmp_path: Path) -> None:
         held["entries"][key] = {"other": {}}
     cache.write_text(json.dumps(held), encoding="utf-8")
     again = Scripted()
-    answered = jev.Jev(again, cache=jev.Cache(cache)).ask([owner_ask()])
+    answered = jev.Jev(again, cache=jev.Cache(cache, root=cache.parent)).ask([owner_ask()])
     assert answered["a"]["owner"]["choice"] == "Reader"
     assert len(again.posts) == 1
 
@@ -128,11 +128,11 @@ def test_answers_received_before_an_error_stay_in_the_cache(tmp_path: Path) -> N
     asks = [owner_ask(str(i)) for i in range(6)]
     failing = Scripted(jev.JevError("Jev answered 400: refused"))
     with pytest.raises(jev.JevError, match="Jev answered 400"):
-        jev.Jev(failing, cache=jev.Cache(cache)).ask(asks, concurrency=1)
+        jev.Jev(failing, cache=jev.Cache(cache, root=cache.parent)).ask(asks, concurrency=1)
     assert len(failing.posts) == 6
     assert len(json.loads(cache.read_text(encoding="utf-8"))["entries"]) == 5
     again = Scripted()
-    jev.Jev(again, cache=jev.Cache(cache)).ask(asks)
+    jev.Jev(again, cache=jev.Cache(cache, root=cache.parent)).ask(asks)
     assert len(again.posts) == 1
 
 
@@ -238,19 +238,19 @@ def test_a_rate_limit_waits_for_the_retry_after_time(monkeypatch: pytest.MonkeyP
 def test_a_full_cache_answers_when_the_model_list_is_not_available(tmp_path: Path) -> None:
     cache = tmp_path / "jev.json"
     asks = [owner_ask(str(i)) for i in range(3)]
-    jev.Jev(Scripted(), cache=jev.Cache(cache)).ask(asks)
+    jev.Jev(Scripted(), cache=jev.Cache(cache, root=cache.parent)).ask(asks)
 
     def offline(method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
         raise jev.JevError("Jev did not answer: connection refused")
 
-    client = jev.Jev(offline, cache=jev.Cache(cache))
+    client = jev.Jev(offline, cache=jev.Cache(cache, root=cache.parent))
     answered = client.ask(asks)
     assert [answered[a.key]["owner"]["choice"] for a in asks] == ["Reader"] * 3
     assert client.usage.cached == 3
     assert "2026-09-10" in client.usage.line()
     # A question without a cached answer still needs the API, and the error stays.
     with pytest.raises(jev.JevError, match="did not answer"):
-        jev.Jev(offline, cache=jev.Cache(cache)).ask([*asks, owner_ask("new")])
+        jev.Jev(offline, cache=jev.Cache(cache, root=cache.parent)).ask([*asks, owner_ask("new")])
 
 
 def test_a_model_name_with_control_characters_is_printed_without_them() -> None:
@@ -275,7 +275,7 @@ def test_a_cache_with_incorrect_data_is_an_empty_cache(held: Any, tmp_path: Path
     starts with an empty cache, as for a file that is not JSON."""
     cache = tmp_path / "jev.json"
     cache.write_text(json.dumps(held), encoding="utf-8")
-    client = jev.Jev(Scripted(), cache=jev.Cache(cache))
+    client = jev.Jev(Scripted(), cache=jev.Cache(cache, root=cache.parent))
     assert client.ask([owner_ask()])["a"]["owner"]["choice"] == "Reader"
     assert client.usage.sent == 1
     assert isinstance(json.loads(cache.read_text(encoding="utf-8"))["entries"], dict)
@@ -288,7 +288,7 @@ from systemap import jev
 path, name, rounds = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3])
 while not (path.parent / "go").exists():
     time.sleep(0.001)
-cache = jev.Cache(path)
+cache = jev.Cache(path, root=path.parent)
 for n in range(rounds):
     cache.entries[f"{name}-{n}"] = {"n": n}
     cache.save()

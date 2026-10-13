@@ -117,7 +117,7 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
     assert code == 0
     assert [row["line"] for row in out["open"]] == text
     assert READER in text and WRITER in text and THIN not in text
-    assert out["schema_version"] == 1
+    assert out["schema_version"] == 3
     assert {row["line"]: row["kind"] for row in out["open"]}[READER] == "single module"
     assert out["stale_answers"] == ["single module: Gone contains only pkg.gone"]
     assert out["answered"] == {
@@ -195,11 +195,12 @@ def test_without_facts_the_output_is_still_one_object(
 def test_a_model_without_components_gives_an_empty_object(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The starter model has no components. The exit code is 0, as in the text mode."""
+    """The starter model has no components. With `--strict`, the exit code is 1, as in the
+    text mode and in `check` (trial-15)."""
     write_tree(tmp_path, SOURCE)
     assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
     capsys.readouterr()
-    assert main(["--root", str(tmp_path), "judgement", "--json", "--strict"]) == 0
+    assert main(["--root", str(tmp_path), "judgement", "--json", "--strict"]) == 1
     captured = capsys.readouterr()
     assert json.loads(captured.out) == judgement_json.empty()
     assert judgement_json.empty()["open"] == []
@@ -229,6 +230,8 @@ def test_crossing_detail_is_in_each_row() -> None:
             "kind": "crossing import",
             "detail": ["pkg.a imports pkg.b"],
             "evidence": "a" * 64,
+            "cause": None,
+            "sources": None,
         }
     ]
     assert out["answered"]["answers"] == [

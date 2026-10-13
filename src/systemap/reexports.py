@@ -13,6 +13,9 @@ The adapter writes the language rules into the records:
 Each re-export gets `defined_in` and `defined_as`: the module and the symbol that define
 it. `defined_as` is `*` when the name refers to a full module. The two values are `null`
 when the defining module is not known.
+
+A type-only re-export without a known kind has the kind `type`, because its statement
+shows that the name is a type. Its `defined_in` and `defined_as` stay `null`.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
+from systemap import unknown_causes
 from systemap.source_facts import WHOLE_MODULE, package_of
 
 # The kind, the defining module, and the defining symbol of one public name.
@@ -46,6 +50,13 @@ def resolve_reexports(components: dict[str, Any]) -> None:
             record.setdefault("unknown", []).extend(problems)
 
 
+def _typed(entry: dict[str, Any]) -> dict[str, Any]:
+    """Give a type-only name of kind `unknown` the kind `type`."""
+    if entry.get("type_only") and entry.get("kind") == "unknown":
+        return {**entry, "kind": "type"}
+    return entry
+
+
 class _Resolver:
     """This class reads the adapter records before any change, so the order of the
     modules does not change a result."""
@@ -63,7 +74,7 @@ class _Resolver:
         rebinds = _rebinds(self.raw[module])
         for entry in self.raw[module]:
             if not entry.get("star"):
-                _bind(module, out, self._resolved(module, entry), rebinds)
+                _bind(module, out, _typed(self._resolved(module, entry)), rebinds)
                 continue
             source = entry["reexport_of"]
             given, uncertain = self.star_names(source, frozenset({module}))
@@ -73,7 +84,7 @@ class _Resolver:
                 if not rebinds and name in explicit:
                     continue
                 found = self._entry(name, source, name, bool(entry.get("type_only")))
-                _bind(module, out, {**found, "via_star": True}, rebinds)
+                _bind(module, out, _typed({**found, "via_star": True}), rebinds)
         return self._without_duplicates(module, out)
 
     def _resolved(self, module: str, entry: dict[str, Any]) -> dict[str, Any]:
@@ -234,6 +245,7 @@ class _Resolver:
                 "line": 0,
                 "reason": f"the `*` re-export from {source} gives names that are not known",
                 "source": "",
+                "cause": unknown_causes.REEXPORT,
             }
         )
 
@@ -262,7 +274,12 @@ class _Resolver:
         for name, found in identities.items():
             if len(found) > 1 or ((None, None) in found and count[name] > 1):
                 self.problems[module].append(
-                    {"line": 0, "reason": f"ambiguous star export {name}", "source": ""}
+                    {
+                        "line": 0,
+                        "reason": f"ambiguous star export {name}",
+                        "source": "",
+                        "cause": unknown_causes.REEXPORT,
+                    }
                 )
         return kept
 

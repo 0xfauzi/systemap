@@ -2,7 +2,8 @@
 
 It reads `bin` and `exports` in the top-level package.json file and in the package.json
 file of each package directory that contains source modules. Each compiled target maps
-to a source module through the tsconfig project of its package.
+to a source module through the tsconfig project of its package. A bin target that is a
+JavaScript file in the repository, with no source module, has the cause `script file`.
 """
 
 from __future__ import annotations
@@ -12,13 +13,15 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
+from systemap import repo_files
 from systemap.typescript_config import (
     TypeScriptConfig,
     package_json,
     root_candidates,
     source_targets,
 )
-from systemap.typescript_projects import path_choices
+from systemap.typescript_projects import SCRIPT_SUFFIXES, path_choices
+from systemap.unknown_causes import SCRIPT_FILE, TARGET
 
 if TYPE_CHECKING:
     from systemap.typescript import TypeScriptContext
@@ -71,16 +74,29 @@ def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:
         return
     directories = {projects.package_directory(path) for path in context.modules_by_path}
     for directory in sorted(found for found in directories if found is not None):
-        compiler = projects.config_for_directory(directory)
-        yield Package(
-            directory,
-            package_json(directory, context.repo),
-            compiler,
-            # The imported files count, as in the top-level context: tsc 5 takes the
-            # common folder of all program files as the output root.
-            root_candidates(compiler, projects.lazy_program_files(compiler)),
-            directory.relative_to(context.repo.resolve()).as_posix() + "/",
-        )
+        yield package_at(directory, context, package_json(directory, context.repo))
+
+
+def package_at(directory: Path, context: TypeScriptContext, data: dict[str, Any]) -> Package:
+    """This function gives the package of a directory that has a package.json file.
+
+    The repository root uses the top-level compiler settings. Another directory uses the
+    tsconfig project of the directory.
+    """
+    repo = context.repo.resolve()
+    projects = context.projects
+    if directory.resolve() == repo or projects is None:
+        return Package(repo, data, context.compiler, context.source_roots)
+    compiler = projects.config_for_directory(directory)
+    return Package(
+        directory,
+        data,
+        compiler,
+        # The imported files count, as in the top-level context: tsc 5 takes the
+        # common folder of all program files as the output root.
+        root_candidates(compiler, projects.lazy_program_files(compiler)),
+        directory.relative_to(repo).as_posix() + "/",
+    )
 
 
 def _package_entries(
@@ -90,15 +106,31 @@ def _package_entries(
     issues: list[dict[str, str]],
 ) -> set[str]:
     for name, target in _bin_targets(package.data, package.directory):
-        module = _entry_module(target, package, context)
+        module = entry_module(target, package, context)
         if module:
             points.append({"kind": "console_script", "name": name, "module": module, "target": ""})
         else:
             shown = package.label + target.removeprefix("./") if package.label else target
-            issues.append(_entry_issue("package_bin", name, shown, BIN_REASON))
+            cause = _bin_cause(package.label + target.removeprefix("./"), context)
+            issues.append(_entry_issue("package_bin", name, shown, BIN_REASON, cause))
     modules, export_issues = _package_exports(package, context)
     issues.extend(export_issues)
     return modules
+
+
+def _bin_cause(rel: str, context: TypeScriptContext) -> str:
+    """Give the cause of a bin target without a source module.
+
+    A JavaScript file in the repository is a script file. The extractor does not read it,
+    and no source root can make it a module. Each other target has the cause `target`.
+    """
+    if not rel.endswith(SCRIPT_SUFFIXES):
+        return TARGET
+    try:
+        repo_files.checked(context.repo, rel)
+    except OSError:
+        return TARGET
+    return SCRIPT_FILE
 
 
 def _package_exports(
@@ -113,7 +145,7 @@ def _package_exports(
             continue
         if target.endswith(".d.ts") or not target.endswith(TARGET_SUFFIXES):
             continue
-        module = _entry_module(target, package, context)
+        module = entry_module(target, package, context)
         if module:
             modules.add(module)
         else:
@@ -124,10 +156,16 @@ def _package_exports(
     if len(unmapped) > 1:
         sample += f" (+{len(unmapped) - 1} more)"
     reason = f"{len(unmapped)} package.json export targets have no resolved TypeScript modules."
-    return modules, [_entry_issue("package_export", name, sample, reason)]
+    return modules, [_entry_issue("package_export", name, sample, reason, TARGET)]
 
 
-def _entry_module(target: str, package: Package, context: TypeScriptContext) -> str | None:
+def entry_module(target: str, package: Package, context: TypeScriptContext) -> str | None:
+    """This function gives the source module of a package target, or None.
+
+    A target in outDir maps to its source through the tsconfig project of the package.
+    A target in a build folder, such as dist, can also map to a unique source file below
+    src or source.
+    """
     if not target.endswith(TARGET_SUFFIXES):
         return None
     sources = source_targets(target, package.directory, package.compiler, package.source_roots)
@@ -189,8 +227,8 @@ def _bin_targets(package: dict[str, Any], directory: Path) -> list[tuple[str, st
     return [(str(name), target) for name, target in sorted(bins.items()) if isinstance(target, str)]
 
 
-def _entry_issue(kind: str, name: str, target: str, reason: str) -> dict[str, str]:
-    return {"kind": kind, "name": name, "target": target, "reason": reason}
+def _entry_issue(kind: str, name: str, target: str, reason: str, cause: str) -> dict[str, str]:
+    return {"kind": kind, "name": name, "target": target, "reason": reason, "cause": cause}
 
 
 def _public_functions(modules: set[str], components: dict[str, Any]) -> list[dict[str, str]]:

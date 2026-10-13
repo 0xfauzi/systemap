@@ -103,6 +103,9 @@ Copy its exact name from `systemap facts --module NAME`.
 For symbol-only components, use one of their claimed symbols.
 Stores and context cards can have an empty `entry` for a namespace without a public entry point.
 Other source components must have an entry.
+Some entry points do not start one public name, for example a package bin or a `__main__` module.
+For such an entry point of the modules, `entry` can be its name or label from `systemap facts --entry-points`.
+If the modules define no public name and start no entry point, `entry` can be empty.
 An entry supplied by any kind still receives the normal source check.
 
 `interface` is optional. It starts with an existing public symbol or re-export.
@@ -396,16 +399,16 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 8, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. `extract --check` marks older formats stale.
+- `version`: The facts format is 11, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory with the name `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record for each entry point, with the fields below.
-- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. The list is empty if there are none.
-- `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, and `source`. The test functions of these files are not known. The Python adapter does not write an empty list.
-- `config_issues`: The configuration packages that a configuration file extends, and that the adapter cannot read. Only the TypeScript adapter writes this field, for an npm package in the `extends` key of a tsconfig file. The list is empty if there are none.
+- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. The list is empty if there are none.
+- `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, `source`, and `cause`. The test functions of these files are not known. `check` prints these records and does not fail. The Python adapter does not write an empty list.
+- `config_issues`: The configuration packages that a configuration file extends, and that the adapter cannot read. Each record has `file`, `reference`, and `cause`. Only the TypeScript adapter writes this field, for an npm package in the `extends` key of a tsconfig file. The list is empty if there are none.
 - `components`: One module record for each dotted name, with the fields below.
 
 **Each module, under `components`**
@@ -419,16 +422,16 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `source_sha256`: The full SHA-256 of UTF-8 source text with normalized newlines, for source references.
 - `syntax_sha`: The parsed-syntax digest for source review. Comments and text format do not change it.
 - `docstring`: The first paragraph of the module description, with a length limit. The Python adapter reads the module docstring. The TypeScript adapter reads the first documentation comment.
-- `functions`: Public functions with `name` and `signature`.
+- `functions`: Public functions with `name` and `signature`. A function with overload signatures has one record for each signature, and one record in `names`.
 - `classes`: Public class declarations other than errors, with `name` and public method signatures in `methods`. A type declaration that is not a class is in `types`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
 - `types`: Public type declarations that are not classes, with `name`, `category`, and public method signatures in `methods`. The category is `interface`, `enum`, or `type_alias`. The TypeScript adapter records the three categories. The Python adapter records the `type` statement as `type_alias`. Python 3.11 cannot parse this statement.
 - `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
-- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `type` (a record in `types`), `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. Each re-export and each local alias has `defined_in` and `defined_as`: the module and the symbol that define it, through all re-exports and aliases. `defined_as` is `*` for a full module. The two values are `null` if the defining module is not known. A `*` re-export of the module does not give a name that has `star_export` set to `false`. A name with `star_export` set to `null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for `default`. The Python adapter sets the value from `__all__`. `type_only` is `true` for a type-only export. A type-only export is not an entry point, because the emitted code has no value for it. A name without `type_only` is not type-only. Python has no type-only export. `entry` and `interface` can use these names.
+- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `type` (a record in `types`), `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. Each re-export and each local alias has `defined_in` and `defined_as`: the module and the symbol that define it, through all re-exports and aliases. `defined_as` is `*` for a full module. The two values are `null` if the defining module is not known. A `*` re-export of the module does not give a name that has `star_export` set to `false`. A name with `star_export` set to `null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for `default`. The Python adapter sets the value from `__all__`. A Python name that is not in `__all__` stays in `names`, because an import of that name can use it. `type_only` is `true` for a type-only export. A type-only export is not an entry point, because the emitted code has no value for it. A name without `type_only` is not type-only. Python has no type-only export. `entry` and `interface` can use these names.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint includes decorators. It does not include callable bodies. A `*` re-export has the name `*`, because one module cannot supply the names that it gives.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without statements. A Python docstring, `pass`, `__future__` import, and literal value for a dunder name such as `__all__` are not statements for this rule. Coverage does not include these modules.
-- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
+- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, short source excerpt, and `cause`. A parse record also has `parser`, the parser version. The finding line gives only the reason. The line, the excerpt, and the parser version go into rows below the line.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
 - `call_sites`: The local names that the module gets from a name of a module in `uses`, and the lines that use them. Each record has `local`, `target`, `name` (`*` for the full module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import statement makes, or for a re-export without a local name, such as `export { a } from`. It is `value` for a name that gets its value or type from that name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each use is `[line, function line, property]`. The function line is the line of the named function or method that contains the use, or 0. The property is the attribute that the use reads, or an empty string. The value is `null` if the source did not parse.
 - `imports`: The keys of `uses`.
@@ -438,8 +441,8 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `tests_primary`: The number of those functions in a file with the module name.
 - `tests`: Up to 25 test names, with primary tests first.
 - `tests_digest`: A digest of every qualified test identity. It also includes hidden identities.
-- `parse_error`: Python source read or parse errors, with line and parser version. Other systemap modules read `completeness`.
-- `completeness`: The read condition of the module, with the same meaning for each language. `parsed` is `false` if the extractor could not read or parse all of the source, and `line` and `reason` then give the first problem. `unresolved_imports` lists each local import, as the source writes it, that has no module in the facts. A local import is a relative import, a path, a TypeScript path alias, or a name below a package root. If `parsed` is `false`, the import list is not known and is `null`. Third-party packages, standard-library modules, Node.js built-in modules, and imports with a calculated module name are not in the list.
+- `parse_error`: Python source read or parse errors, with line, parser version, and `cause`. Other systemap modules read `completeness`.
+- `completeness`: The read condition of the module, with the same meaning for each language. `parsed` is `false` if the extractor could not read or parse all of the source, and `line`, `reason`, and `cause` then give the first problem. Such a module does not reject the map. `unresolved_imports` lists each local import, as the source writes it, that has no module in the facts. A local import is a relative import, a path, a TypeScript path alias, or a name below a package root. If `parsed` is `false`, the import list is not known and is `null`. Third-party packages, standard-library modules, Node.js built-in modules, and imports with a calculated module name are not in the list.
 
 **Each entry point, under `entry_points`**
 
@@ -449,7 +452,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `target`: The console-script function, the console script for a subcommand, or the registered function. It is empty for other kinds.
 - `label`: The display name that the language adapter gives to the entry point. A sequence can name it in `starts`.
 - `symbol`: The name in `module` that the entry point starts, such as the console-script function or a public function. It is an empty string when the entry point starts no single name, for example a package bin or a `__main__` module that starts the full module, or a subcommand. A symbol claim includes the entry point only when the module and this name agree. If the field is missing, the name is not known. Then no symbol claim includes the entry point.
-- `same_as`: The identity of a different entry point that starts the same operation. The language adapter writes it only from an accurate indication. The Python adapter writes it for a `main` function or a `__main__` module that starts the function of a console script. Coverage then counts the two entry points as one. An empty string tells that the adapter found no such entry point. Then this entry point must have a sequence. If the field is missing, the value is not known. Then the entry point also must have a sequence.
+- `same_as`: The identity of a different entry point that starts the same operation. The language adapter writes it only from an accurate indication. The Python adapter writes it for a console script, a `main` function, or a command that starts the same function as an entry point before it. An import binding of the function is permitted if it is the only module-level binding of the name, other than in an `except` clause. The Python adapter also writes it for a `__main__` module that imports that function and uses it. Coverage then counts the two entry points as one. An empty string tells that the adapter found no such entry point. Then this entry point must have a sequence. If the field is missing, the value is not known. Then the entry point also must have a sequence.
 
 **The extract summary**
 
@@ -457,8 +460,10 @@ The numbers from `systemap extract` describe source facts.
 They do not describe the purposes of the map components.
 `modules` counts records under `components`.
 `functions`, `classes`, `types`, and `errors` give the sums of those module fields.
-`tests` gives the sum of `tests_total`. The count for test files with the module
-name gives the sum of `tests_primary`.
+`tests` gives the sum of `tests_total`. Thus the count has one item for each pair
+of a test function and a module that it imports. A test function that imports three
+modules counts three times. The count for test files with the module name gives the
+sum of `tests_primary`.
 
 `empty package markers` counts the records with `empty_marker` set to true.
 Coverage automatically excludes these records.

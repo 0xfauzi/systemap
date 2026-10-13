@@ -284,7 +284,8 @@ def test_check_fails_for_a_rule_with_an_unknown_component(
     _with_rules(tmp_path, 'ImportRule("writer-alone", "forbid_import", ("Writer",), ("Cache",))')
     assert run("--root", str(tmp_path), "check") == 1
     out = capsys.readouterr().out
-    assert "import rule: writer-alone has unknown component Cache in dst" in out
+    assert "import rule fields: 1 problem" in out
+    assert "\n  writer-alone has unknown component Cache in dst\n" in out
 
 
 def test_check_fails_for_a_forbidden_import(

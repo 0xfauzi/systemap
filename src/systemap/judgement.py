@@ -30,6 +30,7 @@ from systemap import (
     judgement_evidence,
     nest,
     step_refs,
+    unknown_causes,
 )
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
@@ -48,7 +49,7 @@ from systemap.journey_coverage import (
     crowd_label as crowd_label,
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
-from systemap.source_facts import package_of, unknown_fact_lines
+from systemap.source_facts import located_records, package_of, unknown_fact_lines
 
 __all__ = ["mentioned"]
 
@@ -528,8 +529,9 @@ def evidence_for_tree(
     """This function hashes the evidence of each printed line for exact answers.
 
     The evidence of a line is the evidence that the line names (`judgement_evidence`).
-    Crossing-import evidence includes only the participating modules. An uncommitted
-    source edit changes the digest.
+    Crossing-import evidence includes only the participating modules. A line with a
+    source line number has the evidence of its statement. An uncommitted source edit
+    changes the digest.
     """
     components = facts.get("components", {})
     crossings: dict[str, list[tuple[str, str]]] = {}
@@ -542,13 +544,14 @@ def evidence_for_tree(
         )
     model_hashes: dict[str, str] = {}
     out: dict[str, str] = {}
+    located = located_records(facts)
     for key in lines:
         m = judgement_evidence.map_of(tree, key)
-        state = (
-            judgement_evidence.answer_state(components, root, "", crossings[key])
-            if key in crossings
-            else judgement_evidence.line_state(m, facts, root, key)
-        )
+        state = judgement_evidence.located_state(root, located.get(unprefixed(key), []))
+        if state is None and key in crossings:
+            state = judgement_evidence.answer_state(components, root, "", crossings[key])
+        elif state is None:
+            state = judgement_evidence.line_state(m, facts, root, key)
         if state is None:
             if m.id not in model_hashes:
                 model_hashes[m.id] = judgement_evidence.model_digest(m)
@@ -723,23 +726,40 @@ def report(
     detail: dict[str, list[str]] | None = None,
     kind: str = "",
     teach: bool = True,
+    causes: Mapping[str, str] | None = None,
 ) -> list[str]:
     """This function formats judgement diagnostics for the CLI.
 
     The detail argument supplies verbose import lines. The kind argument selects one
     visible kind, but the counts include all kinds. The teach option gives one
-    explanation for each visible kind.
+    explanation for each visible kind. The causes argument gives the cause of each
+    `unknown surface` line: a `cause:` row below the line, and one `fix:` line for each
+    cause of the visible lines.
     """
     result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
     shown = of_kind(result.open, kind) if kind else result.open
+    found = causes or {}
     out = [_head(result, kind, len(shown))]
-    out += _shown(shown, detail, teach)
+    out += _shown(shown, _with_causes(detail, found), teach)
+    out += unknown_causes.fix_lines(found[line] for line in shown if line in found)
     out += [
         f"  stale answer: '{item}' is now missing. Remove it from [judgement] answered."
         for item in result.stale
     ]
     out += [f"  pending answer: {item}" for item in result.pending or []]
     out += [f"  policy answer: {item}" for item in result.policies or []]
+    return out
+
+
+def _with_causes(
+    detail: dict[str, list[str]] | None, causes: Mapping[str, str]
+) -> dict[str, list[str]] | None:
+    """This function puts a `cause:` row first in the detail rows of each line with a cause."""
+    if not causes:
+        return detail
+    out = dict(detail or {})
+    for line, cause in causes.items():
+        out[line] = [f"cause: {cause}", *out.get(line, [])]
     return out
 
 

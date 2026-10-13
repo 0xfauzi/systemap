@@ -55,13 +55,15 @@ The answers are suggestions under their own heading. They do not change the delt
 
 These changes can change the result of a CI job after you install 3.1.0:
 
-- The facts format is 8. A facts file of an earlier format is stale, so `extract --check` and `check` exit 1. Run `systemap refresh`, and commit the facts file.
+- The facts format is 11. A facts file of an earlier format is stale, so `extract --check` and `check` exit 1. Run `systemap refresh`, and commit the facts file.
 - Each exact answer that is not for a `crossing import` line is pending one time. `judgement` prints the new digest. Examine the source again, and write the digest in `evidence`.
-- The `jev ...` finding kinds are now `decision ...` kinds. Three `unknown surface` lines have a new form. The earlier names and lines give a warning for one release.
+- The `jev ...` finding kinds are now `decision ...` kinds. Some `unknown surface` and `entry point` lines have a new form. The earlier names and lines give a warning for one release.
+- `judgement --strict` exits 1 for a model without components. `judgement --json` has schema version 3.
+- A configured cache path, `out_dir`, or `model` that is absolute or has a `..` part is a configuration error.
 - With `[judgement] require_reviews = true`, a component without a `source_review` digest is a finding, and `judgement --strict` exits 1.
 - An import rule with the result `fail` makes `check` and `refresh` exit 1.
 - A flow from a component to itself is a `check` error.
-- A Python test file that systemap cannot read or parse makes `refresh` and `check` exit 1.
+- A source module or a test file that the parser cannot read does not make `check` exit 1. In 3.0.0, a source module that did not parse made `check` exit 1.
 - A configuration file or a `package.json` file that is not a regular file in the repository gives a configuration error.
 
 [CHANGELOG.md](../../CHANGELOG.md) gives each change and its steps.
