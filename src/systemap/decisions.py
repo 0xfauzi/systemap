@@ -31,7 +31,15 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import card_review, evidence, judgement, judgement_json, nest, review_policy
+from systemap import (
+    card_review,
+    evidence,
+    judgement,
+    judgement_json,
+    nest,
+    repo_files,
+    review_policy,
+)
 from systemap.model import Component, Flow, Meaning, Model, claimed, is_symbol
 
 JUDGEMENT = "judgement"
@@ -107,13 +115,14 @@ def confined(root: Path, name: str) -> tuple[Path | None, str]:
         return None, "must be a path relative to the repository root"
     if ".." in pure.parts:
         return None, "must be a path relative to the repository root, without '..'"
-    base = root.resolve()
-    full = (base / pure).resolve()
-    if not full.is_relative_to(base):
-        return None, "is outside the repository"
-    if not full.is_file():
+    try:
+        return repo_files.checked(root, pure), ""
+    except repo_files.RepoPathError as exc:
+        if "not in the repository" in str(exc):
+            return None, "is outside the repository"
         return None, "is not a regular file"
-    return full, ""
+    except OSError:
+        return None, "is not a regular file"
 
 
 def source_files(root: Path, facts: dict[str, Any]) -> dict[str, str]:
