@@ -324,13 +324,20 @@ def _sizes_at(step: int) -> tuple[float, float]:
 def _scaled_text(
     kind: str, cid: str, plain: str, sizes: tuple[float, float]
 ) -> tuple[list[str], list[str]] | None:
-    """Give the name lines and plain lines at larger sizes, or None if they do not fit."""
+    """Give the name lines and plain lines at larger sizes, or None if they do not fit.
+
+    A description line fits when its measured width at that font height is PLAIN_WIDTH or less."""
     names, plain_lines, problems = card_text(kind, cid, plain)
     if sizes == (NAME_PX, TEXT_PX):
         return names, plain_lines
     if problems or any(len(n) * NAME_ADVANCE * sizes[0] > CARD_W - 20 for n in names):
         return None
-    return names, wrap_plain(plain, PLAIN_WIDTH * TEXT_PX / sizes[1])
+    budget = PLAIN_WIDTH * TEXT_PX / sizes[1]
+    lines = wrap_plain(plain, budget)
+    # wrap_plain puts a word that is wider than the budget on a line of its own.
+    if any(plain_width(line) > budget for line in lines):
+        return None
+    return names, lines
 
 
 def card_lines(kind: str, cid: str, plain: str, sizes: tuple[float, float]) -> CardLines | None:

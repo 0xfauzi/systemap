@@ -36,6 +36,7 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 
 from systemap.model import Layer
+from systemap.model_names import SAFE_NAME
 from systemap.page_font import FAMILY
 
 # The marks a card may carry for its kind. A ring is a second border inside
@@ -331,9 +332,16 @@ def _check_values(t: dict[str, Any]) -> None:
     for colour in palette:
         _colour("layer_palette", colour)
     marks = t.get("marks")
-    if not isinstance(marks, dict) or not all(isinstance(v, str) for v in marks.values()):
+    if not isinstance(marks, dict):
         raise ValueError("The theme value marks must be a table of component kinds and marks.")
+    for kind, mark in marks.items():
+        if mark not in MARKS:
+            raise ValueError(
+                f"The theme value marks.{kind} is {mark!r}. A mark must be "
+                f"{', '.join(MARKS[:-1])} or {MARKS[-1]}."
+            )
     _check_text(t)
+    _check_keys(t, "")
 
 
 # The page and the figures put theme values into HTML attributes, CSS and SVG without
@@ -364,6 +372,22 @@ def _check_text(t: dict[str, Any]) -> None:
                 f"The theme value {key} contains {' '.join(found)}. The page uses theme "
                 f"values in HTML without conversion. Remove these marks from the value."
             )
+
+
+def _check_keys(table: dict[str, Any], where: str) -> None:
+    """Reject a table key that is not a safe name.
+
+    The keys of the `state`, `container` and `delta` tables become CSS names, such as
+    `--card-<key>`. A safe name has only letters, digits, "_" and "-"."""
+    for key, value in table.items():
+        path = f"{where}.{key}" if where else str(key)
+        if SAFE_NAME.fullmatch(str(key)) is None:
+            raise ValueError(
+                f"The theme key {path!r} is not a safe name. The page uses theme keys as "
+                "CSS names. Use only letters, digits, _ and -."
+            )
+        if isinstance(value, dict):
+            _check_keys(value, path)
 
 
 def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:

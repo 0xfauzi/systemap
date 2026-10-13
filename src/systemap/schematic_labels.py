@@ -109,19 +109,23 @@ function placeLabel(b, s, ctx){
 function relabel(){
   growSoon = 0;
   var L = state.layer, s = growth(), j = state.journey, g = svg.querySelector('.seq-marks');
-  var key = L + s + svg.classList.contains('fg-on')
-    + (j ? (j.whole ? 'w' : j.edge) + (g ? g.childNodes.length : 0) : '');
+  var m = view.getScreenCTM(), k = m ? Math.hypot(m.a, m.b) : 0, marks = [];
+  // The step numbers, tags and notes of a sequence, in drawing units. The key contains
+  // their boxes. Thus relabel calculates the labels again when a mark moves or changes.
+  [].forEach.call(j && g ? g.childNodes : [], function(c){
+    var r = c.getBoundingClientRect();
+    if(k && r.width){ marks.push({x:(r.left - m.e) / k, y:(r.top - m.f) / k,
+      w:r.width / k, h:r.height / k}); }
+  });
+  var key = L + s + svg.classList.contains('fg-on') + (j ? (j.whole ? 'w' : j.edge) : '')
+    + marks.map(function(r){ return [r.x, r.y, r.w, r.h].map(function(v){
+      return v.toFixed(1); }).join(','); }).join(';');
   if(key === growKey){ return; }
   growKey = key;
   function on(i){ return edgeIn(i, L) && !flowOf[i].classList.contains('fg-hide'); }
-  var ctx = {taken:[], cards:nodes.map(boxOf), segs:SEGS.filter(function(q){ return on(q.e); })};
-  var crowd = BESIDE.slice(), m = view.getScreenCTM(), k = m ? Math.hypot(m.a, m.b) : 0;
-  // The step numbers, tags and notes of a sequence, in drawing units.
-  [].forEach.call(j && g ? g.childNodes : [], function(c){
-    var r = c.getBoundingClientRect();
-    if(k && r.width){ ctx.taken.push({x:(r.left - m.e) / k, y:(r.top - m.f) / k,
-      w:r.width / k, h:r.height / k}); }
-  });
+  var ctx = {taken:marks, cards:nodes.map(boxOf),
+    segs:SEGS.filter(function(q){ return on(q.e); })};
+  var crowd = BESIDE.slice();
   HEADS.forEach(function(h){ placeHead(h, s, ctx); });
   LABS.forEach(function(b){
     if(BESIDE.indexOf(b.i) >= 0 || !on(b.i)){ tf(b.g, s, b.x, b.y); }

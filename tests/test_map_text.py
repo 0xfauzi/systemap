@@ -85,6 +85,26 @@ function phonestep(page){
   }));
   return out;
 }
+function markscene(page){
+  const {doc,win,svg,A}=page,P=svg.page;
+  doc.querySelector('[data-mode="trace"]').click();runFrames(win);
+  P.journey.start(0);runFrames(win);
+  A.view.restore({k:0.7,tx:0,ty:0},true);runFrames(win);
+  const look=()=>svg.querySelectorAll('.flowlbl').map(l=>l.getAttribute('transform')||'');
+  const g=svg.querySelector('.seq-marks'),vb=svg.viewBox.baseVal;
+  const out={marks:g?g.childNodes.length:0,first:look(),firstBeside:A.besideEdges.slice()};
+  // The same count of marks at new places: each mark now covers the map.
+  (g?g.childNodes:[]).forEach(c=>{c.getBoundingClientRect=()=>({left:vb.x,top:vb.y,
+    right:vb.x+vb.width,bottom:vb.y+vb.height,width:vb.width,height:vb.height});});
+  // A pan at the same zoom makes the page examine the labels again.
+  A.view.restore({k:0.7,tx:1,ty:0},true);runFrames(win);
+  out.moved=look();out.movedBeside=A.besideEdges.slice();
+  // A zoom change makes the page calculate the labels again.
+  A.view.restore({k:1,tx:0,ty:0},true);runFrames(win);
+  A.view.restore({k:0.7,tx:0,ty:0},true);runFrames(win);
+  out.fresh=look();out.freshBeside=A.besideEdges.slice();
+  return out;
+}
 """
 
 
@@ -243,3 +263,16 @@ def test_the_sequence_marks_use_the_card_description_size(sample: Sample) -> Non
     assert "#schematic .seq-co .seq-co__ft{font:13.6px/18px var(--fm);" in html
     assert "textWidth(word, 'seq-tagm', 13.6)" in html
     assert "11.4px" not in MARKS_CSS and "12.5px" not in MARKS_CSS
+
+
+def test_labels_keep_off_sequence_marks_that_move(sample: Sample, tmp_path: Path) -> None:
+    """Acceptance (Codex result schematic-5): when the sequence marks change their
+    place and keep their count, the next label calculation gives the same labels as a
+    calculation without a stored result. The base kept the labels of the old marks."""
+    report = run(sample, tmp_path, "markscene")
+    assert report["marks"] > 0
+    first = (report["first"], sorted(report["firstBeside"]))
+    moved = (report["moved"], sorted(report["movedBeside"]))
+    fresh = (report["fresh"], sorted(report["freshBeside"]))
+    assert fresh != first, "the test marks must change the labels"
+    assert moved == fresh

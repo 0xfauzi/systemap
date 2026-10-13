@@ -17,7 +17,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import config_decisions, decision_kinds, flow_ids, model_fields, model_load
+from systemap import (
+    config_decisions,
+    decision_kinds,
+    flow_ids,
+    model_fields,
+    model_load,
+    model_names,
+)
 from systemap import language as languages
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
@@ -764,6 +771,7 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     code, with SYSTEMAP_TRUST_MODEL_CODE=1 (see model_load). The optional label supplies
     the path name in error messages. A refusal or an import error gives a configuration
     diagnostic. A sequence step that names its flow by id gets the edge of that flow.
+    A name that the page cannot use (see model_names) gives a configuration diagnostic.
     """
     if not path.is_file():
         raise ConfigError(f"The model module is missing: {path}")
@@ -780,6 +788,7 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
         raise ConfigError(f"{label}: MEANING must be a systemap.Meaning")
     found = model_fields.problem(model, Model, "MODEL")
     found = found or model_fields.problem(meaning, Meaning, "MEANING")
+    found = found or model_names.problem(model, meaning)
     if found:
         raise ConfigError(f"{label}: {found}")
     return model, flow_ids.resolve(model, meaning)
