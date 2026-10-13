@@ -60,10 +60,10 @@ def watched(root: Path, models: Iterable[Path] = ()) -> list[Path]:
     tests = [root / rel for rel in cfg.test_dirs if rel]
     folders = [package for package, _name in cfg.roots] + tests
     found += adapter.config_paths(root, folders)
-    # Output folders hold no source of the project, for each language.
-    skip = adapter.skip_dirs | config.OUTPUT_DIRS
+    # The watcher skips the folders that the source walk of the adapter skips. Then it
+    # watches each source file that extraction reads.
     for folder in folders:
-        found += _files(folder, adapter.source_suffixes, skip)
+        found += _files(folder, adapter.source_suffixes, adapter.skip_dirs)
     return list(dict.fromkeys(found))
 
 

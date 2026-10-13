@@ -153,6 +153,9 @@ def _file_import(
     other conditions give a script file, Node.js loads that file: then the import is not
     type-only. `key` is the subpath and the table that gave the target.
     """
+    if "\0" in target:
+        # A file path cannot contain a NUL character: the target names no file.
+        return PackageImport(None)
     module = _module(target, scope, context)
     if module is not None or not target.endswith(DECLARATION_SUFFIXES):
         return PackageImport(module)

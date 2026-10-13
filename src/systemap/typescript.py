@@ -10,7 +10,6 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import (
-    repo_files,
     typescript_calls,
     typescript_entry,
     typescript_package_imports,
@@ -25,7 +24,6 @@ from systemap.typescript_config import (
     DECLARATION_SUFFIXES,
     SOURCE_SKIP,
     TypeScriptConfig,
-    alias_targets,
     is_alias,
     load_typescript_config,
     root_candidates,
@@ -33,8 +31,6 @@ from systemap.typescript_config import (
 )
 from systemap.typescript_projects import (
     TypeScriptProjects,
-    existing_target,
-    path_choices,
     without_script_suffix,
 )
 from systemap.typescript_reexport_targets import Targets, resolve_reexports
@@ -45,9 +41,21 @@ from systemap.typescript_repo import (
     out_dir_below,
     ts_skipped,
 )
+from systemap.typescript_resolve import (
+    module_name,
+    program_dependencies,
+    target_module,
+    workspace,
+    workspace_module,
+)
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
-from systemap.typescript_syntax import specifier_name, string_value, syntax_tree
+from systemap.typescript_syntax import (
+    first_argument,
+    specifier_name,
+    string_value,
+    syntax_tree,
+)
 from systemap.typescript_tests import test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -99,6 +107,8 @@ class TypeScriptContext:
     projects: TypeScriptProjects | None = None
     # The nearest package.json above each folder (`typescript_package_imports`).
     package_scopes: dict[Path, Any] = field(default_factory=dict)
+    # The folder of each workspace package name (`typescript_resolve`).
+    workspaces: dict[str, Path] | None = None
 
     def compiler_for(self, path: Path) -> TypeScriptConfig:
         """This function gives the compiler settings of the project that contains a file."""
@@ -157,10 +167,6 @@ def _test_file_guards(
     return dict(guards)
 
 
-def _module_name(name: str) -> str:
-    return name.removeprefix("@").replace("/", ".").replace("-", "_")
-
-
 def _test_file(path: str, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]) -> bool:
     relative = PurePosixPath(path).as_posix()
     if PurePosixPath(path).suffix not in SOURCE_SUFFIXES or relative.endswith(DECLARATION_SUFFIXES):
@@ -188,50 +194,17 @@ def _target_from_path(
     paths: dict[str, Path],
     context: TypeScriptContext,
 ) -> str | None:
-    compiler = context.compiler_for(importer)
-    if specifier.startswith("."):
-        targets = _relative_targets(specifier, importer, compiler.root_dirs)
-    else:
-        targets = alias_targets(specifier, compiler, context.repo)
-    found = _first_target(targets, context.modules_by_path)
+    """Give the module that an import names (`typescript_resolve`)."""
+    found = target_module(specifier, importer, context.compiler_for(importer), context)
     if found is not None or specifier.startswith("."):
         return found
-    package = typescript_package_imports.resolve(specifier, importer, context)
-    if package is not None:
-        return package.module
-    normalized = _module_name(without_script_suffix(specifier))
-    return next((name for name in (normalized, f"{normalized}.index") if name in paths), None)
-
-
-def _relative_targets(specifier: str, importer: Path, root_dirs: tuple[Path, ...]) -> list[Path]:
-    """Give the import paths of a relative specifier. The suffix stays, because it selects
-    the source suffixes (see `path_choices`)."""
-    relative = (importer.parent / specifier).resolve()
-    targets = [relative]
-    containing = [root for root in root_dirs if relative.is_relative_to(root)]
-    if containing:
-        source_root = max(containing, key=lambda root: len(root.parts))
-        tail = relative.relative_to(source_root)
-        targets.extend(root / tail for root in root_dirs if root != source_root)
-    return targets
-
-
-def _first_target(targets: list[Path], modules_by_path: dict[Path, str]) -> str | None:
-    return next(
-        (
-            modules_by_path[choice.resolve()]
-            for target in targets
-            for choice in path_choices(target)
-            if choice.resolve() in modules_by_path
-        ),
-        None,
-    )
+    return workspace_module(specifier, importer, paths, context)
 
 
 def _module_candidate(specifier: str, module: str) -> str:
     specifier = without_script_suffix(specifier)
     if not specifier.startswith("."):
-        return _module_name(specifier)
+        return module_name(specifier)
     parts = module.split(".")[:-1]
     for part in PurePosixPath(specifier).parts:
         if part == "..":
@@ -359,8 +332,7 @@ def _dynamic_specifier(node: Any) -> str | None:
     function = node.child_by_field_name("function")
     if _text(function) not in ("import", "require"):
         return None
-    arguments = node.child_by_field_name("arguments")
-    first = arguments.named_children[0] if arguments and arguments.named_children else None
+    first = first_argument(node)
     if first is None or first.type != "string":
         return None
     return string_value(first)
@@ -371,35 +343,25 @@ def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
     yield from _dynamic_imports(root)
 
 
-def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) -> Iterator[Path]:
-    """Give the source files that one program file imports. The project index adds them to
-    the program, as tsc does, before it selects a project or an output root."""
-    try:
-        text = repo_files.read_text(repo, repo_files.relative(repo, path))
-        root = syntax_tree(text, path.as_posix())
-    except (OSError, UnicodeError):
-        return
-    for specifier, _ in _imports(root):
-        targets = (
-            _relative_targets(specifier, path, compiler.root_dirs)
-            if specifier.startswith(".")
-            else alias_targets(specifier, compiler, repo)
-        )
-        found = existing_target(targets)
-        if found is not None and not found.name.endswith(DECLARATION_SUFFIXES):
-            yield found
-
-
-def _projects(repo: Path, compiler: TypeScriptConfig, paths: dict[str, Path]) -> TypeScriptProjects:
+def _projects(
+    repo: Path, compiler: TypeScriptConfig, paths: dict[str, Path], context: TypeScriptContext
+) -> TypeScriptProjects:
     """This function loads the tsconfig project of each source module.
 
-    A tsconfig error then stops the extraction before the modules are read.
+    A tsconfig error then stops the extraction before the modules are read. The program
+    of a project has the files that its files import, through the resolver of the module
+    facts (`typescript_resolve`).
     """
     projects = TypeScriptProjects(
-        repo, compiler, lambda path, config: _program_dependencies(path, config, repo)
+        repo,
+        compiler,
+        lambda path, config: program_dependencies(path, config, context, paths, _imports),
     )
+    context.projects = projects
     for path in paths.values():
         projects.config_for(path)
+    # The package records of the discovery used programs that were not complete.
+    context.package_scopes.clear()
     return projects
 
 
@@ -435,15 +397,15 @@ def _reexport_targets(
 def _unresolved(
     root: Any,
     module: str,
-    prefixes: set[str],
     known: set[str],
     paths: dict[str, Path],
     context: TypeScriptContext,
 ) -> set[tuple[str, bool]]:
     """This function gives each import without a target module, and if it is local.
 
-    A local import is a relative or absolute path, a `paths` alias, or a name below a
-    package root. Another import names an npm package. Node.js modules are not included.
+    A local import is a relative or absolute path, a `paths` alias, or an import that
+    package.json makes local. Another import names an npm package. Node.js modules are
+    not included.
     """
     importer = paths.get(module)
     out: set[tuple[str, bool]] = set()
@@ -459,16 +421,12 @@ def _unresolved(
             # A declaration file gives only types. It has no module, so no import rule
             # can apply to it, and it is not an unresolved import.
             continue
-        out.add((specifier, _local(specifier, importer, prefixes, context)))
+        out.add((specifier, _local(specifier, importer, context)))
     return out
 
 
-def _local(
-    specifier: str, importer: Path | None, prefixes: set[str], context: TypeScriptContext
-) -> bool:
-    name = _module_name(specifier)
-    if any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes):
-        return True
+def _local(specifier: str, importer: Path | None, context: TypeScriptContext) -> bool:
+    """Tell if an import that does not resolve is local."""
     if importer is not None:
         return not _is_package(specifier, importer, context)
     return specifier.startswith(".")
@@ -477,12 +435,14 @@ def _local(
 def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> bool:
     """This function tells if an import that does not resolve names an npm package.
 
-    A self-name import and a subpath import (`#name`) name the same package.
+    A self-name import and a subpath import (`#name`) name the same package. An import of
+    a different workspace package names a local package (`typescript_resolve`).
     """
     return (
         not specifier.startswith((".", "/"))
         and not is_alias(specifier, context.compiler_for(importer))
         and not typescript_package_imports.is_local(specifier, importer, context)
+        and workspace(specifier, importer, context) is None
     )
 
 
@@ -516,16 +476,17 @@ class TypeScriptLanguage(TypeScriptRepository):
             compiler = load_typescript_config(repo)
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
-        projects = _projects(repo, compiler, paths)
-        return TypeScriptContext(
+        context = TypeScriptContext(
             repo=repo,
             modules_by_path={path.resolve(): module for module, path in paths.items()},
-            compiler=projects.combined(),
+            compiler=compiler,
             tests_dirs=tests_dirs,
             test_patterns=test_patterns,
-            source_roots=root_candidates(compiler, projects.lazy_program_files(compiler)),
-            projects=projects,
         )
+        projects = _projects(repo, compiler, paths, context)
+        context.compiler = projects.combined()
+        context.source_roots = root_candidates(compiler, projects.lazy_program_files(compiler))
+        return context
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         parts = path.relative_to(root).with_suffix("").parts
@@ -679,11 +640,12 @@ class TypeScriptLanguage(TypeScriptRepository):
         paths: dict[str, Path] | None = None,
         context: TypeScriptContext | None = None,
     ) -> list[str]:
+        del prefixes, repo
         source_path = (paths or {}).get(module)
         root = syntax_tree(raw, source_path.as_posix() if source_path else "")
         if context is None:
             return []
-        found = _unresolved(root, module, prefixes, set(paths or {}), paths or {}, context)
+        found = _unresolved(root, module, set(paths or {}), paths or {}, context)
         return sorted(specifier for specifier, local in found if not local)
 
     def unresolved_imports(
@@ -696,10 +658,10 @@ class TypeScriptLanguage(TypeScriptRepository):
         paths: dict[str, Path],
         context: TypeScriptContext,
     ) -> list[str]:
-        del repo
+        del prefixes, repo
         source_path = paths.get(module)
         root = syntax_tree(raw, source_path.as_posix() if source_path else "")
-        found = _unresolved(root, module, prefixes, known, paths, context)
+        found = _unresolved(root, module, known, paths, context)
         return sorted(specifier for specifier, local in found if local)
 
     def collect_tests(

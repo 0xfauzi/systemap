@@ -36,7 +36,9 @@ def typescript_config_paths(root: Path, folders: Iterable[Path]) -> list[Path]:
     A path can name a file that does not exist. The result does not include a file that
     a tsconfig file does not name.
     """
-    near = config_walk.nearby(root, folders, NAMES, SOURCE_SKIP | config.OUTPUT_DIRS)
+    # The walk skips the same folders as source extraction (`source_files` with
+    # SOURCE_SKIP): extraction reads a tsconfig.json file in a folder such as src/build.
+    near = config_walk.nearby(root, folders, NAMES, SOURCE_SKIP)
     found = dict.fromkeys([*near, root / TYPESCRIPT_PACKAGE])
     base = root.resolve()
     for start in (path for path in near if path.name == "tsconfig.json" and path.is_file()):

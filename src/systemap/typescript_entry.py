@@ -166,7 +166,8 @@ def entry_module(target: str, package: Package, context: TypeScriptContext) -> s
     A target in a build folder, such as dist, can also map to a unique source file below
     src or source.
     """
-    if not target.endswith(TARGET_SUFFIXES):
+    if not target.endswith(TARGET_SUFFIXES) or "\0" in target:
+        # A file path cannot contain a NUL character: the target names no file.
         return None
     sources = source_targets(target, package.directory, package.compiler, package.source_roots)
     direct = _matching_entry_modules(sources, context)

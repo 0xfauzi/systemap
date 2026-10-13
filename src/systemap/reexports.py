@@ -320,11 +320,16 @@ def definitions(record: Mapping[str, Any], module: str, name: str) -> list[tuple
     """This function gives each module and symbol that can define a public name.
 
     It reads only the `defined_in` and `defined_as` facts. A name that the module defines
-    itself is in the module under the same name. A defining module that is not known
-    gives no result."""
+    itself is in the module under the same name. A name with `defined_as` and without
+    `defined_in` is also in the module under the `defined_as` symbol, as the public name
+    `default` of a local class. A defining module that is not known gives no result."""
     out = [(module, name)]
     for entry in record.get("names", []):
-        if entry.get("name") != name or "defined_in" not in entry:
+        if entry.get("name") != name:
+            continue
+        if "defined_in" not in entry:
+            if entry.get("defined_as"):
+                out.append((module, str(entry["defined_as"])))
             continue
         defined_in, defined_as = entry["defined_in"], entry["defined_as"]
         if defined_in is not None and defined_as is not None:

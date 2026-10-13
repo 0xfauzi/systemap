@@ -144,6 +144,9 @@ class TypeScriptProjects:
         queue = list(self._selected(config))
         if self._dependencies is None:
             return frozenset(queue)
+        # A package import can read this program while the loop builds it, for the output
+        # root of a package. That read gives the input files (`typescript_resolve`).
+        self._programs[id(config)] = frozenset(queue)
         seen = set(queue)
         for path in queue:
             for found in self._dependencies(path, config):

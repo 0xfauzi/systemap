@@ -283,12 +283,15 @@ def _inherited_options(
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
     """This function reads compiler options, aliases, comments, and output directories.
 
-    The result also contains the configurations in `references`.
+    The result also contains the configurations in `references`. Without a top-level
+    tsconfig.json file, the result has only the TypeScript version. A nested project
+    uses that version to find its output root.
     """
     path = repo / "tsconfig.json"
+    major = typescript_major(repo)
     if not config_present(path):
-        return TypeScriptConfig()
-    return load_project_config(path, repo, typescript_major(repo))
+        return TypeScriptConfig(typescript_major=major)
+    return load_project_config(path, repo, major)
 
 
 def load_project_config(path: Path, repo: Path, major: int | None) -> TypeScriptConfig:

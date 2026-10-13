@@ -6,7 +6,7 @@ import re
 
 from tree_sitter import Node
 
-from systemap.typescript_syntax import _root, _text, string_value
+from systemap.typescript_syntax import _root, _text, first_argument, string_value
 
 TEST_CALL = re.compile(r"(?:test|it)(?:\.(?:only|skip|concurrent|fails|todo))*")
 # A table test: `it.each(rows)("name", ...)` or it.each`rows`("name", ...).
@@ -27,7 +27,9 @@ def test_names(raw: str, path: str = "") -> list[str]:
 
     An identity has the names of the enclosing suites, then the test name, with " > "
     between them. Two suites can thus contain the same test name. A second test with the
-    same identity in one file gets the suffix " #2", a third gets " #3", and so on.
+    same identity in one file gets the suffix " #2", a third gets " #3", and so on. A
+    suffix that gives the identity of a different test is not used: the next number is
+    used. Thus each test has a different identity.
 
     A table test gives its name pattern. A template literal gives its text, with the
     `${...}` parts as written. A suite name that is not a literal gives its source text.
@@ -38,11 +40,27 @@ def test_names(raw: str, path: str = "") -> list[str]:
         return []
     found: list[str] = []
     _visit(root, (), found)
+    return unique_names(found)
+
+
+def unique_names(found: list[str]) -> list[str]:
+    """This function gives each name one time, in order. A repeated name gets the first
+    free suffix " #N", with N from 2. A name in `found` is never a free suffix."""
+    used = set(found)
     counts: dict[str, int] = {}
+    seen: set[str] = set()
     out: list[str] = []
     for name in found:
-        counts[name] = counts.get(name, 0) + 1
-        out.append(name if counts[name] == 1 else f"{name} #{counts[name]}")
+        if name not in seen:
+            seen.add(name)
+            out.append(name)
+            continue
+        number = counts.get(name, 1) + 1
+        while f"{name} #{number}" in used:
+            number += 1
+        counts[name] = number
+        used.add(f"{name} #{number}")
+        out.append(f"{name} #{number}")
     return out
 
 
@@ -63,17 +81,12 @@ def _is_call(function: Node | None, plain: re.Pattern[str], table: re.Pattern[st
     return bool(plain.fullmatch(_text(function)))
 
 
-def _first_argument(call: Node) -> Node | None:
-    arguments = call.child_by_field_name("arguments")
-    return arguments.named_children[0] if arguments and arguments.named_children else None
-
-
 def _name(call: Node) -> str:
-    first = _first_argument(call)
+    first = first_argument(call)
     if first is not None and first.type == "template_string":
         return _text(first)[1:-1]
     return string_value(first)
 
 
 def _suite_name(call: Node) -> str:
-    return _name(call) or " ".join(_text(_first_argument(call)).split())
+    return _name(call) or " ".join(_text(first_argument(call)).split())

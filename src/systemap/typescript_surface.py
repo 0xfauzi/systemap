@@ -12,7 +12,7 @@ from tree_sitter import Node
 from systemap import unknown_causes
 from systemap.typescript_imports import import_names
 from systemap.typescript_reexports import export_specifiers, reexport_api, reexports
-from systemap.typescript_syntax import _one_line, _root, _text, docstring
+from systemap.typescript_syntax import _one_line, _root, _text, docstring, first_named
 from systemap.typescript_syntax import parse_problem as parse_problem
 from systemap.typescript_tests import test_names as test_names
 
@@ -101,6 +101,21 @@ def _type_kind(node: Node, is_error: bool) -> str:
     return "class" if node.type in CLASS_NODES else "type"
 
 
+def _type_entry(node: Node, name: str = "") -> tuple[str, dict[str, Any], str]:
+    """Give the record group, the record, and the `names` kind of a type declaration.
+
+    A direct export and a local export (`export { Shape }`) use this one classification.
+    `name` replaces the declared name, as in `export { Shape as Form }`.
+    """
+    record, is_error = _type_record(node)
+    if name:
+        record = {**record, "name": name}
+    kind = _type_kind(node, is_error)
+    if kind == "type":
+        return "types", {**record, "category": TYPE_CATEGORIES[node.type]}, kind
+    return ("errors" if is_error else "classes"), record, kind
+
+
 def _binding_names(node: Node | None) -> list[str]:
     if node is None:
         return []
@@ -108,15 +123,18 @@ def _binding_names(node: Node | None) -> list[str]:
         return [_text(node)]
     if node.type == "pair_pattern":
         return _binding_names(node.child_by_field_name("value"))
-    if node.type in ("rest_pattern", "assignment_pattern"):
-        return _binding_names(node.named_children[0] if node.named_children else None)
+    if node.type in ("assignment_pattern", "object_assignment_pattern"):
+        # `{ value = fallback }`: the name is `left`. `right` is an initializer.
+        return _binding_names(node.child_by_field_name("left"))
+    if node.type == "rest_pattern":
+        return _binding_names(first_named(node))
     return [name for child in node.named_children for name in _binding_names(child)]
 
 
 def _declaration(node: Node) -> Node | None:
     declaration = node.child_by_field_name("declaration")
     if declaration is not None and declaration.type == "ambient_declaration":
-        return next(iter(declaration.named_children), declaration)
+        return first_named(declaration) or declaration
     return declaration
 
 
@@ -157,6 +175,8 @@ def _is_callable(node: Node | None) -> bool:
 
 # The name kind of each record group of a variable.
 RECORD_KINDS = {"functions": "function", "constants": "constant"}
+# The record groups that `_add_local_records` can write.
+RECORD_GROUPS = ("functions", "classes", "errors", "types", "constants")
 
 
 def _variable_kinds(declaration: Node) -> dict[str, str]:
@@ -256,8 +276,8 @@ def _add_local_records(nodes: list[Node], public: str, surface: dict[str, Any]) 
     """
     for node in nodes:
         if node.type in TYPE_NODES:
-            record, is_error = _type_record(node)
-            surface["errors" if is_error else "classes"].append({**record, "name": public})
+            group, record, _kind = _type_entry(node, public)
+            surface[group].append(record)
         elif node.type in FUNCTION_NODES:
             surface["functions"].append({"name": public, "signature": _header(node)})
         elif node.type == "variable_declarator":
@@ -322,12 +342,8 @@ def _add_declaration(
         _add_function(declaration, functions, names, default)
         return True
     if declaration.type in TYPE_NODES:
-        record, is_error = _type_record(declaration)
-        kind = _type_kind(declaration, is_error)
-        if kind == "type":
-            types.append({**record, "category": TYPE_CATEGORIES[declaration.type]})
-        else:
-            (errors if is_error else classes).append(record)
+        group, record, kind = _type_entry(declaration)
+        {"types": types, "errors": errors, "classes": classes}[group].append(record)
         names.append({"name": record["name"], "kind": kind})
         return True
     if declaration.type in NAMESPACE_NODES:
@@ -423,6 +439,7 @@ def _record_export_without_declaration(
     value = export.child_by_field_name("value")
     if default and value is not None:
         _record_default_value(export, value, surface, module.local_names)
+        _add_default_records(value, module, surface)
         return
     local = _local_exports(export, module, surface) if not found else False
     if not local and not found and not _empty_export(export):
@@ -444,6 +461,20 @@ def _record_default_value(
     entry = _default_name(value, local_names)
     surface["names"].append(entry)
     surface["unknown"].extend(_default_problems(export, entry))
+
+
+def _add_default_records(value: Node, module: _Module, surface: dict[str, Any]) -> None:
+    """This function adds the records of a local declaration for `export default name`.
+
+    The records keep the local name, which `defined_as` gives, as for
+    `export default class Store`. A record that the surface has already is not added.
+    """
+    if value.type != "identifier":
+        return
+    found: dict[str, Any] = {group: [] for group in RECORD_GROUPS}
+    _add_local_records(module.declarations.get(_text(value), []), _text(value), found)
+    for group, records in found.items():
+        surface[group].extend(record for record in records if record not in surface[group])
 
 
 def _default_problems(export: Node, entry: dict[str, str]) -> list[dict[str, Any]]:

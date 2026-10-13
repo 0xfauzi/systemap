@@ -1438,6 +1438,7 @@ After a good version, the command removes the pages of the maps that the version
   and the source and test files one time each second.
   The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
   It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
+  The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name `build` or `dist`.
   When a scan finds a change and the next scan finds no more change, the command renders the page again.
 
 - `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
@@ -1539,6 +1540,12 @@ Two types of import name a file of the same package through `package.json`. Thus
 - A subpath import starts with `#`, as `#types/hot`. The `imports` key of the nearest `package.json` gives the file.
   A target that names an npm package gives that package in `external`.
 
+An import of a different package of the repository is also an internal import.
+The `name` in a `package.json` file of the repository identifies that package.
+The module that `[package_roots]` gives for the import must be in the folder of that `package.json` file.
+A `[package_roots]` name does not identify a package for other imports.
+Thus, if the package `web` has no `exports` key, `import "web"` in that package is an external import.
+
 systemap uses the rules of Node.js and TypeScript for these imports:
 [Self-referencing a package using its name](https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name),
 [Subpath imports](https://nodejs.org/api/packages.html#subpath-imports), and
@@ -1555,6 +1562,9 @@ The suffix of an import selects the source suffix, as in `tsc`.
 `.js` selects `.ts` or `.tsx`, `.mjs` selects `.mts`, and `.cjs` selects `.cts`.
 An import without a suffix selects `.ts` or `.tsx`.
 If `tsc` cannot resolve a relative import, the import has no target.
+A `paths` alias names its first target file that is available, as in `tsc`.
+If no module has that file, the import is an unresolved local import. A different target does not replace it.
+An import path with a NUL character has no target.
 
 A source file that systemap cannot read keeps its module record, with a read problem.
 A `package.json` file that systemap cannot read gives a configuration error.
@@ -1563,6 +1573,7 @@ This also applies to a `package.json` file without a JSON object.
 A TypeScript test name contains the names of the `describe` or `suite` functions that contain the test.
 The text ` > ` is between two names, as in `orders > saves an order`.
 If a file has two tests with the same name, the second name gets ` #2`.
+If a different test of the file has that name, the name gets the next number that no test of the file has.
 A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in `tsconfig.json` `extends` gives an `unknown surface`
 finding. Extraction continues with the compiler options that it can read.
@@ -1589,9 +1600,12 @@ The nearest `tsconfig.json` file gives the project if its files or their imports
 Then the first project in `references` that selects the file gives the project.
 Then the first project in `references` with files that import the file gives the project.
 These imports can go through other files.
+These imports include relative imports, `paths` aliases, self-name imports, and subpath imports.
+An import of a different package of the repository does not add a file to a project.
+`tsc` reads the declaration output of that package for such an import.
 
 The version comes from `node_modules/typescript/package.json`, then the
-`typescript` range in `package.json`.
+`typescript` range in `package.json`. This also applies if the repository root has no `tsconfig.json` file.
 If the two files do not give a version, systemap tries the two roots.
 A compiled target maps to a module only if one root gives a match and the other does not.
 Two matches leave the target unmapped.
