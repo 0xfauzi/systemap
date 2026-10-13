@@ -169,7 +169,8 @@ SCRIPT = r"""
     return flat(b.order.map(function(a){ return b.by[a]; }));
   }
   function between(key, list){
-    var ids = key.split('|'), h0 = home(ids[0]), h1 = home(ids[1]);
+    // The key is the JSON text of the two IDs. An ID can contain each mark, also the mark |.
+    var ids = JSON.parse(key), h0 = home(ids[0]), h1 = home(ids[1]);
     var out0 = list.filter(function(i){ return homeOf(A.edges[i].from) === ids[0]; });
     var out1 = list.filter(function(i){ return homeOf(A.edges[i].from) !== ids[0]; });
     // The place that sends more flows comes first.
@@ -193,7 +194,7 @@ SCRIPT = r"""
       return homeOf(A.edges[i].from) === homeOf(A.edges[i].to); });
     var b = bucket(list.filter(function(i){ return within.indexOf(i) < 0; }), function(i){
       var x = homeOf(A.edges[i].from), y = homeOf(A.edges[i].to);
-      return home(x).rank <= home(y).rank ? x + '|' + y : y + '|' + x;
+      return JSON.stringify(home(x).rank <= home(y).rank ? [x, y] : [y, x]);
     });
     var out = b.order.map(function(k){ return between(k, b.by[k]); });
     out.sort(function(x, y){
@@ -556,7 +557,8 @@ SCRIPT = r"""
     var groups = all('.fg-group', LINES);
     var stagger = groups.length > 1 ? Math.min(60, 300 / (groups.length - 1)) : 0;
     groups.forEach(function(group, k){
-      var badge = BADGES.querySelector('[data-fg="' + group.dataset.fg + '"]');
+      var badge = all('[data-fg]', BADGES).filter(function(b){
+        return b.dataset.fg === group.dataset.fg; })[0];
       [group, badge].forEach(function(n, m){
         if(n && n.animate){ n.animate([{opacity:0}, {opacity:1}], {duration:m ? 160 : 300,
           delay:k * stagger + (m ? 140 : 0), easing:'ease-out', fill:'backwards'}); }

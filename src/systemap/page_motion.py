@@ -167,7 +167,7 @@ SCRIPT = r"""
     function mark(n){ n.classList.add('card-lit'); lit.push(n); }
     function light(card){
       unlight();
-      var ends = {};
+      var ends = Object.create(null);
       ends[card.dataset.id] = true;
       (A.detail[card.dataset.id].edges || []).forEach(function(i){
         Array.prototype.slice.call(svg.querySelectorAll('[data-edge="' + i + '"]'))

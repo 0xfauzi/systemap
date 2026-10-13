@@ -174,6 +174,7 @@ def test_the_inline_detail_data_cannot_change_the_script_end(sample: Sample) -> 
     meaning = dataclasses.replace(sample.meaning, plain={**sample.meaning.plain, "Ledger": text})
     _svg, detail = render_schematic(sample.model, meaning, sample.theme, sample.facts)
     script = interactive_script(sample.theme, "schematic", "panel", detail)
-    data = script[script.index("var DETAIL = ") + len("var DETAIL = ") : script.index("var PAL")]
+    start = script.index("var DETAIL = JSON.parse(") + len("var DETAIL = JSON.parse(")
+    data = script[start : script.index(");\nvar PAL")]
     assert "<!--" not in data and "</" not in data
-    assert json.loads(data.rstrip().rstrip(";"))["Ledger"]["plain"] == text
+    assert json.loads(json.loads(data))["Ledger"]["plain"] == text

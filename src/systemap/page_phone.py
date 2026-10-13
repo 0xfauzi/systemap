@@ -219,7 +219,7 @@ SCRIPT = r"""
   var prevBtn = byId('phone-prev'), nextBtn = byId('phone-next');
   var LAY = {};
   A.layers.forEach(function(l){ LAY[l.id] = l; });
-  var NODE = {};
+  var NODE = Object.create(null);
   all('.node', svg).forEach(function(n){ NODE[n.dataset.id] = n; });
   // `opened` is the region on the map ('' for the grid, 'all' for the full map);
   // `full` shows the full map during a sequence.
@@ -293,7 +293,7 @@ SCRIPT = r"""
     }).join('');
   }
   function lit(L){
-    var on = {};
+    var on = Object.create(null);
     A.layerIds(L).forEach(function(id){ on[id] = true; });
     return on;
   }
@@ -343,7 +343,7 @@ SCRIPT = r"""
     return null;
   }
   function countWithin(ids, edges){
-    var inside = {};
+    var inside = Object.create(null);
     ids.forEach(function(id){ inside[id] = true; });
     return edges.filter(function(i){
       var e = A.edges[i];
@@ -413,7 +413,7 @@ SCRIPT = r"""
       : words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1];
   }
   function boundaryRows(edges){
-    var actors = {}, order = [];
+    var actors = Object.create(null), order = [];
     edges.forEach(function(i){
       var e = A.edges[i];
       [[e.from, 'sends'], [e.to, 'gets']].forEach(function(end){

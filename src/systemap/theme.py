@@ -315,12 +315,62 @@ def _colour(key: str, value: object) -> None:
         )
 
 
+# The tables of records that the renderer reads: the number of texts in one record, and
+# the texts in their sequence.
+RECORDS: dict[str, tuple[int, str]] = {
+    "state": (3, "the fill color, the border color and the legend label"),
+    "container": (2, "the border color and the fill color"),
+}
+
+
+def _text(key: str, value: object) -> None:
+    if not isinstance(value, str):
+        raise ValueError(f"The theme value {key} must be text. The value is {value!r}.")
+
+
+def _record(key: str, value: object, size: int, parts: str) -> None:
+    if not isinstance(value, list) or len(value) != size:
+        raise ValueError(
+            f"The theme value {key} must be a list of {size} texts: {parts}. "
+            f"The value is {value!r}."
+        )
+    for item in value:
+        _text(key, item)
+
+
+def _check_shapes(t: dict[str, Any]) -> None:
+    """Reject a value of a type that rendering cannot use, or a list of an incorrect length.
+
+    The page and the figures use each plain token as text. They read each record of the
+    `state` and `container` tables, and the `ghost` list, as a list of a fixed length."""
+    for key in (*CSS_NAMES, "color_scheme"):
+        _text(key, t.get(key))
+    for key, (size, parts) in RECORDS.items():
+        records = t.get(key)
+        if not isinstance(records, dict):
+            raise ValueError(
+                f"The theme value {key} must be a table of lists of {size} texts. "
+                f"The value is {records!r}."
+            )
+        for name, record in records.items():
+            _record(f"{key}.{name}", record, size, parts)
+    _record("ghost", t.get("ghost"), 2, "the fill color and the border color")
+    delta = t.get("delta")
+    if not isinstance(delta, dict):
+        raise ValueError(
+            f"The theme value delta must be a table of colors. The value is {delta!r}."
+        )
+    for name, colour in delta.items():
+        _text(f"delta.{name}", colour)
+
+
 def _check_values(t: dict[str, Any]) -> None:
     """Reject a token value that the palette calculations cannot use.
 
     The message gives the key name. Other tokens go to the page without a change."""
     for key in MIXED_TOKENS:
         _colour(key, t.get(key))
+    _check_shapes(t)
     named = t.get("layers")
     if not isinstance(named, dict):
         raise ValueError("The theme value layers must be a table of layer IDs and colors.")

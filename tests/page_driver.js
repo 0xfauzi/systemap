@@ -905,7 +905,8 @@ function theme(page) {
   return report;
 }
 
-main();
+// Another driver can use this DOM with require. Then main does not operate.
+if (require.main === module) { main(); } else { module.exports = {boot, runFrames}; }
 
 
 function workspace(page) {

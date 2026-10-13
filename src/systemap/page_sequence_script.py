@@ -119,7 +119,7 @@ function coverHtml(){
     return h + '</div><p>The page has no source facts. It cannot count the entry points. '
       + 'Run <code>systemap refresh</code>.</p></div>';
   }
-  if(!c.total){ return h + '</div><p>The source facts contain no entry points.</p></div>'; }
+  if(!c.total){ return h + '</div><p>The modules of this map contain no entry points.</p></div>'; }
   h += '<span class="seq-count">' + c.covered + ' of ' + c.total
     + (c.covered === 1 ? ' has' : ' have') + ' a sequence</span></div>'
     + '<div class="seq-bar" style="--n:' + c.total + '" aria-hidden="true">';
@@ -201,7 +201,7 @@ function renderPanel(changed){
 function markRoute(j, upto){
   // The cards of the route show at full strength. In full screen, only the
   // cards of the steps until the current step do.
-  var ids = {};
+  var ids = Object.create(null);
   (j ? j.steps : []).forEach(function(st, k){
     if(upto >= 0 && k > upto){ return; }
     var e = edgeOf(st);

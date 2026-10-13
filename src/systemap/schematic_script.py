@@ -27,7 +27,9 @@ def interactive_script(
     layer and sequence controls through `svg.systemap`. The interface
     `svg.systemap.view` gives fit, 100%, step, back and framing data.
 
-    The script contains the detail JSON. Escaping `</` prevents artifact
+    The script contains the detail JSON as a string for `JSON.parse`. In an
+    object literal, the key `__proto__` sets the prototype. `JSON.parse` makes a
+    property of the object. Escaping `</` prevents artifact
     text from closing the script. Escaping `<!--` prevents a change to the
     end of the script by artifact text. With `variables`, colors use CSS tokens
     instead of literal values. The page uses `variables`, so the inspector
@@ -41,11 +43,12 @@ def interactive_script(
     meta.pop("paths", None)
     parsed["_meta"] = meta
     data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+    data = json.dumps(data, ensure_ascii=False)
     data = data.replace("</", "<\\/").replace("<!--", "\\u003c!--")
     palette = json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
     return (
         "<script>(function(){\n"
-        f"var DETAIL = {data};\n"
+        f"var DETAIL = JSON.parse({data});\n"
         f"var PAL = {palette};\n"
         f"var svg = document.getElementById({json.dumps(svg_id)});\n"
         f"var panel = document.getElementById({json.dumps(panel_id)});\n"
@@ -55,21 +58,28 @@ def interactive_script(
 
 _VIEW_JS = r"""
 if(!svg){ return; }
+// A table of model IDs has no prototype. Thus an ID such as `__proto__`,
+// `constructor` or `toString` does not read or change an object prototype.
+function table(){ return Object.create(null); }
+function recordOf(id){
+  // The record of a component, or null. `_meta` and prototype properties are not records.
+  return id !== '_meta' && Object.prototype.hasOwnProperty.call(DETAIL, id) ? DETAIL[id] : null;
+}
 var META = DETAIL._meta || {};
 var LAYERS = META.layers || [];
 var EDGES = META.edges || [];
-var RULES = {};
+var RULES = table();
 (META.rules || []).forEach(function(r){ RULES[r.n] = r.text; });
 // Layer colors come from the theme.
-var LCOL = {}, LAYER_AT = {};
+var LCOL = table(), LAYER_AT = table();
 LAYERS.forEach(function(l){ LCOL[l.id] = l.colour; LAYER_AT[l.id] = l; });
 // Which edges and which cards each reading shows, decided in Python
 // (systemap.model.reading) and carried in the detail, so the page's layer
 // switch and a figure of one layer read the same table.
 var READINGS = META.readings || {};
-var IN_READING = {}, SUBJECT_OF = {};
+var IN_READING = table(), SUBJECT_OF = table();
 Object.keys(READINGS).forEach(function(L){
-  IN_READING[L] = {}; SUBJECT_OF[L] = {};
+  IN_READING[L] = table(); SUBJECT_OF[L] = table();
   (READINGS[L].edges || []).forEach(function(i){ IN_READING[L][i] = true; });
   (READINGS[L].subjects || []).forEach(function(id){ SUBJECT_OF[L][id] = true; });
 });
@@ -79,7 +89,7 @@ function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
 var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
 var flows = Array.prototype.slice.call(svg.querySelectorAll('.flow'));
 var labels = Array.prototype.slice.call(svg.querySelectorAll('.flowlbl'));
-var nodeOf = {}, labelOf = {}, flowOf = {};
+var nodeOf = table(), labelOf = table(), flowOf = table();
 nodes.forEach(function(n){ nodeOf[n.dataset.id] = n; });
 labels.forEach(function(l){ labelOf[l.dataset.edge] = l; });
 flows.forEach(function(p){ flowOf[p.dataset.edge] = p; });
@@ -90,15 +100,16 @@ var state = {focus:'', layer:'all', journey:null, edge:-1, peek:-1, motion:true}
 // ends: one set, read from the readings table, that the dimming, the
 // tags and the framing all use, so what is framed is exactly what is lit.
 function focusEdges(f, L){
-  var all = DETAIL[f] && DETAIL[f].edges || [];
+  var d = recordOf(f), all = d && d.edges || [];
   if(L === 'structure'){ return []; }
   return all.filter(function(i){ return edgeIn(i, L); });
 }
 function litSet(){
   var f = state.focus;
-  if(!f || !DETAIL[f]){ return null; }
+  if(!f || !recordOf(f)){ return null; }
   var chosen = selectedEdge();
-  var ids = {}, edges = chosen >= 0 ? [chosen] : (state.journey ? [] : focusEdges(f, state.layer));
+  var ids = table();
+  var edges = chosen >= 0 ? [chosen] : (state.journey ? [] : focusEdges(f, state.layer));
   ids[f] = true;
   edges.forEach(function(i){ ids[EDGES[i].from] = true; ids[EDGES[i].to] = true; });
   return {id:f, ids:ids, edges:edges};
