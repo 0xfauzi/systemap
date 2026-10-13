@@ -42,12 +42,15 @@ def path(root: Path) -> Path:
 def load(root: Path) -> dict[str, dict[str, Any]]:
     """Read the records by request key. A missing or unreadable store gives no records.
 
-    A link out of the repository (at the file or at a folder), a FIFO, and a device give
-    `file_write.RefusedFile` with the cause. They do not give an empty store.
+    A link out of the repository (at the file or at a folder), a FIFO, a device, and a
+    file that is not UTF-8 text give `file_write.RefusedFile` with the cause. They do not
+    give an empty store.
     """
     try:
         text = file_write.read_text(root, path(root))
         data = json.loads(text) if text is not None else {}
+    except UnicodeError as exc:
+        raise file_write.RefusedFile(path(root), f"it is not UTF-8 text: {exc}") from exc
     except (OSError, json.JSONDecodeError):
         return {}
     if not isinstance(data, dict) or data.get("version") != VERSION:

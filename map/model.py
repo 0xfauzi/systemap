@@ -197,7 +197,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="70982cfbc04fa413185f02df9d25143c5d304ee97a5019ae261763e2fbfc74b2",
+        source_review="f54aae5edf4b348a3bf1ca545368f00a46f0269eec199a70f4a10120b1603214",
         does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With a page URL in the configuration, it writes a pull request comment with a link to the Changes view. systemap history shows changes to the software structure through time. Resolves each revision from a person to a commit SHA before the other Git commands use it.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -242,7 +242,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="6f6b471c8dd02c9e94eebd690720dde0b3b9e5963d5ffad9de81cf24b9299512",
+        source_review="55a14c41d5c3cc8587ee294c099a1b8902817d5f59c9b9c265081349473d7a75",
         does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map. A card that opens a map must have an ID that is one path segment.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants, import_rules) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
@@ -359,7 +359,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="230d638ec8b4257c64cce61659a4c9a7e8b72b867fdf922073f1a6ea6c09991a",
+        source_review="f42477f20916b57362f6e4423545ac99bda244cb41e724b28701c7d331a1361d",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. With --strict, returns exit code 1 for findings without answers or for a model without components. Gives the cause, the fix line and the source location rows of each unknown surface finding. A finding line contains no line number, source excerpt or parser version. With --json, writes the findings, answers and counts as one JSON object. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -385,7 +385,7 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="a83efb0594f92fbc425156a323bfedd05c45e42284f1b92372de1d8dfd7cf15e",
+        source_review="61252d9690da3749cfbb090f45cef506800f17dd324ef48f4c3404f6ca64a421",
         does="Sends different questions about the map to a decision provider. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command or with an explicit option. Does not control map checks.",
         interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(
