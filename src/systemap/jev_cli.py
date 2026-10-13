@@ -337,7 +337,8 @@ def _write_journeys(
                 f"journeys: the request for {current.prefix}{group.label} did not complete: {exc}"
             )
             continue
-        _record_journey(current, group, draft, sources, written, out)
+        # A rejected draft and a draft that the model cannot hold are not complete.
+        failed += not _record_journey(current, group, draft, sources, written, out)
     if written and not _commit_journeys(cfg, sources, written, out):
         return STALE
     if failed:
@@ -361,11 +362,12 @@ def _record_journey(
     sources: dict[Path, str],
     written: dict[Path, list[str]],
     out: list[str],
-) -> None:
+) -> bool:
+    """Add the accepted sequence to the proposed model source. Tell if it was added."""
     if draft.journey is None:
         out.append(f"journeys: no sequence written for {group.label}")
         out += [f"      {p}" for p in draft.problems]
-        return
+        return False
     source = sources.get(current.path)
     if source is None:
         source = current.path.read_text(encoding="utf-8-sig")
@@ -373,7 +375,7 @@ def _record_journey(
     if grown is None:
         out.append(f"journeys: {current.rel} has no journeys list. Add this source:")
         out += journeys.as_source(draft.journey)
-        return
+        return False
     sources[current.path] = grown
     written.setdefault(current.path, []).append(draft.journey.id)
     out.append(
@@ -381,6 +383,7 @@ def _record_journey(
         f"for {current.prefix}{group.label}"
     )
     out += [f"      {p}" for p in draft.problems]
+    return True
 
 
 def _commit_journeys(
@@ -389,7 +392,17 @@ def _commit_journeys(
     written: dict[Path, list[str]],
     out: list[str],
 ) -> bool:
-    """Validate proposed source before writing any sequence files."""
+    """Validate proposed source before writing any sequence files.
+
+    The model reader must accept each proposed model, and each model must contain its
+    accepted sequences. Otherwise the command writes no file."""
+    for path, source in sources.items():
+        # An inserted sequence calls Journey and Step. The model must import them.
+        sources[path] = source = journeys.with_imports(source)
+        problem = journeys.proposal_problem(path, cfg.rel(path), source, written[path])
+        if problem:
+            print(f"journeys: the command wrote no file. {problem}")
+            return False
     try:
         model_write.write_models(sources)
     except (SyntaxError, OSError) as exc:

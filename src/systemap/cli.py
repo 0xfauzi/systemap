@@ -250,12 +250,13 @@ def _render_page(
     facts: dict[str, Any],
     args: argparse.Namespace,
     source: change.SourceChange | None = None,
+    pr: dict[str, Any] | None = None,
 ) -> str:
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
     if base:
         ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"), source)
-        ch["pr"] = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
+        ch["pr"] = pr or {}
     return page.build(
         p.cfg,
         m.model,
@@ -277,8 +278,10 @@ def cmd_render(args: argparse.Namespace) -> int:
     code = OK
     # One source comparison for all maps: it does not use the model of a map.
     source = change.source_change(p.cfg, args.base, facts, args.head) if args.base else None
+    # One gh request for all maps. The data gives the title of each change map.
+    pr = change.pr_meta(p.cfg.root, getattr(args, "pr", "")) if args.base else {}
     for m in p.tree.maps:
-        html = _render_page(p, m, facts, args, source)
+        html = _render_page(p, m, facts, args, source, pr)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             current = file_write.read_text(p.cfg.root, out) or ""
@@ -630,7 +633,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
-        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
+        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open), root)
     if args.decide is None and not selected and d.added and d.removed:
         jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK

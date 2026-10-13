@@ -38,6 +38,7 @@ from conftest import STARTER_MODULES, init_two_cards, write_tree
 from test_drift_order import PY_CHANGE, TS_CHANGE, TS_MODEL, change, git, record_reviews
 
 from systemap import (
+    agent,
     audit,
     config,
     drift_order,
@@ -281,7 +282,7 @@ def test_the_digests_and_the_snapshot_do_not_read_an_outside_file(
     assert text_digest(secret.read_bytes()) not in json.dumps(state)
     # A refused file gives its cause, not "missing source".
     assert "refused source: " in json.dumps(state)
-    with pytest.raises(ValueError, match="is not available"):
+    with pytest.raises(agent.AgentError, match="is not available"):
         journeys._source_snapshot(root, bad)
 
 

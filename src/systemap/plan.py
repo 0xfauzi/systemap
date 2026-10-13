@@ -19,10 +19,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import evidence, file_write, graph
+from systemap import file_write, graph
 from systemap.audit import NONE
 from systemap.config import Config
-from systemap.model import Meaning, Model
+from systemap.model import Meaning, Model, claimed, symbol_claims
 
 # The hex characters of the task digest in a plan ID.
 DIGEST_CHARS = 12
@@ -175,26 +175,40 @@ def saved(cfg: Config) -> list[str]:
 
 def owners(
     head: Model, base: Model | None, base_facts: dict[str, Any], head_facts: dict[str, Any]
-) -> dict[str, str]:
-    """This function gives the component of each module in the two snapshots.
+) -> dict[str, set[str]]:
+    """This function gives the components of each module in the two snapshots.
 
-    The head model and the head facts give the first owner. The head model and the base
-    facts give the owner of a removed module. If the head model does not claim a removed
-    module, the base model gives its owner.
+    A component of a module claims the module, or a symbol in the module. A change of
+    the module can change each of these components. The head model and the head facts
+    give the first components. The head model and the base facts give the components of
+    a removed module. If the head model does not claim a removed module, the base model
+    gives its components.
     """
-    owner: dict[str, str] = {}
+    owner: dict[str, set[str]] = {}
     for model, facts in ((head, head_facts), (head, base_facts), (base, base_facts)):
         if model is not None:
-            for module, card in evidence.owners(model, facts).items():
-                owner.setdefault(module, card)
+            for module, cards in _claimants(model, facts).items():
+                owner.setdefault(module, cards)
     return owner
 
 
-def touched(base: dict[str, Any], head: dict[str, Any], owner: dict[str, str]) -> set[str]:
+def _claimants(model: Model, facts: dict[str, Any]) -> dict[str, set[str]]:
+    """Give the components that claim each module of the facts, or a symbol in it."""
+    components = facts.get("components", {})
+    out: dict[str, set[str]] = {}
+    for c in model.components:
+        modules = set(claimed(c, components))
+        modules |= {module for module, _name in symbol_claims(c) if module in components}
+        for module in modules:
+            out.setdefault(module, set()).add(c.id)
+    return out
+
+
+def touched(base: dict[str, Any], head: dict[str, Any], owner: dict[str, set[str]]) -> set[str]:
     """This function finds components with edited, added, or removed modules."""
     b, h = base.get("components", {}), head.get("components", {})
     moved = {m for m in set(b) & set(h) if b[m].get("sha") != h[m].get("sha")}
-    return {owner[m] for m in moved | (set(b) ^ set(h)) if m in owner}
+    return {card for m in moved | (set(b) ^ set(h)) for card in owner.get(m, ())}
 
 
 def check(projected: list[str], changed: set[str]) -> tuple[list[str], list[str]]:
