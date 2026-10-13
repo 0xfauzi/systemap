@@ -165,7 +165,7 @@ def entry_points(facts: dict[str, Any]) -> list[str]:
     out = [
         (
             f"entry points: {len(points)}. A sequence specifies each applicable entry "
-            f"point. The target is a console-script function or a subcommand script."
+            f"point. A target is the function or the script that the entry point starts."
         )
     ]
     for p in points:

@@ -311,6 +311,8 @@ ADAPTERS = {
     "typescript_config_files.py": "The TypeScript configuration files for the live watcher.",
     "typescript_entry.py": "The TypeScript entry point reader.",
     "typescript_imports.py": "The TypeScript import reader.",
+    "typescript_package_imports.py": "The TypeScript self-name and subpath import reader.",
+    "typescript_roots.py": "The TypeScript package root and type-test reader.",
     "typescript_calls.py": "The TypeScript call-site reader.",
     "typescript_projects.py": "The TypeScript project reader.",
     "typescript_surface.py": "The TypeScript public surface reader.",

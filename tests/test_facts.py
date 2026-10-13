@@ -225,7 +225,7 @@ def test_facts_command_views(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert run("--root", str(tmp_path), "facts", "--entry-points") == 0
     out = capsys.readouterr().out
     assert out.startswith(
-        "entry points: 0. A sequence specifies each applicable entry point. The target is "
+        "entry points: 0. A sequence specifies each applicable entry point. A target is "
     )
 
     assert run("--root", str(tmp_path), "facts", "--external") == 0
@@ -266,7 +266,7 @@ def test_entry_points_view_prints_the_target_beside_each() -> None:
         ]
     }
     assert facts_mod.entry_points(facts) == [
-        "entry points: 5. A sequence specifies each applicable entry point. The target is a console-script function or a subcommand script.",
+        "entry points: 5. A sequence specifies each applicable entry point. A target is the function or the script that the entry point starts.",
         "  pkg (console script): pkg.cli, target main",
         "  main() in pkg.cli: pkg.cli, target main",
         "  python -m pkg: pkg.__main__",

@@ -71,16 +71,29 @@ def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:
         return
     directories = {projects.package_directory(path) for path in context.modules_by_path}
     for directory in sorted(found for found in directories if found is not None):
-        compiler = projects.config_for_directory(directory)
-        yield Package(
-            directory,
-            package_json(directory, context.repo),
-            compiler,
-            # The imported files count, as in the top-level context: tsc 5 takes the
-            # common folder of all program files as the output root.
-            root_candidates(compiler, projects.lazy_program_files(compiler)),
-            directory.relative_to(context.repo.resolve()).as_posix() + "/",
-        )
+        yield package_at(directory, context, package_json(directory, context.repo))
+
+
+def package_at(directory: Path, context: TypeScriptContext, data: dict[str, Any]) -> Package:
+    """This function gives the package of a directory that has a package.json file.
+
+    The repository root uses the top-level compiler settings. Another directory uses the
+    tsconfig project of the directory.
+    """
+    repo = context.repo.resolve()
+    projects = context.projects
+    if directory.resolve() == repo or projects is None:
+        return Package(repo, data, context.compiler, context.source_roots)
+    compiler = projects.config_for_directory(directory)
+    return Package(
+        directory,
+        data,
+        compiler,
+        # The imported files count, as in the top-level context: tsc 5 takes the
+        # common folder of all program files as the output root.
+        root_candidates(compiler, projects.lazy_program_files(compiler)),
+        directory.relative_to(repo).as_posix() + "/",
+    )
 
 
 def _package_entries(
@@ -90,7 +103,7 @@ def _package_entries(
     issues: list[dict[str, str]],
 ) -> set[str]:
     for name, target in _bin_targets(package.data, package.directory):
-        module = _entry_module(target, package, context)
+        module = entry_module(target, package, context)
         if module:
             points.append({"kind": "console_script", "name": name, "module": module, "target": ""})
         else:
@@ -113,7 +126,7 @@ def _package_exports(
             continue
         if target.endswith(".d.ts") or not target.endswith(TARGET_SUFFIXES):
             continue
-        module = _entry_module(target, package, context)
+        module = entry_module(target, package, context)
         if module:
             modules.add(module)
         else:
@@ -127,7 +140,13 @@ def _package_exports(
     return modules, [_entry_issue("package_export", name, sample, reason)]
 
 
-def _entry_module(target: str, package: Package, context: TypeScriptContext) -> str | None:
+def entry_module(target: str, package: Package, context: TypeScriptContext) -> str | None:
+    """This function gives the source module of a package target, or None.
+
+    A target in outDir maps to its source through the tsconfig project of the package.
+    A target in a build folder, such as dist, can also map to a unique source file below
+    src or source.
+    """
     if not target.endswith(TARGET_SUFFIXES):
         return None
     sources = source_targets(target, package.directory, package.compiler, package.source_roots)
