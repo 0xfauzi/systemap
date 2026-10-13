@@ -398,6 +398,13 @@ Thus an exact answer with one item keeps its `evidence` value after you change t
 But the digest of an `items` group also contains the text of each item.
 Thus a group with changed names gets a new digest, and `audit` prints a `pending answer` line.
 
+The `unknown surface` line for a source parse error also has a new form, because a line must not name one language.
+The earlier line ended with `under Python 3.11.10`. The new line ends with `(parser version 3.11.10)`.
+In this release, an answer item in the earlier form is an answer for the line in the new form.
+The evidence digest of the item does not change.
+
+`judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
+
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
 The previous options stay for one release. They send the same requests as the new options.
 `[jev] enabled` and the other keys of the `[jev]` table do not change.

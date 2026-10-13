@@ -22,7 +22,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, evidence, explain, judgement_evidence, nest, step_refs
+from systemap import (
+    answer_migrations,
+    card_review,
+    evidence,
+    explain,
+    judgement_evidence,
+    nest,
+    step_refs,
+)
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
@@ -534,8 +542,10 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
     """This function gives the evidence digest for an exact answer or group of exact items."""
     chosen = list(items)
     if len(chosen) == 1:
-        return evidence.get(chosen[0], "unavailable")
-    state = [(line, evidence.get(line, "unavailable")) for line in chosen]
+        return evidence.get(answer_migrations.current_line(chosen[0]), "unavailable")
+    state = [
+        (line, evidence.get(answer_migrations.current_line(line), "unavailable")) for line in chosen
+    ]
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
@@ -564,7 +574,7 @@ def answers(answer: Answer, line: str) -> bool:
     without that prefix.
     """
     if answer.items:
-        return line in answer.items
+        return line in answer_migrations.current_items(answer.items)
     line = unprefixed(line)
     if answer.crossing is not None:
         found = CROSSING_LINE.match(line)
@@ -638,7 +648,8 @@ def _accepted_answers(
 
 
 def _policy_line(answer: Answer, matches: list[str]) -> str:
-    new = sum(line not in answer.reviewed for line in matches)
+    reviewed = answer_migrations.current_items(answer.reviewed)
+    new = sum(line not in reviewed for line in matches)
     return (
         f"{answer.label} covers {len(matches)} lines at this snapshot. {new} lines are "
         f"outside the source-review baseline."
@@ -664,7 +675,9 @@ def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
     stale: list[str] = []
     for answer in given:
         if answer.items:
-            stale.extend(item for item in answer.items if item not in lines)
+            stale.extend(
+                item for item in answer.items if answer_migrations.current_line(item) not in lines
+            )
         elif not any(answers(answer, line) for line in lines):
             stale.append(answer.label)
     return stale

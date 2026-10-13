@@ -96,9 +96,10 @@ def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
         file = record.get("file", module)
         if issue := record.get("parse_error"):
             location = f"{file}:{issue['line']}" if issue.get("line") else file
+            # `answer_migrations` reads the earlier form of this line, which named Python.
             out.append(
                 f"unknown surface: module {module} ({location}): {issue['reason']} "
-                f"under Python {issue['parser']}"
+                f"(parser version {issue['parser']})"
             )
         for issue in record.get("unknown", []):
             line = issue.get("line", 0)

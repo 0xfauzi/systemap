@@ -332,6 +332,7 @@ COMPONENTS = (
             "systemap.judgement",
             "systemap.judgement_evidence",
             "systemap.judgement_json",
+            "systemap.answer_migrations",
             "systemap.journey_coverage",
             "systemap.suggest",
             "systemap.explain",

@@ -624,6 +624,11 @@ systemap calculates the digest of a line from the same line with its previous na
 Thus an exact answer with one item keeps its <code>evidence</code> value after you change the name.
 But the digest of an <code>items</code> group also contains the text of each item.
 Thus a group with changed names gets a new digest, and <code>audit</code> prints a <code>pending answer</code> line.</p>
+<p>The <code>unknown surface</code> line for a source parse error also has a new form, because a line must not name one language.
+The earlier line ended with <code>under Python 3.11.10</code>. The new line ends with <code>(parser version 3.11.10)</code>.
+In this release, an answer item in the earlier form is an answer for the line in the new form.
+The evidence digest of the item does not change.</p>
+<p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>

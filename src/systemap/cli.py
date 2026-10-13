@@ -21,10 +21,10 @@ from typing import Any
 
 from systemap import (
     __version__,
+    answer_migrations,
     change,
     check,
     config,
-    decision_kinds,
     decisions_cli,
     delta,
     delta_jev,
@@ -557,7 +557,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
-    warn(*decision_kinds.warnings(p.cfg.judgement_answered))
+    warn(*answer_migrations.warnings(p.cfg.judgement_answered))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -580,7 +580,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
-    warn(*notes, *decision_kinds.warnings(p.cfg.judgement_answered))
+    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
