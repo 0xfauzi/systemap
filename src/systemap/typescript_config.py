@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from systemap.config import ConfigError
+
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
 DECLARATION_SUFFIXES = (".d.ts", ".d.mts", ".d.cts")
 # The folders below a project folder that hold no project source. tsc reads all other
@@ -93,15 +95,21 @@ def compiler_settings(config: TypeScriptConfig, repo: Path) -> dict[str, Any]:
 def package_json(root: Path) -> dict[str, Any]:
     """This function reads package metadata, or gives an empty table if package.json is
     missing.
+
+    A package.json file that cannot be read, or that does not contain a JSON object, gives
+    a configuration error. npm also refuses such a file. Empty metadata would show a
+    package without entry points, and that result is not known.
     """
     path = root / "package.json"
     if not path.is_file():
         return {}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return dict(data) if isinstance(data, dict) else {}
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"The parser could not read {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ConfigError(f"{path} must contain a JSON object.")
+    return data
 
 
 def typescript_name(root: Path) -> str:
@@ -441,26 +449,28 @@ def _glob_regex(pattern: str, config_dir: Path) -> re.Pattern[str]:
     return re.compile(regex)
 
 
-def input_files(config: TypeScriptConfig) -> list[Path]:
+def input_files(config: TypeScriptConfig, repo: Path) -> list[Path]:
     """This function selects source files from compiler input patterns, without declaration
     files.
 
     If files and include are missing, all source files under the tsconfig directory are
-    candidates. The selection excludes outDir and the .git, .venv, and node_modules
-    directories, as the source path rule does.
+    candidates. A pattern can select files outside the tsconfig directory, as in tsc, but
+    only files in the repository. The selection excludes outDir and the .git, .venv, and
+    node_modules directories, as the source path rule does.
     """
     root, spec = config.config_dir, config.inputs
     if root is None or spec is None:
         return []
+    repo = repo.resolve()
     found: dict[Path, None] = {}
     for entry in spec.files or ():
-        if _is_input(root / entry):
+        if _is_input(root / entry) and (root / entry).resolve().is_relative_to(repo):
             found[(root / entry).resolve()] = None
     patterns = _include_patterns(spec)
     wanted = [_glob_regex(pattern, root) for pattern in patterns]
     unwanted = [_glob_regex(pattern, root) for pattern in _exclude_patterns(spec, config)]
-    for path in _candidate_inputs(root, patterns):
-        if _selected(path.relative_to(root).as_posix(), wanted, unwanted):
+    for path in _candidate_inputs(root, patterns, repo):
+        if _selected(Path(os.path.relpath(path, root)).as_posix(), wanted, unwanted):
             found[path.resolve()] = None
     return list(found)
 
@@ -499,7 +509,7 @@ def _is_input(path: Path) -> bool:
     )
 
 
-def _candidate_inputs(root: Path, patterns: tuple[str, ...]) -> Iterator[Path]:
+def _candidate_inputs(root: Path, patterns: tuple[str, ...], repo: Path) -> Iterator[Path]:
     """This function gives the source files below the fixed directories of the include
     patterns.
 
@@ -509,8 +519,8 @@ def _candidate_inputs(root: Path, patterns: tuple[str, ...]) -> Iterator[Path]:
     """
     directories = (
         directory
-        for directory in _include_directories(root, patterns)
-        if not any(part in SOURCE_SKIP for part in directory.relative_to(root).parts)
+        for directory in _include_directories(root, patterns, repo)
+        if not any(part in SOURCE_SKIP for part in Path(os.path.relpath(directory, root)).parts)
     )
     return (
         path
@@ -520,11 +530,12 @@ def _candidate_inputs(root: Path, patterns: tuple[str, ...]) -> Iterator[Path]:
     )
 
 
-def _include_directories(root: Path, patterns: tuple[str, ...]) -> list[Path]:
+def _include_directories(root: Path, patterns: tuple[str, ...], repo: Path) -> list[Path]:
     """This function gives the directory before the first wildcard of each pattern.
 
     The result does not include a directory inside another directory of the result.
-    A pattern outside the tsconfig directory selects no file.
+    A pattern can name a directory outside the tsconfig directory, as `../src/**/*.ts`
+    does. A directory outside the repository is not in the result.
     """
     directories: set[Path] = set()
     for pattern in patterns:
@@ -533,10 +544,10 @@ def _include_directories(root: Path, patterns: tuple[str, ...]) -> list[Path]:
                 lambda part: not _GLOB_CHARS.search(part), PurePosixPath(pattern).parts
             )
         )
-        if ".." in fixed:
+        directory = Path(os.path.normpath(root.joinpath(*fixed)))
+        if not directory.resolve().is_relative_to(repo):
             continue
-        directory = root.joinpath(*fixed)
-        while directory != root and not directory.is_dir():
+        while directory.resolve() != repo and not directory.is_dir():
             directory = directory.parent
         directories.add(directory)
     return sorted(

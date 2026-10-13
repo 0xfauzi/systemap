@@ -75,7 +75,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
     assert service["constants"] == [{"name": "LIMIT", "value": "3"}]
     assert service["uses"] == {"web.client": ["fetchUser"], "web.types": ["User"]}
     assert service["external"] == ["zod"]
-    assert service["tests"] == ["tests/service.test.ts::serves a user"]
+    assert service["tests"] == ["tests/service.test.ts::service > serves a user"]
     assert service["tests_primary"] == 1
 
     assert facts["components"]["web.index"]["names"] == [
@@ -168,7 +168,7 @@ def test_typescript_surface_and_change_use_the_same_parser() -> None:
 def test_typescript_test_names_are_literal_and_nested() -> None:
     assert names_of_tests(
         'test("one", () => {}); describe("group", () => { it("two", () => {}) });'
-    ) == ["one", "two"]
+    ) == ["one", "group > two"]
     assert names_of_tests("test(name, () => {})") == []
 
 
@@ -768,5 +768,7 @@ def test_default_root_dir_follows_the_project_typescript_version(tmp_path: Path)
     assert bins() == {"web": "web.cli", "deep": "web.cli"}
     ts_cfg = typescript_config.load_typescript_config(tmp_path)
     assert ts_cfg.typescript_major is None
-    roots = typescript_config.root_candidates(ts_cfg, typescript_config.input_files(ts_cfg))
+    roots = typescript_config.root_candidates(
+        ts_cfg, typescript_config.input_files(ts_cfg, tmp_path)
+    )
     assert roots == ((tmp_path / "source").resolve(), tmp_path.resolve())

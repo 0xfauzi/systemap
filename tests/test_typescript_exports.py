@@ -164,6 +164,8 @@ def test_reexport_from_an_npm_package_is_not_unknown(tmp_path: Path) -> None:
 def test_common_test_files_are_tests(tmp_path: Path) -> None:
     """Acceptance: the Jest `__tests__` folder, Cypress `.cy.ts` files and Vitest
     `.test.mts` files are tests, not source modules.
+
+    The `.mts` test imports `./math.js`, because tsc gives `./math.mjs` only math.mts.
     """
     facts = build(
         tmp_path,
@@ -173,7 +175,7 @@ def test_common_test_files_are_tests(tmp_path: Path) -> None:
                 'import { add } from "../math";\ntest("adds two numbers", () => add(1, 2));\n'
             ),
             "src/svc/math.cy.ts": 'import { add } from "./math";\nit("adds in cypress", () => add(1, 2));\n',
-            "src/svc/math.test.mts": 'import { add } from "./math.mjs";\ntest("adds in mts", () => add(1, 2));\n',
+            "src/svc/math.test.mts": 'import { add } from "./math.js";\ntest("adds in mts", () => add(1, 2));\n',
         },
     )
     assert sorted(facts["components"]) == ["app.svc.math"]
@@ -229,7 +231,7 @@ def test_table_and_template_test_names_are_counted() -> None:
         "test(`case ${x}`, () => {});\n"
         "describe('suite', () => { it('plain', () => {}); });\n"
     )
-    assert tests == ["adds %i", "table $a", "template name", "case ${x}", "plain"]
+    assert tests == ["adds %i", "table $a", "template name", "case ${x}", "suite > plain"]
 
 
 def test_node_built_in_modules_are_not_external(tmp_path: Path) -> None:

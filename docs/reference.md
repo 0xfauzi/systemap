@@ -1284,6 +1284,19 @@ The environment of a command can set three values. A repository file cannot set 
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
 The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.
+
+The suffix of an import selects the source suffix, as in `tsc`.
+`.js` selects `.ts` or `.tsx`, `.mjs` selects `.mts`, and `.cjs` selects `.cts`.
+An import without a suffix selects `.ts` or `.tsx`.
+If `tsc` cannot resolve a relative import, the import has no target.
+
+A source file that systemap cannot read keeps its module record, with a read problem.
+A `package.json` file that systemap cannot read gives a configuration error.
+This also applies to a `package.json` file without a JSON object.
+
+A TypeScript test name contains the names of the `describe` or `suite` functions that contain the test.
+The text ` > ` is between two names, as in `orders > saves an order`.
+If a file has two tests with the same name, the second name gets ` #2`.
 A re-export from an npm package keeps the package name and gives no unknown record.
 A missing npm package in `tsconfig.json` `extends` gives an `unknown surface`
 finding. Extraction continues with the compiler options that it can read.
@@ -1297,11 +1310,19 @@ Without `rootDir`, the source root follows the project's `tsc` rule:
 
 - TypeScript 5 uses the longest common directory of selected non-declaration
   files. The `files`, `include`, and `exclude` options select files.
-  These files include tests.
+  An `include` pattern can select files that are not in the `tsconfig.json`
+  directory, but only files in the repository.
+  The selected files include tests and the source files that these files import.
 
 - TypeScript 6 and later use the `tsconfig.json` directory.
 
 - `composite` uses the `tsconfig.json` directory on all versions.
+
+Each source file uses the compiler options of one `tsconfig.json` project.
+The nearest `tsconfig.json` file gives the project if its files or their imports contain the file.
+Then the first project in `references` that selects the file gives the project.
+Then the first project in `references` with files that import the file gives the project.
+These imports can go through other files.
 
 The version comes from `node_modules/typescript/package.json`, then the
 `typescript` range in `package.json`.

@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 
 from systemap.typescript_config import (
     TypeScriptConfig,
-    input_files,
     package_json,
     root_candidates,
     source_targets,
@@ -70,7 +69,9 @@ def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:
             directory,
             package_json(directory),
             compiler,
-            root_candidates(compiler, input_files(compiler)),
+            # The imported files count, as in the top-level context: tsc 5 takes the
+            # common folder of all program files as the output root.
+            root_candidates(compiler, projects.lazy_program_files(compiler)),
             directory.relative_to(context.repo.resolve()).as_posix() + "/",
         )
 
