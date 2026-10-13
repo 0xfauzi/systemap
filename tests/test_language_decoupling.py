@@ -304,6 +304,7 @@ ADAPTERS = {
     "python_calls.py": "The Python call-site reader.",
     "python_syntax.py": "The Python package marker and decorator rules.",
     "python_tests.py": "The Python test reader.",
+    "python_exports.py": "The Python rules for a star re-export.",
     "typescript.py": "The TypeScript adapter.",
     "typescript_repo.py": "The TypeScript repository adapter.",
     "typescript_config.py": "The tsconfig reader of the TypeScript adapter.",

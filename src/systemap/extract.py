@@ -25,6 +25,7 @@ from typing import Any
 from systemap import (
     python_calls,
     python_entry,
+    python_exports,
     python_repo,
     python_syntax,
     python_tests,
@@ -242,7 +243,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "version",
         "The facts format is 8, with portable syntax hashes, compiler provenance, "
         "module completeness, the folder package in `package`, `call_sites`, and "
-        "decorators in the `api` fingerprints. `extract --check` marks older formats stale",
+        "decorators in the `api` fingerprints. "
+        "Each re-export has `defined_in` and `defined_as`. "
+        "`extract --check` marks older formats stale",
     ),
     (
         "facts",
@@ -341,9 +344,14 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "`error`, `constant` (UPPER_CASE), or `object` (other assignments such as "
         "`app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` "
         "includes local re-exports, with `reexport_of` and the kind in their source module. A "
-        "full-module import uses kind `module`. A `*` re-export of the module does not "
-        "give a name that has `star_export` set to `false`. The TypeScript adapter sets it "
-        "for `default`. `entry` and `interface` can use these names",
+        "full-module import uses kind `module`. Each re-export and each local alias has "
+        "`defined_in` and `defined_as`: the module and the symbol that define it, through "
+        "all re-exports and aliases. `defined_as` is `*` for a full module. The two values "
+        "are `null` if the defining module is not known. A `*` re-export of the module does not "
+        "give a name that has `star_export` set to `false`. A name with `star_export` set to "
+        "`null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for "
+        "`default`. The Python adapter sets the value from `__all__`. `entry` and `interface` "
+        "can use these names",
     ),
     (
         "module",
@@ -564,6 +572,7 @@ def parse_surface(
             _surface_class(node, names, classes, errors)
         elif isinstance(node, ast.Assign | ast.AnnAssign):
             _surface_assignment(node, names, constants)
+    python_exports.mark_star_exports(statements, names)
     return {
         "docstring": opening(ast.get_docstring(tree)),
         "functions": functions,
@@ -580,20 +589,9 @@ def parse_surface(
 
 def _surface_reexports(
     node: ast.ImportFrom, module: str, prefixes: frozenset[str]
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     source = _reexport_source(node, module, prefixes)
-    if source is None:
-        return []
-    names: list[dict[str, str]] = []
-    for alias in node.names:
-        public = alias.asname or alias.name
-        if alias.name == "*" or public.startswith("_"):
-            continue
-        entry = {"name": public, "kind": "reexport", "reexport_of": source}
-        if alias.asname:
-            entry["defined_as"] = alias.name
-        names.append(entry)
-    return names
+    return [] if source is None else python_exports.reexports(node.names, source)
 
 
 def _surface_function(

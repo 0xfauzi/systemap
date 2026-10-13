@@ -63,7 +63,15 @@ def test_interface_member_may_belong_to_reexported_module() -> None:
     )
     core = extract.parse_surface("def run(): pass\n")
     assert root is not None and core is not None
-    root["names"] = [{"name": "core", "kind": "module", "reexport_of": "pkg.core"}]
+    root["names"] = [
+        {
+            "name": "core",
+            "kind": "module",
+            "reexport_of": "pkg.core",
+            "defined_in": "pkg.core",
+            "defined_as": "*",
+        }
+    ]
     card = Component("A", "Runs.", implemented_by=("pkg",), interface="core.run()")
     assert not check.interface_problem(card, {"pkg": root, "pkg.core": core})
 
@@ -200,7 +208,13 @@ def test_reexport_chain_keeps_function_kind_and_entry(tmp_path: Path) -> None:
     )
     facts = extract.build(config.load(tmp_path))
     assert facts["components"]["web.index"]["names"] == [
-        {"name": "run", "kind": "function", "reexport_of": "web.a"}
+        {
+            "name": "run",
+            "kind": "function",
+            "reexport_of": "web.a",
+            "defined_in": "web.z",
+            "defined_as": "run",
+        }
     ]
     assert any(
         point["module"] == "web.index" and point["name"] == "run" for point in facts["entry_points"]

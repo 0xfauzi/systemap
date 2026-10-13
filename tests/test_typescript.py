@@ -80,6 +80,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
 
     assert facts["components"]["web.index"]["names"] == [
         {"name": "serve", "kind": "function", "reexport_of": "web.service"}
+        | {"defined_in": "web.service", "defined_as": "serve"}
     ]
     assert facts["entry_points"] == [
         {
@@ -223,9 +224,13 @@ def test_typescript_star_exports_expand_public_names(tmp_path: Path) -> None:
     )
     facts = extract.build(config.load(tmp_path))
     assert facts["components"]["web.index"]["names"] == [
-        {"name": "available", "kind": "function", "reexport_of": "web.more"},
-        {"name": "value", "kind": "object", "reexport_of": "web.more"},
-        {"name": "more", "kind": "object", "reexport_of": "web.more"},
+        {"name": "available", "kind": "function", "reexport_of": "web.more"}
+        | {"defined_in": "web.more", "defined_as": "available"},
+        {"name": "value", "kind": "object", "reexport_of": "web.more"}
+        | {"defined_in": "web.more", "defined_as": "value"},
+        # A namespace re-export refers to the full module.
+        {"name": "more", "kind": "object", "reexport_of": "web.more"}
+        | {"defined_in": "web.more", "defined_as": "*"},
     ]
 
 
@@ -467,14 +472,18 @@ def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(
         {"name": "UserView", "signature": "function UserView(): JSX.Element"}
     ]
     assert facts["components"]["acme.web.index"]["names"] == [
-        {"name": "serve", "kind": "function", "reexport_of": "acme.web.service"},
+        {"name": "serve", "kind": "function", "reexport_of": "acme.web.service"}
+        | {"defined_in": "acme.web.service", "defined_as": "serve"},
         {
             "name": "default",
             "kind": "function",
             "reexport_of": "acme.web.service",
             "star_export": False,
+            "defined_in": "acme.web.service",
+            "defined_as": "serve",
         },
-        {"name": "UserView", "kind": "function", "reexport_of": "acme.web.view"},
+        {"name": "UserView", "kind": "function", "reexport_of": "acme.web.view"}
+        | {"defined_in": "acme.web.view", "defined_as": "UserView"},
     ]
 
     assert main(["--root", str(tmp_path), "refresh"]) == 0

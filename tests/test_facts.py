@@ -47,14 +47,16 @@ def test_a_package_init_records_the_names_it_reexports(tmp_path: Path) -> None:
     facts = extract.build(config.load(tmp_path))
     root = facts["components"]["pkg"]
     assert root["names"] == [
-        {"name": "run", "kind": "function", "reexport_of": "pkg.core"},
-        {"name": "Thing", "kind": "class", "reexport_of": "pkg.core"},
-        {"name": "Item", "kind": "class", "reexport_of": "pkg.core"},
-        {"name": "deep", "kind": "function", "reexport_of": "pkg.sub"},
-        {"name": "util", "kind": "module", "reexport_of": "pkg.util"},
+        _reexport("run", "function", "pkg.core"),
+        _reexport("Thing", "class", "pkg.core"),
+        _reexport("Item", "class", "pkg.core", "Thing"),
+        _reexport("deep", "function", "pkg.sub"),
+        _reexport("util", "module", "pkg.util", "*"),
         {"name": "VERSION", "kind": "constant"},
     ]
-    # A private name, a star import and anything outside the package are not re-exports.
+    # The star import gives `run` and `Thing` again, from the same definitions, so
+    # the source-order rule keeps one record for each name. A private name and
+    # anything outside the package are not re-exports.
     assert public_names(root) == {"run", "Thing", "Item", "deep", "util", "VERSION"}
     assert root["functions"] == [] and root["classes"] == []
     assert not source_facts.is_empty_marker(root), "a re-exporting __init__ is a module"
@@ -64,7 +66,7 @@ def test_a_package_init_records_the_names_it_reexports(tmp_path: Path) -> None:
     assert [p["name"] for p in facts["entry_points"]] == []
     # A card may name a re-export as its entry, and start its interface with
     # one; the methods of a re-exported class are read from the module that
-    # defines it. An alias hides the class from that lookup.
+    # defines it. An alias keeps the defining symbol, so its methods are known.
     card = Component(
         "Core", "the core", implemented_by=("pkg",), entry="Item", interface="Thing.go()"
     )
@@ -82,9 +84,20 @@ def test_a_package_init_records_the_names_it_reexports(tmp_path: Path) -> None:
 
     assert check.check_interface(with_interface("Thing.go()"), facts) == []
     assert check.check_interface(with_interface("run() -> None"), facts) == []
-    assert check.check_interface(with_interface("Item.go()"), facts) == [
-        "Core interface contains Item.go, but Item has no public method go (pkg). The nearest name is Thing"
+    assert check.check_interface(with_interface("Item.go()"), facts) == []
+    assert check.check_interface(with_interface("Item.stop()"), facts) == [
+        "Core interface contains Item.stop, but Item has no public method stop (pkg). The nearest name is go"
     ]
+
+
+def _reexport(name: str, kind: str, source: str, symbol: str = "") -> dict[str, str]:
+    return {
+        "name": name,
+        "kind": kind,
+        "reexport_of": source,
+        "defined_in": source,
+        "defined_as": symbol or name,
+    }
 
 
 def test_reexport_resolution_and_relative_sources() -> None:
@@ -115,6 +128,8 @@ def test_reexport_resolution_and_relative_sources() -> None:
         "name": "gone",
         "kind": "unknown",
         "reexport_of": "pkg.nowhere",
+        "defined_in": None,
+        "defined_as": None,
     }
 
 
