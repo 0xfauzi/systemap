@@ -144,7 +144,7 @@ FLOWS = (
          source_refs=("systemap.model@e820f63208b660c2855ba0d9e88ff49ddda388da5de725b403c901a0ff15cb38", "systemap.extract@bb058188649d7a70978ef86ed139eb85a5b56ae3e333d7b5280bcb598f81779c"),
          review_digest="54439c3951f301f91f6cb34a34c6fca6a28bf385fa6710cfec18b2ea9fcc33eb"),
     Flow("Model", "ChangeDetector", "claims", "data",
-         source_refs=("systemap.model@e820f63208b660c2855ba0d9e88ff49ddda388da5de725b403c901a0ff15cb38", "systemap.card_review@e2fd63dedf0803b05202cb4f7bdac410e55a8ef93e172bfe913500d8e9ff3e5e", "systemap.change@776f5542419d73a69919b0389b7d50ef9310e79b89488b83340ea4c3426ca128", "systemap.delta@67e4632a65b52896f5d024606e25217f3f0bcb466a70f7f38c50a1ff6a84a15c"),
+         source_refs=("systemap.model@e820f63208b660c2855ba0d9e88ff49ddda388da5de725b403c901a0ff15cb38", "systemap.card_review@4d3a134865e03bd6236ddfc6107a23e3e171e68c13fbb6819693bbb0e2fd9a35", "systemap.change@776f5542419d73a69919b0389b7d50ef9310e79b89488b83340ea4c3426ca128", "systemap.delta@67e4632a65b52896f5d024606e25217f3f0bcb466a70f7f38c50a1ff6a84a15c"),
          review_digest="721c07bdf70572e059ff14d643bde4c8338206d1eb6aca24914c29be08c0dc32"),
     Flow("Model", "Schematic", "topology, meaning", "data",
          source_refs=("systemap.model@e820f63208b660c2855ba0d9e88ff49ddda388da5de725b403c901a0ff15cb38", "systemap.schematic@9b9c00d248f0944ed7700c144b5829830091f3487d229891473541759388e536"),

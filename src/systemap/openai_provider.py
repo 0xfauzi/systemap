@@ -153,7 +153,7 @@ def _spread(question: ChoiceQuestion, raw: dict[str, Any]) -> dict[str, float] |
         return "probabilities is not a list"
     out: dict[str, float] = {}
     for item in given:
-        if not isinstance(item, dict) or item.get("value") not in question.options:
+        if not isinstance(item, dict) or not _option(question, item.get("value")):
             return "a probability names an option that is not one of the options"
         if not _fraction(item.get("probability")):
             return "a probability is not a number from 0 to 1"
@@ -162,8 +162,13 @@ def _spread(question: ChoiceQuestion, raw: dict[str, Any]) -> dict[str, float] |
     return f"no probability for {absent[0]}" if absent else out
 
 
+def _option(question: ChoiceQuestion, value: Any) -> bool:
+    """Find if the value is the name of an option. A value that is not a string is not."""
+    return isinstance(value, str) and value in question.options
+
+
 def _choice(question: ChoiceQuestion, raw: dict[str, Any]) -> Answer | str:
-    if raw.get("choice") not in question.options:
+    if not _option(question, raw.get("choice")):
         return "choice is not one of the options"
     if not _fraction(raw.get("confidence")):
         return "confidence is not a number from 0 to 1"
@@ -315,7 +320,9 @@ class OpenAIProvider:
         given = resp.get("answers")
         if not isinstance(given, list):
             raise OpenAIError(f"OpenAI gave no answers for {jev.printable(batch[0].key)}")
-        by_name = {a.get("name"): a for a in given if isinstance(a, dict)}
+        by_name = {
+            a["name"]: a for a in given if isinstance(a, dict) and isinstance(a.get("name"), str)
+        }
         answers = {(q.key, q.name): answer_of(q, by_name.get(q.name)) for q in batch}
         usage = resp.get("usage")
         counted: dict[str, Any] = usage if isinstance(usage, dict) else {}
