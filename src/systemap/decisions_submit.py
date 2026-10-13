@@ -12,9 +12,9 @@ examines all results. If one result is incorrect, it writes nothing and tells ea
 
 Then the command writes, in this sequence: the flow review digests, the component review
 digests, the exact answers, and the store. A flow digest is one of the claims of its
-endpoint components, so the flow digests come first. A review digest changes the model
-file, and the evidence digest of an exact answer includes the model file. Thus the
-command calculates the evidence digests of the answers after the review writes.
+endpoint components, so the flow digests come first. A review can close a judgement line.
+Thus the command calculates the open lines and their evidence digests after the review
+writes.
 """
 
 from __future__ import annotations
@@ -172,7 +172,8 @@ def _request(item: dict[str, Any], snap: Snapshot, where: str) -> tuple[Request 
         ]
     if decisions_store.state(snap.records, request) == decisions_store.UNKNOWN:
         return None, [
-            f"{where}: {rid} is unknown. A person must examine the claim, or the claim must change."
+            f"{where}: {rid} is unknown. A person must examine the claim. "
+            "A change of the source of the target makes the request pending again."
         ]
     return request, []
 
@@ -206,8 +207,7 @@ def _open_flows(
             continue
         if request.target not in flow.target.split(decisions.ARROW):
             continue
-        record = decisions_store.current(snap.records, flow)
-        verdict = verdicts.get(flow.id) or (record or {}).get("state", "")
+        verdict = verdicts.get(flow.id) or decisions_store.verdict(snap.records, flow)
         if verdict and verdict != SUPPORTED:
             errors.append(
                 f"{where}: the claims of {request.target} include the flow {flow.target}, "

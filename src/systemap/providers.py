@@ -1,6 +1,6 @@
 """Select the decision provider of a command that asks questions.
 
-The provider comes from the `--provider` option, or else from `[decision] provider`
+The provider comes from the `--provider` option, or else from `[decisions] provider`
 in the configuration. The default is Jev. A key in the environment never selects a
 provider: with `OPENAI_API_KEY` set and no selection, no request goes to OpenAI.
 If the selected provider fails, the command shows the failure and stops. It does not
@@ -21,8 +21,8 @@ from typing import Protocol
 
 from systemap import decision, jev, jev_provider, openai_provider
 from systemap.config import Config
+from systemap.config_decisions import PROVIDERS
 from systemap.decision import DecisionError, Question
-from systemap.provider_config import PROVIDERS
 
 # The threshold of each audit question type.
 AUDIT_FIELDS = {
@@ -53,7 +53,7 @@ def add_option(parser: argparse.ArgumentParser) -> None:
         "--provider",
         choices=PROVIDERS,
         default=None,
-        help="Select the decision provider. The default is [decision] provider in "
+        help="Select the decision provider. The default is [decisions] provider in "
         'systemap.toml, or "jev". A key in the environment does not select a provider. '
         "OpenAI gets the question state (module facts and map text) and the questions.",
     )

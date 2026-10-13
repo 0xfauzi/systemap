@@ -296,6 +296,21 @@ A component must have one clear function. Module quantity alone does not identif
 When source or import evidence changes, the finding opens again.
 <code>judgement</code> prints the current digest for examination.
 An exact answer without evidence stays pending until source review.</p>
+<p>The evidence digest of a line contains only the evidence that the line names:</p>
+<ul>
+<li>For each component that the line names, the map claims of the component.
+These claims are the component fields, the plain name, and the flows, sequences, and invariants that name the component.
+The <code>source_review</code> value, the flow review digests, and the source digests in <code>source_refs</code> are not claims.</li>
+<li>For each module that the line names, and each module of a named component, the module facts and the source file.</li>
+<li>For a <code>crossing import</code> line, the imports between the two components and the source of the two modules of each import.</li>
+</ul>
+<p>Thus a change to a different component, or to a <code>source_review</code> value, does not open the finding again.
+A line that names no component and no module uses the full evidence: the model file and all modules.</p>
+<p>Migration from systemap 3.0.0: the earlier evidence digest of a line that is not a <code>crossing import</code> contained the full model file and all modules.
+Thus each of these exact answers is pending one time after the update.
+The digests of <code>crossing import</code> answers do not change.</p>
+<p><code>judgement</code> prints the new digest in the <code>pending answer</code> line.
+Examine the source again. Then write the new digest in <code>evidence</code>.</p>
 <p>A family answer is a policy for a family of lines and must have <code>policy = true</code>.
 The report counts current matches and matches outside the optional
 <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> baseline.
@@ -428,7 +443,7 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 <p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --jev</code>, and <code>delta --jev</code>.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (<code>POST https://api.openai.com/v1/decisions</code>, model <code>gpt-6-luna</code>, public beta).</p>
-<p>To select OpenAI, give <code>--provider openai</code> to the command, or set <code>[decision] provider = &quot;openai&quot;</code> in <code>systemap.toml</code>.
+<p>To select OpenAI, give <code>--provider openai</code> to the command, or set <code>[decisions] provider = &quot;openai&quot;</code> in <code>systemap.toml</code>.
 <code>--provider jev</code> selects Jev, also when the configuration selects OpenAI.
 A key in the environment does not select a provider.
 With <code>OPENAI_API_KEY</code> set and no selection, no request goes to OpenAI.
@@ -1246,6 +1261,10 @@ They are also <code>flow review</code> and <code>declared flow</code> for a flow
 <p>The <code>id</code> of a decision request contains the type, the target, and the first 16 characters of the claim digest.
 If the claim does not change, the <code>id</code> stays the same in a different session.
 A source change that does not change a judgement line does not change its <code>id</code>.</p>
+<p>The decision store keeps one record for each target. The record does not use the claim digest.
+The target of a component is its ID, and the target of a flow is <code>SRC-&gt;DST</code>.
+The target of a judgement line is its kind and the names of the components and modules in the line, for example <code>single module: Reader pkg.reader</code>.
+If two current lines have the same kind and names, or a line names nothing, the target is the full line.</p>
 <h4 id="systemap-decisions-pending-json"><code>systemap decisions pending [--json]</code></h4>
 <p>Gives the pending decision requests. The command exits 0.
 An unknown decision request is not pending. The <code>unknown</code> count gives the quantity.</p>
@@ -1323,12 +1342,17 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <tr>
 <td><code>requests[].attempts</code></td>
 <td>integer</td>
-<td>The quantity of <code>contradicted</code> verdicts for the current claim.</td>
+<td>The quantity of <code>contradicted</code> verdicts for the target since the last change of its source.</td>
 </tr>
 <tr>
 <td><code>requests[].blocked</code></td>
 <td>string</td>
 <td>If not empty, the cause that prevents <code>supported</code>, and the necessary step.</td>
+</tr>
+<tr>
+<td><code>requests[].identity</code></td>
+<td>string</td>
+<td>The target in the decision store: the component ID, the flow, or the kind and names of a judgement line.</td>
 </tr>
 <tr>
 <td><code>unknown</code></td>
@@ -1395,16 +1419,19 @@ The command rejects a verdict in these conditions:</p>
 <ol>
 <li>The <code>review_digest</code> of each <code>supported</code> flow.</li>
 <li>The <code>source_review</code> of each <code>supported</code> component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.</li>
-<li>One exact answer for each <code>supported</code> judgement line. A review digest changes the model file, and the evidence digest of an answer includes the model file. Thus the command calculates the evidence digest after the review digests.</li>
+<li>One exact answer for each <code>supported</code> judgement line. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.</li>
 <li>The decision store, <code>.systemap/decisions.json</code>. Git does not record this file.</li>
 </ol>
-<p>A <code>contradicted</code> verdict adds one to the <code>contradicted</code> count of the claim.
+<p>A <code>contradicted</code> verdict adds one to the <code>contradicted</code> count of the target.
 The agent must correct the map and send a new verdict.
 At <code>[decisions] max_contradicted</code> verdicts, the decision request becomes unknown.
 After one <code>insufficient_evidence</code> verdict, the decision request is unknown.
-A change of the claim digest makes the decision request pending again, with a count of zero.</p>
-<p>CAUTION: A new review digest in the model file changes the evidence digest of each exact answer for a line that is not a crossing import.
-These answers then stay pending until they have a new evidence digest.</p>
+A <code>supported</code> verdict sets the count to zero.</p>
+<p>A change of the map claim does not set the count to zero, and does not make an unknown decision request pending.
+Thus an agent that changes the map after each <code>contradicted</code> verdict stops at the limit.
+A change of a source file of the target makes the decision request pending again, with a count of zero.
+A file that the map change adds to the target, or removes from it, is not a source change.
+To start all counts again, delete <code>.systemap/decisions.json</code>.</p>
 <h4 id="systemap-decisions-status-json"><code>systemap decisions status [--json]</code></h4>
 <p>Gives the counts and the unknown decision requests.
 The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
@@ -1682,18 +1709,13 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[decisions]</code></td>
-<td><code>max_contradicted = 3</code></td>
-<td>The quantity of <code>contradicted</code> verdicts for one claim before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more.</td>
+<td><code>provider = &quot;jev&quot;</code>, <code>max_contradicted = 3</code></td>
+<td><code>provider</code> is the decision provider of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta --jev</code>, and <code>suggest --jev</code>: <code>&quot;jev&quot;</code> or <code>&quot;openai&quot;</code>. The <code>--provider</code> option of a command replaces this value. A key in the environment does not select a provider. <a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a> gives the data that goes to OpenAI. <code>max_contradicted</code> is the quantity of <code>contradicted</code> verdicts for one target of <code>systemap decisions</code> before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A <code>[decision]</code> table gives a configuration error that tells you to use <code>[decisions] provider</code>.</td>
 </tr>
 <tr>
 <td><code>[jev]</code></td>
 <td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled</code> unset</td>
 <td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --jev</code>. With <code>enabled = true</code> and <code>TYPESAFE_API_KEY</code>, <code>delta</code> sends questions to Jev without <code>--jev</code>. With <code>enabled</code> unset, <code>delta</code> sends no question without <code>--jev</code>, also with a key. <code>enabled = false</code> stops the hints.</td>
-</tr>
-<tr>
-<td><code>[decision]</code></td>
-<td><code>provider = &quot;jev&quot;</code></td>
-<td>The decision provider of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta --jev</code>, and <code>suggest --jev</code>: <code>&quot;jev&quot;</code> or <code>&quot;openai&quot;</code>. The <code>--provider</code> option of a command replaces this value. A key in the environment does not select a provider. <a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a> gives the data that goes to OpenAI.</td>
 </tr>
 <tr>
 <td><code>[openai]</code></td>

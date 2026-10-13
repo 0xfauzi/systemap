@@ -21,7 +21,6 @@ from systemap import config_decisions, model_load
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
-from systemap.provider_config import settings as provider_settings
 from systemap.root_check import checked_roots
 
 CONFIG_FILE = "systemap.toml"
@@ -54,6 +53,7 @@ KNOWN_KEYS = {
     "judgement",
     "flows",
     "jev",
+    # Only for a clear error: config_decisions refuses the old [decision] table.
     "decision",
     "openai",
     "agent",
@@ -469,7 +469,6 @@ def load(root: Path) -> Config:
         writing = writing_profile(raw.get("writing"), where)
         decided = config_decisions.read(raw, where)
         decided["rules_unknown"] = config_decisions.rules_unknown(raw, where)
-        providers = provider_settings(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -483,7 +482,6 @@ def load(root: Path) -> Config:
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
         **_jev(raw, where),
-        **providers,
         **_agent(raw, where),
         **decided,
         root=root,
