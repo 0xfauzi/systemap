@@ -99,7 +99,7 @@ class _Resolver:
     ) -> dict[str, Any]:
         """Give the resolved record. A type-only link in the chain makes it type-only."""
         kind, defined_in, defined_as = self.hop(source, symbol, frozenset())
-        found = {
+        found: dict[str, Any] = {
             "name": name,
             "kind": kind,
             "reexport_of": source,
