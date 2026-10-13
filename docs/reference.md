@@ -13,7 +13,7 @@ The command exits 1 if a rule rejects the map.
 
 | Rule | Rejected condition |
 |---|---|
-| coverage | No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is an `__init__` with no public names or imports. The rule automatically excludes these markers. |
+| coverage | No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is a Python `__init__.py` file or a TypeScript `index` file that holds no code. The rule automatically excludes these markers. |
 | entry | A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty `entry`. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
 | interface | The first identifier of an `interface` is absent from the component's public names and re-exports. The identifier ends at `(`, `.`, `->`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
 | nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |

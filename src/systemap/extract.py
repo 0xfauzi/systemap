@@ -22,7 +22,14 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import python_calls, python_entry, python_repo, repo_files
+from systemap import (
+    python_calls,
+    python_entry,
+    python_repo,
+    python_syntax,
+    python_tests,
+    repo_files,
+)
 from systemap.completeness import parse_state
 
 # The shared extraction steps are in `extraction`. These names stay for the callers of
@@ -32,7 +39,7 @@ from systemap.extraction import build as build
 from systemap.extraction import drift as drift
 from systemap.extraction import language_for as language_for
 from systemap.extraction import mapping_drift as mapping_drift
-from systemap.model import public_names
+from systemap.pattern_match import matches_test_pattern
 from systemap.python_imports import python_unresolved
 from systemap.python_repo import PythonRepository
 from systemap.source_facts import empty_markers, standard_label
@@ -52,8 +59,12 @@ class PythonLanguage(PythonRepository):
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
-        del repo, tests_dirs, test_patterns
-        return python_repo.python_paths(root)
+        del tests_dirs
+        return (
+            path
+            for path in python_repo.python_paths(root)
+            if not matches_test_pattern(path.relative_to(repo).as_posix(), test_patterns)
+        )
 
     def context(
         self,
@@ -61,9 +72,9 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
-    ) -> None:
-        del repo, paths, tests_dirs, test_patterns
-        return None
+    ) -> python_tests.PythonTests:
+        del repo, paths, tests_dirs
+        return python_tests.PythonTests(test_patterns)
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         return module_of(path, root, name)
@@ -78,16 +89,15 @@ class PythonLanguage(PythonRepository):
         return path.name == PACKAGE_MODULE
 
     def empty_marker(self, record: Mapping[str, Any], raw: str) -> bool:
-        """Find an `__init__.py` file without public names, internal imports, external
-        imports, parse errors, unknown records, or top-level calls.
+        """Find an `__init__.py` file with no statement that holds code.
 
-        A root that re-exports names or imports modules is not empty."""
-        del raw
+        A file that was not read or parsed is not empty, because its statements are not
+        known. `python_syntax.holds_no_code` gives the statements that hold no code."""
         if not str(record.get("file", "")).endswith(PACKAGE_MODULE):
             return False
-        if record.get("parse_error") or record.get("unknown") or record.get("executes"):
+        if not record.get("completeness", {}).get("parsed"):
             return False
-        return not public_names(record) and not record.get("imports") and not record.get("external")
+        return python_syntax.holds_no_code(raw)
 
     def entry_label(self, point: Mapping[str, str]) -> str:
         return standard_label(point)
@@ -97,9 +107,10 @@ class PythonLanguage(PythonRepository):
         return {}
 
     def extra_facts(self, context: Any, entry_issues: list[dict[str, str]]) -> dict[str, Any]:
-        """Give the issue lists. An empty list of entry point issues is not written."""
-        del context
-        return {"entry_point_issues": entry_issues} if entry_issues else {}
+        """Give the issue lists. An empty issue list is not written."""
+        test_issues = getattr(context, "test_issues", [])
+        lists = {"entry_point_issues": entry_issues, "test_file_issues": test_issues}
+        return {key: value for key, value in lists.items() if value}
 
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         if not path.endswith(".py"):
@@ -185,8 +196,9 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         context: Any,
     ) -> dict[str, list[dict[str, Any]]]:
-        del context
-        return collect_tests(repo, tests_dirs, prefixes, set(paths))
+        isolated = python_tests.PythonTests()
+        tests = context if isinstance(context, python_tests.PythonTests) else isolated
+        return python_tests.collect_tests(repo, tests_dirs, prefixes, set(paths), tests)
 
     def entry_points(
         self,
@@ -208,15 +220,12 @@ class PythonLanguage(PythonRepository):
         return parse_surface(raw)
 
     def test_names(self, raw: str, path: str = "") -> list[str]:
-        return test_names(raw)
+        return python_tests.test_names(raw)
 
     def is_test_file(
         self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()
     ) -> bool:
-        del test_patterns
-        if not path.endswith(".py") or not path.split("/")[-1].startswith("test_"):
-            return False
-        return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
+        return python_tests.is_test_file(path, tests_dirs, test_patterns)
 
 
 PYTHON = PythonLanguage()
@@ -231,9 +240,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 7, with portable syntax hashes, compiler provenance, "
-        "module completeness, the folder package in `package`, and `call_sites`. "
-        "`extract --check` marks older formats stale",
+        "The facts format is 8, with portable syntax hashes, compiler provenance, "
+        "module completeness, the folder package in `package`, `call_sites`, and "
+        "decorators in the `api` fingerprints. `extract --check` marks older formats stale",
     ),
     (
         "facts",
@@ -267,8 +276,10 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "test_file_issues",
-        "TypeScript test files with unresolved imports or names after a parse error. "
-        "The list is empty if there are none",
+        "Test files that could not be read or parsed. Each record has `file`, and a "
+        "`problem` with `line`, `reason`, and `source`. "
+        "The test functions of these files are not known. The Python adapter does not "
+        "write an empty list",
     ),
     (
         "facts",
@@ -338,16 +349,18 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "api",
         "Full export identities for public-surface comparisons: exported name, "
-        "display bucket, and declaration fingerprint. The fingerprint excludes "
-        "callable bodies",
+        "display bucket, and declaration fingerprint. The fingerprint includes "
+        "decorators. It does not include callable bodies",
     ),
     ("module", "executes", "Python-only: a top-level call makes a package initializer nonempty"),
     (
         "module",
         "empty_marker",
         "`true` for a module that only marks a package and holds no code: a Python "
-        "`__init__.py` file or a TypeScript `index` file without names, imports, or "
-        "statements. Coverage does not include these modules",
+        "`__init__.py` file or a TypeScript `index` file without statements. A Python "
+        "docstring, `pass`, `__future__` import, and literal value for a dunder name such "
+        "as `__all__` are not statements for this rule. Coverage does not include these "
+        "modules",
     ),
     (
         "module",
@@ -513,21 +526,6 @@ def opening(text: str | None) -> str:
     return para if len(para) <= 320 else para[:319] + "\u2026"
 
 
-def first_line(text: str | None) -> str:
-    if not text:
-        return ""
-    for line in text.strip().splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return ""
-
-
-def sentence(test_name: str) -> str:
-    body = test_name[5:] if test_name.startswith("test_") else test_name
-    return body.replace("_", " ").strip() or test_name
-
-
 def parse_surface(
     raw: str,
     *,
@@ -675,7 +673,7 @@ def _python_class_api(node: ast.ClassDef) -> str:
     for child in node.body:
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
             if child.name == "__init__" or not child.name.startswith("_"):
-                members.append(signature(child))
+                members.append(python_syntax.decorated(child, signature(child)))
         elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
             if not child.target.id.startswith("_"):
                 members.append(f"{child.target.id}:{ast.dump(child.annotation)}")
@@ -698,7 +696,8 @@ def _python_api(body: list[ast.stmt]) -> list[dict[str, str]]:
 
 def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
-        return [{"name": node.name, "bucket": "operations", "fingerprint": signature(node)}]
+        fingerprint = python_syntax.decorated(node, signature(node))
+        return [{"name": node.name, "bucket": "operations", "fingerprint": fingerprint}]
     if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
         bases = [ast.unparse(base) for base in node.bases]
         error = node.name.endswith(("Error", "Exception")) or any(
@@ -887,77 +886,6 @@ def external_imports(raw: str, prefixes: set[str]) -> list[str]:
                 continue
             out.add(name)
     return sorted(out)
-
-
-def internal_imports(path: Path, prefixes: set[str], known: set[str]) -> set[str]:
-    try:
-        raw = path.read_text(encoding="utf-8-sig")
-    except (OSError, UnicodeError):
-        return set()
-    return set(internal_uses(raw, prefixes, known))
-
-
-def test_names(raw: str) -> list[str]:
-    """Get test function identities, including their enclosing definitions."""
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
-        return []
-    found: list[str] = []
-
-    def visit(node: ast.AST, parents: tuple[str, ...]) -> None:
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-            parents = (*parents, node.name)
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name.startswith(
-                "test_"
-            ):
-                found.append(".".join(parents))
-        for child in ast.iter_child_nodes(node):
-            visit(child, parents)
-
-    visit(tree, ())
-    return found
-
-
-def collect_tests(
-    repo: Path, tests_dirs: tuple[str, ...], prefixes: set[str], known: set[str]
-) -> dict[str, list[dict[str, Any]]]:
-    """Map imported modules to test function references.
-
-    Use qualified test identities. An import reference does not prove coverage.
-    """
-    guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    seen: set[Path] = set()
-    files: list[Path] = []
-    for rel in tests_dirs:
-        test_dir = repo / rel
-        if not rel or not test_dir.is_dir():
-            continue
-        for path in sorted(test_dir.rglob("test_*.py")):
-            if path in seen or python_repo.skipped(path, test_dir, python_repo.PYTHON_SKIP):
-                continue
-            seen.add(path)
-            files.append(path)
-    for path in files:
-        try:
-            raw = repo_files.read_text(repo, repo_files.relative(repo, path), encoding="utf-8-sig")
-        except (OSError, UnicodeError):
-            continue
-        targets = set(internal_uses(raw, prefixes, known))
-        if not targets:
-            continue
-        names = test_names(raw)
-        stem = path.stem[5:] if path.stem.startswith("test_") else path.stem
-        for target in targets:
-            # A test file named after the module is its primary guard; a file
-            # that merely imports it exercises it. Both are true, and the
-            # distinction is what stops a shared helper from claiming every test.
-            primary = stem == target.split(".")[-1]
-            for name in names:
-                guards[target].append(
-                    {"name": f"{path.relative_to(repo).as_posix()}::{name}", "primary": primary}
-                )
-    return guards
 
 
 def read_facts(path: Path) -> dict[str, Any]:

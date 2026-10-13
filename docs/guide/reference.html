@@ -62,7 +62,7 @@ The command exits 1 if a rule rejects the map.</p>
 <tbody>
 <tr>
 <td>coverage</td>
-<td>No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is an <code>__init__</code> with no public names or imports. The rule automatically excludes these markers.</td>
+<td>No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is a Python <code>__init__.py</code> file or a TypeScript <code>index</code> file that holds no code. The rule automatically excludes these markers.</td>
 </tr>
 <tr>
 <td>entry</td>

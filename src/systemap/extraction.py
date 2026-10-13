@@ -26,8 +26,10 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 
 # A stored file of an older facts format is reported as stale. Format 6: the `package`
 # fact is the folder package that the adapter gives, not the first module-name part.
-# Format 7: each module record has the `call_sites` fact.
-FORMAT = 7
+# Format 7: each module record has the `call_sites` fact. Format 8: a Python `api`
+# fingerprint includes decorators, and the Python `empty_marker` fact reads each
+# top-level statement. Cached facts of format 7 have the earlier values.
+FORMAT = 8
 TESTS_KEPT = 25
 
 
