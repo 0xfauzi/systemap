@@ -41,7 +41,7 @@ def _stderr(proc: subprocess.CompletedProcess[bytes]) -> str:
 
 def resolve(repo: Path, ref: str) -> str:
     """This function resolves a Git ref to a full commit SHA, or raises DeltaError."""
-    proc = _git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    proc = _git(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}")
     if proc.returncode != 0 or not proc.stdout.strip():
         raise DeltaError(f"unknown ref {ref}. Give a commit, branch, or tag that Git can resolve.")
     return proc.stdout.decode("utf-8").strip()

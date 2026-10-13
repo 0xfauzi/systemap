@@ -166,7 +166,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="9723321b73d1fcab8b97f1cf724ea88091d1d3e6d50b1214b16afbe5ee004c95",
+        source_review="8703c1b5ed3de6b6d60b90c744cd077b451a38bd132d975e6df6b8005f60d971",
         does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With a page URL in the configuration, it writes a pull request comment with a link to the Changes view. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -339,7 +339,7 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="c570b15deed5c82b35c51ae0b8c2a3ccd05c129d6d0acbc9f12fc0d0ce49f4d0",
+        source_review="e694e810d4077b3f21dc99b7c29730bcd14900273056bf7a78fd69c5f5d2f31d",
         does="Sends different questions about the map to a decision provider. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command or with an explicit option. Does not control map checks.",
         interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(
