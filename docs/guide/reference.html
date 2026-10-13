@@ -360,8 +360,8 @@ Do not use the recorded scores as results for the changed prompts or your system
 <tr>
 <td>jev flow</td>
 <td>Does the code connection agree with the flow claim? A line prints below P 0.2. <strong><code>audit</code> sends these questions only with <code>--kind &quot;jev flow&quot;</code>.</strong></td>
-<td>66% of incorrect claims found. 2% of correct claims gave incorrect findings. Evidence excludes instance calls. This exclusion can cause an incorrect finding.</td>
-<td>54% found. 4% of correct claims gave incorrect findings. The result was more than 10 points below development. It failed the default-question threshold.</td>
+<td>60% of incorrect claims found. 2.5% of correct claims gave incorrect findings. The evidence is the lines that the <code>call_sites</code> fact gives, with instance calls.</td>
+<td>52% found. 2% of correct claims gave incorrect findings. The result was within 10 points of development. No TypeScript result was measured, so the question is not a default question.</td>
 </tr>
 <tr>
 <td>jev governs</td>

@@ -338,13 +338,12 @@ def test_historical_audit_on_exact_recorded_answers(sample: Sample) -> None:
     assert questions[0] != plan.questions[0]
     found = audit.lines(plan, JevProvider(client).decide(questions), JEV)
     # What the real model said about the sample, recorded. Every module reads like its own
-    # card. Both flows are doubted: Reader -> Parser rightly (nothing in pkg.reader calls the
-    # parser; the parser only imports Request), Writer -> Ledger because the evidence is the
-    # lines naming an imported name, and `ledger.record(parts)` names none: a limit of the
-    # measured method, said in audit.py's docstring.
+    # card. Reader -> Parser is doubted rightly: nothing in pkg.reader calls the parser, and
+    # the parser only imports Request. Writer -> Ledger is not doubted: the `call_sites` fact
+    # puts `ledger.record(parts)` into the context. Before that fact, the context had only
+    # the lines that name an imported name, and Jev doubted this flow too.
     assert [x.text for x in found] == [
         "jev flow: Reader -> Parser ('parse'): the code where they meet may not carry it",
-        "jev flow: Writer -> Ledger ('record'): the code where they meet may not carry it",
     ]
     assert client.usage.sent == 15 or recording.recording
 

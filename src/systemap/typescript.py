@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import repo_files, typescript_entry
+from systemap import repo_files, typescript_calls, typescript_entry
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
 from systemap.source_facts import standard_label
@@ -694,6 +694,25 @@ class TypeScriptLanguage(TypeScriptRepository):
             if target:
                 uses[target].update(names)
         return dict(uses)
+
+    def call_sites(
+        self,
+        raw: str,
+        module: str,
+        prefixes: set[str],
+        known: set[str],
+        components: Mapping[str, Mapping[str, Any]],
+        is_package: bool = False,
+        paths: dict[str, Path] | None = None,
+        context: TypeScriptContext | None = None,
+    ) -> list[dict[str, Any]] | None:
+        del prefixes, components, is_package
+        found = paths or {}
+        path = found[module].as_posix() if module in found else ""
+        if context is None:
+            return None
+        resolve = lambda source: _resolve(source, module, known, found, context)  # noqa: E731
+        return typescript_calls.call_sites(raw, path, module, resolve)
 
     def external_imports(
         self,

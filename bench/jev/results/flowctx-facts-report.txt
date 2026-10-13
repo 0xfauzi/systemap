@@ -1,0 +1,15 @@
+== facts
+   development: 160 calls, 164491 in, 3200 out, median in 871, median 0.21 s, models ['jev-1.13.0']; errors 0; AUC 0.904
+   holdout:     96 calls, 114797 in, 1920 out, median in 978, median 0.21 s, models ['jev-1.13.0']; errors 0; AUC 0.936
+   P<0.05  dev caught 4/80, flagged 0/80   holdout caught 1/48, flagged 0/48
+   P<0.1   dev caught 17/80, flagged 0/80   holdout caught 8/48, flagged 0/48
+   P<0.15  dev caught 35/80, flagged 1/80   holdout caught 18/48, flagged 0/48
+   P<0.2   dev caught 48/80, flagged 2/80   holdout caught 25/48, flagged 1/48
+   P<0.25  dev caught 58/80, flagged 4/80   holdout caught 33/48, flagged 3/48
+   P<0.3   dev caught 64/80, flagged 10/80   holdout caught 38/48, flagged 4/48
+   P<0.35  dev caught 67/80, flagged 16/80   holdout caught 39/48, flagged 7/48
+   P<0.4   dev caught 69/80, flagged 25/80   holdout caught 45/48, flagged 7/48
+   P<0.5   dev caught 74/80, flagged 32/80   holdout caught 46/48, flagged 16/48
+   selected P<0.2: dev caught 48/80, flagged 2/80; holdout caught 25/48, flagged 1/48
+   gap -7.9 points
+   pass

@@ -22,7 +22,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import python_entry, python_repo, repo_files
+from systemap import python_calls, python_entry, python_repo, repo_files
 from systemap.completeness import parse_state
 
 # The shared extraction steps are in `extraction`. These names stay for the callers of
@@ -33,9 +33,9 @@ from systemap.extraction import drift as drift
 from systemap.extraction import language_for as language_for
 from systemap.extraction import mapping_drift as mapping_drift
 from systemap.model import public_names
-from systemap.python_imports import python_unresolved, relative_source
+from systemap.python_imports import python_unresolved
 from systemap.python_repo import PythonRepository
-from systemap.source_facts import WHOLE_MODULE, empty_markers, standard_label
+from systemap.source_facts import empty_markers, standard_label
 
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
@@ -137,6 +137,20 @@ class PythonLanguage(PythonRepository):
         del repo, paths, context
         return internal_uses(raw, prefixes, known, module, is_package)
 
+    def call_sites(
+        self,
+        raw: str,
+        module: str,
+        prefixes: set[str],
+        known: set[str],
+        components: Mapping[str, Mapping[str, Any]],
+        is_package: bool = False,
+        paths: dict[str, Path] | None = None,
+        context: Any = None,
+    ) -> list[dict[str, Any]] | None:
+        del paths, context
+        return python_calls.call_sites(raw, prefixes, known, components, module, is_package)
+
     def unresolved_imports(
         self,
         raw: str,
@@ -217,9 +231,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 6, with portable syntax hashes, compiler provenance, "
-        "module completeness, and the folder package in `package`. `extract --check` "
-        "marks older formats stale",
+        "The facts format is 7, with portable syntax hashes, compiler provenance, "
+        "module completeness, the folder package in `package`, and `call_sites`. "
+        "`extract --check` marks older formats stale",
     ),
     (
         "facts",
@@ -345,6 +359,20 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "uses",
         "Imported local modules with the names taken from each. `*` means the full module",
+    ),
+    (
+        "module",
+        "call_sites",
+        "The local names that the module gets from a name of a module in `uses`, and the "
+        "lines that use them. Each record has `local`, `target`, `name` (`*` for the full "
+        "module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import "
+        "statement makes, or for a re-export without a local name, such as `export { a } "
+        "from`. It is `value` for a name that gets its value or type from that "
+        "name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each "
+        "use is `[line, function line, property]`. The function line is the line of the "
+        "named function or method that contains the use, or 0. The property is the "
+        "attribute that the use reads, or an empty string. The value is `null` if the "
+        "source did not parse",
     ),
     ("module", "imports", "The keys of `uses`"),
     ("module", "imported_by", "Local modules that import this module"),
@@ -827,51 +855,11 @@ def internal_uses(
         tree = ast.parse(raw)
     except (SyntaxError, ValueError):
         return {}
-
-    def resolve(name: str) -> str | None:
-        if name in known:
-            return name
-        parts = name.split(".")
-        while len(parts) > 1:
-            parts.pop()
-            candidate = ".".join(parts)
-            if candidate in known:
-                return candidate
-        return None
-
     uses: dict[str, set[str]] = defaultdict(set)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if _in_package(alias.name, prefixes):
-                    target = resolve(alias.name)
-                    if target:
-                        uses[target].add(WHOLE_MODULE)
-        elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                relative = relative_source(module, is_package, node.level, node.module or "")
-                if not module or relative is None:
-                    continue
-                src = relative
-            else:
-                if not node.module:
-                    continue
-                src = node.module
-            if not _in_package(src, prefixes):
-                continue
-            base = resolve(src)
-            for alias in node.names:
-                if alias.name == "*":
-                    if base:
-                        uses[base].add(WHOLE_MODULE)
-                    continue
-                # Exact membership only: resolve() walks prefixes upward, so it
-                # would resolve a class name to its module and misread every
-                # from-import as a whole-module import.
-                if f"{src}.{alias.name}" in known:
-                    uses[f"{src}.{alias.name}"].add(WHOLE_MODULE)
-                elif base:
-                    uses[base].add(alias.name)
+    for _node, _local, target, name, _line in python_calls.import_targets(
+        tree, prefixes, known, module, is_package
+    ):
+        uses[target].add(name)
     return dict(uses)
 
 

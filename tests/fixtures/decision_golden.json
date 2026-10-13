@@ -45,18 +45,18 @@
  "dry run": {
   "code": 0,
   "out": [
-   "audit --dry-run: 7 questions (unknown until a key is set), 3,845 characters of state and questions",
+   "audit --dry-run: 7 questions (unknown until a key is set), 3,946 characters of state and questions",
    "  by type: flow 1, governs 1, owner 3, sentence 2",
-   "  outgoing data: module names, docstrings, public names, internal imports, component ids and sentences, invariants, flow sentences, and source lines with imports between components. A docstring has 600 characters at most. A flow has 30 source lines at most."
+   "  outgoing data: module names, docstrings, public names, internal imports, component ids and sentences, invariants, flow sentences, and source lines with imports between components. A docstring has 600 characters at most. A flow has 60 source lines and 12 lines from the facts at most."
   ]
  },
  "jev flow": {
   "bodies": [
-   "{\"model\": \"jev-latest\", \"state\": {\"claim\": {\"from\": \"Reader\", \"to\": \"Writer\", \"artifact\": \"request\", \"sentence\": \"The reader hands the writer one request at a time; the writer never goes back to the source.\"}, \"ends\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\"}, \"code\": [\"pkg.writer:1: from pkg.reader import read\", \"pkg.writer:5: return read(request)\"]}, \"questions\": {\"holds\": {\"type\": \"noul\", \"instructions\": \"Does `code` show that `claim.from` sends `claim.artifact` to `claim.to` as stated in `claim.sentence`? `ends` gives each component's function.\"}}}"
+   "{\"model\": \"jev-latest\", \"state\": {\"claim\": {\"from\": \"Reader\", \"to\": \"Writer\", \"artifact\": \"request\", \"sentence\": \"The reader hands the writer one request at a time; the writer never goes back to the source.\"}, \"ends\": {\"Reader\": \"the part that reads. Reads the input and turns it into a request. Interface: read(source) -> Request\", \"Writer\": \"the part that writes. Takes a request and writes the result. Interface: write(request) -> Result\"}, \"code\": [\"pkg.writer:1: from pkg.reader import read\", \"pkg.writer:4: def write(request: str) -> str:\", \"pkg.writer:5: return read(request)\", \"pkg.reader defines: def read(source: str) -> str\"]}, \"questions\": {\"holds\": {\"type\": \"noul\", \"instructions\": \"Does `code` show that `claim.from` sends `claim.artifact` to `claim.to` as stated in `claim.sentence`? `ends` gives each component's function.\"}}}"
   ],
   "code": 0,
   "keys": [
-   "596fcf034983ca423d7e0a265ac5aae9df8068d9401012626c05bd439417ee54"
+   "96d43aaed249e98d794690dae960a4fb5ec02cf8e8ac89d3a293093ab4bb817c"
   ],
   "out": [
    "audit: 1 item for the maintainer to confirm",
