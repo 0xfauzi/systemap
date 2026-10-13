@@ -73,6 +73,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("place_source.py", "write", "path.read_bytes"): MODEL,
     ("review.py", "_definition", "path.read_bytes"): MODEL,
     ("review.py", "_same", "shutil.copyfile"): MODEL,
+    ("journeys.py", "_proposed_meaning", "shutil.copyfile"): MODEL,
     # ---- writes that do not use file_write.write_atomic ----
     # The confined writer itself.
     ("file_write.py", "write_atomic", "os.replace"): "the confined writer",
@@ -83,7 +84,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("decisions_submit.py", "_write_answers", "target.write_bytes"): "the same configuration",
     # A path from a command option of the person who operates the command.
     ("cli.py", "cmd_figure", "out.write_text"): "the --out option of systemap figure",
-    ("delta_link.py", "write", "write_text"): "the --comment option of systemap delta",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
     ("model_write.py", "_replace", "os.replace"): MODEL,

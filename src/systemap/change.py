@@ -14,10 +14,19 @@ from __future__ import annotations
 import dataclasses
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
-from systemap import change_text, delta_git, delta_model, extraction, history, nest, repo_files
+from systemap import (
+    change_tests,
+    change_text,
+    delta_git,
+    delta_model,
+    extraction,
+    history,
+    nest,
+)
 from systemap.config import Config
 from systemap.language import LanguageAdapter
 from systemap.model import Model, covers, symbol_claims
@@ -51,29 +60,47 @@ def _run(args: list[str], cwd: Path) -> str:
 
 
 def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
-    """This function gets a pull request title and counts, or an empty record if gh gives
-    no usable answer.
+    """This function gets a pull request title and counts from gh, or an empty record.
+
+    The data is optional. If gh cannot start, does not answer in time, gives an error, or
+    gives text that is not JSON, the function writes one note with the cause to stderr.
+    Then it gives an empty record.
 
     A value that starts with "-" is not a pull request number, URL, or branch. The function
     does not give such a value to gh, because gh can read it as an option.
     """
     if not pr or pr.startswith("-"):
         return {}
-    raw = _run(
-        [
-            "gh",
-            "pr",
-            "view",
-            pr,
-            "--json",
-            "number,title,url,additions,deletions,changedFiles,state",
-        ],
-        repo,
-    )
+    fields = "number,title,url,additions,deletions,changedFiles,state"
     try:
-        return dict(json.loads(raw)) if raw else {}
+        proc = subprocess.run(
+            ["gh", "pr", "view", pr, "--json", fields],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=90,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return _no_meta(pr, f"gh could not start or did not answer: {exc}")
+    if proc.returncode:
+        lines = proc.stderr.strip().splitlines() or [f"exit code {proc.returncode}"]
+        return _no_meta(pr, f"gh gave an error: {lines[-1]}")
+    try:
+        found = json.loads(proc.stdout)
     except json.JSONDecodeError:
-        return {}
+        return _no_meta(pr, "gh gave text that is not JSON")
+    return dict(found) if isinstance(found, dict) else _no_meta(pr, "gh gave no JSON object")
+
+
+def _no_meta(pr: str, cause: str) -> dict[str, Any]:
+    print(
+        f"render: the data of pull request {pr} is not available: {cause}. "
+        "The page has no pull request title.",
+        file=sys.stderr,
+    )
+    return {}
 
 
 def _changed_files(repo: Path, merge_base: str, *head: str) -> list[str]:
@@ -154,6 +181,9 @@ class _WorkingTree:
     The changed files are the commits since the merge base, the edits that are not in a
     commit, and the untracked files. The disk gives the text. The caller gives the facts.
     """
+
+    # The working tree has no commit. The test comparison reads its files on disk.
+    revision = None
 
     def __init__(self, cfg: Config, facts: dict[str, Any]) -> None:
         self.cfg, self._facts = cfg, facts
@@ -298,98 +328,6 @@ def _touched_names(delta: dict[str, Any]) -> set[str]:
     }
 
 
-def _paths_for_change(
-    cfg: Config,
-    language: LanguageAdapter,
-    files: list[str],
-    facts: dict[str, Any],
-) -> dict[str, Path]:
-    paths = {
-        module: cfg.root / record["file"]
-        for module, record in facts.get("components", {}).items()
-        if repo_files.plain(record.get("file"))
-    }
-    for path in files:
-        module = language.module_for_path(cfg.root, path, cfg.roots)
-        if module:
-            paths.setdefault(module, cfg.root / path)
-    return paths
-
-
-def _test_file_changes(
-    cfg: Config,
-    language: LanguageAdapter,
-    path: str,
-    texts: tuple[str, str],
-    prefixes: set[str],
-    known: set[str],
-    paths: dict[str, Path],
-    context: Any,
-) -> tuple[set[str], set[str], set[str]] | None:
-    base_raw, head_raw = texts
-    before = {f"{path}::{name}" for name in language.test_names(base_raw, path)}
-    after = {f"{path}::{name}" for name in language.test_names(head_raw, path)}
-    added, removed = after - before, before - after
-    if not added and not removed:
-        return None
-    importer = f"__test__:{path}"
-    context_paths = {**paths, importer: cfg.root / path}
-    targets: set[str] = set()
-    for raw in (base_raw, head_raw):
-        targets.update(
-            language.internal_uses(
-                raw,
-                prefixes,
-                known,
-                module=importer,
-                repo=cfg.root,
-                paths=context_paths,
-                context=context,
-            )
-        )
-    return targets, added, removed
-
-
-def _changed_test_deltas(
-    cfg: Config,
-    language: LanguageAdapter,
-    files: list[str],
-    facts: dict[str, Any],
-    modules: set[str],
-    texts: _Sides,
-) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str]]:
-    """This function gives the added and removed tests of each target module.
-
-    A test file that a side cannot read is in the third list, with its problem. Its test
-    changes are not known.
-    """
-    prefixes = set(facts.get("packages", []))
-    known = set(facts.get("components", {})) | modules
-    paths = _paths_for_change(cfg, language, files, facts)
-    context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
-    tests_added: dict[str, set[str]] = {}
-    tests_removed: dict[str, set[str]] = {}
-    unread: list[str] = []
-    for path in files:
-        if not language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
-            continue
-        before, after = texts.base[path], texts.head[path]
-        problem = before.problem or after.problem
-        if problem:
-            unread.append(f"{path}: {problem}")
-            continue
-        changes = _test_file_changes(
-            cfg, language, path, (before.raw, after.raw), prefixes, known, paths, context
-        )
-        if changes is None:
-            continue
-        targets, added, removed = changes
-        for target in targets:
-            tests_added.setdefault(target, set()).update(added)
-            tests_removed.setdefault(target, set()).update(removed)
-    return tests_added, tests_removed, unread
-
-
 def _package_records(
     cfg: Config, language: LanguageAdapter, files: list[str], facts: dict[str, Any]
 ) -> dict[str, Any]:
@@ -510,8 +448,11 @@ def source_change(
         _refused(side.texts(wanted), refused),
     )
     deltas, unparsed = _source_deltas(language, sources, texts)
-    tests_added, tests_removed, unread = _changed_test_deltas(
-        cfg, language, files, snapshot_facts, set(deltas) | set(unparsed), texts
+    tests_added, tests_removed, unread = change_tests.compare(
+        cfg,
+        language,
+        ({path: texts.base[path] for path in tests}, {path: texts.head[path] for path in tests}),
+        (merge_base, side.revision),
     )
     return dataclasses.replace(
         found,

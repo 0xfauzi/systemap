@@ -199,7 +199,7 @@ def test_a_plan_nobody_wrote_names_the_ones_that_exist(
 def test_the_cards_a_change_touched_are_read_from_the_facts() -> None:
     base = {"components": {"pkg.a": {"sha": "1"}, "pkg.b": {"sha": "2"}}}
     head = {"components": {"pkg.a": {"sha": "9"}, "pkg.c": {"sha": "3"}}}
-    owner = {"pkg.a": "A", "pkg.b": "B", "pkg.c": "C"}
+    owner = {"pkg.a": {"A"}, "pkg.b": {"B"}, "pkg.c": {"C"}}
     assert plan_mod.touched(base, head, owner) == {"A", "B", "C"}
     missed, untouched = plan_mod.check(["A", "D"], {"A", "B"})
     assert missed == ["B"] and untouched == ["D"]

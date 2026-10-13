@@ -1064,10 +1064,17 @@ If the base model does not load, the panel gives the reason.
 The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
 If systemap cannot read a changed source file, the changes of its module are not known.
 The panel gives the read problem. A missing file is a removal.
-If systemap cannot read a changed test file, the panel gives the file and the problem.
+Each revision resolves the imports of its test files with the files of that revision:
+its configuration files, module paths, and modules.
+If systemap cannot read or parse a changed test file at a revision, the panel gives the file and the problem.
 The page has no test changes for that file.
 The panel also gives each changed path that the Git tree reader refuses, with its cause.
 The changes of such a path are not known.</p>
+</li>
+<li>
+<p><code>--pr N</code> gives the pull request title of the change map. <code>gh pr view</code> gives the title.
+If <code>gh</code> cannot give the data, the command writes one note with the cause to stderr.
+The page then has no pull request title.</p>
 </li>
 </ul>
 <h3 id="systemap-check-brief"><code>systemap check [--brief]</code></h3>
@@ -1451,7 +1458,9 @@ The comment has one link to the Changes view of the page for pull request <code>
 If it is necessary to update the map, one more line says so and gives the number of lines.</p>
 <p>The first comment line is <code>&lt;!-- systemap delta --&gt;</code>. CI finds the comment with it and changes that comment.
 Without <code>page_url</code>, the command writes no file.
-The comment does not change the delta lines or the exit code.</p>
+The comment does not change the delta lines or the exit code.
+If <code>FILE</code> is a link, the command replaces the link. It does not write to the target of the link.
+If <code>FILE</code> is in the repository, each folder of <code>FILE</code> must be in the repository.</p>
 </li>
 <li>
 <p><code>--decide</code> enables the suggestions of the decision provider for modules with changed
@@ -1521,7 +1530,8 @@ Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
 <li>
 <p><code>--check ID --base REF</code> compares the projection with changed components
 since <code>REF</code>. The default base is <code>origin/main</code>.
-The current model gives the component of each module.
+The current model gives the components of each module.
+A component of a module claims the module, or a symbol in the module.
 If the current model does not claim a removed module, the model at the <code>REF</code> commit gives its component.
 It exits 1 for changed components outside the plan.</p>
 </li>
@@ -1559,10 +1569,15 @@ Thus, after a rejected answer, the next command sends the question to the agent 
 <p>The agent can write no more than 200,000 bytes to stdout.
 If it writes more, the command stops the agent, and the request does not complete.
 If a request does not complete, the command writes the accepted sequences of the other requests.
-Then it names each request that did not complete and exits 1.</p>
+Then it names each request that did not complete and exits 1.
+A rejected draft is also a request that did not complete.</p>
 <p>Accepted sequences enter the model with <code>drafted=True</code>.
 The command writes them into the <code>JOURNEYS = (...)</code> tuple of the model.
 The tuple can have a type annotation, as in the model from <code>init</code>.
+If the model does not import <code>Journey</code> or <code>Step</code>, the command adds an import from <code>systemap</code>.
+Before the write, the model reader reads the changed model, as for each other command.
+If the reader refuses it, or the changed <code>MEANING</code> does not contain each accepted sequence,
+the command writes no file and exits 1.
 <code>judgement</code> prints <code>drafted journey</code> until a person examines the sequence and
 removes the mark.</p>
 <p>By default, the command writes no more than three sequences.</p>

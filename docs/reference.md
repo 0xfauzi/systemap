@@ -831,10 +831,16 @@ Thus they do not tell you to use `systemap extract` when `extract` cannot operat
   The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
   If systemap cannot read a changed source file, the changes of its module are not known.
   The panel gives the read problem. A missing file is a removal.
-  If systemap cannot read a changed test file, the panel gives the file and the problem.
+  Each revision resolves the imports of its test files with the files of that revision:
+  its configuration files, module paths, and modules.
+  If systemap cannot read or parse a changed test file at a revision, the panel gives the file and the problem.
   The page has no test changes for that file.
   The panel also gives each changed path that the Git tree reader refuses, with its cause.
   The changes of such a path are not known.
+
+- `--pr N` gives the pull request title of the change map. `gh pr view` gives the title.
+  If `gh` cannot give the data, the command writes one note with the cause to stderr.
+  The page then has no pull request title.
 
 ### `systemap check [--brief]`
 
@@ -1078,6 +1084,8 @@ than one-third of the map.
   The first comment line is `<!-- systemap delta -->`. CI finds the comment with it and changes that comment.
   Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
+  If `FILE` is a link, the command replaces the link. It does not write to the target of the link.
+  If `FILE` is in the repository, each folder of `FILE` must be in the repository.
 
 - `--decide` enables the suggestions of the decision provider for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change
@@ -1142,7 +1150,8 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--check ID --base REF` compares the projection with changed components
   since `REF`. The default base is `origin/main`.
-  The current model gives the component of each module.
+  The current model gives the components of each module.
+  A component of a module claims the module, or a symbol in the module.
   If the current model does not claim a removed module, the model at the `REF` commit gives its component.
   It exits 1 for changed components outside the plan.
 
@@ -1182,10 +1191,15 @@ The agent can write no more than 200,000 bytes to stdout.
 If it writes more, the command stops the agent, and the request does not complete.
 If a request does not complete, the command writes the accepted sequences of the other requests.
 Then it names each request that did not complete and exits 1.
+A rejected draft is also a request that did not complete.
 
 Accepted sequences enter the model with `drafted=True`.
 The command writes them into the `JOURNEYS = (...)` tuple of the model.
 The tuple can have a type annotation, as in the model from `init`.
+If the model does not import `Journey` or `Step`, the command adds an import from `systemap`.
+Before the write, the model reader reads the changed model, as for each other command.
+If the reader refuses it, or the changed `MEANING` does not contain each accepted sequence,
+the command writes no file and exits 1.
 `judgement` prints `drafted journey` until a person examines the sequence and
 removes the mark.
 
