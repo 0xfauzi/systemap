@@ -601,8 +601,8 @@ def _evidence_review_lines(
         != h[module].get("syntax_sha", h[module].get("sha"))
     }
     for card in model.components:
-        before = set(claimed(card, b))
-        after = set(claimed(card, h))
+        before = card_review.source_modules(card, b) & b.keys()
+        after = card_review.source_modules(card, h) & h.keys()
         affected = sorted((semantic & (before | after)) | (before ^ after))
         if affected and card_review.state(card, model, meaning, head) != card_review.CURRENT:
             lines.append(

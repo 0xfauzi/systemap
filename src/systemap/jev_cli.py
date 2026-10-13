@@ -335,7 +335,8 @@ def _write_journeys(
     failed = 0
     for current, group in take:
         try:
-            draft = journeys.write_one(writer, current.model, current.meaning, facts, group)
+            taken = written.get(current.path, ())
+            draft = journeys.write_one(writer, current.model, current.meaning, facts, group, taken)
         except agent.AgentError as exc:
             failed += 1
             out.append(

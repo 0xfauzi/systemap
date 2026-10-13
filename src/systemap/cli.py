@@ -59,6 +59,7 @@ from systemap import facts as facts_mod
 from systemap import language as languages
 from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
+from systemap.journey_coverage import outside_map, reviewed_entries
 from systemap.model import Meaning, Model, import_rule_problems
 from systemap.model import problems as model_problems
 from systemap.serve import DEFAULT_PORT, make_server
@@ -696,6 +697,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
     if _empty(p):
         return STALE
     facts = facts_file.read_facts(p.cfg.facts_path)
+    covered = reviewed_entries(m.meaning for m in p.tree.maps)
     code = OK
     for m in p.tree.maps:
         # A card without a position is placed for this look, as `systemap
@@ -720,6 +722,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
             p.cfg.observed_by,
             placement.placed,
             searched=(placement.tried, placement.routed) if placement.fresh else None,
+            scope=(covered, outside_map(m.model, m.top, facts)),
         )
         say(*(m.prefix + line for line in lines))
     return code

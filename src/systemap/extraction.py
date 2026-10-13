@@ -31,8 +31,8 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # top-level statement. Each re-export has `defined_in` and `defined_as`, the identity
 # of its definition. A TypeScript type-only export has `type_only`, and `api` has a
 # record for each `*` re-export. A type declaration that is not a class is in
-# `types`, with its category, and not in `classes`. Cached facts of format 7 have
-# the earlier values.
+# `types`, with its category, and not in `classes`. An entry point can have the
+# `same_as` fact. Cached facts of format 7 have the earlier values.
 FORMAT = 8
 TESTS_KEPT = 25
 

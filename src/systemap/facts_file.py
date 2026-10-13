@@ -24,7 +24,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "version",
         "The facts format is 8, with portable syntax hashes, compiler provenance, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
-        "`type_only`, and decorators in the `api` fingerprints. "
+        "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. "
         "`extract --check` marks older formats stale",
     ),
@@ -254,6 +254,15 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "label",
         "The display name that the language adapter gives to the entry point. A sequence "
         "can name it in `starts`",
+    ),
+    (
+        "entry point",
+        "same_as",
+        "The identity of a different entry point that starts the same operation. The "
+        "language adapter writes it only from an accurate indication. The Python adapter "
+        "writes it for a `main` function or a `__main__` module that starts the function of "
+        "a console script. Coverage then counts the two entry points as one. Without this "
+        "field, each entry point is a different operation",
     ),
 )
 

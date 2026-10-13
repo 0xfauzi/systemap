@@ -116,9 +116,12 @@ def uncovered(
     facts: dict[str, Any],
     owner: dict[str, str] | None = None,
     covered: Collection[str] | None = None,
+    skip: Collection[str] = (),
 ) -> list[dict[str, str]]:
-    """Return entry points without recorded sequence coverage."""
-    return judgement.ways_in_without_journey(meaning, facts, owner=owner, covered=covered)
+    """Return entry points without recorded sequence coverage, outside the `skip` modules."""
+    return judgement.ways_in_without_journey(
+        meaning, facts, skip=skip, owner=owner, covered=covered
+    )
 
 
 def gather(
@@ -219,6 +222,11 @@ def _step(raw: Any, model: Model, facts: dict[str, Any] | None) -> tuple[Step | 
     step = _parsed(raw)
     if step is None:
         return None, "must have lists of component identifiers and a sentence"
+    if len(step.edge) != 2:
+        return (
+            None,
+            f"has an edge with {len(step.edge)} values. An edge has two component identifiers",
+        )
     if not step.flow and step.edge not in {f.edge for f in model.flows}:
         return None, f"traces {' -> '.join(step.edge) or 'nothing'}, which is not a flow"
     found, problem = flow_ids.step_flow(step, model.flows)
@@ -293,11 +301,17 @@ def read_answer(
 
 
 def write_one(
-    agent: Agent, model: Model, meaning: Meaning, facts: dict[str, Any], group: Group
+    agent: Agent,
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    group: Group,
+    taken: Collection[str] = (),
 ) -> Draft:
     """Ask the agent for one sequence and validate the returned steps.
 
-    The agent cache keeps only an answer that gives a sequence."""
+    The agent cache keeps only an answer that gives a sequence. `taken` gives the ids of
+    the sequences that the command added to this map before."""
     question = GROUP_QUESTION if group.whole else QUESTION
     supplied = context(model, meaning, facts, group)
     supplied["source_snapshot"] = _source_snapshot(agent.root, facts)
@@ -306,7 +320,22 @@ def write_one(
         supplied,
         accept=lambda text: read_answer(text, model, group, facts).journey is not None,
     )
-    return read_answer(answer, model, group, facts)
+    return refuse_used_id(read_answer(answer, model, group, facts), meaning, taken)
+
+
+def refuse_used_id(draft: Draft, meaning: Meaning, taken: Collection[str] = ()) -> Draft:
+    """Refuse a draft with the id of a sequence in the map or of a previous draft.
+
+    The page selects a sequence by its id. Thus each id must identify one sequence."""
+    if draft.journey is None:
+        return draft
+    used = {journey.id for journey in meaning.journeys} | set(taken)
+    if draft.journey.id not in used:
+        return draft
+    problem = (
+        f"the map has a sequence with the id {draft.journey.id}. Give each sequence its own id"
+    )
+    return Draft(entry=draft.entry, problems=(problem,), answer=draft.answer)
 
 
 def _source_snapshot(root: Path, facts: dict[str, Any]) -> str:

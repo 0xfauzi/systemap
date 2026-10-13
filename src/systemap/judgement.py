@@ -40,6 +40,7 @@ from systemap.journey_coverage import (
 from systemap.journey_coverage import (
     _entry_lines,
     journey_problems,
+    outside_map,
     reviewed_entries,
     ways_in_without_journey,
 )
@@ -490,12 +491,9 @@ def run_tree(
     maps supply entry point coverage.
     """
     covered = reviewed_entries(m.meaning for m in tree.maps)
-    components = facts.get("components", {})
     out: list[str] = []
     for m in tree.maps:
-        skip = {mod for c in m.model.opening for mod in claimed(c, components)}
-        if not m.top:
-            skip |= set(components) - set(_owner_of(m.model, facts))
+        skip = outside_map(m.model, m.top, facts)
         lines = run(
             m.model,
             m.meaning,
