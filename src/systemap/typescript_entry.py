@@ -72,7 +72,7 @@ def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:
         compiler = projects.config_for_directory(directory)
         yield Package(
             directory,
-            package_json(directory),
+            package_json(directory, context.repo),
             compiler,
             # The imported files count, as in the top-level context: tsc 5 takes the
             # common folder of all program files as the output root.

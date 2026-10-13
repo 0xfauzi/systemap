@@ -194,7 +194,7 @@ class TypeScriptProjects:
         for candidate in (directory, *directory.parents):
             if candidate == self.repo or not candidate.is_relative_to(self.repo):
                 return None
-            if (candidate / "package.json").is_file() and package_json(candidate):
+            if config_present(candidate / "package.json") and package_json(candidate, self.repo):
                 return candidate
         return None
 

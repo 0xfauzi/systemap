@@ -24,6 +24,7 @@ from systemap import (
     model_fields,
     model_load,
     model_names,
+    repo_files,
 )
 from systemap import language as languages
 from systemap.delta_link import page_url
@@ -286,10 +287,10 @@ def find_root(start: Path) -> Path | None:
     including the start directory.
     """
     for candidate in (start, *start.parents):
-        if (candidate / CONFIG_FILE).is_file():
+        if repo_files.present(candidate / CONFIG_FILE):
             return candidate
         pyproject = candidate / "pyproject.toml"
-        if pyproject.is_file() and configures(pyproject):
+        if repo_files.present(pyproject) and configures(pyproject):
             return candidate
         if (candidate / ".git").exists():
             return candidate
@@ -300,8 +301,12 @@ def configures(pyproject: Path) -> bool:
     """Tell if pyproject.toml has a tool.systemap table.
 
     If the file is not correct TOML and it contains the text tool.systemap, the result is
-    `True`. Then the configuration reader gives the TOML error for that file."""
-    text = pyproject.read_text(encoding="utf-8-sig")
+    `True`. Then the configuration reader gives the TOML error for that file. A file
+    that the reader refuses, such as a link out of the folder, also gives `True`."""
+    try:
+        text = repo_files.read_text(pyproject.parent, pyproject.name, encoding="utf-8-sig")
+    except (OSError, UnicodeError):
+        return True
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError:
@@ -396,17 +401,17 @@ def read_raw(root: Path) -> tuple[dict[str, Any], str]:
     """This function reads the configuration table from systemap.toml first, then
     pyproject.toml.
     """
-    toml = root / CONFIG_FILE
-    if toml.is_file():
+    if repo_files.present(root / CONFIG_FILE):
         try:
-            return tomllib.loads(toml.read_text(encoding="utf-8-sig")), CONFIG_FILE
-        except tomllib.TOMLDecodeError as exc:
+            text = repo_files.read_text(root, CONFIG_FILE, encoding="utf-8-sig")
+            return tomllib.loads(text), CONFIG_FILE
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
             raise ConfigError(f"{CONFIG_FILE}: {exc}") from exc
-    pyproject = root / "pyproject.toml"
-    if pyproject.is_file():
+    if repo_files.present(root / "pyproject.toml"):
         try:
-            data = tomllib.loads(pyproject.read_text(encoding="utf-8-sig"))
-        except tomllib.TOMLDecodeError as exc:
+            text = repo_files.read_text(root, "pyproject.toml", encoding="utf-8-sig")
+            data = tomllib.loads(text)
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
             raise ConfigError(f"pyproject.toml: {exc}") from exc
         section = data.get("tool", {}).get("systemap")
         if isinstance(section, dict):

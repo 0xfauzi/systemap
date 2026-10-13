@@ -110,6 +110,16 @@ def read_text(
         return handle.read()
 
 
+def present(path: Path) -> bool:
+    """Tell if the path names an entry that is not a folder: a file, a link, or a FIFO.
+
+    A reader then reads the entry with `read_text`, which refuses a link out of the root
+    and a file that is not regular, with the cause. Thus such an entry is not silently
+    treated as a missing file.
+    """
+    return os.path.lexists(path) and not path.is_dir()
+
+
 def inside(root: Path, path: Path) -> bool:
     """Tell if the resolved path is in the resolved root."""
     return path.resolve().is_relative_to(root.resolve())

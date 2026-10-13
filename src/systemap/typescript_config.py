@@ -93,19 +93,24 @@ def compiler_settings(config: TypeScriptConfig, repo: Path) -> dict[str, Any]:
     return dict(relative(asdict(config)))
 
 
-def package_json(root: Path) -> dict[str, Any]:
+def package_json(root: Path, repo: Path | None = None) -> dict[str, Any]:
     """This function reads package metadata, or gives an empty table if package.json is
     missing.
 
     A package.json file that cannot be read, or that does not contain a JSON object, gives
     a configuration error. npm also refuses such a file. Empty metadata would show a
     package without entry points, and that result is not known.
+    The function reads only a regular file in the repository. Without `repo`, the root
+    is the repository. A link out of the repository and a FIFO give a configuration
+    error with the cause, as `_read_config` does.
     """
     path = root / "package.json"
-    if not path.is_file():
+    if not config_present(path):
         return {}
+    base = root if repo is None else repo
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        text = repo_files.read_text(base, repo_files.relative(base, path))
+        data = json.loads(text)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ConfigError(f"The parser could not read {path}: {exc}") from exc
     if not isinstance(data, dict):
@@ -127,7 +132,7 @@ def typescript_major(root: Path) -> int | None:
     """This function gets the installed TypeScript major version, or the package.json
     version range if no package is installed.
     """
-    installed = package_json(root / "node_modules" / "typescript").get("version")
+    installed = package_json(root / "node_modules" / "typescript", root).get("version")
     if isinstance(installed, str) and (match := re.match(r"\d+", installed)):
         return int(match.group())
     package = package_json(root)

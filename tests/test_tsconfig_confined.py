@@ -166,3 +166,57 @@ def test_a_nested_tsconfig_link_out_of_the_repository_stops_extraction(
     (repo / "src" / "tsconfig.json").symlink_to(outside)
     with pytest.raises(ConfigError, match="not in the repository"):
         extract.build(config.load(repo))
+
+
+# ---- package.json and the systemap configuration --------------------------------------
+
+
+def _package_tree() -> dict[str, str]:
+    tree = _tree("", references=[])
+    del tree["package.json"]
+    return tree
+
+
+def test_a_package_json_link_out_of_the_repository_stops_extraction(
+    layout: tuple[Path, Path],
+) -> None:
+    repo, outside = layout
+    write_tree(repo, _package_tree())
+    (repo / "package.json").symlink_to(outside)
+    with pytest.raises(ConfigError, match="not in the repository") as caught:
+        extract.build(config.load(repo))
+    assert "package.json" in str(caught.value)
+
+
+def test_an_installed_typescript_package_json_link_out_of_the_repository(
+    layout: tuple[Path, Path],
+) -> None:
+    repo, outside = layout
+    write_tree(repo, {**_tree("", references=[]), "node_modules/typescript/.keep": ""})
+    (repo / "node_modules" / "typescript" / "package.json").symlink_to(outside)
+    with pytest.raises(ConfigError, match="not in the repository"):
+        extract.build(config.load(repo))
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="The platform has no FIFO.")
+def test_a_fifo_package_json_stops_extraction(tmp_path: Path) -> None:
+    write_tree(tmp_path, _package_tree())
+    fifo = tmp_path / "package.json"
+    os.mkfifo(fifo)
+    try:
+        with pytest.raises(ConfigError, match="not a regular file") as caught:
+            extract.build(config.load(tmp_path))
+        assert "package.json" in str(caught.value)
+    finally:
+        _release(fifo)
+
+
+def test_a_systemap_toml_link_out_of_the_repository_is_a_configuration_error(
+    layout: tuple[Path, Path],
+) -> None:
+    repo, outside = layout
+    write_tree(repo, {"src/index.ts": "export const one = 1;\n"})
+    outside.write_text('language = "typescript"\n', encoding="utf-8")
+    (repo / "systemap.toml").symlink_to(outside)
+    with pytest.raises(ConfigError, match="not in the repository"):
+        config.load(repo)
