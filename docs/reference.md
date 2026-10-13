@@ -345,13 +345,14 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 | decision mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
 | decision owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
 | decision sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
-| decision flow | P < 0.05 (only with `--kind "decision flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+| decision flow | P < 0.02 (only with `--kind "decision flow"`) | 33.8% of incorrect claims found, 2.5% incorrect findings | 37.5% found, 6.2% incorrect findings |
 | decision governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
 | triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
 | plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
 | `suggest --decide`, `delta --decide` moves | not available | not measured | No holdout rows exist. |
 
 The owner question of `delta --decide` uses the `decision owner` threshold.
+The `decision flow` threshold came from a second measurement on 2026-10-13. It used the flow context from the `call_sites` fact, as the command does.
 All measured repositories are Python repositories. No TypeScript result was measured.
 The finding kinds have the same names for each provider. These names are identifiers in `[judgement] answered`.
 [How do you change to the new finding names?](#how-do-you-change-to-the-new-finding-names) gives the previous names.
@@ -365,6 +366,7 @@ Its key includes the provider name, the model, the evidence, and the question. T
 The cost line on stderr has the same form for each provider, for example `openai: 1 sent, 0 from the cache; 290 input and 0 output tokens; gpt-6-luna`.
 OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
 The 1,636 bench requests used 1,211,893 input tokens ($0.12).
+The 256 requests of the second flow measurement used 213,942 input tokens ($0.02).
 
 ## How do you change to the new finding names?
 

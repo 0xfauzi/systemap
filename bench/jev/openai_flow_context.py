@@ -68,7 +68,12 @@ def _answers(path: Path) -> tuple[dict[str, dict[str, Any]], int, int]:
         recs = [json.loads(x) for x in fh.read().splitlines()]
     ok = {r["id"]: r for r in recs if "error" not in r}
     errors = len({r["id"] for r in recs if "error" in r} - set(ok))
-    refused = {i for i, r in ok.items() if any(a.get("type") == "refusal" for a in r["answers"])}
+    # Jev answers are a dict by name. OpenAI answers are a list, and only these can refuse.
+    refused = {
+        i
+        for i, r in ok.items()
+        if isinstance(r["answers"], list) and any(a["type"] == "refusal" for a in r["answers"])
+    }
     return {i: r for i, r in ok.items() if i not in refused}, errors, len(refused)
 
 
