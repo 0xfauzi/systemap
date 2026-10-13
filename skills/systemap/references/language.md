@@ -319,6 +319,12 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | annotation | The type text after a colon in a source assignment. |
 | environment variable | A named value that the environment of a command supplies to a program. |
 | symbolic link | A file system entry that refers to a different file. |
+| decision request | A claim that `systemap decisions` gives to a coding agent for examination. |
+| verdict | The result that a coding agent gives for one decision request: `supported`, `contradicted`, or `insufficient_evidence`. |
+| citation | The file path, the line span, and the source hash that a verdict refers to. |
+| line span | The first and the last line number of a citation. |
+| decision store | The local file `.systemap/decisions.json` that records the verdicts of a working copy. |
+| session | One continuous period of work of a coding agent. |
 
 | Term | Technical meaning |
 |---|---|

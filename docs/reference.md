@@ -91,6 +91,7 @@ For each finding, change the model or record the reason for its stored state.
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
 | no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
 | stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with `systemap review ID`. |
+| missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
 Without `--strict`, the report exits 0.
@@ -101,6 +102,7 @@ Each source component has one review state:
 `systemap delta` and `systemap judgement` use the same state.
 A stale review is a `stale source review` finding, so `judgement --strict` fails on it.
 A missing review is not a finding. Many maps have no `source_review` values, and these maps pass `judgement --strict`.
+With `[judgement] require_reviews = true`, a missing review is a `missing source review` finding, so `judgement --strict` fails on it.
 The report counts the three states on one line, for example `source reviews: 16 current, 0 stale, 0 missing`.
 `[judgement] answered` in `systemap.toml` contains recorded answers.
 Accepted answers suppress findings and increase the answered count.
@@ -545,6 +547,10 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - `--brief` does not include the two explanation rows.
 
+- If the decision store has unknown decision requests, the report gives each one after the review counts.
+  The row `unknown request ID: CLAIM` gives the claim. The report does not say that the claim is correct.
+  The `systemap decisions` section tells about decision requests.
+
 - `--json` writes one JSON object to stdout for software, for example a CI step.
   The object has no explanation text. `--brief` and `--verbose` do not change it.
   The exit codes are the same as in the text mode, with and without `--strict`.
@@ -571,7 +577,9 @@ The JSON object has these fields:
 | `answered.answers[].lines` | list of strings | The findings that the answer closes. |
 | `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
 | `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
+| `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
+| `unknown_requests` | list of objects | The unknown decision requests, with the fields of `unknown_requests` in `systemap decisions status --json`. Without a decision store, the list is empty. |
 
 The `evidence` digest is for an answer with one line.
 An `items` answer for more than one line has a different digest.
@@ -770,6 +778,118 @@ The command stops with exit 1 and writes nothing in these conditions:
 - systemap cannot read the model file as data. Use `systemap convert` first.
 - The command finds no literal call for the target, or more than one.
 
+### `systemap decisions pending | submit FILE | status`
+
+These commands give the claims of the map to a coding agent in its current session.
+The agent examines each claim against the source code and sends a verdict.
+systemap examines each verdict and records the correct verdicts.
+The commands send no request to a model. An API key is not necessary.
+The skill procedure is in `references/decisions.md`.
+
+The commands read the facts file. If the facts file does not agree with the source code, the commands stop with exit 1.
+Run `systemap refresh` first.
+
+A decision request has one of three types:
+
+| Type | Claim | Result of `supported` |
+|---|---|---|
+| `judgement` | An open judgement line. The claim digest is the SHA-256 digest of the line. | An exact answer in `[judgement] answered`, with the summary as the reason, the current evidence digest, and the citations. |
+| `source_review` | A source component with a missing or stale source review. The claim digest is the review digest. | The current `source_review` digest, as `systemap review ID` writes it. |
+| `flow_review` | A flow with `source_refs` and a `review_digest` that is not current. The claim digest is the flow claim digest. | The current `review_digest`, as `systemap review --flow` writes it. |
+
+A judgement line that a review digest closes is not a different decision request.
+These lines are `stale source review` and `missing source review` for a component with a `source_review` request.
+They are also `flow review` and `declared flow` for a flow with a `flow_review` request.
+
+The `id` of a decision request contains the type, the target, and the first 16 characters of the claim digest.
+If the claim does not change, the `id` stays the same in a different session.
+A source change that does not change a judgement line does not change its `id`.
+
+#### `systemap decisions pending [--json]`
+
+Gives the pending decision requests. The command exits 0.
+An unknown decision request is not pending. The `unknown` count gives the quantity.
+
+The JSON object has these fields:
+
+| Field | Type | Contents |
+|---|---|---|
+| `schema_version` | integer | The version of this schema. The value is 1. |
+| `verdicts` | list of strings | `supported`, `contradicted`, and `insufficient_evidence`. |
+| `max_contradicted` | integer | The value of `[decisions] max_contradicted`. |
+| `requests` | list of objects | One object for each pending decision request. |
+| `requests[].id` | string | The identifier for `request_id` in a verdict. |
+| `requests[].type` | string | `judgement`, `source_review`, or `flow_review`. |
+| `requests[].map` | string | The ID of the nested map. The top map has an empty string. |
+| `requests[].target` | string | The judgement line, the component ID, or the flow as `SRC->DST`. |
+| `requests[].claim` | string | The claim text. For a component, it includes the flows, invariants, and sequences that name it. |
+| `requests[].claim_digest` | string or null | The current claim digest. The value is null if the component has no current digest. |
+| `requests[].files` | list of objects | The source files of the claim, with `file` (the path from the repository root), `module`, and `sha256` (the source hash of the full file). |
+| `requests[].verdicts` | list of strings | The permitted verdicts. |
+| `requests[].attempts` | integer | The quantity of `contradicted` verdicts for the current claim. |
+| `requests[].blocked` | string | If not empty, the cause that prevents `supported`, and the necessary step. |
+| `unknown` | integer | The quantity of unknown decision requests. |
+
+For a judgement line, the files are the files of the components and the modules that the line names.
+If the line names no component or module, the list is empty.
+
+#### `systemap decisions submit FILE`
+
+Reads a JSON list of verdicts from FILE, or from stdin for `-`.
+Each verdict is an object with only these fields:
+
+| Field | Type | Contents |
+|---|---|---|
+| `request_id` | string | The `id` of a pending decision request. |
+| `verdict` | string | `supported`, `contradicted`, or `insufficient_evidence`. |
+| `citations` | list of objects | The source lines that the agent read. Each citation has `file`, `start_line`, `end_line`, and `sha256`. |
+| `summary` | string | One or more sentences about the source code. The writing profile applies. |
+
+The command first examines all verdicts.
+If one verdict is incorrect, the command writes no file, gives each error, and exits 1.
+The command rejects a verdict in these conditions:
+
+- The `request_id` is not a current decision request, or the decision request is unknown. A claim change gives a new `id`.
+- The file has two verdicts for one `request_id`.
+- A `file` is an absolute path, a Windows drive or UNC path, or contains `..` or a backslash.
+- A `file` is not a regular file, or is not a source file in the facts.
+- A `file` is a symbolic link to a file that is not in the repository.
+- A line span is not in the file, or `start_line` is more than `end_line`.
+- A `sha256` is not the SHA-256 digest of the current file content.
+- A `supported` verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a judgement line without files, one citation is necessary.
+- A `supported` verdict has a decision request with a `blocked` value, or the review command cannot write the digest.
+- A `supported` verdict for a component has a flow of that component with a `contradicted` or unknown verdict.
+
+Then the command writes, in this sequence:
+
+1. The `review_digest` of each `supported` flow.
+2. The `source_review` of each `supported` component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.
+3. One exact answer for each `supported` judgement line. A review digest changes the model file, and the evidence digest of an answer includes the model file. Thus the command calculates the evidence digest after the review digests.
+4. The decision store, `.systemap/decisions.json`. Git does not record this file.
+
+A `contradicted` verdict adds one to the `contradicted` count of the claim.
+The agent must correct the map and send a new verdict.
+At `[decisions] max_contradicted` verdicts, the decision request becomes unknown.
+After one `insufficient_evidence` verdict, the decision request is unknown.
+A change of the claim digest makes the decision request pending again, with a count of zero.
+
+CAUTION: A new review digest in the model file changes the evidence digest of each exact answer for a line that is not a crossing import.
+These answers then stay pending until they have a new evidence digest.
+
+#### `systemap decisions status [--json]`
+
+Gives the counts and the unknown decision requests.
+The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
+An unknown decision request does not show that its claim is correct, and the text does not say that it is correct.
+
+| Field | Type | Contents |
+|---|---|---|
+| `schema_version` | integer | The version of this schema. The value is 1. |
+| `pending` | integer | The quantity of pending decision requests. |
+| `supported` | integer | The quantity of `supported` verdicts in the decision store. Remove the decision store to start a new count. |
+| `unknown` | integer | The quantity of unknown decision requests. |
+| `unknown_requests` | list of objects | One object for each unknown decision request, with `id`, `type`, `map`, `target`, `claim`, `claim_digest`, `verdict` (the last verdict), `attempts`, and `summary` (the last summary). |
+
 ### `systemap serve [--port 8765]`
 
 Supplies the output directory through HTTP on the loopback address.
@@ -873,6 +993,9 @@ Unknown keys are rejected.
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A `-` at the start removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
+| `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
+| `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
+| `[decisions]` | `max_contradicted = 3` | The quantity of `contradicted` verdicts for one claim before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--jev`. With `enabled` unset, `delta` sends no question without `--jev`, also with a key. `enabled = false` stops the hints. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |

@@ -415,6 +415,47 @@ JOURNEYS = (
         ),
     ),
     Journey(
+        id="examine-claims",
+        label="Examine the claims with the agent",
+        starts="decisions (subcommand in systemap.decisions_cli)",
+        covers=(
+            '["subcommand","systemap.decisions_cli","","decisions"]',
+            '["subcommand","systemap.decisions_cli","","submit"]',
+        ),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The agent runs systemap decisions pending. The command gives each claim without a current decision, with its source files and their digests.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=(),
+                edge=("Judgement", "Agent"),
+                say="The requests are the open judgement lines, the missing or stale source reviews and the flow reviews that are not current.",
+            ),
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "Model"),
+                say="The agent reads the source files and gives one verdict with citations for each request. After a contradicted verdict, the agent corrects the map.",
+            ),
+            Step(
+                acts=("Config",),
+                measures=(),
+                edge=("Config", "Model"),
+                say="systemap decisions submit rejects incorrect citations and writes nothing. Otherwise, it writes the review digests into the model and the exact answers into systemap.toml.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=("Maintainer",),
+                edge=("Judgement", "Maintainer"),
+                say="systemap decisions status and systemap judgement show each unknown request. The maintainer examines these claims.",
+            ),
+        ),
+    ),
+    Journey(
         id="draw-figure",
         label="Make a map figure",
         covers=('["subcommand","systemap.cli","systemap","figure"]',),
