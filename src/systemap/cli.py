@@ -48,6 +48,7 @@ from systemap import (
     out_paths,
     page,
     place,
+    place_source,
     providers,
     review,
     scaffold,
@@ -477,7 +478,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     results = _check_tree(p, fresh)
     if not stale_lines and check.tree_ok(results):
         note(ALREADY_CURRENT)
-        return OK
+        return _rules_check(p, fresh, True)
 
     note("map: The refresh uses the working tree.")
     extract.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
@@ -515,7 +516,8 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return STALE
     note(f"map: The command updated {', '.join(written)}")
     note(f"map: Commit {p.cfg.out_dir}/ to record this system state.")
-    return OK
+    # The command examines the import rules and gives the exit code as systemap check does.
+    return _rules_check(p, fresh, True)
 
 
 # ---- judgement -------------------------------------------------------------
@@ -747,18 +749,9 @@ def cmd_place(args: argparse.Namespace) -> int:
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))
             continue
-        source = place.write(m.path, placement)
-        # The file is read back and compared with what was computed, so a
-        # card the edit could not reach is reported, never assumed written.
-        reloaded, _meaning = config.load_model(m.path, m.rel)
-        wrong = place.unwritten(reloaded, placement)
-        if wrong:
-            m.path.write_text(source, encoding="utf-8", newline="\n")
-            raise place.PlaceError(
-                f"The command could not write a position for {', '.join(wrong)} in {m.rel}: "
-                f"the source has no explicit Component(id=...) call. Use systemap place "
-                f"--print to show x and y. Add these values manually."
-            )
+        # The writer loads the file again and compares all positions, boxes, and the
+        # canvas. If it cannot load the file or a value is different, it restores the file.
+        place_source.write(m.path, m.rel, placement, place.apply(m.model, placement), _reload)
         laid = ". The command set all boxes and the canvas" if placement.fresh else ""
         say(f"{m.prefix}place: The command wrote {m.rel}: {place.head(placement)}{laid}")
         if placement.fresh:
@@ -767,6 +760,10 @@ def cmd_place(args: argparse.Namespace) -> int:
     if wrote:
         say("run: systemap check")
     return OK
+
+
+def _reload(path: Path, label: str) -> Model:
+    return config.load_model(path, label)[0]
 
 
 # ---- serve -----------------------------------------------------------------

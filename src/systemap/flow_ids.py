@@ -68,8 +68,9 @@ def counts(flows: Iterable[Flow]) -> dict[Edge, int]:
 
 
 def pair_problems(flows: tuple[Flow, ...]) -> list[str]:
-    """Find incorrect ids, ids that two flows use, and pairs with flows that have no id."""
-    out = _id_problems(flows)
+    """Find incorrect ids, ids that two flows use, pairs with flows that have no id, and
+    flows with the same component at the two ends."""
+    out = _id_problems(flows) + _loop_problems(flows)
     for (src, dst), n in counts(flows).items():
         group = [f for f in flows if f.edge == (src, dst)]
         if n > 1 and not all(f.id for f in group):
@@ -81,6 +82,17 @@ def pair_problems(flows: tuple[Flow, ...]) -> list[str]:
                 "direction"
             )
     return out
+
+
+def _loop_problems(flows: tuple[Flow, ...]) -> list[str]:
+    """Find flows with the same component at the two ends. The router cannot make a path
+    that shows these flows."""
+    return [
+        f"flow {f.src} -> {f.dst} has the same component at the two ends. A flow must "
+        "connect two different components"
+        for f in flows
+        if f.src == f.dst
+    ]
 
 
 def _id_problems(flows: tuple[Flow, ...]) -> list[str]:
