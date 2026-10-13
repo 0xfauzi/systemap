@@ -482,10 +482,16 @@ def _main_module_alias(
     components: dict[str, Any],
     sources: dict[str, str],
 ) -> str:
-    """Give the identity of the entry point whose function a `__main__` module uses."""
+    """Give the identity of the entry point that starts the function that a `__main__`
+    module starts.
+
+    The module must use the function at the module level, not in a function body. A
+    use only in a function body does not start the function. If the module starts the
+    functions of two different entry points, the equivalence is not known, and the
+    result is empty."""
     used = _used_functions(point["module"], components, sources)
-    alias = next((first[d] for d in used if d in first), None)
-    return entry_identity(alias) if alias is not None else ""
+    aliases = {entry_identity(first[d]) for d in used if d in first}
+    return aliases.pop() if len(aliases) == 1 else ""
 
 
 def _definition(
@@ -577,16 +583,16 @@ def _assigned_names(node: ast.stmt) -> set[str]:
 def _used_functions(
     module: str, components: dict[str, Any], sources: dict[str, str]
 ) -> list[tuple[str, str]]:
-    """Give the defining module and name of each imported name that the module uses."""
+    """Give the defining module and name of each imported name that the module uses at the
+    module level. The second value of a use is the line of its function: 0 for none."""
     out: list[tuple[str, str]] = []
     for site in components.get(module, {}).get("call_sites") or []:
-        if site["name"] != WHOLE and site["uses"]:
+        top = [use for use in site["uses"] if use[1] == 0]
+        if site["name"] != WHOLE and top:
             out.append(_definition(site["target"], site["name"], components, sources))
         elif site["name"] == WHOLE:
             out += [
-                _definition(site["target"], use[2], components, sources)
-                for use in site["uses"]
-                if use[2]
+                _definition(site["target"], use[2], components, sources) for use in top if use[2]
             ]
     return out
 

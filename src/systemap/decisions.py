@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -198,26 +199,35 @@ def _label(m: nest.Map, target: str) -> str:
 
 
 def _card_claim(card: Component, model: Model, meaning: Meaning) -> str:
+    """Give the claim text of a component. The text contains each claim of its digest.
+
+    The flows, the sequences, and the invariants come from `card_review.claims`. Thus the
+    request and the digest use the same selection. A sequence row gives the full sequence
+    record as JSON, with each step.
+    """
+    claims = card_review.claims(card, model, meaning)
     rows = [
         f"component {card.id} ({meaning.plain.get(card.id, '')}): {card.does}",
         f"interface: {card.interface}",
         f"implemented_by: {', '.join(card.implemented_by)}",
         f"entry: {card.entry}",
+        f"kind: {card.kind}",
+    ]
+    rows += [f"note: {card.note}"] if card.note else []
+    rows += [f"calls_model: {card.calls_model}"] if card.calls_model else []
+    rows += [f"map: {card.map}"] if card.map else []
+    for f in model.flows:
+        if card.id in f.edge:
+            rows.append(f"flow: {f.name} ({f.artifact}, {f.kind}): {meaning.relation(f)}")
+            rows += [f"  source_refs: {', '.join(f.source_refs)}"] if f.source_refs else []
+    rows += [
+        f"invariant {inv['n']}: {inv['text']}"
+        + (f" (governs: {', '.join(inv['governs'])})" if inv["governs"] else "")
+        for inv in claims["invariants"]
     ]
     rows += [
-        f"flow: {f.name} ({f.artifact}, {f.kind}): {meaning.relation(f)}"
-        for f in model.flows
-        if card.id in f.edge
-    ]
-    rows += [
-        f"invariant {inv.n}: {inv.text}"
-        for inv in model.invariants
-        if not inv.governs or card.id in inv.governs
-    ]
-    rows += [
-        f"sequence {journey.id}: {journey.label}"
-        for journey in meaning.journeys
-        if any(card.id in (*s.acts, *s.measures, *s.edge) for s in journey.steps)
+        f"sequence {journey['id']}: {json.dumps(journey, ensure_ascii=False, sort_keys=True)}"
+        for journey in claims["journeys"]
     ]
     return "\n".join(rows)
 
@@ -267,6 +277,17 @@ def endpoint_modules(flow: Flow, model: Model, facts: dict[str, Any]) -> list[st
         if card.id in flow.edge
         for module in card_modules(card, facts)
     ]
+
+
+def endpoint_files(m: nest.Map, target: str, facts: dict[str, Any], root: Path) -> set[str]:
+    """Give the source files of the two endpoint components of a flow, by flow key.
+
+    The files of the other source records of the flow are not in the result.
+    """
+    flow = next((f for f in m.model.flows if f.key == target), None)
+    if flow is None:
+        return set()
+    return {f.file for f in _files(root, facts, endpoint_modules(flow, m.model, facts))}
 
 
 def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Request]:

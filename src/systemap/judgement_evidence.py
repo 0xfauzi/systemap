@@ -11,6 +11,10 @@ model files (`model_digest`), and the facts and source of all modules. A crossin
 line has the imports between the two components and the source of the two modules of
 each import.
 
+A `step source` line also has the claim of its sequence step: the step record and the
+map claims of its acting and measured components. Thus a change to the step changes the
+evidence, also when the line names no component.
+
 An `entry point` line also has the entry point records of its modules, or all records
 if it has the full evidence. A record gives the kind, the module, the target, and the
 name. Thus a new target of an entry point changes the evidence.
@@ -27,13 +31,14 @@ and the entry point records.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, model_load, nest, repo_files
+from systemap import card_review, flow_ids, model_load, nest, repo_files, step_refs
 from systemap.model import Component, claimed, is_symbol
 from systemap.source_facts import Located, entry_identity
 from systemap.source_text import text_digest
@@ -165,7 +170,8 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
     components = facts.get("components", {})
     cards = named_cards(m, line)
     modules = sorted(set(line_modules(m, line, facts)))
-    if not cards and not modules:
+    step = step_claim(m, line)
+    if not cards and not modules and step is None:
         return None
     state = {
         "claims": [
@@ -184,7 +190,31 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
     points = entry_points(m, facts, line, set(modules))
     if points is not None:
         state["entry_points"] = points
+    if step is not None:
+        state["step"] = step
     return state
+
+
+def step_claim(m: nest.Map, line: str) -> Any:
+    """Give the claim of the sequence step of a `step source` line, or None for other lines.
+
+    The claim is the step record (`flow_ids.journey_record`) and the map claims of the
+    acting and measured components of the step."""
+    bare = line[len(m.prefix) :]
+    for journey in m.meaning.journeys:
+        for k, step in enumerate(journey.steps, start=1):
+            if not bare.startswith(f"{step_refs.KIND}: journey {journey.id} step {k} "):
+                continue
+            one = dataclasses.replace(journey, steps=(step,))
+            members = set(step.acts) | set(step.measures)
+            cards = [card for card in m.model.components if card.id in members]
+            return {
+                "step": flow_ids.journey_record(one)["steps"][0],
+                "claims": [
+                    (card.id, card_review.claims(card, m.model, m.meaning)) for card in cards
+                ],
+            }
+    return None
 
 
 def located_state(root: Path, found: list[Located]) -> Any:

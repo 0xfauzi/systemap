@@ -73,6 +73,8 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
 def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
     """This function gives the cached facts in path, or None if the file is not usable.
 
+    A JSON value that is not a table with a `components` table is not usable.
+
     The read holds the lock of the facts cache. On Windows, a read cannot occur while a
     different process replaces the file. A link out of the repository (at the file or at a
     folder), a FIFO, and a device give `file_write.RefusedFile` with the cause. They are
@@ -85,9 +87,12 @@ def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
         if text is None:
             return None
         try:
-            held: dict[str, Any] = json.loads(text)
+            held = json.loads(text)
         except ValueError:
             return None
+    # A cache file that is not a facts table is not usable. The caller extracts again.
+    if not isinstance(held, dict) or not isinstance(held.get("components"), dict):
+        return None
     return held
 
 

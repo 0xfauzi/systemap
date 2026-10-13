@@ -282,7 +282,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         html = _render_page(p, m, facts, args, source)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
-            current = file_write.read_text(p.cfg.root, out) or ""
+            current = check.output_text(p.cfg.root, out)
             if current != html:
                 say(f"{p.cfg.rel(out)} is stale: it differs from the rendered output.")
                 code = STALE

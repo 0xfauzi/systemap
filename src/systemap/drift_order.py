@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    card_review,
     decision,
     delta,
     flow_ids,
@@ -49,7 +50,7 @@ from systemap import (
 )
 from systemap.config import Config
 from systemap.decision import DecisionError, DecisionProvider, PredicateQuestion
-from systemap.model import Component, Journey, Meaning, Model, claimed, is_symbol
+from systemap.model import Component, Meaning, Model, claimed, is_symbol
 
 # The limit of the source part in characters. Test 7 in bench/jev used the same limit.
 CAP = 12_000
@@ -276,7 +277,7 @@ def claims_of(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]
         "sequences": [
             flow_ids.journey_record(journey)
             for journey in meaning.journeys
-            if _touches(journey, card.id)
+            if card_review.touches(journey, card.id)
         ],
         "invariants": [
             dataclasses.asdict(invariant)
@@ -284,13 +285,6 @@ def claims_of(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]
             if not invariant.governs or card.id in invariant.governs
         ],
     }
-
-
-def _touches(journey: Journey, card_id: str) -> bool:
-    return any(
-        card_id in step.acts or card_id in step.measures or card_id in step.edge
-        for step in journey.steps
-    )
 
 
 def question(cfg: Config, target: Target, facts: dict[str, Any]) -> PredicateQuestion:

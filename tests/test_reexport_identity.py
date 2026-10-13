@@ -220,7 +220,8 @@ def test_a_computed_all_gives_an_unknown_record(tmp_path: Path) -> None:
 
 
 def test_an_unknown_definition_is_not_known() -> None:
-    """Acceptance: a re-export of a module outside the facts has no defining identity."""
+    """Acceptance: a re-export of a module outside the facts has no defining identity.
+    Its methods are not known, so an interface method gives no finding (Codex model-2)."""
     names = {
         "pkg": {"names": [{"name": "gone", "kind": "reexport", "reexport_of": "pkg.nowhere"}]},
     }
@@ -228,4 +229,4 @@ def test_an_unknown_definition_is_not_known() -> None:
     gone = names["pkg"]["names"][0]
     assert gone["kind"] == "unknown"
     assert gone["defined_in"] is None and gone["defined_as"] is None
-    assert "has no public method" in check.interface_problem(card("pkg", "gone.run()"), names)
+    assert check.interface_problem(card("pkg", "gone.run()"), names) == ""
