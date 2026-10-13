@@ -25,6 +25,8 @@ SYNTAX = "syntax"
 DECLARATION = "declaration"
 # A reference has a target that is not a module in the facts.
 TARGET = "target"
+# A reference names a declaration file. Such a file gives only types and has no module.
+DECLARATION_FILE = "declaration file"
 # A configuration file extends a configuration package that could not be read.
 PACKAGE = "package"
 # The framework binding of a registration is not known.
@@ -34,7 +36,18 @@ REEXPORT = "reexport"
 # The record has no cause.
 NOT_KNOWN = "not known"
 
-CAUSES = (READ, ENCODING, SYNTAX, DECLARATION, TARGET, PACKAGE, BINDING, REEXPORT, NOT_KNOWN)
+CAUSES = (
+    READ,
+    ENCODING,
+    SYNTAX,
+    DECLARATION,
+    TARGET,
+    DECLARATION_FILE,
+    PACKAGE,
+    BINDING,
+    REEXPORT,
+    NOT_KNOWN,
+)
 
 # The correction for each cause. The check prints one line for each cause that occurs.
 FIX = {
@@ -54,6 +67,11 @@ FIX = {
     TARGET: (
         "If a target has no module in the facts, examine the target file. If it is "
         "source code, add its directory to [package_roots]. If not, record an answer."
+    ),
+    DECLARATION_FILE: (
+        "If a target is a declaration file, the names of the line come from that file and "
+        "have no module. Examine the declaration file. Then record an answer for the line "
+        "in [judgement] answered."
     ),
     PACKAGE: (
         "If a configuration package could not be read, install the dependencies of the "

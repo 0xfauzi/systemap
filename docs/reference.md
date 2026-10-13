@@ -144,7 +144,7 @@ For each finding, change the model or record the reason for its stored state.
 | possible mis-fold | A module's dotted path has no word in common with its component's id, `does`, plain text, or `interface`. The component has multiple modules. No other module is in the same package. Is the assignment incorrect? |
 | no sentence | A flow has no relation sentence. |
 | thin layer | A layer contains fewer than two components. This includes an unused standard kind. |
-| entry point X has no sequence (component C) | The identity of the entry point is not in the `covers` of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example `entry point 6 routes into C have no sequence (component C)`. |
+| entry point X has no sequence (component C) | The identity of the entry point is not in the `covers` of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example `entry point 6 routes into C have no sequence (component C)`. C is the component of the module that the entry point names. The function that it starts can be in a different component, for example a console script that names a function that its package imports. |
 | crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. |
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
@@ -451,6 +451,17 @@ For example, `f<typeof import('./a')>(g(),)` is correct TypeScript.
 At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.
 
 `judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
+
+The `unknown surface` line for a re-export target outside the extracted module set also changed (facts format 10).
+The earlier line had the location `:1`, and a statement with two or more names gave one equal line for each name.
+The new line has the line of the statement, and it ends with the names, for example `Names: Shape, Size.`
+An answer item in the earlier form can apply to a current line.
+The map, the module, the file, and the target must agree with one and only one current line.
+The evidence digest must agree.
+A target that is a declaration file has a different line with the cause `declaration file`.
+An answer item in the earlier form does not apply to that line, because the meaning changed.
+Thus `judgement` gives the earlier item as a stale answer.
+The command prints no warning for an item in the earlier form of this line.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
 The previous options stay for one release. They send the same requests as the new options.
@@ -821,6 +832,7 @@ The group gives one `fix:` line for each cause that occurs:
 | `syntax` | The parser could not parse the source. |
 | `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
 | `target` | A reference has a target that is not a module in the facts. An example is a package bin that is a `.js` file. |
+| `declaration file` | A re-export target is a declaration file, such as a TypeScript `.d.ts` file. A declaration file gives only types and has no module. The line gives the names of the statement. |
 | `package` | A configuration file extends a configuration package that systemap could not read. |
 | `binding` | The framework binding of a registration is not known. |
 | `reexport` | The names that a re-export gives are not known. |
@@ -898,6 +910,10 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - `--brief` does not include the two explanation rows.
 
+- Below each `unknown surface` line, a `cause:` row gives the cause that the adapter wrote.
+  After the lines, the report gives one `fix:` line for each cause, as `systemap check` does.
+  `--brief` does not remove these rows.
+
 - If the decision store has unknown decision requests, the report gives each one after the review counts.
   The row `unknown request ID: CLAIM` gives the claim. The report does not say that the claim is correct.
   The `systemap decisions` section tells about decision requests.
@@ -940,12 +956,13 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 1. |
+| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `open[].cause`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
 | `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
+| `open[].cause` | string or null | The cause of an `unknown surface` finding, for example `syntax` or `declaration file`. The `systemap check` section gives the causes. For other kinds, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |
@@ -1149,8 +1166,11 @@ By default, the command writes no more than three sequences.
 ### `systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]`
 
 Reads source samples across repository history.
-The defaults are `1 year ago`, one sample every 14 days, and the five largest
-windows (`--top` default 5). Each window compares two samples.
+The defaults are `1 year ago`, a minimum interval of 14 days between two adjacent samples (`--every`),
+and the five largest windows (`--top` default 5). Each window compares two samples.
+A sample is the first commit after the minimum interval from the previous sample.
+The last sample is the ref, also if the interval before it is smaller.
+Thus a repository with a small number of commits gives intervals of more than `--every` days.
 Facts use the cache `.systemap/facts/<sha>-<scope>.json`.
 
 Each window shows module and entry additions or removals, component size

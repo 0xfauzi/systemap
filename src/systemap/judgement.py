@@ -30,6 +30,7 @@ from systemap import (
     judgement_evidence,
     nest,
     step_refs,
+    unknown_causes,
 )
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
@@ -723,23 +724,40 @@ def report(
     detail: dict[str, list[str]] | None = None,
     kind: str = "",
     teach: bool = True,
+    causes: Mapping[str, str] | None = None,
 ) -> list[str]:
     """This function formats judgement diagnostics for the CLI.
 
     The detail argument supplies verbose import lines. The kind argument selects one
     visible kind, but the counts include all kinds. The teach option gives one
-    explanation for each visible kind.
+    explanation for each visible kind. The causes argument gives the cause of each
+    `unknown surface` line: a `cause:` row below the line, and one `fix:` line for each
+    cause of the visible lines.
     """
     result = lines if isinstance(lines, Answered) else Answered(lines, 0, [])
     shown = of_kind(result.open, kind) if kind else result.open
+    found = causes or {}
     out = [_head(result, kind, len(shown))]
-    out += _shown(shown, detail, teach)
+    out += _shown(shown, _with_causes(detail, found), teach)
+    out += unknown_causes.fix_lines(found[line] for line in shown if line in found)
     out += [
         f"  stale answer: '{item}' is now missing. Remove it from [judgement] answered."
         for item in result.stale
     ]
     out += [f"  pending answer: {item}" for item in result.pending or []]
     out += [f"  policy answer: {item}" for item in result.policies or []]
+    return out
+
+
+def _with_causes(
+    detail: dict[str, list[str]] | None, causes: Mapping[str, str]
+) -> dict[str, list[str]] | None:
+    """This function adds a `cause:` row to the detail rows of each line with a cause."""
+    if not causes:
+        return detail
+    out = dict(detail or {})
+    for line, cause in causes.items():
+        out[line] = [*out.get(line, []), f"cause: {cause}"]
     return out
 
 

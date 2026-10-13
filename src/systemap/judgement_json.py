@@ -7,27 +7,29 @@ contains no explanation text. `SCHEMA_VERSION` increases when a field changes.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import audit, judgement, judgement_moves, nest, review_policy
+from systemap import audit, judgement, judgement_moves, nest, review_policy, source_facts
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
-SCHEMA_VERSION = 1
+# Version 2 adds `cause` to each row of `open`.
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
 class Judged:
-    """This record contains the judgement lines, their evidence digests, and the
-    result of the answers.
+    """This record contains the judgement lines, their evidence digests, the result of
+    the answers, and the cause of each `unknown surface` line.
     """
 
     lines: list[str]
     evidence: Mapping[str, str]
     result: judgement.Answered
     require_reviews: bool = False
+    causes: Mapping[str, str] = field(default_factory=dict)
 
 
 def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
@@ -45,7 +47,15 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     given = judgement_moves.current_lines(given, lines)
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     result = judgement.apply_answers(lines, given, evidence)
-    return Judged(lines, evidence, result, cfg.require_reviews)
+    return Judged(lines, evidence, result, cfg.require_reviews, line_causes(lines, facts))
+
+
+def line_causes(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, str]:
+    """This function gives the cause that the adapter wrote for each `unknown surface`
+    line. A line of a nested map has the cause of the same line without the map prefix.
+    """
+    causes = dict(source_facts.unknown_fact_causes(facts))
+    return {line: causes[bare] for line in lines if (bare := judgement.unprefixed(line)) in causes}
 
 
 def digest(line: str, evidence: Mapping[str, str]) -> str | None:
@@ -78,6 +88,7 @@ def payload(
                 "kind": judgement.kind_of(line),
                 "detail": list(detail.get(line, [])),
                 "evidence": digest(line, judged.evidence),
+                "cause": judged.causes.get(line),
             }
             for line in shown
         ],

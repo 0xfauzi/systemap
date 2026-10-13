@@ -61,15 +61,19 @@ JUDGEMENT = {
         ),
     ),
     "thin layer": Lesson(
-        means="A layer has less than two components.",
+        means="A layer has less than two components. A layer with no components has no flows.",
         why=(
-            "A layer with one component gives little information about the connections in "
-            "the system."
+            "A layer with less than two components gives no information or a small quantity "
+            "of information about the connections in the system."
         ),
         do=("Add the flows for this layer, or give the reason that this layer is not necessary."),
     ),
     "entry point": Lesson(
-        means="An entry point has no sequence.",
+        means=(
+            "An entry point has no sequence. The line gives the component of the module "
+            "that the entry point names. The function that the entry point starts can be "
+            "in a different component."
+        ),
         why=(
             "An entry point starts a system operation. Without a sequence, the map does "
             "not give the steps of this operation."
@@ -203,6 +207,7 @@ JUDGEMENT = {
         means=(
             "The language adapter could not read part of the source. Or, it could not find "
             "the target of an entry point, an import, or a configuration file. Or, a "
+            "re-export target is a declaration file, which has no module. Or, a "
             "configuration file extends a configuration package that the adapter could not "
             "read. If the parser could not read a full file, the line gives the parser version."
         ),
@@ -211,9 +216,10 @@ JUDGEMENT = {
             "connections can be incorrect."
         ),
         do=(
-            "Read the source excerpt. Then do the step in the `fix` line for the cause of the "
-            "line. If the source is correct, record an answer for the line. `systemap check` "
-            "does not reject the map for these lines."
+            "Do the step in the `fix` line for the cause of the line. `systemap judgement` "
+            "gives the cause in a `cause` row below the line. If the source is correct, "
+            "record an answer for the line. `systemap check` does not reject the map for "
+            "these lines."
         ),
     ),
 }

@@ -33,8 +33,12 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # record for each `*` re-export. A type declaration that is not a class is in
 # `types`, with its category, and not in `classes`. Each entry point has the
 # `same_as` fact. Cached facts of format 7 have the earlier values. Format 9: each
-# unknown record has the `cause` that `unknown_causes` specifies.
-FORMAT = 9
+# unknown record has the `cause` that `unknown_causes` specifies. Format 10: a TypeScript
+# re-export target without a module gives one unknown record for each statement, at its
+# line and with its names, and a declaration file target has the cause `declaration file`.
+# An import of a declaration file is not an unresolved import. A string export name is
+# the public name.
+FORMAT = 10
 TESTS_KEPT = 25
 
 

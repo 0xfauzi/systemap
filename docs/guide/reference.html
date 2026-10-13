@@ -260,7 +260,7 @@ For each finding, change the model or record the reason for its stored state.</p
 </tr>
 <tr>
 <td>entry point X has no sequence (component C)</td>
-<td>The identity of the entry point is not in the <code>covers</code> of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example <code>entry point 6 routes into C have no sequence (component C)</code>.</td>
+<td>The identity of the entry point is not in the <code>covers</code> of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example <code>entry point 6 routes into C have no sequence (component C)</code>. C is the component of the module that the entry point names. The function that it starts can be in a different component, for example a console script that names a function that its package imports.</td>
 </tr>
 <tr>
 <td>crossing import</td>
@@ -684,6 +684,16 @@ tree-sitter-typescript 0.23.2 refuses a generic function call with a <code>typeo
 For example, <code>f&lt;typeof import('./a')&gt;(g(),)</code> is correct TypeScript.
 At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.</p>
 <p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
+<p>The <code>unknown surface</code> line for a re-export target outside the extracted module set also changed (facts format 10).
+The earlier line had the location <code>:1</code>, and a statement with two or more names gave one equal line for each name.
+The new line has the line of the statement, and it ends with the names, for example <code>Names: Shape, Size.</code>
+An answer item in the earlier form can apply to a current line.
+The map, the module, the file, and the target must agree with one and only one current line.
+The evidence digest must agree.
+A target that is a declaration file has a different line with the cause <code>declaration file</code>.
+An answer item in the earlier form does not apply to that line, because the meaning changed.
+Thus <code>judgement</code> gives the earlier item as a stale answer.
+The command prints no warning for an item in the earlier form of this line.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
@@ -1059,6 +1069,10 @@ The group gives one <code>fix:</code> line for each cause that occurs:</p>
 <td>A reference has a target that is not a module in the facts. An example is a package bin that is a <code>.js</code> file.</td>
 </tr>
 <tr>
+<td><code>declaration file</code></td>
+<td>A re-export target is a declaration file, such as a TypeScript <code>.d.ts</code> file. A declaration file gives only types and has no module. The line gives the names of the statement.</td>
+</tr>
+<tr>
 <td><code>package</code></td>
 <td>A configuration file extends a configuration package that systemap could not read.</td>
 </tr>
@@ -1158,6 +1172,11 @@ A model without components also gives exit 1 with <code>--strict</code>, as <cod
 <p><code>--brief</code> does not include the two explanation rows.</p>
 </li>
 <li>
+<p>Below each <code>unknown surface</code> line, a <code>cause:</code> row gives the cause that the adapter wrote.
+After the lines, the report gives one <code>fix:</code> line for each cause, as <code>systemap check</code> does.
+<code>--brief</code> does not remove these rows.</p>
+</li>
+<li>
 <p>If the decision store has unknown decision requests, the report gives each one after the review counts.
 The row <code>unknown request ID: CLAIM</code> gives the claim. The report does not say that the claim is correct.
 The <code>systemap decisions</code> section tells about decision requests.</p>
@@ -1211,7 +1230,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 1.</td>
+<td>The version of this schema. The value is 2. Version 2 added <code>open[].cause</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1237,6 +1256,11 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>open[].evidence</code></td>
 <td>string or null</td>
 <td>The digest that an exact answer for this one line must have in <code>evidence</code>. The value is null if the evidence is not available.</td>
+</tr>
+<tr>
+<td><code>open[].cause</code></td>
+<td>string or null</td>
+<td>The cause of an <code>unknown surface</code> finding, for example <code>syntax</code> or <code>declaration file</code>. The <code>systemap check</code> section gives the causes. For other kinds, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].drift</code></td>
@@ -1495,8 +1519,11 @@ reason it cannot write them.</p>
 </ul>
 <h3 id="systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></h3>
 <p>Reads source samples across repository history.
-The defaults are <code>1 year ago</code>, one sample every 14 days, and the five largest
-windows (<code>--top</code> default 5). Each window compares two samples.
+The defaults are <code>1 year ago</code>, a minimum interval of 14 days between two adjacent samples (<code>--every</code>),
+and the five largest windows (<code>--top</code> default 5). Each window compares two samples.
+A sample is the first commit after the minimum interval from the previous sample.
+The last sample is the ref, also if the interval before it is smaller.
+Thus a repository with a small number of commits gives intervals of more than <code>--every</code> days.
 Facts use the cache <code>.systemap/facts/&lt;sha&gt;-&lt;scope&gt;.json</code>.</p>
 <p>Each window shows module and entry additions or removals, component size
 changes, and new and removed crossing imports.
