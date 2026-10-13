@@ -569,7 +569,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
         say(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
     result = judged.result
-    detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
+    detail = judged.detail(p.tree, facts, args.verbose)
     result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
     say(*judgement.report(result, detail, args.kind or "", not args.brief, judged.causes))
     say(*notes)

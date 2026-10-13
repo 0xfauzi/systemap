@@ -13,9 +13,18 @@ shared finding line must not name one language. These lines changed:
 - The `entry point` line for a group of entry points gave the kind identifier, as in
   "7 public_functions into Api". Now it gives the kind as words, as in "7 public
   functions into Api". A kind without "_", such as `route`, does not change.
+- Facts format 11: a finding line is the identity of the finding. Thus it contains no
+  value that changes while the finding stays the same (`AGENTS.md`). The `unknown
+  surface` line of a module record had the location "(<file>:<line>)". The current line has
+  "(<file>)". The line of a test file record had "test file <file>:<line>:". The current line has
+  "test file <file>:". A parse line ended with " Source excerpt: '<text>'", with
+  " (parser version <version>)", or with the two. The current line ends with the reason. The
+  judgement report gives these values in rows below the line, and `judgement --json`
+  gives them in `sources`.
 
 For one release, an answer item in an earlier form selects the line in the current
-form. `current_line` gives the current form of an item. `warnings` gives one warning for
+form. `current_line` gives the current form of an item. It applies the patterns in
+their sequence. Thus an item can change in two or more steps. `warnings` gives one warning for
 each item in an earlier form, and also the warnings for the previous decision kind
 names.
 """
@@ -51,6 +60,34 @@ _EARLIER_FORMS = (
         ),
         r"\g<line>The parser could not parse the source syntax.\g<rest>",
     ),
+    # Facts format 11: the parse line without its source excerpt and parser version.
+    (
+        re.compile(
+            r"^(?P<line>(?:\S+: )?unknown surface: (?:module|test file) .+?)"
+            r"(?: Source excerpt: .*?)? \(parser version [^()]*\)$"
+        ),
+        r"\g<line>",
+    ),
+    # Facts format 11: the earlier parse line with an excerpt and no parser version.
+    (
+        re.compile(
+            r"^(?P<line>(?:\S+: )?unknown surface: (?:module|test file) .+?: "
+            r"The parser could not parse the source syntax\.) Source excerpt: .*$"
+        ),
+        r"\g<line>",
+    ),
+    # Facts format 11: the location of a module record without the line number.
+    (
+        re.compile(
+            r"^(?P<head>(?:\S+: )?unknown surface: module \S+ \([^():]+):\d+(?P<tail>\): .*)$"
+        ),
+        r"\g<head>\g<tail>",
+    ),
+    # Facts format 11: the file of a test file record without the line number.
+    (
+        re.compile(r"^(?P<head>(?:\S+: )?unknown surface: test file [^:]+):\d+(?P<tail>: .*)$"),
+        r"\g<head>\g<tail>",
+    ),
 )
 
 
@@ -65,7 +102,7 @@ def current_line(line: str) -> str:
     for earlier, current in _EARLIER_FORMS:
         found = earlier.match(line)
         if found:
-            return found.expand(current)
+            line = found.expand(current)
     group = _GROUP_KIND.match(line)
     if group:
         return f"{group['head']}{kind_words(group['kind'])}s{group['rest']}"

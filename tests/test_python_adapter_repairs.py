@@ -208,11 +208,13 @@ def test_a_test_file_that_cannot_be_read_or_parsed_gives_a_not_known_record(
         assert set(issues) == {parse, unread}, root
         assert issues[parse]["line"] == 1
         assert issues[unread]["reason"].startswith("source could not be read")
-        assert set(issues[parse]) == set(issues[unread]) == {"line", "reason", "source", "cause"}
+        assert set(issues[unread]) == {"line", "reason", "source", "cause"}
+        # A parse record can also give the parser version (facts format 11).
+        assert set(issues[parse]) - {"parser"} == set(issues[unread])
         assert source_facts.inventory_issue_lines(facts) == []
         lines = "\n".join(source_facts.unknown_fact_lines(facts))
-        assert f"unknown surface: test file {parse}:1: " in lines
-        assert f"unknown surface: test file {unread}:0: source could not be read" in lines
+        assert f"unknown surface: test file {parse}: " in lines
+        assert f"unknown surface: test file {unread}: source could not be read" in lines
 
 
 def test_python_facts_without_a_test_file_problem_have_no_issue_list(tmp_path: Path) -> None:
@@ -273,7 +275,7 @@ def test_the_check_reports_a_python_test_file_that_cannot_be_parsed(
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
     out = capsys.readouterr().out
-    assert out.count("test file tests/test_x.py:1: source could not be parsed: SyntaxError") == 2
+    assert out.count("test file tests/test_x.py: source could not be parsed: SyntaxError") == 2
 
 
 def test_one_module_holds_the_test_pattern_rule() -> None:

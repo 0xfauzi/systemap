@@ -22,12 +22,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 10, with portable syntax hashes, compiler provenance, "
+        "The facts format is 11, with portable syntax hashes, compiler provenance, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
         "`cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, "
-        "`declaration file`, `package`, `binding`, or `reexport`. "
+        "`declaration file`, `script file`, `package`, `binding`, or `reexport`. "
         "`extract --check` marks older formats stale",
     ),
     (
@@ -181,7 +181,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "unknown",
         "TypeScript surface entries with unresolved syntax or kinds. Each has a "
-        "source line, reason, short source excerpt, and `cause`",
+        "source line, reason, short source excerpt, and `cause`. A parse record also has "
+        "`parser`, the parser version. The finding line gives only the reason. The line, "
+        "the excerpt, and the parser version go into rows below the line",
     ),
     (
         "module",
@@ -324,8 +326,10 @@ def facts_doc() -> str:
         "They do not describe the purposes of the map components.",
         "`modules` counts records under `components`.",
         "`functions`, `classes`, `types`, and `errors` give the sums of those module fields.",
-        "`tests` gives the sum of `tests_total`. The count for test files with the module",
-        "name gives the sum of `tests_primary`.",
+        "`tests` gives the sum of `tests_total`. Thus the count has one item for each pair",
+        "of a test function and a module that it imports. A test function that imports three",
+        "modules counts three times. The count for test files with the module name gives the",
+        "sum of `tests_primary`.",
         "",
         "`empty package markers` counts the records with `empty_marker` set to true.",
         "Coverage automatically excludes these records.",
@@ -383,7 +387,7 @@ def summary(facts: dict[str, Any]) -> list[str]:
     These counts supply the change detector. The map does not show them.
     `modules` counts `components`. Functions, classes, types, and errors use their module
     fields. If a record has no `types`, the types count is not known. Test counts use
-    `tests_total` and `tests_primary`.
+    `tests_total` and `tests_primary`: one for each pair of a test function and a module.
     Empty markers are package records without public names, imports, or execution.
     """
     comps = facts["components"]
@@ -391,7 +395,10 @@ def summary(facts: dict[str, Any]) -> list[str]:
     primary = sum(c["tests_primary"] for c in comps.values())
     dirs: list[str] = list(facts.get("tests_dirs", []))
     if guarded:
-        tests = f"{guarded} test functions import a module, {primary} in a file with its name"
+        tests = (
+            f"{guarded} pairs of a test function and a module that it imports, "
+            f"{primary} in a test file with the module name"
+        )
     elif dirs:
         # Zero is a finding, not a count: say where the extractor looked, so
         # a tests directory it did not find is set in `tests_dir`.

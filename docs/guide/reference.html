@@ -352,11 +352,17 @@ The <code>source_review</code> value, the flow review digests, and the source di
 <li>For each module that the line names, and each module of a named component, the module facts and the source file.</li>
 <li>For a <code>crossing import</code> line, the imports between the two components and the source of the two modules of each import.</li>
 <li>For an <code>entry point</code> line, the entry point records of its modules. A record has the <code>kind</code>, <code>module</code>, <code>target</code>, and <code>name</code> values.</li>
+<li>For an <code>unknown surface</code> line of a module or a test file, the records of the line and the text of each cited source line.
+The records do not include the line number and the parser version.
+A new line above the statement does not change this evidence. A change to the statement changes it.
+A record without a line number uses the module evidence.</li>
 </ul>
 <p>Thus a change to a different component, or to a <code>source_review</code> value, does not open the finding again.
 A line that names no component and no module uses the full evidence: the model files and all modules.
 The model files are the model file and each model file that it imports.
 An <code>entry point</code> line with the full evidence also has all entry point records.</p>
+<p>Migration from facts format 10: the evidence of an <code>unknown surface</code> line of a module or a test file changed.
+Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.
 The evidence of each <code>entry point</code> line also changed.
 Thus each of these exact answers is pending one time after the update.</p>
@@ -676,9 +682,9 @@ The new line gives the <code>kind</code> value with a space in place of each <co
 The same rule applies to this line. A kind without <code>_</code>, for example <code>route</code>, does not change.</p>
 <p>The <code>unknown surface</code> line for a TypeScript parse error also changed.
 Its source excerpt is the line of the error and the line before it, because the error can be one token, such as <code>','</code>.
-The line also ends with the parser version, as the Python line does.
-An answer item in the earlier form applies to a current line if its text up to <code>The parser could not parse the source syntax.</code> agrees with one current line.
-The evidence digest must agree.</p>
+From facts format 11, the excerpt and the parser version are in rows below the line.
+The line ends with <code>The parser could not parse the source syntax.</code>
+An answer item in an earlier form applies to the current line of the same module.</p>
 <p>The parser can also refuse correct syntax.
 tree-sitter-typescript 0.23.2 refuses a generic function call with a <code>typeof import()</code> type argument and a comma after the last argument.
 For example, <code>f&lt;typeof import('./a')&gt;(g(),)</code> is correct TypeScript.
@@ -686,7 +692,7 @@ At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.</p>
 <p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
 <p>The <code>unknown surface</code> line for a re-export target outside the extracted module set also changed (facts format 10).
 The earlier line had the location <code>:1</code>, and a statement with two or more names gave one equal line for each name.
-The new line has the line of the statement, and it ends with the names, for example <code>Names: Shape, Size.</code>
+The new line ends with the names, for example <code>Names: Shape, Size.</code> The <code>at:</code> row gives the line of the statement.
 An answer item in the earlier form can apply to a current line.
 The map, the module, the file, and the target must agree with one and only one current line.
 The evidence digest must agree.
@@ -694,6 +700,40 @@ A target that is a declaration file has a different line with the cause <code>de
 An answer item in the earlier form does not apply to that line, because the meaning changed.
 Thus <code>judgement</code> gives the earlier item as a stale answer.
 The command prints no warning for an item in the earlier form of this line.</p>
+<p>Facts format 11 removes each value from an <code>unknown surface</code> line that changes while the finding stays the same.
+A recorded answer then stays applicable when a line is added above the cited statement.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
+<table>
+<thead>
+<tr>
+<th>Earlier text in the line</th>
+<th>New text in the line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>module M (src/a.ts:254): ...</code></td>
+<td><code>module M (src/a.ts): ...</code></td>
+</tr>
+<tr>
+<td><code>test file tests/a.spec.ts:3: ...</code></td>
+<td><code>test file tests/a.spec.ts: ...</code></td>
+</tr>
+<tr>
+<td><code>... Source excerpt: '&lt;text&gt;' (parser version &lt;version&gt;)</code></td>
+<td><code>...</code></td>
+</tr>
+<tr>
+<td><code>... source could not be parsed: SyntaxError (parser version 3.11.10)</code></td>
+<td><code>... source could not be parsed: SyntaxError</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The judgement report gives these values in rows below the line, and <code>judgement --json</code> gives them in <code>open[].sources</code>.
+An answer item in an earlier form applies to the line in the new form.
+<code>judgement</code> prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+Two records with different line numbers can give the same line. Then one answer applies to the two records.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
@@ -1058,11 +1098,15 @@ The group gives one <code>fix:</code> line for each cause that occurs:</p>
 </tr>
 <tr>
 <td><code>target</code></td>
-<td>A reference has a target that is not a module in the facts. An example is a package bin that is a <code>.js</code> file.</td>
+<td>A reference has a target that is not a module in the facts. An example is a package bin target that is not in the repository.</td>
 </tr>
 <tr>
 <td><code>declaration file</code></td>
 <td>A re-export target is a declaration file, such as a TypeScript <code>.d.ts</code> file. A declaration file gives only types and has no module. The line gives the names of the statement.</td>
+</tr>
+<tr>
+<td><code>script file</code></td>
+<td>A package bin target is a JavaScript file in the repository with no source module. The extractor does not read it, and <code>[package_roots]</code> cannot make it a module.</td>
 </tr>
 <tr>
 <td><code>package</code></td>
@@ -1169,6 +1213,13 @@ After the lines, the report gives one <code>fix:</code> line for each cause, as 
 <code>--brief</code> does not remove these rows.</p>
 </li>
 <li>
+<p>Below the <code>cause:</code> row, the line of a module record or a test file record gives its source rows.
+An <code>at:</code> row gives the file and the line of each cited statement.
+An <code>excerpt:</code> row gives the source excerpt. A <code>parser version:</code> row gives the version of the parser that refused the source.
+A finding line is the identity of the finding. Thus it does not contain these values (facts format 11).
+If two statements of one module give the same line, the line occurs one time with two <code>at:</code> rows.</p>
+</li>
+<li>
 <p>If the decision store has unknown decision requests, the report gives each one after the review counts.
 The row <code>unknown request ID: CLAIM</code> gives the claim. The report does not say that the claim is correct.
 The <code>systemap decisions</code> section tells about decision requests.</p>
@@ -1222,7 +1273,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 2. Version 2 added <code>open[].cause</code>.</td>
+<td>The version of this schema. The value is 3. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1253,6 +1304,11 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>open[].cause</code></td>
 <td>string or null</td>
 <td>The cause of an <code>unknown surface</code> finding, for example <code>syntax</code> or <code>declaration file</code>. The <code>systemap check</code> section gives the causes. For other kinds, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].sources</code></td>
+<td>list of objects or null</td>
+<td>The source records of an <code>unknown surface</code> finding of a module or a test file. Each object has <code>file</code>, <code>line</code>, <code>excerpt</code>, and <code>parser</code>. A value that the record does not give is null. For other findings, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].drift</code></td>

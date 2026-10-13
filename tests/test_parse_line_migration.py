@@ -2,7 +2,9 @@
 
 Before this change, `source_facts.unknown_fact_lines` wrote "... under Python 3.11" for
 a `parse_error` record. Shared logic must not name one language in a finding line. The
-line now ends with "(parser version 3.11)". An answer item in `[judgement] answered`
+line then ended with "(parser version 3.11)". Facts format 11 removes the parser
+version and the line number from the line (trial3-1), because they change while the
+finding stays the same. An answer item in `[judgement] answered`
 that has the earlier form still selects the line, with the same evidence digest, and
 the judgement report gives a warning that tells the person to change the item.
 
@@ -34,10 +36,9 @@ def _python_line(tmp_path: Path) -> str:
 
 def test_the_python_parse_error_line_names_no_language(tmp_path: Path) -> None:
     line = _python_line(tmp_path)
-    parser = sys.version.split()[0]
     assert line == (
-        "unknown surface: module pkg.broken (pkg/broken.py:1): source could not be parsed: "
-        f"SyntaxError (parser version {parser})"
+        "unknown surface: module pkg.broken (pkg/broken.py): source could not be parsed: "
+        "SyntaxError"
     )
     assert "Python" not in line
 
@@ -55,15 +56,15 @@ def test_the_typescript_parse_error_line_has_the_same_form(tmp_path: Path) -> No
     facts = extract.build(config.load(tmp_path))
     lines = [line for line in source_facts.unknown_fact_lines(facts) if "web.broken" in line]
     assert lines and all(
-        line.startswith("unknown surface: module web.broken (src/broken.ts:") for line in lines
+        line.startswith("unknown surface: module web.broken (src/broken.ts): ") for line in lines
     )
     assert not any("under Python" in line for line in lines)
 
 
 def test_an_answer_in_the_earlier_form_selects_the_current_line(tmp_path: Path) -> None:
     line = _python_line(tmp_path)
-    head, _, parser = line.removesuffix(")").rpartition(" (parser version ")
-    earlier = f"{head} under Python {parser}"
+    head, _, rest = line.partition("): ")
+    earlier = f"{head}:1): {rest} under Python {sys.version.split()[0]}"
     assert answer_migrations.current_line(earlier) == line
     assert answer_migrations.current_line(f"sub: {earlier}") == f"sub: {line}"
     assert answer_migrations.current_line(line) == line
@@ -85,10 +86,7 @@ def test_an_answer_in_the_earlier_form_follows_a_line_that_moved_to_a_nested_map
     one current line in the nested map. Each migration acts on the item one time: the moved
     item is in the current form, and the form migration does not change it again.
     """
-    current = (
-        "sub: unknown surface: module app.broken (app/broken.py:3): "
-        "SyntaxError (parser version 3.11.10)"
-    )
+    current = "sub: unknown surface: module app.broken (app/broken.py): SyntaxError"
     earlier = (
         "unknown surface: module app.broken (app/broken.py:3): SyntaxError under Python 3.11.10"
     )

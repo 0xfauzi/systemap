@@ -476,8 +476,7 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
         )
     name, method = head
     if name not in names:
-        closest = _closest(name, names)
-        hint = f". The nearest name is {closest}" if closest else ""
+        hint = _name_hint(name, names, [components[m] for m in modules])
         return (
             f"{c.id} interface starts with {name}, but none of its modules defines this "
             f"name ({held}){hint}"
@@ -495,6 +494,26 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
             f"{method} ({held}){hint}"
         )
     return ""
+
+
+def _name_hint(name: str, names: set[str], records: list[Mapping[str, Any]]) -> str:
+    """Give the hint for an interface name that is not a public name.
+
+    A public name with the defining symbol `name` (`defined_as`) comes first, for example
+    the public name `default` of a module that exports the symbol `ky`. If there is no
+    such name, the hint gives the nearest spelling."""
+    given = sorted(
+        {
+            entry["name"]
+            for record in records
+            for entry in record.get("names") or []
+            if entry.get("defined_as") == name and entry.get("name") != name
+        }
+    )
+    if given:
+        return f". The public name for the symbol {name} is {', '.join(given)}"
+    closest = _closest(name, names)
+    return f". The nearest name is {closest}" if closest else ""
 
 
 def _interface_methods(

@@ -67,7 +67,7 @@ def parse_problem(raw: str, path: str = "") -> dict[str, Any]:
     """This function gives the first parser error for a retained module record.
 
     The excerpt is the source line of the error and the line before it, because the
-    error node can be only one token, such as `,`. The reason also gives the parser
+    error node can be only one token, such as `,`. The `parser` field gives the parser
     version. A valid file can fail when the grammar of that version does not read its
     syntax.
     """
@@ -77,13 +77,16 @@ def parse_problem(raw: str, path: str = "") -> dict[str, Any]:
     source = _one_line(" ".join(raw.splitlines()[max(row - 1, 0) : row + 1]))
     if len(source) > EXCERPT:
         source = "\u2026" + source[-(EXCERPT - 1) :]
-    # The reason goes into a shared finding line, so it names no language.
-    # `answer_migrations` and `judgement_moves` read the earlier forms.
-    reason = "The parser could not parse the source syntax."
-    if source:
-        reason += f" Source excerpt: {source!r}"
-    reason += f" (parser version {TYPESCRIPT_REPOSITORY.parser_version()})"
-    return {"line": row + 1, "reason": reason, "source": source, "cause": unknown_causes.SYNTAX}
+    # The reason goes into a shared finding line. Thus it names no language. The line is
+    # the identity of the finding. Thus the excerpt and the parser version are separate
+    # fields. `answer_migrations` reads the earlier forms.
+    return {
+        "line": row + 1,
+        "reason": "The parser could not parse the source syntax.",
+        "source": source,
+        "parser": TYPESCRIPT_REPOSITORY.parser_version(),
+        "cause": unknown_causes.SYNTAX,
+    }
 
 
 def _root(raw: str, path: str = "") -> Node | None:

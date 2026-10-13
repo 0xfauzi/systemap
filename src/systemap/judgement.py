@@ -49,7 +49,7 @@ from systemap.journey_coverage import (
     crowd_label as crowd_label,
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
-from systemap.source_facts import package_of, unknown_fact_lines
+from systemap.source_facts import located_records, package_of, unknown_fact_lines
 
 __all__ = ["mentioned"]
 
@@ -529,8 +529,9 @@ def evidence_for_tree(
     """This function hashes the evidence of each printed line for exact answers.
 
     The evidence of a line is the evidence that the line names (`judgement_evidence`).
-    Crossing-import evidence includes only the participating modules. An uncommitted
-    source edit changes the digest.
+    Crossing-import evidence includes only the participating modules. A line with a
+    source line number has the evidence of its statement. An uncommitted source edit
+    changes the digest.
     """
     components = facts.get("components", {})
     crossings: dict[str, list[tuple[str, str]]] = {}
@@ -543,13 +544,14 @@ def evidence_for_tree(
         )
     model_hashes: dict[str, str] = {}
     out: dict[str, str] = {}
+    located = located_records(facts)
     for key in lines:
         m = judgement_evidence.map_of(tree, key)
-        state = (
-            judgement_evidence.answer_state(components, root, "", crossings[key])
-            if key in crossings
-            else judgement_evidence.line_state(m, facts, root, key)
-        )
+        state = judgement_evidence.located_state(root, located.get(unprefixed(key), []))
+        if state is None and key in crossings:
+            state = judgement_evidence.answer_state(components, root, "", crossings[key])
+        elif state is None:
+            state = judgement_evidence.line_state(m, facts, root, key)
         if state is None:
             if m.id not in model_hashes:
                 model_hashes[m.id] = judgement_evidence.model_digest(m)
@@ -752,12 +754,12 @@ def report(
 def _with_causes(
     detail: dict[str, list[str]] | None, causes: Mapping[str, str]
 ) -> dict[str, list[str]] | None:
-    """This function adds a `cause:` row to the detail rows of each line with a cause."""
+    """This function puts a `cause:` row first in the detail rows of each line with a cause."""
     if not causes:
         return detail
     out = dict(detail or {})
     for line, cause in causes.items():
-        out[line] = [*out.get(line, []), f"cause: {cause}"]
+        out[line] = [f"cause: {cause}", *out.get(line, [])]
     return out
 
 

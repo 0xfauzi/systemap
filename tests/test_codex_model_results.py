@@ -252,7 +252,7 @@ def _unknown_facts(root: Path) -> dict[str, Any]:
     return facts
 
 
-MODULE_LINE = "unknown surface: module pkg.gateway.app (pkg/gateway/app.py:3): a dynamic import"
+MODULE_LINE = "unknown surface: module pkg.gateway.app (pkg/gateway/app.py): a dynamic import"
 REPOSITORY_LINE = "unknown surface: console_script tool -> pkg.x:y: no module"
 
 

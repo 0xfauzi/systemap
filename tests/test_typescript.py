@@ -360,7 +360,7 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     issue = facts["components"]["web.broken"]["unknown"][0]
     assert "could not parse the source syntax" in issue["reason"]
     assert source_facts.unknown_fact_lines(facts) == [
-        f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
+        f"unknown surface: module web.broken (src/broken.ts): {issue['reason']}"
     ]
 
 

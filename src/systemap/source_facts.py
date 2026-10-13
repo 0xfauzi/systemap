@@ -11,13 +11,22 @@ from __future__ import annotations
 
 import json
 from collections.abc import Collection, Mapping
-from typing import Any
+from typing import Any, NamedTuple
 
 from systemap import unknown_causes
 from systemap.model import source_parsed
 
 # The imported-name value that means "the full module".
 WHOLE_MODULE = "*"
+
+
+class Located(NamedTuple):
+    """The root-relative file, the source line (0 if not known), and the unknown record of
+    an `unknown surface` line."""
+
+    file: str
+    line: int
+    record: Mapping[str, Any]
 
 
 def standard_label(point: Mapping[str, str]) -> str:
@@ -118,30 +127,45 @@ def unknown_fact_causes(
 ) -> list[tuple[str, str]]:
     """Give each line of `unknown_fact_lines` with the cause that the adapter wrote.
 
-    A record without a cause has the cause `unknown_causes.NOT_KNOWN`."""
-    modules = _unknown_module_lines(facts, skip)
-    return modules + _unknown_repository_lines(facts) if repository else modules
+    A record without a cause has the cause `unknown_causes.NOT_KNOWN`. A line is the
+    identity of a finding. Thus it contains no line number, source excerpt, or parser
+    version (`located_records` gives them). Two records with the same line give one line,
+    with the cause of the first record.
+    """
+    modules = [
+        (text, unknown_causes.of(found.record)) for text, found in _module_issues(facts, skip)
+    ]
+    lines = modules + _unknown_repository_lines(facts) if repository else modules
+    first: dict[str, str] = {}
+    for line, cause in lines:
+        first.setdefault(line, cause)
+    return list(first.items())
 
 
-def _unknown_module_lines(facts: dict[str, Any], skip: Collection[str]) -> list[tuple[str, str]]:
-    out: list[tuple[str, str]] = []
+def _module_issues(facts: dict[str, Any], skip: Collection[str]) -> list[tuple[str, Located]]:
+    """Give the line and the source location of each unknown record of a module.
+
+    `answer_migrations` reads the earlier forms of these lines: with the line number in
+    the location, with a source excerpt, and with the parser version."""
+    out: list[tuple[str, Located]] = []
     for module, record in sorted(facts.get("components", {}).items()):
         if module in skip:
             continue
         file = record.get("file", module)
-        if issue := record.get("parse_error"):
-            location = f"{file}:{issue['line']}" if issue.get("line") else file
-            # `answer_migrations` reads the earlier form of this line, which named Python.
-            line = (
-                f"unknown surface: module {module} ({location}): {issue['reason']} "
-                f"(parser version {issue['parser']})"
-            )
-            out.append((line, unknown_causes.of(issue)))
-        for issue in record.get("unknown", []):
-            line = issue.get("line", 0)
-            location = f"{file}:{line}" if line else file
-            text = f"unknown surface: module {module} ({location}): {issue['reason']}"
-            out.append((text, unknown_causes.of(issue)))
+        issues = [record["parse_error"]] if record.get("parse_error") else []
+        for issue in [*issues, *record.get("unknown", [])]:
+            line = f"unknown surface: module {module} ({file}): {issue['reason']}"
+            out.append((line, Located(file, int(issue.get("line") or 0), issue)))
+    return out
+
+
+def _test_file_issues(facts: dict[str, Any]) -> list[tuple[str, Located]]:
+    """Give the line and the source location of each test file that could not be read."""
+    out: list[tuple[str, Located]] = []
+    for issue in facts.get("test_file_issues", []):
+        problem = issue["problem"]
+        line = f"unknown surface: test file {issue['file']}: {problem['reason']}"
+        out.append((line, Located(issue["file"], int(problem.get("line") or 0), problem)))
     return out
 
 
@@ -153,13 +177,7 @@ def _unknown_repository_lines(facts: dict[str, Any]) -> list[tuple[str, str]]:
             f"{issue['reason']}"
         )
         out.append((line, unknown_causes.of(issue)))
-    for issue in facts.get("test_file_issues", []):
-        problem = issue["problem"]
-        line = (
-            f"unknown surface: test file {issue['file']}:{problem.get('line', 0)}: "
-            f"{problem['reason']}"
-        )
-        out.append((line, unknown_causes.of(problem)))
+    out += [(line, unknown_causes.of(found.record)) for line, found in _test_file_issues(facts)]
     for issue in facts.get("config_issues", []):
         # `answer_migrations` reads the earlier form of this line, which named npm.
         line = (
@@ -167,6 +185,20 @@ def _unknown_repository_lines(facts: dict[str, Any]) -> list[tuple[str, str]]:
             "the configuration package could not be read"
         )
         out.append((line, unknown_causes.of(issue)))
+    return out
+
+
+def located_records(facts: dict[str, Any]) -> dict[str, list[Located]]:
+    """Give the source location and the record of each record of an `unknown surface`
+    line of a module or a test file.
+
+    The location is not part of the line: a new line above a statement changes the line
+    number, but not the finding. Two records with the same line give one line with two
+    locations. `judgement_evidence.located_state` gives the evidence of the statements.
+    """
+    out: dict[str, list[Located]] = {}
+    for line, found in [*_module_issues(facts, ()), *_test_file_issues(facts)]:
+        out.setdefault(line, []).append(found)
     return out
 
 

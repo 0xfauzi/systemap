@@ -27,6 +27,9 @@ DECLARATION = "declaration"
 TARGET = "target"
 # A reference names a declaration file. Such a file gives only types and has no module.
 DECLARATION_FILE = "declaration file"
+# A reference names a script file in the repository that the extractor does not read as
+# source code, for example a JavaScript file in a TypeScript repository.
+SCRIPT_FILE = "script file"
 # A configuration file extends a configuration package that could not be read.
 PACKAGE = "package"
 # The framework binding of a registration is not known.
@@ -43,6 +46,7 @@ CAUSES = (
     DECLARATION,
     TARGET,
     DECLARATION_FILE,
+    SCRIPT_FILE,
     PACKAGE,
     BINDING,
     REEXPORT,
@@ -57,8 +61,9 @@ FIX = {
     ),
     ENCODING: "If a file is not UTF-8 text, write the file as UTF-8 text.",
     SYNTAX: (
-        "If the parser could not parse a file, correct the source. If the source is "
-        "correct, record an answer for the line in [judgement] answered."
+        "If the parser could not parse a file, examine the source at the line. If the "
+        "source is not correct, correct the source. If the source is correct, the parser "
+        "cannot read this syntax. Then record an answer for the line in [judgement] answered."
     ),
     DECLARATION: (
         "If the parser has no record for a declaration form, examine the source at the "
@@ -72,6 +77,10 @@ FIX = {
         "If a target is a declaration file, the names of the line come from that file and "
         "have no module. Examine the declaration file. Then record an answer for the line "
         "in [judgement] answered."
+    ),
+    SCRIPT_FILE: (
+        "If a target is a script file with no source module, the extractor does not read "
+        "it. Examine the file. Then record an answer for the line in [judgement] answered."
     ),
     PACKAGE: (
         "If a configuration package could not be read, install the dependencies of the "

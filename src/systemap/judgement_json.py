@@ -15,14 +15,14 @@ from systemap import audit, judgement, judgement_moves, nest, review_policy, sou
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
-# Version 2 adds `cause` to each row of `open`.
-SCHEMA_VERSION = 2
+# Version 2 adds `cause` to each row of `open`. Version 3 adds `sources`.
+SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
 class Judged:
     """This record contains the judgement lines, their evidence digests, the result of
-    the answers, and the cause of each `unknown surface` line.
+    the answers, and the cause and the sources of each `unknown surface` line.
     """
 
     lines: list[str]
@@ -30,6 +30,17 @@ class Judged:
     result: judgement.Answered
     require_reviews: bool = False
     causes: Mapping[str, str] = field(default_factory=dict)
+    sources: Mapping[str, list[dict[str, Any]]] = field(default_factory=dict)
+
+    def detail(
+        self, tree: nest.Tree, facts: dict[str, Any], verbose: bool
+    ) -> dict[str, list[str]] | None:
+        """Give the rows below each line: the source rows of an `unknown surface` line,
+        and with `verbose`, the import rows of a crossing-import line."""
+        out = judgement.crossing_detail_tree(tree, facts) if verbose else {}
+        for line, sources in self.sources.items():
+            out[line] = [*out.get(line, []), *(row for item in sources for row in _rows(item))]
+        return out
 
 
 def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
@@ -47,7 +58,8 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     given = judgement_moves.current_lines(given, lines)
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     result = judgement.apply_answers(lines, given, evidence)
-    return Judged(lines, evidence, result, cfg.require_reviews, line_causes(lines, facts))
+    causes = line_causes(lines, facts)
+    return Judged(lines, evidence, result, cfg.require_reviews, causes, line_sources(lines, facts))
 
 
 def line_causes(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, str]:
@@ -56,6 +68,38 @@ def line_causes(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, str]:
     """
     causes = dict(source_facts.unknown_fact_causes(facts))
     return {line: causes[bare] for line in lines if (bare := judgement.unprefixed(line)) in causes}
+
+
+def line_sources(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """This function gives the source location of each record of an `unknown surface` line
+    of a module or a test file: the file, the line, the source excerpt, and the parser
+    version. A value that the record does not give is None. These values change while the
+    finding stays the same. Thus they are not in the line.
+    """
+    located = source_facts.located_records(facts)
+    return {
+        line: [_source(found) for found in located[bare]]
+        for line in lines
+        if (bare := judgement.unprefixed(line)) in located
+    }
+
+
+def _source(found: source_facts.Located) -> dict[str, Any]:
+    excerpt = found.record.get("source")
+    parser = found.record.get("parser")
+    return {
+        "file": found.file,
+        "line": found.line or None,
+        "excerpt": excerpt if found.line and isinstance(excerpt, str) and excerpt else None,
+        "parser": parser if isinstance(parser, str) and parser else None,
+    }
+
+
+def _rows(source: Mapping[str, Any]) -> list[str]:
+    """Give the text rows of one source location."""
+    rows = [f"at: {source['file']}:{source['line']}"] if source["line"] else []
+    rows += [f"excerpt: {source['excerpt']!r}"] if source["excerpt"] else []
+    return rows + ([f"parser version: {source['parser']}"] if source["parser"] else [])
 
 
 def digest(line: str, evidence: Mapping[str, str]) -> str | None:
@@ -89,6 +133,7 @@ def payload(
                 "detail": list(detail.get(line, [])),
                 "evidence": digest(line, judged.evidence),
                 "cause": judged.causes.get(line),
+                "sources": judged.sources.get(line),
             }
             for line in shown
         ],

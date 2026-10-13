@@ -37,8 +37,10 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # re-export target without a module gives one unknown record for each statement, at its
 # line and with its names, and a declaration file target has the cause `declaration file`.
 # An import of a declaration file is not an unresolved import. A string export name is
-# the public name.
-FORMAT = 10
+# the public name. Format 11: a TypeScript parse record has a fixed reason, the excerpt in
+# `source`, and the parser version in `parser`, because a finding line must not contain
+# them. An indirect re-export without a module gives the record of a direct re-export.
+FORMAT = 11
 TESTS_KEPT = 25
 
 

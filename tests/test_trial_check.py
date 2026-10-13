@@ -88,10 +88,8 @@ def test_a_test_file_that_does_not_parse_does_not_reject_the_map(
     assert run(root, "check") == 0
     out = capsys.readouterr().out
     lines = [line.strip() for line in out.splitlines()]
-    assert any(line.startswith(f"test file {broken}:1: ") and "parse" in line for line in lines), (
-        out
-    )
-    assert any(line.startswith(f"test file {unread}:0: source could not be read") for line in lines)
+    assert any(line.startswith(f"test file {broken}: ") and "parse" in line for line in lines), out
+    assert any(line.startswith(f"test file {unread}: source could not be read") for line in lines)
     assert "source inventory unresolved" not in out
     assert LOOP not in refreshed and LOOP not in out
     for name in (broken, unread):
@@ -331,9 +329,9 @@ def test_the_adapters_write_the_cause_of_a_read_or_parse_problem(
 def test_the_typescript_adapter_writes_the_cause_of_a_bin_and_a_configuration_package(
     tmp_path: Path,
 ) -> None:
-    """Acceptance: a package bin that is a .js file has the cause `target`, and a missing
-    package in `extends` has the cause `package`. These two records come only from the
-    TypeScript adapter."""
+    """Acceptance: a package bin that is an existing .js file has the cause `script file`
+    (trial3-8: before, `target`), and a missing package in `extends` has the cause
+    `package`. These two records come only from the TypeScript adapter."""
     write_tree(
         tmp_path,
         {
@@ -344,7 +342,7 @@ def test_the_typescript_adapter_writes_the_cause_of_a_bin_and_a_configuration_pa
         },
     )
     facts = extract.build(config.load(tmp_path))
-    assert [issue["cause"] for issue in facts["entry_point_issues"]] == [unknown_causes.TARGET]
+    assert [issue["cause"] for issue in facts["entry_point_issues"]] == [unknown_causes.SCRIPT_FILE]
     assert [issue["cause"] for issue in facts["config_issues"]] == [unknown_causes.PACKAGE]
 
 
