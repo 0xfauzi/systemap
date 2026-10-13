@@ -806,7 +806,11 @@ The input is a command option, <code>systemap.toml</code> or the model module, a
 <p>Writes <code>systemap.toml</code>, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
 The command does not replace <code>systemap.toml</code>, the model, or the workflow.
+If <code>pyproject.toml</code> has a <code>[tool.systemap]</code> table and <code>systemap.toml</code> is missing,
+the command does not write <code>systemap.toml</code>, because the commands read that file before the table.
+Then it writes the model at the <code>model</code> path of the table.
 It writes the skill directory again on each run.
+If a symbolic link puts a file in a location that is not in the repository, the command writes no file and exits 2.
 It prints the instruction for your agent.
 <code>--no-ci</code> does not include the workflow.</p>
 <p>The workflow has the variable <code>SYSTEMAP_CI</code>. Its default value is <code>advisory</code>:
@@ -934,7 +938,12 @@ The legend contains only that layer.</p>
 <li>
 <p>An <code>--out</code> filename with a <code>.svg</code> suffix writes the drawing without a frame.</p>
 </li>
+<li>
+<p><code>--svg-id ID</code> sets the HTML ID of the drawing. The default is <code>lessonmap</code>.
+The ID must start with a letter and contain only letters, digits, <code>-</code>, and <code>_</code>.</p>
+</li>
 </ul>
+<p>The figure shows the layer names, the caption, and the other model and configuration text as text, not as HTML.</p>
 <h3 id="systemap-refresh"><code>systemap refresh</code></h3>
 <p>Executes extraction and the checks, and renders the page and the configured figures,
 in dependency order. Then it does a check of the written outputs.
@@ -1633,7 +1642,8 @@ If the port is not available, the command exits 2.
 Then use <code>--port 0</code> to select an available port, or give a different port.
 The server answers only a request whose Host header is <code>127.0.0.1</code> or <code>localhost</code> with the server port.
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
-<code>systemap live</code> has the same rule.</p>
+The server answers 404 for a symbolic link to a file that is not in the output directory.
+<code>systemap live</code> has the same rules.</p>
 <h3 id="systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></h3>
 <p>Renders the page of the working tree and supplies it through HTTP on the loopback address.
 The facts come from the source files in memory. The models come from the model files.
@@ -1646,7 +1656,9 @@ The command renders one version at a time.
 If a request occurs while the command renders, the command renders one more version after the current version.
 If the command cannot render a version, the last page stays and the command gives the error.
 Examples are a model file that does not load, a source syntax error, and an extraction error.
-If the first version fails, the page gives the error.</p>
+If the first version fails, the page gives the error.
+If the command cannot write the pages of a version, the command gives the error, and the next version renders.
+After a good version, the command removes the pages of the maps that the version does not have.</p>
 <ul>
 <li>
 <p><code>--base REF</code> sets the base of the Changes view.
@@ -1659,6 +1671,8 @@ and the untracked files that Git does not ignore.</p>
 <li>
 <p>Without <code>--no-watch</code>, the command scans the configuration files, the model files,
 and the source and test files one time each second.
+The scan includes the language configuration files below each package root, such as <code>packages/web/src/lib/package.json</code>.
+It also includes these files in the folders between a package root and the repository root, such as <code>packages/web/tsconfig.json</code>.
 When a scan finds a change and the next scan finds no more change, the command renders the page again.</p>
 </li>
 <li>
@@ -1748,12 +1762,12 @@ Thus the command waits until the files stop changing before it renders the page.
 <h3 id="systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></h3>
 <p>Reinstalls the skill directory from <code>init</code>: <code>SKILL.md</code> and <code>references/</code>.</p>
 <ul>
-<li>
-<p><code>--dir PATH</code> writes to another directory.</p>
-</li>
-<li>
-<p><code>--print</code> writes <code>SKILL.md</code> to stdout.</p>
-</li>
+<li><code>--dir PATH</code> writes to another directory.</li>
+</ul>
+<p>Each skill file must be in the repository (in <code>PATH</code> with <code>--dir</code>) after the resolution of symbolic links.
+If a file is not, the command writes no file and exits 2.</p>
+<ul>
+<li><code>--print</code> writes <code>SKILL.md</code> to stdout.</li>
 </ul>
 <h2 id="what-can-you-configure">What can you configure?</h2>
 <p>Use <code>systemap.toml</code> at the repository root or <code>[tool.systemap]</code> in
@@ -1892,7 +1906,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[theme]</code></td>
 <td><code>dark</code></td>
-<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>.</td>
+<td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>. The page uses theme values in HTML without conversion. Thus a value cannot contain <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, or <code>&quot;</code>. A font value (<code>font_ui</code>, <code>font_mono</code>) can contain <code>&quot;</code>.</td>
 </tr>
 <tr>
 <td><code>[[figures]]</code></td>

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from systemap.model import Layer
@@ -333,6 +333,37 @@ def _check_values(t: dict[str, Any]) -> None:
     marks = t.get("marks")
     if not isinstance(marks, dict) or not all(isinstance(v, str) for v in marks.values()):
         raise ValueError("The theme value marks must be a table of component kinds and marks.")
+    _check_text(t)
+
+
+# The page and the figures put theme values into HTML attributes, CSS and SVG without
+# conversion. These marks can close an attribute or an element. A font stack can contain ".
+UNSAFE_MARKS = '<>&"'
+FONT_UNSAFE_MARKS = "<>&"
+
+
+def _texts(value: object, key: str) -> Iterator[tuple[str, str]]:
+    """Give the key and the text of each string in a theme value, in tables and lists."""
+    if isinstance(value, str):
+        yield key, value
+    elif isinstance(value, dict):
+        for name, item in value.items():
+            yield from _texts(item, f"{key}.{name}" if key else str(name))
+    elif isinstance(value, list):
+        for item in value:
+            yield from _texts(item, key)
+
+
+def _check_text(t: dict[str, Any]) -> None:
+    """Reject a theme value that contains a mark that can change the HTML of the page."""
+    for key, text in _texts(t, ""):
+        marks = FONT_UNSAFE_MARKS if key.startswith("font_") else UNSAFE_MARKS
+        found = [mark for mark in marks if mark in text]
+        if found:
+            raise ValueError(
+                f"The theme value {key} contains {' '.join(found)}. The page uses theme "
+                f"values in HTML without conversion. Remove these marks from the value."
+            )
 
 
 def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:

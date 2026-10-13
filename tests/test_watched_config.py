@@ -17,13 +17,13 @@ from pathlib import Path
 from conftest import TINY_PACKAGE, write_tree
 
 from systemap import language as languages
-from systemap import serve
+from systemap import live_watch
 
 CONFIG_NAMES = {"systemap.toml", "pyproject.toml", "package.json", "tsconfig.json"}
 
 
 def _config_names(root: Path) -> set[str]:
-    found = {p.relative_to(root).as_posix() for p in serve.watched(root)}
+    found = {p.relative_to(root).as_posix() for p in live_watch.watched(root)}
     return found & CONFIG_NAMES
 
 

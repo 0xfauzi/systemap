@@ -17,9 +17,20 @@ from systemap.config import Config, ConfigError
 
 def checked(cfg: Config, path: Path) -> Path:
     """Give the path if it is in the output directory. If it is not, give ConfigError."""
-    if not repo_files.inside(cfg.out_path, path):
+    return _inside(cfg.out_path, path, cfg.rel(path), cfg.out_dir)
+
+
+def served(out: Path, name: str) -> Path:
+    """Give the path of a file of `systemap live` if it is in its directory `out`.
+
+    If the path is not in the directory, give ConfigError."""
+    return _inside(out, out / name, name, str(out))
+
+
+def _inside(out: Path, path: Path, shown: str, directory: str) -> Path:
+    if not repo_files.inside(out, path):
         raise ConfigError(
-            f"The output file {cfg.rel(path)} is not in the output directory {cfg.out_dir}. "
+            f"The output file {shown} is not in the output directory {directory}. "
             f"Correct the file name in the configuration or the model."
         )
     return path

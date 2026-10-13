@@ -598,7 +598,11 @@ The input is a command option, `systemap.toml` or the model module, a `tsconfig.
 Writes `systemap.toml`, an initial model, the skill directory, and a GitHub
 workflow. The workflow pins this version.
 The command does not replace `systemap.toml`, the model, or the workflow.
+If `pyproject.toml` has a `[tool.systemap]` table and `systemap.toml` is missing,
+the command does not write `systemap.toml`, because the commands read that file before the table.
+Then it writes the model at the `model` path of the table.
 It writes the skill directory again on each run.
+If a symbolic link puts a file in a location that is not in the repository, the command writes no file and exits 2.
 It prints the instruction for your agent.
 `--no-ci` does not include the workflow.
 
@@ -717,6 +721,11 @@ Uses the page generator to render one figure for a document.
 - `--map ID` selects a nested map.
 
 - An `--out` filename with a `.svg` suffix writes the drawing without a frame.
+
+- `--svg-id ID` sets the HTML ID of the drawing. The default is `lessonmap`.
+  The ID must start with a letter and contain only letters, digits, `-`, and `_`.
+
+The figure shows the layer names, the caption, and the other model and configuration text as text, not as HTML.
 
 ### `systemap refresh`
 
@@ -1202,7 +1211,8 @@ If the port is not available, the command exits 2.
 Then use `--port 0` to select an available port, or give a different port.
 The server answers only a request whose Host header is `127.0.0.1` or `localhost` with the server port.
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
-`systemap live` has the same rule.
+The server answers 404 for a symbolic link to a file that is not in the output directory.
+`systemap live` has the same rules.
 
 ### `systemap live [--port 8765] [--base REF] [--no-watch] [--json]`
 
@@ -1219,6 +1229,8 @@ If a request occurs while the command renders, the command renders one more vers
 If the command cannot render a version, the last page stays and the command gives the error.
 Examples are a model file that does not load, a source syntax error, and an extraction error.
 If the first version fails, the page gives the error.
+If the command cannot write the pages of a version, the command gives the error, and the next version renders.
+After a good version, the command removes the pages of the maps that the version does not have.
 
 - `--base REF` sets the base of the Changes view.
   The default is the first of `origin/HEAD`, `origin/main`, `main`, `origin/master`, and `master`
@@ -1229,6 +1241,8 @@ If the first version fails, the page gives the error.
 
 - Without `--no-watch`, the command scans the configuration files, the model files,
   and the source and test files one time each second.
+  The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
+  It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
   When a scan finds a change and the next scan finds no more change, the command renders the page again.
 
 - `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
@@ -1272,6 +1286,9 @@ Reinstalls the skill directory from `init`: `SKILL.md` and `references/`.
 
 - `--dir PATH` writes to another directory.
 
+Each skill file must be in the repository (in `PATH` with `--dir`) after the resolution of symbolic links.
+If a file is not, the command writes no file and exits 2.
+
 - `--print` writes `SKILL.md` to stdout.
 
 ## What can you configure?
@@ -1306,7 +1323,7 @@ Unknown keys are rejected.
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
-| `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
+| `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. The page uses theme values in HTML without conversion. Thus a value cannot contain `<`, `>`, `&`, or `"`. A font value (`font_ui`, `font_mono`) can contain `"`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. An `out` that is not in `out_dir` gives exit code 2. |
 
 The environment of a command can set three values. A repository file cannot set them.
