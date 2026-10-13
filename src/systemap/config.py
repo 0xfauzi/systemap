@@ -282,14 +282,14 @@ def find_root(start: Path) -> Path | None:
         if (candidate / CONFIG_FILE).is_file():
             return candidate
         pyproject = candidate / "pyproject.toml"
-        if pyproject.is_file() and _configures(pyproject):
+        if pyproject.is_file() and configures(pyproject):
             return candidate
         if (candidate / ".git").exists():
             return candidate
     return None
 
 
-def _configures(pyproject: Path) -> bool:
+def configures(pyproject: Path) -> bool:
     """Tell if pyproject.toml has a tool.systemap table.
 
     If the file is not correct TOML and it contains the text tool.systemap, the result is

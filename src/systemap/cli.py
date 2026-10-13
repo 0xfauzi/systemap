@@ -128,8 +128,9 @@ def cmd_init(args: argparse.Namespace) -> int:
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root, language)
     adapter = languages.repository(language)
+    skill.check(root / skill.DEFAULT_DIR, root)
     say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=adapter))
-    skill_path = skill.write(root / skill.DEFAULT_DIR)
+    skill_path = skill.write(root / skill.DEFAULT_DIR, root)
     references = len(skill.files()) - 1
     say(
         f"The command wrote {skill_path.parent.relative_to(root).as_posix()}/ "
@@ -805,7 +806,7 @@ def cmd_skill(args: argparse.Namespace) -> int:
         sys.stdout.write(skill.text())
         return OK
     target = Path(args.dir).resolve() if args.dir else _root(args) / skill.DEFAULT_DIR
-    path = skill.write(target)
+    path = skill.write(target, None if args.dir else _root(args))
     references = len(skill.files()) - 1
     say(
         f"The command wrote {path}",

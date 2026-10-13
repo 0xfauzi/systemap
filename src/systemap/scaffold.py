@@ -13,7 +13,8 @@ import argparse
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
-from systemap import __version__
+from systemap import __version__, config, repo_files
+from systemap.config import ConfigError
 
 
 class LanguageSetup(Protocol):
@@ -488,9 +489,18 @@ def write(
     *,
     language: LanguageSetup,
 ) -> list[str]:
-    """Write missing files. Give one output line for each written or existing file."""
-    out: list[str] = []
-    for rel, content in files(name, package, roots, ci, language=language).items():
+    """Write missing files. Give one output line for each written or existing file.
+
+    Each file must be in the root after the resolution of symbolic links. Otherwise, give
+    ConfigError before the first write."""
+    planned, out = _existing_config(root, files(name, package, roots, ci, language=language))
+    for rel in planned:
+        if not repo_files.inside(root, root / rel):
+            raise ConfigError(
+                f"The file {rel} is not in {root}, because of a symbolic link or the "
+                f"configured path. Remove the symbolic link, or correct the path."
+            )
+    for rel, content in planned.items():
         path = root / rel
         if path.exists():
             out.append(f"kept {rel} (file exists)")
@@ -499,3 +509,25 @@ def write(
         path.write_text(content, encoding="utf-8", newline="\n")
         out.append(f"wrote {rel}")
     return out
+
+
+def _existing_config(root: Path, planned: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """Keep a `[tool.systemap]` table in pyproject.toml when systemap.toml is missing.
+
+    A new systemap.toml would take precedence over the table. Thus the files do not include
+    systemap.toml, and the model and the output directory come from the table."""
+    pyproject = root / "pyproject.toml"
+    configured = pyproject.is_file() and config.configures(pyproject)
+    if (root / config.CONFIG_FILE).exists() or not configured:
+        return planned, []
+    cfg = config.load(root)
+    kept = {
+        cfg.model: planned[MODEL_PATH],
+        f"{cfg.out_dir}/.gitkeep": planned["docs/map/.gitkeep"],
+    }
+    rest = {
+        rel: text
+        for rel, text in planned.items()
+        if rel not in (config.CONFIG_FILE, MODEL_PATH, "docs/map/.gitkeep")
+    }
+    return {**kept, **rest}, ["kept pyproject.toml [tool.systemap] (configuration exists)"]
