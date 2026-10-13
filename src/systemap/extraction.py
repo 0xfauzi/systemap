@@ -26,8 +26,9 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 
 # A stored file of an older facts format is reported as stale. Format 6: the `package`
 # fact is the folder package that the adapter gives, not the first module-name part.
-# Format 7: each module record has the `call_sites` fact.
-FORMAT = 7
+# Format 7: each module record has the `call_sites` fact. Format 8: each re-export has
+# `defined_in` and `defined_as`, the identity of its definition.
+FORMAT = 8
 TESTS_KEPT = 25
 
 

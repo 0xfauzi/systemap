@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, extraction, figure, nest, page, source_facts
+from systemap import explain, extract, extraction, figure, nest, page, reexports, source_facts
 from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
@@ -394,15 +394,6 @@ def _method_name(signature: str) -> str:
     return next((found for a in adapters if (found := a.method_name(signature))), "")
 
 
-def _reexport_sources(record: Mapping[str, Any], name: str) -> list[str]:
-    """This function finds the source modules for re-exported public names."""
-    return [
-        str(n["reexport_of"])
-        for n in record.get("names", [])
-        if n.get("name") == name and n.get("reexport_of")
-    ]
-
-
 def _closest(name: str, candidates: Iterable[str]) -> str:
     matches = difflib.get_close_matches(name, sorted(set(candidates)), n=1, cutoff=0.0)
     return matches[0] if matches else ""
@@ -470,34 +461,20 @@ def interface_problem(c: Component, components: Mapping[str, Any]) -> str:
 def _interface_methods(
     modules: list[str], symbols: list[tuple[str, str]], components: Mapping[str, Any], name: str
 ) -> set[str]:
-    """This function gives public methods from a class claim and its re-exports."""
-    methods: set[str] = set()
-    for m in modules:
-        methods |= method_names(components[m], name)
-        # A class re-exported by a package __init__ keeps its methods in
-        # the module that defines it.
-        methods |= _reexport_methods(components[m], components, name)
-    for m, n in symbols:
-        if n == name and m in components:
-            methods |= method_names(components[m], name)
-    return methods
+    """This function gives the public methods of each definition of the name.
 
-
-def _reexport_methods(
-    record: Mapping[str, Any], components: Mapping[str, Any], name: str
-) -> set[str]:
+    A re-export gives the module and the symbol of its definition. A name that refers to
+    a full module gives the public names of that module."""
+    holders = [*modules, *(m for m, n in symbols if n == name and m in components)]
     methods: set[str] = set()
-    for source in _reexport_sources(record, name):
-        if source not in components:
-            continue
-        methods |= method_names(components[source], name)
-        if any(
-            entry.get("name") == name
-            and entry.get("kind") == "module"
-            and entry.get("reexport_of") == source
-            for entry in record.get("names", [])
-        ):
-            methods |= public_names(components[source])
+    for holder in holders:
+        for module, symbol in reexports.definitions(components[holder], holder, name):
+            if module not in components:
+                continue
+            if symbol == source_facts.WHOLE_MODULE:
+                methods |= public_names(components[module])
+            else:
+                methods |= method_names(components[module], symbol)
     return methods
 
 
