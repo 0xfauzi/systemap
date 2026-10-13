@@ -20,6 +20,7 @@ import pytest
 from conftest import Sample, write_tree
 
 from systemap import describe, route, scaffold, skill
+from systemap import language as languages
 from systemap.check import check_labels
 from systemap.cli import main
 from systemap.schematic import render as render_schematic
@@ -120,7 +121,9 @@ def test_starter_is_ruff_formatted_at_88_and_100_columns(tmp_path: Path) -> None
     """The consumer's formatter must accept the starter as written, whatever
     its line length; trailing commas keep the collections exploded."""
     pytest.importorskip("ruff")
-    files = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci="", language="python")
+    files = scaffold.files(
+        "demo", "pkg", [("pkg", "pkg")], ci="", language=languages.repository("python")
+    )
     model = tmp_path / "model.py"
     model.write_text(files["map/model.py"], encoding="utf-8")
     for width in ("88", "100"):

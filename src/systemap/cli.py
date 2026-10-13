@@ -120,14 +120,15 @@ def cmd_init(args: argparse.Namespace) -> int:
     language, roots = init_language.language_roots(root)
     package = roots[0][1] if roots else "mypackage"
     name = args.name or config.default_name(root, language)
-    say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=language))
+    adapter = languages.repository(language)
+    say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=adapter))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
         f"The command wrote {skill_path.parent.relative_to(root).as_posix()}/ "
         f"({skill.FILE_NAME} and {references} references)"
     )
-    say(*scaffold.tooling_note(root, language))
+    say(*scaffold.tooling_note(root, adapter))
     say("Next, give this instruction to your coding agent:", f"  {AGENT_SENTENCE}")
     return OK
 

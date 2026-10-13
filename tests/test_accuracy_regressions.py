@@ -12,6 +12,7 @@ import pytest
 from conftest import write_tree
 
 from systemap import change, check, config, extract, history, journeys, scaffold, source_facts
+from systemap import language as languages
 from systemap.jev_cli import _atomic_model_write
 from systemap.journeys import as_source
 from systemap.model import Component, Flow, Journey, Model, Step
@@ -148,9 +149,9 @@ def test_invalid_journey_is_rejected_as_a_whole() -> None:
 
 
 def test_typescript_ci_installs_parser_extra() -> None:
-    workflow = scaffold.files("Web", "web", [("src", "web")], language="typescript")[
-        ".github/workflows/systemap.yml"
-    ]
+    workflow = scaffold.files(
+        "Web", "web", [("src", "web")], language=languages.repository("typescript")
+    )[".github/workflows/systemap.yml"]
     assert workflow.count("systemap[typescript]==") == workflow.count("uvx --from")
 
 

@@ -20,6 +20,7 @@ import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
 from systemap import agent, journeys, nest, scaffold, source_facts
+from systemap import language as languages
 from systemap.cli import main
 from systemap.config import Config, load
 from systemap.jev_cli import cmd_journeys
@@ -173,7 +174,9 @@ def test_the_walk_is_written_into_the_model_where_its_journeys_are_named() -> No
 def test_the_walk_is_written_into_the_annotated_list_of_the_initial_model() -> None:
     draft = read(ANSWER)
     assert draft.journey is not None
-    source = scaffold.files("demo", "pkg", [("pkg", "pkg")], language="python")["map/model.py"]
+    source = scaffold.files(
+        "demo", "pkg", [("pkg", "pkg")], language=languages.repository("python")
+    )["map/model.py"]
     assert "JOURNEYS: tuple[Journey, ...] = ()\n" in source
     grown = journeys.add_to_source(source, draft.journey)
     assert grown is not None
