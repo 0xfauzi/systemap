@@ -14,6 +14,8 @@ is correct. A refusal gives no decision. The raw provider data is optional metad
 
 The thresholds are values for each provider and each question type. They came from
 measurements on that provider. A provider without measured thresholds causes an error.
+A question type that failed its measurement has no value (None). `value` gives the
+reason for that question type, and the command does not send the question.
 """
 
 from __future__ import annotations
@@ -129,16 +131,35 @@ def refused(questions: Sequence[Question], answers: Sequence[Answer]) -> list[st
 
 @dataclass(frozen=True)
 class Thresholds:
-    """The measured limits of one provider for each question type."""
+    """The measured limits of one provider for each question type.
 
-    misfold_below: float
-    owner_at: float
-    sentence_below: float
-    flow_below: float
-    governs_at: float
-    same_at: float
-    move_at: float
-    plan_cut: float
+    None: the question type has no measured value for this provider.
+    `triage` is False when the triage measurement of the provider failed.
+    """
+
+    misfold_below: float | None
+    owner_at: float | None
+    sentence_below: float | None
+    flow_below: float | None
+    governs_at: float | None
+    same_at: float | None
+    move_at: float | None
+    plan_cut: float | None
+    provider: str = "jev"
+    triage: bool = True
+
+
+# The question type of each threshold, for the reason text.
+QUESTION_TYPES = {
+    "misfold_below": "jev mis-fold",
+    "owner_at": "jev owner",
+    "sentence_below": "jev sentence",
+    "flow_below": "jev flow",
+    "governs_at": "jev governs",
+    "same_at": "suggest --jev",
+    "move_at": "the move question of delta --jev",
+    "plan_cut": "plan",
+}
 
 
 # The Jev values came from five first maps in bench/scratch, recorded in bench/jev.
@@ -172,7 +193,33 @@ JEV = Thresholds(
     plan_cut=0.05,
 )
 
-THRESHOLDS: dict[str, Thresholds] = {"jev": JEV}
+# The OpenAI values came from the Jev bench rows (bench/jev/README.md, "Can OpenAI
+# Decisions use the measured audit rules?"). Each value was selected on the five
+# development maps, and each figure on the holdout maps was within 10 points.
+OPENAI = Thresholds(
+    # Not available: on holdout, 61.5% of planted modules were caught, 82.1% on development.
+    misfold_below=None,
+    # 9.5% of modules get one card, 100% right (holdout 4.7%, 100%).
+    owner_at=0.99,
+    # 81.0% of wrong sentences caught, 1.3% of right ones flagged (holdout 75.0%, 0.0%).
+    sentence_below=0.3,
+    # 46.2% of wrong claims caught, 2.5% of real ones flagged (holdout 56.2%, 8.3%).
+    flow_below=0.05,
+    # 19.8% of governed cards found, 1.1% of the rest suggested (holdout 17.2%, 6.0%).
+    governs_at=0.99,
+    # Not available: the pair question has no holdout rows.
+    same_at=None,
+    # Not available: the move question has no holdout rows.
+    move_at=None,
+    # Not available: on holdout, the plan covered 0.39 of the changed cards, 0.73 on
+    # development.
+    plan_cut=None,
+    provider="openai",
+    # Not available: the top-1 rate was 82.5% on development and 69.2% on holdout.
+    triage=False,
+)
+
+THRESHOLDS: dict[str, Thresholds] = {"jev": JEV, "openai": OPENAI}
 
 
 def thresholds(provider: str) -> Thresholds:
@@ -183,3 +230,24 @@ def thresholds(provider: str) -> Thresholds:
             f"the decision provider {provider} has no measured thresholds. Measure them before use"
         )
     return found
+
+
+def value(limits: Thresholds, name: str) -> float:
+    """Give one measured threshold, or raise DecisionError if the measurement failed."""
+    found = getattr(limits, name)
+    if found is None:
+        raise DecisionError(unmeasured(limits.provider, QUESTION_TYPES[name]))
+    return float(found)
+
+
+def value_reason(provider: str, name: str) -> str:
+    """Give the reason text for one threshold without a measured value."""
+    return unmeasured(provider, QUESTION_TYPES[name])
+
+
+def unmeasured(provider: str, question_type: str) -> str:
+    """Give the reason text for a question type without a measured value."""
+    return (
+        f"the decision provider {provider} has no measured value for {question_type}. "
+        "The command does not send this question (bench/jev/README.md)"
+    )

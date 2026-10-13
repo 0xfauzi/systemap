@@ -143,6 +143,7 @@ JOURNEYS = (
             '["subcommand","systemap.cli","systemap","place"]',
             '["subcommand","systemap.cli","systemap","check"]',
             '["subcommand","systemap.cli","systemap","skill"]',
+            '["subcommand","systemap.cli","systemap","rules"]',
         ),
         steps=(
             Step(
@@ -185,7 +186,7 @@ JOURNEYS = (
                 acts=("Check",),
                 measures=("Check",),
                 edge=("Check", "Agent"),
-                say="systemap check gives each error and necessary action. The agent makes changes until module coverage is N/N and layout checks give no errors.",
+                say="systemap check gives each error and necessary action, and the result of each import rule. systemap rules gives only the import rule results. The agent makes changes until module coverage is N/N and layout checks give no errors.",
             ),
         ),
     ),
@@ -411,6 +412,47 @@ JOURNEYS = (
                 measures=(),
                 edge=("Config", "SecondOpinion"),
                 say="The command reads the new text without running code. If only the review value changes, the model writer replaces the file.",
+            ),
+        ),
+    ),
+    Journey(
+        id="examine-claims",
+        label="Examine the claims with the agent",
+        starts="decisions (subcommand in systemap.decisions_cli)",
+        covers=(
+            '["subcommand","systemap.decisions_cli","","decisions"]',
+            '["subcommand","systemap.decisions_cli","","submit"]',
+        ),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The agent runs systemap decisions pending. The command gives each claim without a current decision, with its source files and their digests.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=(),
+                edge=("Judgement", "Agent"),
+                say="The requests are the open judgement lines, the missing or stale source reviews and the flow reviews that are not current.",
+            ),
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "Model"),
+                say="The agent reads the source files and gives one verdict with citations for each request. After a contradicted verdict, the agent corrects the map.",
+            ),
+            Step(
+                acts=("Config",),
+                measures=(),
+                edge=("Config", "Model"),
+                say="systemap decisions submit rejects incorrect citations and writes nothing. Otherwise, it writes the review digests into the model and the exact answers into systemap.toml.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=("Maintainer",),
+                edge=("Judgement", "Maintainer"),
+                say="systemap decisions status and systemap judgement show each unknown request. The maintainer examines these claims.",
             ),
         ),
     ),

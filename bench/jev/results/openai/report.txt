@@ -1,0 +1,49 @@
+== OpenAI thresholds: selected on development, compared on holdout
+-- misfold: development {'rows': 200, 'jev': 200, 'openai': 200, 'refused': 0}, holdout {'rows': 106, 'jev': 106, 'openai': 106, 'refused': 0}
+   jev     0.05 caught     dev 184/195 (94.4%)    holdout 87/96 (90.6%)
+   jev     0.05 flagged    dev 8/195 (4.1%)       holdout 1/96 (1.0%)
+   openai  0.02 caught     dev 160/195 (82.1%)    holdout 59/96 (61.5%)      -20.6 points fail
+   openai  0.02 flagged    dev 6/195 (3.1%)       holdout 1/96 (1.0%)        -2.0 points pass
+   openai: FAIL (Jev budget flagged 0.0410)
+-- owner: development {'rows': 200, 'jev': 200, 'openai': 200, 'refused': 0}, holdout {'rows': 106, 'jev': 106, 'openai': 106, 'refused': 0}
+   jev      0.9 answered   dev 111/200 (55.5%)    holdout 64/106 (60.4%)
+   jev      0.9 right      dev 109/111 (98.2%)    holdout 64/64 (100.0%)
+   openai  0.99 answered   dev 19/200 (9.5%)      holdout 5/106 (4.7%)       -4.8 points pass
+   openai  0.99 right      dev 19/19 (100.0%)     holdout 5/5 (100.0%)       +0.0 points pass
+   openai: PASS (Jev budget right 0.9820)
+-- sentence: development {'rows': 158, 'jev': 158, 'openai': 158, 'refused': 0}, holdout {'rows': 88, 'jev': 88, 'openai': 88, 'refused': 0}
+   jev      0.2 caught     dev 53/79 (67.1%)      holdout 27/44 (61.4%)
+   jev      0.2 flagged    dev 1/79 (1.3%)        holdout 1/44 (2.3%)
+   openai   0.3 caught     dev 64/79 (81.0%)      holdout 33/44 (75.0%)      -6.0 points pass
+   openai   0.3 flagged    dev 1/79 (1.3%)        holdout 0/44 (0.0%)        -1.3 points pass
+   openai: PASS (Jev budget flagged 0.0127)
+-- flow: development {'rows': 160, 'jev': 160, 'openai': 160, 'refused': 0}, holdout {'rows': 96, 'jev': 96, 'openai': 96, 'refused': 0}
+   jev      0.2 caught     dev 53/80 (66.2%)      holdout 26/48 (54.2%)
+   jev      0.2 flagged    dev 2/80 (2.5%)        holdout 2/48 (4.2%)
+   openai  0.05 caught     dev 37/80 (46.2%)      holdout 27/48 (56.2%)      +10.0 points pass
+   openai  0.05 flagged    dev 2/80 (2.5%)        holdout 4/48 (8.3%)        +5.8 points pass
+   openai: PASS (Jev budget flagged 0.0250)
+-- governs: development {'rows': 531, 'jev': 531, 'openai': 531, 'refused': 0}, holdout {'rows': 174, 'jev': 229, 'openai': 174, 'refused': 0}
+   jev      0.8 found      dev 54/177 (30.5%)     holdout 22/58 (37.9%)
+   jev      0.8 suggested  dev 5/354 (1.4%)       holdout 1/116 (0.9%)
+   openai  0.99 found      dev 35/177 (19.8%)     holdout 10/58 (17.2%)      -2.5 points pass
+   openai  0.99 suggested  dev 4/354 (1.1%)       holdout 7/116 (6.0%)       +4.9 points pass
+   openai: PASS (Jev budget suggested 0.0141)
+-- plan: development {'rows': 80, 'jev': 80, 'openai': 80, 'refused': 0}, holdout {'rows': 39, 'jev': 39, 'openai': 39, 'refused': 0}
+   jev     0.05 covered    dev 0.86               holdout 0.71
+   openai   0.5 covered    dev 0.73               holdout 0.39               -33.8 points fail
+   openai: FAIL (largest cut that satisfies the bar)
+-- triage: development {'rows': 80, 'jev': 80, 'openai': 80, 'refused': 0}, holdout {'rows': 39, 'jev': 39, 'openai': 39, 'refused': 0}
+   jev        - top-1      dev 64/80 (80.0%)      holdout 31/39 (79.5%)
+   openai     - top-1      dev 66/80 (82.5%)      holdout 27/39 (69.2%)      -13.3 points fail
+   openai: FAIL (no threshold)
+   usage development owner: jev {'requests': 200, 'input_tokens': 478976, 'models': {'null': 200}}; openai {'requests': 200, 'input_tokens': 373753, 'models': {'gpt-6-luna': 200}}
+   usage development sentence: jev {'requests': 158, 'input_tokens': 145800, 'models': {'null': 158}}; openai {'requests': 158, 'input_tokens': 102719, 'models': {'gpt-6-luna': 158}}
+   usage development flowverify: jev {'requests': 160, 'input_tokens': 123927, 'models': {'null': 160}}; openai {'requests': 160, 'input_tokens': 91885, 'models': {'gpt-6-luna': 160}}
+   usage development governs: jev {'requests': 531, 'input_tokens': 219692, 'models': {'null': 531}}; openai {'requests': 531, 'input_tokens': 150498, 'models': {'gpt-6-luna': 531}}
+   usage development issues: jev {'requests': 80, 'input_tokens': 186192, 'models': {'null': 80}}; openai {'requests': 80, 'input_tokens': 153911, 'models': {'gpt-6-luna': 80}}
+   usage holdout owner: jev {'requests': 106, 'input_tokens': 176283, 'models': {'null': 106}}; openai {'requests': 106, 'input_tokens': 134848, 'models': {'gpt-6-luna': 106}}
+   usage holdout sentence: jev {'requests': 88, 'input_tokens': 76283, 'models': {'null': 88}}; openai {'requests': 88, 'input_tokens': 53351, 'models': {'gpt-6-luna': 88}}
+   usage holdout flowverify: jev {'requests': 96, 'input_tokens': 79619, 'models': {'null': 96}}; openai {'requests': 96, 'input_tokens': 59961, 'models': {'gpt-6-luna': 96}}
+   usage holdout governs: jev {'requests': 174, 'input_tokens': 72893, 'models': {'null': 174}}; openai {'requests': 174, 'input_tokens': 50397, 'models': {'gpt-6-luna': 174}}
+   usage holdout issues: jev {'requests': 39, 'input_tokens': 50371, 'models': {'null': 39}}; openai {'requests': 39, 'input_tokens': 38313, 'models': {'gpt-6-luna': 39}}

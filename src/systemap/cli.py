@@ -24,16 +24,19 @@ from systemap import (
     change,
     check,
     config,
+    decisions_cli,
     delta,
     delta_jev,
     delta_link,
     describe,
+    drift_order,
     explain,
     extract,
     extract_check,
     failures,
     figure,
     history,
+    import_rules,
     init_language,
     jev_cli,
     judgement,
@@ -42,6 +45,7 @@ from systemap import (
     nest,
     page,
     place,
+    providers,
     review,
     scaffold,
     serve,
@@ -51,7 +55,7 @@ from systemap import (
 from systemap import facts as facts_mod
 from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
-from systemap.model import Meaning, Model
+from systemap.model import Meaning, Model, import_rule_problems
 from systemap.model import problems as model_problems
 from systemap.serve import DEFAULT_PORT, make_server
 
@@ -359,10 +363,39 @@ def cmd_check(args: argparse.Namespace) -> int:
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
+    code = _rules_check(p, facts, not args.brief)
     if not check.tree_ok(results) or stale:
         say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
         return STALE
-    return OK
+    return code
+
+
+def _rules_check(p: Project, facts: dict[str, Any], teach: bool) -> int:
+    """Print the import rule results. Give exit 1 for a fail, or for an unknown result
+    under [rules] unknown = "fail"."""
+    ruled = import_rules.run_tree(p.tree, facts)
+    say(*import_rules.report(ruled, p.cfg.rules_unknown, teach))
+    return OK if import_rules.ok(ruled, p.cfg.rules_unknown) else STALE
+
+
+def cmd_rules(args: argparse.Namespace) -> int:
+    """Print the result of each import rule: pass, fail, or unknown.
+
+    `--json` writes one JSON object. Notices for a person go to stderr.
+    """
+    p = _project(args)
+    facts = extract.read_facts(p.cfg.facts_path)
+    problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
+    ruled = import_rules.run_tree(p.tree, facts)
+    if not facts:
+        warn(f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}", "run: systemap extract")
+    if args.json:
+        say(json.dumps(import_rules.payload(ruled, p.cfg.rules_unknown, problems), indent=2))
+    else:
+        lines = import_rules.report(ruled, p.cfg.rules_unknown, not args.brief)
+        say(*problems, *(lines or ["import rules: The model has no import rules."]))
+    passed = facts and not problems and import_rules.ok(ruled, p.cfg.rules_unknown)
+    return OK if passed else STALE
 
 
 # ---- figure ----------------------------------------------------------------
@@ -526,10 +559,14 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
         say(_no_facts(p))
-    result = judgement_json.evaluate(p.tree, facts, p.cfg).result
+    judged = judgement_json.evaluate(p.tree, facts, p.cfg)
+    result = judged.result
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
+    result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
+    say(*notes)
     say(*judgement.review_counts(p.tree, facts))
+    say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -541,7 +578,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     """Write the judgement report as one JSON object. Notices for a person go to stderr."""
     if not p.model.components:
         warn(NO_COMPONENTS)
-        say(json.dumps(judgement_json.empty(), indent=2))
+        say(json.dumps(judgement_json.empty(p.cfg.require_reviews), indent=2))
         return OK
     facts = extract.read_facts(p.cfg.facts_path)
     if not facts:
@@ -549,7 +586,10 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
     detail = judgement.crossing_detail_tree(p.tree, facts)
     reviews = judgement.review_states(p.tree, facts)
-    say(json.dumps(judgement_json.payload(judged, detail, reviews, args.kind or ""), indent=2))
+    obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
+    obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
+    say(json.dumps(obj, indent=2))
+    warn(*notes)
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
@@ -577,8 +617,9 @@ def cmd_delta(args: argparse.Namespace) -> int:
     base = delta.facts_at(p.cfg, compared)
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
     # Jev answers are suggestions: they never change the lines or the exit code.
-    selected = jev_cli.uses_jev(p.cfg, args.jev)
-    asked = delta_jev.ask(p.cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
+    cfg = providers.chosen(p.cfg, args.provider)
+    selected = jev_cli.uses_jev(cfg, args.jev)
+    asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
@@ -601,7 +642,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
     if args.jev:
-        return jev_cli.cmd_suggest_jev(cfg, facts)
+        return jev_cli.cmd_suggest_jev(providers.chosen(cfg, args.provider), facts)
     say(*suggest_mod.lines(facts))
     if cfg.model_path.is_file():
         tree = nest.load(cfg)
@@ -1065,7 +1106,41 @@ def build_parser() -> argparse.ArgumentParser:
             "The object has no explanation text."
         ),
     )
+    s.add_argument(
+        "--order-by-drift",
+        action="store_true",
+        help=(
+            "Send one Jev question for each open stale source review line. Put these lines "
+            "in sequence from the lowest probability that the claims agree with the source. "
+            "The option does not change the open lines or the exit code. "
+            "It must have TYPESAFE_API_KEY."
+        ),
+    )
     s.set_defaults(func=cmd_judgement)
+
+    s = sub.add_parser(
+        "rules",
+        help="Print the result of each import rule: pass, fail, or unknown.",
+        description=(
+            "This command compares the import rules of the model with the resolved imports "
+            "in the facts. The result fail gives each import against the rule. The result "
+            "unknown gives each module with imports that are possibly not in the facts. The "
+            'command exits 1 for the result fail. With [rules] unknown = "fail", it also '
+            "exits 1 for the result unknown."
+        ),
+    )
+    add_root(s)
+    s.add_argument(
+        "--brief",
+        action="store_true",
+        help="Print result lines only. Use systemap explain KIND for the full explanation.",
+    )
+    s.add_argument(
+        "--json",
+        action="store_true",
+        help="Write one JSON object with the result of each rule and the counts.",
+    )
+    s.set_defaults(func=cmd_rules)
 
     s = sub.add_parser(
         "delta",
@@ -1097,6 +1172,7 @@ def build_parser() -> argparse.ArgumentParser:
             "only if systemap.toml sets [jev] enabled = true and TYPESAFE_API_KEY is set."
         ),
     )
+    providers.add_option(s)
     s.add_argument(
         "--brief",
         action="store_true",
@@ -1122,6 +1198,7 @@ def build_parser() -> argparse.ArgumentParser:
             "TYPESAFE_API_KEY."
         ),
     )
+    providers.add_option(s)
     s.set_defaults(func=cmd_suggest)
 
     s = sub.add_parser(
@@ -1212,6 +1289,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_parsers(sub, add_root)
     model_convert.add_parsers(sub, add_root)
     review.add_parsers(sub, add_root)
+    decisions_cli.add_parsers(sub, add_root)
     return parser
 
 

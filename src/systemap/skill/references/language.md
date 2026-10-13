@@ -184,7 +184,9 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | control flow | A flow that causes a component to do an action. |
 | data flow | A flow that carries data between components. |
 | decision provider | A service that gives typed answers to typed questions. Jev is a decision provider. |
+| drift score | The probability from a decision provider that the claims of a component agree with its changed source (category 7). |
 | digest | A hash value of recorded source or claim contents. |
+| diff | The text that Git gives for the changed lines between two revisions of files. |
 | docstring | A string in source code that documents a module or symbol. |
 | entry point | A command, route, or public symbol where a run can start. |
 | evidence state | The recorded classification of support for a flow claim. |
@@ -263,6 +265,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | gutter | The layout space between regions or card columns. |
 | holdout | Recorded evaluation cases excluded from fitting a method (category 7). |
 | import connection | An extracted source import between two component module sets. |
+| import rule | A model record that gives the permitted imports between the module sets of components. Its result is `pass`, `fail`, or `unknown`. |
 | layout geometry | The coordinates and bounds used by the map layout (category 7). |
 | legend | The diagram explanation for its colors and marks. |
 | keyboard focus | The user interface control that receives keyboard input. |
@@ -319,6 +322,12 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | annotation | The type text after a colon in a source assignment. |
 | environment variable | A named value that the environment of a command supplies to a program. |
 | symbolic link | A file system entry that refers to a different file. |
+| decision request | A claim that `systemap decisions` gives to a coding agent for examination. |
+| verdict | The result that a coding agent gives for one decision request: `supported`, `contradicted`, or `insufficient_evidence`. |
+| citation | The file path, the line span, and the source hash that a verdict refers to. |
+| line span | The first and the last line number of a citation. |
+| decision store | The local file `.systemap/decisions.json` that records the verdicts of a working copy. |
+| session | One continuous period of work of a coding agent. |
 
 | Term | Technical meaning |
 |---|---|

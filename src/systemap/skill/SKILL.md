@@ -101,7 +101,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
    | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow 'SRC->DST'`. |
    | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
-   | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then run `systemap review ID`. |
+   | `stale source review` | The `source_review` digest of a component is not the current digest. | Examine its source and all its claims again. Then send a verdict with `systemap decisions`, or run `systemap review ID`. |
+| `missing source review` | With `[judgement] require_reviews = true`, a source component has no `source_review` digest. | Examine its source and all its claims. Then send a verdict with `systemap decisions`. |
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
 
@@ -112,7 +113,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    Run `systemap serve`. Open its URL.
    Examine `docs/map/figures/structure.svg` before `docs/map/figures/system.svg`.
    Find routes with many bends, full gutters, isolated regions, and empty layers.
-6. **source review**: Do the procedure in `references/second-pass.md`.
+6. **source review**: Do the procedures in `references/second-pass.md` and `references/decisions.md`.
    Examine every module assignment, crossing import, declared flow, entry point, and applicable invariant.
    Read README, AGENTS.md, CLAUDE.md, the documentation index, and the first level of docs/.
    If new rules apply only to source outside the repository, do not read more documents.
@@ -198,6 +199,7 @@ Its actors represent adjacent components. Commands examine every nested map.
 | `systemap journeys` | Ask the configured agent for draft sequences. The command rejects invalid steps. Examine each draft before removal of `drafted=True`. |
 | `systemap plan "<task>"` | Ask Jev which components the task can affect. `--check ID --base REF` compares a saved plan with source changes. |
 | `systemap history` | Show source changes at older commits, assigned to the current components. |
+| `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. |
 | `systemap explain KIND` | Show the meaning, reason, and action for a finding kind. `--brief` removes explanations from other command output. |
 | `systemap serve` | Serve the output over HTTP and show its URL. |
 | `systemap skill` | Install the complete skill again. `--print` writes SKILL.md to stdout. |
@@ -234,4 +236,5 @@ Do not put code or test counts on map components. Keep relationships on flows. D
 - `references/journeys-and-invariants.md`: source support for sequences and invariants. Read it before the draft and source review.
 - `references/second-pass.md`: full source examination and completion conditions. Read it at step 6.
 - `references/pitfalls.md`: known assignment and tool errors. Read it before the draft.
+- `references/decisions.md`: decision requests, verdicts, and citations. Read it at step 6.
 - `references/maintenance.md`: delta actions and the one-third rule. Read it for a map already in use.

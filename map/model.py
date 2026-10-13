@@ -78,10 +78,18 @@ COMPONENTS = (
         x=36,
         y=276,
     ),
+    Component(
+        id="OpenAI",
+        does="The OpenAI Decisions API. Gives typed answers about the map only when the user selects the openai provider.",
+        kind="actor",
+        container="outside",
+        x=36,
+        y=184,
+    ),
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="190890d54df6477c14f29735c9ad5714e5998cec43ac6a63400e60ef95e81238",
+        source_review="2c70b44cc3741a36db3f6b9eeed0f011387434ead5828b3e0e449fa94bbff2d8",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=("systemap.cli", "systemap.__main__", "systemap.failures", "systemap.serve"),
@@ -92,7 +100,7 @@ COMPONENTS = (
     ),
     Component(
         id="Scaffold",
-        source_review="3da1f69afdc5b1ddee25ec4e39887b51d15963faa2c4c716ae76b43fdd6b5051",
+        source_review="83fb4a01836cb263d42dae5b8979e459f6c38b09741a0f07dd1d56495c4a4cbb",
         does="Writes the initial configuration, model, output directory and workflow. The model has regions on a grid with spaces between them. Does not replace files.",
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
@@ -104,19 +112,23 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="02c8bb798c9865f1293df09662a8c7ecc9a64ffe88c44b0b22b7db9731521e86",
-        does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile. Reads model files as data and does not run their code. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file.",
+        source_review="a6a3aaa221b08edec5ed09a09a8e450f807c3a1cc7ccf3226d243353095b4358",
+        does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile, the [rules] table and the decision provider. Reads model files as data and does not run their code. Reads a repository file only if the file is a regular file in the repository. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file. Adds exact answers with citations to systemap.toml and keeps the other text of the file.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
             "systemap.config",
             "systemap.init_language",
             "systemap.language_config",
+            "systemap.provider_config",
             "systemap.model_load",
             "systemap.model_convert",
             "systemap.model_edit",
+            "systemap.repo_files",
             "systemap.review",
             "systemap.root_check",
             "systemap.typescript_config",
+            "systemap.config_decisions",
+            "systemap.answer_write",
         ),
         entry="load",
         kind="store",
@@ -127,7 +139,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="7f8659db7d81ed3a806e4b5454a8425f28366c9edabff80ee93554d731fba436",
+        source_review="b105370c15b6225428371d5e901f90213756ee314fc0fa04c47a45768899c1c4",
         does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -154,7 +166,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="8c55e4eeb51a1d72f0974f1d5ffa7c4b91bb44e9333133ead94405bb8dfde088",
+        source_review="9723321b73d1fcab8b97f1cf724ea88091d1d3e6d50b1214b16afbe5ee004c95",
         does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With a page URL in the configuration, it writes a pull request comment with a link to the Changes view. systemap history shows changes to the software structure through time.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -175,7 +187,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="fc7dec9e5ebbc92a1f923ae1157286ffab8c128189b229ce5fb3ed0eac687e78",
+        source_review="958b47ff6d90c3a32116e91c1e31b390fa4395702a3ef477dbc645f309ad4a5f",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, model, placement)",
         implemented_by=("systemap.place",),
@@ -187,7 +199,7 @@ COMPONENTS = (
     # ---- mean: the judgement ----
     Component(
         id="Skill",
-        source_review="d983f6a06dc17b979c08f1a0567c9b32af92d664969d2956b8cc9935bb565cd9",
+        source_review="62b6170f93738882f081bcd2f667f6a1086818ca0a7115d49c6e20a9705a38e9",
         does="Gives the procedure for the agent: extraction, model draft, check, judgement, render and second examination. Gives completion conditions, output requirements and maintenance instructions. Stores text files and references in the package.",
         interface="files() -> the skill directory; write(dir) -> the installed SKILL.md",
         implemented_by=("systemap.skill",),
@@ -198,9 +210,9 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="8e8c3ef6cbf5bf96bbb619d15f5c28f190c911afabcfd3cd04e51a36c18701a4",
-        does="Gives the schema for containers, regions, components, flows, invariants and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
-        interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
+        source_review="604cc44990bc2cd62febc8ead8b283d4c05e2ef631dc3b43a3eed43840c8ae47",
+        does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Does model checks. Sets flow evidence states and source review digests. Loads child maps when a component card opens a map.",
+        interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants, import_rules) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING",
         implemented_by=(
             "systemap.model",
             "systemap.card_review",
@@ -229,7 +241,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="791d4e289f5d0240971b537e5248762465e22f20c9436dfae462d1a07d5984d6",
+        source_review="f3be26576eb186297e2ed8d72a8c35c03ca0edc2f723fb76c8112488109b651c",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -249,7 +261,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="accfadffad25cbbab56941f25775d8e3689a9d5daefffb39b937dc2d1ccc1b1f",
+        source_review="00ec300e0a24dd3216549c804c614092dfffd97f5730dc5a4cb25100de58afd5",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -281,7 +293,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
-        source_review="1d6c91c30e7e922ff5683353ca0a8ac3ba47ac6e24f925b33d902913bf5085c2",
+        source_review="b54600bea43e2a682b7e69a749a0636a81110bb46f3dc4fcb6da60bc657dbb0d",
         does="Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
@@ -293,10 +305,10 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="c8ca791ad3f990f71d310d21aa610f6de769bd56b10088d0b9c355ba723495b3",
-        does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Gives all findings. Returns exit code 1 if there are errors.",
+        source_review="1ba5fc32668e53cf4a345786370db227a5030a9d55be7255c98c0755e09d58c2",
+        does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Compares the import rules with the resolved imports. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
-        implemented_by=("systemap.check", "systemap.extract_check"),
+        implemented_by=("systemap.check", "systemap.extract_check", "systemap.import_rules"),
         entry="run",
         region="keep",
         x=270,
@@ -304,8 +316,8 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="f87393185c530eb0f4c4609cea777822b300aa522154c80747e8091a07c48759",
-        does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints. With --strict, returns exit code 1 for findings without answers. With --json, writes the findings, answers and counts as one JSON object. systemap suggest gives initial module groups.",
+        source_review="b5bd973aa2985d6e8ab1902579413be3719bf22975423de51e4d280fa0ab06ae",
+        does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints. With --strict, returns exit code 1 for findings without answers. With --json, writes the findings, answers and counts as one JSON object. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
             "systemap.judgement",
@@ -314,6 +326,11 @@ COMPONENTS = (
             "systemap.journey_coverage",
             "systemap.suggest",
             "systemap.explain",
+            "systemap.review_policy",
+            "systemap.decisions",
+            "systemap.decisions_store",
+            "systemap.decisions_submit",
+            "systemap.decisions_cli",
         ),
         entry="run",
         region="keep",
@@ -322,16 +339,19 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="90415532a621a252642c82fc73f63bab9b2e4dc5f405f8279dc4dbbd41a4fbc3",
-        does="Sends different questions about the map to a decision provider. Jev is the only provider at this time. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command. Does not control map checks.",
-        interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails",
+        source_review="c570b15deed5c82b35c51ae0b8c2a3ccd05c129d6d0acbc9f12fc0d0ce49f4d0",
+        does="Sends different questions about the map to a decision provider. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command or with an explicit option. Does not control map checks.",
+        interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(
             "systemap.audit",
             "systemap.audit_code",
             "systemap.delta_jev",
+            "systemap.drift_order",
             "systemap.jev_cli",
             "systemap.jev",
             "systemap.jev_provider",
+            "systemap.openai_provider",
+            "systemap.providers",
             "systemap.decision",
             "systemap.agent",
             "systemap.journeys",
@@ -345,7 +365,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="a0c4a9b435936ce562360452d5e45e118d024553563c43289baa0435ccd3fcd1",
+        source_review="c2a8f45f1479ad4dc266b8d9d67fde2a523e8b40969525e354731342dafe7f37",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),
@@ -414,7 +434,7 @@ INVARIANTS = (
     ),
     Invariant(
         11,
-        "check and judgement do not use the network. A different Jev command sends requests only with a key (src/systemap/jev_cli.py, docstring).",
+        "check does not use the network. judgement uses the network only with --order-by-drift (src/systemap/drift_order.py, docstring). A different Jev command sends requests only with a key (src/systemap/jev_cli.py, docstring).",
         governs=("Check", "Judgement", "SecondOpinion"),
     ),
     Invariant(
@@ -476,6 +496,7 @@ PLAIN = {
     "Describe": "The diagram measurements",
     "SecondOpinion": "The external advice",
     "TypeSafe": "The Jev service",
+    "OpenAI": "The OpenAI service",
 }
 
 # The page derives Structure, System context, Data flow and Control flow. This model adds one layer: the loop that writes, questions and examines the model.
@@ -561,11 +582,13 @@ RELATIONS = {
     ("Judgement", "Check"): "Judgement stores explanations for finding kinds. The check uses these explanations to give reasons and necessary actions.",
     ("Judgement", "Agent"): "During the second examination, the agent examines each import between components and each entry point without a sequence. It changes the model or records answers.",
     ("Judgement", "Maintainer"): "The maintainer examines each judgement answer. The agent must give the findings for this examination.",
-    ("CLI", "SecondOpinion"): "audit, journeys, plan, triage and --jev run model commands. These commands use Jev or a configured coding agent. delta sends questions to Jev only with --jev or [jev] enabled = true. A key alone does not select Jev. check and judgement do not call external services.",
+    ("CLI", "SecondOpinion"): "audit, journeys, plan, triage and --jev run model commands. These commands use Jev or a configured coding agent. delta sends questions to Jev only with --jev or [jev] enabled = true. A key alone does not select Jev. judgement sends its open stale source review lines to Jev only with --order-by-drift. check does not call external services.",
     ("Config", "SecondOpinion"): "The configuration gives the model, answer cache and answers for Jev findings.",
     ("FactsExtractor", "SecondOpinion"): "The facts give module docstrings, public names, imports and source lines for each question.",
     ("SecondOpinion", "TypeSafe"): "The command sends one typed question through HTTPS with the Jev key. It sends no requests without a key.",
     ("TypeSafe", "SecondOpinion"): "Jev gives a probability or choice with a distribution. The cache stores each answer by model release and question.",
+    ("SecondOpinion", "OpenAI"): "The command sends the questions with one evidence text through HTTPS with the OpenAI key. It sends no request without an explicit provider selection.",
+    ("OpenAI", "SecondOpinion"): "OpenAI gives a probability, a choice with a distribution, or a refusal. The cache stores each answer by provider, model and question.",
     ("ChangeDetector", "SecondOpinion"): "For delta --jev, the delta lines give the removed modules without a match and the modules without a component claim. Jev gets one question for each. The answers are suggestions. They do not change the delta lines or the exit code.",
     ("Model", "SecondOpinion"): "Questions use the model components, flow explanations, flows and invariants.",
     ("SecondOpinion", "Agent"): "The agent gets Jev findings for correction or answers. If the configuration has a coding-agent command, the agent also gets text questions.",

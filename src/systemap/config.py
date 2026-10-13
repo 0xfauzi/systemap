@@ -17,10 +17,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import model_load
+from systemap import config_decisions, model_load
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
+from systemap.provider_config import settings as provider_settings
 from systemap.root_check import checked_roots
 
 CONFIG_FILE = "systemap.toml"
@@ -53,9 +54,13 @@ KNOWN_KEYS = {
     "judgement",
     "flows",
     "jev",
+    "decision",
+    "openai",
     "agent",
     "delta",
     "writing",
+    "rules",
+    "decisions",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
@@ -65,8 +70,9 @@ FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", 
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
 JUDGEMENT_KEYS = {"answered"}
+JUDGEMENT_KEYS = {"answered", "require_reviews"}
 ANSWER_FORMS = ("item", "items", "crossing", "crossing_into", "crossing_from", "kind", "module_sdk")
-ANSWER_KEYS = {*ANSWER_FORMS, "reason", "evidence", "policy", "reviewed"}
+ANSWER_KEYS = {*ANSWER_FORMS, "reason", "evidence", "policy", "reviewed", "citations"}
 # The kinds of line `systemap judgement` prints, as `kind = "..."` names them.
 LINE_KINDS = (
     "single module",
@@ -81,6 +87,7 @@ LINE_KINDS = (
     "flow review",
     "no endpoint source",
     "stale source review",
+    "missing source review",
     "model sdk",
     "unknown surface",
 )
@@ -141,6 +148,8 @@ class Answer:
     evidence: str = ""
     policy: bool = False
     reviewed: tuple[str, ...] = ()
+    # (file, start_line, end_line, sha256) for each source span that supports the answer.
+    citations: tuple[tuple[str, int, int, str], ...] = ()
 
     @property
     def label(self) -> str:
@@ -185,6 +194,10 @@ class Config:
     # None: no explicit value. Only true makes delta ask Jev without --jev.
     # false also stops the hints that tell what Jev can add.
     jev_enabled: bool | None = None
+    # The decision provider of the commands that ask questions. A key never selects it.
+    decision_provider: str = "jev"
+    openai_model: str = "gpt-6-luna"
+    openai_cache: str = ".systemap/openai-cache.json"
     # The command that writes the prose systemap asks for; none by default, and
     # then the commands that would ask print their structure and say so.
     agent_command: str = ""
@@ -193,6 +206,10 @@ class Config:
     # The URL of the published map page of a pull request, with {number}. Empty: no comment.
     delta_page_url: str = ""
     writing_profile: str = "plain"  # the writing profile for map text
+    # "fail": an import rule with the result unknown makes `systemap check` fail.
+    rules_unknown: str = "warn"
+    require_reviews: bool = False  # [judgement] require_reviews: a missing review is a finding
+    max_contradicted: int = 3  # [decisions] max_contradicted: a loop bound, not a measurement
     source: str = ""
 
     @property
@@ -206,6 +223,10 @@ class Config:
     @property
     def jev_cache_path(self) -> Path:
         return self.root / self.jev_cache
+
+    @property
+    def openai_cache_path(self) -> Path:
+        return self.root / self.openai_cache
 
     @property
     def agent_cache_path(self) -> Path:
@@ -446,6 +467,9 @@ def load(root: Path) -> Config:
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
         delta_page_url = page_url(raw, where)
         writing = writing_profile(raw.get("writing"), where)
+        decided = config_decisions.read(raw, where)
+        decided["rules_unknown"] = config_decisions.rules_unknown(raw, where)
+        providers = provider_settings(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -459,7 +483,9 @@ def load(root: Path) -> Config:
         model_sdks=_facts(raw, where),
         observed_by=_flows(raw, where),
         **_jev(raw, where),
+        **providers,
         **_agent(raw, where),
+        **decided,
         root=root,
         name=_str(raw, "name", "", where) or default_name(root),
         package_roots=roots,
@@ -709,8 +735,12 @@ def _answer_entry(entry: Any, location: str) -> Answer:
         raise ConfigError(
             f"{location} ({answer.label}) must contain a reason. Give the reason for the answer."
         )
+    try:
+        cited = config_decisions.citations(entry.get("citations"), location)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
     return dataclasses.replace(
-        answer, reason=reason, evidence=evidence, policy=policy, reviewed=reviewed
+        answer, reason=reason, evidence=evidence, policy=policy, reviewed=reviewed, citations=cited
     )
 
 

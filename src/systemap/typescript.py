@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import typescript_entry
+from systemap import repo_files, typescript_entry
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
 from systemap.source_text import configured_out_dir, out_dir_below, read_problems, ts_skipped
@@ -103,7 +103,7 @@ def _test_file_guards(
     context: TypeScriptContext,
 ) -> dict[str, list[dict[str, Any]]]:
     try:
-        raw, problems = read_problems(path)
+        raw, problems = read_problems(path, repo)
     except OSError:
         return {}
     root = syntax_tree(raw, path.as_posix())
@@ -395,7 +395,8 @@ def _first_existing_target(targets: list[Path]) -> Path | None:
 
 def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) -> Iterator[Path]:
     try:
-        root = syntax_tree(path.read_text(encoding="utf-8"), path.as_posix())
+        text = repo_files.read_text(repo, repo_files.relative(repo, path))
+        root = syntax_tree(text, path.as_posix())
     except (OSError, UnicodeError):
         return
     for specifier, _ in _imports(root):
@@ -583,7 +584,7 @@ class TypeScriptLanguage:
             # A declaration file has no module record, as tsc emits no code for it.
             return None
         try:
-            raw, problems = read_problems(path)
+            raw, problems = read_problems(path, repo)
         except OSError:
             return None
         surface = parse_surface(raw, path.as_posix())

@@ -15,18 +15,19 @@ a key, and a run where Jev does not answer give the same result.
 If there is no question, no client is made and no message prints.
 
 The questions and the answers use the provider records in `systemap.decision`.
-`systemap.jev_provider` sends them to Jev. A refusal gives no suggestion, and the
-report gives the count of the questions that got a refusal.
+`systemap.providers` selects the provider: Jev by default, or OpenAI when the user
+selects it. A question type without a measured value for the provider is not sent,
+and the report gives the reason. A refusal gives no suggestion, and the report gives
+the count of the questions that got a refusal.
 """
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import audit, decision, explain, extract, jev, jev_provider, moves, nest
+from systemap import audit, decision, explain, extract, jev, moves, nest, providers
 from systemap.config import Config
 from systemap.decision import ChoiceQuestion, DecisionError, DecisionProvider, Thresholds
 from systemap.delta import Delta
@@ -131,8 +132,8 @@ def jev_moves(
     criteria = {m: _brief(h[m]) for m in found.options[:MOVE_OPTIONS]}
     criteria[NOT_MOVED] = "The removed module was deleted. No new module continues its function."
     questions = [_move_question(b, old, criteria) for old in found.left]
+    move_at = decision.value(decision.thresholds(provider.name), "move_at")
     answers = provider.decide(questions)
-    move_at = decision.thresholds(provider.name).move_at
     picks = sorted(_sure_picks(questions, answers), key=lambda p: (-p[1], p[2]))
     taken = {new for new, _how in found.found.values()}
     out: dict[str, tuple[str, str]] = {}
@@ -168,8 +169,9 @@ def owner_suggestions(
     for m in tree.maps:
         if modules.get(m.id):
             audit.plan_owner(plan, m, head, modules[m.id], cfg.name, placed_too=False)
-    answers = provider.decide(plan.questions)
     limits: Thresholds = decision.thresholds(provider.name)
+    decision.value(limits, "owner_at")
+    answers = provider.decide(plan.questions)
     out = []
     for question, answer in zip(plan.questions, answers, strict=True):
         line = audit.owner_line(plan.reads[question.key], answer, limits)
@@ -189,15 +191,21 @@ def ask(
     d: Delta,
     send: jev.Send | None = None,
 ) -> Asked:
-    """Ask Jev about the delta. A missing key or a Jev error gives a reason, not an error."""
+    """Ask the provider about the delta. A missing key or an error gives a reason."""
     left = unpaired(base, head).left
     owners = unclaimed(d)
+    unmeasured = _unmeasured(cfg, bool(left), bool(owners))
+    left = [] if "move_at" in unmeasured else left
+    owners = {} if "owner_at" in unmeasured else owners
+    reasons = tuple(
+        f"{LABEL}: {decision.value_reason(cfg.decision_provider, n)}" for n in unmeasured
+    )
     if not left and not owners:
-        return NOTHING
+        return Asked(errors=reasons) if reasons else NOTHING
     try:
-        provider = jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send)
+        provider = providers.select(cfg, send)
     except DecisionError as exc:
-        return Asked(errors=(f"{LABEL}: {exc}",))
+        return Asked(errors=(f"{LABEL}: {exc}", *reasons))
     counted = Counted(provider)
     lines: list[str] = []
     try:
@@ -205,11 +213,17 @@ def ask(
         lines += [f"jev move: {old} -> {new} ({how})" for old, (new, how) in moved.items()]
         lines += owner_suggestions(cfg, tree, head, owners, counted) if owners else []
     except DecisionError as exc:
-        return Asked(tuple(lines), (f"{LABEL}: {exc}", *counted.errors()))
+        return Asked(tuple(lines), (f"{LABEL}: {exc}", *reasons, *counted.errors()))
     finally:
-        if provider.usage.sent or provider.usage.cached:
-            print(provider.usage.line(), file=sys.stderr)
-    return Asked(tuple(lines), counted.errors())
+        providers.usage_to_stderr(provider)
+    return Asked(tuple(lines), (*reasons, *counted.errors()))
+
+
+def _unmeasured(cfg: Config, moves_asked: bool, owners_asked: bool) -> list[str]:
+    """Give the thresholds of the asked question types that have no measured value."""
+    limits = decision.thresholds(cfg.decision_provider)
+    asked = [n for n, on in (("move_at", moves_asked), ("owner_at", owners_asked)) if on]
+    return [n for n in asked if getattr(limits, n) is None]
 
 
 class Counted:

@@ -7,8 +7,9 @@ Completed semantic reports exit 0. Request errors exit 1.
 Plan comparison can exit 1 for changes outside the recorded plan.
 
 The questions and the answers use the provider records in `systemap.decision`.
-`systemap.jev_provider` is the only provider at this time.
-A refusal from the decision provider stops triage and plan with exit 1.
+`systemap.providers` selects the provider: Jev by default, or OpenAI when the user
+selects it. A question type without a measured value for the selected provider is not
+sent. A refusal from the decision provider stops triage and plan with exit 1.
 """
 
 from __future__ import annotations
@@ -29,11 +30,11 @@ from systemap import (
     extract,
     history,
     jev,
-    jev_provider,
     journeys,
     judgement,
     model_write,
     nest,
+    providers,
 )
 from systemap import plan as plan_mod
 from systemap.decision import (
@@ -43,7 +44,6 @@ from systemap.decision import (
     DecisionProvider,
     PredicateQuestion,
 )
-from systemap.jev_provider import JevProvider
 
 OK, STALE = 0, 1
 
@@ -63,8 +63,8 @@ SAME_Q = (
 )
 
 
-def _client(cfg: config.Config, send: jev.Send | None = None) -> JevProvider:
-    return jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send)
+def _client(cfg: config.Config, send: jev.Send | None = None) -> providers.Metered:
+    return providers.select(cfg, send)
 
 
 def _one(provider: DecisionProvider, question: decision.Question, label: str) -> ChoiceAnswer:
@@ -105,16 +105,11 @@ def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
     """Use an explicit flag, or an explicit `[jev] enabled = true` and an API key.
 
     A key alone does not select Jev. Thus a key in the environment sends no source.
+    The key must be the key of the selected provider.
     """
     if flag is not None:
         return flag
-    return cfg.jev_enabled is True and jev.has_key()
-
-
-def usage_to_stderr(client: JevProvider) -> None:
-    """Print usage to stderr when a run used Jev or its cache."""
-    if client.usage.sent or client.usage.cached:
-        print(client.usage.line(), file=sys.stderr)
+    return cfg.jev_enabled is True and providers.has_key(cfg)
 
 
 def hint(cfg: config.Config, text: str) -> None:
@@ -134,12 +129,14 @@ def delta_hint(cfg: config.Config) -> None:
 
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Give Jev findings with exit 0, or exit 1 if the request cannot complete."""
-    cfg = config.load(args.root_path)
+    cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
     facts = _facts(cfg)
     if facts is None:
         return STALE
     tree = nest.load(cfg)
-    kinds = tuple(args.kind) if args.kind else audit.DEFAULT_KINDS
+    kinds = _measured_kinds(cfg, tuple(args.kind) if args.kind else audit.DEFAULT_KINDS)
+    if not kinds:
+        return STALE
     plan = audit.make_plan(tree, facts, cfg, kinds)
     if args.dry_run:
         return _dry_run(cfg, plan, send)
@@ -171,11 +168,19 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     return OK
 
 
+def _measured_kinds(cfg: config.Config, kinds: tuple[str, ...]) -> tuple[str, ...]:
+    """Give the question types with a measured value. Print the reason for each other type."""
+    skipped = providers.missing(cfg, kinds)
+    for kind in skipped:
+        print(f"audit: {decision.unmeasured(cfg.decision_provider, kind)}")
+    return tuple(k for k in kinds if k not in skipped)
+
+
 def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None) -> int:
     """Count the questions. With a key, get only the model list to count cached answers."""
     pending: int | str | None = None
-    chars = jev_provider.chars(plan.questions)
-    if send is not None or jev.has_key():
+    chars = providers.chars(cfg, plan.questions)
+    if send is not None or providers.has_key(cfg):
         try:
             pending = _client(cfg, send).pending(plan.questions)
         except DecisionError as exc:
@@ -196,7 +201,7 @@ def _neighbours(model: Any, cid: str) -> str:
 
 def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Predict the three components an issue fix will probably change."""
-    cfg = config.load(args.root_path)
+    cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
     facts = _facts(cfg)
     if facts is None:
         return STALE
@@ -206,6 +211,7 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     top = nest.load(cfg).top
     try:
+        providers.require_triage(cfg)
         client = _client(cfg, send)
         answer = _one(client, triage_question(cfg, top, text), "triage")
         spread = decision.spread(answer)
@@ -444,8 +450,8 @@ def suggest_groups(
     comps = facts["components"]
     mods = sorted(m for m in comps if not extract.is_empty_marker(comps[m]))
     questions = [same_question(cfg, facts, a, b) for a, b in pair_candidates(facts, mods)]
+    same_at = decision.value(decision.thresholds(provider.name), "same_at")
     answers = provider.decide(questions)
-    same_at = decision.thresholds(provider.name).same_at
     edges = []
     for q, answer in zip(questions, answers, strict=True):
         p = decision.probability(answer, q.key)
@@ -470,6 +476,7 @@ def suggest_groups(
 def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
     """Print the module groups from the provider answers, or the reason for no groups."""
     try:
+        providers.require(cfg, "same_at")
         client = _client(cfg)
     except DecisionError as exc:
         print(f"suggest --jev: {exc}")
@@ -487,7 +494,7 @@ def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
 
 def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Predict changed components and give their adjacent flows, sequences, and rules."""
-    cfg = config.load(args.root_path)
+    cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
     if args.check:
         return _check_plan(cfg, args)
     text = sys.stdin.read() if args.task == "-" else (args.task or "")
@@ -496,9 +503,9 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     top = nest.load(cfg).top
     try:
+        cut = providers.require(cfg, "plan_cut")
         client = _client(cfg, send)
         spread = decision.spread(_one(client, plan_question(cfg, top, text), "plan"))
-        cut = decision.thresholds(client.name).plan_cut
     except DecisionError as exc:
         print(f"plan: {exc}")
         return STALE
@@ -507,7 +514,7 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     # nothing to check it against later.
     where = plan_mod.save(cfg, made) if made.cards else None
     print(*_plan_lines(made, cfg, where), sep="\n")
-    usage_to_stderr(client)
+    providers.usage_to_stderr(client)
     return OK
 
 
@@ -603,9 +610,11 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "invariants. "
         "It can give possible owners for modules without a component. It can identify claims "
         "that do not agree with the source. "
-        "The command sends facts and model text to the API. Set TYPESAFE_API_KEY before use.",
+        "The command sends facts and model text to the API of the decision provider. "
+        "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
+    providers.add_option(s)
     s.add_argument(
         "--dry-run",
         action="store_true",
@@ -664,6 +673,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "Set TYPESAFE_API_KEY before use.",
     )
     add_root(s)
+    providers.add_option(s)
     s.add_argument("task", nargs="?", help="Give the task, or - to read stdin.")
     s.add_argument("--check", metavar="ID", help="Compare a saved plan with changed components.")
     s.add_argument(
@@ -682,6 +692,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "Give the text as an argument, or - to read stdin. Set TYPESAFE_API_KEY before use.",
     )
     add_root(s)
+    providers.add_option(s)
     s.add_argument("text", help="Give the issue title and text, or - to read stdin.")
     s.set_defaults(func=lambda args: cmd_triage(_rooted(args)))
 

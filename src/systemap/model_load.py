@@ -52,6 +52,7 @@ MODEL_CLASSES: dict[str, type] = {
         schema.Component,
         schema.Container,
         schema.Flow,
+        schema.ImportRule,
         schema.Invariant,
         schema.Journey,
         schema.Layer,

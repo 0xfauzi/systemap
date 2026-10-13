@@ -162,6 +162,19 @@ JUDGEMENT = {
             "claims. Then record the current `source_review` digest."
         ),
     ),
+    "missing source review": Lesson(
+        means="A source component has no `source_review` digest.",
+        why=(
+            "`[judgement] require_reviews = true` makes a source review necessary for each "
+            "source component. Without a source review, no person or agent examined its claims "
+            "against the source."
+        ),
+        do=(
+            "Examine the source against all claims of the component. Use `systemap decisions "
+            "pending` and `systemap decisions submit`, or record the digest with "
+            "`systemap review ID`."
+        ),
+    ),
     "model sdk": Lesson(
         means="A module imports a model SDK, but its component has no model-call marker.",
         why=("The map must show model calls. These calls can have a cost, a delay, and errors."),
@@ -446,6 +459,31 @@ CHECK = {
         means="An entry point name now has a different source target.",
         why="A sequence can now start at code that differs from the recorded target.",
         do="Use `systemap refresh`. Then examine entry point coverage.",
+    ),
+    "rule fail": Lesson(
+        means="A resolved import in the facts does not obey an import rule of the model.",
+        why=(
+            "An import rule records a permitted relation between components. An import "
+            "against the rule makes the structure that the map shows incorrect."
+        ),
+        do=(
+            "Remove the import from the source. If the new relation is correct, change "
+            "the rule and its invariant."
+        ),
+    ),
+    "rule unknown": Lesson(
+        means=(
+            "No resolved import goes against the rule, but the facts do not give all imports "
+            "of a module of the rule."
+        ),
+        why=(
+            "A module that did not parse, or an import that systemap cannot resolve, can "
+            "contain an import against the rule."
+        ),
+        do=(
+            "Correct the source or the import. Then use `systemap refresh`. To make this "
+            'result stop the check, set `unknown = "fail"` in `[rules]`.'
+        ),
     ),
     "derived facts changed": Lesson(
         means="Imports or other extracted facts changed for a module.",

@@ -22,7 +22,13 @@ The command exits 1 if a rule rejects the map.
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
 | meaning | A sentence, verb, override, or sequence step identifies an absent item. A flow has no sentence. A custom layer uses a standard id. |
+| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
+
+An import rule can also have the result `unknown`.
+This result occurs if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
+`check` prints each `unknown` result as a warning and does not reject the map.
+Set `unknown = "fail"` in `[rules]` to make `check` reject the map for this result.
 
 The labels rule rejects these conditions:
 
@@ -91,6 +97,7 @@ For each finding, change the model or record the reason for its stored state.
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
 | no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
 | stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with `systemap review ID`. |
+| missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
 Without `--strict`, the report exits 0.
@@ -101,6 +108,7 @@ Each source component has one review state:
 `systemap delta` and `systemap judgement` use the same state.
 A stale review is a `stale source review` finding, so `judgement --strict` fails on it.
 A missing review is not a finding. Many maps have no `source_review` values, and these maps pass `judgement --strict`.
+With `[judgement] require_reviews = true`, a missing review is a `missing source review` finding, so `judgement --strict` fails on it.
 The report counts the three states on one line, for example `source reviews: 16 current, 0 stale, 0 missing`.
 `[judgement] answered` in `systemap.toml` contains recorded answers.
 Accepted answers suppress findings and increase the answered count.
@@ -247,6 +255,55 @@ The `delta` hint tells how to select Jev. It prints with a key and without a key
 Each hint gives a result that was measured with earlier prompts on Python repositories.
 `[jev] enabled = false` stops the hints.
 
+## Which decision provider answers the questions?
+
+A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --jev`, and `delta --jev`.
+The default provider is TypeSafe's Jev.
+The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
+
+To select OpenAI, give `--provider openai` to the command, or set `[decision] provider = "openai"` in `systemap.toml`.
+`--provider jev` selects Jev, also when the configuration selects OpenAI.
+A key in the environment does not select a provider.
+With `OPENAI_API_KEY` set and no selection, no request goes to OpenAI.
+If the selected provider does not give the answers, the command gives the cause and stops. It does not use the other provider.
+
+OpenAI gets the same data as Jev:
+
+- The evidence of each question, as JSON text in the `input` field: module names, docstrings, public names, internal imports, component ids, component sentences, invariants, source lines at connections between components, and the issue or task text.
+- The question text and the options: component ids with their sentences, or the new module names of `delta`.
+
+Use `audit --dry-run --provider openai` to count the questions and the characters before you send them.
+
+The thresholds of OpenAI come from the Jev bench rows in `bench/jev` (2026-10-13).
+Each threshold was selected on the five development maps.
+On the holdout maps, each figure had to be 10 points or less from the development figure.
+A question type that did not satisfy this rule has no OpenAI threshold. The command does not send that question, and it gives the cause.
+
+| question type | OpenAI threshold | development maps | holdout maps |
+|---|---|---|---|
+| jev mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
+| jev owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
+| jev sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
+| jev flow | P < 0.05 (only with `--kind "jev flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+| jev governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
+| triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
+| plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
+| `suggest --jev`, `delta --jev` moves | not available | not measured | No holdout rows exist. |
+
+The owner question of `delta --jev` uses the `jev owner` threshold.
+All measured repositories are Python repositories. No TypeScript result was measured.
+The finding types keep the names `jev mis-fold`, `jev owner`, and the other `jev` names, also when OpenAI answers. These names are identifiers in `[judgement] answered`.
+
+An OpenAI answer must agree with its question, as a Jev answer must.
+A refusal for one question gives no finding for that question. The report gives the count of refused questions.
+
+The cache is `.systemap/openai-cache.json`. It does not keep a refusal.
+Its key includes the provider name, the model, the evidence, and the question. Thus OpenAI does not use a Jev answer.
+
+The cost line on stderr has the same form for each provider, for example `openai: 1 sent, 0 from the cache; 290 input and 0 output tokens; gpt-6-luna`.
+OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
+The 1,636 bench requests used 1,211,893 input tokens ($0.12).
+
 ## What do you do above forty components?
 
 A large repository can exceed the capacity of one readable canvas.
@@ -332,6 +389,28 @@ MEANING = Meaning(
                "The schematic reads module facts to show flow evidence for mapped components."},
 )
 ```
+
+A model can also contain import rules.
+`systemap check` and `systemap rules` compare each rule with the resolved imports in the facts.
+This rule gives `fail` if a module of `FactsExtractor` imports a module of `Schematic`:
+
+```python
+from systemap import ImportRule
+
+IMPORT_RULES = (
+    ImportRule(
+        "facts-first",
+        "forbid_import",
+        src=("FactsExtractor",),
+        dst=("Schematic",),
+        reason="Extraction does not use the drawing.",
+    ),
+)
+```
+
+Give the tuple to `Model(..., import_rules=IMPORT_RULES)`.
+The schema file of the skill tells about the three `kind` values: `forbid_import`, `allow_imports`, and `forbid_cycle`.
+The page does not show import rules.
 
 The example has no `x` or `y` values.
 `systemap place` writes these positions.
@@ -525,7 +604,10 @@ components that can become nested maps.
 - `--jev` uses Jev's module-pair answers instead of package groups.
   Set `TYPESAFE_API_KEY` for this option.
 
-### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json]`
+- `--provider jev|openai` selects the decision provider.
+  OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
+
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]`
 
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
@@ -545,6 +627,10 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - `--brief` does not include the two explanation rows.
 
+- If the decision store has unknown decision requests, the report gives each one after the review counts.
+  The row `unknown request ID: CLAIM` gives the claim. The report does not say that the claim is correct.
+  The `systemap decisions` section tells about decision requests.
+
 - `--json` writes one JSON object to stdout for software, for example a CI step.
   The object has no explanation text. `--brief` and `--verbose` do not change it.
   The exit codes are the same as in the text mode, with and without `--strict`.
@@ -552,6 +638,31 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - With `--json`, `--kind KIND` selects the rows of `open`. The counts include all kinds.
   For a model without components, the lists are empty and the exit code is 0.
+
+- `--order-by-drift` sends one Jev question for each open `stale source review` line.
+  The answer is the drift score: the probability that the claims of the component agree with its changed source.
+  The report puts the stale lines in sequence from the lowest drift score.
+  The other lines do not move.
+  A `drift score:` row below each stale line gives the score.
+  With `--json`, each stale row has `drift`, and the object has `drift_order`.
+
+  The option does not close a line, and it does not change a source review or an answer.
+  The open lines and the exit code are the same with and without the option.
+  The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
+  Examine each stale component, also the components at the end of the sequence.
+  Set `TYPESAFE_API_KEY` for this option. Without the option, `judgement` sends no request.
+
+  The question gives the claims that the `source_review` digest contains, and one part of the source.
+  Git finds the last commit that added the recorded `source_review` digest below the folder of the model file.
+  The source part is the diff of the module files of the component, from that commit to the working tree.
+  If Git cannot find the commit, or the diff is empty, the source part is the current text of the module files.
+  Each source part has a limit of 12,000 characters.
+  A new file that is not in Git is not in the diff.
+
+  A refusal or a request error gives `no score`. A line without a score goes to the end of the stale lines.
+  A `drift sequence:` row gives the quantity of questions without a score and the cause.
+  The answers go into the Jev cache. Thus, the next command sends no question.
+  It reads the model list one time, as each Jev command does.
 
 The JSON object has these fields:
 
@@ -563,6 +674,7 @@ The JSON object has these fields:
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
 | `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
+| `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |
 | `answered.answers[].answer` | string | The selector of the answer, as the stale-answer row gives it. |
@@ -571,11 +683,33 @@ The JSON object has these fields:
 | `answered.answers[].lines` | list of strings | The findings that the answer closes. |
 | `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
 | `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
+| `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
+| `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
+| `unknown_requests` | list of objects | The unknown decision requests, with the fields of `unknown_requests` in `systemap decisions status --json`. Without a decision store, the list is empty. |
 
 The `evidence` digest is for an answer with one line.
 An `items` answer for more than one line has a different digest.
 The text report prints that digest in the pending-answer row.
+
+### `systemap rules [--brief] [--json]`
+
+Prints the result of each import rule: `pass`, `fail`, or `unknown`.
+`systemap check` prints the same results.
+A `fail` result gives each import against the rule, as source module and target module.
+An `unknown` result gives each module with imports that are possibly not in the facts, and the cause.
+
+The causes are a module that did not parse, unresolved imports, and an import of a module with no component.
+The command exits 1 for a `fail`, for an incorrect rule, or for missing facts.
+It also exits 1 for an `unknown` result with `[rules] unknown = "fail"`.
+
+- `--brief` does not include the two explanation rows.
+
+- `--json` writes one JSON object to stdout for software.
+  The keys are `ok`, `unknown_policy`, `problems`, `counts`, and `rules`.
+  Each item of `rules` has `map`, `id`, `kind`, `src`, `dst`, `reason`, `invariant`, and `result`.
+  It also has `imports` (`source`, `target`) and `unknown` (`module`, `cause`, `detail`).
+  The `cause` values are `no_facts`, `no_read_state`, `not_parsed`, `unresolved_not_known`, `unresolved_imports`, and `no_component`.
 
 ### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]`
 
@@ -619,6 +753,10 @@ than one-third of the map.
 
 - `--no-jev` sends nothing.
 
+- `--provider jev|openai` selects the decision provider of `--jev`.
+  With `openai`, `[jev] enabled = true` must have `OPENAI_API_KEY`.
+  OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
+
 - The Jev cost goes to stderr.
 
 ### `systemap describe`
@@ -647,6 +785,9 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--dry-run` lists proposed questions and does not send them.
 
+- `--provider jev|openai` selects the decision provider.
+  With `openai`, the command does not send the `jev mis-fold` questions and gives the cause.
+
 ### `systemap plan "<task>" [--check ID] [--base REF]`
 
 Predicts components likely to change in a task.
@@ -665,12 +806,18 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `-` instead of a task reads stdin.
 
+- `--provider jev|openai` selects the decision provider.
+  OpenAI has no measured threshold for plan. Thus `--provider openai` sends nothing and exits 1.
+
 ### `systemap triage TEXT`
 
 Predicts the three components likely to change in an issue fix.
 The report includes their modules and adjacent components.
 `-` reads stdin. The text limit is 2,000 characters.
 Set `TYPESAFE_API_KEY` before you run the command.
+
+- `--provider jev|openai` selects the decision provider.
+  The OpenAI triage measurement did not satisfy the holdout rule. Thus `--provider openai` sends nothing and exits 1.
 
 ### `systemap journeys [--limit N] [--dry-run]`
 
@@ -769,6 +916,118 @@ The command stops with exit 1 and writes nothing in these conditions:
 - The flow has no `source_refs`, or a source record does not agree with the current source.
 - systemap cannot read the model file as data. Use `systemap convert` first.
 - The command finds no literal call for the target, or more than one.
+
+### `systemap decisions pending | submit FILE | status`
+
+These commands give the claims of the map to a coding agent in its current session.
+The agent examines each claim against the source code and sends a verdict.
+systemap examines each verdict and records the correct verdicts.
+The commands send no request to a model. An API key is not necessary.
+The skill procedure is in `references/decisions.md`.
+
+The commands read the facts file. If the facts file does not agree with the source code, the commands stop with exit 1.
+Run `systemap refresh` first.
+
+A decision request has one of three types:
+
+| Type | Claim | Result of `supported` |
+|---|---|---|
+| `judgement` | An open judgement line. The claim digest is the SHA-256 digest of the line. | An exact answer in `[judgement] answered`, with the summary as the reason, the current evidence digest, and the citations. |
+| `source_review` | A source component with a missing or stale source review. The claim digest is the review digest. | The current `source_review` digest, as `systemap review ID` writes it. |
+| `flow_review` | A flow with `source_refs` and a `review_digest` that is not current. The claim digest is the flow claim digest. | The current `review_digest`, as `systemap review --flow` writes it. |
+
+A judgement line that a review digest closes is not a different decision request.
+These lines are `stale source review` and `missing source review` for a component with a `source_review` request.
+They are also `flow review` and `declared flow` for a flow with a `flow_review` request.
+
+The `id` of a decision request contains the type, the target, and the first 16 characters of the claim digest.
+If the claim does not change, the `id` stays the same in a different session.
+A source change that does not change a judgement line does not change its `id`.
+
+#### `systemap decisions pending [--json]`
+
+Gives the pending decision requests. The command exits 0.
+An unknown decision request is not pending. The `unknown` count gives the quantity.
+
+The JSON object has these fields:
+
+| Field | Type | Contents |
+|---|---|---|
+| `schema_version` | integer | The version of this schema. The value is 1. |
+| `verdicts` | list of strings | `supported`, `contradicted`, and `insufficient_evidence`. |
+| `max_contradicted` | integer | The value of `[decisions] max_contradicted`. |
+| `requests` | list of objects | One object for each pending decision request. |
+| `requests[].id` | string | The identifier for `request_id` in a verdict. |
+| `requests[].type` | string | `judgement`, `source_review`, or `flow_review`. |
+| `requests[].map` | string | The ID of the nested map. The top map has an empty string. |
+| `requests[].target` | string | The judgement line, the component ID, or the flow as `SRC->DST`. |
+| `requests[].claim` | string | The claim text. For a component, it includes the flows, invariants, and sequences that name it. |
+| `requests[].claim_digest` | string or null | The current claim digest. The value is null if the component has no current digest. |
+| `requests[].files` | list of objects | The source files of the claim, with `file` (the path from the repository root), `module`, and `sha256` (the source hash of the full file). |
+| `requests[].verdicts` | list of strings | The permitted verdicts. |
+| `requests[].attempts` | integer | The quantity of `contradicted` verdicts for the current claim. |
+| `requests[].blocked` | string | If not empty, the cause that prevents `supported`, and the necessary step. |
+| `unknown` | integer | The quantity of unknown decision requests. |
+
+For a judgement line, the files are the files of the components and the modules that the line names.
+If the line names no component or module, the list is empty.
+
+#### `systemap decisions submit FILE`
+
+Reads a JSON list of verdicts from FILE, or from stdin for `-`.
+Each verdict is an object with only these fields:
+
+| Field | Type | Contents |
+|---|---|---|
+| `request_id` | string | The `id` of a pending decision request. |
+| `verdict` | string | `supported`, `contradicted`, or `insufficient_evidence`. |
+| `citations` | list of objects | The source lines that the agent read. Each citation has `file`, `start_line`, `end_line`, and `sha256`. |
+| `summary` | string | One or more sentences about the source code. The writing profile applies. |
+
+The command first examines all verdicts.
+If one verdict is incorrect, the command writes no file, gives each error, and exits 1.
+The command rejects a verdict in these conditions:
+
+- The `request_id` is not a current decision request, or the decision request is unknown. A claim change gives a new `id`.
+- The file has two verdicts for one `request_id`.
+- A `file` is an absolute path, a Windows drive or UNC path, or contains `..` or a backslash.
+- A `file` is not a regular file, or is not a source file in the facts.
+- A `file` is a symbolic link to a file that is not in the repository.
+- A line span is not in the file, or `start_line` is more than `end_line`.
+- A `sha256` is not the SHA-256 digest of the current file content.
+- A `supported` verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a judgement line without files, one citation is necessary.
+- A `supported` verdict has a decision request with a `blocked` value, or the review command cannot write the digest.
+- A `supported` verdict for a component has a flow of that component with a `contradicted` or unknown verdict.
+
+Then the command writes, in this sequence:
+
+1. The `review_digest` of each `supported` flow.
+2. The `source_review` of each `supported` component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.
+3. One exact answer for each `supported` judgement line. A review digest changes the model file, and the evidence digest of an answer includes the model file. Thus the command calculates the evidence digest after the review digests.
+4. The decision store, `.systemap/decisions.json`. Git does not record this file.
+
+A `contradicted` verdict adds one to the `contradicted` count of the claim.
+The agent must correct the map and send a new verdict.
+At `[decisions] max_contradicted` verdicts, the decision request becomes unknown.
+After one `insufficient_evidence` verdict, the decision request is unknown.
+A change of the claim digest makes the decision request pending again, with a count of zero.
+
+CAUTION: A new review digest in the model file changes the evidence digest of each exact answer for a line that is not a crossing import.
+These answers then stay pending until they have a new evidence digest.
+
+#### `systemap decisions status [--json]`
+
+Gives the counts and the unknown decision requests.
+The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
+An unknown decision request does not show that its claim is correct, and the text does not say that it is correct.
+
+| Field | Type | Contents |
+|---|---|---|
+| `schema_version` | integer | The version of this schema. The value is 1. |
+| `pending` | integer | The quantity of pending decision requests. |
+| `supported` | integer | The quantity of `supported` verdicts in the decision store. Remove the decision store to start a new count. |
+| `unknown` | integer | The quantity of unknown decision requests. |
+| `unknown_requests` | list of objects | One object for each unknown decision request, with `id`, `type`, `map`, `target`, `claim`, `claim_digest`, `verdict` (the last verdict), `attempts`, and `summary` (the last summary). |
 
 ### `systemap serve [--port 8765]`
 
@@ -872,19 +1131,26 @@ Unknown keys are rejected.
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. No ignore is necessary for empty package markers. |
 | `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A `-` at the start removes a built-in name (`"-google.adk"`). |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
+| `[rules]` | `unknown = "warn"` | `unknown = "fail"` makes `systemap check` and `systemap rules` exit 1 for an import rule with the result `unknown`. With `"warn"`, the commands print the result and do not reject the map. A different value or key gives a configuration error. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |
+| `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
+| `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
+| `[decisions]` | `max_contradicted = 3` | The quantity of `contradicted` verdicts for one claim before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--jev`. With `enabled` unset, `delta` sends no question without `--jev`, also with a key. `enabled = false` stops the hints. |
+| `[decision]` | `provider = "jev"` | The decision provider of `audit`, `triage`, `plan`, `delta --jev`, and `suggest --jev`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. |
+| `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
-The environment of a command can set two values. A repository file cannot set them.
+The environment of a command can set three values. A repository file cannot set them.
 
 | Variable | Meaning |
 |---|---|
 | `TYPESAFE_API_KEY` | The key for Jev questions. Without it, no question goes to Jev. |
+| `OPENAI_API_KEY` | The key for OpenAI questions. It does not select OpenAI. Without a selection, no question goes to OpenAI. |
 | `SYSTEMAP_TRUST_MODEL_CODE` | With the value `1`, systemap runs the model files as Python code. Without it, systemap reads them as data. Set it only for a repository with safe code. |
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.

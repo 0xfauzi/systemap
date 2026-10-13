@@ -30,8 +30,10 @@ from systemap.model import (
 def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test sends to Jev: the maintainer's key is removed, because `audit --dry-run`
     and `[jev] enabled = true` use it. A test that means to ask sets its own key and a
-    recorded transport (jev_replay reads the real key at import, for recording)."""
+    recorded transport (jev_replay reads the real key at import, for recording).
+    The OpenAI key is also removed. A test that selects OpenAI injects its transport."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 
 @pytest.fixture(autouse=True)
