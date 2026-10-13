@@ -419,6 +419,10 @@ def test_judgement_command_always_exits_0(
 
 # ---- the second pass: entry points and crossing imports ------------------------
 
+SCRIPT = source_facts.entry_identity(
+    {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"}
+)
+
 
 def entry_facts() -> dict[str, Any]:
     """Facts for a package with a CLI of three subcommands, a worker and a root function."""
@@ -438,13 +442,21 @@ def entry_facts() -> dict[str, Any]:
         "entry_points": [
             {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"},
             {"kind": "public_function", "name": "open_thing", "module": "pkg", "target": ""},
+            # The adapter writes `same_as` for each entry point that runs the console script.
             {
                 "kind": "main_module",
                 "name": "python -m pkg",
                 "module": "pkg.__main__",
                 "target": "",
+                "same_as": SCRIPT,
             },
-            {"kind": "main_function", "name": "main", "module": "pkg.cli", "target": "main"},
+            {
+                "kind": "main_function",
+                "name": "main",
+                "module": "pkg.cli",
+                "target": "main",
+                "same_as": SCRIPT,
+            },
             {"kind": "subcommand", "name": "init", "module": "pkg.cli", "target": "pkg"},
             {"kind": "subcommand", "name": "check", "module": "pkg.cli", "target": "pkg"},
             {"kind": "subcommand", "name": "render", "module": "pkg.cli", "target": "pkg"},

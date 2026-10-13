@@ -628,6 +628,28 @@ Thus a group with changed names gets a new digest, and <code>audit</code> prints
 The earlier line ended with <code>under Python 3.11.10</code>. The new line ends with <code>(parser version 3.11.10)</code>.
 In this release, an answer item in the earlier form is an answer for the line in the new form.
 The evidence digest of the item does not change.</p>
+<p>Two other <code>unknown surface</code> lines also have a new form for the same cause:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
+<table>
+<thead>
+<tr>
+<th>Earlier text in the line</th>
+<th>New text in the line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>the npm tsconfig package could not be read</code></td>
+<td><code>the configuration package could not be read</code></td>
+</tr>
+<tr>
+<td><code>The parser could not parse the TypeScript syntax.</code></td>
+<td><code>The parser could not parse the source syntax.</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The same rule applies to these two lines.</p>
 <p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.

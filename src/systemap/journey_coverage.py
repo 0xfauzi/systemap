@@ -44,29 +44,24 @@ def ways_in_without_journey(
     points: list[dict[str, str]] = facts.get("entry_points", [])
     del text, owner
     reviewed = set(covered) if covered is not None else reviewed_entries((meaning,))
-    scripts = {p["module"]: p for p in points if p["kind"] == "console_script"}
-    components = facts.get("components", {})
+    identities = {entry_identity(p) for p in points}
     return [
         p
         for p in points
         if p["module"] not in skip
-        and not _same_script(p, scripts, components)
+        and not _same_code(p, identities)
         and entry_identity(p) not in reviewed
     ]
 
 
-def _same_script(
-    p: dict[str, str], scripts: dict[str, dict[str, str]], components: dict[str, Any]
-) -> bool:
-    """This function identifies an entry point that refers to the same console script under
-    another name.
+def _same_code(p: dict[str, str], identities: set[str]) -> bool:
+    """Find an entry point that starts the same code as a different entry point.
+
+    The adapter writes the identity of the other entry point in `same_as`. If `same_as` is
+    empty or missing, the entry point is not an alias. Then it must have a sequence.
     """
-    module = p["module"]
-    if p["kind"] == "main_function":
-        return scripts.get(module, {}).get("target") == "main"
-    if p["kind"] == "main_module":
-        return any(m in scripts for m in components.get(module, {}).get("uses", {}))
-    return False
+    same = p.get("same_as") or ""
+    return bool(same) and same != entry_identity(p) and same in identities
 
 
 def crowd_label(how_many: int, kind: str, card: str) -> str:

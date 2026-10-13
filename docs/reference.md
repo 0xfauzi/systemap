@@ -403,6 +403,15 @@ The earlier line ended with `under Python 3.11.10`. The new line ends with `(par
 In this release, an answer item in the earlier form is an answer for the line in the new form.
 The evidence digest of the item does not change.
 
+Two other `unknown surface` lines also have a new form for the same cause:
+
+| Earlier text in the line | New text in the line |
+|---|---|
+| `the npm tsconfig package could not be read` | `the configuration package could not be read` |
+| `The parser could not parse the TypeScript syntax.` | `The parser could not parse the source syntax.` |
+
+The same rule applies to these two lines.
+
 `judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.

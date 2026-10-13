@@ -342,13 +342,16 @@ def _glyph(model: Model, journey: Journey) -> str:
 
 
 def short_entry(point: dict[str, str]) -> str:
-    """Give a short name for an entry point, for example systemap init."""
+    """Give a short name for an entry point, for example systemap init.
+
+    If the name is the name of the target function, the name alone does not identify the
+    entry point. Then the short name adds the module, for example main() in pkg.cli."""
     kind, name = point.get("kind", ""), point.get("name", "")
     module, target = point.get("module", ""), point.get("target", "")
     if kind == "subcommand":
         return f"{target} {name}" if target else f"{name} in {module}"
-    if kind == "main_function":
-        return f"main() in {module}"
+    if name and name == target:
+        return f"{name}() in {module}"
     return name
 
 

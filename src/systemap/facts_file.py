@@ -64,8 +64,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "config_issues",
-        "TypeScript npm tsconfig packages in `extends` that cannot be read. The list is "
-        "empty if there are none",
+        "The configuration packages that a configuration file extends, and that the adapter "
+        "cannot read. Only the TypeScript adapter writes this field, for an npm package in "
+        "the `extends` key of a tsconfig file. The list is empty if there are none",
     ),
     ("facts", "components", "One module record for each dotted name, with the fields below"),
     ("module", "id", "The dotted module name"),
@@ -239,6 +240,15 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "label",
         "The display name that the language adapter gives to the entry point. A sequence "
         "can name it in `starts`",
+    ),
+    (
+        "entry point",
+        "same_as",
+        "The identity of a different entry point that starts the same code. For example, a "
+        "`main` function can start the same code as a console script. An empty string tells "
+        "that the adapter found no such entry point. Then this entry point must have a "
+        "sequence. If the field is missing, the value is not known. Then the entry point "
+        "also must have a sequence",
     ),
 )
 

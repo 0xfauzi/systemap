@@ -13,6 +13,8 @@ import ast
 from pathlib import Path
 from typing import Any
 
+from systemap.source_facts import entry_identity
+
 # A decorator of these names, on a function, registers a way in.
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 COMMAND_DECORATORS = ("command", "group")
@@ -410,7 +412,36 @@ def entry_points(
         ]
         out += in_source(module, sources.get(module, ""))
     out += in_pyproject(read_pyproject(repo), components)
-    return _once_each(out)
+    return _same_code(_once_each(out), components)
+
+
+def _same_code(points: list[dict[str, str]], components: dict[str, Any]) -> list[dict[str, str]]:
+    """Write the `same_as` fact: the identity of a console script that starts the same code.
+
+    A `main` function starts the same code as a console script of its module with the
+    target `main`. A `__main__` module starts the same code as a console script of a module
+    that it imports. Each other entry point gets an empty string.
+    """
+    scripts: dict[str, list[dict[str, str]]] = {}
+    for point in points:
+        if point["kind"] == "console_script":
+            scripts.setdefault(point["module"], []).append(point)
+    for point in points:
+        same = _scripts_of(point, scripts, components)
+        point["same_as"] = entry_identity(same[0]) if same else ""
+    return points
+
+
+def _scripts_of(
+    point: dict[str, str], scripts: dict[str, list[dict[str, str]]], components: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Give the console scripts that start the same code as the entry point."""
+    if point["kind"] == "main_function":
+        return [s for s in scripts.get(point["module"], []) if s["target"] == point["target"]]
+    if point["kind"] == "main_module":
+        uses = components.get(point["module"], {}).get("uses", {})
+        return [s for module in sorted(uses) for s in scripts.get(module, [])]
+    return []
 
 
 def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:
