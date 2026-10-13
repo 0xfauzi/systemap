@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from systemap import repo_files
 from systemap.typescript_config import SOURCE_SKIP, compiler_settings, load_typescript_config
 
 # Below a Python package root or test directory, these folders hold no source of the
@@ -27,17 +28,18 @@ PYTHON_SKIP = frozenset({".git", ".venv", "node_modules", "__pycache__", "build"
 LOCAL_INPUTS = ("parser", "compiler")
 
 
-def read_problems(path: Path) -> tuple[str, list[str]]:
+def read_problems(path: Path, repo: Path) -> tuple[str, list[str]]:
     """This function gives the source text and its read problems.
 
     The text is UTF-8, with or without a byte order mark, as Python and TypeScript read
     it. Universal newlines make CRLF text equal to LF text. Text that is not UTF-8 gives
-    empty text and one problem. An OSError goes to the caller.
+    empty text and one problem. A file that `repo_files` refuses also gives empty text and
+    one problem. A different OSError goes to the caller.
     """
     try:
-        return path.read_text(encoding="utf-8-sig"), []
-    except UnicodeError as exc:
-        return "", [f"source could not be read: {type(exc).__name__}"]
+        return repo_files.read_text(repo, repo_files.relative(repo, path), "utf-8-sig"), []
+    except (UnicodeError, repo_files.RepoPathError) as exc:
+        return "", [f"source could not be read: {repo_files.reason(exc)}"]
 
 
 def text_digest(data: bytes) -> str:

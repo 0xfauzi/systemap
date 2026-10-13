@@ -20,6 +20,8 @@ import re
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from systemap import repo_files
+
 WHOLE = "*"
 DEFAULT = "default"
 LINES_PER_FLOW = 30
@@ -32,7 +34,7 @@ _TS_DEFAULT = re.compile(
 
 def _source(root: Path, facts: dict[str, Any], module: str) -> str | None:
     try:
-        return (root / str(facts["components"][module]["file"])).read_text(encoding="utf-8")
+        return repo_files.read_text(root, str(facts["components"][module]["file"]))
     except (OSError, UnicodeDecodeError, KeyError):
         return None
 

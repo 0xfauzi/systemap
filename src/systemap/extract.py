@@ -24,7 +24,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import source_text, ways_in
+from systemap import repo_files, source_text, ways_in
 from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
@@ -719,12 +719,12 @@ def collect_module(
 ) -> dict[str, Any] | None:
     issue: dict[str, Any] | None = None
     try:
-        raw = path.read_text(encoding="utf-8-sig")
+        raw = repo_files.read_text(repo, repo_files.relative(repo, path), encoding="utf-8-sig")
     except (OSError, UnicodeError) as exc:
         raw = ""
         issue = {
             "line": 0,
-            "reason": f"source could not be read: {type(exc).__name__}",
+            "reason": f"source could not be read: {repo_files.reason(exc)}",
             "parser": sys.version.split()[0],
         }
     surface = (
@@ -920,7 +920,7 @@ def collect_tests(
             files.append(path)
     for path in files:
         try:
-            raw = path.read_text(encoding="utf-8-sig")
+            raw = repo_files.read_text(repo, repo_files.relative(repo, path), encoding="utf-8-sig")
         except (OSError, UnicodeError):
             continue
         targets = set(internal_uses(raw, prefixes, known))
@@ -948,7 +948,7 @@ def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]:
         return []
     out: list[dict[str, str]] = []
     try:
-        text = path.read_text(encoding="utf-8")
+        text = repo_files.read_text(repo, spec_path)
     except (OSError, UnicodeError):
         return []
     for match in re.finditer(r"^(#{2,4})\s+(.+)$", text, re.M):
@@ -1167,7 +1167,7 @@ def _module_facts(
     record["package"] = module.split(".")[0]
     record["plane"] = plane_of(module, cfg.planes)
     try:
-        raw = path.read_text(encoding="utf-8-sig")
+        raw = repo_files.read_text(cfg.root, repo_files.relative(cfg.root, path), "utf-8-sig")
     except (OSError, UnicodeError):
         raw = ""
     uses = language.internal_uses(

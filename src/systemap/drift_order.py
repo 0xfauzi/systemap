@@ -34,7 +34,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import decision, delta, history, jev, jev_provider, judgement, judgement_json, nest
+from systemap import (
+    decision,
+    delta,
+    history,
+    jev,
+    jev_provider,
+    judgement,
+    judgement_json,
+    nest,
+    repo_files,
+)
 from systemap.config import Config
 from systemap.decision import DecisionError, DecisionProvider, PredicateQuestion
 from systemap.model import Component, Journey, Meaning, Model, claimed, is_symbol
@@ -204,7 +214,7 @@ def _text(root: Path, paths: list[str]) -> str:
     parts = []
     for rel in paths:
         try:
-            body = (root / rel).read_text(encoding="utf-8-sig", errors="replace")
+            body = repo_files.read_text(root, rel, encoding="utf-8-sig", errors="replace")
         except OSError as exc:
             body = f"(the file could not be read: {type(exc).__name__})"
         parts.append(f"=== {rel}\n{body}")

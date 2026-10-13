@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from systemap import repo_files
 from systemap import theme as theme_mod
 from systemap.config import Config, ConfigError, load_model
 from systemap.model import Component, Meaning, Model, all_layers
@@ -113,8 +114,14 @@ def load(cfg: Config) -> Tree:
     """This function loads all model modules in the map tree.
 
     An import error, missing MODEL or MEANING, missing file, or model cycle gives a
+    configuration error. A model file that is not in the repository also gives a
     configuration error.
     """
+    if not repo_files.inside(cfg.root, cfg.model_path):
+        raise ConfigError(
+            f"The model file {cfg.model} is not in the repository. Put the model file in the "
+            "repository."
+        )
     model, meaning = load_model(cfg.model_path, cfg.model)
     top = Map("", cfg.model_path, cfg.model, model, meaning, _theme(cfg, model, meaning), None, "")
     maps = [top]
@@ -140,6 +147,11 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
             raise ConfigError(
                 f"{parent.rel}: {c.id} opens {rel}, which is already a parent map ({chain}). A "
                 f"map cannot open itself."
+            )
+        if not repo_files.inside(cfg.root, path):
+            raise ConfigError(
+                f"{parent.rel}: {c.id} opens {rel}, which is not in the repository. Put the "
+                f"nested model file in the repository."
             )
         if not path.is_file():
             raise ConfigError(
