@@ -2721,3 +2721,51 @@ A TypeScript row set must have a map with flows and flow sentences for each repo
 The bench data has no map of Hono, Ky, or Zod, and no checkout of these repositories. Thus no TypeScript rows were made.
 
 The `decision.OPENAI` flow value (0.05) was measured with the earlier context. A new OpenAI measurement with this context is necessary.
+
+## Does OpenAI satisfy the flow acceptance value with the context from the call-site fact? (2026-10-13)
+
+The `decision.OPENAI` flow value (0.05) came from the earlier flow context: the lines that use an imported name.
+`audit_code.code_between` now selects the context from the `call_sites` fact. Thus the earlier value does not apply.
+Before the first OpenAI request of this experiment, `decision.OPENAI.flow_below` became None.
+Thus OpenAI does not answer the flow question until this experiment gives a value.
+`openai_flow_context.py` has the method and the acceptance value in its docstring.
+
+### Method
+
+The rows are the rows of the call-site context experiment above: 160 development rows and 96 holdout rows.
+Each row has the same id, claim, label, question, and `code` text that Jev answered.
+`call_site_context.py build` makes the rows again from the cached facts and the source.
+`run.py --provider openai flowctx_facts` sends each row to OpenAI one time, as one request.
+The request body comes from `systemap.openai_provider.request_body`, as in the earlier OpenAI experiment.
+
+`openai_flow_context.py score` uses the functions of `provider_eval.py`. Thus the selection rule is the rule of the earlier flow kind.
+Each figure uses only the rows that the two providers answered.
+A row with an empty context gets no request. It counts as not caught and not flagged for the two providers.
+
+### Acceptance value
+
+The acceptance value was written before the first OpenAI request of these rows. It is the rule of the flow kind in `provider_eval.py`:
+
+- The development set gives the threshold. The holdout set does not.
+- The budget is the fraction of correct development claims that Jev flags at the shipped Jev threshold, P<0.2, on the same rows.
+  The recorded Jev figure is 2 of 80 (2.5%).
+- The threshold is the largest candidate where OpenAI flags a fraction of the correct development claims that is at most the budget.
+  The candidates are 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, and 0.5.
+- If no candidate satisfies the rule, the kind fails. If the selected threshold catches no incorrect development claim, the kind fails.
+- At the selected threshold, the holdout catch rate must be 10 points or less from the development catch rate.
+  The holdout flag rate must also be 10 points or less from the development flag rate.
+- If the kind passes, `decision.OPENAI.flow_below` gets the selected threshold.
+  If it fails, `decision.OPENAI.flow_below` stays None, and OpenAI does not answer the flow question.
+
+All the repositories in the two sets are Python repositories.
+Thus the result does not show the behavior on TypeScript.
+
+### Commands
+
+The key comes from the keychain only for the command. No command writes the key.
+
+    uv run --project bench/jev python bench/jev/call_site_context.py build
+    SYSTEMAP_TRUST_MODEL_CODE=1 JEV_SET=holdout JEV_ROOT_SCORECARD=../scorecard uv run --project bench/jev python bench/jev/call_site_context.py build
+    OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s openai-api-key-systemap -w)" uv run --project bench/jev python bench/jev/run.py --provider openai flowctx_facts
+    OPENAI_API_KEY="$(security find-generic-password -a "$USER" -s openai-api-key-systemap -w)" JEV_SET=holdout uv run --project bench/jev python bench/jev/run.py --provider openai flowctx_facts
+    uv run --project bench/jev python bench/jev/openai_flow_context.py score > bench/jev/results/openai/flowctx-facts-report.txt
