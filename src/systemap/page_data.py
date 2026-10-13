@@ -53,9 +53,10 @@ def _unresolved_claims(component: Component, modules: dict[str, Any]) -> list[st
 
 def _owns(point: dict[str, Any], owned: list[str], symbols: list[tuple[str, str]]) -> bool:
     """True when a module claim includes the module of the entry point, or a symbol claim
-    names its module and its target. An entry point without a target has no symbol."""
-    module, target = point.get("module"), point.get("target")
-    return module in owned or (bool(target) and (module, target) in symbols)
+    names its module and the name that it starts. An entry point that starts no single
+    name (see `source_facts.entry_symbol`) has no symbol claim."""
+    module, symbol = point.get("module"), source_facts.entry_symbol(point)
+    return module in owned or (bool(symbol) and (module, symbol) in symbols)
 
 
 def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:

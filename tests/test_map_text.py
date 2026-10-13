@@ -93,9 +93,11 @@ function markscene(page){
   const look=()=>svg.querySelectorAll('.flowlbl').map(l=>l.getAttribute('transform')||'');
   const g=svg.querySelector('.seq-marks'),vb=svg.viewBox.baseVal;
   const out={marks:g?g.childNodes.length:0,first:look(),firstBeside:A.besideEdges.slice()};
-  // The same count of marks at new places: each mark now covers the map.
+  // The same count of marks at new places: each mark now covers the map. A mark moves
+  // only with a change to the page, here an attribute of each mark.
   (g?g.childNodes:[]).forEach(c=>{c.getBoundingClientRect=()=>({left:vb.x,top:vb.y,
-    right:vb.x+vb.width,bottom:vb.y+vb.height,width:vb.width,height:vb.height});});
+    right:vb.x+vb.width,bottom:vb.y+vb.height,width:vb.width,height:vb.height});
+    c.setAttribute('data-moved','1');});
   // A pan at the same zoom makes the page examine the labels again.
   A.view.restore({k:0.7,tx:1,ty:0},true);runFrames(win);
   out.moved=look();out.movedBeside=A.besideEdges.slice();

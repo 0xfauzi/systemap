@@ -110,7 +110,7 @@ def test_rendered_description_origin_preserves_margin(
     node = ElementTree.fromstring(svg).find(".//{*}g[@data-id='Parser']")
     assert node is not None
     box = node.find("{*}rect[@class='node__box']")
-    description = node.find("{*}g[@data-layer='job']/{*}text")
+    description = node.find("{*}g[@data-part='job']/{*}text")
     assert box is not None and description is not None
     assert description.text == text
     first_character_left = float(description.attrib["x"]) + left_bearing * 11 / 2048

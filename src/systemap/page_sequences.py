@@ -435,9 +435,9 @@ function mk(name, attrs, text){
   return e;
 }
 function empty(node){ while(node && node.firstChild){ node.removeChild(node.firstChild); } }
-var flowLayer = svg.querySelector('.view > g[data-layer="flow"]')
-  || svg.querySelector('g[data-layer="flow"]');
-var tagLayer = svg.querySelector('g[data-layer="tags"]') || svg.querySelector('.view');
+var flowLayer = svg.querySelector('.view > g[data-part="flow"]')
+  || svg.querySelector('g[data-part="flow"]');
+var tagLayer = svg.querySelector('g[data-part="tags"]') || svg.querySelector('.view');
 var lines = mk('g', {'class':'seq-lines', 'aria-hidden':'true'});
 var marks = mk('g', {'class':'seq-marks', 'aria-hidden':'true'});
 var gauge = mk('g', {visibility:'hidden', 'aria-hidden':'true'}), gaugeText = mk('text', {});

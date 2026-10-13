@@ -345,9 +345,11 @@ def _check_values(t: dict[str, Any]) -> None:
 
 
 # The page and the figures put theme values into HTML attributes, CSS and SVG without
-# conversion. These marks can close an attribute or an element. A font stack can contain ".
-UNSAFE_MARKS = '<>&"'
-FONT_UNSAFE_MARKS = "<>&"
+# conversion. These marks can close an attribute or an element. The marks ; { and } can
+# close a CSS declaration or a CSS rule, and then start a different rule. A font stack can
+# contain ".
+UNSAFE_MARKS = '<>&";{}'
+FONT_UNSAFE_MARKS = "<>&;{}"
 
 
 def _texts(value: object, key: str) -> Iterator[tuple[str, str]]:
@@ -370,7 +372,7 @@ def _check_text(t: dict[str, Any]) -> None:
         if found:
             raise ValueError(
                 f"The theme value {key} contains {' '.join(found)}. The page uses theme "
-                f"values in HTML without conversion. Remove these marks from the value."
+                f"values in HTML and CSS without conversion. Remove these marks from the value."
             )
 
 

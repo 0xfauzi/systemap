@@ -38,7 +38,7 @@ def _node_style(s: str, t: Palette) -> str:
     line = tok(t, "card_line", "line_2")
     return (
         f"{s} .node{{cursor:pointer;outline:none;transition:opacity .16s ease-out}}"
-        f'{s} .node [data-layer="job"] text{{font-family:{PLAIN_FONT};'
+        f'{s} .node [data-part="job"] text{{font-family:{PLAIN_FONT};'
         "font-kerning:none;font-variant-ligatures:none}"
         # Only the page script sets --subject. A figure without the script
         # keeps the stroke that the renderer gives each card.

@@ -41,6 +41,29 @@ def standard_label(point: Mapping[str, str]) -> str:
     return labels.get(kind, f"{name}() in {module}")
 
 
+# The entry point kinds whose `target` is the started name in the module of the entry point.
+SYMBOL_IN_TARGET = frozenset(
+    {"console_script", "main_function", "route", "command", "task", "plugin"}
+)
+# The entry point kinds whose `name` is the started name in the module of the entry point.
+SYMBOL_IN_NAME = frozenset({"public_function"})
+
+
+def entry_symbol(point: Mapping[str, str]) -> str:
+    """Give the name in the module that the entry point starts, or an empty string.
+
+    The kind of the entry point tells which field holds the name. An empty string tells
+    that the entry point starts no single name. For example, a package bin with no target
+    starts the code of its full module, and a subcommand target is the name of its console
+    script. A kind that is not in the two tables has no known name."""
+    kind = point.get("kind", "")
+    if kind in SYMBOL_IN_NAME:
+        return point.get("name", "")
+    if kind in SYMBOL_IN_TARGET:
+        return point.get("target", "")
+    return ""
+
+
 def entry_label(point: Mapping[str, str]) -> str:
     """Give the display name that the adapter wrote for the entry point.
 

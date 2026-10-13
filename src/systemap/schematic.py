@@ -5,6 +5,8 @@ Dashed card borders identify actors outside the source code. Flow lines
 show artifacts and use the color of their flow kind. Selection shows connections
 and shows their explanation in the inspector. Nodes carry `data-id`
 and kind values. Flow lines carry artifact labels and `data-layer`.
+The groups of the drawing use `data-part`, not `data-layer`. Thus a layer ID cannot
+have the same attribute value as a group.
 
 Flow evidence states come from evidence.py. `observed` means that source
 references resolve and the source review digest agrees with the claim.
@@ -495,7 +497,7 @@ def render(
         # The plain word under the code name. The name and the plain word
         # are centred in the card.
         g.append(
-            '<g data-layer="job">'
+            '<g data-part="job">'
             + "".join(
                 L(x + 10 + inset, y + dy, line, sizes[1], P["ink_2"], "400", False, "start")
                 for dy, inset, line in plain_rows
@@ -674,13 +676,11 @@ def render(
     # the figure (card boxes, edge paths) stays in drawing units.
     p.append('<g class="view">')
     p.extend(floor)
-    p.append(f'<g data-layer="zones">{"".join(zones)}</g>')
-    p.append(f'<g data-layer="flow">{"".join(flow_parts)}</g>')
+    p.append(f'<g data-part="zones">{"".join(zones)}</g>')
+    p.append(f'<g data-part="flow">{"".join(flow_parts)}</g>')
     p.extend(cards)
-    p.append(
-        '<g data-layer="flow">' + "".join(label_parts[i] for i in sorted(label_parts)) + "</g>"
-    )
-    p.append('<g data-layer="tags"></g>')
+    p.append('<g data-part="flow">' + "".join(label_parts[i] for i in sorted(label_parts)) + "</g>")
+    p.append('<g data-part="tags"></g>')
     p.append("</g>")
     # Text classes are known only once everything is drawn, so their style
     # block goes in last; the renderer does not care where a style sits.

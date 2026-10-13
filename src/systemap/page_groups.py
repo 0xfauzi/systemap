@@ -456,7 +456,7 @@ SCRIPT = r"""
   // The lines go under the routes and the cards. The badges go over the cards
   // and under the route labels, so a label stays readable.
   var LINES = el('g', {'class':'fg-lines'}), BADGES = el('g', {'class':'fg-badges'});
-  var flowLayers = all(':scope > g[data-layer="flow"]', view);
+  var flowLayers = all(':scope > g[data-part="flow"]', view);
   var labelLayer = flowLayers.filter(function(g){ return g.querySelector('.flowlbl'); })[0];
   view.insertBefore(LINES, flowLayers[0] || null);
   view.insertBefore(BADGES, labelLayer || null);

@@ -106,24 +106,52 @@ function placeLabel(b, s, ctx){
   tf(b.g, s, b.x, b.y);
   return false;
 }
+// The boxes of the sequence marks, in drawing units, and their text for the key. A pan or
+// a zoom does not change these boxes. A change to a mark, to the attributes of the page
+// root or the body, or to the loaded fonts can change them. Then the stored boxes go, and
+// the next relabel call reads the boxes again. Without MutationObserver, each call reads.
+var markGroup = null, markWatch = null, markStore = null;
+function forgetMarks(){ markStore = null; }
+function watchMarks(g){
+  if(g === markGroup){ return; }
+  markGroup = g; forgetMarks();
+  if(markWatch){ markWatch.disconnect(); markWatch = null; }
+  if(!g || typeof MutationObserver !== 'function'){ return; }
+  markWatch = new MutationObserver(forgetMarks);
+  markWatch.observe(g, {subtree:true, childList:true, attributes:true, characterData:true});
+  [document.documentElement, document.body].forEach(function(n){
+    if(n){ markWatch.observe(n, {attributes:true}); } });
+}
+if(document.fonts && document.fonts.addEventListener){
+  document.fonts.addEventListener('loadingdone', forgetMarks); }
+function markBoxes(g){
+  watchMarks(g);
+  if(markWatch && markWatch.takeRecords().length){ forgetMarks(); }
+  if(markStore){ return markStore; }
+  var m = view.getScreenCTM(), k = m ? Math.hypot(m.a, m.b) : 0, boxes = [];
+  [].forEach.call(g ? g.childNodes : [], function(c){
+    var r = c.getBoundingClientRect();
+    if(k && r.width){ boxes.push({x:(r.left - m.e) / k, y:(r.top - m.f) / k,
+      w:r.width / k, h:r.height / k}); }
+  });
+  var out = {boxes:boxes, text:boxes.map(function(r){ return [r.x, r.y, r.w, r.h].map(
+    function(v){ return v.toFixed(1); }).join(','); }).join(';')};
+  // A map with no screen transform has no boxes to keep.
+  if(markWatch && k){ markStore = out; }
+  return out;
+}
 function relabel(){
   growSoon = 0;
   var L = state.layer, s = growth(), j = state.journey, g = svg.querySelector('.seq-marks');
-  var m = view.getScreenCTM(), k = m ? Math.hypot(m.a, m.b) : 0, marks = [];
   // The step numbers, tags and notes of a sequence, in drawing units. The key contains
   // their boxes. Thus relabel calculates the labels again when a mark moves or changes.
-  [].forEach.call(j && g ? g.childNodes : [], function(c){
-    var r = c.getBoundingClientRect();
-    if(k && r.width){ marks.push({x:(r.left - m.e) / k, y:(r.top - m.f) / k,
-      w:r.width / k, h:r.height / k}); }
-  });
+  var marks = j ? markBoxes(g) : {boxes:[], text:''};
   var key = L + s + svg.classList.contains('fg-on') + (j ? (j.whole ? 'w' : j.edge) : '')
-    + marks.map(function(r){ return [r.x, r.y, r.w, r.h].map(function(v){
-      return v.toFixed(1); }).join(','); }).join(';');
+    + marks.text;
   if(key === growKey){ return; }
   growKey = key;
   function on(i){ return edgeIn(i, L) && !flowOf[i].classList.contains('fg-hide'); }
-  var ctx = {taken:marks, cards:nodes.map(boxOf),
+  var ctx = {taken:marks.boxes.slice(), cards:nodes.map(boxOf),
     segs:SEGS.filter(function(q){ return on(q.e); })};
   var crowd = BESIDE.slice();
   HEADS.forEach(function(h){ placeHead(h, s, ctx); });

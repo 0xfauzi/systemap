@@ -2917,3 +2917,42 @@ Command: `uv run python bench/jev/change_reuse.py`.
 The full test suite operated at the same time as the first run of the change.
 The result satisfies the two acceptance values.
 The test `test_a_render_with_nested_maps_parses_each_changed_file_once_for_each_side` counts the surface parses of `systemap render --base` with three maps.
+
+## Does the label script read the mark boxes on each pan frame? (2026-10-13)
+
+Follow-up followup-labels-time: commit 57f8180 (Codex result schematic-5) put the boxes of the sequence marks in the label key.
+Thus each relabel call read the box of each mark, also when no mark changed.
+
+The repair keeps the boxes in drawing units.
+A MutationObserver on the marks, on the page root and on the body removes the kept boxes. A font load also removes them.
+Without MutationObserver, each call reads the boxes, as before the repair.
+
+Acceptance (written before the measurement): the median time of one relabel call with a sequence is at most 1.2 times the time before 57f8180.
+The pan case is the acceptance case.
+
+The script makes the self-map page three times, each with a different start of the relabel function.
+The three functions are `before` (57f8180^), `read` (57f8180), and `current`.
+Headless Chrome opens each page at 1600 by 900 pixels.
+In the pan case, a change to the transform of the map view occurs before each call. The script subtracts the time of the transform changes.
+In the static case, the calls occur with no change between them.
+Each value is the median of 11 samples of 2000 calls.
+
+Command: `uv run python bench/jev/relabel_time.py`.
+
+| State | Case | Marks | before (us) | read (us) | current (us) | current / before |
+|---|---|---|---|---|---|---|
+| whole route | pan | 6 | 5.45 | 9.80 | 5.25 | 0.96 |
+| whole route | static | 6 | 1.90 | 6.10 | 2.00 | 1.05 |
+| step 1 | pan | 6 | 5.45 | 9.65 | 5.20 | 0.95 |
+| step 1 | static | 6 | 1.95 | 6.15 | 2.00 | 1.03 |
+
+The `read` function did not satisfy the acceptance value: 1.80 times `before` in the pan case, and 3.2 times in the static case.
+The `current` function satisfies the acceptance value.
+Four earlier measurements with 5 samples gave `before` pan values from 5.35 to 13.30 us. Thus the script now uses 11 samples.
+The table gives the first measurement with 11 samples. Other processes operated on the computer during the measurements.
+The second measurement gave 1.19 (whole route) and 0.88 (step 1) for `current / before` in the pan case. The third gave 0.96 and 0.95.
+Thus the margin to the acceptance value is small when the computer has a high load.
+Headless Chrome draws with software rendering. The absolute times are not the times of a browser on a desktop computer.
+
+The test `test_a_pan_does_not_read_the_mark_boxes_again` counts the box reads under the Node page driver.
+The driver now has a MutationObserver.
