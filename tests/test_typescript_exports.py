@@ -156,7 +156,7 @@ def test_reexport_from_an_npm_package_is_not_unknown(tmp_path: Path) -> None:
     index = facts["components"]["app.index"]
     assert names(index) == [("z", "unknown", "zod"), ("gone", "unknown", "./missing")]
     assert [issue["reason"] for issue in index["unknown"]] == [
-        "the re-export target './missing' is outside the extracted module set."
+        "the re-export target './missing' is outside the extracted module set. Names: gone."
     ]
     assert index["external"] == ["@radix-ui/react-dialog", "zod"]
 

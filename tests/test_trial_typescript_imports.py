@@ -118,7 +118,7 @@ SUBPATH = {
 def test_subpath_imports_resolve_to_files_of_the_package(tmp_path: Path) -> None:
     """trial-6. Acceptance for `src/main.ts`: `uses` holds `web.util`, `web.esm`, and
     `web.internal.deep`. `external` holds only `left-pad`. The unresolved local imports
-    are `#blocked`, `#missing`, and `#types/shapes`. `src/legacy.cts` uses `web.cjs`.
+    are `#blocked` and `#missing`. `src/legacy.cts` uses `web.cjs`.
     On 4ea3bed, each `#` import was an external import.
 
     The rule: Node.js "Subpath imports" (https://nodejs.org/api/packages.html#subpath-imports)
@@ -128,8 +128,9 @@ def test_subpath_imports_resolve_to_files_of_the_package(tmp_path: Path) -> None
     `node`, `import` or `require`, and `default`. A `.cts` file is CommonJS, so it
     matches `require`. The first matched key in file order gives the target, and a null
     value stops the search. `#types/shapes` gives a declaration file, which has no
-    module, as a relative import of that file has none. `#fs` names a Node.js module,
-    which `external` does not include.
+    module. Node.js cannot load that file, so the import is a type-only dependency and
+    not an unresolved import (trial2-1: on 2c7b1f8, it was an unresolved import). `#fs`
+    names a Node.js module, which `external` does not include.
     """
     components = _build(tmp_path, SUBPATH)["components"]
     record = components["web.main"]
@@ -139,7 +140,7 @@ def test_subpath_imports_resolve_to_files_of_the_package(tmp_path: Path) -> None
         "web.util": ["u"],
     }
     assert record["external"] == ["left-pad"]
-    assert record["completeness"]["unresolved_imports"] == ["#blocked", "#missing", "#types/shapes"]
+    assert record["completeness"]["unresolved_imports"] == ["#blocked", "#missing"]
     assert components["web.legacy"]["uses"] == {"web.cjs": ["f"]}
 
 

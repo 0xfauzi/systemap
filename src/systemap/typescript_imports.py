@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from systemap.typescript_syntax import string_value
+from systemap.typescript_syntax import specifier_name, string_value
 
 # One local name: the record that an export of the name gives, without the public name.
 LocalNames = dict[str, dict[str, Any]]
@@ -57,8 +57,8 @@ def _clause_names(clause: Any, source: str) -> LocalNames:
 def _named(named: Any, source: str) -> LocalNames:
     out: LocalNames = {}
     for specifier in (child for child in named.named_children if child.type == "import_specifier"):
-        name = _text(specifier.child_by_field_name("name"))
-        alias = _text(specifier.child_by_field_name("alias"))
+        name = specifier_name(specifier.child_by_field_name("name"))
+        alias = specifier_name(specifier.child_by_field_name("alias"))
         if name:
             out[alias or name] = _reexport(source, name)
             if any(child.type == "type" for child in specifier.children):

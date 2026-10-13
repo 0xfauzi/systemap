@@ -105,6 +105,14 @@ def _one_line(text: str) -> str:
     return " ".join(text.split())
 
 
+def specifier_name(node: Node | None) -> str:
+    """This function gives the name of an import or export specifier part: an identifier,
+    or the value of a string, as in `export { a as 'module.exports' }`."""
+    if node is None:
+        return ""
+    return string_value(node) if node.type == "string" else _text(node)
+
+
 def string_value(node: Node | None) -> str:
     """This function gives the value of a string literal. Each escape sequence gives its
     character.

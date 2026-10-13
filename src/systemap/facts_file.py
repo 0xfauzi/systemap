@@ -22,12 +22,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 9, with portable syntax hashes, compiler provenance, "
+        "The facts format is 10, with portable syntax hashes, compiler provenance, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
-        "`cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `package`, "
-        "`binding`, or `reexport`. "
+        "`cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, "
+        "`declaration file`, `package`, `binding`, or `reexport`. "
         "`extract --check` marks older formats stale",
     ),
     (

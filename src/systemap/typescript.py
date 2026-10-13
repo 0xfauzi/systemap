@@ -37,6 +37,7 @@ from systemap.typescript_projects import (
     path_choices,
     without_script_suffix,
 )
+from systemap.typescript_reexport_targets import Targets, resolve_reexports
 from systemap.typescript_repo import (
     TypeScriptRepository,
     compiler_record,
@@ -46,7 +47,7 @@ from systemap.typescript_repo import (
 )
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
-from systemap.typescript_syntax import string_value, syntax_tree
+from systemap.typescript_syntax import specifier_name, string_value, syntax_tree
 from systemap.typescript_tests import test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -270,11 +271,8 @@ def _imported_names(node: Any) -> set[str]:
     if any(child.type == "identifier" for child in clause.named_children):
         out.add("default")
     for specifier in (child for child in _walk(clause) if child.type == "import_specifier"):
-        original = next(
-            (child for child in specifier.named_children if child.type == "identifier"), None
-        )
-        if original is not None:
-            out.add(_text(original))
+        if original := specifier_name(specifier.child_by_field_name("name")):
+            out.add(original)
     return out
 
 
@@ -284,16 +282,9 @@ def _exported_names(node: Any) -> set[str]:
         return {WHOLE_MODULE}
     out: set[str] = set()
     for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
-        original = next(
-            (
-                child
-                for child in specifier.named_children
-                if child.type in ("identifier", "type_identifier")
-            ),
-            None,
-        )
-        if original is not None:
-            out.add(_text(original))
+        # A string name, as in `export { 'a-b' as c } from`, is the name in the module.
+        if original := specifier_name(specifier.child_by_field_name("name")):
+            out.add(original)
     return out or {WHOLE_MODULE}
 
 
@@ -431,54 +422,14 @@ def _mark_star_exports(names: list[dict[str, Any]]) -> None:
             entry["star_export"] = False
 
 
-def _resolve_reexports(
-    surface: dict[str, Any],
-    path: Path,
-    module: str,
-    known: set[str],
-    paths: dict[str, Path],
-    context: TypeScriptContext,
-) -> None:
-    """This function replaces each re-export specifier with its module.
-
-    A re-export from an npm package keeps the package name and has no unknown record.
-    A `*` re-export from an npm package gives no public name.
-    """
-    surface["names"] = [
-        entry
-        for entry in surface["names"]
-        if not entry.get("reexport_of")
-        or _resolve_reexport(entry, surface, path, module, known, paths, context)
-    ]
-
-
-def _resolve_reexport(
-    entry: dict[str, Any],
-    surface: dict[str, Any],
-    path: Path,
-    module: str,
-    known: set[str],
-    paths: dict[str, Path],
-    context: TypeScriptContext,
-) -> bool:
-    source = entry["reexport_of"]
-    target = _resolve(source, module, known, paths, context)
-    if target:
-        entry["reexport_of"] = target
-        return True
-    star = entry.pop("star", None)
-    entry["kind"] = "unknown"
-    if _is_package(source, path, context):
-        return not star
-    surface["unknown"].append(
-        _problem(
-            1,
-            f"the re-export target {source!r} is outside the extracted module set.",
-            unknown_causes.TARGET,
-            source,
-        )
+def _reexport_targets(
+    path: Path, module: str, known: set[str], paths: dict[str, Path], context: TypeScriptContext
+) -> Targets:
+    return Targets(
+        lambda source: _resolve(source, module, known, paths, context),
+        lambda source: _is_package(source, path, context),
+        lambda source: typescript_package_imports.declaration_file(source, path, context),
     )
-    return True
 
 
 def _unresolved(
@@ -503,6 +454,10 @@ def _unresolved(
         if package:
             # A subpath import can name an npm package or a Node.js module.
             out.update(() if _node_module(package) else ((package, False),))
+            continue
+        if typescript_package_imports.declaration_file(specifier, importer, context):
+            # A declaration file gives only types. It has no module, so no import rule
+            # can apply to it, and it is not an unresolved import.
             continue
         out.add((specifier, _local(specifier, importer, prefixes, context)))
     return out
@@ -657,7 +612,8 @@ class TypeScriptLanguage(TypeScriptRepository):
                 "unknown": [problem],
             }
         surface["unknown"].extend(_problem(0, *found, "") for found in problems)
-        _resolve_reexports(surface, path, module, known, paths, context)
+        targets = _reexport_targets(path, module, known, paths, context)
+        resolve_reexports(surface, raw, path.as_posix(), targets)
         _mark_star_exports(surface["names"])
         return {
             "file": path.relative_to(repo).as_posix(),

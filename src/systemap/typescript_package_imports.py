@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from systemap.config import ConfigError
-from systemap.typescript_config import config_present, package_json
+from systemap.typescript_config import DECLARATION_SUFFIXES, config_present, package_json
 from systemap.typescript_entry import Package, entry_module, package_at
 
 if TYPE_CHECKING:
@@ -54,10 +54,13 @@ class PackageImport:
     `module` is the source module of the target file, or None if no module has the
     file. `package` is the npm package that a subpath import names, or an empty string.
     An import with this record is a local import, unless `package` is not empty.
+    `declaration` is the repository path of a declaration file that the import names and
+    that no module has, or an empty string. Such an import is a type-only dependency.
     """
 
     module: str | None
     package: str = ""
+    declaration: str = ""
 
 
 def resolve(specifier: str, importer: Path, context: TypeScriptContext) -> PackageImport | None:
@@ -91,6 +94,15 @@ def npm_package(specifier: str, importer: Path | None, context: TypeScriptContex
     return found.package if found is not None else ""
 
 
+def declaration_file(specifier: str, importer: Path | None, context: TypeScriptContext) -> str:
+    """This function gives the declaration file that a self-name import or a subpath
+    import names, if no module has the file. Otherwise, the result is an empty string."""
+    if importer is None or specifier.startswith((".", "/")):
+        return ""
+    found = resolve(specifier, importer, context)
+    return found.declaration if found is not None else ""
+
+
 def _subpath_import(
     specifier: str, scope: Package, conditions: frozenset[str], context: TypeScriptContext
 ) -> PackageImport:
@@ -99,7 +111,7 @@ def _subpath_import(
     if target is None:
         return PackageImport(None)
     if target.startswith("./"):
-        return PackageImport(_module(target, scope, context))
+        return _file_import(target, (specifier, imports), scope, conditions, context)
     if target.startswith(("../", "/")) or URL.match(target):
         # Node.js refuses such a target (PACKAGE_TARGET_RESOLVE), also `node:fs`.
         # A bare name such as `fs` is correct.
@@ -119,10 +131,39 @@ def _self_import(
     if specifier != name and not specifier.startswith(name + "/"):
         return None
     subpath = "." + specifier[len(name) :]
-    target = _match(subpath, _subpaths(exports), conditions)
+    table = _subpaths(exports)
+    target = _match(subpath, table, conditions)
     if target is None or not target.startswith("./"):
         return PackageImport(None)
-    return PackageImport(_module(target, scope, context))
+    return _file_import(target, (subpath, table), scope, conditions, context)
+
+
+def _file_import(
+    target: str,
+    key: tuple[str, Mapping[str, Any] | None],
+    scope: Package,
+    conditions: frozenset[str],
+    context: TypeScriptContext,
+) -> PackageImport:
+    """This function gives the record of a target file of the package.
+
+    A declaration target with no module is a type-only dependency if the file exists, and
+    if the conditions without `types` give a declaration file or no target. Node.js
+    cannot load a declaration file, so a value import of that file cannot occur. If the
+    other conditions give a script file, Node.js loads that file: then the import is not
+    type-only. `key` is the subpath and the table that gave the target.
+    """
+    module = _module(target, scope, context)
+    if module is not None or not target.endswith(DECLARATION_SUFFIXES):
+        return PackageImport(module)
+    loaded = _match(*key, conditions - {"types"})
+    path = (scope.directory / target).resolve()
+    repo = context.repo.resolve()
+    if loaded is not None and not loaded.endswith(DECLARATION_SUFFIXES):
+        return PackageImport(None)
+    if not path.is_relative_to(repo) or not path.is_file():
+        return PackageImport(None)
+    return PackageImport(None, declaration=path.relative_to(repo).as_posix())
 
 
 def _subpaths(exports: Any) -> dict[str, Any] | None:
