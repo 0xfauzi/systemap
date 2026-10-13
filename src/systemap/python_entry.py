@@ -413,7 +413,32 @@ def entry_points(
         ]
         out += in_source(module, sources.get(module, ""))
     out += in_pyproject(read_pyproject(repo), components)
-    return same_operations(_once_each(out), components)
+    return started_symbols(same_operations(_once_each(out), components))
+
+
+# The Python kinds whose `target` is the started name in the module of the entry point.
+TARGET_IS_SYMBOL = frozenset(
+    {"console_script", "main_function", "route", "command", "task", "plugin"}
+)
+
+
+def started_symbols(points: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Write `symbol` on each entry point: the name in its module that it starts.
+
+    A public function starts the function of its name. A kind in TARGET_IS_SYMBOL starts
+    its target. A dotted target (a Django view such as `views.index`, or a plugin
+    attribute) is not one name in the module. A `__main__` module starts its full module,
+    and a subcommand target is the name of its console script. These give "".
+    """
+    for point in points:
+        target = point.get("target", "")
+        if point["kind"] == "public_function":
+            point["symbol"] = point["name"]
+        elif point["kind"] in TARGET_IS_SYMBOL and "." not in target:
+            point["symbol"] = target
+        else:
+            point["symbol"] = ""
+    return points
 
 
 def same_operations(

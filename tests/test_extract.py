@@ -152,6 +152,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg.cli",
             "target": "main",
             "same_as": "",
+            "symbol": "main",
             "label": "pkg (console script)",
         },
         {
@@ -160,6 +161,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg",
             "target": "",
             "same_as": "",
+            "symbol": "open_thing",
             "label": "open_thing() in pkg",
         },
         {
@@ -168,6 +170,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg.__main__",
             "target": "",
             "same_as": SCRIPT,
+            "symbol": "",
             "label": "python -m pkg",
         },
         {
@@ -176,6 +179,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg.cli",
             "target": "main",
             "same_as": SCRIPT,
+            "symbol": "main",
             "label": "main() in pkg.cli",
         },
         {
@@ -184,6 +188,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg.cli",
             "target": "pkg",
             "same_as": "",
+            "symbol": "",
             "label": "pkg init (subcommand)",
         },
         {
@@ -192,6 +197,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg.cli",
             "target": "pkg",
             "same_as": "",
+            "symbol": "",
             "label": "pkg check (subcommand)",
         },
         {
@@ -200,6 +206,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "module": "pkg.worker",
             "target": "main",
             "same_as": "",
+            "symbol": "main",
             "label": "main() in pkg.worker",
         },
     ]

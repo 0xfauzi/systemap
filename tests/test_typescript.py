@@ -99,6 +99,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
             "module": "web.cli",
             "target": "",
             "same_as": "",
+            "symbol": "",
             "label": "web (console script)",
         },
         {
@@ -107,6 +108,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
             "module": "web.index",
             "target": "",
             "same_as": "",
+            "symbol": "serve",
             "label": "serve() in web.index",
         },
     ]
@@ -136,6 +138,7 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "module": "acme.web.api",
             "target": "",
             "same_as": "",
+            "symbol": "request",
             "label": "request() in acme.web.api",
         },
         {
@@ -144,6 +147,7 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "module": "acme.web.index",
             "target": "",
             "same_as": "",
+            "symbol": "app",
             "label": "app() in acme.web.index",
         },
     ]
@@ -290,6 +294,7 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
             "module": "web.cli",
             "target": "",
             "same_as": "",
+            "symbol": "",
             "label": "web (console script)",
         },
         {
@@ -298,6 +303,7 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
             "module": "web.index",
             "target": "",
             "same_as": "",
+            "symbol": "api",
             "label": "api() in web.index",
         },
     ]
@@ -715,6 +721,7 @@ def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path
         "module": "web.cli",
         "target": "",
         "same_as": "",
+        "symbol": "",
         "label": "web (console script)",
     } in facts["entry_points"]
     assert facts["entry_point_issues"] == []

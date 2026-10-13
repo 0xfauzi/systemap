@@ -113,8 +113,19 @@ def test_the_short_name_comes_from_neutral_fields(tmp_path: Path) -> None:
 
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "systemap"
-ADAPTERS = {"extract.py", "source_facts.py"}
+ADAPTERS = {"extract.py"}
+# The label table of older facts is the only shared code that can name these kinds.
+LABEL_TABLE = ("source_facts.py", "standard_label")
 ONE_ADAPTER_KINDS = {"main_function", "main_module"}
+
+
+def _shared_nodes(path: Path) -> list[ast.AST]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    if path.name != LABEL_TABLE[0]:
+        return list(ast.walk(tree))
+    labels = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == LABEL_TABLE[1]]
+    inside = {id(node) for label in labels for node in ast.walk(label)}
+    return [node for node in ast.walk(tree) if id(node) not in inside]
 
 
 def test_no_shared_module_names_a_python_entry_point_kind() -> None:
@@ -122,7 +133,7 @@ def test_no_shared_module_names_a_python_entry_point_kind() -> None:
         f"{path.name}:{node.lineno}"
         for path in sorted(SRC.glob("*.py"))
         if path.name not in ADAPTERS and not path.name.startswith(("python_", "typescript"))
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        for node in _shared_nodes(path)
         if isinstance(node, ast.Constant) and node.value in ONE_ADAPTER_KINDS
     ]
     assert found == []

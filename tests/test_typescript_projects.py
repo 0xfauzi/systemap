@@ -118,6 +118,7 @@ def test_monorepo_packages_give_their_own_tsconfig_and_bin(tmp_path: Path, solut
         "module": "mono.api.main",
         "target": "",
         "same_as": "",
+        "symbol": "",
         "label": "api (console script)",
     } in (facts["entry_points"])
     assert facts["entry_point_issues"] == [
@@ -300,6 +301,7 @@ def test_tsconfig_inputs_and_source_paths_use_the_same_skip_rule(tmp_path: Path)
         "module": "app.main.cli",
         "target": "",
         "same_as": "",
+        "symbol": "",
         "label": "tool (console script)",
     } in (facts["entry_points"])
 

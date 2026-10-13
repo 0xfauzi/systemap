@@ -258,6 +258,16 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "entry point",
+        "symbol",
+        "The name in `module` that the entry point starts, such as the console-script "
+        "function or a public function. It is an empty string when the entry point starts "
+        "no single name, for example a package bin or a `__main__` module that starts the "
+        "full module, or a subcommand. A symbol claim includes the entry point only when "
+        "the module and this name agree. If the field is missing, the name is not known. "
+        "Then no symbol claim includes the entry point",
+    ),
+    (
+        "entry point",
         "same_as",
         "The identity of a different entry point that starts the same operation. The "
         "language adapter writes it only from an accurate indication. The Python adapter "

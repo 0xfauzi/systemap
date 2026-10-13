@@ -8,7 +8,9 @@ Acceptance:
   no symbol: a TypeScript bin starts the code of its full module, and a subcommand target
   is the name of its console script. Thus the claim `<module>:<script name>` does not list
   the subcommand, and the claim `<module>:<bin name>` does not list the bin. A module claim
-  lists all entry points of its module, as before.
+  lists all entry points of its module, as before. Each adapter writes the started name in
+  the neutral `symbol` field. Without the field (older facts), an entry point matches no
+  symbol claim.
 - followup-layer-id: with a custom layer ID `flow`, `tags`, `zones` or `job`, the sequence
   script puts its marks in the group of the tags and its lines in the group of the flows.
   The group markers use the attribute `data-part`, which no layer ID gives.
@@ -91,12 +93,31 @@ def test_a_typescript_symbol_claim_lists_the_entry_points_of_its_symbol(tmp_path
     assert "web (console script)" in _points(facts, cli)
 
 
-@pytest.mark.parametrize("kind", ["route", "unknown_kind"])
-def test_only_a_kind_with_a_known_symbol_matches(kind: str) -> None:
-    point = {"kind": kind, "name": "GET /x", "module": "pkg.web", "target": "index"}
+def test_each_adapter_writes_the_started_symbol(tmp_path: Path) -> None:
+    python = _facts(tmp_path / "py", PYTHON_TREE)["entry_points"]
+    assert {(p["kind"], p["symbol"]) for p in python} == {
+        ("console_script", "main"),
+        ("main_function", "main"),
+        ("public_function", "start"),
+        ("subcommand", ""),
+    }
+    typescript = _facts(tmp_path / "ts", TYPESCRIPT_TREE)["entry_points"]
+    assert {(p["kind"], p["symbol"]) for p in typescript} == {
+        ("console_script", ""),
+        ("public_function", "start"),
+    }
+
+
+@pytest.mark.parametrize(("symbol", "expected"), [("index", ["GET /x (route)"]), (None, [])])
+def test_an_entry_point_without_the_symbol_fact_matches_no_symbol_claim(
+    symbol: str | None, expected: list[str]
+) -> None:
+    point = {"kind": "route", "name": "GET /x", "module": "pkg.web", "target": "index"}
+    if symbol is not None:
+        point["symbol"] = symbol
     facts = {"components": {"pkg.web": {}}, "entry_points": [point]}
-    expected = ["GET /x (route)"] if kind == "route" else []
     assert _points(facts, "pkg.web:index") == expected
+    assert _points(facts, "pkg.web") == ["GET /x (route)"]
 
 
 # ---- followup-layer-id: a layer ID with the name of a group marker -------------------

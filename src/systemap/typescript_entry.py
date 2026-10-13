@@ -57,8 +57,10 @@ def entry_points(
     unique = _unique_points(points)
     # A package bin starts the top-level code of its module. An exported function is a
     # different entry point. Thus no entry point starts the same code as a different one.
+    # A bin starts no single name ("symbol" is empty). A public function starts its name.
     for point in unique:
         point["same_as"] = ""
+        point["symbol"] = point["name"] if point["kind"] == "public_function" else ""
     return unique, issues
 
 

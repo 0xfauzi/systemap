@@ -448,6 +448,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `module`: The module that defines the entry point.
 - `target`: The console-script function, the console script for a subcommand, or the registered function. It is empty for other kinds.
 - `label`: The display name that the language adapter gives to the entry point. A sequence can name it in `starts`.
+- `symbol`: The name in `module` that the entry point starts, such as the console-script function or a public function. It is an empty string when the entry point starts no single name, for example a package bin or a `__main__` module that starts the full module, or a subcommand. A symbol claim includes the entry point only when the module and this name agree. If the field is missing, the name is not known. Then no symbol claim includes the entry point.
 - `same_as`: The identity of a different entry point that starts the same operation. The language adapter writes it only from an accurate indication. The Python adapter writes it for a `main` function or a `__main__` module that starts the function of a console script. Coverage then counts the two entry points as one. An empty string tells that the adapter found no such entry point. Then this entry point must have a sequence. If the field is missing, the value is not known. Then the entry point also must have a sequence.
 
 **The extract summary**

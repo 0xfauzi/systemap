@@ -219,7 +219,13 @@ def test_the_step_overlay_keeps_the_whole_route_and_its_keys(
 # ---- page-7: the entry point coverage of the Sequences view -------------------------
 
 # The Python adapter writes `same_as` on the `main` function that a console script starts.
-PY_SCRIPT = {"kind": "console_script", "name": "cli", "module": "pkg.cli", "target": "main"}
+PY_SCRIPT = {
+    "kind": "console_script",
+    "name": "cli",
+    "module": "pkg.cli",
+    "target": "main",
+    "symbol": "main",
+}
 PY_POINTS = [
     PY_SCRIPT,
     {
@@ -227,6 +233,7 @@ PY_POINTS = [
         "name": "main",
         "module": "pkg.cli",
         "target": "main",
+        "symbol": "main",
         "same_as": entry_identity(PY_SCRIPT),
     },
 ]
