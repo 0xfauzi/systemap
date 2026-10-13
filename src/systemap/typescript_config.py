@@ -145,14 +145,8 @@ def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
     if not (root / "tsconfig.json").is_file():
         return []
     for candidate in (root / "src", root):
-        sources = (
-            path
-            for path in candidate.rglob("*")
-            if path.is_file()
-            and path.suffix in SOURCE_SUFFIXES
-            and not path.name.endswith(DECLARATION_SUFFIXES)
-            and not any(part in SOURCE_SKIP for part in path.relative_to(root).parts)
-        )
+        # The walk does not enter node_modules and the other SOURCE_SKIP folders.
+        sources = (path for path in source_files(candidate, SOURCE_SKIP) if path.is_file())
         if next(sources, None) is not None:
             return [(candidate.relative_to(root).as_posix() or ".", typescript_name(root))]
     return []

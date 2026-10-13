@@ -9,11 +9,11 @@ from __future__ import annotations
 import re
 import sys
 import tomllib
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config, identifier
+from systemap import config, config_walk, identifier
 from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 
 # Below a Python package root or test directory, these folders hold no source of the
@@ -157,6 +157,13 @@ class PythonRepository:
 
     def package_dir(self, directory: Path) -> bool:
         return package_dir(directory)
+
+    def config_paths(self, root: Path, folders: Sequence[Path]) -> list[Path]:
+        """Give pyproject.toml at the root, below each folder, and between each folder and
+        the root."""
+        return config_walk.nearby(
+            root, folders, self.config_files, PYTHON_SKIP | config.OUTPUT_DIRS
+        )
 
     def root_name_problem(self, rel: str, name: str) -> str:
         if "/" not in name:
