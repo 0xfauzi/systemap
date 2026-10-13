@@ -197,7 +197,8 @@ JS = r"""
     sourceRows(id);
     sections();
     if(!restoringView){ frameBeside(id); }
-    if(location.hash !== '#' + id){ history.replaceState(null, '', '#' + id); }
+    var link = '#' + encodeURIComponent(id);
+    if(location.hash !== link){ history.replaceState(null, '', link); }
   });
   svg.addEventListener('systemap:clear', function(){
     if(sourceDetail){ sourceDetail.innerHTML = ''; }
@@ -473,7 +474,7 @@ JS = r"""
     h = '<section class="source-section"><h3>Step components</h3><div class="step-parts">' + h
       + '</div><h3>Rules for this step</h3>';
     A.detail._meta.rules.forEach(function(r){
-      if(rules[r.n]){ h += '<p class="rule-row"><b>' + r.n + '</b>' + esc(r.text) + '</p>'; }
+      if(rules[r.n]){ h += '<p class="rule-row"><b>' + esc(r.n) + '</b>' + esc(r.text) + '</p>'; }
     });
     if(!Object.keys(rules).length){ h += '<p>The model has no rules for these components.</p>'; }
     stepBox.innerHTML = h + '</section>';

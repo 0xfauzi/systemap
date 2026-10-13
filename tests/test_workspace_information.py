@@ -84,7 +84,7 @@ def test_map_information_uses_source_records(sample: Sample, tmp_path: Path, reg
     assert report["initial"]["readout"] == "1 flow · 1 actor"
     structure = "4 components" + (" · 2 regions" if regions else "")
     assert report["structure"]["readout"] == structure
-    assert "The source facts contain no entry points." in report["initial"]["sequence"]
+    assert "The modules of this map contain no entry points." in report["initial"]["sequence"]
     # A component: its source modules and its flows, from the source records.
     assert report["component"]["modules"] == ["pkg.reader"]
     assert report["component"]["flows"] == 2

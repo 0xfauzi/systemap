@@ -9,9 +9,10 @@ point names, the region maps and the counts. The page script draws the route.
 from __future__ import annotations
 
 import html
+from collections.abc import Collection
 from typing import Any
 
-from systemap.journey_coverage import ways_in_without_journey
+from systemap.journey_coverage import outside_map, ways_in_without_journey
 from systemap.model import Box, Journey, Meaning, Model
 from systemap.page_icons import icon
 from systemap.source_facts import entry_identity, entry_label
@@ -368,16 +369,20 @@ def _entry(journey: Journey, points: list[dict[str, str]]) -> str:
     return short_entry(commands[0]) if commands else ""
 
 
-def _coverage(meaning: Meaning, facts: dict[str, Any]) -> dict[str, Any]:
+def _coverage(
+    meaning: Meaning, facts: dict[str, Any], covered: Collection[str] | None, skip: set[str]
+) -> dict[str, Any]:
     """Count the entry points that have a sequence. Give the names of the others.
 
     The total and the missing list use the same entry points: the coverage check
     does not count an entry point that is another name for a counted one. With no
-    covered identities, the coverage check gives all the counted entry points."""
+    covered identities, the coverage check gives all the counted entry points.
+    The count uses the scope of judgement: the entry points in the modules of this
+    map, and the sequences of all maps."""
     if facts.get("entry_points") is None:
         return {"known": False}
-    counted = ways_in_without_journey(meaning, facts, covered=())
-    missing = ways_in_without_journey(meaning, facts)
+    counted = ways_in_without_journey(meaning, facts, skip=skip, covered=())
+    missing = ways_in_without_journey(meaning, facts, skip=skip, covered=covered)
     names = [short_entry(p) for p in missing]
     return {
         "known": True,
@@ -388,11 +393,19 @@ def _coverage(meaning: Meaning, facts: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def data(model: Model, meaning: Meaning, facts: dict[str, Any]) -> dict[str, Any]:
+def data(
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    covered: Collection[str] | None = None,
+    top: bool = True,
+) -> dict[str, Any]:
     """Give the sequence data that the page script reads.
 
     For each sequence: the entry point name, the region map, and the counts of
-    regions and actors that the route uses. Also the entry point coverage."""
+    regions and actors that the route uses. Also the entry point coverage.
+    `covered` gives the identities that the sequences of all maps include. If it is
+    None, the sequences of this map supply them. `top` tells if this map is the top map."""
     points: list[dict[str, str]] = facts.get("entry_points") or []
     regions = {r.id for r in model.regions}
     where = _region_of(model)
@@ -409,7 +422,8 @@ def data(model: Model, meaning: Meaning, facts: dict[str, Any]) -> dict[str, Any
                 "actors": len([c for c in members if c in actors]),
             }
         )
-    return {"journeys": out, "coverage": _coverage(meaning, facts)}
+    skip = outside_map(model, top, facts)
+    return {"journeys": out, "coverage": _coverage(meaning, facts, covered, skip)}
 
 
 # The route on the map, in the same function scope as the sequence controller
@@ -463,7 +477,7 @@ function polyline(d){
   }
   return out;
 }
-var CARD = {}, PATH = {}, VB = svg.viewBox && svg.viewBox.baseVal;
+var CARD = Object.create(null), PATH = {}, VB = svg.viewBox && svg.viewBox.baseVal;
 all('.node', svg).forEach(function(n){
   var r = n.querySelector('.node__box');
   if(r){ CARD[n.dataset.id] = {x:+r.getAttribute('x'), y:+r.getAttribute('y'),
@@ -673,7 +687,8 @@ function lineKind(k, s){ return s < 0 ? 'route' : (k < s ? 'was' : (k > s ? 'lat
 function drawRoute(o){
   // o: {j, s (the current step, or -1 for the whole route), present, area}
   clearMarks();
-  var steps = o.j.steps, s = o.s, cur = s >= 0 ? steps[s] : null, ids = {}, step = {};
+  var steps = o.j.steps, s = o.s, cur = s >= 0 ? steps[s] : null;
+  var ids = Object.create(null), step = Object.create(null);
   function members(st, into){
     var e = A.edges[st.edge];
     (st.acts || []).concat(st.measures || []).forEach(function(id){ into[id] = true; });
@@ -697,7 +712,7 @@ function drawRoute(o){
   });
   Object.keys(kinds).forEach(function(edge){
     walk(PATH[edge].pts, 8, 0).forEach(function(p){ p.edge = +edge; dots.push(p); }); });
-  var tagged = {}, first = steps[0], start = first ? ((first.acts || [])[0]
+  var tagged = Object.create(null), first = steps[0], start = first ? ((first.acts || [])[0]
     || (A.edges[first.edge] || {}).from) : '';
   if(cur){
     (cur.acts || []).forEach(function(id){ tagged[id] = (tagged[id] || 0) + tag(id, 'ACTS',

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from systemap import repo_files
 from systemap import theme as theme_mod
@@ -217,12 +218,14 @@ def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:
     the panel.
 
     Page links are relative to the selected map. Figures omit these links because their
-    location can differ.
+    location can differ. The link has the card ID as one path segment with percent
+    encoding. This segment has no colon. Thus a card ID such as `javascript:x` cannot be a
+    URL scheme.
     """
     return {
         child.card: {
             "name": child.card,
-            "href": f"{child.card}/index.html" if links else "",
+            "href": f"{quote(child.card, safe='')}/index.html" if links else "",
             "cards": child.inside,
             "preview": "",
         }
