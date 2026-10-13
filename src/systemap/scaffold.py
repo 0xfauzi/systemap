@@ -429,11 +429,16 @@ def tooling_note(root: Path, language: LanguageSetup) -> tuple[str, ...]:
 
 
 def uses_deptry(root: Path) -> bool:
-    """True when a file in DEPTRY_FILES contains the word deptry."""
+    """True when a file in DEPTRY_FILES contains the word deptry.
+
+    The function reads only regular files in the repository. A link out of the
+    repository or a FIFO is not read. The result only selects a note, so such a file
+    counts as a file without the word.
+    """
     for pattern in DEPTRY_FILES:
         for path in sorted(root.glob(pattern)):
             try:
-                text = path.read_text(encoding="utf-8", errors="replace")
+                text = repo_files.read_text(root, path.relative_to(root), errors="replace")
             except OSError:
                 continue
             if "deptry" in text.lower():

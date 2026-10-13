@@ -28,6 +28,7 @@ Each test uses a small fixture. No test clones a real repository. Acceptance val
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -321,3 +322,20 @@ def test_init_prints_the_deptry_lines_only_for_a_repository_that_uses_deptry(
     assert ("[tool.deptry.per_rule_ignores]" in out) is deptry
     assert "mypy --strict" in out
     assert scaffold.uses_deptry(tmp_path) is deptry
+
+
+def test_the_deptry_note_reads_only_regular_files_in_the_repository(tmp_path: Path) -> None:
+    """A link out of the repository and a FIFO are not read.
+
+    Acceptance: a `tox.ini` link to a file outside the repository with the word deptry
+    gives False, and a FIFO `Makefile` gives False with no wait.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside.ini"
+    outside.write_text("[testenv]\ncommands = deptry .\n", encoding="utf-8")
+    (repo / "tox.ini").symlink_to(outside)
+    assert scaffold.uses_deptry(repo) is False
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(repo / "Makefile")
+        assert scaffold.uses_deptry(repo) is False

@@ -38,7 +38,7 @@ interactive = false
 # Exact answers must have current evidence digests after source examination.
 [judgement]
 answered = [
-    { item = "single module: Scaffold contains only systemap.scaffold", evidence = "bc94cde304c46457bba3328b0926a446accd55f27ac2a306c4aa957c92d372a7", reason = "scaffold.py writes the initial configuration, model, and workflow. This setup is a different function from map placement or rendering." },
+    { item = "single module: Scaffold contains only systemap.scaffold", evidence = "4d39a45ddb02417d9eb2ee4f80e5c64972a8c7a0f7007067dab7beb383999878", reason = "scaffold.py writes the initial configuration, model, and workflow. This setup is a different function from map placement or rendering." },
     { item = "single module: Skill contains only systemap.skill", evidence = "34a55e37c47455853dcaa99d5c9a680a69614be876ef51f7a9fa1d2e3077a195", reason = "skill.py installs the mapping procedure. scaffold.py writes the initial project files. The procedure is a different component." },
     { item = "single module: Router contains only systemap.route", evidence = "746d190b0b1cc513c1be9ce91385922c691a7687ea09dc4eeec9b057a4b22e57", reason = "route.py calculates paths and label positions from card geometry. schematic.py renders the result. Router is a different component." },
     { item = "single module: Figures contains only systemap.figure", evidence = "077305dc26575571f81b5637f7d3e9e23e1efc019c237447d03820a73ca65f73", reason = "figure.py makes a selected SVG or HTML figure for a document. page.py makes the complete interactive page." },
