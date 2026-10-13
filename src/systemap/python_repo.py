@@ -152,6 +152,11 @@ class PythonRepository:
     def discover_roots(self, root: Path) -> list[tuple[str, str]]:
         return discover_roots(root)
 
+    def discover_test_patterns(self, root: Path) -> list[str]:
+        """The Python test rule finds each test file without a pattern."""
+        del root
+        return []
+
     def detect(self, root: Path, folders: Iterable[Path] = ()) -> int:
         """Find Python source: a package root, or a .py file in a configured folder.
 

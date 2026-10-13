@@ -671,6 +671,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         return STALE
     # A Git error gives DeltaError. `failures.run` gives its message and exit code 2.
     shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
+    say(*history.shallow_note(p.cfg.root, shas))
     if len(shas) < 2:
         say(history.too_few(len(shas), args.since))
         return OK

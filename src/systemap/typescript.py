@@ -9,7 +9,13 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import repo_files, typescript_calls, typescript_entry, unknown_causes
+from systemap import (
+    repo_files,
+    typescript_calls,
+    typescript_entry,
+    typescript_package_imports,
+    unknown_causes,
+)
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
 from systemap.pattern_match import matches_test_pattern
@@ -90,6 +96,8 @@ class TypeScriptContext:
     test_issues: list[dict[str, Any]] = field(default_factory=list)
     # The tsconfig project of each file. Without it, the top-level compiler applies.
     projects: TypeScriptProjects | None = None
+    # The nearest package.json above each folder (`typescript_package_imports`).
+    package_scopes: dict[Path, Any] = field(default_factory=dict)
 
     def compiler_for(self, path: Path) -> TypeScriptConfig:
         """This function gives the compiler settings of the project that contains a file."""
@@ -187,6 +195,9 @@ def _target_from_path(
     found = _first_target(targets, context.modules_by_path)
     if found is not None or specifier.startswith("."):
         return found
+    package = typescript_package_imports.resolve(specifier, importer, context)
+    if package is not None:
+        return package.module
     normalized = _module_name(without_script_suffix(specifier))
     return next((name for name in (normalized, f"{normalized}.index") if name in paths), None)
 
@@ -488,20 +499,35 @@ def _unresolved(
     for specifier, _names in _imports(root):
         if _node_module(specifier) or _resolve(specifier, module, known, paths, context):
             continue
-        name = _module_name(specifier)
-        local = any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
-        if importer is not None:
-            local = local or not _is_package(specifier, importer, context)
-        else:
-            local = local or specifier.startswith(".")
-        out.add((specifier, local))
+        package = typescript_package_imports.npm_package(specifier, importer, context)
+        if package:
+            # A subpath import can name an npm package or a Node.js module.
+            out.update(() if _node_module(package) else ((package, False),))
+            continue
+        out.add((specifier, _local(specifier, importer, prefixes, context)))
     return out
 
 
+def _local(
+    specifier: str, importer: Path | None, prefixes: set[str], context: TypeScriptContext
+) -> bool:
+    name = _module_name(specifier)
+    if any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes):
+        return True
+    if importer is not None:
+        return not _is_package(specifier, importer, context)
+    return specifier.startswith(".")
+
+
 def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> bool:
-    """This function tells if an import that does not resolve names an npm package."""
-    return not specifier.startswith((".", "/")) and not is_alias(
-        specifier, context.compiler_for(importer)
+    """This function tells if an import that does not resolve names an npm package.
+
+    A self-name import and a subpath import (`#name`) name the same package.
+    """
+    return (
+        not specifier.startswith((".", "/"))
+        and not is_alias(specifier, context.compiler_for(importer))
+        and not typescript_package_imports.is_local(specifier, importer, context)
     )
 
 

@@ -66,7 +66,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>entry</td>
-<td>A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty <code>entry</code>. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
+<td>A component claims no module or an absent module. Its modules do not define its entry name. An entry can also be the name or label of an entry point of its modules that does not start one public name. Stores and context components can have an empty <code>entry</code>. A component can also have an empty <code>entry</code> if its modules define no public name and start no entry point. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
 </tr>
 <tr>
 <td>interface</td>
@@ -674,6 +674,15 @@ The evidence digest of the item does not change.</p>
 <code>entry point 7 public_functions into Api have no sequence (component Api)</code>.
 The new line gives the <code>kind</code> value with a space in place of each <code>_</code>: <code>entry point 7 public functions into Api have no sequence (component Api)</code>.
 The same rule applies to this line. A kind without <code>_</code>, for example <code>route</code>, does not change.</p>
+<p>The <code>unknown surface</code> line for a TypeScript parse error also changed.
+Its source excerpt is the line of the error and the line before it, because the error can be one token, such as <code>','</code>.
+The line also ends with the parser version, as the Python line does.
+An answer item in the earlier form applies to a current line if its text up to <code>The parser could not parse the source syntax.</code> agrees with one current line.
+The evidence digest must agree.</p>
+<p>The parser can also refuse correct syntax.
+tree-sitter-typescript 0.23.2 refuses a generic function call with a <code>typeof import()</code> type argument and a comma after the last argument.
+For example, <code>f&lt;typeof import('./a')&gt;(g(),)</code> is correct TypeScript.
+At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.</p>
 <p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
@@ -864,8 +873,31 @@ You can change the value in the workflow file later.
 If systemap cannot run (exit code 2 or more), the job fails with both values.</p>
 <p>If the repository has no Python package and a directory has a <code>tsconfig.json</code> file,
 <code>init</code> selects TypeScript.
-If the repository root has no <code>tsconfig.json</code> file, <code>init</code> writes no package roots.
-Then set <code>[package_roots]</code> for each application package.</p>
+For TypeScript, <code>init</code> selects the package root with this rule, in this sequence:</p>
+<ol>
+<li>The repository root must have a <code>tsconfig.json</code> file.</li>
+<li>If each <code>include</code> entry of <code>tsconfig.json</code> names a folder, and one of these folders has source, that folder is the root.
+An entry such as <code>source/**/*</code> names the folder <code>source</code>.
+A test folder or a type-test folder does not count.
+An entry that names a file, such as <code>vite.config.ts</code>, stops this step.</li>
+<li>Then the root is <code>src</code> if it has source, then the repository root.</li>
+</ol>
+<p>For example, the ky repository has <code>&quot;include&quot;: [&quot;source&quot;]</code>. Thus <code>init</code> writes <code>&quot;source&quot; = &quot;ky&quot;</code>.
+A configuration without <code>[package_roots]</code> uses the same rule.</p>
+<p>If the rule selects no root, <code>init</code> writes no package roots and prints the cause.
+It also prints the <code>[package_roots]</code> table to write in <code>systemap.toml</code>.
+The table has one line for each folder with a <code>tsconfig.json</code> file, with the same rule in that folder.
+Keep only the lines of the packages of the system.
+<code>extract</code> and the other commands print the same text until you set the table.</p>
+<p><code>init</code> also writes <code>test_patterns</code> for the TypeScript type tests that it finds.
+A type test is a file that only <code>tsc</code> examines, for example with tsd or <code>expectTypeOf</code>.
+These files are test files, not modules of the map:</p>
+<ul>
+<li>A folder with the name <code>test-d</code>, the default folder of tsd, or the folder in the <code>tsd.directory</code> key of <code>package.json</code>.</li>
+<li>A folder with a name such as <code>__tests_dts__</code>: <code>__test</code> or <code>__tests</code>, more text, and <code>__</code>.</li>
+<li>A file with a name that ends in <code>.test-d.ts</code> or <code>.spec-d.ts</code>, as tsd and Vitest typecheck use.</li>
+</ul>
+<p>The <code>test_patterns</code> key shows the rule in the configuration. You can change it there.</p>
 <h3 id="systemap-extract-check"><code>systemap extract [--check]</code></h3>
 <p>Reads the source tree and writes <code>docs/map/map.json</code>.
 Module records contain public surface, public names, internal imports, external
@@ -908,6 +940,12 @@ importers, external imports, and test count. It does not print test names.</p>
 <p><code>--imports NAME</code> prints imports and importers for one module.</p>
 </li>
 </ul>
+<p>The module description is the first paragraph of the Python module docstring, or of the first TypeScript comment before the first statement.
+A license notice is not a description.
+A text is a notice if it starts with <code>Copyright</code>, <code>©</code>, <code>(c)</code>, <code>SPDX-</code>, <code>Licensed under</code>, <code>@license</code>, or <code>@preserve</code>, in capital or small letters.
+For TypeScript, a comment that starts with <code>/*!</code> or <code>//!</code> is also a notice.
+The <code>//</code> comments directly below a notice are part of the notice.
+Then the next TypeScript comment can give the description.</p>
 <h3 id="systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></h3>
 <p>A component must have a position before you render the map.
 This command writes positions for unpositioned components on all maps.
@@ -1927,7 +1965,7 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[package_roots]</code></td>
-<td>Python packages, or <code>src</code> then repository root for TypeScript</td>
+<td>Python packages, or for TypeScript the one source folder of the <code>tsconfig.json</code> <code>include</code> entries, then <code>src</code>, then the repository root (see <code>systemap init</code>)</td>
 <td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory in the repository. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
 </tr>
 <tr>
@@ -1938,7 +1976,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>test_patterns</code></td>
 <td>none</td>
-<td>Additional repository-relative test globs. Extraction and <code>delta</code> use the same patterns.</td>
+<td>Additional repository-relative test globs. Extraction and <code>delta</code> use the same patterns. For TypeScript, <code>init</code> writes the type-test folders and files that it finds (see <code>systemap init</code>).</td>
 </tr>
 <tr>
 <td><code>model</code></td>
@@ -2075,6 +2113,22 @@ Unknown keys are rejected.</p>
 </div>
 <p>TypeScript discovery does not include <code>.d.ts</code>, <code>.d.mts</code>, and <code>.d.cts</code> declaration files.
 The <code>external</code> imports do not include Node.js built-in modules, such as <code>node:fs</code> and <code>path</code>.</p>
+<p>Two types of import name a file of the same package through <code>package.json</code>. Thus they are internal imports:</p>
+<ul>
+<li>A self-name import names the package, as <code>import ky from &quot;ky&quot;</code> in the ky package.
+The nearest <code>package.json</code> above the file must have this <code>name</code> and an <code>exports</code> key.</li>
+<li>A subpath import starts with <code>#</code>, as <code>#types/hot</code>. The <code>imports</code> key of the nearest <code>package.json</code> gives the file.
+A target that names an npm package gives that package in <code>external</code>.</li>
+</ul>
+<p>systemap uses the rules of Node.js and TypeScript for these imports:
+<a href="https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name">Self-referencing a package using its name</a>,
+<a href="https://nodejs.org/api/packages.html#subpath-imports">Subpath imports</a>, and
+<a href="https://www.typescriptlang.org/docs/handbook/modules/reference.html">package.json &quot;imports&quot; and self-name imports</a>.</p>
+<p>The conditions are <code>types</code>, <code>node</code>, <code>import</code>, and <code>default</code>. A <code>.cts</code> file uses <code>require</code> and not <code>import</code>.
+systemap does not read <code>moduleResolution</code> or <code>customConditions</code>.</p>
+<p>A target in <code>outDir</code> maps to its source file, as for a package entry point.
+A declaration file has no module. Thus an import with a declaration file as its target is an unresolved local import.
+An import without a target, for example a <code>#</code> name that <code>imports</code> does not have, is also an unresolved local import.</p>
 <p>The suffix of an import selects the source suffix, as in <code>tsc</code>.
 <code>.js</code> selects <code>.ts</code> or <code>.tsx</code>, <code>.mjs</code> selects <code>.mts</code>, and <code>.cjs</code> selects <code>.cts</code>.
 An import without a suffix selects <code>.ts</code> or <code>.tsx</code>.

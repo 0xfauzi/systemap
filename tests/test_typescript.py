@@ -17,6 +17,7 @@ from systemap import (
     nest,
     source_facts,
     typescript_config,
+    typescript_roots,
 )
 from systemap.cli import main
 from systemap.typescript import TYPESCRIPT, parse_surface
@@ -671,7 +672,7 @@ def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
             "src/nested/one.ts": "export const ONE = 1;",
         },
     )
-    assert typescript_config.discover_typescript_roots(tmp_path) == [("src", "web")]
+    assert typescript_roots.discover_typescript_roots(tmp_path) == [("src", "web")]
 
     write_tree(tmp_path, {"src/some-file.ts": "", "src/some_file.ts": ""})
     with pytest.raises(config.ConfigError, match="module id web.some_file is shared"):

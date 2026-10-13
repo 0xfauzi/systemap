@@ -132,6 +132,30 @@ def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[s
     return kept
 
 
+def shallow_note(root: Path, shas: list[str]) -> list[str]:
+    """Tell the reader that the samples start at the boundary of a shallow clone.
+
+    A shallow clone has no commits before its boundary commits. Git lists them in the
+    `shallow` file. If the oldest sample is a boundary commit, the time range starts
+    before the available history. Then the note gives that commit and its date.
+    """
+    if not shas:
+        return []
+    path = Path(git(root, "rev-parse", "--git-path", "shallow").strip())
+    path = path if path.is_absolute() else root / path
+    try:
+        boundary = set(path.read_text(encoding="utf-8").split())
+    except OSError:
+        return []
+    if shas[0] not in boundary:
+        return []
+    day = git(root, "log", "-1", "--format=%cs", "--end-of-options", shas[0]).strip()
+    return [
+        f"history: This repository is a shallow clone. Its history starts at the shallow "
+        f"boundary, commit {shas[0][:12]} on {day}."
+    ]
+
+
 def too_few(count: int, since: str) -> str:
     """This function tells the reader that the range has too few commits for a trend."""
     noun = "commit" if count == 1 else "commits"

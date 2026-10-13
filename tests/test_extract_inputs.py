@@ -23,7 +23,7 @@ from systemap import (
     judgement_evidence,
     nest,
     source_facts,
-    typescript_config,
+    typescript_roots,
 )
 from systemap.cli import main
 
@@ -97,7 +97,7 @@ def test_folder_above_the_repository_does_not_remove_typescript_modules(
     facts = extract.build(config.load(root))
     assert sorted(facts["components"]) == ["web.cli", "web.service"]
     assert facts["components"]["web.service"]["tests_total"] == 1
-    assert typescript_config.discover_typescript_roots(root) == [("src", "web")]
+    assert typescript_roots.discover_typescript_roots(root) == [("src", "web")]
 
 
 def test_typescript_source_folders_named_build_or_dist_are_source(tmp_path: Path) -> None:

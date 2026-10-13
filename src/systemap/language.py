@@ -59,6 +59,11 @@ class RepositoryAdapter(Protocol):
 
     def discover_roots(self, root: Path) -> list[tuple[str, str]]: ...
 
+    def discover_test_patterns(self, root: Path) -> list[str]:
+        """Give the `test_patterns` entries that init writes for test files that the
+        default test rule does not find."""
+        ...
+
     def detect(self, root: Path, folders: Iterable[Path] = ()) -> int:
         """Give the evidence for this language: NO_SOURCE, CONFIG_ONLY, or SOURCE."""
         ...

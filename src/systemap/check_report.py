@@ -114,7 +114,8 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         result.entry,
         "The map shows code in the facts. "
         f"In {model_file}, use modules from the facts. Set entry to a public "
-        f"name that one of these modules defines.",
+        f"name that one of these modules defines. If an entry point does not start "
+        f"one public name, set entry to its name from systemap facts --entry-points.",
     )
     out += _group(
         "interface",

@@ -110,7 +110,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "adapter reads the module docstring. The TypeScript adapter reads the first "
         "documentation comment",
     ),
-    ("module", "functions", "Public functions with `name` and `signature`"),
+    (
+        "module",
+        "functions",
+        "Public functions with `name` and `signature`. A function with overload "
+        "signatures has one record for each signature, and one record in `names`",
+    ),
     (
         "module",
         "classes",
@@ -147,7 +152,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "are `null` if the defining module is not known. A `*` re-export of the module does not "
         "give a name that has `star_export` set to `false`. A name with `star_export` set to "
         "`null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for "
-        "`default`. The Python adapter sets the value from `__all__`. "
+        "`default`. The Python adapter sets the value from `__all__`. A Python name that is "
+        "not in `__all__` stays in `names`, because an import of that name can use it. "
         "`type_only` is `true` for a type-only export. A type-only export is not an entry "
         "point, because the emitted code has no value for it. A name without `type_only` "
         "is not type-only. Python has no type-only export. `entry` and `interface` "
@@ -276,8 +282,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "same_as",
         "The identity of a different entry point that starts the same operation. The "
         "language adapter writes it only from an accurate indication. The Python adapter "
-        "writes it for a `main` function or a `__main__` module that starts the function of "
-        "a console script. Coverage then counts the two entry points as one. An empty "
+        "writes it for a console script, a `main` function, or a command that starts the "
+        "same function as an entry point before it. An import binding of the function is "
+        "permitted if it is the only module-level binding of the name, other than in an "
+        "`except` clause. The Python adapter also writes it for a `__main__` module that "
+        "imports that function and uses it. Coverage then counts the two entry points as "
+        "one. An empty "
         "string tells that the adapter found no such entry point. Then this entry point "
         "must have a sequence. If the field is missing, the value is not known. Then the "
         "entry point also must have a sequence",
