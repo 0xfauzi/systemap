@@ -2,7 +2,7 @@
 facts.
 
 It finds TypeScript source roots, the project name, and the folders that tsc does not
-read. It also reads the local names of an import and the name of a recorded method.
+read. It also reads the name of a recorded method.
 It does not load the parser, so a configuration loads without the TypeScript extra.
 """
 
@@ -13,8 +13,8 @@ import importlib.metadata
 import json
 import os
 import re
-from collections.abc import Iterable, Mapping
-from pathlib import Path, PurePosixPath
+from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 
 from systemap import config
@@ -30,8 +30,6 @@ from systemap.typescript_config import (
 )
 
 TSCONFIG = "tsconfig.json"
-# The suffixes that an import path can give for a source file.
-IMPORT_SUFFIXES = (*SOURCE_SUFFIXES, ".js", ".jsx", ".mjs", ".cjs")
 PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
 # The method name in a recorded method header. A header starts with optional modifiers
 # and an optional `*`.
@@ -39,11 +37,6 @@ METHOD = re.compile(
     r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
     r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
 )
-_NAMESPACE = re.compile(r"""import\s+(?:\w+\s*,\s*)?\*\s+as\s+(\w+)\s+from\s+["']([^"']+)["']""")
-_DEFAULT = re.compile(
-    r"""import\s+(?:type\s+)?(\w+)\s*(?:,\s*[{*][^;]*?)?\s+from\s+["']([^"']+)["']"""
-)
-
 # npm package names of model SDKs and agent frameworks. A scope such as `@ai-sdk`
 # matches each package in that scope. A name matches as a prefix of the import name.
 MODEL_SDKS: tuple[str, ...] = (
@@ -118,19 +111,6 @@ def compiler_record(compiler: Any, repo: Path) -> dict[str, str]:
     return {"compiler": hashlib.sha256(settings.encode()).hexdigest()}
 
 
-def _imports_target(specifier: str, target_file: str) -> bool:
-    """Compare the last part of an import path with the target file name.
-
-    A file name can contain a dot, as `user.service.ts` does. The comparison removes
-    only a script suffix from the import path."""
-    path = PurePosixPath(target_file)
-    stem = path.parent.name if path.stem == "index" else path.stem
-    last = PurePosixPath(specifier).name
-    for suffix in IMPORT_SUFFIXES:
-        last = last.removesuffix(suffix)
-    return last == stem
-
-
 def _source_file(path: Path) -> bool:
     return path.suffix in SOURCE_SUFFIXES and not path.name.endswith(DECLARATION_SUFFIXES)
 
@@ -199,19 +179,6 @@ class TypeScriptRepository:
             except importlib.metadata.PackageNotFoundError:
                 found.append(f"{package} not installed")
         return ", ".join(found)
-
-    def local_bindings(self, text: str, target: str, record: Mapping[str, Any]) -> set[str]:
-        """Give the local names that namespace and default imports bind.
-
-        `import * as x from "..."` and `import x from "..."` give `x`, when the last part
-        of the import path is the file name of the target module. The rule compares file
-        names only. It does not resolve the import path."""
-        del target
-        target_file = str(record.get("file", ""))
-        out: set[str] = set()
-        for pattern in (_NAMESPACE, _DEFAULT):
-            out |= {m[1] for m in pattern.finditer(text) if _imports_target(m[2], target_file)}
-        return out - {"type"}
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)

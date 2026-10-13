@@ -26,7 +26,8 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 
 # A stored file of an older facts format is reported as stale. Format 6: the `package`
 # fact is the folder package that the adapter gives, not the first module-name part.
-FORMAT = 6
+# Format 7: each module record has the `call_sites` fact.
+FORMAT = 7
 TESTS_KEPT = 25
 
 
@@ -170,6 +171,39 @@ def _link_importers(components: dict[str, Any], imports: dict[str, set[str]]) ->
         record["imported_by"] = sorted(importers.get(module, set()))
 
 
+def _attach_call_sites(
+    cfg: Config,
+    language: LanguageAdapter,
+    components: dict[str, Any],
+    sources: dict[str, str],
+    paths: dict[str, Path],
+    prefixes: set[str],
+    context: Any,
+) -> None:
+    """Write the `call_sites` fact of each module after all module records exist.
+
+    The value is None (not known) if the module source did not parse. Each record has a
+    target in the `uses` fact of the module.
+    """
+    del cfg
+    known = set(paths)
+    for module, record in components.items():
+        sites = None
+        if record["completeness"]["parsed"]:
+            sites = language.call_sites(
+                sources[module],
+                module,
+                prefixes,
+                known,
+                components,
+                is_package=language.is_package_module(paths[module]),
+                paths=paths,
+                context=context,
+            )
+        uses = record.get("uses", {})
+        record["call_sites"] = None if sites is None else [s for s in sites if s["target"] in uses]
+
+
 def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[str, Any]]]) -> None:
     for module, record in components.items():
         seen: set[str] = set()
@@ -255,6 +289,7 @@ def build(cfg: Config) -> dict[str, Any]:
     # Re-export kinds require every defining module to have been parsed.
     resolve_reexports(components)
     _link_importers(components, imports)
+    _attach_call_sites(cfg, language, components, sources, paths, prefixes, context)
     for module, record in components.items():
         record["empty_marker"] = language.empty_marker(record, sources[module])
     guards = language.collect_tests(repo, cfg.test_dirs, prefixes, paths, context)

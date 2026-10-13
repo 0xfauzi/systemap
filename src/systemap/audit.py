@@ -12,10 +12,11 @@ except flow claims: 54% of incorrect claims found, compared with 66%.
 Thus, `decision flow` needs explicit selection with `--kind "decision flow"`.
 Language changes to prompts have not been measured again.
 
-Flow questions include source lines naming imports from the other component
-(`systemap.audit_code`). Instance calls can be absent, such as `ledger.record(parts)`
-after a Ledger import. That limitation can cause doubt without a source defect.
-A flow without such lines gets no question. The report gives the count of these flows.
+Flow questions include the source lines that use names from the other component
+(`systemap.audit_code`). The `call_sites` fact gives these lines, with instance calls
+such as `ledger.record(parts)` after a Ledger import. A flow without such lines gets no
+question. A flow with a module without a known `call_sites` fact also gets no question.
+The report gives the count of each type of flow.
 
 The questions and the answers use the provider records in `systemap.decision`.
 `decision.THRESHOLDS` gives the thresholds of each provider. `systemap.providers`
@@ -111,6 +112,8 @@ class Plan:
     reads: dict[str, Any] = field(default_factory=dict)
     # Flows without a source line that uses a name from the other component.
     unasked: list[str] = field(default_factory=list)
+    # Flows with a module whose `call_sites` fact or source is not known.
+    unknown: list[str] = field(default_factory=list)
 
     def add(self, question: Question, read: Any) -> None:
         self.questions.append(question)
@@ -225,7 +228,7 @@ def plan_flows(
             continue
         code = code_between(root, facts, by, (f.src, f.dst), language)
         if not code:
-            plan.unasked.append(f"{f.name} ({f.artifact})")
+            (plan.unasked if code == [] else plan.unknown).append(f"{f.name} ({f.artifact})")
             continue
         brief = {x: card_brief(m.model, m.meaning, x) for x in (f.src, f.dst)}
         claim = {
@@ -573,12 +576,14 @@ def report(
     policies: Iterable[str] = (),
     unasked: Iterable[str] = (),
     refused: Iterable[str] = (),
+    unknown: Iterable[str] = (),
 ) -> list[str]:
     """Give CLI findings and explanations.
 
     `teach` adds one explanation per finding type. `--brief` removes explanations.
     `unasked` gives the flows without source lines for a `decision flow` question.
     `refused` gives the keys of the questions that got a refusal.
+    `unknown` gives the flows with a module whose `call_sites` fact is not known.
     """
     tail = (f", {answered} answered" if answered else "") + (
         f", {len(stale)} stale" if stale else ""
@@ -593,6 +598,7 @@ def report(
     out += [f"  pending answer: {s}" for s in pending]
     out += [f"  policy answer: {s}" for s in policies]
     out += unasked_lines(list(unasked))
+    out += unknown_lines(list(unknown))
     out += refused_lines(list(refused))
     out.append(usage)
     return out
@@ -618,6 +624,18 @@ def unasked_lines(unasked: list[str]) -> list[str]:
     return [
         f"  not asked: {len(unasked)} {noun} no source line that uses a name from the "
         f"other component: {', '.join(unasked[:5])}{more}"
+    ]
+
+
+def unknown_lines(unknown: list[str]) -> list[str]:
+    """Give the count of flows without a known `call_sites` fact, and the first five."""
+    if not unknown:
+        return []
+    noun = "flow has" if len(unknown) == 1 else "flows have"
+    more = f", and {len(unknown) - 5} more" if len(unknown) > 5 else ""
+    return [
+        f"  not asked: {len(unknown)} {noun} a module without a known call_sites fact. "
+        f"Do systemap refresh: {', '.join(unknown[:5])}{more}"
     ]
 
 
@@ -660,6 +678,8 @@ def dry_run(plan: Plan, pending: int | str | None, chars: int) -> list[str]:
         "  by type: " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())),
         "  outgoing data: module names, docstrings, public names, internal imports, component "
         "ids and sentences, invariants, flow sentences, and source lines with imports between "
-        "components. A docstring has 600 characters at most. A flow has 30 source lines at most.",
+        "components. A docstring has 600 characters at most. A flow has 60 source lines and "
+        "12 lines from the facts at most.",
         *unasked_lines(plan.unasked),
+        *unknown_lines(plan.unknown),
     ]

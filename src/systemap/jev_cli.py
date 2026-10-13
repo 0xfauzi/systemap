@@ -167,6 +167,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
             result.policies,
             plan.unasked,
             decision.refused(plan.questions, answers),
+            plan.unknown,
         ),
         sep="\n",
     )

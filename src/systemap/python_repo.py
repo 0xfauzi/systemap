@@ -1,16 +1,15 @@
 """The Python repository adapter gives the Python operations that do not extract facts.
 
 It finds Python package roots, the project name, and the Python source files. It also
-reads the local names of an import and the name of a recorded method.
+reads the name of a recorded method.
 """
 
 from __future__ import annotations
 
-import ast
 import re
 import sys
 import tomllib
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +20,6 @@ from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 # project. The folders above the root are not examined.
 PYTHON_SKIP = frozenset({".git", ".venv", "node_modules", "__pycache__", "build", "dist"})
 PACKAGE_MARKER = "__init__.py"
-WHOLE = "*"
 # The method name in a recorded method header, such as `async def save(self)`.
 METHOD = re.compile(r"(?:async )?def (\w+)\(")
 
@@ -121,36 +119,6 @@ def _loose_files(root: Path) -> bool:
     return any(next(folder.glob("*.py"), None) for folder in folders)
 
 
-def _bindings(text: str, target: str, public: list[str]) -> set[str]:
-    """Give the local names that Python import statements bind for the target module."""
-    try:
-        tree = ast.parse(text)
-    except (SyntaxError, ValueError):
-        return set()
-    last = target.rsplit(".", 1)[-1]
-    out: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            out |= {a.asname or a.name for a in node.names if _is_or_in(a.name, target)}
-        elif isinstance(node, ast.ImportFrom):
-            out |= _from_bindings(node, last, public)
-    return out
-
-
-def _is_or_in(name: str, target: str) -> bool:
-    return name == target or name.startswith(target + ".")
-
-
-def _from_bindings(node: ast.ImportFrom, last: str, public: list[str]) -> set[str]:
-    out: set[str] = set()
-    for alias in node.names:
-        if alias.name == WHOLE and (node.module or "").rsplit(".", 1)[-1] == last:
-            out |= set(public)
-        elif alias.name == last:
-            out.add(alias.asname or alias.name)
-    return out
-
-
 class PythonRepository:
     """Give the Python operations that do not extract facts."""
 
@@ -216,14 +184,6 @@ class PythonRepository:
     def parser_version(self) -> str:
         # CPython patch releases share a grammar. A minor release can change the AST.
         return f"{sys.version_info.major}.{sys.version_info.minor}"
-
-    def local_bindings(self, text: str, target: str, record: Mapping[str, Any]) -> set[str]:
-        """Give the local names that bind the target module or its public names.
-
-        `import a.b` gives `a.b`, and `import a.b as x` gives `x`. `from a import b` gives
-        `b`, and `from a.b import *` gives the public names of `a.b`."""
-        public = [str(n["name"]) for n in record.get("names", [])]
-        return _bindings(text, target, public)
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)

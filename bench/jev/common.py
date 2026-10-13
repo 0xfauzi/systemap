@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from systemap import config, extract, nest
-from systemap.extract import is_empty_marker
 from systemap.model import Meaning, Model, claimed
+from systemap.source_facts import is_empty_marker
 
 HERE = Path(__file__).parent
 SYSTEMAP = HERE.parents[1]

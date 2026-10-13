@@ -71,8 +71,6 @@ class RepositoryAdapter(Protocol):
 
     def parser_version(self) -> str: ...
 
-    def local_bindings(self, text: str, target: str, record: Mapping[str, Any]) -> set[str]: ...
-
     def method_name(self, signature: str) -> str: ...
 
 
@@ -129,6 +127,20 @@ class LanguageAdapter(RepositoryAdapter, Protocol):
         paths: dict[str, Path] | None = None,
         context: Any = None,
     ) -> dict[str, set[str]]: ...
+
+    def call_sites(
+        self,
+        raw: str,
+        module: str,
+        prefixes: set[str],
+        known: set[str],
+        components: Mapping[str, Mapping[str, Any]],
+        is_package: bool = False,
+        paths: dict[str, Path] | None = None,
+        context: Any = None,
+    ) -> list[dict[str, Any]] | None:
+        """Give the `call_sites` records of one module, or None if they are not known."""
+        ...
 
     def external_imports(
         self,

@@ -133,5 +133,5 @@ def test_build_and_drift_are_in_the_shared_module(tmp_path: Path) -> None:
         assert getattr(extraction, name).__module__ == "systemap.extraction"
         assert getattr(extract, name) is getattr(extraction, name)
     fresh = _facts(tmp_path, PYTHON_TREE)
-    assert fresh["version"] == extraction.FORMAT == 6
-    assert extraction.drift(fresh, {**fresh, "version": 5})[0].startswith("facts format 5 ")
+    assert fresh["version"] == extraction.FORMAT == 7
+    assert extraction.drift(fresh, {**fresh, "version": 6})[0].startswith("facts format 6 ")
