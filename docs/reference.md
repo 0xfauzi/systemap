@@ -421,6 +421,17 @@ Two other `unknown surface` lines also have a new form for the same cause:
 
 The same rule applies to these two lines.
 
+The `unknown surface` line for a TypeScript parse error also changed.
+Its source excerpt is the line of the error and the line before it, because the error can be one token, such as `','`.
+The line also ends with the parser version, as the Python line does.
+An answer item in the earlier form applies to a current line if its text up to `The parser could not parse the source syntax.` agrees with one current line.
+The evidence digest must agree.
+
+The parser can also refuse correct syntax.
+tree-sitter-typescript 0.23.2 refuses a generic function call with a `typeof import()` type argument and a comma after the last argument.
+For example, `f<typeof import('./a')>(g(),)` is correct TypeScript.
+At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.
+
 `judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
@@ -629,8 +640,33 @@ If systemap cannot run (exit code 2 or more), the job fails with both values.
 
 If the repository has no Python package and a directory has a `tsconfig.json` file,
 `init` selects TypeScript.
-If the repository root has no `tsconfig.json` file, `init` writes no package roots.
-Then set `[package_roots]` for each application package.
+For TypeScript, `init` selects the package root with this rule, in this sequence:
+
+1. The repository root must have a `tsconfig.json` file.
+2. If each `include` entry of `tsconfig.json` names a folder, and one of these folders has source, that folder is the root.
+   An entry such as `source/**/*` names the folder `source`.
+   A test folder or a type-test folder does not count.
+   An entry that names a file, such as `vite.config.ts`, stops this step.
+3. Then the root is `src` if it has source, then the repository root.
+
+For example, the ky repository has `"include": ["source"]`. Thus `init` writes `"source" = "ky"`.
+A configuration without `[package_roots]` uses the same rule.
+
+If the rule selects no root, `init` writes no package roots and prints the cause.
+It also prints the `[package_roots]` table to write in `systemap.toml`.
+The table has one line for each folder with a `tsconfig.json` file, with the same rule in that folder.
+Keep only the lines of the packages of the system.
+`extract` and the other commands print the same text until you set the table.
+
+`init` also writes `test_patterns` for the TypeScript type tests that it finds.
+A type test is a file that only `tsc` examines, for example with tsd or `expectTypeOf`.
+These files are test files, not modules of the map:
+
+- A folder with the name `test-d`, the default folder of tsd, or the folder in the `tsd.directory` key of `package.json`.
+- A folder with a name such as `__tests_dts__`: `__test` or `__tests`, more text, and `__`.
+- A file with a name that ends in `.test-d.ts` or `.spec-d.ts`, as tsd and Vitest typecheck use.
+
+The `test_patterns` key shows the rule in the configuration. You can change it there.
 
 ### `systemap extract [--check]`
 
@@ -667,6 +703,13 @@ With no option, it prints the extraction summary.
 - `--external` prints third-party imports and their importers.
 
 - `--imports NAME` prints imports and importers for one module.
+
+The module description is the first paragraph of the Python module docstring, or of the first TypeScript comment before the first statement.
+A license notice is not a description.
+A text is a notice if it starts with `Copyright`, `©`, `(c)`, `SPDX-`, `Licensed under`, `@license`, or `@preserve`, in capital or small letters.
+For TypeScript, a comment that starts with `/*!` or `//!` is also a notice.
+The `//` comments directly below a notice are part of the notice.
+Then the next TypeScript comment can give the description.
 
 ### `systemap place [--all] [--print] [--keep-order]`
 
@@ -1342,9 +1385,9 @@ Unknown keys are rejected.
 |---|---|---|
 | `language` | found from the source | The source language. Select `python` or `typescript`. Without the key, the language adapters examine the configured package roots, or they find their own package roots. If the source of both languages is available, the configuration stops and tells you to set this key. If no source of a known language is available, each command that reads source stops with the same instruction. The `[writing]` table sets the writing rules for map text. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | the package name (`[project] name` in pyproject.toml for Python, `name` in package.json for TypeScript), Git repository directory, then directory name | The page title. |
-| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory in the repository. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
+| `[package_roots]` | Python packages, or for TypeScript the one source folder of the `tsconfig.json` `include` entries, then `src`, then the repository root (see `systemap init`) | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory in the repository. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
-| `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
+| `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. For TypeScript, `init` writes the type-test folders and files that it finds (see `systemap init`). |
 | `model` | `map/model.py` | The model file that gives `MODEL` and `MEANING`. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (`import journeys`). [What does a model contain?](#what-does-a-model-contain) gives the permitted syntax. |
 | `out_dir` | `docs/map` | The directory for facts, pages, and figures. |
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. A path that is not in `out_dir` gives exit code 2. |
@@ -1377,6 +1420,25 @@ The environment of a command can set three values. A repository file cannot set 
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
 The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.
+
+Two types of import name a file of the same package through `package.json`. Thus they are internal imports:
+
+- A self-name import names the package, as `import ky from "ky"` in the ky package.
+  The nearest `package.json` above the file must have this `name` and an `exports` key.
+- A subpath import starts with `#`, as `#types/hot`. The `imports` key of the nearest `package.json` gives the file.
+  A target that names an npm package gives that package in `external`.
+
+systemap uses the rules of Node.js and TypeScript for these imports:
+[Self-referencing a package using its name](https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name),
+[Subpath imports](https://nodejs.org/api/packages.html#subpath-imports), and
+[package.json "imports" and self-name imports](https://www.typescriptlang.org/docs/handbook/modules/reference.html).
+
+The conditions are `types`, `node`, `import`, and `default`. A `.cts` file uses `require` and not `import`.
+systemap does not read `moduleResolution` or `customConditions`.
+
+A target in `outDir` maps to its source file, as for a package entry point.
+A declaration file has no module. Thus an import with a declaration file as its target is an unresolved local import.
+An import without a target, for example a `#` name that `imports` does not have, is also an unresolved local import.
 
 The suffix of an import selects the source suffix, as in `tsc`.
 `.js` selects `.ts` or `.tsx`, `.mjs` selects `.mts`, and `.cjs` selects `.cts`.

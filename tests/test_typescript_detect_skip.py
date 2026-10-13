@@ -26,8 +26,8 @@ import pytest
 from conftest import write_tree
 
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
-from systemap.typescript_config import discover_typescript_roots
 from systemap.typescript_repo import TYPESCRIPT_REPOSITORY
+from systemap.typescript_roots import discover_typescript_roots
 
 SKIPPED = {
     "node_modules/pkg/lib/index.ts": "export const x = 1;\n",

@@ -23,12 +23,16 @@ from systemap.typescript_config import (
     SOURCE_SKIP,
     SOURCE_SUFFIXES,
     compiler_settings,
-    discover_typescript_roots,
     load_typescript_config,
     package_json,
     source_files,
 )
 from systemap.typescript_config_files import typescript_config_paths
+from systemap.typescript_roots import (
+    discover_typescript_roots,
+    missing_roots_message,
+    type_test_patterns,
+)
 
 TSCONFIG = "tsconfig.json"
 PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
@@ -126,13 +130,18 @@ class TypeScriptRepository:
     install_extra = "typescript"
     roots_note = (
         '# Package roots use "path" = "module name".\n'
-        "# Without explicit roots, the extractor uses src, then the repository root,\n"
-        "# when the repository root has a tsconfig.json file."
+        "# Without explicit roots, the extractor uses the one source folder that the\n"
+        "# tsconfig.json include entries name, then src, then the repository root.\n"
+        "# The repository root must have a tsconfig.json file."
     )
     roots_example = '# [package_roots]\n# "packages/web/src" = "web"'
 
     def discover_roots(self, root: Path) -> list[tuple[str, str]]:
         return discover_typescript_roots(root)
+
+    def discover_test_patterns(self, root: Path) -> list[str]:
+        """Give the `test_patterns` entries for the type-test folders and files."""
+        return type_test_patterns(root)
 
     def detect(self, root: Path, folders: Iterable[Path] = ()) -> int:
         """Find TypeScript source: a source root, or a source file in a configured folder.
@@ -166,12 +175,7 @@ class TypeScriptRepository:
         return ""
 
     def missing_roots_message(self, root: Path) -> str:
-        del root
-        return (
-            'No package roots are available. Set [package_roots] in systemap.toml ("path" '
-            '= "module name"). No .ts or .tsx source is available in src or the repository '
-            "root."
-        )
+        return missing_roots_message(root)
 
     def project_name(self, root: Path) -> str:
         name = package_json(root).get("name")

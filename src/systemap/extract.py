@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    notice_text,
     python_calls,
     python_entry,
     python_exports,
@@ -254,16 +255,12 @@ def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 
 def opening(text: str | None) -> str:
-    """Get the first docstring paragraph, with a length limit.
+    """Get the first docstring paragraph that is not a license notice, with a length
+    limit (`notice_text`).
 
     The page shows a module's opening text and a link to the source file.
-    Full docstrings doubled the facts file, but the page did not render that text.
     """
-    if not text:
-        return ""
-    para = text.strip().split("\n\n")[0]
-    para = " ".join(para.split())
-    return para if len(para) <= 320 else para[:319] + "\u2026"
+    return notice_text.description(text)
 
 
 def parse_surface(
