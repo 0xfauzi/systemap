@@ -10,12 +10,15 @@ The fixtures:
   Half of the files in node_modules are `.py` files and half are `.js` files.
 - `no_source`: the folder has no Python file outside node_modules. Thus a walk that
   enters node_modules reads all of it before it gives its result.
+- `tests`: the test folder `tests` has 40 test modules and a node_modules directory.
+  Half of the files in node_modules are `test_*.py` files and half are `.js` files.
 
 The measured calls:
 
 - `list(python_paths(package/src/app))`
 - `PYTHON_REPOSITORY.detect(package, [package/src/app])`
 - `PYTHON_REPOSITORY.detect(no_source, [no_source])`
+- `python_tests.test_files(tests, ("tests",), ())`
 
 The script makes the fixtures in a temporary directory and removes them.
 
@@ -33,6 +36,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from systemap.python_repo import PYTHON_REPOSITORY, python_paths
+from systemap.python_tests import test_files
 
 MODULES = 40
 PACKAGE_FILES = 40_000
@@ -42,12 +46,12 @@ LIMIT = 1.2
 SAMPLE_SECONDS = 0.02
 
 
-def _packages(folder: Path) -> None:
+def _packages(folder: Path, prefix: str = "") -> None:
     for index in range(PACKAGE_FILES):
         lib = folder / "node_modules" / f"pkg{index // 100}" / "lib"
         lib.mkdir(parents=True, exist_ok=True)
-        suffix = ".py" if index % 2 else ".js"
-        (lib / f"f{index % 100}{suffix}").write_text("x = 1\n", encoding="utf-8")
+        name = f"{prefix}f{index % 100}.py" if index % 2 else f"f{index % 100}.js"
+        (lib / name).write_text("x = 1\n", encoding="utf-8")
 
 
 def _package(root: Path, with_packages: bool) -> Path:
@@ -66,6 +70,16 @@ def _no_source(root: Path, with_packages: bool) -> Path:
     (root / "README.md").write_text("text\n", encoding="utf-8")
     if with_packages:
         _packages(root)
+    return root
+
+
+def _tests(root: Path, with_packages: bool) -> Path:
+    tests = root / "tests"
+    tests.mkdir(parents=True)
+    for index in range(MODULES):
+        (tests / f"test_m{index}.py").write_text("def test_x():\n    pass\n", encoding="utf-8")
+    if with_packages:
+        _packages(tests, prefix="test_")
     return root
 
 
@@ -92,10 +106,12 @@ def _measure(base: Path, with_packages: bool) -> dict[str, dict[str, float | obj
     package = base / "package"
     app = _package(package, with_packages)
     empty = _no_source(base / "no_source", with_packages)
+    repo = _tests(base / "tests", with_packages)
     calls: dict[str, Callable[[], object]] = {
         "python_paths_package": lambda: sorted(p.relative_to(app) for p in python_paths(app)),
         "detect_package_folder": lambda: PYTHON_REPOSITORY.detect(package, [app]),
         "detect_no_source_folder": lambda: PYTHON_REPOSITORY.detect(empty, [empty]),
+        "test_files_tests": lambda: [p.relative_to(repo) for p in test_files(repo, ("tests",), ())],
     }
     return {name: {"seconds": _median(call), "result": call()} for name, call in calls.items()}
 

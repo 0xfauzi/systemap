@@ -62,11 +62,9 @@ def _directory_files(repo: Path, tests_dirs: tuple[str, ...]) -> Iterator[Path]:
         test_dir = repo / rel
         if not rel or not test_dir.is_dir():
             continue
-        yield from (
-            path
-            for path in sorted(test_dir.rglob("test_*.py"))
-            if not python_repo.skipped(path, test_dir, python_repo.PYTHON_SKIP)
-        )
+        # The walk does not go into the skipped folders. The sort keeps the order of
+        # the earlier `rglob` result: a path order, not the order of the walk.
+        yield from sorted(python_repo.python_paths(test_dir, "test_*.py"))
 
 
 def _python_files(repo: Path) -> Iterator[Path]:

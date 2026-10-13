@@ -12,6 +12,11 @@ Acceptance, written before the change:
   a Python file outside the skipped folders is in the list.
 - `bench/python_paths.py`: for each measured call, the ratio of the median time with
   40,000 files in node_modules to the median time without them is 1.2 or less.
+
+Acceptance for `python_tests.test_files`, written before its change: the same three
+values. The walk of a test folder opens no folder with a `PYTHON_SKIP` name, the list
+and its order do not change, and the `test_files` ratio in `bench/python_paths.py` is
+1.2 or less.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from typing import Any
 import pytest
 from conftest import write_tree
 
+from systemap import python_tests
 from systemap.language import NO_SOURCE, SOURCE
 from systemap.python_repo import PYTHON_REPOSITORY, PYTHON_SKIP, python_paths
 
@@ -97,3 +103,20 @@ def test_a_folder_with_a_python_suffix_is_not_a_file(tmp_path: Path) -> None:
     assert [path.relative_to(tmp_path).as_posix() for path in python_paths(tmp_path)] == [
         "x.py/y.py"
     ]
+
+
+def test_the_test_file_list_does_not_enter_the_skipped_folders(
+    tmp_path: Path, opened: Record
+) -> None:
+    """The order is the sorted order of the paths, as before the change."""
+    tests = {"tests/test_b.py": "", "tests/a/test_x.py": "", "tests/a/helper.py": ""}
+    write_tree(tmp_path, tests)
+    write_tree(tmp_path / "tests", {k.replace("x.py", "test_x.py"): "" for k in SKIPPED})
+    found, folders = opened(
+        lambda: [
+            path.relative_to(tmp_path).as_posix()
+            for path in python_tests.test_files(tmp_path, ("tests",), ())
+        ]
+    )
+    assert found == ["tests/a/test_x.py", "tests/test_b.py"]
+    assert folders and not _skipped_folders(folders, tmp_path)

@@ -3033,3 +3033,25 @@ For `detect(package, [package/src/app])`, the base also did not read node_module
 The results of the calls did not change. The result satisfies the acceptance value.
 On this repository, the base and the change give the same 138 Python files for the package root `src/systemap`.
 The test `tests/test_python_paths_skip.py` records each folder that the calls open, and it finds no folder with a `PYTHON_SKIP` name.
+
+### The test file list (2026-10-13)
+
+`python_tests.test_files` also used `rglob("test_*.py")` in each test folder, and only then removed the paths in skipped folders.
+The change uses `python_paths(test_dir, "test_*.py")`. It sorts the result, thus the order of the list does not change.
+The acceptance value was written before the change: the same ratio of 1.2 or less, for the new call `test_files(tests, ("tests",), ())`.
+In the new fixture `tests`, the folder `tests` has 40 test modules and the node_modules folder. Half of the files in node_modules are `test_*.py` files.
+The script now has four calls. The fourth value in each cell is the `test_files` call. The base is 8868b3e, the commit of the `python_paths` change.
+
+| revision | without node_modules (ms) | with node_modules (ms) | ratio |
+|---|---|---|---|
+| base (8868b3e), first run | 0.1434, 0.0292, 0.0165, 0.3015 | 0.1412, 0.0295, 0.0130, 113.8 | 0.985, 1.010, 0.787, 377.36 |
+| base (8868b3e), second run | 0.1432, 0.0283, 0.0123, 0.2115 | 0.1398, 0.0269, 0.0124, 109.9 | 0.976, 0.950, 1.002, 519.63 |
+| change, first run | 0.1395, 0.0269, 0.0121, 0.1373 | 0.1373, 0.0272, 0.0126, 0.1384 | 0.984, 1.012, 1.038, 1.008 |
+| change, second run | 0.1390, 0.0264, 0.0120, 0.1385 | 0.1391, 0.0272, 0.0124, 0.1401 | 1.000, 1.029, 1.033, 1.012 |
+| change, third run | 0.1463, 0.0279, 0.0119, 0.1387 | 0.1413, 0.0280, 0.0125, 0.1389 | 0.966, 1.001, 1.045, 1.001 |
+
+The results of the calls did not change. The result satisfies the acceptance value.
+On this repository, the base and the change give the same 136 test files in the same order.
+The other `glob` calls in the Python adapter do not go into a skipped folder by default.
+`_loose_files` uses `glob("*.py")` in each folder of `config.walk`, and `config.walk` does not go into the skipped folders.
+`workspace_members` uses the `[tool.uv.workspace] members` patterns of the user. The change keeps the selection of uv for these patterns.

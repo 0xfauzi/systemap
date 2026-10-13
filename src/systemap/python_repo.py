@@ -50,16 +50,17 @@ def skipped(path: Path, base: Path, names: frozenset[str]) -> bool:
     return any(part in names for part in path.relative_to(base).parts)
 
 
-def python_paths(root: Path) -> Iterator[Path]:
-    """List the Python files below a package root in a stable order.
+def python_paths(root: Path, pattern: str = "*.py") -> Iterator[Path]:
+    """List the Python files below a folder that match the file name pattern, in a stable
+    order.
 
-    The walk does not enter a folder whose name is in PYTHON_SKIP (result
+    The walk does not go into a folder whose name is in PYTHON_SKIP (result
     `followup-python-paths`). `fnmatch` gives the same case rule as `rglob`: on Windows,
-    the suffix match ignores case."""
+    the name match ignores case."""
     for current, names, files in os.walk(root):
         names[:] = sorted(name for name in names if name not in PYTHON_SKIP)
         for name in sorted(files):
-            if fnmatch.fnmatch(name, "*.py"):
+            if fnmatch.fnmatch(name, pattern):
                 yield Path(current, name)
 
 
