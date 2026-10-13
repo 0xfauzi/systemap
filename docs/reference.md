@@ -703,6 +703,13 @@ Writes the page from the facts and model.
   The list compares the committed model at the merge base with the model on disk.
   A new digest for the same cited module or symbol is not a flow change.
   If the base model does not load, the panel gives the reason.
+  The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
+  If systemap cannot read a changed source file, the changes of its module are not known.
+  The panel gives the read problem. A missing file is a removal.
+  If systemap cannot read a changed test file, the panel gives the file and the problem.
+  The page has no test changes for that file.
+  The panel also gives each changed path that the Git tree reader refuses, with its cause.
+  The changes of such a path are not known.
 
 ### `systemap check [--brief]`
 
@@ -872,6 +879,13 @@ does. The report shows moved, added, and removed modules with their
 components and model files.
 Delta reads the committed files. The Git attributes `export-subst` and
 `export-ignore` do not change them.
+Delta compares the head with the merge base of the two refs.
+If Git finds no merge base, the command gives an error and exits 2.
+Delta does not use a different commit as the base.
+Delta does not write a committed path that contains `..`, a backslash, or a colon.
+Thus the facts at a commit are the same on each platform.
+Before the report, delta gives each refused path and its cause under `Not in this comparison`.
+The changes of a refused path are not known. A refused module is not a removed module.
 
 Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
@@ -1026,14 +1040,16 @@ windows (`--top` default 5). Each window compares two samples.
 Facts use the cache `.systemap/facts/<sha>-<scope>.json`.
 
 Each window shows module and entry additions or removals, component size
-changes, and new crossing imports.
-It shows the commits that added new modules.
+changes, and new and removed crossing imports.
+It shows the commits that added the files of new modules.
+A commit that only changes such a file is not in the list.
 All samples use the component assignments in the selected map.
 Thus, a moved module counts under its component in the selected map.
 TypeScript samples include `.ts`, `.tsx`, tests, and package entry points.
 
 - `--ref REF` starts from that branch or commit instead of `HEAD`.
   Git must resolve `REF` to a commit. A value that starts with `-` is not an option to Git.
+  If Git cannot resolve `REF`, or if a Git command fails, the command exits 2.
 
 ### `systemap explain [KIND]`
 

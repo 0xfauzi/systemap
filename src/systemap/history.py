@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from systemap import delta, extraction, file_write
+from systemap import delta, delta_git, extraction, file_write
 from systemap import language as languages
 from systemap.config import Config
 
@@ -38,7 +38,7 @@ def cache_scope(cfg: Config, parser: str) -> str:
 
     The language adapter gives the parser version. A change of the parser version gives
     a different scope, because the parser can change the facts for the same commit."""
-    key = f"{cfg!r}|format={extraction.FORMAT}|parser={parser}"
+    key = f"{cfg!r}|format={extraction.FORMAT}|tree={delta_git.TREE_READER}|parser={parser}"
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 

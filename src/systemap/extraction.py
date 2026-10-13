@@ -104,7 +104,7 @@ def _module_facts(
     record["package"] = package_for(cfg, language, module, path)
     record["plane"] = plane_of(module, cfg.planes)
     try:
-        raw = repo_files.read_text(cfg.root, repo_files.relative(cfg.root, path), "utf-8-sig")
+        raw = source_text.read(cfg.root, path)
     except (OSError, UnicodeError):
         raw = ""
     uses = language.internal_uses(

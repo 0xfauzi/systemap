@@ -914,7 +914,14 @@ The Changes panel lists the map changes: the components, flows, sequences, and r
 that the change added, removed, or changed in the model.
 The list compares the committed model at the merge base with the model on disk.
 A new digest for the same cited module or symbol is not a flow change.
-If the base model does not load, the panel gives the reason.</p>
+If the base model does not load, the panel gives the reason.
+The source text has the same rules as the extraction: UTF-8, with or without a byte order mark.
+If systemap cannot read a changed source file, the changes of its module are not known.
+The panel gives the read problem. A missing file is a removal.
+If systemap cannot read a changed test file, the panel gives the file and the problem.
+The page has no test changes for that file.
+The panel also gives each changed path that the Git tree reader refuses, with its cause.
+The changes of such a path are not known.</p>
 </li>
 </ul>
 <h3 id="systemap-check-brief"><code>systemap check [--brief]</code></h3>
@@ -1177,7 +1184,14 @@ Python and TypeScript use the configured language adapter, as the working tree
 does. The report shows moved, added, and removed modules with their
 components and model files.
 Delta reads the committed files. The Git attributes <code>export-subst</code> and
-<code>export-ignore</code> do not change them.</p>
+<code>export-ignore</code> do not change them.
+Delta compares the head with the merge base of the two refs.
+If Git finds no merge base, the command gives an error and exits 2.
+Delta does not use a different commit as the base.
+Delta does not write a committed path that contains <code>..</code>, a backslash, or a colon.
+Thus the facts at a commit are the same on each platform.
+Before the report, delta gives each refused path and its cause under <code>Not in this comparison</code>.
+The changes of a refused path are not known. A refused module is not a removed module.</p>
 <p>Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
@@ -1333,14 +1347,16 @@ The defaults are <code>1 year ago</code>, one sample every 14 days, and the five
 windows (<code>--top</code> default 5). Each window compares two samples.
 Facts use the cache <code>.systemap/facts/&lt;sha&gt;-&lt;scope&gt;.json</code>.</p>
 <p>Each window shows module and entry additions or removals, component size
-changes, and new crossing imports.
-It shows the commits that added new modules.
+changes, and new and removed crossing imports.
+It shows the commits that added the files of new modules.
+A commit that only changes such a file is not in the list.
 All samples use the component assignments in the selected map.
 Thus, a moved module counts under its component in the selected map.
 TypeScript samples include <code>.ts</code>, <code>.tsx</code>, tests, and package entry points.</p>
 <ul>
 <li><code>--ref REF</code> starts from that branch or commit instead of <code>HEAD</code>.
-Git must resolve <code>REF</code> to a commit. A value that starts with <code>-</code> is not an option to Git.</li>
+Git must resolve <code>REF</code> to a commit. A value that starts with <code>-</code> is not an option to Git.
+If Git cannot resolve <code>REF</code>, or if a Git command fails, the command exits 2.</li>
 </ul>
 <h3 id="systemap-explain-kind"><code>systemap explain [KIND]</code></h3>
 <p>Prints one finding kind's meaning, effect on the map, and necessary action.

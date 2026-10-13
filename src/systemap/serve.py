@@ -152,7 +152,9 @@ def render_tree(root: Path, base: str) -> Rendered:
     tree = nest.load(cfg)
     _no_problems(tree)
     facts = extraction.build(cfg)
-    compared = {m.id: _compare(cfg, m, base, facts) for m in tree.maps}
+    # One source comparison for all maps: it does not use the model of a map.
+    source = change.source_change(cfg, base, facts, change.WORKING_TREE) if base else None
+    compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
     files = {
         out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): page.build(
             cfg,
@@ -187,10 +189,16 @@ def _no_problems(tree: nest.Tree) -> None:
         raise ConfigError("\n".join([*lines, f"Correct {files}. Then use systemap check."]))
 
 
-def _compare(cfg: Config, m: nest.Map, base: str, facts: dict[str, Any]) -> dict[str, Any]:
+def _compare(
+    cfg: Config,
+    m: nest.Map,
+    base: str,
+    facts: dict[str, Any],
+    source: change.SourceChange | None,
+) -> dict[str, Any]:
     if not base:
         return {"has_change": False}
-    return change.for_page(cfg, m, base, facts, change.WORKING_TREE)
+    return change.for_page(cfg, m, base, facts, change.WORKING_TREE, source)
 
 
 def _figure(

@@ -27,6 +27,7 @@ from systemap import (
     python_syntax,
     python_tests,
     repo_files,
+    source_text,
 )
 from systemap.completeness import parse_state
 
@@ -535,7 +536,7 @@ def collect_module(
 ) -> dict[str, Any] | None:
     issue: dict[str, Any] | None = None
     try:
-        raw = repo_files.read_text(repo, repo_files.relative(repo, path), encoding="utf-8-sig")
+        raw = source_text.read(repo, path)
     except (OSError, UnicodeError) as exc:
         raw = ""
         issue = {
