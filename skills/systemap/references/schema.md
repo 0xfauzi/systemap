@@ -394,7 +394,7 @@ These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 7, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, and `call_sites`. `extract --check` marks older formats stale.
+- `version`: The facts format is 8, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, and decorators in the `api` fingerprints. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -402,7 +402,7 @@ These fields come from `systemap.extract.FIELDS`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record for each entry point, with the fields below.
 - `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. The list is empty if there are none.
-- `test_file_issues`: TypeScript test files with unresolved imports or names after a parse error. The list is empty if there are none.
+- `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, and `source`. The test functions of these files are not known. The Python adapter does not write an empty list.
 - `config_issues`: TypeScript npm tsconfig packages in `extends` that cannot be read. The list is empty if there are none.
 - `components`: One module record for each dotted name, with the fields below.
 
@@ -422,9 +422,9 @@ These fields come from `systemap.extract.FIELDS`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
 - `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
 - `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. A `*` re-export of the module does not give a name that has `star_export` set to `false`. The TypeScript adapter sets it for `default`. `entry` and `interface` can use these names.
-- `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies.
+- `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint includes decorators. It does not include callable bodies.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
-- `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without names, imports, or statements. Coverage does not include these modules.
+- `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without statements. A Python docstring, `pass`, `__future__` import, and literal value for a dunder name such as `__all__` are not statements for this rule. Coverage does not include these modules.
 - `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
 - `call_sites`: The local names that the module gets from a name of a module in `uses`, and the lines that use them. Each record has `local`, `target`, `name` (`*` for the full module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import statement makes, or for a re-export without a local name, such as `export { a } from`. It is `value` for a name that gets its value or type from that name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each use is `[line, function line, property]`. The function line is the line of the named function or method that contains the use, or 0. The property is the attribute that the use reads, or an empty string. The value is `null` if the source did not parse.
