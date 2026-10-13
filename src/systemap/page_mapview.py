@@ -181,7 +181,7 @@ SCRIPT = r"""
     }).join('');
   }
   function actorCards(list){
-    var actors = {}, order = [];
+    var actors = Object.create(null), order = [];
     list.forEach(function(i){
       var e = A.edges[i];
       [[e.from, 'sends'], [e.to, 'gets']].forEach(function(end){

@@ -12,7 +12,7 @@ function subjectOf(id, L){
   return !!(SUBJECT_OF[L] && SUBJECT_OF[L][id]);
 }
 function layerIds(L){
-  var ids = {}, out = [];
+  var ids = table(), out = [];
   EDGES.forEach(function(e, i){ if(edgeIn(i, L)){ ids[e.from] = true; ids[e.to] = true; } });
   Object.keys(DETAIL).forEach(function(id){
     if(id !== '_meta' && (ids[id] || subjectOf(id, L))){ out.push(id); } });
@@ -233,13 +233,13 @@ function syncUnderlay(i){
 // ---- the paint ------------------------------------------------------------
 function paint(){
   var f = state.focus, j = state.journey, L = state.layer, chosen = selectedEdge();
-  var lit = litSet(), near = lit ? lit.ids : {}, jset = {};
+  var lit = litSet(), near = lit ? lit.ids : table(), jset = table();
   if(j){
     (j.acts || []).concat(j.measures || []).forEach(function(id){ jset[id] = true; });
   }
   var e = EDGES[chosen], pe = EDGES[state.peek];
   if(e){ jset[e.from] = true; jset[e.to] = true; }
-  var inLayer = {};
+  var inLayer = table();
   EDGES.forEach(function(e, i){
     if(edgeIn(i, L)){ inLayer[e.from] = true; inLayer[e.to] = true; } });
   flows.forEach(function(p){
@@ -290,7 +290,7 @@ function heading(label, count){
     + '</div>';
 }
 function endpointButton(id, role){
-  var d = DETAIL[id];
+  var d = recordOf(id);
   return '<button type="button" class="systemap-f__endpoint" data-endpoint="' + esc(id)
     + '"><small>' + role + '</small><code>' + esc(id) + '</code><span>'
     + esc(d ? d.plain : '') + '</span></button>';
@@ -487,12 +487,12 @@ function bindPreview(control, i){
   control.addEventListener('blur', unpeek);
 }
 function opensPage(cid){
-  var d = DETAIL[cid];
+  var d = recordOf(cid);
   return !!(d && d.map && d.map.href);
 }
 function openMap(cid, opener){
   if(!opensPage(cid)){ return; }
-  var m = DETAIL[cid].map;
+  var m = recordOf(cid).map;
   svg.dispatchEvent(new CustomEvent('systemap:open',
     {detail:{id:cid, name:m.name, href:m.href, cards:m.cards, opener:opener}, bubbles:true}));
 }
@@ -526,8 +526,8 @@ function restorePanelFocus(key){
   if(target){ target.focus({preventScroll:true}); }
 }
 function select(cid, edge){
-  var d = DETAIL[cid];
-  if(!d || cid === '_meta'){ return; }
+  var d = recordOf(cid);
+  if(!d){ return; }
   var e = EDGES[edge];
   state.focus = cid; state.peek = -1;
   state.edge = e && (e.from === cid || e.to === cid) ? +edge : -1;
@@ -669,7 +669,7 @@ function openHash(){
   function report(text){if(status){status.textContent = text;}}
   try { id = decodeURIComponent((location.hash || '').slice(1)); }
   catch(_e){report('Cannot read this link. Find a component by name or use Show all.');return;}
-  if(id && DETAIL[id] && id !== '_meta'){
+  if(id && recordOf(id)){
     report('');if(id !== state.focus){select(id);}return;
   }
   if(!id || document.getElementById(id)){report('');return;}

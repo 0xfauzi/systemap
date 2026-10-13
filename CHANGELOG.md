@@ -156,6 +156,7 @@ Each item gives the change, and then the step that you must do.
   - A theme value that contains `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value can contain `"`.
   - A key in a theme table that contains a character other than a letter, a digit, `_`, or `-`.
   - A `[theme.marks]` value other than `ring`, `notch`, or `dotted`.
+  - A theme value of an incorrect type. A color token, `color_scheme`, and each `delta` value must be text. Each `state` record has 3 texts, and each `container` record has 2 texts. `ghost` has 2 texts.
   - A custom layer ID that contains a character other than a letter, a digit, `_`, or `-`.
   - The component IDs `_meta` and `__proto__`.
 
@@ -428,10 +429,10 @@ These are the Windows repairs:
 - `place` and `review` write LF line ends.
 - Messages give paths with forward slashes.
 
-A second Codex code review examined the code at 13a7f45 for four types of defect:
+A second Codex code review examined the code for four types of defect:
 a crash, an unsafe access, a silent incorrect result, and a defect that stops a real repository at `systemap check`.
-It gave 58 results. For each result, a test showed the failure before the repair, and the same test passed after the repair.
-The second review did not examine the page and the schematic parts.
+It examined six parts at 13a7f45, and the page and the schematic at dd05bee.
+It gave 66 results. For each result, a test showed the failure before the repair, and the same test passed after the repair.
 
 | area | results | examples of repairs |
 |---|---|---|
@@ -441,6 +442,8 @@ The second review did not examine the page and the schematic parts.
 | decision requests | 5 | The claim of a source review request contains each claim of its digest. A result file that is not UTF-8 gives a command error. |
 | change detection, sequences, agents, and plans | 10 | Each revision resolves its test imports with its own files. `journeys` reads the changed model before it writes. |
 | commands | 6 | `serve` and `figure --out` stay in the repository. A route does not go through an unrelated region when a corridor is available. |
+| page | 5 | A child map link encodes the component ID, so model text cannot operate as code. An actor named `constructor` does not stop the page script. Entry-point coverage uses the modules of its map. |
+| schematic | 3 | A theme value that rendering cannot use is a configuration error, not a crash. A layer named `__proto__` shows its flows. |
 
 On macOS, a lock open relative to a folder can fail with ENOENT. In a test of 8 processes, 429 of 2400 opens failed.
 The lock open tries again after ENOENT. The same test then gave 2400 of 2400 correct opens.
