@@ -163,6 +163,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "python -m pkg",
             "module": "pkg.__main__",
             "target": "",
+            "same_as": '["console_script","pkg.cli","main","pkg"]',
             "label": "python -m pkg",
         },
         {
@@ -170,6 +171,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "main",
             "module": "pkg.cli",
             "target": "main",
+            "same_as": '["console_script","pkg.cli","main","pkg"]',
             "label": "main() in pkg.cli",
         },
         {
@@ -504,7 +506,8 @@ def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
         assert extract.fields_of("module") - set(record) == {"unknown", "parse_error"}, record["id"]
     assert facts["entry_points"], "the tree has entry points to compare"
     for point in facts["entry_points"]:
-        assert set(point) == extract.fields_of("entry point")
+        assert set(point) <= extract.fields_of("entry point")
+        assert extract.fields_of("entry point") - set(point) <= {"same_as"}
     reference = skill.files()["references/schema.md"]
     assert reference.endswith(extract.facts_doc()), (
         "references/schema.md's facts section differs from extract.FIELDS; regenerate it"

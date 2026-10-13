@@ -30,7 +30,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import flow_ids
+from systemap import flow_ids, sequence_ids
 
 Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
@@ -593,6 +593,7 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
     for cid in meaning.plain:
         if cid not in ids:
             out.append(f"plain has an unknown component: {cid}")
+    out += sequence_ids.problems(meaning)
     for j in meaning.journeys:
         out.extend(_journey_problems(j, ids, model.flows))
     return out

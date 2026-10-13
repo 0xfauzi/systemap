@@ -394,7 +394,7 @@ These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 7, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, and `call_sites`. `extract --check` marks older formats stale.
+- `version`: The facts format is 8, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, and `same_as`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -445,6 +445,7 @@ These fields come from `systemap.extract.FIELDS`.
 - `module`: The module that defines the entry point.
 - `target`: The console-script function, the console script for a subcommand, or the registered function. It is empty for other kinds.
 - `label`: The display name that the language adapter gives to the entry point. A sequence can name it in `starts`.
+- `same_as`: The identity of a different entry point that starts the same operation. The language adapter writes it only from an accurate indication. The Python adapter writes it for a `main` function or a `__main__` module that starts the function of a console script. Coverage then counts the two entry points as one. Without this field, each entry point is a different operation.
 
 **The extract summary**
 

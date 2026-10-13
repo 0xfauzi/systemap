@@ -420,6 +420,10 @@ def test_judgement_command_always_exits_0(
 # ---- the second pass: entry points and crossing imports ------------------------
 
 
+# The Python adapter writes `same_as` on an entry point that starts the console script.
+SCRIPT = '["console_script","pkg.cli","main","pkg"]'
+
+
 def entry_facts() -> dict[str, Any]:
     """Facts for a package with a CLI of three subcommands, a worker and a root function."""
     return {
@@ -443,8 +447,15 @@ def entry_facts() -> dict[str, Any]:
                 "name": "python -m pkg",
                 "module": "pkg.__main__",
                 "target": "",
+                "same_as": SCRIPT,
             },
-            {"kind": "main_function", "name": "main", "module": "pkg.cli", "target": "main"},
+            {
+                "kind": "main_function",
+                "name": "main",
+                "module": "pkg.cli",
+                "target": "main",
+                "same_as": SCRIPT,
+            },
             {"kind": "subcommand", "name": "init", "module": "pkg.cli", "target": "pkg"},
             {"kind": "subcommand", "name": "check", "module": "pkg.cli", "target": "pkg"},
             {"kind": "subcommand", "name": "render", "module": "pkg.cli", "target": "pkg"},

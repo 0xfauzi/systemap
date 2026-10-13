@@ -13,6 +13,9 @@ import ast
 from pathlib import Path
 from typing import Any
 
+from systemap.call_sites import WHOLE
+from systemap.source_facts import entry_identity
+
 # A decorator of these names, on a function, registers a way in.
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 COMMAND_DECORATORS = ("command", "group")
@@ -410,7 +413,43 @@ def entry_points(
         ]
         out += in_source(module, sources.get(module, ""))
     out += in_pyproject(read_pyproject(repo), components)
-    return _once_each(out)
+    return same_operations(_once_each(out), components)
+
+
+def same_operations(
+    points: list[dict[str, str]], components: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Write `same_as` on an entry point that starts the function of a console script.
+
+    `same_as` gives the identity of that console script. A `main` function starts it
+    when the script has the same module and the target `main`. A `__main__` module
+    starts it when it uses the target function from the module of the script. An import
+    of a different name from that module does not show the same operation.
+    """
+    scripts = [p for p in points if p["kind"] == "console_script" and p["target"]]
+    for point in points:
+        script = next((s for s in scripts if _starts(point, s, components)), None)
+        if script is not None:
+            point["same_as"] = entry_identity(script)
+    return points
+
+
+def _starts(point: dict[str, str], script: dict[str, str], components: dict[str, Any]) -> bool:
+    if point["kind"] == "main_function":
+        return (point["module"], point["target"]) == (script["module"], script["target"])
+    if point["kind"] != "main_module":
+        return False
+    sites = components.get(point["module"], {}).get("call_sites") or []
+    return any(
+        site["target"] == script["module"] and _uses_name(site, script["target"]) for site in sites
+    )
+
+
+def _uses_name(site: dict[str, Any], name: str) -> bool:
+    """Find a use of the imported name, or of the name as an attribute of the module."""
+    if site["name"] == name:
+        return bool(site["uses"])
+    return site["name"] == WHOLE and any(use[2] == name for use in site["uses"])
 
 
 def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:

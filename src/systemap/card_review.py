@@ -39,8 +39,7 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
     }
     if not explicit <= components.keys():
         return None
-    names = set(claimed(card, components))
-    names.update(pattern.partition(":")[0] for pattern in card.implemented_by if is_symbol(pattern))
+    names = source_modules(card, components)
     if not names:
         return None
     source = []
@@ -53,6 +52,16 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
             return None
         source.append((name, digest))
     return source
+
+
+def source_modules(card: Component, components: dict[str, Any]) -> set[str]:
+    """Give the modules of the source digest: the claimed modules and the symbol claim modules.
+
+    A symbol claim module is in the result also when the records do not contain it.
+    Delta uses the same selection to find the components with changed source."""
+    names = set(claimed(card, components))
+    names.update(pattern.partition(":")[0] for pattern in card.implemented_by if is_symbol(pattern))
+    return names
 
 
 def _touches(journey: Journey, card_id: str) -> bool:
