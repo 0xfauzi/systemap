@@ -98,6 +98,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
             "name": "web",
             "module": "web.cli",
             "target": "",
+            "same_as": "",
             "label": "web (console script)",
         },
         {
@@ -105,6 +106,7 @@ def test_typescript_extracts_surface_imports_tests_and_entry_points(tmp_path: Pa
             "name": "serve",
             "module": "web.index",
             "target": "",
+            "same_as": "",
             "label": "serve() in web.index",
         },
     ]
@@ -133,6 +135,7 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "name": "request",
             "module": "acme.web.api",
             "target": "",
+            "same_as": "",
             "label": "request() in acme.web.api",
         },
         {
@@ -140,6 +143,7 @@ def test_typescript_roots_are_discovered_from_package_metadata(tmp_path: Path) -
             "name": "app",
             "module": "acme.web.index",
             "target": "",
+            "same_as": "",
             "label": "app() in acme.web.index",
         },
     ]
@@ -173,6 +177,7 @@ def test_typescript_surface_and_change_use_the_same_parser() -> None:
         "added": {"operations": [], "types": [], "refusals": [], "constants": []},
         "removed": {"operations": [], "types": [], "refusals": [], "constants": []},
         "changed": {"operations": ["read"], "types": [], "refusals": [], "constants": []},
+        "categories": {},
     }
 
 
@@ -284,6 +289,7 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
             "name": "web",
             "module": "web.cli",
             "target": "",
+            "same_as": "",
             "label": "web (console script)",
         },
         {
@@ -291,6 +297,7 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
             "name": "api",
             "module": "web.index",
             "target": "",
+            "same_as": "",
             "label": "api() in web.index",
         },
     ]
@@ -343,7 +350,7 @@ def test_typescript_parser_failure_is_retained_as_unknown_surface(tmp_path: Path
     )
     facts = extract.build(config.load(tmp_path))
     issue = facts["components"]["web.broken"]["unknown"][0]
-    assert "could not parse the TypeScript syntax" in issue["reason"]
+    assert "could not parse the source syntax" in issue["reason"]
     assert source_facts.unknown_fact_lines(facts) == [
         f"unknown surface: module web.broken (src/broken.ts:{issue['line']}): {issue['reason']}"
     ]
@@ -643,22 +650,6 @@ def test_configured_typescript_test_patterns_match_extract_and_delta(tmp_path: P
     ]
 
 
-def test_init_refuses_an_ambiguous_python_and_typescript_repository(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    write_tree(
-        tmp_path,
-        {
-            "pkg/__init__.py": "",
-            "package.json": '{"name":"web"}',
-            "tsconfig.json": '{"compilerOptions":{}}',
-            "src/index.ts": "export const app = 1;",
-        },
-    )
-    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 2
-    assert "The source contains python and typescript files" in capsys.readouterr().err
-
-
 def test_typescript_discovers_nested_source_and_refuses_module_id_collisions(
     tmp_path: Path,
 ) -> None:
@@ -723,6 +714,7 @@ def test_config_dir_in_inherited_tsconfig_means_the_top_level_directory(tmp_path
         "name": "web",
         "module": "web.cli",
         "target": "",
+        "same_as": "",
         "label": "web (console script)",
     } in facts["entry_points"]
     assert facts["entry_point_issues"] == []

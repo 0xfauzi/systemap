@@ -207,6 +207,30 @@ def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
     }
 
 
+def _type_categories(surface: dict[str, Any]) -> dict[str, list[str]]:
+    """Give the source category of each type name: `class` from the `classes` fact, or
+    the category in the `types` fact. A name without a category in the facts is not in
+    the result, because its category is not known."""
+    out: dict[str, set[str]] = {}
+    for c in surface.get("classes", []):
+        out.setdefault(c["name"], set()).add("class")
+    for t in surface.get("types", []):
+        if t.get("category"):
+            out.setdefault(t["name"], set()).add(str(t["category"]))
+    return {name: sorted(found) for name, found in out.items()}
+
+
+def _changed_categories(
+    delta: dict[str, Any], base: dict[str, Any], head: dict[str, Any]
+) -> dict[str, list[str]]:
+    """Give the category of each changed type. A removed type gets it from the base."""
+    before, after = _type_categories(base), _type_categories(head)
+    out = {n: before[n] for n in delta["removed"]["types"] if n in before}
+    for part in ("added", "changed"):
+        out |= {n: after[n] for n in delta[part]["types"] if n in after}
+    return out
+
+
 def surface_delta(
     base_raw: str,
     head_raw: str,
@@ -229,6 +253,7 @@ def surface_delta(
         delta["added"][bucket] = sorted(set(a) - set(b))
         delta["removed"][bucket] = sorted(set(b) - set(a))
         delta["changed"][bucket] = sorted(n for n in set(a) & set(b) if a[n] != b[n])
+    delta["categories"] = _changed_categories(delta, base, head)
     if base.get("unknown") or head.get("unknown"):
         delta["unknown"] = {
             "base": base.get("unknown", []),
@@ -249,14 +274,18 @@ def _component_surface(
         part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
     }
     unknown: dict[str, Any] = {}
+    categories: dict[str, list[str]] = {}
     for module in hit:
         delta = deltas.get(module)
         if delta is None:
             continue
         for part in ("added", "removed", "changed"):
             _merge_names(surface[part], delta[part])
+        for name, found in delta.get("categories", {}).items():
+            categories[name] = sorted(set(categories.get(name, [])) | set(found))
         if "unknown" in delta:
             unknown[module] = delta["unknown"]
+    surface["categories"] = categories
     return surface, unknown
 
 

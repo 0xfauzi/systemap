@@ -54,7 +54,12 @@ def entry_points(
     for package in _packages(repo, context):
         root_modules.update(_package_entries(package, context, points, issues))
     points.extend(_public_functions(root_modules, components))
-    return _unique_points(points), issues
+    unique = _unique_points(points)
+    # A package bin starts the top-level code of its module. An exported function is a
+    # different entry point. Thus no entry point starts the same code as a different one.
+    for point in unique:
+        point["same_as"] = ""
+    return unique, issues
 
 
 def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:

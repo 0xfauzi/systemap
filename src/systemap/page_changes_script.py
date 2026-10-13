@@ -182,8 +182,15 @@ SCRIPT = r"""
   }
 
   // ---- the source changes of the selected component ----------------------
-  var KIND = {operations:'functions', types:'classes', refusals:'exceptions',
+  // The `types` bucket holds each type declaration. The facts give its category.
+  var KIND = {operations:'functions', types:'types', refusals:'exceptions',
     constants:'constants'};
+  var CATEGORY = {type_alias:'type alias'};
+  function named(surface, kind, name){
+    var found = kind === 'types' ? (surface.categories || {})[name] : null;
+    return found && found.length ? name + ' (' + found.map(function(c){
+      return CATEGORY[c] || c; }).join(', ') + ')' : name;
+  }
   var ACTION = {added:'Added', removed:'Removed', changed:'Changed'};
   function sourceChanges(id){
     var record = (CMP.parts || {})[id], h = '<h4 class="chg-h4">Source changes</h4>';
@@ -197,7 +204,8 @@ SCRIPT = r"""
       Object.keys(surface[action] || {}).forEach(function(kind){
         var list = surface[action][kind]; if(!list.length){ return; } count += list.length;
         h += '<p><b>' + ACTION[action] + ' ' + esc(KIND[kind] || kind) + '</b>: <code>'
-          + esc(list.join(', ')) + '</code>.</p>';
+          + esc(list.map(function(n){ return named(surface, kind, n); }).join(', '))
+          + '</code>.</p>';
       });
     });
     var tests = 0;

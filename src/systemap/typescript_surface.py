@@ -277,7 +277,9 @@ def parse_problem(raw: str, path: str = "") -> dict[str, Any]:
     root = _tree(raw, path)
     node = next((child for child in _walk(root) if child.type == "ERROR" or child.is_missing), root)
     source = _one_line(_text(node))[:120]
-    reason = "The parser could not parse the TypeScript syntax."
+    # The reason goes into a shared finding line, so it names no language.
+    # `answer_migrations` reads the earlier form, which named TypeScript.
+    reason = "The parser could not parse the source syntax."
     if source:
         reason += f" Source excerpt: {source!r}"
     return {"line": node.start_point.row + 1, "reason": reason, "source": source}

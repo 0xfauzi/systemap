@@ -419,6 +419,10 @@ def test_judgement_command_always_exits_0(
 
 # ---- the second pass: entry points and crossing imports ------------------------
 
+SCRIPT = source_facts.entry_identity(
+    {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"}
+)
+
 
 # The Python adapter writes `same_as` on an entry point that starts the console script.
 SCRIPT = '["console_script","pkg.cli","main","pkg"]'
@@ -442,6 +446,7 @@ def entry_facts() -> dict[str, Any]:
         "entry_points": [
             {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"},
             {"kind": "public_function", "name": "open_thing", "module": "pkg", "target": ""},
+            # The adapter writes `same_as` for each entry point that runs the console script.
             {
                 "kind": "main_module",
                 "name": "python -m pkg",

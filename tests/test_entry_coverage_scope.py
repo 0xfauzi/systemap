@@ -9,7 +9,7 @@ an entry point starts the same operation. Acceptance values:
 - Python fixture: `pkg.__main__` calls `run`, the target of the script. The adapter
   writes `same_as` with the identity of the script, and the list has only `tool`.
 - TypeScript fixture: the package root imports a constant from the module of a `bin`
-  script. The list has the two entry points, and no entry point has `same_as`.
+  script. The list has the two entry points, and each `same_as` is empty.
 
 Codex result change-17. Two nested maps each cover their own entry point. Acceptance
 value: `systemap describe` gives `1 of 1 have sequence coverage` for each map and no
@@ -53,7 +53,7 @@ def python_points(root: Path, main_module: str) -> tuple[list[str], dict[str, An
 def test_an_import_of_a_constant_does_not_join_two_python_entry_points(tmp_path: Path) -> None:
     names, facts = python_points(tmp_path, "from pkg.tools import NAME\n\nprint(NAME)\n")
     assert names == ["tool", "python -m pkg"]
-    assert not any("same_as" in p for p in facts["entry_points"])
+    assert not any(p["same_as"] for p in facts["entry_points"])
 
 
 def test_a_main_module_that_calls_the_script_target_is_the_same_operation(
@@ -84,7 +84,7 @@ def test_an_import_of_a_constant_does_not_join_two_typescript_entry_points(
     facts = extract.build(config.load(tmp_path))
     names = [p["name"] for p in ways_in_without_journey(Meaning(plain={}), facts)]
     assert names == ["web", "serve"]
-    assert not any("same_as" in p for p in facts["entry_points"])
+    assert not any(p["same_as"] for p in facts["entry_points"])
 
 
 # ---- change-17: describe uses the scope of each map ---------------------------------

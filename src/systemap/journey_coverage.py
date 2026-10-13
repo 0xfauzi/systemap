@@ -62,14 +62,24 @@ def ways_in_without_journey(
     points: list[dict[str, str]] = facts.get("entry_points", [])
     del text, owner
     reviewed = set(covered) if covered is not None else reviewed_entries((meaning,))
-    listed = {entry_identity(p) for p in points}
+    identities = {entry_identity(p) for p in points}
     return [
         p
         for p in points
         if p["module"] not in skip
-        and p.get("same_as", "") not in listed
+        and not _same_code(p, identities)
         and entry_identity(p) not in reviewed
     ]
+
+
+def _same_code(p: dict[str, str], identities: set[str]) -> bool:
+    """Find an entry point that starts the same code as a different entry point.
+
+    The adapter writes the identity of the other entry point in `same_as`. If `same_as` is
+    empty or missing, the entry point is not an alias. Then it must have a sequence.
+    """
+    same = p.get("same_as") or ""
+    return bool(same) and same != entry_identity(p) and same in identities
 
 
 def crowd_label(how_many: int, kind: str, card: str) -> str:

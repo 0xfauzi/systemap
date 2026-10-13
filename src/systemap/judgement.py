@@ -62,6 +62,11 @@ MODEL_SDKS: tuple[str, ...] = tuple(
         sdk for name in languages.names() for sdk in languages.repository(name).model_sdks
     )
 )
+# The import name separators of all adapters. A caller that knows the language gives the
+# separator of its adapter.
+IMPORT_SEPARATORS: tuple[str, ...] = tuple(
+    dict.fromkeys(languages.repository(name).import_separator for name in languages.names())
+)
 
 
 def words(name: str) -> set[str]:
@@ -289,14 +294,14 @@ def declared_flows(
     ]
 
 
-def sdk_of(name: str, sdks: Iterable[str]) -> str:
+def sdk_of(name: str, sdks: Iterable[str], separators: Iterable[str] = IMPORT_SEPARATORS) -> str:
     """This function finds the configured SDK for an import name, or gives an empty string.
 
-    A Python import name continues after a dot. An npm import name continues after a
-    slash, for a subpath or for a package in a scope.
+    The import name is the SDK, or it continues after a separator of the language adapter.
     """
+    after = tuple(separators)
     for sdk in sdks:
-        if name == sdk or name.startswith((sdk + ".", sdk + "/")):
+        if name == sdk or name.startswith(tuple(sdk + sep for sep in after)):
             return sdk
     return ""
 
@@ -307,6 +312,7 @@ def model_sdk_imports(
     sdks: Iterable[str] = MODEL_SDKS,
     *,
     skip: Collection[str] = (),
+    separators: Iterable[str] = IMPORT_SEPARATORS,
 ) -> list[str]:
     """This function finds model SDK imports in components without model-call markers.
 
@@ -322,7 +328,8 @@ def model_sdk_imports(
         p = owner.get(module)
         if not p or p in runs_a_model or module in skip:
             continue
-        hit = sorted({sdk_of(n, sdk_list) for n in components[module].get("external", [])} - {""})
+        external = components[module].get("external", [])
+        hit = sorted({sdk_of(n, sdk_list, separators) for n in external} - {""})
         for sdk in hit:
             out.append(
                 f"model sdk: module {module} imports {sdk} and its component {p} is not an agent"
@@ -362,6 +369,7 @@ def run(
     covered: Collection[str] | None = None,
     skip: Collection[str] = (),
     repository: bool = True,
+    separators: Iterable[str] = IMPORT_SEPARATORS,
 ) -> list[str]:
     """This function gives the judgement diagnostics for one map.
 
@@ -384,7 +392,7 @@ def run(
         + no_endpoint_source(model, facts.get("components", {}))
         + step_refs.problems(model, meaning, facts)
         + stale_source_reviews(model, meaning, facts)
-        + model_sdk_imports(model, facts, sdks, skip=skip)
+        + model_sdk_imports(model, facts, sdks, skip=skip, separators=separators)
         + unknown_fact_lines(facts, skip, repository)
     )
 
@@ -484,6 +492,8 @@ def run_tree(
     facts: dict[str, Any],
     sdks: Iterable[str] = MODEL_SDKS,
     observed_by: Iterable[str] = (),
+    *,
+    separators: Iterable[str] = IMPORT_SEPARATORS,
 ) -> list[str]:
     """This function gives judgement diagnostics for all maps with map prefixes.
 
@@ -503,6 +513,7 @@ def run_tree(
             covered=covered,
             skip=skip,
             repository=m.top,
+            separators=separators,
         )
         out += [m.prefix + line for line in lines]
     return out

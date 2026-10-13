@@ -202,8 +202,9 @@ JUDGEMENT = {
     "unknown surface": Lesson(
         means=(
             "The language adapter could not read part of the source. Or, it could not find "
-            "the target of an entry point, an import, or a configuration file. If the parser "
-            "could not read a full file, the line gives the parser version."
+            "the target of an entry point, an import, or a configuration file. Or, a "
+            "configuration file extends a configuration package that the adapter could not "
+            "read. If the parser could not read a full file, the line gives the parser version."
         ),
         why=(
             "If the facts omit an export or import, the public interface or its "
@@ -212,7 +213,9 @@ JUDGEMENT = {
         do=(
             "Read the source excerpt. If the line gives a parser version, use a parser version "
             "that can read the syntax. Or, change the parser to read the syntax. "
-            "Or, remove the files that are not part of the system from the source roots."
+            "Or, remove the files that are not part of the system from the source roots. "
+            "If the line gives a configuration package, install the package. Then do "
+            "`systemap extract` again."
         ),
     ),
 }

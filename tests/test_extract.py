@@ -141,6 +141,8 @@ ENTRY_TREE: dict[str, str] = {
 
 
 def test_extract_records_entry_points(tmp_path: Path) -> None:
+    script = {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"}
+    SCRIPT = source_facts.entry_identity(script)
     write_tree(tmp_path, ENTRY_TREE)
     facts = extract.build(config.load(tmp_path))
     assert facts["entry_points"] == [
@@ -149,6 +151,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "pkg",
             "module": "pkg.cli",
             "target": "main",
+            "same_as": "",
             "label": "pkg (console script)",
         },
         {
@@ -156,6 +159,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "open_thing",
             "module": "pkg",
             "target": "",
+            "same_as": "",
             "label": "open_thing() in pkg",
         },
         {
@@ -163,7 +167,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "python -m pkg",
             "module": "pkg.__main__",
             "target": "",
-            "same_as": '["console_script","pkg.cli","main","pkg"]',
+            "same_as": SCRIPT,
             "label": "python -m pkg",
         },
         {
@@ -171,7 +175,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "main",
             "module": "pkg.cli",
             "target": "main",
-            "same_as": '["console_script","pkg.cli","main","pkg"]',
+            "same_as": SCRIPT,
             "label": "main() in pkg.cli",
         },
         {
@@ -179,6 +183,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "init",
             "module": "pkg.cli",
             "target": "pkg",
+            "same_as": "",
             "label": "pkg init (subcommand)",
         },
         {
@@ -186,6 +191,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "check",
             "module": "pkg.cli",
             "target": "pkg",
+            "same_as": "",
             "label": "pkg check (subcommand)",
         },
         {
@@ -193,6 +199,7 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
             "name": "main",
             "module": "pkg.worker",
             "target": "main",
+            "same_as": "",
             "label": "main() in pkg.worker",
         },
     ]

@@ -429,8 +429,9 @@ def same_operations(
     scripts = [p for p in points if p["kind"] == "console_script" and p["target"]]
     for point in points:
         script = next((s for s in scripts if _starts(point, s, components)), None)
-        if script is not None:
-            point["same_as"] = entry_identity(script)
+        # The adapter always writes the field. An empty string tells that no other entry
+        # point starts the same operation. A missing field is not known.
+        point["same_as"] = entry_identity(script) if script is not None else ""
     return points
 
 

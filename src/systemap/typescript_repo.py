@@ -122,6 +122,9 @@ class TypeScriptRepository:
     source_suffixes: tuple[str, ...] = SOURCE_SUFFIXES
     skip_dirs = SOURCE_SKIP
     model_sdks = MODEL_SDKS
+    # An npm import name continues after a slash, for a subpath or a package in a scope.
+    # A dot is part of an npm package name: `chart.js` is not a part of `chart`.
+    import_separator = "/"
     config_files: tuple[str, ...] = ("package.json", "tsconfig.json")
     install_extra = "typescript"
     roots_note = (

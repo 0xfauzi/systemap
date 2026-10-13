@@ -405,7 +405,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `entry_points`: One record for each entry point, with the fields below.
 - `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. The list is empty if there are none.
 - `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, and `source`. The test functions of these files are not known. The Python adapter does not write an empty list.
-- `config_issues`: TypeScript npm tsconfig packages in `extends` that cannot be read. The list is empty if there are none.
+- `config_issues`: The configuration packages that a configuration file extends, and that the adapter cannot read. Only the TypeScript adapter writes this field, for an npm package in the `extends` key of a tsconfig file. The list is empty if there are none.
 - `components`: One module record for each dotted name, with the fields below.
 
 **Each module, under `components`**
@@ -448,7 +448,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `module`: The module that defines the entry point.
 - `target`: The console-script function, the console script for a subcommand, or the registered function. It is empty for other kinds.
 - `label`: The display name that the language adapter gives to the entry point. A sequence can name it in `starts`.
-- `same_as`: The identity of a different entry point that starts the same operation. The language adapter writes it only from an accurate indication. The Python adapter writes it for a `main` function or a `__main__` module that starts the function of a console script. Coverage then counts the two entry points as one. Without this field, each entry point is a different operation.
+- `same_as`: The identity of a different entry point that starts the same operation. The language adapter writes it only from an accurate indication. The Python adapter writes it for a `main` function or a `__main__` module that starts the function of a console script. Coverage then counts the two entry points as one. An empty string tells that the adapter found no such entry point. Then this entry point must have a sequence. If the field is missing, the value is not known. Then the entry point also must have a sequence.
 
 **The extract summary**
 

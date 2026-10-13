@@ -127,6 +127,8 @@ class PythonRepository:
     source_suffixes: tuple[str, ...] = (".py",)
     skip_dirs = PYTHON_SKIP
     model_sdks = MODEL_SDKS
+    # A Python import name continues after a dot: `google.adk.tools` is in `google.adk`.
+    import_separator = "."
     config_files: tuple[str, ...] = ("pyproject.toml",)
     install_extra = ""
     roots_note = (

@@ -136,9 +136,10 @@ def _unknown_repository_lines(facts: dict[str, Any]) -> list[str]:
             f"{problem['reason']}"
         )
     for issue in facts.get("config_issues", []):
+        # `answer_migrations` reads the earlier form of this line, which named npm.
         out.append(
             f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
-            "the npm tsconfig package could not be read"
+            "the configuration package could not be read"
         )
     return out
 
