@@ -130,10 +130,10 @@ def test_export_type_star_and_variance_keep_the_surface(tmp_path: Path) -> None:
     )
     components = facts["components"]
     assert sorted(names(components["app.index"])) == [
-        ("Order", "class", "app.types"),
+        ("Order", "type", "app.types"),
         ("serve", "function", "app.service"),
     ]
-    assert sorted(names(components["app.box"])) == [("Box", "class", ""), ("Sink", "class", "")]
+    assert sorted(names(components["app.box"])) == [("Box", "type", ""), ("Sink", "class", "")]
     assert components["app.index"].get("unknown", []) == []
     assert components["app.box"].get("unknown", []) == []
     points = {p["name"] for p in facts["entry_points"]}

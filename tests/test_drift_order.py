@@ -27,7 +27,7 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import card_review, config, drift_order, extract, jev, judgement, nest
+from systemap import card_review, config, drift_order, facts_file, jev, judgement, nest
 from systemap.cli import main
 from systemap.decision import (
     Answer,
@@ -107,7 +107,7 @@ def record_reviews(root: Path) -> None:
     """Write the current digest of each component into the model file."""
     cfg = config.load(root)
     tree = nest.load(cfg)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     path = root / "map/model.py"
     text = path.read_text(encoding="utf-8")
     for card in tree.top.model.components:
@@ -199,7 +199,7 @@ def transport(monkeypatch: pytest.MonkeyPatch) -> Transport:
 def loaded(root: Path) -> tuple[config.Config, nest.Tree, dict[str, Any], list[str]]:
     cfg = config.load(root)
     tree = nest.load(cfg)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     lines = judgement.run_tree(tree, facts)
     return cfg, tree, facts, lines
 

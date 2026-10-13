@@ -20,7 +20,16 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, extraction, figure, nest, page, reexports, source_facts
+from systemap import (
+    explain,
+    extraction,
+    facts_file,
+    figure,
+    nest,
+    page,
+    reexports,
+    source_facts,
+)
 from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
@@ -381,7 +390,7 @@ def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
     The first language adapter that reads a name from the signature gives the name."""
     signatures = [
         sig
-        for group in ("classes", "errors")
+        for group in ("classes", "errors", "types")
         for cls in record.get(group, [])
         if cls.get("name") == class_name
         for sig in cls.get("methods", [])
@@ -506,7 +515,7 @@ def stale(
     generated output.
     """
     fresh = fresh if fresh is not None else extraction.build(cfg)
-    stored = extract.read_facts(cfg.facts_path)
+    stored = facts_file.read_facts(cfg.facts_path)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not

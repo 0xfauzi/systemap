@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import config, delta, extract, judgement, nest
+from systemap import config, delta, extract, facts_file, judgement, nest
 from systemap.cli import main
 
 
@@ -138,7 +138,7 @@ def test_an_exact_answer_needs_the_judgement_evidence_digest_in_delta(
     assert main(["--root", str(repo), "extract"]) == 0
     capsys.readouterr()
     cfg = config.load(repo)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     assert facts is not None
     tree = nest.load(cfg)
     line = next(

@@ -194,7 +194,7 @@ def _sides(
 
 
 def _empty_surface() -> dict[str, Any]:
-    return {"functions": [], "classes": [], "errors": [], "constants": []}
+    return {"functions": [], "classes": [], "errors": [], "types": [], "constants": []}
 
 
 def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
@@ -209,7 +209,9 @@ def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
         }
     return {
         "operations": {f["name"]: f["signature"] for f in surface["functions"]},
-        "types": {c["name"]: ",".join(c["methods"]) for c in surface["classes"]},
+        "types": {
+            c["name"]: ",".join(c["methods"]) for c in surface["classes"] + surface.get("types", [])
+        },
         "refusals": {e["name"]: ",".join(e["methods"]) for e in surface["errors"]},
         "constants": {c["name"]: c["value"] for c in surface["constants"]},
     }

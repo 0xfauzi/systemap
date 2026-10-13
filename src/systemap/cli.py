@@ -21,10 +21,10 @@ from typing import Any
 
 from systemap import (
     __version__,
+    answer_migrations,
     change,
     check,
     config,
-    decision_kinds,
     decisions_cli,
     delta,
     delta_jev,
@@ -32,9 +32,9 @@ from systemap import (
     describe,
     drift_order,
     explain,
-    extract,
     extract_check,
     extraction,
+    facts_file,
     failures,
     figure,
     history,
@@ -157,13 +157,13 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
     fresh = extraction.build(p.cfg)
-    stored = extract.read_facts(p.cfg.facts_path)
+    stored = facts_file.read_facts(p.cfg.facts_path)
     if args.check:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
-    extract.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
-    say(*extract.summary(fresh))
+    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
+    say(*facts_file.summary(fresh))
     for m in p.tree.maps:
         for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
             say(f"  warning: {m.prefix}{line}")
@@ -200,7 +200,7 @@ def cmd_facts(args: argparse.Namespace) -> int:
         elif args.imports:
             lines = facts_mod.imports(facts, args.imports)
         else:
-            lines = facts_mod.overview(extract.summary(facts))
+            lines = facts_mod.overview(facts_file.summary(facts))
     except facts_mod.UnknownModule as exc:
         hint = f". The nearest name is {exc.closest}" if exc.closest else ""
         say(f"The facts contain no module {exc.name}{hint}", "run: systemap facts --modules")
@@ -213,7 +213,7 @@ def cmd_facts(args: argparse.Namespace) -> int:
 
 
 def _facts_or_stale(p: Project) -> dict[str, Any] | None:
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         say(f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}", "run: systemap extract")
         return None
@@ -350,7 +350,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     _require_roots(p)
     if _empty(p):
         return STALE
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     results = _check_tree(p, facts)
     stale = check.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
@@ -375,7 +375,7 @@ def cmd_rules(args: argparse.Namespace) -> int:
     `--json` writes one JSON object. Notices for a person go to stderr.
     """
     p = _project(args)
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
     ruled = import_rules.run_tree(p.tree, facts)
     if not facts:
@@ -480,7 +480,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return OK
 
     note("map: The refresh uses the working tree.")
-    extract.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
+    facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
     written = [p.cfg.rel(p.cfg.facts_path)]
     if not check.tree_ok(results):
         say(*_report_tree(p, results, []))
@@ -547,7 +547,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     """Print the judgement report as text for a person."""
     if _empty(p):
         return OK
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         say(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
@@ -558,7 +558,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
-    warn(*decision_kinds.warnings(p.cfg.judgement_answered))
+    warn(*answer_migrations.warnings(p.cfg.judgement_answered))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -572,7 +572,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
         warn(NO_COMPONENTS)
         say(json.dumps(judgement_json.empty(p.cfg.require_reviews), indent=2))
         return OK
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         warn(_no_facts(p))
     judged = judgement_json.evaluate(p.tree, facts, p.cfg)
@@ -581,7 +581,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
-    warn(*notes, *decision_kinds.warnings(p.cfg.judgement_answered))
+    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
@@ -629,7 +629,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     If a model has components, also print possible nested maps.
     """
     cfg = config.load(_root(args))
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     if not facts:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
@@ -694,7 +694,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
     p = _project(args)
     if _empty(p):
         return STALE
-    facts = extract.read_facts(p.cfg.facts_path)
+    facts = facts_file.read_facts(p.cfg.facts_path)
     code = OK
     for m in p.tree.maps:
         # A card without a position is placed for this look, as `systemap

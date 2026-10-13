@@ -202,15 +202,17 @@ JUDGEMENT = {
     "unknown surface": Lesson(
         means=(
             "The language adapter could not read part of the source. Or, it could not find "
-            "the target of an entry point, an import, or a configuration file."
+            "the target of an entry point, an import, or a configuration file. If the parser "
+            "could not read a full file, the line gives the parser version."
         ),
         why=(
             "If the facts omit an export or import, the public interface or its "
             "connections can be incorrect."
         ),
         do=(
-            "Read the source excerpt. Add parser support for the syntax, or remove "
-            "unrelated files from the source roots."
+            "Read the source excerpt. If the line gives a parser version, use a parser version "
+            "that can read the syntax. Or, change the parser to read the syntax. "
+            "Or, remove the files that are not part of the system from the source roots."
         ),
     ),
 }

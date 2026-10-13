@@ -25,13 +25,14 @@ EXPORTED_FUNCTION_NODES = FUNCTION_NODES | {
     "generator_function",
     "arrow_function",
 }
-TYPE_NODES = {
-    "class_declaration",
-    "abstract_class_declaration",
-    "interface_declaration",
-    "type_alias_declaration",
-    "enum_declaration",
+CLASS_NODES = {"class_declaration", "abstract_class_declaration"}
+# A type declaration that is not a class goes into `types`, with its category.
+TYPE_CATEGORIES = {
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type_alias",
+    "enum_declaration": "enum",
 }
+TYPE_NODES = CLASS_NODES | set(TYPE_CATEGORIES)
 # `namespace N {}` and `module N {}` declare the same kind of object.
 NAMESPACE_NODES = {"internal_module", "module"}
 
@@ -87,11 +88,15 @@ def _type_record(node: Node) -> tuple[dict[str, Any], bool]:
     heritage = next(
         (child for child in node.named_children if child.type == "class_heritage"), None
     )
-    is_error = node.type in (
-        "class_declaration",
-        "abstract_class_declaration",
-    ) and "Error" in _text(heritage)
+    is_error = node.type in CLASS_NODES and "Error" in _text(heritage)
     return {"name": public, "methods": _public_methods(node)}, is_error
+
+
+def _type_kind(node: Node, is_error: bool) -> str:
+    """Give the `names` kind of a type declaration: `error`, `class`, or `type`."""
+    if is_error:
+        return "error"
+    return "class" if node.type in CLASS_NODES else "type"
 
 
 def _binding_names(node: Node | None) -> list[str]:
@@ -128,7 +133,7 @@ def _declaration_kinds(declaration: Node) -> dict[str, str]:
         return {name: "function"} if name else {}
     if declaration.type in TYPE_NODES:
         record, is_error = _type_record(declaration)
-        return {record["name"]: "error" if is_error else "class"}
+        return {record["name"]: _type_kind(declaration, is_error)}
     if declaration.type in NAMESPACE_NODES:
         return _namespace_kinds(declaration)
     if declaration.type == "lexical_declaration":
@@ -316,6 +321,7 @@ def _add_declaration(
     functions: list[dict[str, str]],
     classes: list[dict[str, Any]],
     errors: list[dict[str, Any]],
+    types: list[dict[str, Any]],
     constants: list[dict[str, str]],
     names: list[dict[str, str]],
     default: bool,
@@ -325,8 +331,12 @@ def _add_declaration(
         return True
     if declaration.type in TYPE_NODES:
         record, is_error = _type_record(declaration)
-        (errors if is_error else classes).append(record)
-        names.append({"name": record["name"], "kind": "error" if is_error else "class"})
+        kind = _type_kind(declaration, is_error)
+        if kind == "type":
+            types.append({**record, "category": TYPE_CATEGORIES[declaration.type]})
+        else:
+            (errors if is_error else classes).append(record)
+        names.append({"name": record["name"], "kind": kind})
         return True
     if declaration.type in NAMESPACE_NODES:
         if _add_namespace(declaration, names):
@@ -468,6 +478,7 @@ def _record_declared_export(
         surface["functions"],
         surface["classes"],
         surface["errors"],
+        surface["types"],
         surface["constants"],
         surface["names"],
         default,
@@ -545,7 +556,7 @@ def _syntax(node: Node, *, omit_body: bool = False) -> str:
 
 
 def _type_definition(node: Node) -> str:
-    if node.type not in ("class_declaration", "abstract_class_declaration"):
+    if node.type not in CLASS_NODES:
         return _syntax(node)
     body = node.child_by_field_name("body")
     if body is None:
@@ -696,6 +707,7 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     functions: list[dict[str, str]] = []
     classes: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    types: list[dict[str, Any]] = []
     constants: list[dict[str, str]] = []
     names: list[dict[str, Any]] = []
     unknown: list[dict[str, Any]] = []
@@ -707,6 +719,7 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "functions": functions,
         "classes": classes,
         "errors": errors,
+        "types": types,
         "constants": constants,
         "names": names,
         "unknown": unknown,
@@ -718,6 +731,7 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "functions": functions,
         "classes": classes,
         "errors": errors,
+        "types": types,
         "constants": constants,
         "names": names,
         "unknown": unknown,

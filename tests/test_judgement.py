@@ -11,7 +11,7 @@ import fixture_workspace
 import pytest
 from conftest import Sample, init_two_cards, sample_model, write_tree
 
-from systemap import config, extract, judgement, nest, source_facts
+from systemap import config, extract, facts_file, judgement, nest, source_facts
 from systemap.cli import main
 from systemap.config import Answer
 from systemap.model import Component, Flow, Journey, Layer, Meaning, Model, Region, Step
@@ -263,7 +263,7 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
     assert main(["--root", str(tmp_path), "extract"]) == 0
     cfg = config.load(tmp_path)
     tree = nest.load(cfg)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     lines = judgement.run_tree(tree, facts)
     crossing = next(line for line in lines if line.startswith("crossing import: "))
     before = judgement.evidence_for_tree(tree, facts, tmp_path, lines)

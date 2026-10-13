@@ -28,8 +28,8 @@ from systemap import (
     decision_kinds,
     delta,
     evidence,
-    extract,
     extraction,
+    facts_file,
     history,
     jev,
     journeys,
@@ -80,7 +80,7 @@ def _one(provider: DecisionProvider, question: decision.Question, label: str) ->
 
 
 def _facts(cfg: config.Config) -> dict[str, Any] | None:
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     if not facts:
         print(f"No facts are available at {cfg.rel(cfg.facts_path)}\nrun: systemap extract")
         return None
