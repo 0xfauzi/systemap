@@ -306,7 +306,7 @@ def test_the_option_and_the_configuration_select_openai(
     assert by_option > 0
     (two_cards / ".systemap/openai-cache.json").unlink()
     toml = two_cards / "systemap.toml"
-    toml.write_text(toml.read_text() + '\n[decision]\nprovider = "openai"\n')
+    toml.write_text(toml.read_text() + '\n[decisions]\nprovider = "openai"\n')
     assert _run(two_cards, "audit") == 0
     assert len(counted.requests) == 2 * by_option
     assert _run(two_cards, "audit", "--provider", "jev") == 1
@@ -317,9 +317,27 @@ def test_the_option_and_the_configuration_select_openai(
 
 def test_an_incorrect_provider_name_is_a_configuration_error(two_cards: Path) -> None:
     toml = two_cards / "systemap.toml"
-    toml.write_text(toml.read_text() + '\n[decision]\nprovider = "other"\n')
-    with pytest.raises(ConfigError, match='decision.provider must be "jev" or "openai"'):
+    toml.write_text(toml.read_text() + '\n[decisions]\nprovider = "other"\n')
+    with pytest.raises(ConfigError, match='decisions.provider must be "jev" or "openai"'):
         load_config(two_cards)
+
+
+def test_the_old_decision_table_names_the_decisions_provider_key(two_cards: Path) -> None:
+    """Acceptance: a `[decision]` table gives an error that names `[decisions] provider`."""
+    toml = two_cards / "systemap.toml"
+    toml.write_text(toml.read_text() + '\n[decision]\nprovider = "openai"\n')
+    with pytest.raises(
+        ConfigError, match=r"does not read the \[decision\] table\. Use \[decisions\] provider"
+    ):
+        load_config(two_cards)
+
+
+def test_one_decisions_table_has_the_provider_and_the_limit(two_cards: Path) -> None:
+    """Acceptance: `[decisions]` gives the provider and `max_contradicted` together."""
+    toml = two_cards / "systemap.toml"
+    toml.write_text(toml.read_text() + '\n[decisions]\nprovider = "openai"\nmax_contradicted = 2\n')
+    loaded = load_config(two_cards)
+    assert (loaded.decision_provider, loaded.max_contradicted) == ("openai", 2)
 
 
 def test_a_question_type_without_a_measured_value_sends_nothing(

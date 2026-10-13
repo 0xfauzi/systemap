@@ -62,16 +62,27 @@ def _touches(journey: Journey, card_id: str) -> bool:
     )
 
 
-def _claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
-    """Collect semantic claims that make a new source review necessary after changes."""
+def _location(ref: str) -> str:
+    """Give a source record without its source digest: `module[:symbol]`."""
+    return ref.rpartition("@")[0] or ref
+
+
+def _claims(
+    card: Component, model: Model, meaning: Meaning, reviews: bool = True
+) -> dict[str, Any]:
+    """Collect semantic claims that make a new source review necessary after changes.
+
+    With `reviews` false, the flows have no review digest, and the source records of the
+    flows have no source digest. These digests record an examination, not a claim.
+    """
     flows = [
         (
             flow.src,
             flow.dst,
             flow.artifact,
             flow.kind,
-            flow.source_refs,
-            flow.review_digest,
+            flow.source_refs if reviews else tuple(_location(ref) for ref in flow.source_refs),
+            flow.review_digest if reviews else "",
             meaning.relations.get(flow.edge, ""),
         )
         for flow in model.flows
@@ -102,6 +113,16 @@ def _claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
         "journeys": sorted(journeys, key=lambda journey: journey["id"]),
         "invariants": sorted(invariants, key=lambda invariant: invariant["n"]),
     }
+
+
+def claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
+    """Give the map claims of a component without the review values.
+
+    The claims are the component fields, its plain name, and the flows, sequences, and
+    invariants that name it. `source_review`, the flow review digests, and the source
+    digests in the flow source records are not claims.
+    """
+    return _claims(card, model, meaning, reviews=False)
 
 
 def digest(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any]) -> str | None:

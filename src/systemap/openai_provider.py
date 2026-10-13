@@ -3,7 +3,7 @@
 `OpenAIProvider` implements `systemap.decision.DecisionProvider` on the OpenAI
 Decisions API (public beta): POST https://api.openai.com/v1/decisions.
 Calls use `OPENAI_API_KEY`. The provider operates only when the user selects it
-(`--provider openai` or `[decision] provider = "openai"`). The key alone does not
+(`--provider openai` or `[decisions] provider = "openai"`). The key alone does not
 select it.
 
 A request has one `input` text and a list of questions. The input is the JSON text of

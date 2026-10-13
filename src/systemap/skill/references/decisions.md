@@ -50,8 +50,9 @@ Each decision request has an `id`. If the claim does not change, the `id` stays 
 - Stop at `unknown`. An unknown decision request does not show that the claim is correct.
   Do not send a verdict for it. Give the claim and your last summary to the maintainer.
 - After one `insufficient_evidence` verdict, the decision request becomes `unknown`.
-- After `[decisions] max_contradicted` verdicts of `contradicted` for the same claim, the decision request becomes `unknown`. The default is 3.
-- If the claim changes, the decision request becomes pending again, with zero `contradicted` verdicts.
+- After `[decisions] max_contradicted` verdicts of `contradicted` for the same target, the decision request becomes `unknown`. The default is 3.
+  A change of the map claim does not set the count to zero.
+- If a source file of the target changes, the decision request becomes pending again, with zero `contradicted` verdicts.
 - systemap rejects `supported` for the source review of a component if a flow of that component is `contradicted` or `unknown`. Correct the flow first.
 
 ## Decision store

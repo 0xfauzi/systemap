@@ -9,13 +9,17 @@ Acceptance values:
    `current`, and `judgement --json` gives one fewer `stale source review` line.
 3. A valid `supported` result for an open judgement line closes that line in
    `judgement --strict`. The answer keeps the citations.
-4. Three `contradicted` results for one claim make the request `unknown`. A change of the
-   claim makes the request pending again, with zero attempts.
+4. Three `contradicted` results for one target make the request `unknown`, also with a map
+   change between each result. A map change does not make the unknown request pending.
+   A change of the source of the target makes the request pending again, with zero
+   attempts.
 5. One `insufficient_evidence` result makes the request `unknown` at once.
 6. Acceptance values 1 to 5 hold for a Python fixture and a TypeScript fixture.
 7. `[judgement] require_reviews = true` makes `judgement --strict` fail on a missing source
    review. The JSON output gives the setting. The default is false.
 8. The IDs of `decisions pending` are the same in a second call if no claim changes.
+9. The store identity of a judgement request is the finding kind and the names in the line.
+   If two current lines have the same kind and names, the identity of each is its line.
 
 The tests send no request to a model. They write the results that an agent would write.
 """
@@ -261,13 +265,14 @@ def test_supported_closes_a_judgement_line(
 def test_three_contradicted_results_make_the_request_unknown(
     project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance 4 and 6: unknown after three results, and pending again after a claim change."""
+    """Acceptance 4 and 6: a map change between the results does not reset the count."""
     card, _name, _new = CASES[language(project)]
     for attempt in (1, 2, 3):
         request = of_type(pending(project, capsys), "source_review", card)
         assert request["attempts"] == attempt - 1
         code, out, err = submit(project, capsys, result(request, "contradicted"))
         assert code == 0, err
+        change_claim(project, card)
     assert "unknown" in out and of_type_absent(pending(project, capsys), card)
     code, out, _err = run(project, capsys, "decisions", "status", "--json")
     status = json.loads(out)
@@ -276,9 +281,26 @@ def test_three_contradicted_results_make_the_request_unknown(
     code, text, _err = run(project, capsys, "judgement")
     assert f"unknown request source_review:{card}@" in text
     assert "correct" not in text.split("unknown request", 1)[1].split("\n")[0]
-    change_claim(project, card)
+    change_source(project, capsys)
     request = of_type(pending(project, capsys), "source_review", card)
     assert request["attempts"] == 0
+
+
+def test_the_store_identity_of_a_judgement_line_is_its_kind_and_names(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 9 and 6."""
+    lines = {
+        r["target"]: r["identity"] for r in pending(project, capsys) if r["type"] == "judgement"
+    }
+    if language(project) == "python":
+        line = "single module: Reader contains only pkg.reader"
+        assert lines[line] == "single module: Reader pkg.reader"
+    else:
+        alone = "entry point web (console script) has no sequence (component Application)"
+        assert lines[alone] == "entry point: Application"
+        same = [line for line in lines if "in acme.web.index has no sequence" in line]
+        assert len(same) == 3 and all(lines[line] == line for line in same)
 
 
 def test_insufficient_evidence_makes_the_request_unknown(
@@ -302,15 +324,22 @@ def of_type_absent(requests: list[dict[str, Any]], card: str) -> bool:
 
 
 def change_claim(root: Path, card: str) -> None:
-    """Change the `does` sentence of the component in the model file."""
+    """Add a word to the `does` sentence of the component in the model file."""
+    model = nest.load(config.load(root)).top.model.component(card)
+    assert model is not None
     path = root / "map" / "model.py"
     text = path.read_text(encoding="utf-8")
-    old = {
-        "Reader": "Reads the input and turns it into a request.",
-        "Application": "Serves a user through the command line and web view.",
-    }[card]
-    assert old in text
-    path.write_text(text.replace(old, old.replace(".", " again.")), encoding="utf-8")
+    assert f'does="{model.does}"' in text
+    new = model.does.removesuffix(".") + " again."
+    path.write_text(text.replace(f'does="{model.does}"', f'does="{new}"'), encoding="utf-8")
+
+
+def change_source(root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Change the first source file of the component, and write the facts again."""
+    _card, name, new = CASES[language(root)]
+    path = root / name
+    path.write_text(new or path.read_text(encoding="utf-8") + "\nexport const added = 1;\n")
+    assert run(root, capsys, "extract")[0] == 0
 
 
 def test_require_reviews_makes_a_missing_review_a_finding(
