@@ -1,6 +1,7 @@
 """The placement writer writes calculated positions, boxes, and the canvas into the model file.
 
-It changes only the values of x, y, box, and canvas arguments. It keeps all other bytes.
+It changes only the values of x, y, box, and canvas arguments. It keeps all other text.
+It writes LF line ends and no byte order mark, on each operating system.
 After the write, it loads the file again. It compares all positions, boxes, and the canvas
 with the calculated values. If it cannot load the file or a value is different, it
 restores the previous file bytes and gives an error.
@@ -218,7 +219,10 @@ def write(
     PlaceError.
     """
     raw = path.read_bytes()
-    path.write_text(written(raw.decode("utf-8-sig"), placement), encoding="utf-8", newline="\n")
+    # The text gets LF line ends, as with universal newlines. Thus the command writes a
+    # CRLF file from a Windows checkout with LF line ends.
+    source = raw.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
+    path.write_text(written(source, placement), encoding="utf-8", newline="\n")
     try:
         wrong = unwritten(load(path, label), expected)
     except Exception as exc:

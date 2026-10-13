@@ -24,7 +24,7 @@ def write_atomic(path: Path, text: str) -> None:
     """Write the text to a temporary file of this writer. Then replace the path with it."""
     handle, name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".tmp")
     try:
-        with os.fdopen(handle, "w", encoding="utf-8") as out:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
             out.write(text)
         os.replace(name, path)
     except BaseException:

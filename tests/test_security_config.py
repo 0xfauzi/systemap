@@ -114,8 +114,10 @@ def test_a_package_root_outside_the_repository_is_a_configuration_error(
     rel = {"absolute": str(outside), "relative": "../outside/pkg", "symbolic link": "pkg"}[form]
     if form == "symbolic link":
         (root / "pkg").symlink_to(outside, target_is_directory=True)
+    # A literal TOML key, because a Windows path has backslashes. In a basic TOML string,
+    # "\U" starts an escape, and the file is not TOML.
     (root / "systemap.toml").write_text(
-        f'language = "python"\n[package_roots]\n"{rel}" = "pkg"\n', encoding="utf-8"
+        f'language = "python"\n[package_roots]\n\'{rel}\' = "pkg"\n', encoding="utf-8"
     )
     with pytest.raises(config.ConfigError, match="not in the repository"):
         config.load(root)
@@ -138,7 +140,9 @@ def test_the_facts_cache_does_not_use_a_shared_temporary_name(repo: Path) -> Non
     assert path.is_file()
     assert facts["built_at_commit"] == sha
     left = {p.name for p in path.parent.iterdir()}
-    assert left == {path.name, path.with_suffix(".tmp").name}, "no temporary file stays"
+    # The lock file of the facts cache stays. It is not a temporary file.
+    expected = {path.name, path.with_suffix(".tmp").name, history.lock_of(cfg).name + ".lock"}
+    assert left == expected, "no temporary file stays"
 
 
 # ---- model-1: a nested map ID that becomes an output path --------------------------

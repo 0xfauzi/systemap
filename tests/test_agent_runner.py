@@ -66,10 +66,33 @@ def test_a_large_error_output_keeps_only_its_end(tmp_path: Path) -> None:
     assert peak < 4 * agent.OUTPUT_CAP, peak
 
 
+# The fixture agent obeys the protocol: it reads and writes UTF-8 bytes. The Python text
+# streams use the locale encoding on Windows, thus the fixture does not use them.
+UPPER = (
+    "import sys\n"
+    "text = sys.stdin.buffer.read().decode('utf-8')\n"
+    "sys.stdout.buffer.write(text.upper().encode('utf-8'))\n"
+)
+
+
 def test_output_below_the_limit_is_the_answer(tmp_path: Path) -> None:
     """The fixture agent writes its stdin back. The answer is that text, unchanged."""
-    code = "import sys\nsys.stdout.write(sys.stdin.read().upper())\n"
-    assert agent.shell_run(fixture_agent(code), "réponse", tmp_path, 60.0) == "RÉPONSE"
+    assert agent.shell_run(fixture_agent(UPPER), "réponse", tmp_path, 60.0) == "RÉPONSE"
+
+
+def test_the_question_and_the_answer_are_utf8_in_a_different_locale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """win-1: the acceptance value is "RÉPONSE" and the UTF-8 bytes of "réponse" on stdin.
+
+    The agent process has the cp1252 encoding for its text streams, as on Windows.
+    The runner sends UTF-8 bytes and reads UTF-8 bytes, whatever the locale."""
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1252")
+    assert agent.shell_run(fixture_agent(UPPER), "réponse", tmp_path, 60.0) == "RÉPONSE"
+    echo = "import sys\nsys.stdout.write(sys.stdin.buffer.read().hex())\n"
+    assert agent.shell_run(fixture_agent(echo), "réponse", tmp_path, 60.0) == (
+        "réponse".encode().hex()
+    )
 
 
 def test_a_failed_agent_gives_the_end_of_its_error_output(tmp_path: Path) -> None:

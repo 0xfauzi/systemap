@@ -36,6 +36,7 @@ from systemap import (
     model_load,
     model_write,
     nest,
+    source_text,
 )
 from systemap.config import ArgumentError, ConfigError
 from systemap.model import Flow, Meaning, Model
@@ -205,7 +206,8 @@ def _definition(m: nest.Map, target: Target) -> tuple[Path, str, ast.Call]:
     """Find the one literal call that defines the target in the model files of the map."""
     found: list[tuple[Path, str, ast.Call]] = []
     for path in model_load.files(m.path, m.rel):
-        source = path.read_bytes().decode("utf-8-sig")
+        # The text has LF line ends. Thus the written model has LF line ends.
+        source = source_text.decode(path.read_bytes())
         tree = ast.parse(source, str(path))
         found += [
             (path, source, call)
