@@ -571,7 +571,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     result = judged.result
     detail = judgement.crossing_detail_tree(p.tree, facts) if args.verbose else None
     result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
-    say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
+    say(*judgement.report(result, detail, args.kind or "", not args.brief, judged.causes))
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))

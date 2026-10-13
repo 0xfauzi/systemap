@@ -10,7 +10,7 @@ from typing import Any
 
 from tree_sitter import Node
 
-from systemap.typescript_syntax import _text, string_value
+from systemap.typescript_syntax import _text, specifier_name, string_value
 
 # The tokens that can follow `export type` in `export type * from` and
 # `export type * as name from`.
@@ -84,7 +84,8 @@ def export_specifiers(node: Node) -> list[tuple[str, str, bool]]:
     """This function gives the local name, the public name, and the type-only condition of
     each name in the export clause of a statement.
 
-    `export type { A }` and `export { type A }` give a type-only name.
+    `export type { A }` and `export { type A }` give a type-only name. A name can be a
+    string: `export { a as 'module.exports' }` gives the public name `module.exports`.
     """
     clause = next((child for child in node.named_children if child.type == "export_clause"), None)
     if clause is None:
@@ -92,14 +93,11 @@ def export_specifiers(node: Node) -> list[tuple[str, str, bool]]:
     statement_type_only = _has_type_keyword(node)
     out: list[tuple[str, str, bool]] = []
     for item in (child for child in clause.named_children if child.type == "export_specifier"):
-        identifiers = [
-            child
-            for child in item.named_children
-            if child.type in ("identifier", "type_identifier")
-        ]
-        if identifiers:
+        local = specifier_name(item.child_by_field_name("name"))
+        alias = item.child_by_field_name("alias")
+        if local:
             type_only = statement_type_only or _has_type_keyword(item)
-            out.append((_text(identifiers[0]), _text(identifiers[-1]), type_only))
+            out.append((local, specifier_name(alias) if alias else local, type_only))
     return out
 
 

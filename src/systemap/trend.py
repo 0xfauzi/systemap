@@ -188,8 +188,9 @@ def report(windows: list[Window], root: Path, since: str, every: int, top: int) 
     """This function formats the largest change windows and their source commits."""
     moved = [w for w in windows if w.size]
     head = (
-        f"history: {len(windows) + 1} samples since {since}, one every {every} days. "
-        f"{len(moved)} of {len(windows)} windows changed the map."
+        f"history: {len(windows) + 1} samples since {since}. The minimum interval between "
+        f"two adjacent samples is {every} days, but the interval before the ref can be "
+        f"smaller. {len(moved)} of {len(windows)} windows changed the map."
     )
     if not moved:
         return [
