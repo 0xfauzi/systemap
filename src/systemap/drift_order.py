@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import re
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -174,16 +175,24 @@ def files_of(card: Component, facts: dict[str, Any]) -> list[str]:
     return sorted(path for path in found if isinstance(path, str) and path)
 
 
+_DIGEST = re.compile(r"[0-9a-f]{64}")
+_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+
+
 def reviewed_commit(root: Path, folder: str, digest: str) -> str | None:
     """Give the last commit that added the digest below the folder, or None.
 
     The commit must contain the digest below the folder. Without Git, the result is None.
+    The digest comes from the model file of the repository. A value that is not a digest
+    gives None, so that Git never reads a model value as an option.
     """
+    if not _DIGEST.fullmatch(digest):
+        return None
     try:
         sha = history.git(root, "log", f"-S{digest}", "-1", "--format=%H", "--", folder).strip()
-        if not sha:
+        if not _SHA.fullmatch(sha):
             return None
-        history.git(root, "grep", "-q", "-F", digest, sha, "--", folder)
+        history.git(root, "grep", "-q", "-F", "-e", digest, "--end-of-options", sha, "--", folder)
     except (delta.DeltaError, OSError):
         return None
     return sha
