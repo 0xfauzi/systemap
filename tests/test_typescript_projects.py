@@ -287,7 +287,7 @@ def test_tsconfig_inputs_and_source_paths_use_the_same_skip_rule(tmp_path: Path)
     compiler = typescript_config.load_typescript_config(tmp_path)
     inputs = sorted(
         path.relative_to(tmp_path.resolve()).as_posix()
-        for path in typescript_config.input_files(compiler)
+        for path in typescript_config.input_files(compiler, tmp_path)
     )
     assert inputs == ["src/build/compile.ts", "src/dist/pack.ts", "src/main/cli.ts"]
     facts = build(tmp_path)

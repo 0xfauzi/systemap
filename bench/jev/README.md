@@ -2844,3 +2844,22 @@ A new `draft.py` result can be different from the recorded result. The script wa
 
 `drift_head.py` operates when Python imports it. The `repo-maintenance-*` folders in `bench/scratch` are necessary.
 Without these folders, the import stops with `StopIteration`. With these folders, the import completed.
+
+## Does TypeScript source discovery stay fast with a large node_modules folder? (2026-10-13)
+
+`bench/typescript_discovery.py` makes two fixtures with 40 modules in the package root `packages/web`.
+One fixture also has 40,000 files in `packages/web/node_modules`.
+The acceptance value was written before the change: the median `extract.build` time with node_modules must be at most 1.2 times the time without node_modules.
+Each value is the median of 5 runs on one macOS computer with Python 3.11.10.
+
+| revision | build without node_modules (s) | build with node_modules (s) | ratio | `source_paths` with node_modules (s) |
+|---|---|---|---|---|
+| `origin/main` (d4b1514), first run | 0.0269 | 0.317 | 11.784 | 0.2842 |
+| `origin/main` (d4b1514), second run | 0.0345 | 0.4325 | 12.536 | not recorded |
+| `origin/main` (d4b1514), third run | 0.0343 | 0.3859 | 11.251 | not recorded |
+| `fix/ts-projects`, first run | 0.0365 | 0.0372 | 1.019 | 0.0004 |
+| `fix/ts-projects`, second run | 0.0369 | 0.0372 | 1.008 | not recorded |
+
+On `origin/main`, `TypeScriptLanguage.source_paths` did one `rglob` walk for each source suffix, and each walk went into node_modules.
+The change uses `source_files`, which does not go into the `SOURCE_SKIP` folders.
+The result satisfies the acceptance value.
