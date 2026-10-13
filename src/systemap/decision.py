@@ -151,15 +151,23 @@ class Thresholds:
 
 # The question type of each threshold, for the reason text.
 QUESTION_TYPES = {
-    "misfold_below": "jev mis-fold",
-    "owner_at": "jev owner",
-    "sentence_below": "jev sentence",
-    "flow_below": "jev flow",
-    "governs_at": "jev governs",
-    "same_at": "suggest --jev",
-    "move_at": "the move question of delta --jev",
+    "misfold_below": "decision mis-fold",
+    "owner_at": "decision owner",
+    "sentence_below": "decision sentence",
+    "flow_below": "decision flow",
+    "governs_at": "decision governs",
+    "same_at": "suggest --decide",
+    "move_at": "the move question of delta --decide",
     "plan_cut": "plan",
 }
+
+# The name of each provider in printed text.
+LABELS = {"jev": "Jev", "openai": "OpenAI"}
+
+
+def label(provider: str) -> str:
+    """Give the name of a provider for printed text."""
+    return LABELS.get(provider, provider)
 
 
 # The Jev values came from five first maps in bench/scratch, recorded in bench/jev.

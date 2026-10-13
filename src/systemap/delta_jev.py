@@ -1,17 +1,18 @@
-"""Ask Jev about a delta, and print its answers as suggestions.
+"""Ask the decision provider about a delta, and print its answers as suggestions.
 
-Jev gets two types of questions:
+The provider gets two types of questions:
 
 - Which new module did a removed module become? Delta asks only about removed modules
   that its own rules left unpaired. A pick at confidence MOVE_AT or more prints as
-  a `jev move` line.
+  a `decision move` line.
 - Which component has the function of a module that no component claims? Delta takes
   these modules from the `module` field of its lines. An answer prints as a
-  `jev owner` line.
+  `decision owner` line.
 
-A Jev answer is a suggestion for source examination, not evidence. It does not change
-the delta lines or the exit code. Thus a run with Jev, a run without
-a key, and a run where Jev does not answer give the same result.
+A provider answer is a suggestion for source examination, not evidence. It does not
+change the delta lines or the exit code. Thus a run with a provider, a run without
+a key, and a run where the provider does not answer give the same result.
+The printed text names the provider that gave the answers (`decision.label`).
 If there is no question, no client is made and no message prints.
 
 The questions and the answers use the provider records in `systemap.decision`.
@@ -27,7 +28,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import audit, decision, explain, jev, moves, nest, providers, source_facts
+from systemap import (
+    audit,
+    decision,
+    decision_kinds,
+    explain,
+    jev,
+    moves,
+    nest,
+    providers,
+    source_facts,
+)
 from systemap.config import Config
 from systemap.decision import ChoiceQuestion, DecisionError, DecisionProvider, Thresholds
 from systemap.delta import Delta
@@ -41,15 +52,19 @@ NOT_MOVED = "not moved: deleted"
 # How many new modules the question offers: the measured cap.
 MOVE_OPTIONS = 250
 # The confidence of a printed pick is `move_at` in `systemap.decision.THRESHOLDS`.
-LABEL = "delta --jev"
+LABEL = "delta --decide"
 
 
 @dataclass(frozen=True)
 class Asked:
-    """Jev's suggestions for one delta, and the reasons for absent answers."""
+    """The provider suggestions for one delta, and the reasons for absent answers.
+
+    `provider` is the name of the provider that gave the suggestions.
+    """
 
     lines: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
+    provider: str = ""
 
 
 NOTHING = Asked()
@@ -141,7 +156,8 @@ def jev_moves(
         if choice == NOT_MOVED or confidence < move_at or choice in taken:
             continue
         taken.add(choice)
-        out[old] = (choice, f"read as the same module by Jev, confidence {confidence:.2f}")
+        by = decision.label(provider.name)
+        out[old] = (choice, f"read as the same module by {by}, confidence {confidence:.2f}")
     return out
 
 
@@ -210,13 +226,15 @@ def ask(
     lines: list[str] = []
     try:
         moved = jev_moves(base, head, counted) if left else {}
-        lines += [f"jev move: {old} -> {new} ({how})" for old, (new, how) in moved.items()]
+        move = decision_kinds.MOVE
+        lines += [f"{move}: {old} -> {new} ({how})" for old, (new, how) in moved.items()]
         lines += owner_suggestions(cfg, tree, head, owners, counted) if owners else []
     except DecisionError as exc:
-        return Asked(tuple(lines), (f"{LABEL}: {exc}", *reasons, *counted.errors()))
+        errors = (f"{LABEL}: {exc}", *reasons, *counted.errors())
+        return Asked(tuple(lines), errors, provider.name)
     finally:
         providers.usage_to_stderr(provider)
-    return Asked(tuple(lines), (*reasons, *counted.errors()))
+    return Asked(tuple(lines), (*reasons, *counted.errors()), provider.name)
 
 
 def _unmeasured(cfg: Config, moves_asked: bool, owners_asked: bool) -> list[str]:
@@ -248,18 +266,19 @@ class Counted:
 
 # ---- the report -------------------------------------------------------------------
 
-HEAD = "Jev suggestions. They do not change the delta lines or the exit code"
+HEAD = "{provider} suggestions. They do not change the delta lines or the exit code"
 
 
 def text(asked: Asked, teach: bool = True) -> list[str]:
     """Give the suggestions with one explanation per kind, then the reasons."""
     out: list[str] = []
     if asked.lines:
-        out.append(f"{HEAD} ({len(asked.lines)}):")
+        head = HEAD.format(provider=decision.label(asked.provider))
+        out.append(f"{head} ({len(asked.lines)}):")
     taught: set[str] = set()
     for line in asked.lines:
         out.append(f"  {line}")
-        kind = audit._bare(line).split(": ", 1)[0]
+        kind = decision_kinds.kind_of(line) or ""
         if teach and kind not in taught:
             taught.add(kind)
             out += explain.rows(kind)

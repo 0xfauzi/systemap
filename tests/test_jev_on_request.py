@@ -75,7 +75,7 @@ def test_a_key_without_a_jev_table_sends_zero_requests(
     assert "Jev suggestions" not in out
     # One hint tells how to select Jev.
     assert err.count("hint:") == 1
-    assert "--jev" in err and "[jev] enabled = true" in err
+    assert "--decide" in err and "[jev] enabled = true" in err
 
 
 def test_jev_enabled_true_sends_the_same_requests_as_before(
@@ -86,7 +86,7 @@ def test_jev_enabled_true_sends_the_same_requests_as_before(
     code, out, err = delta(renamed, capsys)
     assert [(m, p) for m, p, _ in counter.requests] == SELECTED
     assert code == 1
-    assert "jev move: pkg.ledger -> pkg.records_store" in out
+    assert "decision move: pkg.ledger -> pkg.records_store" in out
     assert "hint:" not in err
 
 
@@ -96,7 +96,7 @@ def test_the_jev_option_sends_requests_with_no_configuration(
     """Acceptance: with --jev and no [jev] table, delta sends the requests in SELECTED."""
     code, out, err = delta(renamed, capsys, "--jev")
     assert [(m, p) for m, p, _ in counter.requests] == SELECTED
-    assert "jev move: pkg.ledger -> pkg.records_store" in out
+    assert "decision move: pkg.ledger -> pkg.records_store" in out
     assert "hint:" not in err
 
 

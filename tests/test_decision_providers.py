@@ -129,7 +129,7 @@ def test_suggest_gives_no_pair_for_a_refusal(two_cards: tuple[Path, Refusing]) -
     assert facts is not None
     out = jev_cli.suggest_groups(cfg, facts, refusing)
     assert refusing.asked and all(q.name == "same" for q in refusing.asked)
-    assert out[0].startswith("suggest --jev: 2 groups from 1 questions about module pairs")
+    assert out[0].startswith("suggest --decide: 2 groups from 1 questions about module pairs")
     assert out[1] == "  no answer: the decision provider gave a refusal for 1 pair questions"
     assert out[2:] == ["  group 1 (1 modules): pkg.reader", "  group 2 (1 modules): pkg.writer"]
 
@@ -152,7 +152,7 @@ def test_delta_gives_no_move_and_no_owner_for_a_refusal(sample: Sample) -> None:
     assert owners == []
     assert [q.name for q in refusing.asked] == ["became", "owner"]
     assert counted.errors() == (
-        "delta --jev: the decision provider gave a refusal for 2 questions",
+        "delta --decide: the decision provider gave a refusal for 2 questions",
     )
 
 

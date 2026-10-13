@@ -21,8 +21,8 @@ The language policy in `references/language.md` applies to every changed name an
    It compares the changes with the map claims.
 
    Exit 0 means that the map is current. Exit 1 means that you must update the map.
-   With `--jev` and `TYPESAFE_API_KEY`, Jev can identify rewritten moves and suggest owners for unclaimed modules.
-   A key alone sends no question. `[jev] enabled = true` in `systemap.toml` selects Jev without `--jev`.
+   With `--decide` and the key of the provider, the decision provider can identify rewritten moves and suggest owners for unclaimed modules.
+   A key alone sends no question. `[jev] enabled = true` in `systemap.toml` selects the provider without `--decide`. `--jev` is the previous name of `--decide`.
    Before you accept a suggested move, read both source files.
 2. Act on the lines under `The map needs an update` in `map/model.py` and `systemap.toml`.
    Keep unaffected component assignments and positions.
@@ -82,7 +82,7 @@ If the source or the claims change after that, the finding opens again.
 | `structural evidence lost` | An import or configured mechanism is missing. | Examine the flow against current source. |
 | `source review` | Component source or claims changed. | Examine all claims before renewal of `source_review`. |
 | `move candidate` | Removed and added modules have the same public names without sufficient identity evidence. | Compare source. If the module task stayed the same, change the claim to the added module. If not, remove the claim. Then assign the added module. After that, no action is necessary for the line. |
-| `jev move`, `jev owner` | Jev suggests a move or an owner that delta did not find. | Read the source before you use the suggestion. These lines do not change the delta lines or the exit code. |
+| `decision move`, `decision owner` | The decision provider suggests a move or an owner that delta did not find. | Read the source before you use the suggestion. These lines do not change the delta lines or the exit code. |
 
 Lines under `No action is necessary for these changes` record changes for which no map action is necessary.
 A pattern-matched addition or removal can still have a separate source-review finding.

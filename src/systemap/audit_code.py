@@ -1,4 +1,4 @@
-"""Find the source lines where the modules of two components meet, for `jev flow`.
+"""Find the source lines where the modules of two components meet, for `decision flow`.
 
 The facts give the names that each module imports from another module. A named
 import gives the names directly. A whole-module import (`*`) and a default import

@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import config_decisions, model_load
+from systemap import config_decisions, decision_kinds, model_load
 from systemap import language as languages
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
@@ -93,7 +93,7 @@ LINE_KINDS = (
     "unknown surface",
 )
 # The kinds of line `systemap audit` prints; answered in the same list.
-AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev governs")
+AUDIT_KINDS = decision_kinds.KINDS
 
 
 class ConfigError(Exception):
@@ -634,13 +634,11 @@ def _answer_selector(form: str, value: Any, location: str) -> Answer:
             return Answer(items=(), reason="", crossing_into=name)
         return Answer(items=(), reason="", crossing_from=name)
     if form == "kind":
-        name = _answer_name(
-            value, f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
-        )
-        if name not in (*LINE_KINDS, *AUDIT_KINDS):
-            raise ConfigError(
-                f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
-            )
+        error = f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
+        name = _answer_name(value, error)
+        # A previous name of a decision kind stays correct for one release.
+        if name not in (*LINE_KINDS, *decision_kinds.AUDIT_NAMES):
+            raise ConfigError(error)
         return Answer(items=(), reason="", kind=name)
     name = _answer_name(value, f"{location} module_sdk must be an import name.")
     return Answer(items=(), reason="", module_sdk=name)

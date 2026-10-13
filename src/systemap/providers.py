@@ -19,18 +19,18 @@ import sys
 from collections.abc import Iterable, Sequence
 from typing import Protocol
 
-from systemap import decision, jev, jev_provider, openai_provider
+from systemap import decision, decision_kinds, jev, jev_provider, openai_provider
 from systemap.config import Config
 from systemap.config_decisions import PROVIDERS
 from systemap.decision import DecisionError, Question
 
 # The threshold of each audit question type.
 AUDIT_FIELDS = {
-    "jev mis-fold": "misfold_below",
-    "jev owner": "owner_at",
-    "jev sentence": "sentence_below",
-    "jev flow": "flow_below",
-    "jev governs": "governs_at",
+    decision_kinds.MISFOLD: "misfold_below",
+    decision_kinds.OWNER: "owner_at",
+    decision_kinds.SENTENCE: "sentence_below",
+    decision_kinds.FLOW: "flow_below",
+    decision_kinds.GOVERNS: "governs_at",
 }
 
 

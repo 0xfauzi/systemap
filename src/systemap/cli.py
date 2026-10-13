@@ -24,6 +24,7 @@ from systemap import (
     change,
     check,
     config,
+    decision_kinds,
     decisions_cli,
     delta,
     delta_jev,
@@ -556,6 +557,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
+    warn(*decision_kinds.warnings(p.cfg.judgement_answered))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -578,7 +580,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
-    warn(*notes)
+    warn(*notes, *decision_kinds.warnings(p.cfg.judgement_answered))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
@@ -605,14 +607,14 @@ def cmd_delta(args: argparse.Namespace) -> int:
     head = delta.facts_at(p.cfg, head_sha)
     base = delta.facts_at(p.cfg, compared)
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
-    # Jev answers are suggestions: they never change the lines or the exit code.
+    # Provider answers are suggestions: they never change the lines or the exit code.
     cfg = providers.chosen(p.cfg, args.provider)
-    selected = jev_cli.uses_jev(cfg, args.jev)
+    selected = jev_cli.uses_jev(cfg, args.decide)
     asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
-    if args.jev is None and not selected and d.added and d.removed:
+    if args.decide is None and not selected and d.added and d.removed:
         jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
 
@@ -630,7 +632,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     if not facts:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
-    if args.jev:
+    if args.decide:
         return jev_cli.cmd_suggest_jev(providers.chosen(cfg, args.provider), facts)
     say(*suggest_mod.lines(facts))
     if cfg.model_path.is_file():
@@ -1156,14 +1158,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the pull request comment to FILE. Without [delta] page_url, write no file.",
     )
     s.add_argument(
+        "--decide",
         "--jev",
+        dest="decide",
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(
-            "Ask Jev for possible module moves and owners of modules without components. "
-            "The answers are suggestions. They do not change the delta lines or the exit code. "
-            "Use --no-jev to send no request. Without --jev, delta sends questions to Jev "
-            "only if systemap.toml sets [jev] enabled = true and TYPESAFE_API_KEY is set."
+            "Ask the decision provider for possible module moves and owners of modules "
+            "without components. The answers are suggestions. They do not change the delta "
+            "lines or the exit code. Use --no-decide to send no request. Without --decide, "
+            "delta sends questions only if systemap.toml sets [jev] enabled = true and the "
+            "key of the provider is set. --jev and --no-jev are the previous names of these "
+            "options. They stay for one release."
         ),
     )
     providers.add_option(s)
@@ -1185,11 +1191,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_root(s)
     s.add_argument(
+        "--decide",
         "--jev",
+        dest="decide",
         action="store_true",
         help=(
-            "Use Jev answers about module pairs to make groups. This option must have "
-            "TYPESAFE_API_KEY."
+            "Use the answers of the decision provider about module pairs to make groups. "
+            "This option must have the key of the provider. --jev is the previous name of "
+            "this option. It stays for one release."
         ),
     )
     providers.add_option(s)
