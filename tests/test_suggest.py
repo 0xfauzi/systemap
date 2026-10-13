@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import fixture_workspace
 import pytest
@@ -146,3 +147,45 @@ def test_the_skill_states_the_target_and_runs_suggest_and_the_check_together() -
         '{ crossing = ["Page", "Figures", "Describe"]',
     ):
         assert form in second, form
+
+
+def _package_facts(packages: list[str]) -> dict[str, Any]:
+    """Two modules in each package, and one import from each package to the next."""
+    components: dict[str, Any] = {}
+    for n, pkg in enumerate(packages):
+        after = packages[(n + 1) % len(packages)]
+        components[f"{pkg}.one"] = {"package": pkg, "uses": {f"{after}.one": ["x"]}}
+        components[f"{pkg}.two"] = {"package": pkg}
+    return {"components": components}
+
+
+def test_no_two_proposals_get_one_id() -> None:
+    """change-16: the acceptance value is 0 repeated proposal IDs and 3 crossings.
+
+    `a.foo_bar` and `b.foo_bar` get their whole paths, `AFooBar` and `BFooBar`.
+    The short name of `c.a_foo_bar` is also `AFooBar`. Each import between two
+    packages must stay a crossing between two different IDs."""
+    facts = _package_facts(["a.foo_bar", "b.foo_bar", "c.a_foo_bar"])
+    groups, _alone = suggest.proposals(facts)
+    ids = [p.id for p in groups]
+    assert len(set(ids)) == len(ids) == 3, ids
+    assert len(suggest.crossings(facts, groups)) == 3, "each import crosses two proposals"
+
+
+@pytest.mark.parametrize(
+    "packages",
+    [
+        ["a.foo_bar", "b.foo_bar", "c.a_foo_bar"],
+        ["a_b.c", "a.b_c", "x.a_b_c"],
+        ["p.x", "q.x", "r.p_x", "s.p_x1", "t.p_x2"],
+        ["p.a.b", "q.a_b", "r.a.b", "a_b"],
+    ],
+)
+def test_two_different_packages_cannot_get_one_id(packages: list[str]) -> None:
+    """change-16: the acceptance value is one different ID for each package.
+
+    The IDs must not change when the packages come in a different order."""
+    ids = suggest.proposal_ids(packages)
+    assert sorted(ids) == sorted(packages)
+    assert len(set(ids.values())) == len(packages), ids
+    assert suggest.proposal_ids(list(reversed(packages))) == ids

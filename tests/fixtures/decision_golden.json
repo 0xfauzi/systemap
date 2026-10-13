@@ -245,13 +245,13 @@
    "11ed3a0edba946d55e0fe1b2de65f5e3cae1b249211c16fd797f20be88576128"
   ],
   "out": [
-   "plan <day>-read-the-input-in: 1 components this work will probably change",
+   "plan <day>-988d8c44c596-read-the-input-in: 1 components this work will probably change",
    "  Writer (0.96)",
    "      flow: Reader -> Writer (request)",
    "      sequence: input-to-output: An input becomes an output",
    "      rule: 1. The writer never reads the input itself.",
-   "  written to .systemap/plans/<day>-read-the-input-in.json",
-   "  after the work: systemap plan --check <day>-read-the-input-in --base <ref>"
+   "  written to .systemap/plans/<day>-988d8c44c596-read-the-input-in.json",
+   "  after the work: systemap plan --check <day>-988d8c44c596-read-the-input-in --base <ref>"
   ]
  },
  "suggest": {

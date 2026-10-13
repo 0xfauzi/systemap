@@ -287,6 +287,79 @@ def test_a_walk_the_map_cannot_hold_is_reported_and_the_model_is_left_alone(
     assert cfg.model_path.read_text(encoding="utf-8") == before
 
 
+def test_a_refused_answer_is_not_kept_in_the_agent_cache(
+    two_cards: Config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """change-8: the acceptance value is 2 agent calls in 2 runs, and exit 0 in run 2.
+
+    Run 1 gets an answer that the sequence validation refuses. Run 2 must ask the
+    agent again. It must not read the refused answer from the cache."""
+    cfg = with_agent(two_cards)
+    bad = {**ANSWER, "steps": [{**ANSWER["steps"][0], "edge": ["Writer", "Reader"]}]}
+    asked: list[str] = []
+
+    def run(command: str, question: str, cwd: Path, timeout: float) -> str:
+        asked.append(question)
+        return json.dumps(bad if len(asked) == 1 else ANSWER)
+
+    assert cmd_journeys(args_for(cfg), run_command=run) == 1
+    assert cmd_journeys(args_for(cfg), run_command=run) == 0
+    assert len(asked) == 2
+    assert "wrote read-and-write" in capsys.readouterr().out
+
+
+def test_an_accepted_answer_is_kept_in_the_agent_cache(
+    two_cards: Config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """change-8: the acceptance value is 1 agent call in 2 runs with the same request."""
+    cfg = with_agent(two_cards)
+    before = cfg.model_path.read_text(encoding="utf-8")
+    run, asked = answering(json.dumps(ANSWER))
+    assert cmd_journeys(args_for(cfg), run_command=run) == 0
+    cfg.model_path.write_text(before, encoding="utf-8")
+    assert cmd_journeys(args_for(cfg), run_command=run) == 0
+    assert len(asked) == 1
+    assert "1 cached answers" in capsys.readouterr().err
+
+
+def test_a_failed_request_gives_exit_1_and_names_the_request(
+    two_cards: Config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """change-10: the acceptance value is exit 1 and a line that names GET /write.
+
+    The request for GET /read gives a correct sequence. The request for GET /write
+    stops with AgentError. The command writes the correct sequence and fails."""
+    (two_cards.root / "pkg/writer.py").write_text(
+        "from fastapi import FastAPI\n\nfrom pkg.reader import read\n\napp = FastAPI()\n\n\n"
+        '@app.post("/write")\ndef write(request: str) -> str:\n    return read(request)\n',
+        encoding="utf-8",
+    )
+    assert main(["--root", str(two_cards.root), "extract"]) == 0
+    cfg = with_agent(two_cards)
+
+    def run(command: str, question: str, cwd: Path, timeout: float) -> str:
+        if "/write" in question and "/read" not in question:
+            raise agent.AgentError("The agent did not answer within 300s")
+        return json.dumps(ANSWER)
+
+    assert cmd_journeys(args_for(cfg), run_command=run) == 1
+    out = capsys.readouterr().out
+    assert "wrote read-and-write" in out
+    assert "the request for POST /write (route) did not complete: The agent did not answer" in out
+    assert any(j.id == "read-and-write" for j in nest.load(cfg).top.meaning.journeys)
+
+
+@pytest.mark.parametrize("limit", ["-1", "0"])
+def test_a_limit_below_one_is_an_option_error(
+    two_cards: Config, limit: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """change-23: the acceptance value is exit code 2 from the option parser."""
+    with pytest.raises(SystemExit) as stop:
+        main(["--root", str(two_cards.root), "journeys", "--limit", limit])
+    assert stop.value.code == 2
+    assert "1 or more" in capsys.readouterr().err
+
+
 def test_a_way_in_the_extractor_finds_is_the_one_the_agent_is_asked_about(
     two_cards: Config,
 ) -> None:

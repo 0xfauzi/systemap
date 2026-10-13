@@ -14,14 +14,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Any
 
-from systemap import delta, extraction
+from systemap import delta, extraction, file_write
 from systemap import language as languages
 from systemap.config import Config
 
@@ -63,20 +61,8 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
             pass
     facts = delta.facts_at(cfg, sha)
     path.parent.mkdir(parents=True, exist_ok=True)
-    _write_atomic(path, json.dumps(facts))
+    file_write.write_atomic(path, json.dumps(facts))
     return facts
-
-
-def _write_atomic(path: Path, text: str) -> None:
-    """Write the text to a temporary file of this writer. Then replace the path with it."""
-    handle, name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as out:
-            out.write(text)
-        os.replace(name, path)
-    except BaseException:
-        Path(name).unlink(missing_ok=True)
-        raise
 
 
 def git(root: Path, *args: str) -> str:

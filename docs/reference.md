@@ -254,6 +254,8 @@ A map without changes uses cached answers at no additional cost.
 A new model release causes new questions.
 If the model list is not available and the cache has every answer for the last known
 release, the command uses the cache. The usage line says so.
+Two commands can write the cache at the same time.
+A save holds a lock on the file `jev-cache.json.lock` and keeps the entries of the two commands.
 
 Audit answers use `[judgement] answered` with `item`, `items`, or a kind such as
 `"decision flow"`. `audit` reads only answers for the kinds in its report.
@@ -911,12 +913,17 @@ The projection includes components with probability of at least 0.05.
 The report includes flows, sequences, and rules for each component.
 It lists six of each, then gives a count.
 The projection is in `.systemap/plans/<id>.json`.
+The ID has three parts: the date, a digest of the full task, and the first four words of the task.
+The same task on the same date gives the same ID.
+If the plan file of the ID contains a different task, the command does not replace it. It exits 1 and gives the file.
 
 The measured threshold of 0.05 is in `bench/jev/plan_eval.py`.
 Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--check ID --base REF` compares the projection with changed components
   since `REF`. The default base is `origin/main`.
+  The current model gives the component of each module.
+  If the current model does not claim a removed module, the model at the `REF` commit gives its component.
   It exits 1 for changed components outside the plan.
 
 - `-` instead of a task reads stdin.
@@ -948,6 +955,13 @@ The command rejects a step with no authored flow and gives a finding.
 The command also rejects a step source record that does not resolve.
 It rejects a step source record in no module of an acting or measured component of the step.
 The command does not write that step.
+The agent cache keeps only an answer that gives an accepted sequence.
+Thus, after a rejected answer, the next command sends the question to the agent again.
+
+The agent can write no more than 200,000 bytes to stdout.
+If it writes more, the command stops the agent, and the request does not complete.
+If a request does not complete, the command writes the accepted sequences of the other requests.
+Then it names each request that did not complete and exits 1.
 
 Accepted sequences enter the model with `drafted=True`.
 The command writes them into the `JOURNEYS = (...)` tuple of the model.
@@ -957,7 +971,7 @@ removes the mark.
 
 By default, the command writes no more than three sequences.
 
-- `--limit N` writes no more than N sequences.
+- `--limit N` writes no more than N sequences. N must be 1 or more.
 
 - `--dry-run` lists proposed sequences without file changes.
 
