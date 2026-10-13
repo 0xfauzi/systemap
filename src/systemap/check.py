@@ -31,6 +31,7 @@ from systemap import (
     page,
     reexports,
     source_facts,
+    unknown_causes,
 )
 from systemap import language as languages
 from systemap.check_report import coverage_line as coverage_line
@@ -315,19 +316,24 @@ def names_not_known(c: Component, components: Mapping[str, Any]) -> bool:
     """Tell if the public names of the component are not known.
 
     A claimed module, or the module of a symbol claim, that the extractor could not read
-    or parse has names that are not known. Then a name that the facts do not give is not
-    known: it is not a pass and not a failure. The `source inventory unresolved` group
-    gives the module."""
+    or parse has names that are not known. A module with an unknown record of the cause
+    `reexport` also has names that are not known. Then a name that the facts do not give
+    is not known: it is not a pass and not a failure. The `source inventory unresolved`
+    group or the `unknown surface` group gives the module."""
     modules = [*claimed(c, components), *(m for m, _name in symbol_claims(c))]
-    return any(m in components and _not_parsed(components[m]) for m in modules)
+    return any(m in components and _names_unknown(components[m]) for m in modules)
 
 
-def _not_parsed(record: Mapping[str, Any]) -> bool:
-    """Tell if the adapter wrote that it could not read or parse all of the module.
+def _names_unknown(record: Mapping[str, Any]) -> bool:
+    """Tell if the adapter could not read or parse all of the module, or if the names of a
+    re-export of the module are not known.
 
     A record without a `completeness` record keeps the earlier check result."""
     state = record.get("completeness")
-    return isinstance(state, Mapping) and state.get("parsed") is False
+    if isinstance(state, Mapping) and state.get("parsed") is False:
+        return True
+    unknown = record.get("unknown") or []
+    return any(unknown_causes.of(item) == unknown_causes.REEXPORT for item in unknown)
 
 
 def _symbol_problem(
@@ -335,13 +341,13 @@ def _symbol_problem(
 ) -> str | None:
     """Give the problem of one symbol claim, or None for a correct claim.
 
-    An empty string tells that the claim is not known: the module did not parse, and the
-    facts do not give the name. The claim then gives no line."""
+    An empty string tells that the claim is not known: the names of the module are not
+    known (`_names_unknown`), and the facts do not give the name. The claim then gives no line."""
     symbol = f"{module}:{name}"
     if module not in components:
         return f"{c.id} has a symbol claim for {symbol} in a module missing from the facts."
     if name not in public_names(components[module]):
-        if _not_parsed(components[module]):
+        if _names_unknown(components[module]):
             return ""
         return f"{c.id} has a symbol claim for {symbol}, but {module} does not define it."
     if module not in owned:
