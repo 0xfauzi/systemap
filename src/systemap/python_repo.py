@@ -71,11 +71,13 @@ def package_dir(directory: Path) -> bool:
 
 
 def pyproject(root: Path) -> dict[str, Any]:
-    """Read pyproject.toml, or give an empty table if it is missing or not valid TOML.
+    """Read pyproject.toml, or give an empty table if it is missing.
 
     The function reads only a regular file in the root, with `repo_files`. A link out of
     the root, a FIFO, and a file that the function cannot read give a ConfigError with
-    the path and the cause. They are not a missing file.
+    the path and the cause. They are not a missing file. Text that is not valid TOML
+    gives a ConfigError with the parse error: an empty table would give a project without
+    scripts, workspace members, or name, and that result is not known.
     """
     path = root / PYPROJECT
     if not repo_files.present(path):
@@ -86,8 +88,8 @@ def pyproject(root: Path) -> dict[str, Any]:
         raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
     try:
         return tomllib.loads(text)
-    except tomllib.TOMLDecodeError:
-        return {}
+    except tomllib.TOMLDecodeError as exc:
+        raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
 
 
 def workspace_members(root: Path) -> list[Path]:

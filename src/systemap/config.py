@@ -27,7 +27,7 @@ from systemap import (
     repo_files,
 )
 from systemap import language as languages
-from systemap.config_paths import facts_file
+from systemap.config_paths import names as written_names
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
 from systemap.model import Meaning, Model
@@ -452,7 +452,7 @@ def load(root: Path) -> Config:
         tests_dirs = tests_directories(raw.get("tests_dir", []), where)
         delta_page_url = page_url(raw, where)
         writing = writing_profile(raw.get("writing"), where)
-        decided = {**config_decisions.read(raw, where), "facts_file": facts_file(raw, where)}
+        decided = {**config_decisions.read(raw, where), **written_names(raw, where)}
         decided["rules_unknown"] = config_decisions.rules_unknown(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc

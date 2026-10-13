@@ -316,8 +316,8 @@ def _hooks(group: str, entries: Any, components: dict[str, Any]) -> list[dict[st
 def read_pyproject(repo: Path) -> dict[str, Any]:
     """Read pyproject.toml with `python_repo.pyproject`.
 
-    A missing file or a file that is not valid TOML gives an empty table. A link out of
-    the repository and a FIFO give a ConfigError with the path and the cause.
+    A missing file gives an empty table. Text that is not valid TOML, a link out of the
+    repository, and a FIFO give a ConfigError with the path and the cause.
     """
     return python_repo.pyproject(repo)
 

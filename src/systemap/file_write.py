@@ -1,12 +1,21 @@
-"""Read, write, and lock a cache file or an output file.
+"""Read, write, and lock a cache file or an output file in a stated root folder.
 
-`read_text` reads only a regular file in the folder of the path. A link to a file in a
-different folder, a FIFO, and a device give `RefusedFile` with the path and the cause.
-Thus a read does not wait on a FIFO, and it does not read a file outside the folder.
+The root is the repository root, or the folder that `systemap live` serves. Each
+function examines the path before it reads, makes a folder, writes, or locks:
+
+- The path must be below the root, without a `..` part.
+- The nearest folder of the path that exists, after the resolution of links, must be in
+  the resolved root. Thus a cache folder or a parent folder that is a link out of the
+  root gives `RefusedFile`, and the function makes no folder outside the root.
+
+`read_text` reads only a regular file in the root. A link out of the root, a FIFO, and a
+device give `RefusedFile` with the path and the cause. Thus a read does not wait on a
+FIFO, and it does not read a file outside the root.
 
 `write_atomic` writes the text to a temporary file of this writer in the directory of
-the path. Then it replaces the path with that file. A reader gets the full previous
-file or the full new file. Two writers do not use the same temporary file.
+the path. Then it replaces the path with that file. A link at the path is replaced. The
+write does not go to the target of the link. A reader gets the full previous file or the
+full new file. Two writers do not use the same temporary file.
 
 `locked` holds an exclusive lock on the file `<path>.lock` while its `with` statement
 operates. A different process that tries to get the same lock waits. The operating
@@ -36,11 +45,10 @@ _LOCK_FLAGS = (
     | getattr(os, "O_BINARY", 0)
 )
 LINK = "it is a link"
-OUTSIDE = "it is a link to a file in a different folder"
 
 
 class RefusedFile(Exception):
-    """The command does not read or lock the file, because it is not a regular file."""
+    """The command does not read, write, or lock the file, because it is not in its root."""
 
     def __init__(self, path: Path, cause: str) -> None:
         super().__init__(
@@ -49,25 +57,56 @@ class RefusedFile(Exception):
         )
 
 
-def read_text(path: Path) -> str | None:
-    """Give the text of a regular file in the folder of the path, or None if it is missing.
+def _outside(root: Path) -> str:
+    return f"its resolved path is not in {root}"
 
-    A folder at the path is also missing. A link to a file in a different folder, a FIFO,
-    and a device give RefusedFile. A different read problem gives OSError.
+
+def confined(root: Path, path: Path) -> None:
+    """Refuse a path that is not below the root, or whose nearest folder is not in it.
+
+    The function gives RefusedFile. It does not make a folder.
     """
+    if not path.is_relative_to(root) or not repo_files.plain(path.relative_to(root).as_posix()):
+        raise RefusedFile(path, f"it is not below {root}, without a .. part")
+    folder = path.parent
+    while not os.path.lexists(folder) and folder != root:
+        folder = folder.parent
+    if not repo_files.inside(root, folder):
+        raise RefusedFile(path, _outside(root))
+
+
+def folder(root: Path, path: Path) -> None:
+    """Make the folder of the path in the root. Refuse a folder that is not in the root."""
+    confined(root, path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not repo_files.inside(root, path.parent):
+        raise RefusedFile(path, _outside(root))
+
+
+def read_text(root: Path, path: Path) -> str | None:
+    """Give the text of a regular file in the root, or None if it is missing.
+
+    A folder at the path is also missing. A link out of the root, a FIFO, and a device
+    give RefusedFile. A different read problem gives OSError.
+    """
+    confined(root, path)
     if not repo_files.present(path):
         return None
     try:
-        return repo_files.read_text(path.parent, path.name)
+        return repo_files.read_text(root, path.relative_to(root))
     except FileNotFoundError:
         return None
     except repo_files.RepoPathError as exc:
-        outside = path.is_symlink() and not repo_files.inside(path.parent, path)
-        raise RefusedFile(path, OUTSIDE if outside else str(exc)) from exc
+        cause = str(exc) if repo_files.inside(root, path) else _outside(root)
+        raise RefusedFile(path, cause) from exc
 
 
-def write_atomic(path: Path, text: str) -> None:
-    """Write the text to a temporary file of this writer. Then replace the path with it."""
+def write_atomic(root: Path, path: Path, text: str) -> None:
+    """Write the text to a temporary file of this writer. Then replace the path with it.
+
+    The folder of the path must be in the root. A link at the path is replaced.
+    """
+    folder(root, path)
     handle, name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
@@ -79,10 +118,13 @@ def write_atomic(path: Path, text: str) -> None:
 
 
 @contextmanager
-def locked(path: Path) -> Iterator[None]:
-    """Hold an exclusive lock on `<path>.lock` while the `with` statement operates."""
+def locked(root: Path, path: Path) -> Iterator[None]:
+    """Hold an exclusive lock on `<path>.lock` while the `with` statement operates.
+
+    The folder of the lock file must be in the root.
+    """
     lock = path.with_name(f"{path.name}.lock")
-    lock.parent.mkdir(parents=True, exist_ok=True)
+    folder(root, lock)
     descriptor = _open_lock(lock)
     try:
         _lock(descriptor)

@@ -139,6 +139,7 @@ def path_of(cfg: Config, plan: str) -> Path:
 def save(cfg: Config, projection: Projection) -> Path:
     """This function writes the projection. If the plan file of the ID has a different task,
     or if it is not a plan, the function gives PlanError and does not change the file.
+    The write replaces a link at the path. It does not write to the target of the link.
     """
     path = path_of(cfg, projection.id)
     if path.exists():
@@ -148,21 +149,18 @@ def save(cfg: Config, projection: Projection) -> Path:
                 f"{cfg.rel(path)} does not contain this task, and systemap did not replace it. "
                 "The file has a different task, or it is not a plan"
             )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(projection.as_json(), indent=1) + "\n", encoding="utf-8", newline="\n"
-    )
+    file_write.write_atomic(cfg.root, path, json.dumps(projection.as_json(), indent=1) + "\n")
     return path
 
 
 def load(cfg: Config, plan: str) -> dict[str, Any] | None:
     """Give the stored plan, or None if it is missing or not usable.
 
-    A link out of the plan folder, a FIFO, and a device give `file_write.RefusedFile`
-    with the cause. They do not give None.
+    A link out of the repository (at the file or at a folder), a FIFO, and a device give
+    `file_write.RefusedFile` with the cause. They do not give None.
     """
     try:
-        text = file_write.read_text(path_of(cfg, plan))
+        text = file_write.read_text(cfg.root, path_of(cfg, plan))
         found = json.loads(text) if text is not None else None
     except (OSError, ValueError):
         return None

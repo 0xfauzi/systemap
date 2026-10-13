@@ -255,14 +255,14 @@ def test_cache_answers_a_second_run_and_a_new_release_invalidates_it(tmp_path: P
     ]
     cache = tmp_path / "jev.json"
     first = Counting()
-    jev.Jev(first, cache=jev.Cache(cache)).ask(asks)
+    jev.Jev(first, cache=jev.Cache(cache, root=cache.parent)).ask(asks)
     assert first.posts == 3
     again = Counting()
-    client = jev.Jev(again, cache=jev.Cache(cache))
+    client = jev.Jev(again, cache=jev.Cache(cache, root=cache.parent))
     client.ask(asks)
     assert again.posts == 0 and client.usage.cached == 3
     newer = Counting({"models": [{"name": "jev-latest", "release_date": "2026-10-01"}]})
-    jev.Jev(newer, cache=jev.Cache(cache)).ask(asks)
+    jev.Jev(newer, cache=jev.Cache(cache, root=cache.parent)).ask(asks)
     assert newer.posts == 3
 
 
@@ -454,7 +454,7 @@ def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def test_historical_two_card_audit_replays_exact_requests(two_cards: Path) -> None:
     cfg = load_config(two_cards)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts is not None
     plan = audit.make_plan(nest.load(cfg), facts, cfg)
     recording = Recording("jev_two_cards")

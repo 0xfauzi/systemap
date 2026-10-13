@@ -535,9 +535,9 @@ def test_facts_file_is_compact_and_one_record_per_line(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     facts = extract.build(cfg)
-    facts_file.write_facts(cfg.facts_path, facts)
+    facts_file.write_facts(cfg.facts_path, facts, cfg.root)
     text = cfg.facts_path.read_text(encoding="utf-8")
-    assert facts_file.read_facts(cfg.facts_path) == facts, "round-trips"
+    assert facts_file.read_facts(cfg.facts_path, cfg.root) == facts, "round-trips"
     lines = text.splitlines()
     assert lines[0] == "{" and lines[-1] == "}" and text.endswith("\n")
     assert not any(line.startswith(" ") for line in lines), "no indentation"

@@ -56,7 +56,7 @@ from systemap.config import ConfigError
 
 FIFO = pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="The platform has no FIFO.")
 OUTSIDE_LINK = "not in the repository"
-OUTSIDE_FOLDER = "in a different folder"
+OUTSIDE_FOLDER = "is not in"
 NOT_REGULAR = "not a regular file"
 WAIT = 5.0
 
@@ -241,13 +241,17 @@ def test_a_facts_file_link_out_of_its_folder_is_refused(layout: tuple[Path, Path
     repo, outside = layout
     (outside / "map.json").write_text('{"leaked": true}', encoding="utf-8")
     (repo / "map.json").symlink_to(outside / "map.json")
-    _refused(_outcome(lambda: facts_file.read_facts(repo / "map.json")), OUTSIDE_FOLDER, "map.json")
+    _refused(
+        _outcome(lambda: facts_file.read_facts(repo / "map.json", repo)), OUTSIDE_FOLDER, "map.json"
+    )
 
 
 @FIFO
 def test_a_fifo_facts_file_is_refused(tmp_path: Path) -> None:
     os.mkfifo(tmp_path / "map.json")
-    outcome = _outcome(lambda: facts_file.read_facts(tmp_path / "map.json"), tmp_path / "map.json")
+    outcome = _outcome(
+        lambda: facts_file.read_facts(tmp_path / "map.json", tmp_path), tmp_path / "map.json"
+    )
     _refused(outcome, NOT_REGULAR, "map.json")
 
 
@@ -269,7 +273,7 @@ def test_a_facts_file_name_out_of_the_output_directory_is_refused(
 
 
 def test_a_missing_facts_file_gives_an_empty_table(tmp_path: Path) -> None:
-    assert facts_file.read_facts(tmp_path / "map.json") == {}
+    assert facts_file.read_facts(tmp_path / "map.json", tmp_path) == {}
 
 
 # ---- the caches ----------------------------------------------------------------------
@@ -281,18 +285,24 @@ def test_a_jev_cache_link_out_of_its_folder_is_refused(layout: tuple[Path, Path]
     repo, outside = layout
     (outside / "cache.json").write_text(json.dumps(CACHE_OUTSIDE), encoding="utf-8")
     (repo / "cache.json").symlink_to(outside / "cache.json")
-    _refused(_outcome(lambda: jev.Cache(repo / "cache.json").entries), OUTSIDE_FOLDER, "cache.json")
+    _refused(
+        _outcome(lambda: jev.Cache(repo / "cache.json", root=repo).entries),
+        OUTSIDE_FOLDER,
+        "cache.json",
+    )
 
 
 @FIFO
 def test_a_fifo_jev_cache_is_refused(tmp_path: Path) -> None:
     os.mkfifo(tmp_path / "cache.json")
-    outcome = _outcome(lambda: jev.Cache(tmp_path / "cache.json"), tmp_path / "cache.json")
+    outcome = _outcome(
+        lambda: jev.Cache(tmp_path / "cache.json", root=tmp_path), tmp_path / "cache.json"
+    )
     _refused(outcome, NOT_REGULAR, "cache.json")
 
 
 def test_a_missing_jev_cache_is_empty(tmp_path: Path) -> None:
-    assert jev.Cache(tmp_path / "cache.json").entries == {}
+    assert jev.Cache(tmp_path / "cache.json", root=tmp_path).entries == {}
 
 
 SHA = "a" * 40
@@ -377,7 +387,7 @@ def test_a_missing_plan_gives_none(tmp_path: Path) -> None:
 
 
 def _hold(path: Path) -> bool:
-    with file_write.locked(path):
+    with file_write.locked(path.parent, path):
         return True
 
 

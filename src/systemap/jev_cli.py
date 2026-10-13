@@ -81,7 +81,7 @@ def _one(provider: DecisionProvider, question: decision.Question, label: str) ->
 
 
 def _facts(cfg: config.Config) -> dict[str, Any] | None:
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not facts:
         print(f"No facts are available at {cfg.rel(cfg.facts_path)}\nrun: systemap extract")
         return None

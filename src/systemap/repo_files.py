@@ -125,6 +125,24 @@ def inside(root: Path, path: Path) -> bool:
     return path.resolve().is_relative_to(root.resolve())
 
 
+LINK_OUT = "link out of the repository"
+NOT_REGULAR = "not a regular file in the repository"
+_REFUSALS = {
+    "the file is not in the repository": LINK_OUT,
+    "the path is not a regular file": NOT_REGULAR,
+}
+
+
+def refusal(exc: BaseException) -> str:
+    """Give the cause of a refused source file for a record: LINK_OUT, NOT_REGULAR, or the
+    text of a different refusal. A missing file gives "missing"."""
+    if isinstance(exc, FileNotFoundError):
+        return "missing"
+    if isinstance(exc, RepoPathError):
+        return _REFUSALS.get(str(exc), str(exc))
+    return type(exc).__name__
+
+
 def reason(exc: BaseException) -> str:
     """Give the read problem of an exception: the refusal text, or the exception name."""
     return str(exc) if isinstance(exc, RepoPathError) else type(exc).__name__

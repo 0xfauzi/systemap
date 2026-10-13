@@ -170,7 +170,9 @@ def test_facts_without_modules_give_the_package_roots_correction(two_cards: Path
     # The check gives this entry line when the facts have no module and the model
     # has source components. The model is then not the input to correct.
     project = cli._project(argparse.Namespace(root=str(two_cards)))
-    results = cli._check_tree(project, facts_file.read_facts(project.cfg.facts_path))
+    results = cli._check_tree(
+        project, facts_file.read_facts(project.cfg.facts_path, project.cfg.root)
+    )
     assert cli._fix_line(project, results) == "run: systemap refresh"
     top = results[project.tree.top.id]
     results[project.tree.top.id] = dataclasses.replace(

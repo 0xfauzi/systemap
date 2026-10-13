@@ -39,14 +39,19 @@ ENTRY_LINE = "entry point "
 def _source_hash(root: Path, record: dict[str, Any]) -> str:
     """This function hashes source bytes because saved facts can predate an uncommitted
     edit. CRLF and LF checkouts of the same text give the same digest.
+
+    A missing file gives "missing source". A file that `repo_files` refuses gives its
+    cause, for example "refused source: link out of the repository".
     """
     name = record.get("file")
     if not isinstance(name, str):
         return "unknown source"
     try:
         return text_digest(repo_files.read_bytes(root, name))
-    except OSError:
+    except FileNotFoundError:
         return "missing source"
+    except OSError as exc:
+        return f"refused source: {repo_files.refusal(exc)}"
 
 
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:

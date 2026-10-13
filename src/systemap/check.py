@@ -543,7 +543,7 @@ def stale(
     generated output.
     """
     fresh = fresh if fresh is not None else extraction.build(cfg)
-    stored = facts_file.read_facts(cfg.facts_path)
+    stored = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not
@@ -577,11 +577,11 @@ def stale(
 def _stale_file(cfg: Config, path: Path, expected: str) -> list[str]:
     """Compare an output file with its rendered text.
 
-    The file must be in the output directory (`out_paths`). A link out of the folder of
-    the file, a FIFO, and a device give `file_write.RefusedFile` with the cause.
+    The file must be in the output directory (`out_paths`). A link out of the repository,
+    a FIFO, and a device give `file_write.RefusedFile` with the cause.
     """
     rel = cfg.rel(path)
-    text = file_write.read_text(out_paths.checked(cfg, path))
+    text = file_write.read_text(cfg.root, out_paths.checked(cfg, path))
     if text is None:
         return [f"{rel} has no rendered output."]
     if text != expected:

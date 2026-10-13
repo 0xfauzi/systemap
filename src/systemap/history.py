@@ -65,9 +65,8 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
     if held is not None:
         return held
     facts = delta.facts_at(cfg, sha)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with file_write.locked(lock_of(cfg)):
-        file_write.write_atomic(path, json.dumps(facts))
+    with file_write.locked(cfg.root, lock_of(cfg)):
+        file_write.write_atomic(cfg.root, path, json.dumps(facts))
     return facts
 
 
@@ -75,12 +74,14 @@ def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
     """This function gives the cached facts in path, or None if the file is not usable.
 
     The read holds the lock of the facts cache. On Windows, a read cannot occur while a
-    different process replaces the file. A link out of the cache folder, a FIFO, and a
-    device give `file_write.RefusedFile` with the cause. They are not a missing file."""
+    different process replaces the file. A link out of the repository (at the file or at a
+    folder), a FIFO, and a device give `file_write.RefusedFile` with the cause. They are
+    not a missing file."""
+    file_write.confined(cfg.root, path)
     if not repo_files.present(path):
         return None
-    with file_write.locked(lock_of(cfg)):
-        text = file_write.read_text(path)
+    with file_write.locked(cfg.root, lock_of(cfg)):
+        text = file_write.read_text(cfg.root, path)
         if text is None:
             return None
         try:

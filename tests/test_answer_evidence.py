@@ -180,7 +180,7 @@ def test_the_answers_of_this_repository_stay_valid_after_a_different_review(
     """
     cfg = config.load(REPOSITORY)
     tree = nest.load(cfg)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     assert facts is not None
     lines = [
         item

@@ -36,7 +36,7 @@ def waits_for_the_lock(lock_of: Path, read: Callable[[], Any]) -> tuple[bool, An
     result: list[Any] = []
 
     def hold() -> None:
-        with file_write.locked(lock_of):
+        with file_write.locked(lock_of.parent, lock_of):
             held.set()
             release.wait(30)
 
@@ -67,14 +67,14 @@ def test_a_jev_cache_reader_waits_for_the_lock(tmp_path: Path) -> None:
         encoding="utf-8",
         newline="\n",
     )
-    waited, cache = waits_for_the_lock(path, lambda: jev.Cache(path))
+    waited, cache = waits_for_the_lock(path, lambda: jev.Cache(path, root=path.parent))
     assert waited
     assert cache.entries == {"k": {"n": 1}}
 
 
 def test_a_jev_cache_without_a_file_makes_no_lock_file(tmp_path: Path) -> None:
     """win-2: the acceptance value is an empty cache and no new file or folder."""
-    cache = jev.Cache(tmp_path / "missing" / "jev.json")
+    cache = jev.Cache(tmp_path / "missing" / "jev.json", root=tmp_path)
     assert cache.entries == {}
     assert list(tmp_path.iterdir()) == []
 

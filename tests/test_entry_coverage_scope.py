@@ -185,7 +185,7 @@ def test_describe_gives_the_coverage_of_each_nested_map(
     inner = INNER.format(tool=names["tool"], start=names["nested"])
     write_tree(tmp_path, {**tree, "map/model.py": top, "map/inner.py": inner})
     assert main(["--root", str(tmp_path), "extract"]) == 0
-    facts = facts_file.read_facts(config.load(tmp_path).facts_path)
+    facts = facts_file.read_facts(config.load(tmp_path).facts_path, config.load(tmp_path).root)
     identities = {source_facts.entry_identity(p) for p in facts["entry_points"]}
     assert identities == {names["top"], names["nested"]}
     capsys.readouterr()

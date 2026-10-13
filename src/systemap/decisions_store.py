@@ -22,8 +22,6 @@ Delete the store to start a new session. The `supported` count then starts at ze
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,11 +42,11 @@ def path(root: Path) -> Path:
 def load(root: Path) -> dict[str, dict[str, Any]]:
     """Read the records by request key. A missing or unreadable store gives no records.
 
-    A link out of the folder of the store, a FIFO, and a device give
+    A link out of the repository (at the file or at a folder), a FIFO, and a device give
     `file_write.RefusedFile` with the cause. They do not give an empty store.
     """
     try:
-        text = file_write.read_text(path(root))
+        text = file_write.read_text(root, path(root))
         data = json.loads(text) if text is not None else {}
     except (OSError, json.JSONDecodeError):
         return {}
@@ -61,14 +59,11 @@ def load(root: Path) -> dict[str, dict[str, Any]]:
 
 
 def save(root: Path, records: dict[str, dict[str, Any]]) -> None:
-    """Write the store in one replacement, so that a stopped command leaves a complete file."""
-    target = path(root)
-    target.parent.mkdir(parents=True, exist_ok=True)
+    """Write the store in one replacement, so that a stopped command leaves a complete file.
+
+    The store and its folder must be in the repository (`file_write`)."""
     text = json.dumps({"version": VERSION, "records": records}, indent=2, sort_keys=True)
-    handle, temporary = tempfile.mkstemp(dir=target.parent, prefix=".decisions-", suffix=".json")
-    with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
-        stream.write(text + "\n")
-    os.replace(temporary, target)
+    file_write.write_atomic(root, path(root), text + "\n")
 
 
 def _same_source(record: dict[str, Any], request: Request) -> bool:

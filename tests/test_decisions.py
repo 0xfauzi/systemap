@@ -369,7 +369,7 @@ def test_a_component_review_waits_for_a_contradicted_flow(
     write_tree(tmp_path, SOURCE)
     init_two_cards(tmp_path, "--no-ci")
     assert main(["--root", str(tmp_path), "extract"]) == 0
-    facts = facts_file.read_facts(config.load(tmp_path).facts_path)
+    facts = facts_file.read_facts(config.load(tmp_path).facts_path, config.load(tmp_path).root)
     refs = tuple(
         f"pkg.{n}@{facts['components'][f'pkg.{n}']['source_sha256']}" for n in ("reader", "writer")
     )

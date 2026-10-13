@@ -368,7 +368,7 @@ def with_jev(
         tree,
         facts,
         open_lines,
-        lambda: jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send),
+        lambda: jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send, cfg.root),
     )
 
 
