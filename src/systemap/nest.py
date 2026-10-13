@@ -106,6 +106,11 @@ class Tree:
         return None if parent is None else parent.model.component(m.card)
 
 
+def _one_segment(card: str) -> bool:
+    """Tell if the component ID is one safe path segment for the page of its map."""
+    return card not in ("", ".", "..") and not any(mark in card for mark in "/\\\0")
+
+
 def _child_id(parent: Map, card: str) -> str:
     return f"{parent.id}/{card}" if parent.id else card
 
@@ -140,24 +145,8 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
     for c in parent.model.opening:
         if c.kind == "actor" or c.map is None:
             continue
-        path = (parent.path.parent / c.map).resolve()
+        path = _opened(cfg, parent, c, c.map, above)
         rel = cfg.rel(path)
-        if path in above:
-            chain = " -> ".join(cfg.rel(p) for p in above)
-            raise ConfigError(
-                f"{parent.rel}: {c.id} opens {rel}, which is already a parent map ({chain}). A "
-                f"map cannot open itself."
-            )
-        if not repo_files.inside(cfg.root, path):
-            raise ConfigError(
-                f"{parent.rel}: {c.id} opens {rel}, which is not in the repository. Put the "
-                f"nested model file in the repository."
-            )
-        if not path.is_file():
-            raise ConfigError(
-                f"{parent.rel}: {c.id} opens {rel}, which is missing. Write the nested model "
-                f"module at this path, or remove map from the component."
-            )
         model, meaning = load_model(path, rel)
         child = Map(
             _child_id(parent, c.id),
@@ -171,6 +160,35 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
         )
         maps.append(child)
         _walk(cfg, child, [*above, path], maps)
+
+
+def _opened(cfg: Config, parent: Map, c: Component, target: str, above: list[Path]) -> Path:
+    """Give the model file that the component opens, or raise ConfigError."""
+    if not _one_segment(c.id):
+        raise ConfigError(
+            f"{parent.rel}: The component {c.id!r} opens a map. The ID of the component is "
+            f"also a directory name in the output directory. Give the component an ID "
+            f"without / or \\ that is not . or .."
+        )
+    path = (parent.path.parent / target).resolve()
+    rel = cfg.rel(path)
+    if path in above:
+        chain = " -> ".join(cfg.rel(p) for p in above)
+        raise ConfigError(
+            f"{parent.rel}: {c.id} opens {rel}, which is already a parent map ({chain}). A "
+            f"map cannot open itself."
+        )
+    if not repo_files.inside(cfg.root, path):
+        raise ConfigError(
+            f"{parent.rel}: {c.id} opens {rel}, which is not in the repository. Put the "
+            f"nested model file in the repository."
+        )
+    if not path.is_file():
+        raise ConfigError(
+            f"{parent.rel}: {c.id} opens {rel}, which is missing. Write the nested model "
+            f"module at this path, or remove map from the component."
+        )
+    return path
 
 
 def opens(tree: Tree, m: Map, links: bool = True) -> dict[str, dict[str, Any]]:

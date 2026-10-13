@@ -423,6 +423,8 @@ A component can have `map="gateway.py"`.
 This path is relative to its model file.
 The target module exports `MODEL` and `MEANING`.
 The nested map shows the parent component's internal structure.
+The component ID is also the directory name of the nested page.
+Thus the ID must not contain `/` or `\`, and it must not be `.` or `..`.
 
 Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
@@ -977,6 +979,7 @@ Thus, a moved module counts under its component in the selected map.
 TypeScript samples include `.ts`, `.tsx`, tests, and package entry points.
 
 - `--ref REF` starts from that branch or commit instead of `HEAD`.
+  Git must resolve `REF` to a commit. A value that starts with `-` is not an option to Git.
 
 ### `systemap explain [KIND]`
 
@@ -1246,12 +1249,12 @@ Unknown keys are rejected.
 |---|---|---|
 | `language` | found from the source | The source language. Select `python` or `typescript`. Without the key, the language adapters examine the configured package roots, or they find their own package roots. If the source of both languages is available, the configuration stops and tells you to set this key. If no source of a known language is available, each command that reads source stops with the same instruction. The `[writing]` table sets the writing rules for map text. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | the package name (`[project] name` in pyproject.toml for Python, `name` in package.json for TypeScript), Git repository directory, then directory name | The page title. |
-| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
+| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory in the repository. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
 | `model` | `map/model.py` | The model file that gives `MODEL` and `MEANING`. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (`import journeys`). [What does a model contain?](#what-does-a-model-contain) gives the permitted syntax. |
 | `out_dir` | `docs/map` | The directory for facts, pages, and figures. |
-| `facts_file` | `map.json` | The facts filename inside `out_dir`. |
+| `facts_file` | `map.json` | The facts filename inside `out_dir`. A path that is not in `out_dir` gives exit code 2. |
 | `spec_path` | none | A document with `##` headings that identify specification sections. |
 | `planes` | none | Second-level package names with different planes in the facts. |
 | `outside_label` | `EXTERNAL COMPONENTS` | The index heading for actors outside all regions. |
@@ -1269,7 +1272,7 @@ Unknown keys are rejected.
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
-| `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
+| `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. An `out` that is not in `out_dir` gives exit code 2. |
 
 The environment of a command can set three values. A repository file cannot set them.
 

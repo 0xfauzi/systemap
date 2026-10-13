@@ -45,6 +45,7 @@ from systemap import (
     judgement_json,
     model_convert,
     nest,
+    out_paths,
     page,
     place,
     providers,
@@ -161,7 +162,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
-    extract.write_facts(p.cfg.facts_path, fresh)
+    extract.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
     say(*extract.summary(fresh))
     for m in p.tree.maps:
         for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
@@ -260,7 +261,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     code = OK
     for m in p.tree.maps:
         html = _render_page(p, m, facts, args)
-        out = m.page_path(p.cfg)
+        out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             current = out.read_text(encoding="utf-8") if out.is_file() else ""
             if current != html:
@@ -479,7 +480,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return OK
 
     note("map: The refresh uses the working tree.")
-    extract.write_facts(p.cfg.facts_path, fresh)
+    extract.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
     written = [p.cfg.rel(p.cfg.facts_path)]
     if not check.tree_ok(results):
         say(*_report_tree(p, results, []))
@@ -488,7 +489,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return STALE
     for m in p.tree.maps:
         html = _render_page(p, m, fresh, argparse.Namespace())
-        out = m.page_path(p.cfg)
+        out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))
@@ -496,7 +497,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         html, collisions = figure.configured(p.cfg, p.tree, _map(p, fig.map), fresh, fig)
         for line in collisions:
             warn(line)
-        out = p.cfg.out_path / fig.out
+        out = out_paths.checked(p.cfg, p.cfg.out_path / fig.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))

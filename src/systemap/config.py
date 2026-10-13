@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import config_decisions, decision_kinds, flow_ids, model_load
+from systemap import config_decisions, decision_kinds, flow_ids, model_fields, model_load
 from systemap import language as languages
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
@@ -282,11 +282,25 @@ def find_root(start: Path) -> Path | None:
         if (candidate / CONFIG_FILE).is_file():
             return candidate
         pyproject = candidate / "pyproject.toml"
-        if pyproject.is_file() and "[tool.systemap]" in pyproject.read_text(encoding="utf-8-sig"):
+        if pyproject.is_file() and _configures(pyproject):
             return candidate
         if (candidate / ".git").exists():
             return candidate
     return None
+
+
+def _configures(pyproject: Path) -> bool:
+    """Tell if pyproject.toml has a tool.systemap table.
+
+    If the file is not correct TOML and it contains the text tool.systemap, the result is
+    `True`. Then the configuration reader gives the TOML error for that file."""
+    text = pyproject.read_text(encoding="utf-8-sig")
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return "tool.systemap" in text
+    tool = data.get("tool")
+    return isinstance(tool, dict) and isinstance(tool.get("systemap"), dict)
 
 
 PackageDir = Callable[[Path], bool]
@@ -764,4 +778,8 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
         raise ConfigError(f"{label}: MODEL must be a systemap.Model")
     if not isinstance(meaning, Meaning):
         raise ConfigError(f"{label}: MEANING must be a systemap.Meaning")
+    found = model_fields.problem(model, Model, "MODEL")
+    found = found or model_fields.problem(meaning, Meaning, "MEANING")
+    if found:
+        raise ConfigError(f"{label}: {found}")
     return model, flow_ids.resolve(model, meaning)

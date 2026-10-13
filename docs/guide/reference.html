@@ -644,7 +644,9 @@ components. Layer selection then gives little separation.</p>
 <p>A component can have <code>map=&quot;gateway.py&quot;</code>.
 This path is relative to its model file.
 The target module exports <code>MODEL</code> and <code>MEANING</code>.
-The nested map shows the parent component's internal structure.</p>
+The nested map shows the parent component's internal structure.
+The component ID is also the directory name of the nested page.
+Thus the ID must not contain <code>/</code> or <code>\</code>, and it must not be <code>.</code> or <code>..</code>.</p>
 <p>Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
 Symbol claims are permitted.
@@ -1286,7 +1288,8 @@ All samples use the component assignments in the selected map.
 Thus, a moved module counts under its component in the selected map.
 TypeScript samples include <code>.ts</code>, <code>.tsx</code>, tests, and package entry points.</p>
 <ul>
-<li><code>--ref REF</code> starts from that branch or commit instead of <code>HEAD</code>.</li>
+<li><code>--ref REF</code> starts from that branch or commit instead of <code>HEAD</code>.
+Git must resolve <code>REF</code> to a commit. A value that starts with <code>-</code> is not an option to Git.</li>
 </ul>
 <h3 id="systemap-explain-kind"><code>systemap explain [KIND]</code></h3>
 <p>Prints one finding kind's meaning, effect on the map, and necessary action.
@@ -1747,7 +1750,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[package_roots]</code></td>
 <td>Python packages, or <code>src</code> then repository root for TypeScript</td>
-<td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
+<td><code>&quot;path&quot; = &quot;module name&quot;</code>. Discovery includes a directory with the name <code>build</code> or <code>dist</code> if it has an <code>__init__.py</code> file. Each configured path must be a directory in the repository. A key after the <code>[package_roots]</code> line is part of this table, so put the top-level keys above it.</td>
 </tr>
 <tr>
 <td><code>tests_dir</code></td>
@@ -1772,7 +1775,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>facts_file</code></td>
 <td><code>map.json</code></td>
-<td>The facts filename inside <code>out_dir</code>.</td>
+<td>The facts filename inside <code>out_dir</code>. A path that is not in <code>out_dir</code> gives exit code 2.</td>
 </tr>
 <tr>
 <td><code>spec_path</code></td>
@@ -1862,7 +1865,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[[figures]]</code></td>
 <td>none</td>
-<td>Figures for <code>refresh</code>. Keys are <code>out</code>, <code>mode</code> (<code>system</code> or <code>reach</code>), <code>components</code>, <code>caption</code>, <code>interactive</code>, <code>layer</code>, and <code>map</code>. <code>layer</code> selects that layer's flows. <code>map</code> identifies a nested map. An <code>out</code> with <code>.svg</code> suffix writes the drawing alone.</td>
+<td>Figures for <code>refresh</code>. Keys are <code>out</code>, <code>mode</code> (<code>system</code> or <code>reach</code>), <code>components</code>, <code>caption</code>, <code>interactive</code>, <code>layer</code>, and <code>map</code>. <code>layer</code> selects that layer's flows. <code>map</code> identifies a nested map. An <code>out</code> with <code>.svg</code> suffix writes the drawing alone. An <code>out</code> that is not in <code>out_dir</code> gives exit code 2.</td>
 </tr>
 </tbody>
 </table>

@@ -50,7 +50,11 @@ def resolve(repo: Path, ref: str) -> str:
 def merge_base(repo: Path, base: str, head: str) -> str:
     """This function finds a common ancestor, or uses the base commit if Git cannot find
     one.
+
+    The function resolves the two refs first. Thus Git does not read a ref as an option.
+    A ref that Git cannot resolve gives DeltaError. The result is a full commit SHA.
     """
+    base, head = resolve(repo, base), resolve(repo, head)
     proc = _git(repo, "merge-base", base, head)
     out = proc.stdout.decode("utf-8").strip()
     return out if proc.returncode == 0 and out else base

@@ -60,8 +60,11 @@ def _show(repo: Path, ref: str, path: str) -> str:
 def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
     """This function gets a pull request title and counts, or an empty record if gh gives
     no usable answer.
+
+    A value that starts with "-" is not a pull request number, URL, or branch. The function
+    does not give such a value to gh, because gh can read it as an option.
     """
-    if not pr:
+    if not pr or pr.startswith("-"):
         return {}
     raw = _run(
         [
