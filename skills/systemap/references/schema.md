@@ -394,7 +394,7 @@ These fields come from `systemap.extract.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 7, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, and `call_sites`. `extract --check` marks older formats stale.
+- `version`: The facts format is 8, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, and `type_only`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
@@ -421,8 +421,8 @@ These fields come from `systemap.extract.FIELDS`.
 - `classes`: Public classes other than errors, with `name` and public method signatures in `methods`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
 - `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
-- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. A `*` re-export of the module does not give a name that has `star_export` set to `false`. The TypeScript adapter sets it for `default`. `entry` and `interface` can use these names.
-- `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies.
+- `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. A `*` re-export of the module does not give a name that has `star_export` set to `false`. The TypeScript adapter sets it for `default`. `type_only` is `true` for a type-only export. A type-only export is not an entry point, because the emitted code has no value for it. A name without `type_only` is not type-only. Python has no type-only export. `entry` and `interface` can use these names.
+- `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint excludes callable bodies. A `*` re-export has the name `*`, because one module cannot supply the names that it gives.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without names, imports, or statements. Coverage does not include these modules.
 - `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.

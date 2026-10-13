@@ -36,7 +36,7 @@ from systemap.typescript_repo import (
 )
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
-from systemap.typescript_syntax import syntax_tree
+from systemap.typescript_syntax import string_value, syntax_tree
 from systemap.typescript_tests import test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -305,13 +305,7 @@ def _syntax_tokens(node: Any) -> Iterator[str]:
 
 
 def _source(node: Any) -> str:
-    source = node.child_by_field_name("source")
-    if source is None or source.type != "string":
-        return ""
-    fragment = next(
-        (child for child in source.named_children if child.type == "string_fragment"), None
-    )
-    return (fragment.text or b"").decode("utf-8") if fragment is not None else ""
+    return string_value(node.child_by_field_name("source"))
 
 
 def _static_imports(root: Any) -> Iterator[tuple[str, set[str]]]:
@@ -365,11 +359,7 @@ def _dynamic_specifier(node: Any) -> str | None:
     first = arguments.named_children[0] if arguments and arguments.named_children else None
     if first is None or first.type != "string":
         return None
-    fragment = next(
-        (child for child in first.named_children if child.type == "string_fragment"),
-        None,
-    )
-    return _text(fragment) if fragment is not None else None
+    return string_value(first)
 
 
 def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:

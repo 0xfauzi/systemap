@@ -186,11 +186,12 @@ def _entry_issue(kind: str, name: str, target: str, reason: str) -> dict[str, st
 
 
 def _public_functions(modules: set[str], components: dict[str, Any]) -> list[dict[str, str]]:
+    """A type-only export is not an entry point, because the emitted code has no value."""
     return [
         {"kind": "public_function", "name": function["name"], "module": module, "target": ""}
         for module in sorted(modules)
         for function in components.get(module, {}).get("names", [])
-        if function.get("kind") == "function"
+        if function.get("kind") == "function" and not function.get("type_only")
     ]
 
 

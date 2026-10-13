@@ -231,8 +231,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 7, with portable syntax hashes, compiler provenance, "
-        "module completeness, the folder package in `package`, and `call_sites`. "
+        "The facts format is 8, with portable syntax hashes, compiler provenance, "
+        "module completeness, the folder package in `package`, `call_sites`, and "
+        "`type_only`. "
         "`extract --check` marks older formats stale",
     ),
     (
@@ -332,14 +333,18 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "includes local re-exports, with `reexport_of` and the kind in their source module. A "
         "full-module import uses kind `module`. A `*` re-export of the module does not "
         "give a name that has `star_export` set to `false`. The TypeScript adapter sets it "
-        "for `default`. `entry` and `interface` can use these names",
+        "for `default`. `type_only` is `true` for a type-only export. A type-only export "
+        "is not an entry point, because the emitted code has no value for it. A name "
+        "without `type_only` is not type-only. Python has no type-only export. `entry` "
+        "and `interface` can use these names",
     ),
     (
         "module",
         "api",
         "Full export identities for public-surface comparisons: exported name, "
         "display bucket, and declaration fingerprint. The fingerprint excludes "
-        "callable bodies",
+        "callable bodies. A `*` re-export has the name `*`, because one module cannot "
+        "supply the names that it gives",
     ),
     ("module", "executes", "Python-only: a top-level call makes a package initializer nonempty"),
     (
@@ -719,6 +724,11 @@ def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
 
 
 def _python_api_reexports(node: ast.ImportFrom) -> list[dict[str, str]]:
+    """This function gives the export identity of each imported name.
+
+    `from .service import *` gives the name `*`. One module text cannot supply the names
+    that it gives, but the removal of the import is a change of the public surface.
+    """
     source = "." * node.level + (node.module or "")
     return [
         {
@@ -727,7 +737,7 @@ def _python_api_reexports(node: ast.ImportFrom) -> list[dict[str, str]]:
             "fingerprint": f"reexport:{source}:{alias.name}",
         }
         for alias in node.names
-        if (alias.asname or alias.name) != "*" and not (alias.asname or alias.name).startswith("_")
+        if not (alias.asname or alias.name).startswith("_")
     ]
 
 
