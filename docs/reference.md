@@ -625,13 +625,13 @@ components that can become nested maps.
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
 
-### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]`
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--propose-rules [--provider NAME]]`
 
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
 sentences, thin layers, uncovered entry points, crossing imports, unreviewed
 flows, source records outside the flow endpoints, stale component source reviews,
-and model SDK imports outside agents.
+model SDK imports outside agents, and rule proposals.
 A line after the findings counts the component source reviews by state: current, stale, and missing.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
@@ -682,6 +682,37 @@ The first finding of each kind has rows about its effect and necessary action.
   The answers go into the Jev cache. Thus, the next command sends no question.
   It reads the model list one time, as each Jev command does.
 
+- A `rule proposal` line shows an import rule that the text of an invariant gives, for example:
+
+  ```text
+  rule proposal: invariant 3 can be ImportRule("invariant-3", "forbid_import", ("Core",), ("Store",), invariant=3)
+  ```
+
+  The line occurs only for an invariant without a linked import rule (`ImportRule.invariant`).
+  The text must agree with a rule pattern: `X must not import Y`, `X imports only Y`, `Only X calls Y`, or `No import cycle connects X, Y and Z`.
+  The verbs are `import`, `depend on`, and `call`.
+  `references/journeys-and-invariants.md` in the skill gives all rules of the patterns.
+
+  Write the rule text into `IMPORT_RULES` in the model, or record an answer.
+  A rule proposal does not change `systemap check`, `systemap rules`, or CI results. Only an import rule in the model changes them.
+  The evidence of an exact answer is the invariant, the import rules, and the component ids of the map. A source change does not change it.
+  On the eight benchmark maps, the patterns gave no proposal for 119 invariants (`bench/jev/README.md`).
+
+- `--propose-rules` sends one choice question to the decision provider for each invariant without a linked import rule and without a `rule proposal` line.
+  The options are `forbid_import`, `allow_imports`, `forbid_cycle`, and `no import rule`.
+  The question gives the invariant and the cards of the components that it names in `governs` and in its text.
+  If the invariant names no component, the question gives the cards of all components of the map.
+  `--provider` selects the provider, as in `audit`. Without `--propose-rules`, `--provider` is an error.
+
+  The answer gives a probability for each option, as information only.
+  A proposal from this question must have a measured threshold for the provider (`rule_at` in `systemap.decision`).
+  No provider has a measured threshold for this question, because no measurement was done.
+  Thus the option gives no proposal and no line. It does not change the open lines or the exit code.
+
+  A `rule question:` row gives the probabilities of each invariant, and the last row gives this limit.
+  A refusal gives `refusal` for its invariant. A provider error gives the cause and no probabilities.
+  Without the option, `judgement` sends no request.
+
 The JSON object has these fields:
 
 | Field | Type | Contents |
@@ -704,6 +735,8 @@ The JSON object has these fields:
 | `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
 | `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
+| `rule_proposals` | list of objects | One object for each `rule proposal` line, open or answered. The fields are `map`, `invariant`, `line`, `rule` (`id`, `kind`, `src`, `dst`, `invariant`), `text` (the rule text for the model), `pattern` (`forbid`, `allow`, `only`, or `cycle`), and `open` (false when an accepted answer closes the line). |
+| `rule_questions` | object | Only with `--propose-rules`. `provider` is the provider name. `proposal` is false. `reason` gives the cause. `error` is the provider error, or an empty string. Each item of `questions` has `map`, `invariant`, `choice`, and `probabilities`. For a refusal, `choice` and `probabilities` are null. |
 | `unknown_requests` | list of objects | The unknown decision requests, with the fields of `unknown_requests` in `systemap decisions status --json`. Without a decision store, the list is empty. |
 
 The `evidence` digest is for an answer with one line.

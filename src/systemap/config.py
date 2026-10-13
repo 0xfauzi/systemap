@@ -90,6 +90,7 @@ LINE_KINDS = (
     "missing source review",
     "model sdk",
     "unknown surface",
+    "rule proposal",
 )
 # The kinds of line `systemap audit` prints; answered in the same list.
 AUDIT_KINDS = ("jev mis-fold", "jev owner", "jev sentence", "jev flow", "jev governs")

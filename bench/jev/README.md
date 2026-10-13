@@ -2625,3 +2625,24 @@ The OpenAI owner threshold gives one component for 9.5% of modules, compared wit
 The OpenAI governs threshold found fewer governed components than Jev, and it suggested more incorrect pairs on holdout (6.0% compared with 0.9%).
 Thus OpenAI is an alternative provider, not a replacement for Jev.
 All measured repositories are Python repositories. A TypeScript measurement is necessary before these values apply to TypeScript.
+
+## How many invariants of the benchmark maps state an import rule? (2026-10-13)
+
+`systemap judgement` gives a `rule proposal` line when the text of an invariant agrees with a rule pattern, for example `Core must not import Store`.
+The census counted the invariants of the five development maps and the three holdout maps.
+The acceptance value was zero incorrect proposals, when a person examines them. No target count was set.
+
+    JEV_ROOT_<NAME>=... uv run --project bench/jev python bench/jev/rule_census.py
+
+| maps | invariants | with a linked import rule | with a rule proposal |
+|---|---|---|---|
+| 8 of 8 | 119 | 0 | 0 |
+
+The patterns gave no proposal. Thus no proposal was incorrect, and the census shows no recall.
+
+Most of the 119 invariants tell about behavior, for example `AI-generated code is never gated by AI self-review` (kstrl 2).
+Claude read the 119 invariants. Two invariants tell about a dependency, but they do not give a component id on each side.
+Mealie 1 says that a service `does not reach the database itself`. Mealie 11 says that `nothing there reads the settings`.
+The patterns do not include more sentence structures, because the census has no correct example to compare with.
+
+The census does not measure the provider question of `judgement --propose-rules`. A labelled set is necessary before that question can have a threshold.

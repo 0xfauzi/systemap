@@ -147,6 +147,9 @@ class Thresholds:
     plan_cut: float | None
     provider: str = "jev"
     triage: bool = True
+    # No provider has a measured value for the rule proposal question
+    # (`systemap judgement --propose-rules`). Its answers are information only.
+    rule_at: float | None = None
 
 
 # The question type of each threshold, for the reason text.
@@ -159,6 +162,7 @@ QUESTION_TYPES = {
     "same_at": "suggest --jev",
     "move_at": "the move question of delta --jev",
     "plan_cut": "plan",
+    "rule_at": "the rule proposal question",
 }
 
 

@@ -194,6 +194,21 @@ JUDGEMENT = {
             "unrelated files from the source roots."
         ),
     ),
+    "rule proposal": Lesson(
+        means=(
+            "The text of an invariant gives a rule about imports, but no import rule of the "
+            "model examines it."
+        ),
+        why=(
+            "The check examines an import rule against the source at each change. An "
+            "invariant without a rule is only text, and an import against it gives no "
+            "failure."
+        ),
+        do=(
+            "Write the rule into `IMPORT_RULES` in the model and give its `reason`. If the "
+            "rule is not correct, record the cause in [judgement] answered."
+        ),
+    ),
 }
 
 # ---- the lines `systemap delta` prints --------------------------------------------

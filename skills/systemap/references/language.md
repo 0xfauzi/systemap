@@ -266,6 +266,8 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | holdout | Recorded evaluation cases excluded from fitting a method (category 7). |
 | import connection | An extracted source import between two component module sets. |
 | import rule | A model record that gives the permitted imports between the module sets of components. Its result is `pass`, `fail`, or `unknown`. |
+| rule proposal | A judgement finding that gives an import rule that the text of an invariant gives. The check does not examine a rule proposal. |
+| rule pattern | A specified sentence structure, such as `Core must not import Store`, from which systemap makes a rule proposal. |
 | layout geometry | The coordinates and bounds used by the map layout (category 7). |
 | legend | The diagram explanation for its colors and marks. |
 | keyboard focus | The user interface control that receives keyboard input. |

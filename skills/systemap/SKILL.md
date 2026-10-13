@@ -63,8 +63,7 @@ Copy these lines into your answer. Mark each step when it is complete.
 2. **draft**: If Jev is available, use `systemap suggest --jev`.
    Otherwise, use `systemap suggest`. Examine the proposed assignments against source.
    Read the repository's own documentation: its README, AGENTS.md, CLAUDE.md, docs/.
-   Read `references/schema.md`, `references/example.md`, `references/layout.md`, and `references/pitfalls.md`.
-   Also read `references/layers.md` and `references/journeys-and-invariants.md`.
+   Read `references/schema.md`, `references/example.md`, `references/layout.md`, `references/pitfalls.md`, `references/layers.md`, and `references/journeys-and-invariants.md`.
 
    Write components and flows without `x` and `y`. Run `systemap place`.
    The command searches region orders and compares route collisions, refusals, bends, and length.
@@ -105,6 +104,7 @@ Copy these lines into your answer. Mark each step when it is complete.
 | `missing source review` | With `[judgement] require_reviews = true`, a source component has no `source_review` digest. | Examine its source and all its claims. Then send a verdict with `systemap decisions`. |
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
+   | `rule proposal` | The text of an invariant gives an import rule, but no import rule of the model examines it. | Write the rule into `IMPORT_RULES`, or record why it is not correct. See `references/journeys-and-invariants.md`. |
 
    When Jev is available, run `systemap audit`. Act on or answer its `jev ...` lines.
 5. **render**: Run `systemap refresh`. Then run `systemap describe`.

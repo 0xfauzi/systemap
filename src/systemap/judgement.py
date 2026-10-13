@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, evidence, explain, judgement_evidence, nest
+from systemap import card_review, evidence, explain, judgement_evidence, nest, rule_proposal
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
 from systemap.extract import unknown_fact_lines
@@ -540,7 +540,8 @@ def evidence_for_tree(
         state = (
             judgement_evidence.answer_state(components, root, "", crossings[key])
             if key in crossings
-            else judgement_evidence.line_state(m, facts, root, key)
+            else rule_proposal.evidence(m, key[len(m.prefix) :])
+            or judgement_evidence.line_state(m, facts, root, key)
         )
         if state is None:
             if m.id not in model_hashes:

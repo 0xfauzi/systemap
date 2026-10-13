@@ -828,12 +828,12 @@ Set <code>TYPESAFE_API_KEY</code> for this option.</p>
 OpenAI has no measured threshold for the pair question. Thus <code>--provider openai</code> sends nothing and exits 1.</p>
 </li>
 </ul>
-<h3 id="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></h3>
+<h3 id="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-propose-rules-provider-name"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--propose-rules [--provider NAME]]</code></h3>
 <p>Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
 sentences, thin layers, uncovered entry points, crossing imports, unreviewed
 flows, source records outside the flow endpoints, stale component source reviews,
-and model SDK imports outside agents.
+model SDK imports outside agents, and rule proposals.
 A line after the findings counts the component source reviews by state: current, stale, and missing.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under <code>[judgement] answered</code> suppress findings.
@@ -889,9 +889,35 @@ A <code>drift sequence:</code> row gives the quantity of questions without a sco
 The answers go into the Jev cache. Thus, the next command sends no question.
 It reads the model list one time, as each Jev command does.</p>
 </li>
+<li>
+<p>A <code>rule proposal</code> line shows an import rule that the text of an invariant gives, for example:</p>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">rule proposal:</span> invariant 3 can be ImportRule("invariant-3", "forbid_import", ("Core",), ("Store",), invariant=3)</span></code></pre>
+<p>The line occurs only for an invariant without a linked import rule (<code>ImportRule.invariant</code>).
+The text must agree with a rule pattern: <code>X must not import Y</code>, <code>X imports only Y</code>, <code>Only X calls Y</code>, or <code>No import cycle connects X, Y and Z</code>.
+The verbs are <code>import</code>, <code>depend on</code>, and <code>call</code>.
+<code>references/journeys-and-invariants.md</code> in the skill gives all rules of the patterns.</p>
+<p>Write the rule text into <code>IMPORT_RULES</code> in the model, or record an answer.
+A rule proposal does not change <code>systemap check</code>, <code>systemap rules</code>, or CI results. Only an import rule in the model changes them.
+The evidence of an exact answer is the invariant, the import rules, and the component ids of the map. A source change does not change it.
+On the eight benchmark maps, the patterns gave no proposal for 119 invariants (<code>bench/jev/README.md</code>).</p>
+</li>
+<li>
+<p><code>--propose-rules</code> sends one choice question to the decision provider for each invariant without a linked import rule and without a <code>rule proposal</code> line.
+The options are <code>forbid_import</code>, <code>allow_imports</code>, <code>forbid_cycle</code>, and <code>no import rule</code>.
+The question gives the invariant and the cards of the components that it names in <code>governs</code> and in its text.
+If the invariant names no component, the question gives the cards of all components of the map.
+<code>--provider</code> selects the provider, as in <code>audit</code>. Without <code>--propose-rules</code>, <code>--provider</code> is an error.</p>
+<p>The answer gives a probability for each option, as information only.
+A proposal from this question must have a measured threshold for the provider (<code>rule_at</code> in <code>systemap.decision</code>).
+No provider has a measured threshold for this question, because no measurement was done.
+Thus the option gives no proposal and no line. It does not change the open lines or the exit code.</p>
+<p>A <code>rule question:</code> row gives the probabilities of each invariant, and the last row gives this limit.
+A refusal gives <code>refusal</code> for its invariant. A provider error gives the cause and no probabilities.
+Without the option, <code>judgement</code> sends no request.</p>
+</li>
 </ul>
 <p>The JSON object has these fields:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift">
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-propose-rules-provider-name">
 <table>
 <thead>
 <tr>
@@ -990,6 +1016,16 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>drift_order</code></td>
 <td>object</td>
 <td>Only with <code>--order-by-drift</code>. <code>questions</code> is the quantity of questions. <code>no_score</code> is the quantity of questions without a score. <code>reason</code> is the cause, or an empty string.</td>
+</tr>
+<tr>
+<td><code>rule_proposals</code></td>
+<td>list of objects</td>
+<td>One object for each <code>rule proposal</code> line, open or answered. The fields are <code>map</code>, <code>invariant</code>, <code>line</code>, <code>rule</code> (<code>id</code>, <code>kind</code>, <code>src</code>, <code>dst</code>, <code>invariant</code>), <code>text</code> (the rule text for the model), <code>pattern</code> (<code>forbid</code>, <code>allow</code>, <code>only</code>, or <code>cycle</code>), and <code>open</code> (false when an accepted answer closes the line).</td>
+</tr>
+<tr>
+<td><code>rule_questions</code></td>
+<td>object</td>
+<td>Only with <code>--propose-rules</code>. <code>provider</code> is the provider name. <code>proposal</code> is false. <code>reason</code> gives the cause. <code>error</code> is the provider error, or an empty string. Each item of <code>questions</code> has <code>map</code>, <code>invariant</code>, <code>choice</code>, and <code>probabilities</code>. For a refusal, <code>choice</code> and <code>probabilities</code> are null.</td>
 </tr>
 <tr>
 <td><code>unknown_requests</code></td>
@@ -1808,7 +1844,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-propose-rules-provider-name"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--propose-rules [--provider NAME]]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

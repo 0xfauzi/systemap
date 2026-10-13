@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import audit, judgement, nest, review_policy
+from systemap import audit, judgement, nest, review_policy, rule_proposal
 from systemap.config import LINE_KINDS, Answer, Config
 
 SCHEMA_VERSION = 1
@@ -27,19 +27,23 @@ class Judged:
     evidence: Mapping[str, str]
     result: judgement.Answered
     require_reviews: bool = False
+    proposals: tuple[rule_proposal.Found, ...] = ()
 
 
 def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     """This function gives the judgement lines and applies the answers that are not
     audit answers. With `[judgement] require_reviews`, a missing source review is a line.
+    Each import rule that the text of an invariant gives is a `rule proposal` line.
     """
     lines = judgement.run_tree(tree, facts, judgement.sdk_list(cfg.model_sdks), cfg.observed_by)
     if cfg.require_reviews:
         lines += review_policy.missing_lines(tree, facts)
+    proposals = tuple(rule_proposal.run_tree(tree))
+    lines += [found.line for found in proposals]
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     result = judgement.apply_answers(lines, given, evidence)
-    return Judged(lines, evidence, result, cfg.require_reviews)
+    return Judged(lines, evidence, result, cfg.require_reviews, proposals)
 
 
 def digest(line: str, evidence: Mapping[str, str]) -> str | None:
@@ -83,6 +87,7 @@ def payload(
         "source_reviews": dict(reviews) if reviews is not None else None,
         "require_reviews": judged.require_reviews,
         "kinds": _kind_counts(judged.lines, result.open),
+        "rule_proposals": [rule_proposal.record(p, result.open) for p in judged.proposals],
     }
 
 

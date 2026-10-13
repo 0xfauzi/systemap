@@ -47,6 +47,7 @@ from systemap import (
     place,
     providers,
     review,
+    rule_question,
     scaffold,
     serve,
     skill,
@@ -565,6 +566,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
     say(*judgement.report(result, detail, args.kind or "", teach=not args.brief))
     say(*notes)
+    say(*rule_question.text(p.cfg, p.tree, args))
     say(*judgement.review_counts(p.tree, facts))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
@@ -588,6 +590,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     reviews = judgement.review_states(p.tree, facts)
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
+    obj.update(rule_question.payload(p.cfg, p.tree, args))
     say(json.dumps(obj, indent=2))
     warn(*notes)
     if args.strict and judged.result.open:
@@ -1116,6 +1119,7 @@ def build_parser() -> argparse.ArgumentParser:
             "It must have TYPESAFE_API_KEY."
         ),
     )
+    rule_question.add_options(s)
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(

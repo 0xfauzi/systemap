@@ -74,6 +74,39 @@ Put the citation in the invariant text.
 List directly affected component identifiers in `governs`.
 A proposed rule is not an existing invariant. Put proposals in the completion report.
 
+## Import rules from invariants
+
+An invariant can give a rule about imports between components.
+`systemap judgement` then gives a `rule proposal` line with the rule text, for example:
+
+```text
+rule proposal: invariant 3 can be ImportRule("invariant-3", "forbid_import", ("Core",), ("Store",), invariant=3)
+```
+
+The line occurs when the invariant has no linked import rule and one sentence part agrees with a rule pattern.
+These are the rule patterns:
+
+| rule pattern | example | rule |
+|---|---|---|
+| forbid | `Core must not import Store` | `forbid_import`, `src` Core, `dst` Store |
+| allow | `Api imports only Core` | `allow_imports`, `src` Api, `dst` Core |
+| only | `Only Core calls Store` | `forbid_import`, `src` each other component that is not an actor, `dst` Store |
+| cycle | `No import cycle connects Api, Core and Store` | `forbid_cycle`, `src` Api, Core, Store |
+
+The verbs are `import`, `depend on`, and `call`.
+The parts before and after the verb must contain only component ids, list words, and fill words.
+The list words are `and`, `or`, and commas. The fill words are `the`, `a`, `any`, `of`, `in`, `component`, `module`, and `code`.
+Thus `Core must not import Store unless the request is old` gives no line.
+A component id must be in the text with the same letters. A plain name or a lower-case id is not a component id.
+
+Do one of these steps for each line:
+
+1. If the rule is correct, write the rule text into `IMPORT_RULES` in the model. Give the rule a `reason`.
+2. If the rule is not correct, record an answer in `[judgement] answered` with the cause.
+
+A rule proposal does not change `systemap check`. Only an import rule in the model changes the check.
+The `only` rule names the components of the map at this time. A component that you add after the rule is not in the rule.
+
 ## Structural checks and their limits
 
 The check rejects sequence steps with missing flows or unknown component identifiers.
