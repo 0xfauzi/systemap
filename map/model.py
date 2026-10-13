@@ -148,7 +148,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="17c5b27be93b6e319a259b1c74a5f7e6d6d572d6cc69131a46c7a65e49fc83ba",
+        source_review="877d958fdaf1f2271efa2ce89795d31e33df5e8e126bfde19c3019710012aafe",
         does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -288,7 +288,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="2b5a8ce6d9e0dac97c00c9f691f1bc7ce58abdfa44a4cd3fb394677764ca7cc2",
+        source_review="38c99d99ab444788ac5a35cc014aacf19d8a7d374b8456165dfdc284bb3c5ec3",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -343,7 +343,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="79bff81d247284718dba8a6a84bd1f0201d99705e4bfa0b7efcf0904cf00fa2b",
+        source_review="7c2fa856b793f8188e10fb391dcfe363d5b9590ebefd81a483a088fe359ff416",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. With --strict, returns exit code 1 for findings without answers. With --json, writes the findings, answers and counts as one JSON object. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(

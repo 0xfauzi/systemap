@@ -57,7 +57,11 @@ SCRIPT = r"""
   function touches(i, list){
     var e = EDGES[i]; return !!e && (list.indexOf(e.from) >= 0 || list.indexOf(e.to) >= 0);
   }
-  function recorded(i){ return (EDGES[i].source_refs || []).length > 0; }
+  // A recorded source review has source references and a review digest. Source references
+  // without a review digest are not a recorded review.
+  function referenced(i){ return (EDGES[i].source_refs || []).length > 0; }
+  function recorded(i){ return referenced(i) && !!EDGES[i].review_digest; }
+  function undigested(i){ return referenced(i) && !EDGES[i].review_digest; }
   function lostOf(id){ return LOST.filter(function(i){ return touches(i, [id]); }); }
 
   // ---- the panel: summary, flows, sequences ------------------------------
@@ -118,10 +122,13 @@ SCRIPT = r"""
     } else {
       h += '<div class="chg-flowrows">' + flowRow('3 3', structural, 'structural')
         + flowRow('8 5', declared, 'declared') + '</div>';
-      h += '<p class="chg-foot">' + (old === LOST.length ? (LOST.length === 1 ? 'This flow has'
-        : 'All ' + LOST.length + ' have') : old + ' of ' + LOST.length + ' have')
-        + ' a recorded source review that does not agree with the stored source.'
-        + ' Do a new source review.</p>';
+      var bare = LOST.filter(undigested).length, of = ' of ' + LOST.length;
+      h += '<p class="chg-foot">' + (old ? (old === LOST.length ? (LOST.length === 1
+        ? 'This flow has' : 'All ' + LOST.length + ' have') : old + of + ' have')
+        + ' a recorded source review that does not agree with the stored source. ' : '')
+        + (bare ? bare + of + (bare === 1 ? ' has' : ' have')
+          + ' source references but no review digest. ' : '')
+        + (old ? 'Do a new source review.' : 'Do a source review.') + '</p>';
     }
     sec.innerHTML = h; sec.hidden = false;
   }
@@ -151,6 +158,7 @@ SCRIPT = r"""
   function cards(){
     all('[data-change-card]', panel).forEach(function(card){
       var id = card.dataset.changeCard, mine = lostOf(id), old = mine.filter(recorded).length;
+      var bare = mine.filter(undigested).length, none = mine.length - old - bare;
       var note = card.querySelector('.chg-card__note');
       var flag = card.querySelector('.chg-card__flag');
       if(!mine.length){ return; }
@@ -159,8 +167,9 @@ SCRIPT = r"""
       note.textContent = (old
         ? old + (old === 1 ? ' flow has' : ' flows have') + ' a recorded source review that does '
           + 'not agree with this source. ' : '')
-        + (mine.length > old ? (mine.length - old) + (mine.length - old === 1 ? ' flow has'
-          : ' flows have') + ' no source review. ' : '')
+        + (bare ? bare + (bare === 1 ? ' flow has' : ' flows have')
+          + ' source references but no review digest. ' : '')
+        + (none ? none + (none === 1 ? ' flow has' : ' flows have') + ' no source review. ' : '')
         + 'Do a new source review.';
     });
   }
@@ -239,7 +248,9 @@ SCRIPT = r"""
       + 'Evidence state: ' + esc(M.evidenceLabel(e.evidence)) + '.</p><p class="chg-card__note">'
       + esc(e.evidence_says || '') + '</p>'
       + (LOST.indexOf(i) >= 0 && recorded(i) ? '<p class="chg-card__note">The recorded source '
-        + 'review does not agree with the stored source. Do a new source review.</p>' : '');
+        + 'review does not agree with the stored source. Do a new source review.</p>' : '')
+      + (LOST.indexOf(i) >= 0 && undigested(i) ? '<p class="chg-card__note">The flow has source '
+        + 'references but no review digest. Do a source review.</p>' : '');
     return card;
   }
   function showSelection(id, edge){

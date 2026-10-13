@@ -217,8 +217,13 @@ SCRIPT = r"""
   var layerKey = sheet.querySelector('[data-keys-layers]');
   var count = document.querySelectorAll('[data-layer-btn]').length;
   if(layerKey && count > 1){ layerKey.textContent = '1 to ' + Math.min(count, 9); }
+  function modal(){
+    // Another open dialog makes the page and the sheet inert. That dialog has its own keys.
+    return ['present', 'palette', 'submap'].some(function(id){
+      var n = document.getElementById(id); return n && !n.hidden; });
+  }
   function open(from){
-    if(!sheet.hidden){ return; }
+    if(!sheet.hidden || modal()){ return; }
     opener = from || document.activeElement;
     sheet.hidden = false;
     if(closer){ closer.focus(); }
@@ -244,7 +249,8 @@ SCRIPT = r"""
       e.stopImmediatePropagation();
       return;
     }
-    if(e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e.target)){
+    if(e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e.target)
+      && !modal()){
       e.preventDefault(); e.stopImmediatePropagation(); open();
     }
   }, true);
@@ -286,7 +292,8 @@ def keys_sheet() -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
     The sheet is a modal dialog. The ? key and the Keyboard keys button in the
-    header open it. Escape and its Close button close it and return the focus."""
+    header open it, but not while another dialog is open. Escape and its Close button
+    close it and return the focus."""
     rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
     return (
         '<div class="keys" id="keys" hidden>'
