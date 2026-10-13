@@ -51,6 +51,13 @@ def _unresolved_claims(component: Component, modules: dict[str, Any]) -> list[st
     ]
 
 
+def _owns(point: dict[str, Any], owned: list[str], symbols: list[tuple[str, str]]) -> bool:
+    """True when a module claim includes the module of the entry point, or a symbol claim
+    names its module and its target. An entry point without a target has no symbol."""
+    module, target = point.get("module"), point.get("target")
+    return module in owned or (bool(target) and (module, target) in symbols)
+
+
 def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:
     """Give source records. Imports do not show the direction or artifact of a flow."""
     modules = facts.get("components", {})
@@ -63,7 +70,7 @@ def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:
         out[c.id] = {
             "modules": [_module_record(mid, modules[mid]) for mid in related],
             "claims": list(c.implemented_by),
-            "points": [source_facts.entry_label(p) for p in points if p.get("module") in owned],
+            "points": [source_facts.entry_label(p) for p in points if _owns(p, owned, symbols)],
             "symbol_claims": [{"module": module, "name": name} for module, name in symbols],
             "unresolved_claims": _unresolved_claims(c, modules),
         }

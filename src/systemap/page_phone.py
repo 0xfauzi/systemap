@@ -9,8 +9,6 @@ sequence), `index` (the list of sequences) or `change` (the Changes view).
 
 from __future__ import annotations
 
-import html as html_mod
-
 from systemap.model import Meaning, Model
 
 CSS = r"""
@@ -635,10 +633,12 @@ SCRIPT = r"""
 
   // ---- events from the shell, the map and the sequence script ------------------------
   // The phone shows one step at a time (board 8): the whole route view of a
-  // sequence opens at its current step.
+  // sequence opens at its current step. The step overlay has its own Whole route (W).
+  var present = byId('present');
   svg.addEventListener('systemap:step', function(e){
     var d = e.detail || {}, changed = update(), j = A.journeys[d.j];
-    if(phone() && d.view === 'whole' && !A.state.focus && j && j.steps.length){
+    if(phone() && d.view === 'whole' && !A.state.focus && j && j.steps.length
+      && !(present && !present.hidden)){
       goStep(Math.max(0, P.journey.state().s));
       return;
     }
@@ -663,10 +663,6 @@ SCRIPT = r"""
   update();
 })();
 """
-
-
-def _esc(text: object) -> str:
-    return html_mod.escape(str(text), quote=True)
 
 
 def html(model: Model, meaning: Meaning) -> str:

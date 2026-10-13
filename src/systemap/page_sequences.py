@@ -366,16 +366,20 @@ def _entry(journey: Journey, points: list[dict[str, str]]) -> str:
 
 
 def _coverage(meaning: Meaning, facts: dict[str, Any]) -> dict[str, Any]:
-    """Count the entry points that have a sequence. Give the names of the others."""
-    points = facts.get("entry_points")
-    if points is None:
+    """Count the entry points that have a sequence. Give the names of the others.
+
+    The total and the missing list use the same entry points: the coverage check
+    does not count an entry point that is another name for a counted one. With no
+    covered identities, the coverage check gives all the counted entry points."""
+    if facts.get("entry_points") is None:
         return {"known": False}
+    counted = ways_in_without_journey(meaning, facts, covered=())
     missing = ways_in_without_journey(meaning, facts)
     names = [short_entry(p) for p in missing]
     return {
         "known": True,
-        "total": len(points),
-        "covered": len(points) - len(missing),
+        "total": len(counted),
+        "covered": len(counted) - len(missing),
         "missing": names[:MISSING_SHOWN],
         "more": max(0, len(names) - MISSING_SHOWN),
     }
