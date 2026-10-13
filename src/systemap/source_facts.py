@@ -10,7 +10,7 @@ value, and they do not give a pass.
 from __future__ import annotations
 
 import json
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from typing import Any, NamedTuple
 
 from systemap import unknown_causes
@@ -200,6 +200,43 @@ def located_records(facts: dict[str, Any]) -> dict[str, list[Located]]:
     for line, found in [*_module_issues(facts, ()), *_test_file_issues(facts)]:
         out.setdefault(line, []).append(found)
     return out
+
+
+def source_fields(found: Located) -> dict[str, Any]:
+    """Give the file, the line, the source excerpt, and the parser version of one record.
+
+    A value that the record does not give is None. These values change while the finding
+    stays the same. Thus they are not in the line. `judgement --json` gives these fields.
+    """
+    excerpt = found.record.get("source")
+    parser = found.record.get("parser")
+    return {
+        "file": found.file,
+        "line": found.line or None,
+        "excerpt": excerpt if found.line and isinstance(excerpt, str) and excerpt else None,
+        "parser": parser if isinstance(parser, str) and parser else None,
+    }
+
+
+def source_rows(sources: Iterable[Mapping[str, Any]]) -> list[str]:
+    """Give the text rows below an `unknown surface` line for the fields of its records:
+    `at:`, `excerpt:`, and `parser version:`. `judgement`, `check`, and `refresh` use
+    this one function."""
+    rows: list[str] = []
+    for source in sources:
+        rows += [f"at: {source['file']}:{source['line']}"] if source["line"] else []
+        rows += [f"excerpt: {source['excerpt']!r}"] if source["excerpt"] else []
+        rows += [f"parser version: {source['parser']}"] if source["parser"] else []
+    return rows
+
+
+def unknown_rows(facts: dict[str, Any]) -> dict[str, list[str]]:
+    """Give the source rows of each `unknown surface` line that has rows."""
+    found = {
+        line: source_rows(source_fields(item) for item in records)
+        for line, records in located_records(facts).items()
+    }
+    return {line: rows for line, rows in found.items() if rows}
 
 
 def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:

@@ -631,6 +631,8 @@ class Result:
     # The causes of the `unknown_surface` lines and the `inventory_issues` lines, for
     # their fix lines.
     unknown_causes: tuple[str, ...] = ()
+    # The source rows below each `unknown_surface` line (`source_facts.source_rows`).
+    unknown_rows: Mapping[str, list[str]] = field(default_factory=dict)
     inventory_causes: tuple[str, ...] = ()
 
     @property
@@ -682,6 +684,7 @@ def run(
         unknown_surface=[line for line, _cause in unknown],
         inventory_issues=tuple(line for line, _cause in unread),
         unknown_causes=tuple(dict.fromkeys(cause for _line, cause in unknown)),
+        unknown_rows=source_facts.unknown_rows(facts) if coverage else {},
         inventory_causes=tuple(dict.fromkeys(cause for _line, cause in unread)),
     )
 

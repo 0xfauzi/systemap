@@ -8,6 +8,7 @@ is in the docstring of its test.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -165,6 +166,70 @@ def test_an_answer_for_a_declaration_file_line_stays_valid_when_the_line_moves(
     assert main(["--root", str(root), "refresh"]) == 0
     out = _judge(root, capsys)
     assert _located(out, "acme.web.service") and out["stale_answers"] == [rows[0]["line"]]
+
+
+def _rows_below(out: str, line: str) -> list[str]:
+    """Give the indented rows below one line of a `check` or `refresh` report."""
+    rows = out.splitlines()
+    at = rows.index(f"  {line.removeprefix('unknown surface: ')}")
+    below = []
+    for row in rows[at + 1 :]:
+        if not row.startswith("    "):
+            break
+        below.append(row.strip())
+    return below
+
+
+@pytest.mark.parametrize("language", ["python", "typescript"])
+def test_check_and_refresh_give_the_source_rows_below_a_short_line(
+    tmp_path: Path, language: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """trial3-1 follow-up. Acceptance: in 2 of 2 languages, `check` and `refresh` give
+    the same source rows below each short `unknown surface` line as `judgement`, from
+    the one function `source_facts.source_rows`:
+
+    - A module parse record gives `at: <file>:1` and `parser version: <version>`. The
+      TypeScript record also gives `excerpt:`, because only that adapter writes it.
+    - Python: a test file parse record gives `at: tests/test_broken.py:1` and
+      `excerpt: 'def test_x(:'`. The Python adapter writes no re-export target record
+      with a line, so the second record of Python is this test file record.
+    - TypeScript: a re-export target record gives `at: src/index.ts:4` and the statement
+      as `excerpt:`.
+
+    Before this repair, `check` gave the short line with no row, so the location was
+    missing."""
+    file, module, _card = UNREAD[language]
+    root = mapped_project(tmp_path, language)
+    write_tree(root, {file: SOURCES[(language, "syntax error")]})
+    if language == "python":
+        write_tree(root, {"tests/test_broken.py": "def test_x(:\n"})
+        second = "unknown surface: test file tests/test_broken.py: "
+        second_rows = ["at: tests/test_broken.py:1", "excerpt: 'def test_x(:'"]
+    else:
+        index = (root / "src/index.ts").read_text(encoding="utf-8")
+        write_tree(root, {**DECLARED_TYPES, "src/index.ts": index + REEXPORT})
+        second = "unknown surface: module acme.web.index (src/index.ts): the re-export target"
+        second_rows = ["at: src/index.ts:4", f"excerpt: {REEXPORT.strip()!r}"]
+    capsys.readouterr()
+    assert main(["--root", str(root), "refresh"]) == 0
+    refreshed = capsys.readouterr().out
+    assert main(["--root", str(root), "check"]) == 0
+    checked = capsys.readouterr().out
+    lines = source_facts.unknown_fact_lines(
+        facts_file.read_facts(config.load(root).facts_path, root)
+    )
+    [parse] = [line for line in lines if line.startswith(f"unknown surface: module {module} (")]
+    [other] = [line for line in lines if line.startswith(second)]
+    for out in (refreshed, checked):
+        parse_rows = _rows_below(out, parse)
+        assert parse_rows[0] == f"at: {file}:1"
+        assert parse_rows[-1].startswith("parser version: ")
+        if language == "typescript":
+            assert parse_rows[1].startswith("excerpt: ") and len(parse_rows) == 3
+        else:
+            assert parse_rows[-1] == f"parser version: {sys.version.split()[0]}"
+            assert len(parse_rows) == 2
+        assert _rows_below(out, other) == second_rows
 
 
 def test_two_records_with_the_same_line_give_one_line_and_two_sources(tmp_path: Path) -> None:

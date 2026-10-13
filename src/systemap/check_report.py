@@ -8,7 +8,7 @@ The group "map layout" contains only problems of positions, routes, labels, and 
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING
 
 from systemap import explain, unknown_causes
@@ -123,7 +123,9 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         f"In {model_file}, start interface with a public name from the "
         f"component modules, or leave it empty. Use Class.method for a method.",
     )
-    out += unknown_surface_report(result.unknown_surface, result.unknown_causes)
+    out += unknown_surface_report(
+        result.unknown_surface, result.unknown_causes, result.unknown_rows
+    )
     out += _model_groups(result.problems, model_file)
     out += _layout(model, result.problems, model_file)
     out += report_stale(result.stale)
@@ -198,20 +200,25 @@ def not_known(result: Result) -> list[str]:
     """Give the not-known records of one map. They do not reject the map."""
     return [
         *inventory_report(result.inventory_issues, result.inventory_causes),
-        *unknown_surface_report(result.unknown_surface, result.unknown_causes),
+        *unknown_surface_report(result.unknown_surface, result.unknown_causes, result.unknown_rows),
     ]
 
 
-def unknown_surface_report(findings: Sequence[str], causes: Iterable[str] = ()) -> list[str]:
+def unknown_surface_report(
+    findings: Sequence[str],
+    causes: Iterable[str] = (),
+    rows: Mapping[str, list[str]] | None = None,
+) -> list[str]:
     """Give the not-known records, and one fix line for each cause that occurs.
 
     These records do not reject the map. Without a cause, the fix line of
-    `unknown_causes.NOT_KNOWN` occurs."""
+    `unknown_causes.NOT_KNOWN` occurs. Below each line, the source rows of its records
+    (`source_facts.source_rows`) give the values that are not in the line."""
     if not findings:
         return []
     found = list(causes) or [unknown_causes.NOT_KNOWN]
-    return [
-        f"unknown surface: {plural(len(findings), 'finding')}",
-        *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
-        *unknown_causes.fix_lines(found),
-    ]
+    out = [f"unknown surface: {plural(len(findings), 'finding')}"]
+    for line in findings:
+        out.append(f"  {line.removeprefix('unknown surface: ')}")
+        out += [f"    {row}" for row in (rows or {}).get(line, [])]
+    return out + unknown_causes.fix_lines(found)

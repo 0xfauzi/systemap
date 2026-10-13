@@ -39,7 +39,7 @@ class Judged:
         and with `verbose`, the import rows of a crossing-import line."""
         out = judgement.crossing_detail_tree(tree, facts) if verbose else {}
         for line, sources in self.sources.items():
-            out[line] = [*out.get(line, []), *(row for item in sources for row in _rows(item))]
+            out[line] = [*out.get(line, []), *source_facts.source_rows(sources)]
         return out
 
 
@@ -78,28 +78,10 @@ def line_sources(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, list[
     """
     located = source_facts.located_records(facts)
     return {
-        line: [_source(found) for found in located[bare]]
+        line: [source_facts.source_fields(found) for found in located[bare]]
         for line in lines
         if (bare := judgement.unprefixed(line)) in located
     }
-
-
-def _source(found: source_facts.Located) -> dict[str, Any]:
-    excerpt = found.record.get("source")
-    parser = found.record.get("parser")
-    return {
-        "file": found.file,
-        "line": found.line or None,
-        "excerpt": excerpt if found.line and isinstance(excerpt, str) and excerpt else None,
-        "parser": parser if isinstance(parser, str) and parser else None,
-    }
-
-
-def _rows(source: Mapping[str, Any]) -> list[str]:
-    """Give the text rows of one source location."""
-    rows = [f"at: {source['file']}:{source['line']}"] if source["line"] else []
-    rows += [f"excerpt: {source['excerpt']!r}"] if source["excerpt"] else []
-    return rows + ([f"parser version: {source['parser']}"] if source["parser"] else [])
 
 
 def digest(line: str, evidence: Mapping[str, str]) -> str | None:

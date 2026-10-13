@@ -845,6 +845,7 @@ Each condition that rejects the map prints its lines.
 The `unknown surface` group gives the records that the extractor could not read or connect.
 These records do not reject the map.
 The adapter writes the cause of each record in the `cause` field.
+Below each line, the `at:`, `excerpt:`, and `parser version:` rows give the values that are not in the line, as `systemap judgement` gives them.
 The group gives one `fix:` line for each cause that occurs:
 
 | Cause | Condition |
