@@ -10,6 +10,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import init_two_cards, write_tree
@@ -31,6 +32,13 @@ STARTER_MODULES = {
 
 def run(*argv: str) -> int:
     return main(list(argv))
+
+
+def detail_of(page: str) -> dict[str, Any]:
+    """The detail data of the map script. The page gives it as a string for JSON.parse."""
+    start = page.index("var DETAIL = JSON.parse(") + len("var DETAIL = JSON.parse(")
+    detail: dict[str, Any] = json.loads(json.loads(page[start : page.index(");\nvar PAL", start)]))
+    return detail
 
 
 def with_call_site(tmp_path: Path) -> tuple[Config, dict, dict]:  # type: ignore[type-arg]
@@ -146,7 +154,7 @@ def test_calls_model_in_the_model_module(
     out = capsys.readouterr().out
     assert "model sdk" not in out
     page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
-    assert '"calls_model":true' in page
+    assert any(record.get("calls_model") is True for record in detail_of(page).values())
     assert 'data-layer-btn="context"' in page, "the Context reading appears for the call site"
 
 
@@ -171,7 +179,8 @@ def test_entry_is_optional_for_store_and_context_kinds(
     assert run("--root", str(tmp_path), "check") == 0
     capsys.readouterr()
     page = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")
-    assert '"entry":"","entry_module":""' in page
+    writer = detail_of(page)["Writer"]
+    assert (writer["entry"], writer["entry_module"]) == ("", "")
     assert "The component has no entry name." in page
     # An entry a store does give is checked like any other.
     model.write_text(

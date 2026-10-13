@@ -474,17 +474,18 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
         '<summary>Child maps</summary><a href="Gateway/index.html">Gateway</a>, <a href="Style/index.html">Style</a>'
         in top
     )
-    assert (
-        '"map":{"name":"Gateway","href":"Gateway/index.html","cards":3,'
-        '"preview":"<svg id=\\"preview-Gateway\\"' in top
-    )
-    assert (
-        '"map":{"name":"Style","href":"Style/index.html","cards":2,'
-        '"preview":"<svg id=\\"preview-Style\\"' in top
-    )
-    assert '"map":null' in top
+    detail = json.loads(_detail_json(top))
+    for name, cards in (("Gateway", 3), ("Style", 2)):
+        inside = detail[name]["map"]
+        assert (inside["name"], inside["href"], inside["cards"]) == (
+            name,
+            f"{name}/index.html",
+            cards,
+        )
+        assert inside["preview"].startswith(f'<svg id="preview-{name}"')
+    assert any(record.get("map", "") is None for record in detail.values())
     assert "Map inside: <b>" in top and "systemap-f__opens" in top
-    preview = json.loads(_detail_json(top))["Gateway"]["map"]["preview"]
+    preview = detail["Gateway"]["map"]["preview"]
     assert preview.startswith('<svg id="preview-Gateway"') and preview.endswith("</svg>")
     assert preview.count('class="node ') == 5 and 'class="flow ' not in preview
     assert 'data-id="App"' in preview and 'data-id="Routes"' in preview
@@ -521,10 +522,11 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
 
 
 def _detail_json(html: str) -> str:
-    """The detail JSON the page inlines for the map's script."""
-    start = html.index("var DETAIL = ") + len("var DETAIL = ")
-    end = html.index(";\nvar PAL = ", start)
-    return html[start:end].replace("<\\/", "</")
+    """The detail JSON the page inlines for the map's script, as a string for JSON.parse."""
+    start = html.index("var DETAIL = JSON.parse(") + len("var DETAIL = JSON.parse(")
+    end = html.index(");\nvar PAL = ", start)
+    text: str = json.loads(html[start:end])
+    return text
 
 
 @needs_node
@@ -610,7 +612,12 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     assert run("--root", str(nested), "figure", "--interactive", "--out", str(out)) == 0
     text = out.read_text(encoding="utf-8")
     assert text.count('class="node__map"') == 2 and "opens a map" in text
-    assert '"map":{"name":"Gateway","href":"","cards":3,"preview":""}' in text
+    assert json.loads(_detail_json(text))["Gateway"]["map"] == {
+        "name": "Gateway",
+        "href": "",
+        "cards": 3,
+        "preview": "",
+    }
     capsys.readouterr()
     assert run("--root", str(nested), "figure", "--map", "Nope", "--out", str(out)) == 2
     assert "unknown map id: Nope. The nested map IDs are Gateway, Style" in capsys.readouterr().err

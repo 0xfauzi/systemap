@@ -283,7 +283,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="fb026bb2c0eec4692920a80ad61b51e0f16f685305d771e4419cb6a3f75379af",
+        source_review="6bf5bb9404a349150b6012ab893a6ec98ffc91409c47c993c684f2133b260d0d",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
