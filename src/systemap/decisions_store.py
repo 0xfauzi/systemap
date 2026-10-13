@@ -1,15 +1,21 @@
 """The decision store records the verdicts of a coding agent in `.systemap/decisions.json`.
 
 The store is local to one working copy, and Git does not record it. It keeps one record
-for each request key: the claim digest, the last verdict, the quantity of `contradicted`
-results, and the last summary. A different claim digest resets the record.
+for each target: the request type, the map, and the identity of the target (the component
+ID, the flow, or the finding kind and the names of a judgement line). The record has the
+claim digest, the digests of the source files, the last verdict, the quantity of
+`contradicted` results, and the last summary.
 
-- `supported` records the result. The model or the configuration gets the review or the answer.
+- `supported` records the result. The model or the configuration gets the review or the
+  answer. The count of `contradicted` results goes back to zero.
 - `contradicted` adds one attempt. The agent must correct the map and submit again.
   At `[decisions] max_contradicted` attempts, the request becomes unknown.
 - `insufficient_evidence` makes the request unknown at once.
 
-An unknown request is not a pass. It stays unknown until its claim digest changes.
+A change of the map claim does not reset the record, so a repair loop stops at the limit.
+A change of a source file of the target resets the record. A file that only the record or
+only the current request has is a change of the map claim, not a change of the source.
+An unknown request is not a pass. It stays unknown until the source of its target changes.
 Delete the store to start a new session. The `supported` count then starts at zero.
 """
 
@@ -59,10 +65,18 @@ def save(root: Path, records: dict[str, dict[str, Any]]) -> None:
     os.replace(temporary, target)
 
 
+def _same_source(record: dict[str, Any], request: Request) -> bool:
+    """Find if each source file of the request that the record has keeps its digest."""
+    recorded = record.get("files")
+    if not isinstance(recorded, dict):
+        return False
+    return all(recorded.get(f.file, f.sha256) == f.sha256 for f in request.files)
+
+
 def current(records: dict[str, dict[str, Any]], request: Request) -> dict[str, Any] | None:
-    """Give the record of a request if its claim digest is the current digest."""
+    """Give the record of the target of a request if the source of the target did not change."""
     record = records.get(request.key)
-    if record is None or record.get("digest") != request.digest:
+    if record is None or not _same_source(record, request):
         return None
     return record
 
@@ -74,9 +88,19 @@ def attempts(records: dict[str, dict[str, Any]], request: Request) -> int:
 
 
 def state(records: dict[str, dict[str, Any]], request: Request) -> str:
-    """Give `unknown` for a request with an unknown record at the current digest, or `pending`."""
+    """Give `unknown` for a request with an unknown record at the current source, or `pending`."""
     record = current(records, request)
     return UNKNOWN if record and record.get("state") == UNKNOWN else PENDING
+
+
+def verdict(records: dict[str, dict[str, Any]], request: Request) -> str:
+    """Give `unknown`, the recorded state of the current claim, or an empty string."""
+    record = current(records, request)
+    if record is None:
+        return ""
+    if record.get("state") == UNKNOWN or record.get("digest") == request.digest:
+        return str(record.get("state", ""))
+    return ""
 
 
 def record(
@@ -87,7 +111,7 @@ def record(
     limit: int,
 ) -> str:
     """Record one valid result. Give the new state of the request: its verdict, or `unknown`."""
-    count = attempts(records, request)
+    count = 0 if verdict == SUPPORTED else attempts(records, request)
     if verdict == CONTRADICTED:
         count += 1
     new = (
@@ -102,6 +126,7 @@ def record(
         "target": request.target,
         "claim": request.claim,
         "digest": request.digest,
+        "files": {f.file: f.sha256 for f in request.files},
         "verdict": verdict,
         "attempts": count,
         "state": new,

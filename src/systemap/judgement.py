@@ -518,36 +518,34 @@ def run_tree(
 def evidence_for_tree(
     tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str]
 ) -> dict[str, str]:
-    """This function hashes source evidence for exact answers and indexes it by printed
-    diagnostic.
+    """This function hashes the evidence of each printed line for exact answers.
 
-    Crossing-import evidence includes only the participating modules. Other evidence
-    includes map source and mapped facts. An uncommitted source edit changes the digest.
+    The evidence of a line is the evidence that the line names (`judgement_evidence`).
+    Crossing-import evidence includes only the participating modules. An uncommitted
+    source edit changes the digest.
     """
     components = facts.get("components", {})
-    out: dict[str, str] = {}
+    crossings: dict[str, list[tuple[str, str]]] = {}
     for m in tree.maps:
-        out.update(_map_answer_evidence(m, facts, components, root, lines))
-    return out
-
-
-def _map_answer_evidence(
-    m: nest.Map,
-    facts: dict[str, Any],
-    components: dict[str, Any],
-    root: Path,
-    lines: list[str],
-) -> dict[str, str]:
-    model_hash = text_digest(m.path.read_bytes())
-    crossings = {
-        m.prefix + crossing_line(p, q, imports): imports
-        for (p, q), imports in crossing_imports(m.model, facts).items()
-    }
+        crossings.update(
+            {
+                m.prefix + crossing_line(p, q, imports): imports
+                for (p, q), imports in crossing_imports(m.model, facts).items()
+            }
+        )
+    model_hashes: dict[str, str] = {}
     out: dict[str, str] = {}
     for key in lines:
-        if not key.startswith(m.prefix):
-            continue
-        state = judgement_evidence.answer_state(components, root, model_hash, crossings.get(key))
+        m = judgement_evidence.map_of(tree, key)
+        state = (
+            judgement_evidence.answer_state(components, root, "", crossings[key])
+            if key in crossings
+            else judgement_evidence.line_state(m, facts, root, key)
+        )
+        if state is None:
+            if m.id not in model_hashes:
+                model_hashes[m.id] = text_digest(m.path.read_bytes())
+            state = judgement_evidence.full_state(components, root, model_hashes[m.id])
         encoded = json.dumps(state, sort_keys=True, default=str).encode()
         out[key] = hashlib.sha256(encoded).hexdigest()
     return out

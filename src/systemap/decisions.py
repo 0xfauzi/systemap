@@ -8,7 +8,9 @@ There are three request types:
 - `flow_review`: a flow with source records and a review digest that is not current.
 
 Each request has a stable ID. The ID comes from the request type, the target, and the claim
-digest, so the same claim gives the same ID in a different session. The digest of a
+digest, so the same claim gives the same ID in a different session. The store identity of
+a request does not contain the claim digest: it is the component ID, the flow, or the
+finding kind and the names in a judgement line. The digest of a
 judgement request is the digest of its line. A source change that does not change the line
 does not change the ID. The answer gets the evidence digest at the time of the write.
 
@@ -35,12 +37,14 @@ from systemap import (
     card_review,
     evidence,
     judgement,
+    judgement_evidence,
     judgement_json,
     nest,
     repo_files,
     review_policy,
 )
-from systemap.model import Component, Flow, Meaning, Model, claimed, is_symbol
+from systemap.judgement_evidence import card_modules
+from systemap.model import Component, Flow, Meaning, Model
 
 JUDGEMENT = "judgement"
 SOURCE_REVIEW = "source_review"
@@ -68,6 +72,7 @@ class Request:
 
     `digest` is None if the claim has no current digest. `blocked` then tells the cause,
     and a `supported` verdict cannot be recorded until the map or the source changes.
+    `identity` is the target in the store. If it is empty, the store uses `target`.
     """
 
     id: str
@@ -78,11 +83,12 @@ class Request:
     digest: str | None
     files: tuple[SourceFile, ...]
     blocked: str = ""
+    identity: str = ""
 
     @property
     def key(self) -> str:
-        """The store key: the request type, the map, and the target, without the digest."""
-        return f"{self.type}\n{self.map}\n{self.target}"
+        """The store key: the request type, the map, and the identity, without the digest."""
+        return f"{self.type}\n{self.map}\n{self.identity or self.target}"
 
     def row(self) -> dict[str, Any]:
         """Give the JSON object of the request."""
@@ -149,14 +155,6 @@ def _files(root: Path, facts: dict[str, Any], modules: Iterable[str]) -> tuple[S
         rel = PurePosixPath(name).as_posix()
         out.setdefault(rel, SourceFile(rel, module, file_digest(full)))
     return tuple(out.values())
-
-
-def card_modules(card: Component, facts: dict[str, Any]) -> list[str]:
-    """Give the modules of a component: its module claims and the modules of its symbols."""
-    components = facts.get("components", {})
-    found = claimed(card, components)
-    found += [p.partition(":")[0] for p in card.implemented_by if is_symbol(p)]
-    return found
 
 
 def _id(kind: str, target: str, digest: str | None) -> str:
@@ -275,28 +273,17 @@ def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
     return out
 
 
-def _map_of(tree: nest.Tree, line: str) -> nest.Map:
-    """Give the map of a judgement line: the nested map with the longest prefix, or the top."""
-    nested = [m for m in tree.maps if m.id and line.startswith(m.prefix)]
-    return max(nested, key=lambda m: len(m.id)) if nested else tree.top
-
-
-def _line_modules(m: nest.Map, line: str, facts: dict[str, Any]) -> list[str]:
-    """Give the modules of the components and the modules that a judgement line names."""
-    bare = line[len(m.prefix) :]
-    modules = [
-        module
-        for card in m.model.components
-        if _names(card.id, bare)
-        for module in card_modules(card, facts)
-    ]
-    modules += [name for name in facts.get("components", {}) if _names(name, bare)]
-    return modules
-
-
-def _names(name: str, text: str) -> bool:
-    """Find the exact name as a full word. A dotted name that contains it is not a match."""
-    return re.search(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)", text) is not None
+def _subject(m: nest.Map, line: str, facts: dict[str, Any]) -> str:
+    """Give the finding kind and the names in the line, or the line if it names nothing."""
+    bare = judgement.unprefixed(line[len(m.prefix) :])
+    kind = next((k for k, head in judgement.KIND_PREFIX.items() if bare.startswith(head)), "")
+    cards = sorted({card.id for card in judgement_evidence.named_cards(m, line)})
+    modules = sorted(
+        name for name in facts.get("components", {}) if judgement_evidence.names(name, bare)
+    )
+    if not kind or not (cards or modules):
+        return line
+    return f"{kind}: {' '.join(cards + modules)}"
 
 
 def _covered(review_requests: list[Request], m: nest.Map, line: str) -> bool:
@@ -322,21 +309,38 @@ def _line_requests(
     judged: judgement_json.Judged,
     reviews: list[Request],
 ) -> list[Request]:
+    """Give one request for each open line that no review request closes.
+
+    If two lines have the same kind and the same names, the identity of each is its line.
+    """
+    chosen = [
+        (m, line)
+        for line in judged.result.open
+        for m in [judgement_evidence.map_of(tree, line)]
+        if not _covered(reviews, m, line)
+    ]
+    subjects = [_subject(m, line, facts) for m, line in chosen]
     out: list[Request] = []
-    for line in judged.result.open:
-        m = _map_of(tree, line)
-        if _covered(reviews, m, line):
-            continue
+    for (m, line), subject in zip(chosen, subjects, strict=True):
         digest = hashlib.sha256(line.encode("utf-8")).hexdigest()
         blocked = (
             ""
             if judgement_json.digest(line, judged.evidence)
             else "The evidence digest of the line is not available. Do systemap refresh."
         )
-        files = _files(root, facts, _line_modules(m, line, facts))
+        files = _files(root, facts, judgement_evidence.line_modules(m, line, facts))
+        identity = subject if subjects.count(subject) == 1 else line
         out.append(
             Request(
-                _id(JUDGEMENT, line, digest), JUDGEMENT, m.id, line, line, digest, files, blocked
+                _id(JUDGEMENT, line, digest),
+                JUDGEMENT,
+                m.id,
+                line,
+                line,
+                digest,
+                files,
+                blocked,
+                identity,
             )
         )
     return out
