@@ -319,7 +319,7 @@ ADAPTERS = {
 # The model-file readers. A model file is Python for each source language, so these
 # modules parse Python text. They do not read repository source.
 MODEL_READERS = {
-    "place.py": "It edits the positions in the Python model file.",
+    "place_source.py": "It edits the positions in the Python model file.",
     "journeys.py": "It writes sequences into the Python model file.",
     "model_load.py": "It reads the Python model file without running it.",
     "model_convert.py": "It converts the Python model file to a new schema.",

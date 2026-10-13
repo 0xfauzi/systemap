@@ -659,6 +659,12 @@ A component must have a position before you render the map.
 This command writes positions for unpositioned components on all maps.
 The command keeps positions already in the model.
 Only `x=`, `y=`, boxes, and the canvas change.
+The command changes keyword values and positional values.
+After the write, the command loads the model file again.
+It compares each position, box, and the canvas with the calculated values.
+If the command cannot load the file or a value is different, it restores the previous file contents.
+This error causes exit 1.
+For example, a box in an imported file is different, because the command changes only the model file.
 
 Regions use a two-column grid with routing corridors.
 The search selects the region order with the best score.
@@ -734,6 +740,10 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 `map: The page agrees with the rendered model fields and the facts.`
 A rejected check causes exit 1, and the command renders nothing.
+After a check without errors, the command examines the import rules, as `systemap check` does.
+It prints the rule results. A rule with the result `fail` causes exit 1.
+With `[rules] unknown = "fail"`, a rule with the result `unknown` also causes exit 1.
+The command writes its outputs before it examines the rules.
 `-q` or `--quiet` prints only errors and check results.
 
 ### `systemap suggest [--decide]`

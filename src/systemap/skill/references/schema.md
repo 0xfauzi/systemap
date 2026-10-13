@@ -368,6 +368,7 @@ The checker rejects these conditions:
 
 - Missing positions, cards that overlap, and components outside their region or container.
 - Unknown flow endpoints, invalid kinds, and invalid context or tool endpoints.
+- A flow with the same component at its two ends.
 - Two flows on one ordered pair without an `id` on each, an incorrect `id`, and an `id` on two flows.
 - A pair key in `relations`, `layer_overrides`, or `verb_overrides` for a pair with two or more flows.
 - A step with an unknown flow, or with the pair of two or more flows.
