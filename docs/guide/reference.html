@@ -239,6 +239,10 @@ For each finding, change the model or record the reason for its stored state.</p
 <td>A component has a <code>source_review</code> digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with <code>systemap review ID</code>.</td>
 </tr>
 <tr>
+<td>missing source review</td>
+<td>Only with <code>[judgement] require_reviews = true</code>. A source component has no <code>source_review</code> digest. Examine the source and the claims. Then record the digest with <code>systemap decisions</code> or <code>systemap review ID</code>.</td>
+</tr>
+<tr>
 <td>model sdk</td>
 <td>A module imports a model SDK or agent framework. Its component is neither an agent nor <code>calls_model</code>. Examples are anthropic, openai, and google.adk. <code>[facts] model_sdks</code> can add or remove names from the built-in list.</td>
 </tr>
@@ -252,6 +256,7 @@ With <code>--strict</code>, it exits 1 while a finding is open.</p>
 <code>systemap delta</code> and <code>systemap judgement</code> use the same state.
 A stale review is a <code>stale source review</code> finding, so <code>judgement --strict</code> fails on it.
 A missing review is not a finding. Many maps have no <code>source_review</code> values, and these maps pass <code>judgement --strict</code>.
+With <code>[judgement] require_reviews = true</code>, a missing review is a <code>missing source review</code> finding, so <code>judgement --strict</code> fails on it.
 The report counts the three states on one line, for example <code>source reviews: 16 current, 0 stale, 0 missing</code>.
 <code>[judgement] answered</code> in <code>systemap.toml</code> contains recorded answers.
 Accepted answers suppress findings and increase the answered count.
@@ -735,6 +740,11 @@ The first finding of each kind has rows about its effect and necessary action.</
 <p><code>--brief</code> does not include the two explanation rows.</p>
 </li>
 <li>
+<p>If the decision store has unknown decision requests, the report gives each one after the review counts.
+The row <code>unknown request ID: CLAIM</code> gives the claim. The report does not say that the claim is correct.
+The <code>systemap decisions</code> section tells about decision requests.</p>
+</li>
+<li>
 <p><code>--json</code> writes one JSON object to stdout for software, for example a CI step.
 The object has no explanation text. <code>--brief</code> and <code>--verbose</code> do not change it.
 The exit codes are the same as in the text mode, with and without <code>--strict</code>.
@@ -855,6 +865,11 @@ It reads the model list one time, as each Jev command does.</p>
 <td>The keys <code>current</code>, <code>stale</code>, and <code>missing</code>, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists.</td>
 </tr>
 <tr>
+<td><code>require_reviews</code></td>
+<td>boolean</td>
+<td>The value of <code>[judgement] require_reviews</code>. With true, a missing source review is an open finding.</td>
+</tr>
+<tr>
 <td><code>kinds</code></td>
 <td>object</td>
 <td>One key for each finding kind. Each value has <code>open</code> and <code>answered</code>, with the quantity of findings of that kind.</td>
@@ -863,6 +878,11 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>drift_order</code></td>
 <td>object</td>
 <td>Only with <code>--order-by-drift</code>. <code>questions</code> is the quantity of questions. <code>no_score</code> is the quantity of questions without a score. <code>reason</code> is the cause, or an empty string.</td>
+</tr>
+<tr>
+<td><code>unknown_requests</code></td>
+<td>list of objects</td>
+<td>The unknown decision requests, with the fields of <code>unknown_requests</code> in <code>systemap decisions status --json</code>. Without a decision store, the list is empty.</td>
 </tr>
 </tbody>
 </table>
@@ -1069,6 +1089,250 @@ If the value is the current digest, the command writes nothing.</p>
 <li>systemap cannot read the model file as data. Use <code>systemap convert</code> first.</li>
 <li>The command finds no literal call for the target, or more than one.</li>
 </ul>
+<h3 id="systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></h3>
+<p>These commands give the claims of the map to a coding agent in its current session.
+The agent examines each claim against the source code and sends a verdict.
+systemap examines each verdict and records the correct verdicts.
+The commands send no request to a model. An API key is not necessary.
+The skill procedure is in <code>references/decisions.md</code>.</p>
+<p>The commands read the facts file. If the facts file does not agree with the source code, the commands stop with exit 1.
+Run <code>systemap refresh</code> first.</p>
+<p>A decision request has one of three types:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-pending-submit-file-status">
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Claim</th>
+<th>Result of <code>supported</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>judgement</code></td>
+<td>An open judgement line. The claim digest is the SHA-256 digest of the line.</td>
+<td>An exact answer in <code>[judgement] answered</code>, with the summary as the reason, the current evidence digest, and the citations.</td>
+</tr>
+<tr>
+<td><code>source_review</code></td>
+<td>A source component with a missing or stale source review. The claim digest is the review digest.</td>
+<td>The current <code>source_review</code> digest, as <code>systemap review ID</code> writes it.</td>
+</tr>
+<tr>
+<td><code>flow_review</code></td>
+<td>A flow with <code>source_refs</code> and a <code>review_digest</code> that is not current. The claim digest is the flow claim digest.</td>
+<td>The current <code>review_digest</code>, as <code>systemap review --flow</code> writes it.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A judgement line that a review digest closes is not a different decision request.
+These lines are <code>stale source review</code> and <code>missing source review</code> for a component with a <code>source_review</code> request.
+They are also <code>flow review</code> and <code>declared flow</code> for a flow with a <code>flow_review</code> request.</p>
+<p>The <code>id</code> of a decision request contains the type, the target, and the first 16 characters of the claim digest.
+If the claim does not change, the <code>id</code> stays the same in a different session.
+A source change that does not change a judgement line does not change its <code>id</code>.</p>
+<h4 id="systemap-decisions-pending-json"><code>systemap decisions pending [--json]</code></h4>
+<p>Gives the pending decision requests. The command exits 0.
+An unknown decision request is not pending. The <code>unknown</code> count gives the quantity.</p>
+<p>The JSON object has these fields:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-pending-json">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schema_version</code></td>
+<td>integer</td>
+<td>The version of this schema. The value is 1.</td>
+</tr>
+<tr>
+<td><code>verdicts</code></td>
+<td>list of strings</td>
+<td><code>supported</code>, <code>contradicted</code>, and <code>insufficient_evidence</code>.</td>
+</tr>
+<tr>
+<td><code>max_contradicted</code></td>
+<td>integer</td>
+<td>The value of <code>[decisions] max_contradicted</code>.</td>
+</tr>
+<tr>
+<td><code>requests</code></td>
+<td>list of objects</td>
+<td>One object for each pending decision request.</td>
+</tr>
+<tr>
+<td><code>requests[].id</code></td>
+<td>string</td>
+<td>The identifier for <code>request_id</code> in a verdict.</td>
+</tr>
+<tr>
+<td><code>requests[].type</code></td>
+<td>string</td>
+<td><code>judgement</code>, <code>source_review</code>, or <code>flow_review</code>.</td>
+</tr>
+<tr>
+<td><code>requests[].map</code></td>
+<td>string</td>
+<td>The ID of the nested map. The top map has an empty string.</td>
+</tr>
+<tr>
+<td><code>requests[].target</code></td>
+<td>string</td>
+<td>The judgement line, the component ID, or the flow as <code>SRC-&gt;DST</code>.</td>
+</tr>
+<tr>
+<td><code>requests[].claim</code></td>
+<td>string</td>
+<td>The claim text. For a component, it includes the flows, invariants, and sequences that name it.</td>
+</tr>
+<tr>
+<td><code>requests[].claim_digest</code></td>
+<td>string or null</td>
+<td>The current claim digest. The value is null if the component has no current digest.</td>
+</tr>
+<tr>
+<td><code>requests[].files</code></td>
+<td>list of objects</td>
+<td>The source files of the claim, with <code>file</code> (the path from the repository root), <code>module</code>, and <code>sha256</code> (the source hash of the full file).</td>
+</tr>
+<tr>
+<td><code>requests[].verdicts</code></td>
+<td>list of strings</td>
+<td>The permitted verdicts.</td>
+</tr>
+<tr>
+<td><code>requests[].attempts</code></td>
+<td>integer</td>
+<td>The quantity of <code>contradicted</code> verdicts for the current claim.</td>
+</tr>
+<tr>
+<td><code>requests[].blocked</code></td>
+<td>string</td>
+<td>If not empty, the cause that prevents <code>supported</code>, and the necessary step.</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>integer</td>
+<td>The quantity of unknown decision requests.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>For a judgement line, the files are the files of the components and the modules that the line names.
+If the line names no component or module, the list is empty.</p>
+<h4 id="systemap-decisions-submit-file"><code>systemap decisions submit FILE</code></h4>
+<p>Reads a JSON list of verdicts from FILE, or from stdin for <code>-</code>.
+Each verdict is an object with only these fields:</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-submit-file">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_id</code></td>
+<td>string</td>
+<td>The <code>id</code> of a pending decision request.</td>
+</tr>
+<tr>
+<td><code>verdict</code></td>
+<td>string</td>
+<td><code>supported</code>, <code>contradicted</code>, or <code>insufficient_evidence</code>.</td>
+</tr>
+<tr>
+<td><code>citations</code></td>
+<td>list of objects</td>
+<td>The source lines that the agent read. Each citation has <code>file</code>, <code>start_line</code>, <code>end_line</code>, and <code>sha256</code>.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>string</td>
+<td>One or more sentences about the source code. The writing profile applies.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The command first examines all verdicts.
+If one verdict is incorrect, the command writes no file, gives each error, and exits 1.
+The command rejects a verdict in these conditions:</p>
+<ul>
+<li>The <code>request_id</code> is not a current decision request, or the decision request is unknown. A claim change gives a new <code>id</code>.</li>
+<li>The file has two verdicts for one <code>request_id</code>.</li>
+<li>A <code>file</code> is an absolute path, a Windows drive or UNC path, or contains <code>..</code> or a backslash.</li>
+<li>A <code>file</code> is not a regular file, or is not a source file in the facts.</li>
+<li>A <code>file</code> is a symbolic link to a file that is not in the repository.</li>
+<li>A line span is not in the file, or <code>start_line</code> is more than <code>end_line</code>.</li>
+<li>A <code>sha256</code> is not the SHA-256 digest of the current file content.</li>
+<li>A <code>supported</code> verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a judgement line without files, one citation is necessary.</li>
+<li>A <code>supported</code> verdict has a decision request with a <code>blocked</code> value, or the review command cannot write the digest.</li>
+<li>A <code>supported</code> verdict for a component has a flow of that component with a <code>contradicted</code> or unknown verdict.</li>
+</ul>
+<p>Then the command writes, in this sequence:</p>
+<ol>
+<li>The <code>review_digest</code> of each <code>supported</code> flow.</li>
+<li>The <code>source_review</code> of each <code>supported</code> component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.</li>
+<li>One exact answer for each <code>supported</code> judgement line. A review digest changes the model file, and the evidence digest of an answer includes the model file. Thus the command calculates the evidence digest after the review digests.</li>
+<li>The decision store, <code>.systemap/decisions.json</code>. Git does not record this file.</li>
+</ol>
+<p>A <code>contradicted</code> verdict adds one to the <code>contradicted</code> count of the claim.
+The agent must correct the map and send a new verdict.
+At <code>[decisions] max_contradicted</code> verdicts, the decision request becomes unknown.
+After one <code>insufficient_evidence</code> verdict, the decision request is unknown.
+A change of the claim digest makes the decision request pending again, with a count of zero.</p>
+<p>CAUTION: A new review digest in the model file changes the evidence digest of each exact answer for a line that is not a crossing import.
+These answers then stay pending until they have a new evidence digest.</p>
+<h4 id="systemap-decisions-status-json"><code>systemap decisions status [--json]</code></h4>
+<p>Gives the counts and the unknown decision requests.
+The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
+An unknown decision request does not show that its claim is correct, and the text does not say that it is correct.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-status-json">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schema_version</code></td>
+<td>integer</td>
+<td>The version of this schema. The value is 1.</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td>integer</td>
+<td>The quantity of pending decision requests.</td>
+</tr>
+<tr>
+<td><code>supported</code></td>
+<td>integer</td>
+<td>The quantity of <code>supported</code> verdicts in the decision store. Remove the decision store to start a new count.</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>integer</td>
+<td>The quantity of unknown decision requests.</td>
+</tr>
+<tr>
+<td><code>unknown_requests</code></td>
+<td>list of objects</td>
+<td>One object for each unknown decision request, with <code>id</code>, <code>type</code>, <code>map</code>, <code>target</code>, <code>claim</code>, <code>claim_digest</code>, <code>verdict</code> (the last verdict), <code>attempts</code>, and <code>summary</code> (the last summary).</td>
+</tr>
+</tbody>
+</table>
+</div>
 <h3 id="systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></h3>
 <p>Supplies the output directory through HTTP on the loopback address.
 The command prints the URL.
@@ -1293,6 +1557,21 @@ Unknown keys are rejected.</p>
 <td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;jev flow&quot;</code>.</td>
 </tr>
 <tr>
+<td><code>[judgement] require_reviews</code></td>
+<td><code>false</code></td>
+<td>With <code>true</code>, each source component without a <code>source_review</code> digest gives a <code>missing source review</code> finding. Thus <code>judgement --strict</code> fails on a missing review.</td>
+</tr>
+<tr>
+<td><code>[judgement] answered</code> citations</td>
+<td>none</td>
+<td>An exact answer can have <code>citations = [{file = &quot;pkg/a.py&quot;, start_line = 1, end_line = 9, sha256 = &quot;&lt;digest&gt;&quot;}]</code>. <code>systemap decisions submit</code> writes them. An answer without citations stays correct.</td>
+</tr>
+<tr>
+<td><code>[decisions]</code></td>
+<td><code>max_contradicted = 3</code></td>
+<td>The quantity of <code>contradicted</code> verdicts for one claim before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more.</td>
+</tr>
+<tr>
 <td><code>[jev]</code></td>
 <td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled</code> unset</td>
 <td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --jev</code>. With <code>enabled = true</code> and <code>TYPESAFE_API_KEY</code>, <code>delta</code> sends questions to Jev without <code>--jev</code>. With <code>enabled</code> unset, <code>delta</code> sends no question without <code>--jev</code>, also with a key. <code>enabled = false</code> stops the hints.</td>
@@ -1379,7 +1658,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-jev"><code>systemap suggest [--jev]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
