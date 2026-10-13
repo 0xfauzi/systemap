@@ -2819,3 +2819,28 @@ The median input was 664 tokens on development and 743 tokens on holdout. The me
 `jev flow` stays out of `DEFAULT_KINDS` for the two providers, because no TypeScript row set is available.
 At its threshold, OpenAI catches 33.8% of incorrect claims on development. At its threshold, Jev catches 60.0%.
 Thus Jev stays the better provider for the flow question.
+
+## Which bench scripts did not import on 2026-10-13, and what changed?
+
+Each bench script must import with no error. On the `integrate/wave-3` branch, four scripts did not import, because `src/` removed or moved a name:
+
+| script | error | change |
+|---|---|---|
+| `flow_context.py` | `audit_code._bindings` does not exist, and `audit_code.code_between` has a different signature | `import_context.py` keeps the earlier selector. `flow_context.py` also writes the folder package into each cached record, as `call_site_context.py` does. |
+| `draft.py` | `extract.is_empty_marker` does not exist | The script imports `source_facts.is_empty_marker`. |
+| `moves.py` | `extract.is_empty_marker` does not exist | The script imports `source_facts.is_empty_marker`. |
+| `paths.py` | `extract.entry_label` does not exist | The script imports `source_facts.entry_label`. |
+
+`flow_context.py build` made the rows of the four arms again on the two sets.
+The 8 row files were the same as the files that Jev answered in the flow context experiment.
+`flow_context.py score` gave the same output as `results/flowctx-report.txt`.
+Thus the script stays, and `call_site_context.py` does not replace it. The two scripts measure different selectors.
+
+`source_facts.is_empty_marker` reads the `empty_marker` fact. The cached facts of format 2 do not have this fact.
+Thus, for these facts, the function finds no empty package marker. The earlier `extract.is_empty_marker` found the markers from the file name and the record.
+
+`common.py` and `call_site_context.py` used the new function before this change. After this change, `draft.py` also uses it with the facts of each first map.
+A new `draft.py` result can be different from the recorded result. The script was not operated again.
+
+`drift_head.py` operates when Python imports it. The `repo-maintenance-*` folders in `bench/scratch` are necessary.
+Without these folders, the import stops with `StopIteration`. With these folders, the import completed.

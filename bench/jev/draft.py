@@ -31,8 +31,8 @@ from turns import RUNS, calls
 
 from systemap import config, extract, jev, nest
 from systemap.audit import OWNER_Q
-from systemap.extract import is_empty_marker
 from systemap.model import claimed
+from systemap.source_facts import is_empty_marker
 
 OUT = HERE / "results" / "draft"
 CONFIDENT = 0.9

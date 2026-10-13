@@ -25,7 +25,7 @@ from common import SCRATCH, SYSTEMAP
 
 from systemap import config, nest
 from systemap.evidence import mentioned
-from systemap.extract import entry_label
+from systemap.source_facts import entry_label
 
 MAPS = {"systemap": SYSTEMAP}
 MAPS.update(

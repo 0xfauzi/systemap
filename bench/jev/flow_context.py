@@ -13,7 +13,9 @@ and labels. Each arm sends the shipped question (`audit.VERIFY_Q`) and the shipp
 
 The arms:
 
-- base: the shipped `audit_code.code_between`. At most 30 lines.
+- base: the `audit_code.code_between` that shipped at the time of the measurement.
+  `import_context.py` keeps it, because the shipped selector now reads the
+  `call_sites` fact. At most 30 lines.
 - around: the shipped lines, then the adjacent lines (1, then 2 lines before and after
   each line). At most 60 lines.
 - calls: the shipped lines, then the lines that use a name bound to an imported name
@@ -74,11 +76,12 @@ from typing import Any
 
 import build_flows
 from common import DEV_REPOS, HERE, HOLDOUT_REPOS, SCRATCH, SET, SYSTEMAP, Repo
+from import_context import DEFAULT, WHOLE, code_between
+from import_context import bindings as _bindings
 
 from systemap import audit, config, nest
-from systemap.audit_code import DEFAULT, WHOLE, _bindings, code_between
-from systemap.extract import is_empty_marker
 from systemap.model import claimed
+from systemap.source_facts import is_empty_marker
 
 ARMS = ("base", "around", "calls", "targets")
 LINES = 60
@@ -128,9 +131,21 @@ def facts_dir() -> Path:
     return HERE / "data" / ("" if SET == "dev" else "holdout")
 
 
+def folder_packages(facts: dict[str, Any]) -> dict[str, Any]:
+    """Write the folder package into each cached record, as `call_site_context.py` does.
+
+    Format 2 wrote the first name part as `package`. `audit.modules_by_card` reads the
+    folder package: the parent package, or the name of a package root.
+    """
+    prefixes = set(facts["packages"])
+    for module, record in facts["components"].items():
+        record["package"] = module if module in prefixes else module.rsplit(".", 1)[0]
+    return facts
+
+
 def load_repo(name: str) -> tuple[Repo, Any]:
     """The repository at the cached facts, and the top map."""
-    facts = json.loads((facts_dir() / f"facts-{name}.json").read_text())
+    facts = folder_packages(json.loads((facts_dir() / f"facts-{name}.json").read_text()))
     root = root_of(name, facts)
     cfg = config.load(root)
     top = nest.load(cfg).top
