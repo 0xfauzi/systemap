@@ -32,8 +32,9 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # of its definition. A TypeScript type-only export has `type_only`, and `api` has a
 # record for each `*` re-export. A type declaration that is not a class is in
 # `types`, with its category, and not in `classes`. Each entry point has the
-# `same_as` fact. Cached facts of format 7 have the earlier values.
-FORMAT = 8
+# `same_as` fact. Cached facts of format 7 have the earlier values. Format 9: each
+# unknown record has the `cause` that `unknown_causes` specifies.
+FORMAT = 9
 TESTS_KEPT = 25
 
 
@@ -322,6 +323,7 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
     if stored and source_text.inputs_changed(stored.get("provenance"), fresh.get("provenance")):
         out.append("extraction inputs changed since the map was built")
     out.extend(_entry_drift(fresh, stored))
+    out.extend(_issue_drift(fresh, stored))
     added = sorted(set(new_c) - set(old_c))
     gone = sorted(set(old_c) - set(new_c))
     moved = sorted(m for m in set(new_c) & set(old_c) if new_c[m]["sha"] != old_c[m]["sha"])
@@ -342,6 +344,18 @@ def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
         out.append(f"code changed since the map was built: {m}")
     out.extend(_component_drift(new_c, old_c, moved, guards_changed))
     return out
+
+
+def _issue_drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
+    """Compare the unknown records of the test files.
+
+    A test file that does not parse changes no module record. Without this comparison,
+    the stored facts do not get its unknown record. The comparison does not include
+    `config_issues`: an installed configuration package can be different on another
+    computer for the same commit."""
+    if not stored or fresh.get("test_file_issues", []) == stored.get("test_file_issues", []):
+        return []
+    return ["unknown records changed since the map was built: test files"]
 
 
 def _entry_drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:

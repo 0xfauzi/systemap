@@ -34,7 +34,7 @@ def _counts(d: Delta) -> str:
     modules = "module" if d.changed == 1 else "modules"
     return (
         f"{d.changed} {modules} changed, {d.added} added, {d.removed} removed, {d.moved} "
-        f"moved. {len(d.named)} of {d.cards} components specified"
+        f"moved. {len(d.named)} of {d.cards} components have changes"
     )
 
 

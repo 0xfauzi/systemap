@@ -21,6 +21,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
+from systemap import unknown_causes
 from systemap.source_facts import WHOLE_MODULE, package_of
 
 # The kind, the defining module, and the defining symbol of one public name.
@@ -234,6 +235,7 @@ class _Resolver:
                 "line": 0,
                 "reason": f"the `*` re-export from {source} gives names that are not known",
                 "source": "",
+                "cause": unknown_causes.REEXPORT,
             }
         )
 
@@ -262,7 +264,12 @@ class _Resolver:
         for name, found in identities.items():
             if len(found) > 1 or ((None, None) in found and count[name] > 1):
                 self.problems[module].append(
-                    {"line": 0, "reason": f"ambiguous star export {name}", "source": ""}
+                    {
+                        "line": 0,
+                        "reason": f"ambiguous star export {name}",
+                        "source": "",
+                        "cause": unknown_causes.REEXPORT,
+                    }
                 )
         return kept
 

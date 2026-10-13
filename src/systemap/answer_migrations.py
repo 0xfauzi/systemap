@@ -10,6 +10,9 @@ shared finding line must not name one language. These lines changed:
   read".
 - Facts format 9: the reason "The parser could not parse the TypeScript syntax." is now
   "The parser could not parse the source syntax."
+- The `entry point` line for a group of entry points gave the kind identifier, as in
+  "7 public_functions into Api". Now it gives the kind as words, as in "7 public
+  functions into Api". A kind without "_", such as `route`, does not change.
 
 For one release, an answer item in an earlier form selects the line in the current
 form. `current_line` gives the current form of an item. `warnings` gives one warning for
@@ -24,6 +27,7 @@ from collections.abc import Iterable
 
 from systemap import decision_kinds
 from systemap.decision_kinds import Answered
+from systemap.journey_coverage import kind_words
 
 # Each earlier form, and its current form. A nested-map prefix can come before a line.
 _EARLIER_FORMS = (
@@ -50,12 +54,21 @@ _EARLIER_FORMS = (
 )
 
 
+# The `entry point` line for a group, with a kind identifier that contains "_".
+_GROUP_KIND = re.compile(
+    r"^(?P<head>(?:\S+: )?entry point \d+ )(?P<kind>\w*_\w*)s(?P<rest> into .+ have no sequence.*)$"
+)
+
+
 def current_line(line: str) -> str:
     """Give the current form of a line. A line in the current form stays the same."""
     for earlier, current in _EARLIER_FORMS:
         found = earlier.match(line)
         if found:
             return found.expand(current)
+    group = _GROUP_KIND.match(line)
+    if group:
+        return f"{group['head']}{kind_words(group['kind'])}s{group['rest']}"
     return line
 
 

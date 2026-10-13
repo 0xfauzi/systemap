@@ -773,7 +773,7 @@ def test_delta_names_the_card_and_the_map_a_moved_module_belongs_to(
     ) in out
     assert "The map needs an update (" in out
     assert "source review:" in out
-    assert "4 of 9 components specified" in out
+    assert "4 of 9 components have changes" in out
 
 
 def test_suggest_reads_the_tree_from_the_command(

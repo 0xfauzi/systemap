@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
-    explain,
     extraction,
     facts_file,
     figure,
@@ -32,6 +31,9 @@ from systemap import (
     source_facts,
 )
 from systemap import language as languages
+from systemap.check_report import coverage_line as coverage_line
+from systemap.check_report import report as report
+from systemap.check_report import report_stale as report_stale
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
@@ -573,6 +575,8 @@ class Result:
     stale: list[str] = field(default_factory=list)
     unknown_surface: list[str] = field(default_factory=list)
     inventory_issues: list[str] = field(default_factory=list)
+    # The causes of the `unknown_surface` lines, for their fix lines. They do not reject.
+    unknown_causes: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -612,6 +616,7 @@ def run(
         problems += check_labels(meta)
         problems += check_type_size(svg)
     counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
+    unknown = source_facts.unknown_fact_causes(facts) if coverage else []
     return Result(
         problems,
         through,
@@ -619,8 +624,9 @@ def run(
         counted,
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
-        unknown_surface=source_facts.unknown_fact_lines(facts) if coverage else [],
+        unknown_surface=[line for line, _cause in unknown],
         inventory_issues=source_facts.inventory_issue_lines(facts) if coverage else [],
+        unknown_causes=tuple(dict.fromkeys(cause for _line, cause in unknown)),
     )
 
 
@@ -651,134 +657,3 @@ def tree_ok(results: Mapping[str, Result]) -> bool:
 
 def with_stale(result: Result, lines: list[str]) -> Result:
     return replace(result, stale=lines)
-
-
-def _plural(n: int, noun: str) -> str:
-    return f"{n} {noun}{'s' if n != 1 else ''}"
-
-
-def coverage_line(cov: Coverage) -> str:
-    """This function formats the coverage counts, including ignored modules and empty
-    package markers.
-    """
-    line = f"coverage: {cov.mapped} of {cov.total} modules mapped"
-    if cov.ignored:
-        line += f", {cov.ignored} ignored with a reason"
-    if cov.markers:
-        noun = "an empty package marker" if cov.markers == 1 else "empty package markers"
-        line += f", {cov.markers} {noun}"
-    return line
-
-
-def report(
-    model: Model,
-    result: Result,
-    model_file: str = "the model",
-    prefix: str = "",
-    teach: bool = True,
-) -> list[str]:
-    """This function gives the CLI report for one map.
-
-    The report includes diagnostic groups and necessary actions. The optional prefix
-    identifies a nested map. The `teach` option adds an explanation for each diagnostic
-    group.
-    """
-    lines = _report(model, result, model_file)
-    return [prefix + line for line in (_taught(lines) if teach else lines)]
-
-
-def _taught(lines: list[str]) -> list[str]:
-    """This function adds an explanation to each diagnostic group with errors."""
-    out: list[str] = []
-    for k, line in enumerate(lines):
-        out.append(line)
-        failed = k + 1 < len(lines) and lines[k + 1].startswith(" ")
-        if failed:
-            out += explain.rows(line.split(":")[0])
-    return out
-
-
-def report_stale(lines: list[str], teach: bool = True) -> list[str]:
-    """This function gives one stale-output report for the full map tree."""
-    if not lines:
-        return []
-    return [
-        f"stale: {_plural(len(lines), 'problem')}",
-        *(explain.rows("stale") if teach else []),
-        *(f"  {line}" for line in lines),
-        "  fix: Use systemap refresh. Then commit the output directory.",
-    ]
-
-
-def _report(model: Model, result: Result, model_file: str) -> list[str]:
-    through, across = result.through, result.across
-    out = [
-        (
-            f"map routes: {through} flow path{('s' if through != 1 else '')} across components "
-            f"other than their endpoints, {across} across regions other than their endpoint "
-            f"regions."
-        )
-    ]
-    cov = result.coverage
-    if not cov.counted:
-        pass
-    elif cov.checked:
-        out.append(coverage_line(cov))
-        out += [f"  {line}" for line in cov.problems]
-        if cov.problems:
-            out.append(
-                f"  fix: Give each module a component in {model_file}, or give a reason to "
-                f"ignore it in [coverage] in the configuration. Remove each ignore entry "
-                f"that a line identifies as not necessary or missing from the facts."
-            )
-    else:
-        out.append("coverage: No facts are available for the check. Use systemap extract.")
-    if result.nesting:
-        out.append(f"nesting: {_plural(len(result.nesting), 'problem')}")
-        out += [f"  {line}" for line in result.nesting]
-        out.append(
-            f"  fix: In {model_file}, give each module of the parent component one claim. "
-            f"Use other parent components as actors."
-        )
-    if result.entry:
-        out.append(f"entry: {_plural(len(result.entry), 'problem')}")
-        out += [f"  {line}" for line in result.entry]
-        out.append(
-            "  fix: The map shows code in the facts. "
-            f"In {model_file}, use modules from the facts. Set entry to a public "
-            f"name that one of these modules defines."
-        )
-    if result.interface:
-        out.append(f"interface: {_plural(len(result.interface), 'problem')}")
-        out += [f"  {line}" for line in result.interface]
-        out.append(
-            f"  fix: In {model_file}, start interface with a public name from the "
-            f"component modules, or leave it empty. Use Class.method for a method."
-        )
-    out.extend(_unknown_surface_report(result.unknown_surface))
-    problems = result.problems
-    if problems:
-        out.append(f"map layout: {_plural(len(problems), 'problem')}")
-        out += [f"  {line}" for line in problems]
-        out.append(f"  fix: Change {model_file}. Then use systemap check.")
-    else:
-        n = len(model.components)
-        out.append(
-            f"map layout: has no errors ({n} components, {len(model.flows)} orthogonal "
-            f"flow paths with labels, no text size less than {TEXT_PX:g}px)"
-        )
-    out += report_stale(result.stale)
-    return out
-
-
-def _unknown_surface_report(findings: list[str]) -> list[str]:
-    if not findings:
-        return []
-    return [
-        f"unknown surface: {_plural(len(findings), 'finding')}",
-        *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
-        (
-            "  fix: Add parser support for this syntax, write the file as UTF-8 "
-            "text, or restore the missing source mapping."
-        ),
-    ]

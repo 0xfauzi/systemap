@@ -28,6 +28,7 @@ from systemap import (
     python_tests,
     repo_files,
     source_text,
+    unknown_causes,
 )
 from systemap.completeness import parse_state
 
@@ -543,6 +544,7 @@ def collect_module(
             "line": 0,
             "reason": f"source could not be read: {repo_files.reason(exc)}",
             "parser": sys.version.split()[0],
+            "cause": unknown_causes.read_cause(exc),
         }
     surface = (
         parse_surface(raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes)
@@ -558,6 +560,7 @@ def collect_module(
                     "line": getattr(exc, "lineno", 0) or 0,
                     "reason": f"source could not be parsed: {type(exc).__name__}",
                     "parser": sys.version.split()[0],
+                    "cause": unknown_causes.SYNTAX,
                 }
         surface = {
             "docstring": "",

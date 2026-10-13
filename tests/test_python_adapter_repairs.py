@@ -186,12 +186,13 @@ def test_the_two_adapters_give_a_pattern_the_same_meaning() -> None:
 # ---- adapters-5: a test file that cannot be read or parsed is not known -------------
 
 
-def test_a_test_file_that_cannot_be_read_or_parsed_gives_an_inventory_issue(
+def test_a_test_file_that_cannot_be_read_or_parsed_gives_a_not_known_record(
     tmp_path: Path,
 ) -> None:
     """Acceptance: in 2 of 2 languages, a test file with a syntax error gives one
-    `test_file_issues` record and one `source inventory unresolved: test file` line. A
-    test file that is not UTF-8 gives the same two results."""
+    `test_file_issues` record and one `unknown surface: test file` line, and no
+    `source inventory unresolved` line (trial-1: the record does not reject the map). A
+    test file that is not UTF-8 gives the same results."""
     bad_bytes = b"\xff\xfe\xfa"
     py_root, ts_root = tmp_path / "py", tmp_path / "ts"
     write_tree(py_root, {**PY_TREE, "tests/test_parse.py": "def test_x(:\n"})
@@ -207,10 +208,11 @@ def test_a_test_file_that_cannot_be_read_or_parsed_gives_an_inventory_issue(
         assert set(issues) == {parse, unread}, root
         assert issues[parse]["line"] == 1
         assert issues[unread]["reason"].startswith("source could not be read")
-        assert set(issues[parse]) == set(issues[unread]) == {"line", "reason", "source"}
-        lines = source_facts.inventory_issue_lines(facts)
-        assert f"source inventory unresolved: test file {parse}" in lines
-        assert f"source inventory unresolved: test file {unread}" in lines
+        assert set(issues[parse]) == set(issues[unread]) == {"line", "reason", "source", "cause"}
+        assert source_facts.inventory_issue_lines(facts) == []
+        lines = "\n".join(source_facts.unknown_fact_lines(facts))
+        assert f"unknown surface: test file {parse}:1: " in lines
+        assert f"unknown surface: test file {unread}:0: source could not be read" in lines
 
 
 def test_python_facts_without_a_test_file_problem_have_no_issue_list(tmp_path: Path) -> None:
@@ -262,14 +264,14 @@ def test_the_dead_extract_helpers_are_gone() -> None:
 def test_the_check_reports_a_python_test_file_that_cannot_be_parsed(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance: `systemap refresh` and `systemap check` each exit 1 and name a Python
-    test file with a syntax error."""
+    """Acceptance: `systemap refresh` and `systemap check` each exit 0 and name a Python
+    test file with a syntax error (trial-1: the record does not reject the map)."""
     write_tree(tmp_path, {"pkg/__init__.py": "", "pkg/reader.py": "def read() -> None: ..."})
     write_tree(tmp_path, {"pkg/writer.py": "def write() -> None: ...", "tests/test_x.py": "("})
     init_two_cards(tmp_path, "--no-ci")
     capsys.readouterr()
-    assert main(["--root", str(tmp_path), "refresh"]) == 1
-    assert main(["--root", str(tmp_path), "check"]) == 1
+    assert main(["--root", str(tmp_path), "refresh"]) == 0
+    assert main(["--root", str(tmp_path), "check"]) == 0
     out = capsys.readouterr().out
     assert out.count("test file tests/test_x.py:1: source could not be parsed: SyntaxError") == 2
 

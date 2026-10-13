@@ -396,16 +396,16 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 8, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. `extract --check` marks older formats stale.
+- `version`: The facts format is 9, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory with the name `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record for each entry point, with the fields below.
-- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. The list is empty if there are none.
-- `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, and `source`. The test functions of these files are not known. The Python adapter does not write an empty list.
-- `config_issues`: The configuration packages that a configuration file extends, and that the adapter cannot read. Only the TypeScript adapter writes this field, for an npm package in the `extends` key of a tsconfig file. The list is empty if there are none.
+- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. The list is empty if there are none.
+- `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, `source`, and `cause`. The test functions of these files are not known. `check` prints these records and does not fail. The Python adapter does not write an empty list.
+- `config_issues`: The configuration packages that a configuration file extends, and that the adapter cannot read. Each record has `file`, `reference`, and `cause`. Only the TypeScript adapter writes this field, for an npm package in the `extends` key of a tsconfig file. The list is empty if there are none.
 - `components`: One module record for each dotted name, with the fields below.
 
 **Each module, under `components`**
@@ -428,7 +428,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint includes decorators. It does not include callable bodies. A `*` re-export has the name `*`, because one module cannot supply the names that it gives.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without statements. A Python docstring, `pass`, `__future__` import, and literal value for a dunder name such as `__all__` are not statements for this rule. Coverage does not include these modules.
-- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, and short source excerpt.
+- `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, short source excerpt, and `cause`.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
 - `call_sites`: The local names that the module gets from a name of a module in `uses`, and the lines that use them. Each record has `local`, `target`, `name` (`*` for the full module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import statement makes, or for a re-export without a local name, such as `export { a } from`. It is `value` for a name that gets its value or type from that name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each use is `[line, function line, property]`. The function line is the line of the named function or method that contains the use, or 0. The property is the attribute that the use reads, or an empty string. The value is `null` if the source did not parse.
 - `imports`: The keys of `uses`.
@@ -438,7 +438,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `tests_primary`: The number of those functions in a file with the module name.
 - `tests`: Up to 25 test names, with primary tests first.
 - `tests_digest`: A digest of every qualified test identity. It also includes hidden identities.
-- `parse_error`: Python source read or parse errors, with line and parser version. Other systemap modules read `completeness`.
+- `parse_error`: Python source read or parse errors, with line, parser version, and `cause`. Other systemap modules read `completeness`.
 - `completeness`: The read condition of the module, with the same meaning for each language. `parsed` is `false` if the extractor could not read or parse all of the source, and `line` and `reason` then give the first problem. `unresolved_imports` lists each local import, as the source writes it, that has no module in the facts. A local import is a relative import, a path, a TypeScript path alias, or a name below a package root. If `parsed` is `false`, the import list is not known and is `null`. Third-party packages, standard-library modules, Node.js built-in modules, and imports with a calculated module name are not in the list.
 
 **Each entry point, under `entry_points`**

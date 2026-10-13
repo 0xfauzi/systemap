@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import repo_files, typescript_calls, typescript_entry
+from systemap import repo_files, typescript_calls, typescript_entry, unknown_causes
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
 from systemap.pattern_match import matches_test_pattern
@@ -119,7 +119,7 @@ def _test_file_guards(
     try:
         raw, problems = read_problems(path, repo)
     except OSError as exc:
-        raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
+        raw, problems = "", [unknown_causes.read_problem(exc)]
     root = syntax_tree(raw, path.as_posix())
     if root.has_error:
         context.test_issues.append(
@@ -130,8 +130,8 @@ def _test_file_guards(
         )
         return {}
     context.test_issues.extend(
-        {"file": path.relative_to(repo).as_posix(), "problem": _problem(0, reason, "")}
-        for reason in problems
+        {"file": path.relative_to(repo).as_posix(), "problem": _problem(0, *problem, "")}
+        for problem in problems
     )
     targets = {
         target
@@ -406,8 +406,8 @@ def _node_module(specifier: str) -> bool:
     return specifier.startswith("node:") or specifier in NODE_MODULES
 
 
-def _problem(line: int, reason: str, source: str) -> dict[str, Any]:
-    return {"line": line, "reason": reason, "source": source[:120]}
+def _problem(line: int, reason: str, cause: str, source: str) -> dict[str, Any]:
+    return {"line": line, "reason": reason, "source": source[:120], "cause": cause}
 
 
 def _mark_star_exports(names: list[dict[str, Any]]) -> None:
@@ -460,7 +460,12 @@ def _resolve_reexport(
     if _is_package(source, path, context):
         return not star
     surface["unknown"].append(
-        _problem(1, f"the re-export target {source!r} is outside the extracted module set.", source)
+        _problem(
+            1,
+            f"the re-export target {source!r} is outside the extracted module set.",
+            unknown_causes.TARGET,
+            source,
+        )
     )
     return True
 
@@ -577,7 +582,7 @@ class TypeScriptLanguage(TypeScriptRepository):
             "entry_point_issues": entry_issues,
             "test_file_issues": context.test_issues,
             "config_issues": [
-                {"file": file, "reference": reference}
+                {"file": file, "reference": reference, "cause": unknown_causes.PACKAGE}
                 for file, reference in context.compiler.issues
             ],
         }
@@ -609,9 +614,9 @@ class TypeScriptLanguage(TypeScriptRepository):
             raw, problems = read_problems(path, repo)
         except OSError as exc:
             # The module stays in the facts, with a read problem: its surface is not known.
-            raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
+            raw, problems = "", [unknown_causes.read_problem(exc)]
         surface = parse_surface(raw, path.as_posix())
-        problem = _problem(0, problems[0], "") if problems else None
+        problem = _problem(0, *problems[0], "") if problems else None
         if surface is None:
             problem = parse_problem(raw, path.as_posix())
             surface = {
@@ -625,7 +630,7 @@ class TypeScriptLanguage(TypeScriptRepository):
                 "api": [],
                 "unknown": [problem],
             }
-        surface["unknown"].extend(_problem(0, reason, "") for reason in problems)
+        surface["unknown"].extend(_problem(0, *found, "") for found in problems)
         _resolve_reexports(surface, path, module, known, paths, context)
         _mark_star_exports(surface["names"])
         return {

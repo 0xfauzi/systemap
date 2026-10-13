@@ -21,9 +21,14 @@ The command exits 1 if a rule rejects the map.
 | routes | A route crosses an unrelated component or an unrelated region. |
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
-| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. |
-| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
+| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. The heading of these findings is `map meaning`. |
+| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. The heading of these rule findings is `import rule fields`. |
+| source inventory | The extractor cannot read or parse a source module. The heading is `source inventory unresolved`. A test file that the extractor cannot read or parse does not reject the map. `check` prints it as an `unknown surface` line. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
+
+A meaning error, an import rule field error, or a placement error stops the check before it renders the map.
+Then the `map layout` line says that the check did not render the map.
+The `map layout` heading contains only the findings of positions, routes, labels, and text size.
 
 An import rule can also have the result `unknown`.
 This result occurs if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
@@ -421,6 +426,11 @@ Two other `unknown surface` lines also have a new form for the same cause:
 
 The same rule applies to these two lines.
 
+The `entry point` line for a group of entry points gave the kind identifier, for example
+`entry point 7 public_functions into Api have no sequence (component Api)`.
+The new line gives the `kind` value with a space in place of each `_`: `entry point 7 public functions into Api have no sequence (component Api)`.
+The same rule applies to this line. A kind without `_`, for example `route`, does not change.
+
 `judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
@@ -706,6 +716,8 @@ The procedure is deterministic and uses only the standard library.
 ### `systemap render [--check] [--base REF]`
 
 Writes the page from the facts and model.
+Without facts and without package roots, `render`, `facts`, and `figure` give the package-root error of `extract` and exit 2.
+Thus they do not tell you to use `systemap extract` when `extract` cannot operate.
 
 - `--check` exits 1 if the page is stale.
   It renders the page with the same options and compares the two pages.
@@ -732,8 +744,26 @@ Executes all rules on all maps.
 A rejected map causes exit 1.
 Each finding gives a correction.
 Two rows below a rejected rule give its effect and the necessary action.
+Each condition that rejects the map prints its lines.
 
 - `--brief` does not include these two rows.
+
+The `unknown surface` group gives the records that the extractor could not read or connect.
+These records do not reject the map.
+The adapter writes the cause of each record in the `cause` field.
+The group gives one `fix:` line for each cause that occurs:
+
+| Cause | Condition |
+|---|---|
+| `read` | systemap could not read the file, or the repository rules refused it. |
+| `encoding` | The file is not UTF-8 text. |
+| `syntax` | The parser could not parse the source. |
+| `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
+| `target` | A reference has a target that is not a module in the facts. An example is a package bin that is a `.js` file. |
+| `package` | A configuration file extends a configuration package that systemap could not read. |
+| `binding` | The framework binding of a registration is not known. |
+| `reexport` | The names that a re-export gives are not known. |
+| `not known` | The record has no cause, because the facts have an older format. |
 
 ### `systemap figure --out FILE`
 
@@ -762,6 +792,10 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 `map: The page agrees with the rendered model fields and the facts.`
 A rejected check causes exit 1, and the command renders nothing.
+The last line gives the necessary action. If a second refresh gives the same result, the action is not `refresh`.
+If an output is stale after the command wrote it, the heading is `stale after refresh`.
+An example is a configured figure with the path of the page.
+After a check without errors, the command prints the `unknown surface` group, as `systemap check` does.
 After a check without errors, the command examines the import rules, as `systemap check` does.
 It prints the rule results. A rule with the result `fail` causes exit 1.
 With `[rules] unknown = "fail"`, a rule with the result `unknown` also causes exit 1.
@@ -795,6 +829,7 @@ Accepted answers under `[judgement] answered` suppress findings.
 The first finding of each kind has rows about its effect and necessary action.
 
 - `--strict` exits 1 while a finding is open. If not, the exit code is 0.
+  A model without components also gives exit 1 with `--strict`, as `systemap check` does.
 
 - `--kind KIND` prints one kind.
 
@@ -812,7 +847,8 @@ The first finding of each kind has rows about its effect and necessary action.
   Notices for a person go to stderr.
 
 - With `--json`, `--kind KIND` selects the rows of `open`. The counts include all kinds.
-  For a model without components, the lists are empty and the exit code is 0.
+  For a model without components, the lists are empty.
+  The exit code is 1 with `--strict`, and 0 without it.
 
 - `--order-by-drift` sends one Jev question for each open `stale source review` line.
   The answer is the drift score: the probability that the claims of the component agree with its changed source.
@@ -901,6 +937,8 @@ Delta does not write a committed path that contains `..`, a backslash, or a colo
 Thus the facts at a commit are the same on each platform.
 Before the report, delta gives each refused path and its cause under `Not in this comparison`.
 The changes of a refused path are not known. A refused module is not a removed module.
+
+The first line gives the module counts. Then `N of M components have changes` gives the quantity of components that the delta lines name.
 
 Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.

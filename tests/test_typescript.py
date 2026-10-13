@@ -342,6 +342,7 @@ def test_compiled_package_entries_use_unique_source_fallback(tmp_path: Path) -> 
             "name": "web",
             "target": "dist/missing.js (+1 more)",
             "reason": "2 package.json export targets have no resolved TypeScript modules.",
+            "cause": "target",
         }
     ]
 
@@ -380,7 +381,9 @@ def test_missing_npm_tsconfig_and_declaration_files_do_not_stop_extract(tmp_path
     facts = extract.build(cfg)
     assert sorted(facts["components"]) == ["web.index", "web.value"]
     assert facts["components"]["web.index"]["uses"] == {"web.value": ["value"]}
-    assert facts["config_issues"] == [{"file": "tsconfig.json", "reference": "@vendor/tsconfig"}]
+    assert facts["config_issues"] == [
+        {"file": "tsconfig.json", "reference": "@vendor/tsconfig", "cause": "package"}
+    ]
     assert "tsconfig.json extends '@vendor/tsconfig'" in source_facts.unknown_fact_lines(facts)[0]
     assert TYPESCRIPT.module_for_path(tmp_path, "src/types.d.ts", cfg.roots) is None
 

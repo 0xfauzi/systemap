@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from systemap import repo_files
+from systemap import repo_files, unknown_causes
 
 # These provenance values can be different on two computers for the same commit: the
 # interpreter version, the parser packages, and the compiler settings that installed npm
@@ -42,17 +42,17 @@ def read(repo: Path, path: Path) -> str:
     return decode(repo_files.read_bytes(repo, repo_files.relative(repo, path)))
 
 
-def read_problems(path: Path, repo: Path) -> tuple[str, list[str]]:
+def read_problems(path: Path, repo: Path) -> tuple[str, list[tuple[str, str]]]:
     """This function gives the source text and its read problems.
 
     `decode` gives the text. Text that is not UTF-8 gives empty text and one problem. A
     file that `repo_files` refuses also gives empty text and one problem. A different
-    OSError goes to the caller.
+    OSError goes to the caller. Each problem is a reason and its `unknown_causes` cause.
     """
     try:
         return read(repo, path), []
     except (UnicodeError, repo_files.RepoPathError) as exc:
-        return "", [f"source could not be read: {repo_files.reason(exc)}"]
+        return "", [unknown_causes.read_problem(exc)]
 
 
 def text_digest(data: bytes) -> str:

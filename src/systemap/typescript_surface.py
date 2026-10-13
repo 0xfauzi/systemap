@@ -9,6 +9,7 @@ from typing import Any
 
 from tree_sitter import Node
 
+from systemap import unknown_causes
 from systemap.typescript_imports import import_names
 from systemap.typescript_reexports import export_specifiers, reexport_api, reexports
 from systemap.typescript_syntax import _one_line, _root, _text, _tree, _walk, docstring
@@ -269,6 +270,7 @@ def _unknown(node: Node, reason: str) -> dict[str, Any]:
         "line": node.start_point.row + 1,
         "reason": reason,
         "source": _one_line(_text(node))[:120],
+        "cause": unknown_causes.DECLARATION,
     }
 
 
@@ -282,7 +284,8 @@ def parse_problem(raw: str, path: str = "") -> dict[str, Any]:
     reason = "The parser could not parse the source syntax."
     if source:
         reason += f" Source excerpt: {source!r}"
-    return {"line": node.start_point.row + 1, "reason": reason, "source": source}
+    line = node.start_point.row + 1
+    return {"line": line, "reason": reason, "source": source, "cause": unknown_causes.SYNTAX}
 
 
 def _add_function(

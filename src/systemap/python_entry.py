@@ -13,6 +13,7 @@ import ast
 from pathlib import Path
 from typing import Any
 
+from systemap import unknown_causes
 from systemap.call_sites import WHOLE
 from systemap.source_facts import entry_identity
 
@@ -220,6 +221,7 @@ def _registration_candidate(
         "name": f"{module}.{node.name}",
         "target": name,
         "reason": "The framework binding is unknown. Examine the registration source.",
+        "cause": unknown_causes.BINDING,
     }
 
 

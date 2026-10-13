@@ -13,6 +13,7 @@ import json
 from collections.abc import Collection, Mapping
 from typing import Any
 
+from systemap import unknown_causes
 from systemap.model import source_parsed
 
 # The imported-name value that means "the full module".
@@ -109,12 +110,21 @@ def unknown_fact_lines(
     in the map that owns the module. The lines about entry points, test files, and
     configuration files apply to the full repository. Only `repository` gives them.
     """
+    return [line for line, _cause in unknown_fact_causes(facts, skip, repository)]
+
+
+def unknown_fact_causes(
+    facts: dict[str, Any], skip: Collection[str] = (), repository: bool = True
+) -> list[tuple[str, str]]:
+    """Give each line of `unknown_fact_lines` with the cause that the adapter wrote.
+
+    A record without a cause has the cause `unknown_causes.NOT_KNOWN`."""
     modules = _unknown_module_lines(facts, skip)
     return modules + _unknown_repository_lines(facts) if repository else modules
 
 
-def _unknown_module_lines(facts: dict[str, Any], skip: Collection[str]) -> list[str]:
-    out: list[str] = []
+def _unknown_module_lines(facts: dict[str, Any], skip: Collection[str]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
     for module, record in sorted(facts.get("components", {}).items()):
         if module in skip:
             continue
@@ -122,45 +132,54 @@ def _unknown_module_lines(facts: dict[str, Any], skip: Collection[str]) -> list[
         if issue := record.get("parse_error"):
             location = f"{file}:{issue['line']}" if issue.get("line") else file
             # `answer_migrations` reads the earlier form of this line, which named Python.
-            out.append(
+            line = (
                 f"unknown surface: module {module} ({location}): {issue['reason']} "
                 f"(parser version {issue['parser']})"
             )
+            out.append((line, unknown_causes.of(issue)))
         for issue in record.get("unknown", []):
             line = issue.get("line", 0)
             location = f"{file}:{line}" if line else file
-            out.append(f"unknown surface: module {module} ({location}): {issue['reason']}")
+            text = f"unknown surface: module {module} ({location}): {issue['reason']}"
+            out.append((text, unknown_causes.of(issue)))
     return out
 
 
-def _unknown_repository_lines(facts: dict[str, Any]) -> list[str]:
-    out: list[str] = []
+def _unknown_repository_lines(facts: dict[str, Any]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
     for issue in facts.get("entry_point_issues", []):
-        out.append(
+        line = (
             f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
             f"{issue['reason']}"
         )
+        out.append((line, unknown_causes.of(issue)))
     for issue in facts.get("test_file_issues", []):
         problem = issue["problem"]
-        out.append(
+        line = (
             f"unknown surface: test file {issue['file']}:{problem.get('line', 0)}: "
             f"{problem['reason']}"
         )
+        out.append((line, unknown_causes.of(problem)))
     for issue in facts.get("config_issues", []):
         # `answer_migrations` reads the earlier form of this line, which named npm.
-        out.append(
+        line = (
             f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
             "the configuration package could not be read"
         )
+        out.append((line, unknown_causes.of(issue)))
     return out
 
 
 def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:
-    """List files with an unresolved source inventory."""
+    """List the modules that the extractor could not read or parse.
+
+    These lines reject the map, because the module claims, imports, and entry points of
+    the module are not known. A test file that the extractor could not read or parse
+    does not give a line here. Its record is a not-known record that
+    `unknown_fact_lines` gives, as for other not-known records.
+    """
     out: list[str] = []
     for module, record in sorted(facts.get("components", {}).items()):
         if not source_parsed(record):
             out.append(f"source inventory unresolved: {module} ({record['file']})")
-    for issue in facts.get("test_file_issues", []):
-        out.append(f"source inventory unresolved: test file {issue['file']}")
     return out

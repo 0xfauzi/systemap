@@ -22,10 +22,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 8, with portable syntax hashes, compiler provenance, "
+        "The facts format is 9, with portable syntax hashes, compiler provenance, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
-        "Each re-export has `defined_in` and `defined_as`. "
+        "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
+        "`cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `package`, "
+        "`binding`, or `reexport`. "
         "`extract --check` marks older formats stale",
     ),
     (
@@ -55,22 +57,24 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "facts",
         "entry_point_issues",
         "Package entry targets or Python decorators with unresolved framework "
-        "bindings. The list is empty if there are none",
+        "bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. "
+        "The list is empty if there are none",
     ),
     (
         "facts",
         "test_file_issues",
         "Test files that could not be read or parsed. Each record has `file`, and a "
-        "`problem` with `line`, `reason`, and `source`. "
-        "The test functions of these files are not known. The Python adapter does not "
-        "write an empty list",
+        "`problem` with `line`, `reason`, `source`, and `cause`. "
+        "The test functions of these files are not known. `check` prints these records "
+        "and does not fail. The Python adapter does not write an empty list",
     ),
     (
         "facts",
         "config_issues",
         "The configuration packages that a configuration file extends, and that the adapter "
-        "cannot read. Only the TypeScript adapter writes this field, for an npm package in "
-        "the `extends` key of a tsconfig file. The list is empty if there are none",
+        "cannot read. Each record has `file`, `reference`, and `cause`. Only the TypeScript "
+        "adapter writes this field, for an npm package in the `extends` key of a tsconfig "
+        "file. The list is empty if there are none",
     ),
     ("facts", "components", "One module record for each dotted name, with the fields below"),
     ("module", "id", "The dotted module name"),
@@ -171,7 +175,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "unknown",
         "TypeScript surface entries with unresolved syntax or kinds. Each has a "
-        "source line, reason, and short source excerpt",
+        "source line, reason, short source excerpt, and `cause`",
     ),
     (
         "module",
@@ -216,8 +220,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "module",
         "parse_error",
-        "Python source read or parse errors, with line and parser version. Other "
-        "systemap modules read `completeness`",
+        "Python source read or parse errors, with line, parser version, and `cause`. "
+        "Other systemap modules read `completeness`",
     ),
     (
         "module",

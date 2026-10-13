@@ -329,11 +329,10 @@ def test_typescript_files_that_are_not_utf8_keep_a_read_problem(tmp_path: Path) 
     facts = extract.build(config.load(tmp_path))
     reason = "source could not be read: UnicodeDecodeError"
     assert facts["components"]["web.latin"]["unknown"] == [
-        {"line": 0, "reason": reason, "source": ""}
+        {"line": 0, "reason": reason, "source": "", "cause": "encoding"}
     ]
-    assert facts["test_file_issues"] == [
-        {"file": "tests/latin.test.ts", "problem": {"line": 0, "reason": reason, "source": ""}}
-    ]
+    problem = {"line": 0, "reason": reason, "source": "", "cause": "encoding"}
+    assert facts["test_file_issues"] == [{"file": "tests/latin.test.ts", "problem": problem}]
     assert facts["components"]["web.service"]["tests_total"] == 1
     assert f"unknown surface: module web.latin (src/latin.ts): {reason}" in (
         source_facts.unknown_fact_lines(facts)

@@ -17,6 +17,7 @@ from conftest import write_tree
 
 from systemap import (
     check,
+    check_report,
     config,
     explain,
     extract,
@@ -171,7 +172,8 @@ def test_the_unknown_surface_text_names_no_language(
         _cfg, facts = _facts(tmp_path / name, tree)
         lines = source_facts.unknown_fact_lines(facts)
         assert lines, name
-        report = check._unknown_surface_report(lines)
+        causes = [cause for _line, cause in source_facts.unknown_fact_causes(facts)]
+        report = check_report.unknown_surface_report(lines, causes)
         assert "TypeScript" not in report[-1]
     lesson = explain.lesson("unknown surface")
     assert lesson is not None and "TypeScript" not in lesson.means

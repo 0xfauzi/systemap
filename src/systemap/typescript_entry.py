@@ -19,6 +19,7 @@ from systemap.typescript_config import (
     source_targets,
 )
 from systemap.typescript_projects import path_choices
+from systemap.unknown_causes import TARGET
 
 if TYPE_CHECKING:
     from systemap.typescript import TypeScriptContext
@@ -95,7 +96,7 @@ def _package_entries(
             points.append({"kind": "console_script", "name": name, "module": module, "target": ""})
         else:
             shown = package.label + target.removeprefix("./") if package.label else target
-            issues.append(_entry_issue("package_bin", name, shown, BIN_REASON))
+            issues.append(_entry_issue("package_bin", name, shown, BIN_REASON, TARGET))
     modules, export_issues = _package_exports(package, context)
     issues.extend(export_issues)
     return modules
@@ -124,7 +125,7 @@ def _package_exports(
     if len(unmapped) > 1:
         sample += f" (+{len(unmapped) - 1} more)"
     reason = f"{len(unmapped)} package.json export targets have no resolved TypeScript modules."
-    return modules, [_entry_issue("package_export", name, sample, reason)]
+    return modules, [_entry_issue("package_export", name, sample, reason, TARGET)]
 
 
 def _entry_module(target: str, package: Package, context: TypeScriptContext) -> str | None:
@@ -189,8 +190,8 @@ def _bin_targets(package: dict[str, Any], directory: Path) -> list[tuple[str, st
     return [(str(name), target) for name, target in sorted(bins.items()) if isinstance(target, str)]
 
 
-def _entry_issue(kind: str, name: str, target: str, reason: str) -> dict[str, str]:
-    return {"kind": kind, "name": name, "target": target, "reason": reason}
+def _entry_issue(kind: str, name: str, target: str, reason: str, cause: str) -> dict[str, str]:
+    return {"kind": kind, "name": name, "target": target, "reason": reason, "cause": cause}
 
 
 def _public_functions(modules: set[str], components: dict[str, Any]) -> list[dict[str, str]]:
