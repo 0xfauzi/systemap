@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import cli, extract, skill
+from systemap import cli, facts_file, skill
 from systemap.cli import main
 
 CONFIG_FIX = "Correct systemap.toml or the model module. Then run the command again."
@@ -170,7 +170,7 @@ def test_facts_without_modules_give_the_package_roots_correction(two_cards: Path
     # The check gives this entry line when the facts have no module and the model
     # has source components. The model is then not the input to correct.
     project = cli._project(argparse.Namespace(root=str(two_cards)))
-    results = cli._check_tree(project, extract.read_facts(project.cfg.facts_path))
+    results = cli._check_tree(project, facts_file.read_facts(project.cfg.facts_path))
     assert cli._fix_line(project, results) == "run: systemap refresh"
     top = results[project.tree.top.id]
     results[project.tree.top.id] = dataclasses.replace(

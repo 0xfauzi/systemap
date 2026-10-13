@@ -13,7 +13,7 @@ import pytest
 from conftest import STARTER_MODULES, Sample, init_two_cards, write_tree
 from jev_replay import Recording, serve
 
-from systemap import audit, decision, extract, jev, jev_cli, nest
+from systemap import audit, decision, extract, facts_file, jev, jev_cli, nest
 from systemap.cli import main
 from systemap.config import Answer, ConfigError
 from systemap.config import load as load_config
@@ -76,7 +76,6 @@ def test_unclaimed_modules_are_asked_about_on_the_top_map(sample: Sample) -> Non
     write_tree(
         sample.cfg.root, {"pkg/stray.py": '"""A stray."""\n\ndef stray() -> None:\n    pass\n'}
     )
-    from systemap import extract
 
     facts = extract.build(sample.cfg)
     plan = audit.make_plan(tree_of(sample), facts, sample.cfg)
@@ -455,7 +454,7 @@ def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def test_historical_two_card_audit_replays_exact_requests(two_cards: Path) -> None:
     cfg = load_config(two_cards)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     assert facts is not None
     plan = audit.make_plan(nest.load(cfg), facts, cfg)
     recording = Recording("jev_two_cards")

@@ -219,11 +219,11 @@ def add_child_route(root: Path) -> None:
 
 
 def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> None:
-    from systemap import extract, judgement
+    from systemap import facts_file, judgement
     from systemap.config import load
 
     add_child_route(nested)
-    facts = extract.read_facts(load(nested).facts_path)
+    facts = facts_file.read_facts(load(nested).facts_path)
     assert facts is not None
     point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
     identity = source_facts.entry_identity(point)
@@ -730,7 +730,7 @@ def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
         assert "Extraction reads the working tree, which can contain uncommitted changes." in html
         assert "Built at" not in html, rel
     # The field table the facts view and the skill's schema read says the same.
-    from systemap.extract import FIELDS
+    from systemap.facts_file import FIELDS
 
     assert (
         "facts",

@@ -23,7 +23,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from systemap import config, extract
+from systemap import config, extract, facts_file
 from systemap import typescript as ts
 from systemap import typescript_surface as surface
 
@@ -114,7 +114,7 @@ def measure(name: str, checkout_dir: Path) -> dict[str, Any]:
     started = time.perf_counter()
     facts = extract.build(cfg)
     with tempfile.TemporaryDirectory() as temp:
-        extract.write_facts(Path(temp) / "facts.json", facts)
+        facts_file.write_facts(Path(temp) / "facts.json", facts)
     elapsed = time.perf_counter() - started
     paths = {module: repo / item["file"] for module, item in facts["components"].items()}
     attributed, tests = _test_counts(name, repo, paths, cfg)

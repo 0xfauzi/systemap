@@ -123,9 +123,9 @@ def test_triage_and_plan_give_the_reason_and_exit_1(
 def test_suggest_gives_no_pair_for_a_refusal(two_cards: tuple[Path, Refusing]) -> None:
     root, refusing = two_cards
     cfg = load_config(root)
-    from systemap import extract
+    from systemap import facts_file
 
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     assert facts is not None
     out = jev_cli.suggest_groups(cfg, facts, refusing)
     assert refusing.asked and all(q.name == "same" for q in refusing.asked)

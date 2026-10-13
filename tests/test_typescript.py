@@ -7,7 +7,17 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import change, config, delta, extract, history, nest, source_facts, typescript_config
+from systemap import (
+    change,
+    config,
+    delta,
+    extract,
+    facts_file,
+    history,
+    nest,
+    source_facts,
+    typescript_config,
+)
 from systemap.cli import main
 from systemap.typescript import TYPESCRIPT, parse_surface
 from systemap.typescript import test_names as names_of_tests
@@ -284,9 +294,9 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
         "package_export",
     }
     assert facts["test_file_issues"] == []
-    assert set(facts) == extract.fields_of("facts")
+    assert set(facts) == facts_file.fields_of("facts")
     assert all(
-        extract.fields_of("module") - set(record) == {"parse_error", "executes"}
+        facts_file.fields_of("module") - set(record) == {"parse_error", "executes"}
         for record in facts["components"].values()
     )
 

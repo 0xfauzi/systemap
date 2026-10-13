@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, extraction, figure, nest, page, source_facts
+from systemap import explain, extraction, facts_file, figure, nest, page, source_facts
 from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
@@ -529,7 +529,7 @@ def stale(
     generated output.
     """
     fresh = fresh if fresh is not None else extraction.build(cfg)
-    stored = extract.read_facts(cfg.facts_path)
+    stored = facts_file.read_facts(cfg.facts_path)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not

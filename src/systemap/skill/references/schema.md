@@ -390,7 +390,7 @@ Structural checks without failures do not show source meaning or that the text o
 ## The facts file
 
 `systemap extract` writes `docs/map/map.json` by default.
-These fields come from `systemap.extract.FIELDS`.
+These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 

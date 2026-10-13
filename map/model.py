@@ -148,6 +148,7 @@ COMPONENTS = (
             "systemap.completeness",
             "systemap.extraction",
             "systemap.facts",
+            "systemap.facts_file",
             "systemap.language",
             "systemap.python_calls",
             "systemap.python_imports",

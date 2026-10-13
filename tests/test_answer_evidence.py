@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 from conftest import init_two_cards, write_tree
 
-from systemap import config, extract, judgement, nest
+from systemap import config, extract, facts_file, judgement, nest
 from systemap.cli import main
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -180,7 +180,7 @@ def test_the_answers_of_this_repository_stay_valid_after_a_different_review(
     """
     cfg = config.load(REPOSITORY)
     tree = nest.load(cfg)
-    facts = extract.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path)
     assert facts is not None
     lines = [
         item
