@@ -1,6 +1,6 @@
 """The facts command prints selected views of extracted source data.
 
-Each option gives module summaries, docstrings, public names, imports, or entry points.
+Each option gives module summaries, module descriptions, public names, imports, or entry points.
 The views use the same records as the map checks. They give test counts without test
 names.
 """
@@ -11,8 +11,8 @@ import difflib
 import re
 from typing import Any
 
-from systemap.extract import entry_label, is_empty_marker
 from systemap.model import public_names
+from systemap.source_facts import entry_label, is_empty_marker
 
 
 class UnknownModule(KeyError):
@@ -48,7 +48,7 @@ def first_sentence(text: str) -> str:
     return re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0]
 
 
-NO_DOCSTRING = "No docstring is available."
+NO_DOCSTRING = "No module description is available."
 EMPTY_MARKER = "empty package marker"
 
 
@@ -86,7 +86,7 @@ def modules(facts: dict[str, Any]) -> list[str]:
     components: dict[str, Any] = facts.get("components", {})
     out = [
         (
-            f"modules: {len(components)}. Each line gives the first docstring sentence "
+            f"modules: {len(components)}. Each line gives the first sentence of the description "
             f"and the public name, import, and test counts."
         )
     ]
@@ -112,7 +112,7 @@ def docstrings(facts: dict[str, Any]) -> list[str]:
     with_one = sum(1 for r in components.values() if first_sentence(r.get("docstring", "")))
     out = [
         (
-            f"docstrings: {with_one} of {len(components)} modules have docstrings. Each "
+            f"descriptions: {with_one} of {len(components)} modules have a description. Each "
             f"line gives the first sentence."
         )
     ]
@@ -131,9 +131,9 @@ def module(facts: dict[str, Any], name: str) -> list[str]:
     record = _record(facts, name)
     out = [f"{name} ({record.get('file', '')})"]
     if is_empty_marker(record):
-        out.append(f"  {EMPTY_MARKER}: The __init__ has no public names or imports.")
+        out.append(f"  {EMPTY_MARKER}: The module only marks a package and holds no code.")
         return out
-    out.append(f"  docstring: {_opening(record)}")
+    out.append(f"  description: {_opening(record)}")
     named = kinds(record)
     out.append(f"  public names: {len(named)}")
     out += [f"    {n}: {kind}" for n, kind in named]
@@ -200,8 +200,8 @@ def imports(facts: dict[str, Any], name: str) -> list[str]:
 
 
 VIEWS = (
-    "views: Use --modules for module summaries, --docstrings for first "
-    "sentences, --module NAME for a module record, and --names NAME for public "
+    "views: Use --modules for module summaries, --docstrings for the first sentence of each "
+    "module description, --module NAME for a module record, and --names NAME for public "
     "names. Use --entry-points for entry point targets, --external for external "
     "imports, and --imports NAME for internal imports."
 )

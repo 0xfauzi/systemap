@@ -14,12 +14,12 @@ from typing import Any
 from systemap import journeys as journeys_mod
 from systemap.evidence import DECLARED, READER_TEXT, STATES, owners
 from systemap.evidence import of_model as evidence_of
-from systemap.extract import entry_label
 from systemap.model import Edge, Journey, Meaning, Model, all_layers, reading
 from systemap.place import Score, grid_order
 from systemap.route import Gutter, gutters, locate, seats
 from systemap.schematic import LABEL_H
 from systemap.schematic import render as render_schematic
+from systemap.source_facts import entry_label
 
 Box = tuple[float, float, float, float]
 

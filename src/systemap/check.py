@@ -20,7 +20,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, figure, nest, page
+from systemap import explain, extract, figure, nest, page, source_facts
+from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
@@ -171,7 +172,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
         return Coverage(False, 0, 0, 0, ("No facts are available for the coverage check.",))
     components = facts.get("components", {})
     modules = sorted(components)
-    markers = {m for m in modules if extract.is_empty_marker(components[m])}
+    markers = {m for m in modules if source_facts.is_empty_marker(components[m])}
     ignore_list = list(ignores)
     problems: list[str] = []
     for ignore in ignore_list:
@@ -253,7 +254,7 @@ def check_nesting(
     components = facts.get("components", {})
     if not components:
         return out
-    markers = {m for m in components if extract.is_empty_marker(components[m])}
+    markers = {m for m in components if source_facts.is_empty_marker(components[m])}
     wanted = [m for m in claimed(card, components) if m not in markers]
     have: dict[str, list[str]] = {}
     for c in sub.components:
@@ -357,16 +358,9 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 # ---- interface: the signature names something the modules define ------------------
 
 # The leading identifier of an interface line, and the method after a dot
-# when the line reads `Class.method`. The token ends at `(`, `.`, `->`,
-# whitespace or anything else that is not part of a name.
-INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?")
-# The method name in a recorded method header. A Python header starts with
-# `def`. A TypeScript header starts with optional modifiers and an optional `*`.
-PYTHON_METHOD = re.compile(r"(?:async )?def (\w+)\(")
-TYPESCRIPT_METHOD = re.compile(
-    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
-)
+# when the line reads `Class.method`. A name can contain `$`, as a TypeScript
+# name can. The token ends at `(`, `.`, `->`, whitespace or any other character.
+INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_$][\w$]*)(?:\.([A-Za-z_$][\w$]*))?")
 
 
 def interface_head(text: str) -> tuple[str, str] | None:
@@ -380,17 +374,22 @@ def interface_head(text: str) -> tuple[str, str] | None:
 
 
 def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
-    """This function gives public class methods from recorded signatures."""
-    out: set[str] = set()
-    for group in ("classes", "errors"):
-        for cls in record.get(group, []):
-            if cls.get("name") != class_name:
-                continue
-            for sig in cls.get("methods", []):
-                found = PYTHON_METHOD.match(sig) or TYPESCRIPT_METHOD.match(sig)
-                if found:
-                    out.add(found.group(1))
-    return out
+    """This function gives public class methods from recorded signatures.
+
+    The first language adapter that reads a name from the signature gives the name."""
+    signatures = [
+        sig
+        for group in ("classes", "errors")
+        for cls in record.get(group, [])
+        if cls.get("name") == class_name
+        for sig in cls.get("methods", [])
+    ]
+    return {name for name in map(_method_name, signatures) if name}
+
+
+def _method_name(signature: str) -> str:
+    adapters = (languages.repository(name) for name in languages.names())
+    return next((found for a in adapters if (found := a.method_name(signature))), "")
 
 
 def _reexport_sources(record: Mapping[str, Any], name: str) -> list[str]:
@@ -512,7 +511,7 @@ def stale_facts(
     problems = (
         extract.drift(fresh, stored)
         + extract.mapping_drift(fresh, model, prefixes)
-        + extract.inventory_issue_lines(fresh)
+        + source_facts.inventory_issue_lines(fresh)
     )
     if not stored:
         problems.insert(0, "No extracted facts are available.")
@@ -633,8 +632,8 @@ def run(
         counted,
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
-        unknown_surface=extract.unknown_fact_lines(facts) if coverage else [],
-        inventory_issues=extract.inventory_issue_lines(facts) if coverage else [],
+        unknown_surface=source_facts.unknown_fact_lines(facts) if coverage else [],
+        inventory_issues=source_facts.inventory_issue_lines(facts) if coverage else [],
     )
 
 
@@ -792,7 +791,7 @@ def _unknown_surface_report(findings: list[str]) -> list[str]:
         f"unknown surface: {_plural(len(findings), 'finding')}",
         *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
         (
-            "  fix: Add parser support for this TypeScript syntax, write the file as UTF-8 "
+            "  fix: Add parser support for this syntax, write the file as UTF-8 "
             "text, or restore the missing source mapping."
         ),
     ]

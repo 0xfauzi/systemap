@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import decision, explain, nest
+from systemap import language as languages
 from systemap.audit_code import code_between
 from systemap.config import AUDIT_KINDS, Answer, Config
 from systemap.decision import (
@@ -54,8 +55,9 @@ from systemap.decision import (
     Thresholds,
 )
 from systemap.evidence import owners
-from systemap.extract import is_empty_marker
+from systemap.language import RepositoryAdapter
 from systemap.model import Meaning, Model, module_matches
+from systemap.source_facts import is_empty_marker
 
 # The thresholds of each provider are in `systemap.decision.THRESHOLDS`.
 
@@ -211,12 +213,14 @@ def plan_sentences(plan: Plan, m: nest.Map, facts: dict[str, Any]) -> None:
         plan.add(PredicateQuestion(key, "describes", DESCRIBES_Q, state), ("sentence", m, c.id))
 
 
-def plan_flows(plan: Plan, m: nest.Map, facts: dict[str, Any], root: Path) -> None:
+def plan_flows(
+    plan: Plan, m: nest.Map, facts: dict[str, Any], root: Path, language: RepositoryAdapter
+) -> None:
     by = modules_by_card(m.model, facts)
     for f in m.model.flows:
         if "actor" in (m.model.component(f.src).kind, m.model.component(f.dst).kind):
             continue
-        code = code_between(root, facts, by, f.src, f.dst)
+        code = code_between(root, facts, by, (f.src, f.dst), language)
         if not code:
             plan.unasked.append(f"{f.src} -> {f.dst} ({f.artifact})")
             continue
@@ -265,7 +269,7 @@ def make_plan(
         if "sentence" in asked:
             plan_sentences(plan, m, view)
         if "flow" in asked:
-            plan_flows(plan, m, view, cfg.root)
+            plan_flows(plan, m, view, cfg.root, languages.repository(cfg.language))
         if "governs" in asked:
             plan_governs(plan, m)
     return plan

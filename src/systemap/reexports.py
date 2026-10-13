@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from systemap.source_facts import package_of
+
 
 def resolve_reexports(components: dict[str, Any]) -> None:
     """Give each re-export the kind recorded by its defining module.
@@ -94,10 +96,13 @@ def _resolve_named_reexport(entry: dict[str, Any], components: dict[str, Any]) -
 def _submodule(source: str, name: str, components: dict[str, Any]) -> bool:
     """This function tells if `source.name` is a module that the name refers to.
 
-    A TypeScript file name such as `logger.config.ts` gives a module id that looks like
-    a child of `logger`. A name that the source module defines is not that module.
+    The module must be in the package `source`, as its `package` fact gives. A file
+    name with a dot gives a module id that looks like a child of another module, but
+    its package is its folder. A name that the source module defines is not that module.
     """
-    return f"{source}.{name}" in components and _definition(source, name, components) is None
+    child = f"{source}.{name}"
+    in_package = child in components and package_of(child, components) == source
+    return in_package and _definition(source, name, components) is None
 
 
 def _definition(source: str, name: str, components: dict[str, Any]) -> dict[str, Any] | None:
@@ -119,7 +124,7 @@ def _defined_kind(
         return "unknown"
     item = _definition(source, name, components)
     if item is None:
-        return "module" if f"{source}.{name}" in components else "unknown"
+        return "module" if _submodule(source, name, components) else "unknown"
     if item["kind"] == "reexport":
         return _defined_kind(
             item["reexport_of"],

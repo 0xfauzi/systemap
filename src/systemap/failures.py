@@ -13,6 +13,7 @@ import sys
 from collections.abc import Callable
 
 from systemap import change, decisions_submit, delta, delta_link, figure, place, review
+from systemap import language as languages
 from systemap.config import ArgumentError, ConfigError
 
 STALE, BAD_CONFIG = 1, 2
@@ -29,6 +30,7 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (ArgumentError, OPTION_FIX, BAD_CONFIG),
     (delta_link.LinkError, OPTION_FIX, BAD_CONFIG),
     (ConfigError, CONFIG_FIX, BAD_CONFIG),
+    (languages.LanguageError, CONFIG_FIX, BAD_CONFIG),
     (figure.FigureError, "", STALE),
     (place.PlaceError, "", STALE),
     (review.ReviewError, "", STALE),

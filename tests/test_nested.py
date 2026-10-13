@@ -22,7 +22,7 @@ import pytest
 from conftest import write_tree
 from test_keyboard import DRIVER, needs_node
 
-from systemap import nest, place
+from systemap import nest, place, source_facts
 from systemap.cli import main
 
 TREE = {
@@ -226,7 +226,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
     facts = extract.read_facts(load(nested).facts_path)
     assert facts is not None
     point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
-    identity = extract.entry_identity(point)
+    identity = source_facts.entry_identity(point)
     top_path = nested / "map/model.py"
     source = top_path.read_text(encoding="utf-8")
     source = source.replace(

@@ -11,8 +11,8 @@ from collections.abc import Collection, Iterable
 from typing import Any
 
 from systemap.evidence import mentioned
-from systemap.extract import entry_identity, entry_label
 from systemap.model import Journey, Meaning
+from systemap.source_facts import entry_identity, entry_label
 
 # Past this many uncovered ways in of one kind into one card, they are asked
 # about together: a hundred routes into one card is one question, not a hundred.

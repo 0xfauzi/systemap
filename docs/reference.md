@@ -1144,8 +1144,8 @@ Unknown keys are rejected.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `language` | `python` | The source language. Select `python` or `typescript`. The `[writing]` table sets the writing rules for map text. `init` detects an unambiguous TypeScript repository. TypeScript must have the `systemap[typescript]` extra. |
-| `name` | `[project] name`, Git repository directory, then directory name | The page title. |
+| `language` | found from the source | The source language. Select `python` or `typescript`. Without the key, the language adapters examine the configured package roots, or they find their own package roots. If the source of both languages is available, the configuration stops and tells you to set this key. If no source of a known language is available, each command that reads source stops with the same instruction. The `[writing]` table sets the writing rules for map text. TypeScript must have the `systemap[typescript]` extra. |
+| `name` | the package name (`[project] name` in pyproject.toml for Python, `name` in package.json for TypeScript), Git repository directory, then directory name | The page title. |
 | `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
 | `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
@@ -1156,7 +1156,7 @@ Unknown keys are rejected.
 | `planes` | none | Second-level package names with different planes in the facts. |
 | `outside_label` | `EXTERNAL COMPONENTS` | The index heading for actors outside all regions. |
 | `[coverage]` | none | `ignore = [{module = "pkg.mod", reason = "..."}]` excludes a module. `module = "pkg.sub.*"` excludes a subtree. An ignore must have a reason. No ignore is necessary for empty package markers. |
-| `[facts]` | none | `model_sdks = [...]` adds import names to the built-in SDK list. A `-` at the start removes a built-in name (`"-google.adk"`). |
+| `[facts]` | none | `model_sdks = [...]` adds import names to the SDK list of the language adapter. A `-` at the start removes a name of that list (`"-google.adk"`). The Python list contains Python import names, and the TypeScript list contains npm package names. |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[rules]` | `unknown = "warn"` | `unknown = "fail"` makes `systemap check` and `systemap rules` exit 1 for an import rule with the result `unknown`. With `"warn"`, the commands print the result and do not reject the map. A different value or key gives a configuration error. |
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"jev flow"`. |

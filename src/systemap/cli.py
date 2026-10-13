@@ -53,6 +53,7 @@ from systemap import (
     trend,
 )
 from systemap import facts as facts_mod
+from systemap import language as languages
 from systemap import suggest as suggest_mod
 from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
 from systemap.model import Meaning, Model, import_rule_problems
@@ -122,15 +123,16 @@ def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve() if args.root else Path.cwd().resolve()
     language, roots = init_language.language_roots(root)
     package = roots[0][1] if roots else "mypackage"
-    name = args.name or config.default_name(root)
-    say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=language))
+    name = args.name or config.default_name(root, language)
+    adapter = languages.repository(language)
+    say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=adapter))
     skill_path = skill.write(root / skill.DEFAULT_DIR)
     references = len(skill.files()) - 1
     say(
         f"The command wrote {skill_path.parent.relative_to(root).as_posix()}/ "
         f"({skill.FILE_NAME} and {references} references)"
     )
-    say(*scaffold.tooling_note(root, language))
+    say(*scaffold.tooling_note(root, adapter))
     say("Next, give this instruction to your coding agent:", f"  {AGENT_SENTENCE}")
     return OK
 
@@ -144,22 +146,8 @@ def _require_roots(p: Project) -> None:
 
 
 def _missing_roots_error(project: Project) -> ConfigError:
-    if project.cfg.language == "typescript":
-        return ConfigError(
-            'No package roots are available. Set [package_roots] in systemap.toml ("path" '
-            '= "module name"). No .ts or .tsx source is available in src or the repository '
-            "root."
-        )
-    found = config.candidate_packages(project.cfg.root)
-    where = (
-        "Directories with an __init__.py: " + ", ".join(found)
-        if found
-        else f"No directory has an __init__.py within {config.CANDIDATE_DEPTH} levels of the root."
-    )
-    return ConfigError(
-        f'No package roots are available. Set [package_roots] in systemap.toml ("path" '
-        f'= "import name"). {where}'
-    )
+    adapter = languages.repository(project.cfg.language)
+    return ConfigError(adapter.missing_roots_message(project.cfg.root))
 
 
 def cmd_extract(args: argparse.Namespace) -> int:
@@ -874,7 +862,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Read modules, public names, imports, tests, and entry points from the source.",
         description=(
             "Other commands read the facts from this command. It parses the source tree "
-            "and records module docstrings, public names, imports, tests, and entry "
+            "and records module descriptions, public names, imports, tests, and entry "
             "points. The facts give the source data. The model gives the meaning of that "
             "data."
         ),
@@ -896,18 +884,23 @@ def build_parser() -> argparse.ArgumentParser:
     view.add_argument(
         "--modules",
         action="store_true",
-        help="Print each module docstring sentence, with public name, import, and test counts.",
+        help=(
+            "Print the first sentence of each module description, with public name, import, "
+            "and test counts."
+        ),
     )
     view.add_argument(
         "--docstrings",
         action="store_true",
-        help="Print the first sentence of each module docstring.",
+        help="Print the first sentence of each module description.",
     )
     view.add_argument(
         "--module",
         default="",
         metavar="NAME",
-        help="Print the module docstring, public names, imports, external imports, and test count.",
+        help=(
+            "Print the module description, public names, imports, external imports, and test count."
+        ),
     )
     view.add_argument(
         "--names",

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import init_two_cards, write_tree
 
-from systemap import extract
+from systemap import extract, source_facts
 from systemap.cli import main
 
 STARTER_MODULES = {
@@ -177,17 +177,17 @@ def test_empty_package_markers_are_left_out_and_listed_once(
     assert run("--root", str(tmp_path), "extract") == 0
     out = capsys.readouterr().out
     assert (
-        "  empty package markers: 3 (pkg, pkg.other, pkg.sub). Each is an __init__ with no "
-        "public names and no imports. The coverage rule omits them."
+        "  empty package markers: 3 (pkg, pkg.other, pkg.sub). Each only marks a package and "
+        "holds no code. The coverage rule omits them."
     ) in out
     assert out.count("empty package markers") == 1, "listed once"
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     assert "coverage: 6 of 6 modules mapped, 3 empty package markers" in (capsys.readouterr().out)
     facts = extract.read_facts(tmp_path / "docs/map/map.json")
-    assert extract.empty_markers(facts) == ["pkg", "pkg.other", "pkg.sub"]
-    assert extract.is_empty_marker(facts["components"]["pkg.sub"])
-    assert not extract.is_empty_marker(facts["components"]["pkg.sub.deep"])
+    assert source_facts.empty_markers(facts) == ["pkg", "pkg.other", "pkg.sub"]
+    assert source_facts.is_empty_marker(facts["components"]["pkg.sub"])
+    assert not source_facts.is_empty_marker(facts["components"]["pkg.sub.deep"])
 
 
 def test_an_init_that_imports_or_defines_is_not_a_marker(
@@ -212,7 +212,7 @@ def test_an_init_that_imports_or_defines_is_not_a_marker(
         assert " (no component has this module claim)" in out, module
     assert "coverage: 3 of 7 modules mapped, 1 an empty package marker" in out
     facts = extract.read_facts(tmp_path / "docs/map/map.json")
-    assert extract.empty_markers(facts) == ["pkg"]
+    assert source_facts.empty_markers(facts) == ["pkg"]
 
 
 def test_an_ignore_that_names_only_markers_is_not_needed(

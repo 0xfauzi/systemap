@@ -28,7 +28,7 @@ def _pending(
     model: Model, meaning: Meaning, base: dict[str, Any], head: dict[str, Any]
 ) -> list[delta.Line]:
     return delta._evidence_review_lines(
-        Config(Path("."), "Example", ()),
+        Config(Path("."), "Example", (), "python"),
         model,
         meaning,
         base,
@@ -82,7 +82,7 @@ def test_historical_cache_discards_pre_portability_hashes(
     ):
         subprocess.run(["git", "-C", str(tmp_path), *arguments], check=True)
     sha = delta.resolve(tmp_path, "HEAD")
-    cfg = Config(tmp_path, "Example", (("pkg", "pkg"),))
+    cfg = Config(tmp_path, "Example", (("pkg", "pkg"),), "python")
     current_format = extract.FORMAT
     monkeypatch.setattr(extract, "FORMAT", 3)
     old = history.facts_at(cfg, sha)

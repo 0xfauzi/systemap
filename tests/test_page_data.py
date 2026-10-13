@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from conftest import Sample
 
-from systemap import change, extract, page_data
+from systemap import change, page_data, source_facts
 from systemap.model import Component
 
 
@@ -87,7 +87,7 @@ def test_provenance_names_head_without_claiming_the_working_tree_is_clean(sample
     assert provenance["facts_file"] == f"{sample.cfg.out_dir}/{sample.cfg.facts_file}"
     assert provenance["extraction"] == "working tree"
     assert provenance["uncommitted"] == "not recorded"
-    assert provenance["unknown"] == extract.unknown_fact_lines(facts)
+    assert provenance["unknown"] == source_facts.unknown_fact_lines(facts)
 
 
 def test_a_requested_zero_change_comparison_keeps_its_resolved_revisions(sample: Sample) -> None:

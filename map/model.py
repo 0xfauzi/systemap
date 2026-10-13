@@ -139,7 +139,7 @@ COMPONENTS = (
     Component(
         id="FactsExtractor",
         source_review="06f0db9cffbc9263c8a8b11c0eb930ff639c4c33b37ac510faf91cb20ee1b7b4",
-        does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts.",
+        does="Reads the syntax tree and writes module records. Records public names, imports, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
             "systemap.extract",
@@ -156,7 +156,10 @@ COMPONENTS = (
             "systemap.typescript_surface",
             "systemap.typescript_syntax",
             "systemap.typescript_tests",
-            "systemap.ways_in",
+            "systemap.python_entry",
+            "systemap.python_repo",
+            "systemap.source_facts",
+            "systemap.typescript_repo",
         ),
         entry="build",
         region="gather",

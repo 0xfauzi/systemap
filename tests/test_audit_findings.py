@@ -213,7 +213,7 @@ def test_a_python_flow_through_a_whole_module_import_is_asked(
             "pkg/writer.py": writer,
         },
     )
-    cfg = Config(root=tmp_path, name="flows", package_roots=(("pkg", "pkg"),))
+    cfg = Config(root=tmp_path, name="flows", package_roots=(("pkg", "pkg"),), language="python")
     plan = flow_asks(cfg, *flow_model("pkg.writer", "pkg.reader"))
     assert [a.key for a in plan.questions] == ["|flow|Writer->Reader:request"]
     assert any(used in line for line in plan.questions[0].state["code"])
@@ -255,7 +255,7 @@ def test_the_dry_run_counts_the_flows_that_it_cannot_ask_about(tmp_path: Path) -
             "pkg/writer.py": "def write() -> None:\n    return None\n",
         },
     )
-    cfg = Config(root=tmp_path, name="flows", package_roots=(("pkg", "pkg"),))
+    cfg = Config(root=tmp_path, name="flows", package_roots=(("pkg", "pkg"),), language="python")
     plan = flow_asks(cfg, *flow_model("pkg.writer", "pkg.reader"))
     assert plan.questions == []
     assert plan.unasked == ["Writer -> Reader (request)"]

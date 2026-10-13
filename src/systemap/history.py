@@ -10,11 +10,11 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 from systemap import delta, extract
+from systemap import language as languages
 from systemap.config import Config
 
 # How much of a diff is read into a question: enough to see what changed.
@@ -25,11 +25,18 @@ def cache_dir(cfg: Config) -> Path:
     return cfg.root / ".systemap" / "facts"
 
 
+def cache_scope(cfg: Config, parser: str) -> str:
+    """This function gives the cache scope for the extraction settings and the parser.
+
+    The language adapter gives the parser version. A change of the parser version gives
+    a different scope, because the parser can change the facts for the same commit."""
+    key = f"{cfg!r}|format={extract.FORMAT}|parser={parser}"
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
 def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
     """This function reads facts at sha, with a cache for the same extraction inputs."""
-    scope = hashlib.sha256(
-        f"{cfg!r}|format={extract.FORMAT}|python={sys.version_info[:3]}".encode()
-    ).hexdigest()[:16]
+    scope = cache_scope(cfg, languages.repository(cfg.language).parser_version())
     path = cache_dir(cfg) / f"{sha}-{scope}.json"
     if path.exists():
         try:

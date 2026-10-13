@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import write_tree
 
-from systemap import config, judgement, scaffold
+from systemap import config, judgement, python_repo, scaffold
 from systemap.cli import main
 from systemap.model import Component, Model
 
@@ -156,8 +156,8 @@ def test_init_finds_a_package_with_the_name_of_an_output_directory(tmp_path: Pat
             "docs/__init__.py": "",
         },
     )
-    assert config.discover_roots(tmp_path) == [("src/build", "build")]
-    candidates = config.candidate_packages(tmp_path)
+    assert python_repo.discover_roots(tmp_path) == [("src/build", "build")]
+    candidates = python_repo.candidate_packages(tmp_path)
     assert "src/build" in candidates and "build/lib/other" not in candidates
     assert run("--root", str(tmp_path), "init", "--no-ci") == 0
     assert toml(tmp_path)["package_roots"] == {"src/build": "build"}

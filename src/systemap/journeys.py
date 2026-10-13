@@ -26,8 +26,8 @@ from systemap import journey_coverage as judgement
 from systemap import repo_files
 from systemap.agent import Agent
 from systemap.evidence import owners
-from systemap.extract import entry_identity, entry_label
 from systemap.model import Journey, Meaning, Model, Step
+from systemap.source_facts import entry_identity, entry_label
 
 QUESTION = """Examine the repository and write one sequence for its system map.
 

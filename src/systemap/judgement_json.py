@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import audit, judgement, nest, review_policy
+from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
 SCHEMA_VERSION = 1
@@ -33,7 +34,9 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     """This function gives the judgement lines and applies the answers that are not
     audit answers. With `[judgement] require_reviews`, a missing source review is a line.
     """
-    lines = judgement.run_tree(tree, facts, judgement.sdk_list(cfg.model_sdks), cfg.observed_by)
+    base = languages.repository(cfg.language).model_sdks if cfg.language else judgement.MODEL_SDKS
+    sdks = judgement.sdk_list(cfg.model_sdks, base)
+    lines = judgement.run_tree(tree, facts, sdks, cfg.observed_by)
     if cfg.require_reviews:
         lines += review_policy.missing_lines(tree, facts)
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]

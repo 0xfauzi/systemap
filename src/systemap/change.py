@@ -19,9 +19,9 @@ from typing import Any
 
 from systemap import delta_model, extract, history, nest, repo_files
 from systemap.config import Config
-from systemap.extract import WHOLE_MODULE
 from systemap.language import LanguageAdapter
 from systemap.model import Model, module_matches, symbol_claims
+from systemap.source_facts import WHOLE_MODULE
 
 # `gained` carries only the buckets the schematic's segmented bar draws
 # (operations, types, refusals, tests), so its +N badge always equals the sum
@@ -215,7 +215,7 @@ def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
 def surface_delta(
     base_raw: str,
     head_raw: str,
-    language: LanguageAdapter = extract.PYTHON,
+    language: LanguageAdapter,
     path: str = "",
 ) -> dict[str, Any] | None:
     """This function compares the public surfaces of two source files.
