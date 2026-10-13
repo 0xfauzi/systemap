@@ -45,8 +45,8 @@ class RepositoryAdapter(Protocol):
     skip_dirs: frozenset[str]
     # The import names that identify a model SDK or an agent framework.
     model_sdks: tuple[str, ...]
-    # The root-relative configuration files whose text can change the facts. The facts
-    # record a digest of each file that is present.
+    # The root-relative configuration files. A change to the text of one of these files
+    # can change the facts. The facts record a digest of each file that is present.
     config_files: tuple[str, ...]
     # The package extra that installs the adapter, or an empty string.
     install_extra: str

@@ -365,8 +365,8 @@ def _package_records(
 
     The facts give the `package` fact of each module that they contain. A new or removed
     file is not in the facts. For such a file, the adapter gives the package from the
-    path, as the extraction does. A claim match then does not read a dot in a file name
-    as a package.
+    path, as the extraction does. A claim then does not read a dot in a file name as a
+    package.
     """
     records: dict[str, Any] = dict(facts.get("components", {}))
     for path in files:

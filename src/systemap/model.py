@@ -672,10 +672,11 @@ def module_matches(pattern: str, module: str, package: str | None = None) -> boo
     """True when an implemented_by pattern covers a module.
 
     An exact module name covers that module only.
-    A package name with .* covers the module with that name, and each module in that
+    A package name with .* includes the module with that name, and each module in that
     package or in a package below it. The `package` argument is the `package` fact of the
-    module. The adapter writes it, so a dot in a file name (`user.service.ts`) does not
-    make a package. Without the fact (None), the dotted module name gives the package.
+    module. The adapter writes this fact. A dot in a file name (`user.service.ts`) then
+    does not make a package. Without the fact (None), the dotted module name gives the
+    package.
     For a Python module, the two results are the same.
     A symbol claim covers a public name, not the containing module.
     Coverage, source change, and map checks use this same procedure."""
@@ -702,7 +703,7 @@ def package_fact(module: str, records: object) -> str | None:
 
 
 def covers(pattern: str, module: str, records: object) -> bool:
-    """True when the pattern covers the module, with the `package` fact of its record."""
+    """True when the pattern includes the module. The record gives the `package` fact."""
     return module_matches(pattern, module, package_fact(module, records))
 
 

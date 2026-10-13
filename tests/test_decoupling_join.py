@@ -7,7 +7,7 @@ Acceptance values for the work item decoupling-join:
 - For each module and each claim of a Python fixture with three package levels, the
   claim match with the `package` fact gives the same result as the dotted module name
   (100% equal).
-- A `*` re-export does not give a name with `star_export` set to false, also when the
+- A `*` re-export does not give a name with `star_export` set to `false`, also when the
   name is not `default`. The TypeScript adapter sets the field for `default` only. The
   Python adapter sets it for no name.
 - `build`, `drift`, and `mapping_drift` are defined in the shared module `extraction`.

@@ -2,7 +2,7 @@
 
 It reads the module records of one extraction. The rules are the same for each language.
 The adapter writes the language rules into the records: `star` marks a `*` re-export, and
-`star_export` set to false marks a name that a `*` re-export does not give.
+`star_export` set to `false` marks a name that a `*` re-export does not give.
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ def _defined_kind(
 def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
     """The public names reached through local `*` re-exports.
 
-    A name with `star_export` set to false is not in a `*` re-export. A name without the
+    A name with `star_export` set to `false` is not in a `*` re-export. A name without the
     field is in it."""
     if module not in components or module in visited:
         return []
