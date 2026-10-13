@@ -66,7 +66,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>entry</td>
-<td>A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty <code>entry</code>. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
+<td>A component claims no module or an absent module. Its modules do not define its entry name. An entry can also be the name or label of an entry point of its modules that does not start one public name. Stores and context components can have an empty <code>entry</code>. A component can also have an empty <code>entry</code> if its modules define no public name and start no entry point. A symbol claim (<code>&quot;pkg.mod:name&quot;</code>) identifies an absent module or name, or a module with no owner.</td>
 </tr>
 <tr>
 <td>interface</td>

@@ -33,6 +33,7 @@ from systemap import (
 )
 from systemap import language as languages
 from systemap.config import Config, Ignore
+from systemap.entry_names import missing_entry
 from systemap.model import (
     Component,
     Meaning,
@@ -312,8 +313,8 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 
     A symbol claim must have a public symbol and a module owner. An actor has no
     source-code checks. A store or context component can have an empty entry. Other
-    components must have a defined public entry. Facts without modules do not agree
-    with a model that has source components.
+    components must have a defined entry (`systemap.entry_names` gives the forms). Facts
+    without modules do not agree with a model that has source components.
     """
     components = facts.get("components", {})
     if not facts:
@@ -358,7 +359,7 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
         held = ", ".join(modules + symbols)
         if not c.entry:
             if c.kind not in ENTRY_OPTIONAL:
-                out.append(f"{c.id} has no entry. Its modules are {held}")
+                out.extend(missing_entry(c.id, modules, symbols, facts))
             continue
         if not defines_entry(c, facts):
             out.append(
@@ -746,7 +747,8 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
         out.append(
             "  fix: The map shows code in the facts. "
             f"In {model_file}, use modules from the facts. Set entry to a public "
-            f"name that one of these modules defines."
+            f"name that one of these modules defines. If an entry point does not start "
+            f"one public name, set entry to its name from systemap facts --entry-points."
         )
     if result.interface:
         out.append(f"interface: {_plural(len(result.interface), 'problem')}")

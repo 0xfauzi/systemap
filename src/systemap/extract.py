@@ -337,7 +337,10 @@ def _surface_function(
 ) -> None:
     if node.name.startswith("_"):
         return
-    names.append({"name": node.name, "kind": "function"})
+    # Overload signatures give one public name, as in the TypeScript adapter. Each
+    # signature keeps its record in `functions`.
+    if {"name": node.name, "kind": "function"} not in names:
+        names.append({"name": node.name, "kind": "function"})
     functions.append({"name": node.name, "signature": signature(node)})
 
 

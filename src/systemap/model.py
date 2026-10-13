@@ -756,17 +756,17 @@ def source_parsed(record: Mapping[str, Any]) -> bool:
 
 def defines_entry(component: Component, facts: Mapping[str, Any]) -> bool:
     """True when a component module or symbol claim includes its entry point."""
-    components = facts.get("components", {})
-    if any(component.entry in public_names(components[m]) for m in claimed(component, components)):
-        return True
-    return any(name == component.entry for _module, name in symbol_claims(component))
+    return bool(entry_module(component, facts))
 
 
 def entry_module(component: Component, facts: Mapping[str, Any]) -> str:
     """Get the first component module with its entry point.
 
-    Otherwise, get the module of its symbol claim.
+    Otherwise, get the module of its symbol claim, or of an entry point with that name
+    that does not start one public name (`systemap.entry_names`).
     """
+    from systemap.entry_names import started_module  # entry_names imports this module
+
     components = facts.get("components", {})
     for m in claimed(component, components):
         if component.entry and component.entry in public_names(components[m]):
@@ -774,7 +774,7 @@ def entry_module(component: Component, facts: Mapping[str, Any]) -> str:
     for module, name in symbol_claims(component):
         if name == component.entry:
             return module
-    return ""
+    return started_module(component.entry, claimed(component, components), facts)
 
 
 def build_state(component: Component, facts: Mapping[str, Any]) -> str:

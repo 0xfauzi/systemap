@@ -13,7 +13,7 @@ import ast
 from pathlib import Path
 from typing import Any
 
-from systemap.call_sites import WHOLE
+from systemap.call_sites import IMPORT, WHOLE
 from systemap.source_facts import entry_identity
 
 # A decorator of these names, on a function, registers a way in.
@@ -413,7 +413,7 @@ def entry_points(
         ]
         out += in_source(module, sources.get(module, ""))
     out += in_pyproject(read_pyproject(repo), components)
-    return started_symbols(same_operations(_once_each(out), components))
+    return same_operations(started_symbols(_once_each(out)), components, sources)
 
 
 # The Python kinds whose `target` is the started name in the module of the entry point.
@@ -441,41 +441,155 @@ def started_symbols(points: list[dict[str, str]]) -> list[dict[str, str]]:
     return points
 
 
-def same_operations(
-    points: list[dict[str, str]], components: dict[str, Any]
-) -> list[dict[str, str]]:
-    """Write `same_as` on an entry point that starts the function of a console script.
+# The kinds that start one function. Two of these entry points that start the same
+# function are one operation.
+STARTS_FUNCTION = ("console_script", "main_function", "command")
 
-    `same_as` gives the identity of that console script. A `main` function starts it
-    when the script has the same module and the target `main`. A `__main__` module
-    starts it when it uses the target function from the module of the script. An import
-    of a different name from that module does not show the same operation.
+
+def same_operations(
+    points: list[dict[str, str]], components: dict[str, Any], sources: dict[str, str]
+) -> list[dict[str, str]]:
+    """Write `same_as` on an entry point that starts the same function as one before it.
+
+    A console script, a `main` function, and a command start the function of their
+    `symbol`. An import binding moves that function to the module that defines it, if the
+    import is the only module-level binding of the name (a fallback in an `except` clause
+    is permitted). The first of these entry points, with console scripts first, is the
+    one that the others refer to. A `__main__` module starts that function if it imports
+    the function from its defining module and uses it. An import of a different name does
+    not show the same operation. `same_as` gives the identity of the first entry point.
     """
-    scripts = [p for p in points if p["kind"] == "console_script" and p["target"]]
-    for point in points:
-        script = next((s for s in scripts if _starts(point, s, components)), None)
+    first: dict[tuple[str, str], dict[str, str]] = {}
+    for point in sorted(points, key=lambda p: p["kind"] != "console_script"):
         # The adapter always writes the field. An empty string tells that no other entry
         # point starts the same operation. A missing field is not known.
-        point["same_as"] = entry_identity(script) if script is not None else ""
+        point["same_as"] = ""
+        if point["kind"] not in STARTS_FUNCTION or not point["symbol"]:
+            continue
+        started = _definition(point["module"], point["symbol"], components, sources)
+        if started in first:
+            point["same_as"] = entry_identity(first[started])
+        else:
+            first[started] = point
+    for point in points:
+        if point["kind"] == "main_module":
+            point["same_as"] = _main_module_alias(point, first, components, sources)
     return points
 
 
-def _starts(point: dict[str, str], script: dict[str, str], components: dict[str, Any]) -> bool:
-    if point["kind"] == "main_function":
-        return (point["module"], point["target"]) == (script["module"], script["target"])
-    if point["kind"] != "main_module":
-        return False
-    sites = components.get(point["module"], {}).get("call_sites") or []
-    return any(
-        site["target"] == script["module"] and _uses_name(site, script["target"]) for site in sites
-    )
+def _main_module_alias(
+    point: dict[str, str],
+    first: dict[tuple[str, str], dict[str, str]],
+    components: dict[str, Any],
+    sources: dict[str, str],
+) -> str:
+    """Give the identity of the entry point whose function a `__main__` module uses."""
+    used = _used_functions(point["module"], components, sources)
+    alias = next((first[d] for d in used if d in first), None)
+    return entry_identity(alias) if alias is not None else ""
 
 
-def _uses_name(site: dict[str, Any], name: str) -> bool:
-    """Find a use of the imported name, or of the name as an attribute of the module."""
-    if site["name"] == name:
-        return bool(site["uses"])
-    return site["name"] == WHOLE and any(use[2] == name for use in site["uses"])
+def _definition(
+    module: str, name: str, components: dict[str, Any], sources: dict[str, str]
+) -> tuple[str, str]:
+    """Follow import bindings from `module.name` to the module that defines the name."""
+    seen: set[tuple[str, str]] = set()
+    while (module, name) not in seen:
+        seen.add((module, name))
+        imported = _imported_from(module, name, components, sources)
+        if imported is None:
+            break
+        module, name = imported
+    return module, name
+
+
+def _imported_from(
+    module: str, name: str, components: dict[str, Any], sources: dict[str, str]
+) -> tuple[str, str] | None:
+    """Give the source of the one import binding of `name` in `module`, or None."""
+    sites = [
+        site
+        for site in components.get(module, {}).get("call_sites") or []
+        if site["local"] == name and site["bound"] == IMPORT and site["name"] != WHOLE
+    ]
+    if len(sites) != 1:
+        return None
+    bindings = _module_bindings(sources.get(module, ""), name)
+    if bindings != [("import", sites[0]["line"])]:
+        return None
+    return sites[0]["target"], sites[0]["name"]
+
+
+def _module_bindings(source: str, name: str) -> list[tuple[str, int]]:
+    """Give each module-level binding of `name` as (kind, line).
+
+    The kind is `import` or `other`. A function or a class body is not module level. An
+    `except` clause is a fallback for a failed import, so its bindings are not in the
+    list. A source that does not parse gives a binding of kind `unknown`.
+    """
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return [("unknown", 0)]
+    out: list[tuple[str, int]] = []
+    pending: list[ast.stmt] = list(tree.body)
+    while pending:
+        node = pending.pop()
+        out += _bindings_of(node, name)
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            pending += _module_level_children(node)
+    return sorted(out, key=lambda binding: binding[1])
+
+
+def _module_level_children(node: ast.stmt) -> list[ast.stmt]:
+    children: list[ast.stmt] = []
+    for field in ("body", "orelse", "finalbody"):
+        value = getattr(node, field, None)
+        if isinstance(value, list):
+            children += [child for child in value if isinstance(child, ast.stmt)]
+    return children
+
+
+def _bindings_of(node: ast.stmt, name: str) -> list[tuple[str, int]]:
+    if isinstance(node, ast.Import | ast.ImportFrom):
+        return [
+            ("import", alias.lineno)
+            for alias in node.names
+            if (alias.asname or alias.name.split(".")[0]) == name
+        ]
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        return [("other", node.lineno)] if node.name == name else []
+    targets = _assigned_names(node)
+    return [("other", node.lineno)] if name in targets else []
+
+
+def _assigned_names(node: ast.stmt) -> set[str]:
+    if isinstance(node, ast.Assign):
+        nodes: list[ast.expr] = list(node.targets)
+    elif isinstance(node, ast.AnnAssign | ast.AugAssign | ast.For | ast.AsyncFor):
+        nodes = [node.target]
+    elif isinstance(node, ast.With | ast.AsyncWith):
+        nodes = [item.optional_vars for item in node.items if item.optional_vars is not None]
+    else:
+        return set()
+    return {n.id for target in nodes for n in ast.walk(target) if isinstance(n, ast.Name)}
+
+
+def _used_functions(
+    module: str, components: dict[str, Any], sources: dict[str, str]
+) -> list[tuple[str, str]]:
+    """Give the defining module and name of each imported name that the module uses."""
+    out: list[tuple[str, str]] = []
+    for site in components.get(module, {}).get("call_sites") or []:
+        if site["name"] != WHOLE and site["uses"]:
+            out.append(_definition(site["target"], site["name"], components, sources))
+        elif site["name"] == WHOLE:
+            out += [
+                _definition(site["target"], use[2], components, sources)
+                for use in site["uses"]
+                if use[2]
+            ]
+    return out
 
 
 def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:

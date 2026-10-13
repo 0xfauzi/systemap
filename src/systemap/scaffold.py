@@ -375,15 +375,31 @@ jobs:
 # What `init` says about the repository's own gates: the model imports
 # systemap, which the repository need not depend on, so a strict type
 # checker and a dependency checker both need telling. mypy is answered in
-# the file; deptry by these lines, printed so they can be pasted.
+# the file; deptry by these lines, printed so they can be pasted. The deptry
+# lines are only for a repository that uses deptry.
 TOOLING_NOTE = (
     "note: map/model.py imports the systemap tool package:",
     "  mypy --strict: the import has # type: ignore[import-not-found, unused-ignore]",
+    "  run all repository CI commands on the map files",
+)
+DEPTRY_NOTE = (
     "  deptry: add these lines to pyproject.toml",
     "    [tool.deptry.per_rule_ignores]",
     '    DEP001 = ["systemap"]',
     '    DEP003 = ["systemap"]',
-    "  run all repository CI commands on the map files",
+)
+# The files that install, configure, or start deptry in a repository.
+DEPTRY_FILES = (
+    "pyproject.toml",
+    "setup.cfg",
+    "tox.ini",
+    "noxfile.py",
+    "Makefile",
+    ".pre-commit-config.yaml",
+    "requirements*.txt",
+    "requirements/*.txt",
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml",
 )
 
 # TOML basic strings and Python string literals use the same escapes for these characters.
@@ -402,11 +418,27 @@ def tooling_note(root: Path, language: LanguageSetup) -> tuple[str, ...]:
 
     The model file is Python. The repository tools read it if the source language uses
     the suffix of the model file, or if pyproject.toml is available. Otherwise the
-    repository has no tool settings for the model file."""
+    repository has no tool settings for the model file. The deptry lines are only for a
+    repository that uses deptry (`uses_deptry`)."""
     reads_model = PurePosixPath(MODEL_PATH).suffix in language.source_suffixes
     if not reads_model and not (root / "pyproject.toml").is_file():
         return ()
-    return TOOLING_NOTE
+    if not uses_deptry(root):
+        return TOOLING_NOTE
+    return (*TOOLING_NOTE[:2], *DEPTRY_NOTE, *TOOLING_NOTE[2:])
+
+
+def uses_deptry(root: Path) -> bool:
+    """True when a file in DEPTRY_FILES contains the word deptry."""
+    for pattern in DEPTRY_FILES:
+        for path in sorted(root.glob(pattern)):
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "deptry" in text.lower():
+                return True
+    return False
 
 
 def _roots_block(roots: list[tuple[str, str]], language: LanguageSetup) -> str:
