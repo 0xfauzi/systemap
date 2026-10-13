@@ -64,8 +64,9 @@ SCAN_SECONDS = 1.0
 # The time between two comment lines on an event connection. A write to a closed
 # connection gives an error, so the server finds closed connections.
 KEEP_SECONDS = 15.0
-# The configuration files and the files that extraction records in its provenance.
-CONFIG_FILES = (config.CONFIG_FILE, "pyproject.toml", "package.json", "tsconfig.json")
+# The two files that can hold the systemap configuration. The language adapter gives the
+# other configuration files, which extraction records in its provenance.
+CONFIG_FILES = (config.CONFIG_FILE, "pyproject.toml")
 
 
 def _listen(handler: Callable[..., BaseHTTPRequestHandler], port: int) -> ThreadingHTTPServer:
@@ -504,12 +505,20 @@ def watched(root: Path, models: Iterable[Path] = ()) -> list[Path]:
     """Give the files that the command reads: the configuration, the model files, and the
     source and test files of the configured language.
 
-    If the configuration does not load, give the configuration files only.
+    If the configuration does not load, give the configuration files of each adapter only.
     """
     found = [root / name for name in CONFIG_FILES]
     try:
         cfg = config.load(root)
     except ConfigError:
+        cfg = None
+    names = (cfg.language,) if cfg is not None and cfg.language else languages.names()
+    found += [
+        root / name
+        for name in dict.fromkeys(f for n in names for f in languages.repository(n).config_files)
+        if name not in CONFIG_FILES
+    ]
+    if cfg is None:
         return found
     for folder in {cfg.model_path.parent, *(path.parent for path in models)}:
         found += sorted(folder.glob(model_load.MODEL_FILES))
