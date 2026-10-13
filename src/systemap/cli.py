@@ -45,6 +45,7 @@ from systemap import (
     nest,
     page,
     place,
+    providers,
     review,
     scaffold,
     serve,
@@ -616,8 +617,9 @@ def cmd_delta(args: argparse.Namespace) -> int:
     base = delta.facts_at(p.cfg, compared)
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
     # Jev answers are suggestions: they never change the lines or the exit code.
-    selected = jev_cli.uses_jev(p.cfg, args.jev)
-    asked = delta_jev.ask(p.cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
+    cfg = providers.chosen(p.cfg, args.provider)
+    selected = jev_cli.uses_jev(cfg, args.jev)
+    asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open))
@@ -640,7 +642,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         say(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
         return STALE
     if args.jev:
-        return jev_cli.cmd_suggest_jev(cfg, facts)
+        return jev_cli.cmd_suggest_jev(providers.chosen(cfg, args.provider), facts)
     say(*suggest_mod.lines(facts))
     if cfg.model_path.is_file():
         tree = nest.load(cfg)
@@ -1170,6 +1172,7 @@ def build_parser() -> argparse.ArgumentParser:
             "only if systemap.toml sets [jev] enabled = true and TYPESAFE_API_KEY is set."
         ),
     )
+    providers.add_option(s)
     s.add_argument(
         "--brief",
         action="store_true",
@@ -1195,6 +1198,7 @@ def build_parser() -> argparse.ArgumentParser:
             "TYPESAFE_API_KEY."
         ),
     )
+    providers.add_option(s)
     s.set_defaults(func=cmd_suggest)
 
     s = sub.add_parser(

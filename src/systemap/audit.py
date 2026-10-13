@@ -308,7 +308,7 @@ def owner_line(read: tuple[Any, ...], answer: decision.Answer, limits: Threshold
     text = f"jev owner: {mod} is claimed by no card"
     pick = f"reads like {_reads_like(a.choice)}"
     sure = "no confidence" if a.confidence is None else f"confidence {a.confidence:.2f}"
-    if a.confidence is not None and a.confidence >= limits.owner_at:
+    if a.confidence is not None and a.confidence >= decision.value(limits, "owner_at"):
         return Line(m.prefix + text, (f"{pick}; {sure}",))
     detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(a.probabilities, 3))
     closest = ", ".join(k for k, _ in _top(a.probabilities, 3))
@@ -322,7 +322,7 @@ def _misfold_line(
     if cid not in probs:
         raise DecisionError(f"the answer gives no probability for {cid}, the component of {mod}")
     p = probs[cid]
-    if p >= limits.misfold_below:
+    if p >= decision.value(limits, "misfold_below"):
         return None
     text = f"jev mis-fold: {cid} claims {mod}"
     detail = ", ".join(f"{k} {v:.2f}" for k, v in _top(probs, 3))
@@ -335,7 +335,7 @@ def sentence_line(
 ) -> Line | None:
     _, m, cid = read
     p = decision.probability(answer, f"{m.id}|sentence|{cid}")
-    if p is None or p >= limits.sentence_below:
+    if p is None or p >= decision.value(limits, "sentence_below"):
         return None
     text = f"jev sentence: {cid}'s sentence may not describe its modules"
     return Line(m.prefix + text, (f"P(describes) {p:.2f}",))
@@ -344,7 +344,7 @@ def sentence_line(
 def flow_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
     _, m, f = read
     p = decision.probability(answer, f"{m.id}|flow|{f.src}->{f.dst}:{f.artifact}")
-    if p is None or p >= limits.flow_below:
+    if p is None or p >= decision.value(limits, "flow_below"):
         return None
     text = (
         f"jev flow: {f.src} -> {f.dst} ('{f.artifact}'): the code where they meet may not carry it"
@@ -355,7 +355,7 @@ def flow_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds
 def governs_line(read: tuple[Any, ...], answer: decision.Answer, limits: Thresholds) -> Line | None:
     _, m, inv, cid = read
     p = decision.probability(answer, f"{m.id}|governs|{inv.n}|{cid}")
-    if p is None or p < limits.governs_at:
+    if p is None or p < decision.value(limits, "governs_at"):
         return None
     text = f"jev governs: invariant {inv.n} may govern {cid}, which it does not name"
     return Line(m.prefix + text, (f"P(governs) {p:.2f}",))

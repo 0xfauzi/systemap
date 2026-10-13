@@ -1,4 +1,4 @@
-"""The decision settings validate `[decisions]`, `[judgement] require_reviews`, and citations.
+"""The settings validate `[decisions]`, `[judgement] require_reviews`, `[rules]`, and citations.
 
 `systemap decisions` records the verdicts of a coding agent. A supported answer for a
 judgement line can keep its citations in `[judgement] answered`. These functions give a
@@ -14,6 +14,7 @@ DECISIONS_KEYS = {"max_contradicted"}
 # A loop bound, not a measured value: the quantity of `contradicted` results for one claim
 # before the request becomes unknown.
 MAX_CONTRADICTED = 3
+RULES_UNKNOWN = ("warn", "fail")
 CITATION_KEYS = ("file", "start_line", "end_line", "sha256")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -62,3 +63,17 @@ def citation(item: Any, location: str) -> Citation:
     if not isinstance(digest, str) or SHA256.fullmatch(digest) is None:
         raise ValueError(f"{location} sha256 must be a SHA-256 digest of the full file.")
     return file, start, end, digest
+
+
+def rules_unknown(raw: dict[str, Any], where: str) -> str:
+    """Give `[rules] unknown`: the effect of an import rule with the result unknown."""
+    rules = raw.get("rules", {})
+    if not isinstance(rules, dict):
+        raise ValueError(f"{where}: rules must be a table")
+    bad = sorted(set(rules) - {"unknown"})
+    if bad:
+        raise ValueError(f"{where}: rules has an unknown key: {', '.join(bad)}")
+    value = rules.get("unknown", "warn")
+    if value not in RULES_UNKNOWN:
+        raise ValueError(f'{where}: rules.unknown must be "warn" or "fail"')
+    return str(value)

@@ -255,6 +255,55 @@ The `delta` hint tells how to select Jev. It prints with a key and without a key
 Each hint gives a result that was measured with earlier prompts on Python repositories.
 `[jev] enabled = false` stops the hints.
 
+## Which decision provider answers the questions?
+
+A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --jev`, and `delta --jev`.
+The default provider is TypeSafe's Jev.
+The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
+
+To select OpenAI, give `--provider openai` to the command, or set `[decision] provider = "openai"` in `systemap.toml`.
+`--provider jev` selects Jev, also when the configuration selects OpenAI.
+A key in the environment does not select a provider.
+With `OPENAI_API_KEY` set and no selection, no request goes to OpenAI.
+If the selected provider does not give the answers, the command gives the cause and stops. It does not use the other provider.
+
+OpenAI gets the same data as Jev:
+
+- The evidence of each question, as JSON text in the `input` field: module names, docstrings, public names, internal imports, component ids, component sentences, invariants, source lines at connections between components, and the issue or task text.
+- The question text and the options: component ids with their sentences, or the new module names of `delta`.
+
+Use `audit --dry-run --provider openai` to count the questions and the characters before you send them.
+
+The thresholds of OpenAI come from the Jev bench rows in `bench/jev` (2026-10-13).
+Each threshold was selected on the five development maps.
+On the holdout maps, each figure had to be 10 points or less from the development figure.
+A question type that did not satisfy this rule has no OpenAI threshold. The command does not send that question, and it gives the cause.
+
+| question type | OpenAI threshold | development maps | holdout maps |
+|---|---|---|---|
+| jev mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
+| jev owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
+| jev sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
+| jev flow | P < 0.05 (only with `--kind "jev flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+| jev governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
+| triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
+| plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
+| `suggest --jev`, `delta --jev` moves | not available | not measured | No holdout rows exist. |
+
+The owner question of `delta --jev` uses the `jev owner` threshold.
+All measured repositories are Python repositories. No TypeScript result was measured.
+The finding types keep the names `jev mis-fold`, `jev owner`, and the other `jev` names, also when OpenAI answers. These names are identifiers in `[judgement] answered`.
+
+An OpenAI answer must agree with its question, as a Jev answer must.
+A refusal for one question gives no finding for that question. The report gives the count of refused questions.
+
+The cache is `.systemap/openai-cache.json`. It does not keep a refusal.
+Its key includes the provider name, the model, the evidence, and the question. Thus OpenAI does not use a Jev answer.
+
+The cost line on stderr has the same form for each provider, for example `openai: 1 sent, 0 from the cache; 290 input and 0 output tokens; gpt-6-luna`.
+OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
+The 1,636 bench requests used 1,211,893 input tokens ($0.12).
+
 ## What do you do above forty components?
 
 A large repository can exceed the capacity of one readable canvas.
@@ -555,6 +604,9 @@ components that can become nested maps.
 - `--jev` uses Jev's module-pair answers instead of package groups.
   Set `TYPESAFE_API_KEY` for this option.
 
+- `--provider jev|openai` selects the decision provider.
+  OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
+
 ### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]`
 
 Prints the second-pass findings.
@@ -701,6 +753,10 @@ than one-third of the map.
 
 - `--no-jev` sends nothing.
 
+- `--provider jev|openai` selects the decision provider of `--jev`.
+  With `openai`, `[jev] enabled = true` must have `OPENAI_API_KEY`.
+  OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
+
 - The Jev cost goes to stderr.
 
 ### `systemap describe`
@@ -729,6 +785,9 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--dry-run` lists proposed questions and does not send them.
 
+- `--provider jev|openai` selects the decision provider.
+  With `openai`, the command does not send the `jev mis-fold` questions and gives the cause.
+
 ### `systemap plan "<task>" [--check ID] [--base REF]`
 
 Predicts components likely to change in a task.
@@ -747,12 +806,18 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `-` instead of a task reads stdin.
 
+- `--provider jev|openai` selects the decision provider.
+  OpenAI has no measured threshold for plan. Thus `--provider openai` sends nothing and exits 1.
+
 ### `systemap triage TEXT`
 
 Predicts the three components likely to change in an issue fix.
 The report includes their modules and adjacent components.
 `-` reads stdin. The text limit is 2,000 characters.
 Set `TYPESAFE_API_KEY` before you run the command.
+
+- `--provider jev|openai` selects the decision provider.
+  The OpenAI triage measurement did not satisfy the holdout rule. Thus `--provider openai` sends nothing and exits 1.
 
 ### `systemap journeys [--limit N] [--dry-run]`
 
@@ -1072,17 +1137,20 @@ Unknown keys are rejected.
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
 | `[decisions]` | `max_contradicted = 3` | The quantity of `contradicted` verdicts for one claim before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --jev`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--jev`. With `enabled` unset, `delta` sends no question without `--jev`, also with a key. `enabled = false` stops the hints. |
+| `[decision]` | `provider = "jev"` | The decision provider of `audit`, `triage`, `plan`, `delta --jev`, and `suggest --jev`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. |
+| `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. |
 
-The environment of a command can set two values. A repository file cannot set them.
+The environment of a command can set three values. A repository file cannot set them.
 
 | Variable | Meaning |
 |---|---|
 | `TYPESAFE_API_KEY` | The key for Jev questions. Without it, no question goes to Jev. |
+| `OPENAI_API_KEY` | The key for OpenAI questions. It does not select OpenAI. Without a selection, no question goes to OpenAI. |
 | `SYSTEMAP_TRUST_MODEL_CODE` | With the value `1`, systemap runs the model files as Python code. Without it, systemap reads them as data. Set it only for a repository with safe code. |
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
