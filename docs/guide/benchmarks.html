@@ -278,13 +278,201 @@ The table's turns and dollars are from the reverse runs.</p>
 </tbody>
 </table>
 </div>
+<h2 id="decision-provider-measurements">Decision provider measurements</h2>
+<p>A decision provider answers the semantic questions of <code>systemap audit</code> and the other
+decision commands. This section gives the current measurements of these questions.
+<code>bench/jev/README.md</code> gives the method, the acceptance value, the commands, and the full output.</p>
+<p>All rows come from Python repositories: 5 development maps and 3 holdout maps.
+The development maps give each threshold. The holdout maps do not.
+No TypeScript row set is available. Thus no result applies to TypeScript.</p>
+<p>&quot;Caught&quot; is the fraction of incorrect claims below the threshold.
+&quot;Flagged&quot; is the fraction of correct claims below the threshold.</p>
+<h3 id="decision-flow-with-jev-and-the-call-sites-context-2026-10-13"><code>decision flow</code> with Jev and the <code>call_sites</code> context (2026-10-13)</h3>
+<p>The question gets its source lines from the <code>call_sites</code> fact.
+The rows are 160 development rows and 96 holdout rows. The model was <code>jev-1.13.0</code>.
+The acceptance value: development caught 50% or more, a holdout catch rate
+10 points or less from development, and 2 or fewer of 48 holdout claims flagged.</p>
+<div class="table table--wide" role="region" tabindex="0" aria-labelledby="decision-flow-with-jev-and-the-call-sites-context-2026-10-13">
+<table>
+<thead>
+<tr>
+<th>context</th>
+<th>threshold</th>
+<th>dev caught</th>
+<th>dev flagged</th>
+<th>holdout caught</th>
+<th>holdout flagged</th>
+<th>result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>call_sites</code> fact</td>
+<td>P &lt; 0.2</td>
+<td>48/80 (60.0%)</td>
+<td>2/80 (2.5%)</td>
+<td>25/48 (52.1%)</td>
+<td>1/48 (2.1%)</td>
+<td>pass</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The AUC was 0.904 on development and 0.936 on holdout.
+The cost was 256 requests and 279,288 input tokens.
+<code>decision flow</code> is not a default question of <code>audit</code>, because no TypeScript row set is available.</p>
+<h3 id="openai-decisions-2026-10-13">OpenAI Decisions (2026-10-13)</h3>
+<p>The model was <code>gpt-6-luna</code>. The rows are the Jev bench rows.
+A kind is available only if each holdout figure is 10 points or less from its development figure.
+The first measurement had 1,636 requests, with 0 errors and 0 refusals.
+They used 1,211,893 input tokens and cost 0.121 dollars.</p>
+<div class="table table--wide" role="region" tabindex="0" aria-labelledby="openai-decisions-2026-10-13">
+<table>
+<thead>
+<tr>
+<th>kind</th>
+<th>threshold</th>
+<th>development</th>
+<th>holdout</th>
+<th>result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mis-fold</td>
+<td>P &lt; 0.02</td>
+<td>82.1% caught, 3.1% flagged</td>
+<td>61.5% caught, 1.0% flagged</td>
+<td>fail</td>
+</tr>
+<tr>
+<td>owner</td>
+<td>0.99 or more</td>
+<td>9.5% answered, 100% correct</td>
+<td>4.7% answered, 100% correct</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>sentence</td>
+<td>P &lt; 0.3</td>
+<td>81.0% caught, 1.3% flagged</td>
+<td>75.0% caught, 0.0% flagged</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>flow</td>
+<td>P &lt; 0.02</td>
+<td>33.8% caught, 2.5% flagged</td>
+<td>37.5% caught, 6.2% flagged</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>governs</td>
+<td>0.99 or more</td>
+<td>19.8% found, 1.1% suggested</td>
+<td>17.2% found, 6.0% suggested</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>plan</td>
+<td>cut 0.5</td>
+<td>0.73 covered</td>
+<td>0.39 covered</td>
+<td>fail</td>
+</tr>
+<tr>
+<td>triage</td>
+<td>none</td>
+<td>82.5% first</td>
+<td>69.2% first</td>
+<td>fail</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The flow row comes from a second measurement with the <code>call_sites</code> context.
+It used the 160 development rows and the 96 holdout rows of the Jev measurement above.
+On development, OpenAI caught 27 of 80 incorrect claims and flagged 2 of 80 correct claims.
+On holdout, it caught 18 of 48 and flagged 3 of 48.
+The AUC was 0.881 on development and 0.862 on holdout.
+The 256 requests had 0 errors and 0 refusals, and used 213,942 input tokens (0.021 dollars).</p>
+<p>At P &lt; 0.05, OpenAI flagged 4 of 80 correct development claims, more than the Jev budget of 2.
+Thus the rule selected P &lt; 0.02. At its threshold, Jev caught 48 of 80 on the same rows.</p>
+<h3 id="earlier-measurements-of-the-flow-question">Earlier measurements of the flow question</h3>
+<p>These figures are earlier measurements. The current figures above replace them.</p>
+<p>The recorded figures of the first flow question used an earlier question and an earlier model.
+That question caught 53 of 80 (66%) on development and flagged 2 of 80.
+On holdout, it caught 26 of 48 (54%) and flagged 2 of 48.
+The catch rate changed by more than 10 points. Thus the flow question became opt-in.</p>
+<p>On 2026-10-13, four context selectors were measured with <code>jev-1.13.0</code> on the same rows:</p>
+<div class="table table--wide" role="region" tabindex="0" aria-labelledby="earlier-measurements-of-the-flow-question">
+<table>
+<thead>
+<tr>
+<th>context</th>
+<th>threshold</th>
+<th>dev caught</th>
+<th>dev flagged</th>
+<th>holdout caught</th>
+<th>holdout flagged</th>
+<th>result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>base</code> (earlier)</td>
+<td>P &lt; 0.15</td>
+<td>39/80 (48.8%)</td>
+<td>1/80 (1.2%)</td>
+<td>19/48 (39.6%)</td>
+<td>1/48 (2.1%)</td>
+<td>fail</td>
+</tr>
+<tr>
+<td><code>around</code></td>
+<td>P &lt; 0.15</td>
+<td>34/80 (42.5%)</td>
+<td>1/80 (1.2%)</td>
+<td>14/48 (29.2%)</td>
+<td>1/48 (2.1%)</td>
+<td>fail</td>
+</tr>
+<tr>
+<td><code>calls</code></td>
+<td>P &lt; 0.2</td>
+<td>48/80 (60.0%)</td>
+<td>2/80 (2.5%)</td>
+<td>26/48 (54.2%)</td>
+<td>0/48 (0.0%)</td>
+<td>pass</td>
+</tr>
+<tr>
+<td><code>targets</code></td>
+<td>P &lt; 0.2</td>
+<td>47/80 (58.8%)</td>
+<td>2/80 (2.5%)</td>
+<td>28/48 (58.3%)</td>
+<td>0/48 (0.0%)</td>
+<td>pass</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code>calls</code> and <code>targets</code> used text patterns for Python and TypeScript syntax in shared code.
+Thus they did not go into systemap. The <code>call_sites</code> fact gives the <code>targets</code> lines from each
+language adapter.</p>
+<p>The first OpenAI measurement used the <code>base</code> context. It selected P &lt; 0.05 for the flow question.
+At that threshold, OpenAI caught 37 of 80 (46.2%) on development and flagged 2 of 80 (2.5%).
+On holdout, it caught 27 of 48 (56.2%) and flagged 4 of 48 (8.3%).
+The second OpenAI measurement above replaces these figures.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="reference.html" rel="prev"><span class="kicker">Previous</span><span>Reference</span></a></nav>
 </main>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#decision-provider-measurements">Decision provider measurements</a></li><li class="toc__l3"><a href="#decision-flow-with-jev-and-the-call-sites-context-2026-10-13">decision flow with Jev and the call_sites context (2026-10-13)</a></li><li class="toc__l3"><a href="#openai-decisions-2026-10-13">OpenAI Decisions (2026-10-13)</a></li><li class="toc__l3"><a href="#earlier-measurements-of-the-flow-question">Earlier measurements of the flow question</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>2.0.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

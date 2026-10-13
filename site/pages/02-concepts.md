@@ -33,16 +33,19 @@ Flow("OrderFiles", "CommandLine", "order", "data")
 ```
 
 - The standard flow kinds are `data`, `control`, `context`, and `tool`. A model declares each other kind in `flow_kinds` and gives it a layer.
-- A map has one flow, or no flow, for each ordered pair of components.
+- A flow can have an `id`. Two or more flows can connect one ordered pair of components only if each of them has an `id`, for example `submit-order` and `cancel-order`.
+  A flow without an `id` has the identifier `SRC->DST`. The [reference](reference.html#how-do-two-flows-connect-one-pair-of-components) gives the rules.
 
 ## Sequence and entry point
 
 An **entry point** is a command, route, or public symbol where a run can start.
 
 A **sequence** is the ordered set of steps that starts at an entry point. The schema uses `Journey` for a sequence.
-Each step gives the acting components (`acts`), the measurement components (`measures`), one flow (`edge`), and one sentence (`say`).
+Each step gives the acting components (`acts`), the measurement components (`measures`), one flow (`flow="ID"` or `edge`), and one sentence (`say`).
 `covers` gives the entry points that the sequence covers.
 A sequence does not record a run of the program.
+
+A step can also have `source_refs`. `judgement` gives a `step source` finding for each record that does not resolve, or that is not in a module of a component of the step.
 
 ## Layer
 
@@ -67,6 +70,10 @@ A model with an `agent` or `calls_model=True` component also has the Agents, Con
 
 An **invariant** is a source-supported rule that applies to specified components. Its text cites the source of the rule.
 
+An **import rule** gives the permitted imports between the modules of components, for example `forbid_import` from one component to another.
+`systemap check` and `systemap rules` compare each rule with the resolved imports. The result is `pass`, `fail`, or `unknown`.
+A `fail` result makes `check` exit 1.
+
 ## Evidence states
 
 systemap calculates the evidence state of each flow from the stored source snapshot.
@@ -85,7 +92,8 @@ The [reference](reference.html#what-does-systemap-check-reject) gives the source
 
 A component can record a `source_review` digest after an examination of its source and claims.
 Its state is `missing` (no value), `stale` (not the current digest), or `current`.
-A stale review is a finding. A missing review is not a finding.
+A stale review is a finding. A missing review is not a finding, unless `[judgement] require_reviews = true`.
+`systemap review ID` writes the current digest after the examination. [Coding agents](coding-agents.html#source-reviews-and-verdicts) tells how an agent records reviews.
 
 ## Findings and answers
 

@@ -5,7 +5,7 @@ that this module lists, and it refuses all other syntax before it makes a value.
 file can import a file in the same directory. The same reader reads that file.
 
 The person who runs a command can set SYSTEMAP_TRUST_MODEL_CODE=1 in the environment.
-Then systemap runs the model file as Python code, as systemap 2.0 did. The repository
+Then systemap runs the model file as Python code, as systemap 1.2.0 did. The repository
 cannot give this permission: systemap does not read it from a repository file.
 
 Accepted statements: the module docstring, `from __future__ import annotations`, an

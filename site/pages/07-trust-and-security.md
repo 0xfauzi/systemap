@@ -9,6 +9,12 @@ systemap reads the source files under the package roots, the test files, `system
 `delta`, `history`, `render --base`, and `live` also read committed files from Git.
 Extraction parses the source files but does not import or run them.
 
+The facts, the configuration, and the model can give file paths. A cloned repository can put any path in these files.
+systemap reads such a file only if it is a regular file in the repository.
+It refuses an absolute path, a path with a `..` part, and a symbolic link to a file that is not in the repository.
+Extraction records a link to a file that is not in the repository as a module that did not parse.
+A model file that is not in the repository gives a configuration error.
+
 ## What systemap runs
 
 systemap reads the model, usually `map/model.py`, with a [reader that runs no code](reference.html#what-does-a-model-contain).
@@ -20,6 +26,10 @@ If the file needs code, the command stops and gives the file and the line.
   Then it writes the file again with literal values only.
 - The base models of `render --base`, `figure --base`, and `live` use the same reader.
 
+systemap runs `git` with values from the model and from the command line.
+A `source_review` value must be a 64-character hexadecimal digest before it goes to `git grep`.
+A commit or a ref goes after `--end-of-options`. Thus a value that starts with `-` is not a Git option.
+
 ## The agent command
 
 `systemap journeys` runs the command under `[agent] command` in `systemap.toml`, without a shell. No other command runs it.
@@ -27,15 +37,20 @@ A repository can set this command. Examine the value before you run `systemap jo
 
 ## What systemap sends
 
-Jev is the TypeSafe model at `https://api.typesafe.ai/v1`. `TYPESAFE_BASE_URL` selects a different server.
+A decision provider is a model API that answers the questions of `audit`, `suggest --decide`, `plan`, `triage`, and `delta --decide`.
+Jev is the TypeSafe model at `https://api.typesafe.ai/v1`, and the default provider. `TYPESAFE_BASE_URL` selects a different server.
 No question goes to Jev without `TYPESAFE_API_KEY`.
+OpenAI Decisions is the second provider. A question goes to OpenAI only with `--provider openai` or `[decisions] provider = "openai"`, and with `OPENAI_API_KEY`.
 
-With the key, `audit`, `suggest --jev`, `plan`, `triage`, and `delta` can send questions.
-`plan --check` and `delta --no-jev` send no question.
+A key alone does not make `delta` send questions. `delta` sends questions only with `--decide` or `[jev] enabled = true`.
+`judgement` sends questions to Jev only with `--order-by-drift`.
+`plan --check`, `delta --no-decide`, and `systemap decisions` send no question.
+
 The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
+`--order-by-drift` also sends a diff or the text of the module files of each stale component.
 `systemap audit --dry-run` shows this data. With a key, it gets the model list but sends no map data.
 
-`systemap check` and `systemap judgement` make no network requests.
+`systemap check` makes no network requests. `systemap judgement` makes no network requests without `--order-by-drift`.
 The rendered page loads no files from other servers.
 
 ## The CI link job

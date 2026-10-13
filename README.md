@@ -43,6 +43,7 @@ not a file or directory.
 
 A **flow** is a connection between two components. Its line has a label that
 shows what goes between the components: for example, a request or a file.
+If each flow has an `id`, two or more flows can connect the same two components.
 
 A **sequence** is an authored set of ordered steps for an operation. The page shows
 one step at a time. A sequence does not record an execution.
@@ -134,6 +135,10 @@ Install systemap. Then write the initial files:
 For a TypeScript repository, install the parser extra:
 
     uv tool install 'systemap[typescript]'
+
+After you upgrade systemap, operate `systemap refresh` and commit the facts file.
+A facts file from an earlier version is stale, and `systemap check` exits 1 until you write it again.
+[CHANGELOG.md](CHANGELOG.md) gives the other steps for each version.
 
 The TypeScript adapter reads `.ts`, `.tsx`, `.mts`, and `.cts` modules. These records include:
 
@@ -253,7 +258,9 @@ test("greets a person", () => {
 });
 ```
 
-After `systemap init`, set the source root in `systemap.toml`:
+Without the `language` key, systemap finds the language from the source files.
+If the evidence for Python and the evidence for TypeScript are equal, the command stops and tells you to set the key.
+After `systemap init`, set the language and the source root in `systemap.toml`:
 
 ```toml
 language = "typescript"
@@ -356,6 +363,9 @@ across components with no flow. Change the map or record a reason in
 an explicit policy. Changed evidence can open an exact finding again.
 A component `source_review` digest that is not current is also a finding.
 
+With `[judgement] require_reviews = true`, a component without a `source_review` digest is also a finding.
+`systemap judgement --json` gives the open lines, their kinds, and their evidence digests as one JSON object for programs.
+
 A report with no open findings does not show that every component assignment is correct.
 The rules use names and imports. They can miss a module in the incorrect component.
 Without Jev, the skill's second pass compares every claimed module with its
@@ -363,6 +373,46 @@ component's function. If the facts are not sufficient, the agent or maintainer r
 
 Six repositories completed the procedure recorded at that time. Four came from other authors.
 All six completed without intervention. The two commands showed no open findings. The run records are in [docs/benchmarks.md](docs/benchmarks.md).
+
+## How does an agent record a source review?
+
+A source review is a recorded examination of the source that supports a claim.
+The map records it as a digest: `source_review` for a component and `review_digest` for a flow.
+A digest that is not current gives a finding again.
+
+`systemap review` writes the current digest of one target into the model file:
+
+```sh
+systemap review Reader                    # source_review of the component Reader
+systemap review --flow 'Reader->Writer'   # review_digest of the one flow from Reader to Writer
+systemap review --flow submit-order       # review_digest of the flow with this id
+```
+
+The command does not examine the claims. Examine the source before you use it.
+It writes one target for each call, and it keeps the comments and the format of the model file.
+
+`systemap decisions` gives the open claims to a coding agent in its current session:
+
+1. `systemap decisions pending --json` gives each decision request with its claim and its source files.
+2. The agent examines each claim against the source. Then it writes a verdict: `supported`, `contradicted`, or `insufficient_evidence`.
+3. `systemap decisions submit FILE` examines the citations of each verdict: the file, the line span, and the digest of the current file.
+4. If each citation is correct, the command records each `supported` verdict as a review digest or as an exact answer.
+5. `systemap decisions status` gives the counts and the decision requests that stay unknown.
+
+These commands send no request to a model.
+After `[decisions] max_contradicted` verdicts of `contradicted` for one target, the decision request becomes unknown. The default is 3.
+A person must then examine the claim.
+
+## How do you prevent an import between two components?
+
+An import rule in the model gives the permitted imports between the modules of components.
+The `kind` values are `forbid_import`, `allow_imports`, and `forbid_cycle`.
+`systemap check` exits 1 if a resolved import is against a rule.
+`systemap rules` gives the result of each rule: `pass`, `fail`, or `unknown`.
+
+The result is `unknown` if a module did not parse, or if the facts possibly do not contain all its imports.
+`check` gives a warning for an `unknown` result. With `[rules] unknown = "fail"`, it exits 1.
+[docs/reference.md](docs/reference.md#what-does-a-model-contain) gives an example rule.
 
 ## What does a pull request change in the map?
 
@@ -425,10 +475,13 @@ On this repository, the command takes about 7 to 8 seconds to render the map.
 - **Make a work plan.** `systemap plan "<task>"` shows parts likely to change.
   After the work, the command compares the projection with the changed parts.
 
-- **Ask Jev semantic questions.** TypeSafe's Jev model answers semantic questions that
-  the mechanical rules cannot answer. Set `TYPESAFE_API_KEY` for this option.
-  `check` and `judgement` make no network requests.
-  Other commands can use Jev if you set the key.
+- **Send semantic questions to a decision provider.** A decision provider is a model API that gives typed answers.
+  `systemap audit` sends questions about module claims, sentences, and flows to TypeSafe's Jev or to OpenAI Decisions.
+  Set `TYPESAFE_API_KEY` for Jev. For OpenAI, set `OPENAI_API_KEY` and give `--provider openai`.
+  A key alone does not select OpenAI. `delta` sends questions only with `--decide` or `[jev] enabled = true`.
+
+- **Put the stale source reviews in sequence.** `systemap judgement --order-by-drift` sends one Jev question for each stale source review.
+  It puts the lines with the lowest drift score first. Without this option, `check` and `judgement` make no network requests.
 
 The experiments set acceptance thresholds before implementation.
 The experiment records include features that did not meet their thresholds and
@@ -450,6 +503,10 @@ It uses one picture and one layout, with components, flows, and sequences.
 ## What does systemap run and read?
 
 systemap reads the source files, `systemap.toml`, and the model files of the repository.
+The facts, the configuration, and the model can give file paths.
+systemap reads such a file only if it is a regular file in the repository.
+It refuses an absolute path, a path with a `..` part, and a symbolic link to a file that is not in the repository.
+
 The extractor parses the source files. It does not import them.
 systemap reads `map/model.py` and the model files that it imports as data.
 It does not run them.
@@ -459,7 +516,7 @@ the line, and the necessary change.
 
 If you know that the code in a repository is safe, you can set
 `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command.
-Then systemap runs the model files as Python code, as version 2.0 did.
+Then systemap runs the model files as Python code, as version 1.2.0 did.
 The repository cannot give this permission. systemap does not read it from `systemap.toml`
 or from another file in the repository.
 
@@ -470,7 +527,8 @@ The command writes the same model with literal values only, and makes sure that 
 systemap runs `git` to read the commits and revisions of the repository.
 `systemap journeys` runs the program that `[agent] command` in `systemap.toml` gives.
 Before you run `journeys` in a repository that you do not know, read that value.
-Commands that use Jev or an agent send source text and map text to that service.
+Commands that use Jev, OpenAI, or an agent send source text and map text to that service.
+`systemap audit --dry-run` shows the data before you send it.
 
 ## How do you develop systemap?
 

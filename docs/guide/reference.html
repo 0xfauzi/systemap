@@ -78,7 +78,7 @@ The command exits 1 if a rule rejects the map.</p>
 </tr>
 <tr>
 <td>placement</td>
-<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no <code>id</code>. Two flows have the same <code>id</code>, or an <code>id</code> contains a character other than a letter, a digit, <code>_</code>, <code>.</code>, or <code>-</code>. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id.</td>
+<td>A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. A flow has the same component at the two ends. Two flows have the same ordered pair, and one of them has no <code>id</code>. Two flows have the same <code>id</code>, or an <code>id</code> contains a character other than a letter, a digit, <code>_</code>, <code>.</code>, or <code>-</code>. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a <code>calls_model</code> component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id.</td>
 </tr>
 <tr>
 <td>routes</td>
@@ -366,9 +366,9 @@ Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.
 The evidence of each <code>entry point</code> line also changed.
 Thus each of these exact answers is pending one time after the update.</p>
-<p>Migration from systemap 3.0.0: the earlier evidence digest of a line that is not a <code>crossing import</code> contained the full model file and all modules.
-Thus each of these exact answers is pending one time after the update.
-The digests of <code>crossing import</code> answers do not change.</p>
+<p>Migration from systemap 1.2.0: an exact answer in 1.2.0 had no <code>evidence</code> digest.
+Thus each exact answer from 1.2.0 is pending until you write its digest.
+A family answer from 1.2.0 must also get <code>policy = true</code>.</p>
 <p><code>judgement</code> prints the new digest in the <code>pending answer</code> line.
 Examine the source again. Then write the new digest in <code>evidence</code>.</p>
 <p>A family answer is a policy for a family of lines and must have <code>policy = true</code>.
@@ -437,9 +437,15 @@ Do not use the recorded scores as results for the changed prompts or your system
 The data contains module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
 With a key, the dry run gets the model list to count cached answers. It sends no map data.</p>
-<p>A <code>decision flow</code> question gets the source lines that use a name from the other component.
-For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
-For TypeScript, it compares the last part of the import path with the file name of the target module.
+<p>A <code>decision flow</code> question gets its source lines from the <code>call_sites</code> fact of the modules at the two ends of the flow.
+The fact has the same form for Python and TypeScript. The context has these lines, in this sequence, until it has 60 lines:</p>
+<ol>
+<li>The import lines and the lines that use a name from the other component.</li>
+<li>The lines that read a property of a local name that gets its value from an imported name, such as <code>ledger.record(parts)</code> after <code>ledger = Ledger()</code>.</li>
+<li>The line of the function or method that contains each of these lines.</li>
+</ol>
+<p>Then the context gives at most 12 lines from the facts of the target modules.
+These lines are the signature of each imported function, class, or method that a selected line uses, and the first sentence of each module description.
 A flow without such lines gets no question. The report gives the count of these flows.</p>
 <p>Each Jev answer must agree with its question: a choice from the offered options,
 and numbers from 0 to 1. An answer that does not agree stops the command with a message.
@@ -554,8 +560,8 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 <tr>
 <td>decision flow</td>
 <td>P &lt; 0.02 (only with <code>--kind &quot;decision flow&quot;</code>)</td>
-<td>33.8% of incorrect claims found, 2.5% incorrect findings</td>
-<td>37.5% found, 6.2% incorrect findings</td>
+<td>27 of 80 incorrect claims found (33.8%). 2 of 80 correct claims gave incorrect findings (2.5%).</td>
+<td>18 of 48 found (37.5%). 3 of 48 correct claims gave incorrect findings (6.2%).</td>
 </tr>
 <tr>
 <td>decision governs</td>
@@ -886,7 +892,7 @@ The message gives the file, the line, and the refused syntax.</p>
 when each name in it is written out. Move a part of a larger map into a nested map.</p>
 <p>If you know that the code in a repository is safe, set <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>
 in the environment of the command. Then systemap runs each model file as Python code,
-as version 2.0 did. Only the value <code>1</code> gives this permission.
+as version 1.2.0 did. Only the value <code>1</code> gives this permission.
 systemap does not read this permission from <code>systemap.toml</code>, because the repository controls that file.
 To write a model file with code again as literal values, use <code>systemap convert</code>.</p>
 <p>The page and the figures use some model names as CSS names and SVG IDs.
@@ -962,6 +968,48 @@ Module records contain public surface, public names, internal imports, external
 imports, test references, and entry points.
 Package <code>__init__</code> records include re-exports.
 The other commands read this file.</p>
+<p>Each language adapter also writes these facts with the same meaning for Python and TypeScript:</p>
+<ul>
+<li>
+<p><code>package</code>: the folder package of the module. A dot in a file name does not make a package.</p>
+</li>
+<li>
+<p><code>completeness</code>: <code>parsed</code>, <code>line</code>, <code>reason</code>, and <code>unresolved_imports</code>.
+If the module did not parse, <code>unresolved_imports</code> is null, because the value is not known.
+A component with a module that did not parse gets no source review digest. An import rule for that module gives <code>unknown</code>.</p>
+</li>
+<li>
+<p><code>call_sites</code>: the lines that use each imported name, and the lines that use a local name that gets its value from an imported name.
+The <code>decision flow</code> question reads this fact.</p>
+</li>
+<li>
+<p><code>classes</code> and <code>types</code>: <code>classes</code> holds only class declarations.
+<code>types</code> holds each other type declaration, with its name, its category (<code>interface</code>, <code>enum</code>, or <code>type_alias</code>), and its methods.</p>
+</li>
+<li>
+<p><code>defined_in</code> and <code>defined_as</code> on each re-export: the module and the symbol that define it.</p>
+</li>
+<li>
+<p><code>same_as</code> on each entry point: the identity of a different entry point with the same start, or an empty string.
+A missing value is not known. Then the entry point must have its own sequence.</p>
+</li>
+<li>
+<p><code>symbol</code> on each entry point: the name in its module that the entry point starts, or an empty string.</p>
+</li>
+<li>
+<p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
+</li>
+</ul>
+<p>The facts file has a format number in its <code>version</code> key. The current format is 12.
+A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
+After an upgrade of systemap, run <code>systemap refresh</code>.</p>
+<p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
+The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.</p>
+<p>systemap reads <code>systemap.toml</code>, <code>pyproject.toml</code>, <code>package.json</code>, and each <code>tsconfig.json</code> file only in the repository.
+A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
+The error gives the path and the cause.
+A missing configuration file gives an empty table, as before.
+A <code>tsconfig.json</code> target in the <code>node_modules</code> folder of the repository stays permitted.</p>
 <ul>
 <li><code>--check</code> exits 1 if stored facts differ from the source tree.
 The facts file includes a digest of the values that extraction reads from each configuration file.
@@ -1430,7 +1478,7 @@ It also has <code>imports</code> (<code>source</code>, <code>target</code>) and 
 The <code>cause</code> values are <code>no_facts</code>, <code>no_read_state</code>, <code>not_parsed</code>, <code>unresolved_not_known</code>, <code>unresolved_imports</code>, and <code>no_component</code>.</p>
 </li>
 </ul>
-<h3 id="systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></h3>
+<h3 id="systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]</code></h3>
 <p>Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
 does. The report shows moved, added, and removed modules with their
@@ -1482,7 +1530,7 @@ The heading of the suggestions names the provider, for example <code>Jev suggest
 <p><code>--no-decide</code> sends nothing.</p>
 </li>
 <li>
-<p><code>--jev</code> and <code>--no-jev</code> are the previous names of <code>--decide</code> and <code>--no-decide</code>. They stay for one release.</p>
+<p><code>--jev</code> and <code>--no-jev</code> are aliases: the previous names of <code>--decide</code> and <code>--no-decide</code>. They stay for one release.</p>
 </li>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider of <code>--decide</code>.
@@ -1490,7 +1538,10 @@ With <code>openai</code>, <code>[jev] enabled = true</code> must have <code>OPEN
 OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.</p>
 </li>
 <li>
-<p>The Jev cost goes to stderr.</p>
+<p><code>--brief</code> prints the lines without the explanation rows. <code>systemap explain KIND</code> gives the full explanation.</p>
+</li>
+<li>
+<p>The cost of the decision provider goes to stderr.</p>
 </li>
 </ul>
 <h3 id="systemap-describe"><code>systemap describe</code></h3>
@@ -1509,8 +1560,8 @@ The finding kinds are <code>decision mis-fold</code>, <code>decision owner</code
 <code>decision governs</code>. <code>--kind &quot;decision flow&quot;</code> also sends questions about flow claims.
 <code>--kind</code> also accepts the previous <code>jev</code> names for one release, with a warning.
 Answers use the cache.
-The command exits 0 for a completed report, or 1 if it cannot complete.
-Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
+The command exits 0 for a completed report, or 1 if it cannot complete.</p>
+<p>Set <code>TYPESAFE_API_KEY</code> for Jev, or <code>OPENAI_API_KEY</code> for OpenAI, before you run the command.</p>
 <ul>
 <li>
 <p>Use <code>--kind KIND</code> again to select another question kind.</p>
@@ -1521,6 +1572,9 @@ Set <code>TYPESAFE_API_KEY</code> before you run the command.</p>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider.
 With <code>openai</code>, the command does not send the <code>decision mis-fold</code> questions and gives the cause.</p>
+</li>
+<li>
+<p><code>--brief</code> prints the findings without the explanation rows.</p>
 </li>
 </ul>
 <h3 id="systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></h3>
@@ -2312,12 +2366,12 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>2.0.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

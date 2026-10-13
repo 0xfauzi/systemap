@@ -7,1400 +7,472 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
-## 3.0.0 - 2026-10-12
+## 2.0.0 - 2026-10-13
 
-This version changes four behaviors. Each change can stop a command or change a CI result.
+2.0.0 is the first stable release of systemap.
+The earlier versions, 0.8.0 to 1.2.0 on PyPI and in git, are not supported.
+The git history keeps their changes.
+This section gives each change for a user of 1.2.0, the last version on PyPI.
 
-- systemap reads a model file as data, and it refuses a model file that needs code.
-  To write such a file with literal values, run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
-  Set this value only if you trust the code in the repository.
-- The workflow from `systemap init` is advisory by default. A workflow file that exists does not change.
-- Maps use the `plain` writing profile by default.
-  To keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
-- `systemap judgement --strict` fails on a stale source review.
+A decision provider is a service that gives typed answers to typed questions about the map.
+Jev and OpenAI Decisions are the two decision providers.
+A source review is a recorded examination of the source that supports a claim. The map records it as a digest.
 
-The changes:
+### Changes that can stop a command or change a CI result
 
-- The website at <https://0xfauzi.github.io/systemap/> has a landing page, eight guide pages,
-  the reference, and the benchmarks. `site/build.py` makes the pages in `docs/` from `site/pages/`,
-  `docs/reference.md`, and `docs/benchmarks.md`. The pages make no requests to other sites.
+Each item gives the change, and then the step that you must do.
 
-- `systemap serve` and `systemap live` answer only a request whose Host header is `127.0.0.1` or
-  `localhost` with the server port. A web page that makes its own domain name point at 127.0.0.1
-  cannot read the map.
+- systemap reads a model file as data. It does not run code from the model file.
+  In 1.2.0, `check`, `render`, `delta`, and the other commands ran `map/model.py` as Python code.
+  A model file can contain only literal values, calls of the model classes, and names that the file defines.
+  It can also contain `import NAME` for a file in the same directory, and a type alias such as `Steps = tuple[Step, ...]`.
 
-- The workflow from `systemap init` is advisory by default. A map finding gives a warning
-  annotation, and the job passes. The variable `SYSTEMAP_CI` in the workflow selects the mode.
-  `systemap init --strict-ci` writes `strict`: a map finding makes the job fail.
-  If systemap cannot run, the job fails in both modes. A workflow that exists does not change.
+  For other syntax, the command stops and gives the file, the line, and the refused syntax.
+  A model file from `systemap init` loads with no change.
+
+  Step: examine the code of the model file. Then run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
+  The command writes the model with literal values only, and it writes the file only if systemap reads the new text to the same model.
+  Set `SYSTEMAP_TRUST_MODEL_CODE=1` only for a repository with safe code. A repository file cannot set it.
+
+- `systemap delta --format markdown` and its Mermaid diagram are removed.
+  The workflow from `systemap init` 1.2.0 uses this option. Thus its delta job fails with exit code 2.
+
+  The new workflow writes no map report comment by default. The delta job gives each line and its action in the job log.
+  The new workflow is advisory: a map finding gives a warning annotation, and the job passes.
+
+  `systemap init --strict-ci` writes a workflow in which a map finding makes the job fail. The variable `SYSTEMAP_CI` selects the mode.
+  If systemap cannot run, the job fails in the two modes.
+
+  Step: remove `.github/workflows/systemap.yml`. Then run `systemap init` again, with `--strict-ci` if CI must fail on a finding.
+  `init` keeps your configuration and your model. If you changed the old workflow, compare it with the new file.
+
+- An import between two components does not make a flow `observed`.
+  In 1.2.0, an import made a flow `observed` and gave it a solid line.
+  A flow is `observed` only if it has `source_refs` that agree with the current source, and a current `review_digest`.
+  At least one source record must be in a module of the source component or the target component.
+  An import, a shared module, or a `[flows] observed_by` mechanism gives the new state `structural`, with a short dashed line.
+
+  `judgement` gives a `flow review` finding for each `structural` flow. Thus `judgement --strict` exits 1.
+  A flow with `source_refs` and no record in an endpoint module gives a `no endpoint source` finding.
+
+  Step: for each `flow review` line, examine the source. Then record the source records, and run `systemap review --flow` for the flow.
+  You can also change the flow, or record an answer with a reason.
+
+- A component can record a `source_review` digest after an examination of its source and claims.
+  A `source_review` value that is not the current digest gives a `stale source review` finding, and `judgement --strict` exits 1.
+  A missing value is not a finding. With `[judgement] require_reviews = true`, a missing value gives a `missing source review` finding.
+  `judgement` counts the states on one line, for example `source reviews: 16 current, 0 stale, 0 missing`.
+
+  Step: after each examination, run `systemap review ID` to write the current digest.
+
+- An exact answer (`item` or `items`) in `[judgement] answered` must have an `evidence` digest.
+  A family answer (`kind`, `crossing`, `crossing_into`, `crossing_from`, or `module_sdk`) must have `policy = true`.
+  An answer without its value is pending. Thus `judgement --strict` exits 1.
+
+  The evidence digest contains only the evidence that its line names: the claims of each named component, and the source of each named module.
+  A change of the source or of the claims opens the answer again. A change of a different component does not.
+
+  Step: examine the source for each `pending answer` line. Then write the digest from that line in `evidence`.
+  Add `policy = true` to each family answer.
+
+- The finding kinds that started with `jev` now start with `decision`, because Jev or OpenAI can give the answers.
+  For example, `jev flow` is now `decision flow`.
+  `--decide` and `--no-decide` replace `--jev` and `--no-jev` in `delta`, and `--decide` replaces `--jev` in `suggest`.
+  The `entry point` line for a group of entry points gives the kind as words: `7 public functions into Api`, not `7 public_functions into Api`.
+
+  Only this release reads the previous names, line forms, and options. Each previous item in `[judgement] answered` gives one warning.
+
+  Step: replace each previous item with the line that the warning gives.
+  [How do you change to the new finding names?](docs/reference.md#how-do-you-change-to-the-new-finding-names) gives the steps.
+
+- `systemap delta` sends questions to a decision provider only on request.
+  In 1.2.0, `delta` sent questions to Jev if `TYPESAFE_API_KEY` was set, because `[jev] enabled` was true by default.
+  After this change, a key alone sends no request. Without an explicit `[jev] enabled` value, `delta` prints one hint.
+  In the tests, a key with no `[jev]` table sent 3 requests before the change, and 0 requests after it.
+
+  Step: to keep the suggestions, give `delta --decide`, or set `[jev] enabled = true` in `systemap.toml`.
+  `[jev] enabled = false` stops the hint.
+
+- Maps use the `plain` writing profile by default. The `[writing] profile` key selects `plain` or `asd-ste100`.
+  `plain` uses the common writing rules: sentence length, active voice, literal words, and one term for one concept.
+  `asd-ste100` adds the full ASD-STE100 Issue 9 rules, which need the official ASD dictionary.
+  The instruction from `init` is "Obey the systemap skill and its writing rules."
+
+  Step: to keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
+
+- The facts format is 12. In 1.2.0, it was 2. A facts file of an earlier format is stale.
+  Thus `systemap check` and `systemap extract --check` exit 1 until you extract the facts again.
+  The new facts have the same meaning for Python and TypeScript.
+  They include `package`, `completeness`, `call_sites`, `types`, `same_as`, `symbol`, and a `cause` on each unknown record.
+  `docs/reference.md` gives each fact.
+
+  The extraction inputs include the configuration that extraction reads, with only the values that it reads.
+  An example is an extended `tsconfig.json` file in `node_modules`.
+  A change of `paths`, `baseUrl`, `include`, or the first number of the TypeScript version makes the facts stale.
+  A change of a comment, an npm metadata field, or a workspace member `pyproject.toml` does not.
+
+  Step: run `systemap refresh` after the upgrade, and commit the facts file.
+  Then run `systemap check`, and correct each claim that it gives.
+
+- Some Python facts changed. The coverage, crossing import, and entry point findings can change:
+
+  - An empty package marker is a module that has no statement that holds code. A private assignment with a function call makes a source module.
+  - Python overload signatures give one public name.
+  - A console script, a main function, and a command that start the same function give one entry point.
+  - A license notice is not a module description.
+  - A Python function fingerprint includes its decorators.
+  - The configured `test_patterns` apply to Python, with the same rule as TypeScript.
+  - A component `entry` can be the label of an entry point that starts no single public name, such as a `__main__` module.
+
+  Step: run `systemap refresh`, `systemap check`, and `systemap judgement`, and correct each new finding.
+
+- The model check refuses more models:
+
+  - A flow from a component to itself. The line starts with `placement: flow A -> A has the same component at the two ends`.
+  - Two sequences with one ID, and two components that open the same nested model file.
+  - A component that opens a map with an ID that is not one path segment.
+  - Two regions or containers with the same ID.
+  - A flow sentence that contains only spaces.
+  - A model value with an incorrect type. This gives a configuration error.
+  - Two flows without an `id` on different pairs that give the same default identifier, for example `A->B` to `C` and `A` to `B->C`.
+
+  `place` and `describe` exit 1 for a flow to an unknown component, or for an unknown component `kind`.
+
+  Step: correct each flow, sequence, region, and component that `systemap check` gives.
+
+- The facts are stale if the specification sections change.
+  `check` then gives the line `specification sections changed since the map was built`.
+  An output file that is not UTF-8 text is a stale output in `check` and in `render --check`.
+
+  Step: run `systemap refresh`, and commit the facts file and the outputs.
+
+- The page has two themes: Ink (`scheme = "dark"`, the default) and Paper (`scheme = "light"`).
+  The 1.2.0 scheme names `warm`, `graphite`, and `paper` give a configuration error. A `[theme.paper]` table also gives an error.
+
+  Step: in `[theme]`, set `scheme = "dark"` or `scheme = "light"`. Move the values of a `[theme.paper]` table into `[theme.light]`.
+
+- The theme values and the model names go into the page as CSS and HTML. Thus systemap refuses unsafe values:
+
+  - A theme value that contains `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value can contain `"`.
+  - A key in a theme table that contains a character other than a letter, a digit, `_`, or `-`.
+  - A `[theme.marks]` value other than `ring`, `notch`, or `dotted`.
+  - A theme value of an incorrect type. A color token, `color_scheme`, and each `delta` value must be text. Each `state` record has 3 texts, and each `container` record has 2 texts. `ghost` has 2 texts.
+  - A custom layer ID that contains a character other than a letter, a digit, `_`, or `-`.
+  - The component IDs `_meta` and `__proto__`.
+
+  `systemap figure --caption` and `[[figures]] caption` are text, not HTML. The `--svg-id` value must start with a letter.
+
+  Step: correct each value that the error names. Remove HTML from each caption.
+
+- systemap reads and writes files only in the repository or in their specified root:
+
+  - `systemap.toml`, `pyproject.toml`, `package.json`, the model file, and each `tsconfig.json` file must be regular files in the repository.
+  - A link out of the repository or a FIFO gives a configuration error with the path and the cause.
+  - A `package.json` file that systemap cannot read, or that has no JSON object, gives a configuration error.
+  - A `pyproject.toml` file that is not correct TOML gives a configuration error. In 1.2.0, it gave an empty table.
+  - A package root that is not in the repository is a configuration error.
+  - A configured cache path (`[jev]`, `[openai]`, or `[agent]`), `out_dir`, or `model` that is absolute or that has a `..` part is a configuration error.
+  - The facts file and each configured figure must be in `out_dir`. A different path gives exit code 2.
+  - A cache file or an output file that is a link to a different folder, a FIFO, or a device gives exit code 1.
+  - A `tool` or `tool.systemap` value in `pyproject.toml` that is not a table gives a configuration error.
+  - A relative `figure --out` path is relative to the output directory. Its folder must be in the repository, or the command exits 1.
+  - `serve` refuses an output directory that is not in the repository, and the server does not start.
+  - `figure --out` and `delta --comment FILE` replace a link at the path. They do not write to the target of the link.
+
+  Where the platform permits it, each read and write opens each part of the path without links.
+  Thus a folder that changes to a link after the check is refused. Windows keeps the earlier check.
+
+  A `tsconfig.json` target in the `node_modules` folder of the repository stays permitted.
+  A missing configuration file gives an empty table.
+
+  Step: put each configuration file, the model, and each package root in the repository.
+  Give each configured path relative to the repository root. Remove each link or FIFO that an error names.
+
+- `systemap judgement --strict` exits 1 for a model without components, as `systemap check` does.
+
+  Step: write the components before you use `judgement --strict` in CI.
+
+- Some commands give a different exit code:
+
+  - `delta` exits 2 if Git finds no merge base of the two refs. In 1.2.0, `delta` used the base commit as the merge base.
+  - `history` exits 2 if Git cannot resolve `--ref` or if a Git command fails.
+  - `place` loads the model file again after its write. If a position is different, it restores the earlier file and exits 1.
+  - `journeys --limit` must be 1 or more. `journeys` exits 1 and names each request that did not complete.
+    A rejected draft is also a request that did not complete.
+    A missing source file, an agent command with an incorrect quotation, or an agent that cannot start gives exit 1.
+  - The `ok` value of `rules --json` agrees with the exit code. Missing facts are an item of `problems`.
+
+- `init` writes no `systemap.toml` if `pyproject.toml` has a `[tool.systemap]` table. It writes the model at the `model` path of that table.
+
+- Some printed text changed:
+
+  - `delta` says `The map needs an update (N):` or `The map is current.`
+  - `judgement` says `N possible map errors to examine` or `No possible map error to examine`.
+  - `check` gives meaning errors under `map meaning`, and import rule field errors under `import rule fields`.
+  - The `delta` count text is `N of M components have changes`.
+  - The `evidence lost` line of `delta` says "had a current source review" in place of "was observed".
+
+  The finding lines that identify a finding did not change, except the lines that the earlier items give.
+
+### New commands and options
+
+- systemap reads TypeScript. Install the extra: `uv tool install 'systemap[typescript]'`.
+  The TypeScript adapter reads `.ts`, `.tsx`, `.mts`, and `.cts` modules, with the `tsconfig.json` project of each file.
+  It reads exports, re-exports, imports, test references, and the `bin` and `exports` entries of `package.json`.
+  Module resolution, project selection, and the output root agree with `tsc`.
+  A test name contains the names of the `describe` or `suite` functions that contain the test, for example `orders > saves an order`.
+
+  For TypeScript, `init` selects the package root from the one source folder of the `tsconfig.json` `include` entries.
+  It writes `test_patterns` for the type-test folders and files. If `init` selects no root, it gives the cause and the `[package_roots]` table to write.
+
+  The `language` key selects `python` or `typescript`. Without the key, systemap finds the language from the source files.
+  If the evidence for Python and the evidence for TypeScript are equal, the command stops and tells you to set the key.
 
 - `systemap live` renders the map of the working tree and supplies it on 127.0.0.1.
   When a source, model, or configuration file changes, the command renders the map again.
-  The browser then loads the page again and keeps the view, the layer, the selection, the sequence step, and the camera.
+  The browser loads the page again and keeps the view, the layer, the selection, the sequence step, and the camera.
   The Changes view compares the working tree with the merge base of a base ref and HEAD.
-  This comparison includes the edits that are not in a commit and the untracked files.
-
   `--json`, `GET /status`, `GET /events`, and `POST /refresh` give the state and the map update lines to other programs.
-  The command writes the pages and `change.svg` into a temporary directory. It does not write tracked files.
-  docs/reference.md gives the options, the HTTP requests, and the JSON lines.
+  The command writes its pages into a temporary directory, not into tracked files.
 
-- `systemap judgement --strict` can now fail on a stale source review.
-  Each component has one review state: `missing` (no `source_review`), `stale` (`source_review` is not
-  the current digest), or `current`. `systemap delta` and `systemap judgement` use the same state.
-  Delta lines do not change. Judgement prints a `stale source review` finding for each stale component.
-  A missing review is not a finding, because many maps have no `source_review` values.
-  Judgement counts the states on a new line, for example `source reviews: 16 current, 0 stale, 0 missing`.
-
-- A flow is `observed` only if at least one of its source records is in a module of its source
-  component or its target component. For a flow with an actor end, a record must be in a module of
-  the other end. If no record is in an endpoint module, the flow has the evidence state that its
-  imports or mechanism give. Judgement then prints a `no endpoint source` finding.
-  No existing map in this repository, `bench/scratch`, or `tests/fixtures` has such a flow.
-
-- The page legend, the Details panel, the flow labels for screen readers, and `systemap describe`
-  show `observed` as "current source review". The stored value `observed` does not change.
-  The `evidence lost` line of `systemap delta` now says "had a current source review" instead of "was observed".
-
-- Maps that users make use the `plain` writing profile by default.
-  The `[writing] profile` key in `systemap.toml` selects `plain` or `asd-ste100`.
-  A different value or key gives a configuration error.
-  The source-language key `language` does not change.
-
-  `plain` uses the common writing rules of the language policy.
-  These rules include sentence length, active voice, literal words, and one term for one concept.
-  A person or a program can examine them without a dictionary.
-  `asd-ste100` adds the full ASD-STE100 Issue 9 rules, which need the official ASD dictionary.
-
-  A configuration from an earlier version has no `[writing]` table, so its map uses `plain`.
-  To keep the full ASD-STE100 rules, add `profile = "asd-ste100"` in a `[writing]` table.
-  `systemap init` writes the table with `profile = "plain"` and a comment for each value.
-
-  The skill reads the profile and applies it.
-  The language policy gives the common rules, the ASD-STE100 profile, and the glossary in separate sections.
-  `systemap journeys` puts the policy of the profile in each agent request.
-  The cache key contains the policy, so a request does not use an answer from an earlier version.
-  The instruction from `init` is now "Obey the systemap skill and its writing rules."
-
-  This repository keeps the `asd-ste100` profile for its map, interface text, and documentation.
-
-- The Claude Code plugin shows a live map. In a repository with systemap configuration,
-  one line above the prompt shows `map: not started · Start live map`.
-  `Start live map` or `/map` starts `systemap live --port 0 --json --no-watch`.
-  The plugin starts it only after `Start live map` or `/map`, or when the `autostart` option is true.
-
-  After a turn that changes files, the plugin tells `systemap live` to render the map again.
-  The line then shows the number of map updates, `Open map`, and `Show`.
+- The Claude Code plugin shows a live map. In a repository with systemap configuration, one line above the prompt shows `map: not started · Start live map`.
+  `Start live map` or `/map` starts `systemap live`. After a turn that changes files, the plugin renders the map again.
   `Show` and `/map` open a pane with the change figure and the map update lines.
-  A terminal pane shows the lines and the link only.
-  The `command` option sets the command that starts systemap, for example `uv run systemap`.
-  The `Open map` link uses `localhost` in place of `127.0.0.1`.
-  Claude Code 2.1.286 refuses a link to `http://127.0.0.1`, and then it shows no line above the prompt.
-
-- The CI plugin job runs the plugin tests with `claude plugin test .`.
-  The job installs Claude Code 2.1.286, the lowest version that does all steps of the job.
-  Versions 2.1.278 to 2.1.285 have no `plugin test` command.
-
-- systemap reads a model file as data. It does not run code from the model file.
-  Earlier versions ran `map/model.py` as Python code in `check`, `render`, `delta`, and the other commands.
-  The comparison of a base revision also ran the committed model files.
-
-  A model file can contain only literal values, calls of the model classes, names that the file
-  defines, `import NAME` for a file in the same directory, and a type alias such as
-  `Steps = tuple[Step, ...]`. [docs/reference.md](docs/reference.md) gives the full list and the limits.
-  systemap refuses all other syntax before it makes a value. The message gives the file, the line,
-  and the refused syntax. A model file from `systemap init` loads with no change.
-
-  A model file with functions, comprehensions, indexes, or other imports does not load in this version.
-  Write the values as literal values. If you know that the code in a repository is safe, set
-  `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command to run the model file as in 2.0.0.
-  `systemap convert` writes such a model file again with literal values only. It needs this value,
-  because it runs the old file one time. It writes the file only if systemap reads the new text to the same model.
-  The base revision of `render --base` uses the same rule. For a base model with code, the Changes view
-  gives the refusal, unless the environment sets this value.
-
-## 2.0.0 - 2026-10-12
-
-This version removes `systemap delta --format markdown`.
-A workflow from an earlier `systemap init` uses this option.
-The first item gives the procedure to change that workflow.
-
-- CI writes no map report comment on a pull request by default.
-  The delta job gives each line and its action in the job log. The job fails while it is necessary to update the map.
-
-  `systemap delta --format markdown` and its Mermaid diagram are removed.
-  A workflow from `systemap init` 1.2.0 or earlier uses this option, and `init` keeps a workflow file that exists.
-  To use the new workflow, remove `.github/workflows/systemap.yml`. Then run `systemap init` again.
-  If you changed the old workflow, compare it with the new file.
-
-  With `[delta] page_url` in `systemap.toml`, `systemap delta --comment FILE --pr N` writes one comment
-  with a link to the Changes view of the published page. The workflow from `init` posts that comment
-  and changes it after each push. If it is necessary to update the map, the comment has one more line that says so.
-  The workflow posts the comment only for a pull request from a branch of the same repository.
-
-- The Changes view lists the map changes: the components, flows, sequences, and rules that the change
-  added, removed, or changed in the model. It compares the committed model at the merge base with the
-  model of the page. A row selects its item on the change map, or starts the sequence.
-  The page link `#changes` opens the Changes view.
-
-- Delta and judgement say what the reader must do. Delta says `The map needs an update (N):` or
-  `The map is current.` Judgement says `N possible map errors to examine` or
-  `No possible map error to examine`. The finding lines and the exit codes do not change.
-
-- All user interface text, command explanations, map prose, and documentation use the ASD-STE100 language policy.
-  Agents must use Issue 9 for names, sequences, and all map updates.
-  Coding-agent requests and cache keys contain the packaged policy.
-  Historical evidence, commands, and schema identifiers keep their identities.
-
-- Sequence framing uses the full map width after controls change.
-  Selected component cards no longer clip at the right edge in the examined desktop and phone sequences.
-  Arrow hover changes highlights. It does not replace the selected-relationship inspector.
-  Sequence rows distinguish a missing display label from a missing source entry point.
-
-- The TypeScript reader expands `${configDir}` at the start of `baseUrl`, `paths`, `rootDir`, or `outDir` values.
-  The value becomes the directory of the top-level `tsconfig.json` throughout the `extends` chain.
-  Previously, shared configurations such as `@sindresorhus/tsconfig` left `outDir` inside `node_modules`.
-  Then the TypeScript reader guessed `src/` or `source/` to map a compiled package entry to source.
-  Measurement against `tsc --showConfig` 7.0.2 showed that the variable applies only at the start of a value.
-
-- With `rootDir` unset, the TypeScript reader no longer guesses `src/` or the repository root.
-  It calculates the root as the project's `tsc` does, measured on 5.9.3, 6.0.3, and 7.0.2.
-  TypeScript 5 uses the longest common directory of input files selected by `files`, `include`, and `exclude`.
-  Version 6 and later use the `tsconfig.json` directory.
-  `composite` uses that directory on every version.
-  The reader finds the version in `node_modules/typescript`, then `package.json`.
-
-  Without either, it tries both roots and maps a compiled target only when one fits and the other does not.
-
-- The TypeScript reader selects the `tsconfig.json` project of each source file.
-  The nearest `tsconfig.json` file above the source file gives the project.
-  If that project does not select the file, a project in its `references` that selects the file applies.
-  Thus the path aliases of a solution `tsconfig.json` and of each monorepo package resolve to source modules.
-  The `bin` and `exports` entries in the `package.json` file of a package directory give entry points.
-
-- `extends` without `.json`, such as `"./tsconfig.base"`, reads `tsconfig.base.json`, as `tsc` does.
-  Without `baseUrl`, a bare import such as `"config"` no longer resolves to a file in the project.
-
-- The TypeScript reader reads `.mts` and `.cts` modules.
-  Files in `__tests__` directories, `.cy.ts` files, and `.test.mts` files are tests, not source modules.
-  `it.each(...)("name")` and a template literal name give test names.
-  Node.js built-in modules, such as `node:fs`, are not in `external`.
-
-- `import { name } from "./module"` followed by `export { name }` gives a re-export, as `export { name } from` does.
-  `export default name` gives the kind of the local name.
-  A named export hides a `*` export of the same name, so `tsc` and the facts agree.
-  A file such as `logger.config.ts` does not hide the name `config` of `logger.ts`.
-
-  A re-export from an npm package gives no unknown record.
-  A second parse reads `export type * from` and the variance keywords `in` and `out`.
-  `export {}`, `export module`, and overload signatures give no unknown record and no repeated name.
-
-- A `Class.method` interface reads the method names of TypeScript classes.
-
-- `model sdk` findings include npm packages: `@anthropic-ai/sdk`, `@google/genai`, `@google/generative-ai`,
-  `@mistralai/mistralai`, `ai`, `cohere-ai`, and the packages in the `@langchain` and `@ai-sdk` scopes.
-
-- The TypeScript test-file walk and the tsconfig input walk do not enter `node_modules`.
-  With 100,000 files in `node_modules`, three runs of `extract.build` took 2.97 to 3.10 s before
-  this change and 0.04 to 0.05 s after it. `systemap extract --check` took 4.25 s and then 0.35 s.
-
-- Authored text follows the writing rules in `AGENTS.md`.
-  Literal phrases replace metaphors, and terms have definitions at first use.
-  The page, `describe`, `figure`, and skill now use the term layer for a filtered view.
-  Previously, some text used readings and some used layers, although only layers had a definition.
-  The first line of `systemap suggest` is now `suggest: These groups must have a source review.`
-  `README.md`, `docs/reference.md`, `docs/benchmarks.md`, `bench/jev/README.md`, `explain.py`, `page.py`, and the skill use the same rules.
-
-  No check rule, judgement finding, or delta finding changed its identifier text.
-
-- Each heading in `README.md` and `docs/reference.md` is a question answered by its section.
-  Both pages give their scope and order before the details.
-
-- The map page header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for views,
-  layers, components, flows, sequences, rules, and actions. Icon buttons set the theme and Reduce motion,
-  show the keyboard keys, and open the Details panel. Read is now Details, and its key is D.
-  The full-screen button and the F key show the map alone in Map, Sequences, and Changes.
-
-  The Text view and Reference are removed. The Map panel gives all rules and an explanation of the lines and cards.
-  The commit in the header opens the source records. The page no longer shows judgement decisions.
-
-  Motion is on until the reader sets Reduce motion on the page. The system setting no longer stops it.
-
-## 1.2.0 - 2026-09-20
-
-This release adds commands that read the map: agent-written sequences, plan comparisons, and system history.
-Finding explanations tell the reader what each finding means.
-Two proposed features failed their experiments and were not implemented.
-Their recorded measurements are in `bench/jev/README.md`.
-
-- `delta` ends with components adjacent to the change.
-  A flow connects each listed component to the component with most changes.
-  This is context, not a claim about additional failures.
-  Before implementation, measurement over 359 merged pull requests gave a median of 6 components and a 72% changed-component hit rate.
-  Following the starting component's imports gave 20 components for 77%.
-  No context prints when the starting component connects to more than a third of the map.
-
-  This removes context for 18% of pull requests and decreases the hit rate by 3 points (`bench/jev/near.py`).
-
-- `systemap journeys` writes one sequence for a group of entry points of one kind in a component.
-  The sequence names the component in `starts`, which covers all its entry points.
-  Coverage of Mealie uses two agent runs instead of sixty-five.
-  Before integration, eight of nine groups across Mealie, paperless-ngx, and Poetry gave sequences accepted by the map.
-  The acceptance rule was seven in ten (`bench/jev/group_journeys.py`).
-
-- The `systemap history --by-card` experiment failed and the feature was not implemented.
-  Each of the three fastest-growing components had to show a feature commit on at least three of four repositories.
-  Two repositories passed.
-  The aggregate showed work where a system grew, but found nothing useful where it did not (`bench/jev/by_card.py`).
-
-- `systemap --help` gives one sentence per command.
-  Full command behavior and options are in each command's `--help`.
-  `docs/reference.md` now uses short command descriptions instead of one long table cell.
-
-- A model module can import modules in its directory.
-  Its directory is on the path during execution.
-  Imported modules are removed afterwards so the next run reads disk content at execution.
-  A map can keep sequences or region components in files adjacent to the model.
-  systemap's own map uses this structure.
-
-- `systemap history --since --every` samples one commit per window.
-  It reads facts from Git, caches them, and uses component assignments in the selected map for each sample.
-  Each window names changes and the commits that added new modules.
-  Before implementation, a year of Mealie gave 25 samples in 29 seconds cold and less than a second warm.
-  The time limit was five minutes.
-  All five largest windows showed a change visible in their commits, against a required three (`bench/jev/history_eval.py`).
-
-- `check`, `judgement`, `delta`, and `audit` add two explanation rows below the first finding of each kind.
-  The rows give the consequence for the map and the necessary action.
-  Finding text stays unchanged, so existing answers continue to work.
-  Each kind has one explanation per report.
-  `--brief` does not include the explanation rows.
-
-- `systemap explain "<kind>"` gives the meaning, consequence, and action for one kind.
-  Without a kind, it lists every kind that systemap prints.
-
-- Pull-request comments give the same explanations once per kind in a details block below the findings.
-
-- `AGENTS.md` gives systemap's writing rules and feature decision process.
-  It specifies an acceptance number before implementation and a record of unsuccessful experiments.
-
-- `systemap plan "<task>"` names components the work will probably change.
-  It also gives their adjacent flows, sequences, and rules.
-  `--check <id> --base <ref>` compares the plan with changed components and shows each changed component outside the plan.
-  Over 80 recorded bug reports, the selected threshold covered 86% of components changed by fixes while naming 2.1 components.
-  On a repository excluded from threshold selection, it covered 71% while naming 2.1.
-  The acceptance rule was 70% coverage with at most 2 extra components (`bench/jev/plan_eval.py`).
-
-- `systemap ripple` failed its experiment and was not implemented.
-  The starting component owned the file with the most changes in a pull request.
-  No map traversal found the request's other changed components within 10 points of import recall at half the list size.
-  Five traversals were measured over 366 pull requests (`bench/jev/ripple.py`).
-
-- `systemap journeys` writes a sequence for an entry point with no sequence start.
-  The agent in `[agent] command` reads source from that entry point and gives components and a sentence for each step.
-  systemap compares each step with the map.
-  It rejects steps that name missing components or trace missing flows.
-  Accepted sequences are written with `drafted=True`.
-  `judgement` prints `drafted journey` until the mark is removed.
-
-  Without a configured command, no agent runs and the command lists entry points without sequences.
-
-- The first sequence proposal used imports alone.
-  Its component overlap with manually written sequences was 0.28 against a required 0.60.
-  The console-script module imported the full system.
-  This proposal was not released.
-  `bench/jev/propose.py` and `paths.py` keep the method and score calculation.
-
-- `systemap extract` finds framework entry points.
-  Routes include FastAPI, Flask, and Django `urlpatterns`.
-  Commands include click, typer, cleo, and Django management commands.
-  It also finds Celery tasks, Poetry scripts, and plugin hooks.
-  Manual inspection found 29 entry points confirmed by source among 30 new records across seven maps.
-  `judgement` asks for a sequence from each entry point.
-
-  Four or more of one kind in a component become one grouped finding.
-
-- `systemap describe` ends with each sequence's steps, start, and evidence limits.
-  It shows steps without import evidence as "on trust", unread agent drafts, and the number of covered entry points.
-  The page gives the same information below each step.
-
-- One function calculates entry-point coverage for `judgement`, `describe`, and `journeys`.
-  A sequence covers an entry point through `starts`, or through its whole-word name as before.
-
-- `Journey` can name its entry point with `starts="GET /recipes"`.
-  `judgement` treats that entry point as covered.
-  A `journey start` finding shows a name missing from the facts.
-
-- With `TYPESAFE_API_KEY` set, `delta` automatically asks Jev about rewritten renames and unclaimed modules.
-  It pairs modules renamed and rewritten together, then proposes an owner for each unclaimed module.
-  `--no-jev` sends nothing.
-  `--jev` requests Jev and gives a reason if it cannot run.
-  Cost prints to stderr only when a question was asked.
-
-- Without a key, `judgement` gives a stderr hint with the measured benefit of `audit`.
-  `delta` gives its hint when a module was removed and another added.
-  `[jev] enabled = false` disables hints and automatic Jev calls in delta.
-
-- The skill first uses the Jev forms: `suggest --jev`, `audit` after `judgement`, `delta`, and `triage`.
-  It uses the plain form if the key is unset or a Jev call fails.
-  It tells the user that Jev was not used and gives the reason.
-
-- `check` and `judgement` do not ask Jev.
-  `suggest` keeps the optional `--jev` flag because it saved nothing in the first-map benchmark.
-
-## 1.1.0 - not published
-
-This release was prepared but replaced before tagging.
-All changes below were released in 1.2.0.
-They add an optional second opinion from Jev.
-Every call must have `TYPESAFE_API_KEY`. No data is sent without it.
-`check` and `judgement` never call Jev.
-
-No dependency was added: `urllib` communicates with the HTTP API.
-
-- `systemap audit` asks TypeSafe's Jev model five question kinds.
-  It prints disagreements as `jev mis-fold`, `jev owner`, `jev sentence`, `jev flow`, or `jev governs`.
-  Thresholds were selected on the five first maps in `bench/scratch`.
-  `audit.py` gives each threshold and its measured result.
-  `bench/jev` contains experiments, labels, answers, reports, and the earlier heuristic comparisons.
-  Each kind was then measured on three maps excluded from threshold selection (`JEV_SET=holdout`).
-
-  All results stayed within 10 points of development results except `jev flow`: 54% finding of incorrect flows compared with 66%.
-  Thus, flow questions must have `--kind "jev flow"`.
-  Repeated `--kind` flags select only the named kinds.
-  Answers are in `[judgement] answered`.
-  `audit` reads answers naming its findings. `judgement` ignores those answers.
-  `--dry-run` counts questions and gives the outgoing data.
-
-- `systemap triage "<issue>"` names the three components a fix will probably change.
-  It gives their modules and map neighbours.
-
-- `delta --jev` asks which new module replaces each disappeared module not paired by delta's rules.
-  At confidence 0.8 or more, it prints the selection as a move.
-  Across five repositories, it found 82 renames against delta's 66.
-  Sixteen of its 17 additions were correct, with blind agent labels from commits (`bench/jev`).
-  It also proposes an owner for each unclaimed module.
-  `suggest --jev` groups modules from Jev's module-pair answers.
-
-  It improved on one component per package on three of five development maps and was worse on two.
-  The command gives that limit when it runs.
-  On HTTPie, its first-map run took 54 turns, $3.61, and 5.5 minutes.
-  The plain recipe took 46 turns, $3.43, and 4.8 minutes.
-  There was one run each, so variation between runs was not measured.
-  The option stays outside the recipe.
-
-- `.systemap/jev-cache.json` caches answers by model, release date, state, and question.
-  An unchanged map has no second-run cost.
-  A new model release asks again.
-  `[jev]` selects the model and cache.
-
-- `typesafe_sdk` was added to the SDK list used by `model sdk` findings.
-
-## 1.0.3
-
-- The version badge uses PyPI instead of pypi and has a new address.
-  GitHub's README image proxy had cached a missing-version image before publication.
-  A purge did not remove it.
-  The new address has no old cached copy and shows the version.
-
-## 1.0.2
-
-- The metadata changes `Development Status :: 3 - Alpha` to Production/Stable.
-  That status agrees with the published 1.0 version.
-
-- Badges read published metadata instead of copied values.
-  Python versions and licence thus agree with `pyproject.toml`.
-
-- The release workflow is `workflow.yml` and uses the `pypi` environment.
-  This is the identity registered with PyPI's trusted publisher.
-  This release is the first published by that workflow instead of manually.
-
-## 1.0.1
-
-- README images use full URLs so they show on PyPI.
-  Repository-relative paths work on GitHub but not on PyPI's project page.
-  A test rejects relative image paths because the same README is the repository front page and package description.
-
-## 1.0.0
-
-All roadmap gaps were implemented and exercised on repositories written by others.
-The roadmap was deleted.
-Its two acceptance numbers and measurements moved to `docs/benchmarks.md` adjacent to the result rows.
-
-- A coding agent followed the skill to map six repositories fully.
-  Four repositories were written by others.
-  Each finished without intervention, with clean `systemap check` and `systemap judgement --strict` results.
-
-- Two targets were missed and kept unchanged.
-  Four of six first maps cost less than 0.15 dollars per module.
-  The other two cost 0.159 and 0.177.
-  Three maintenance runs cost 2.31, 4.39, and 2.50 dollars, taking 51, 63, and 46 turns.
-  The maintenance target was 15 turns and 2 dollars.
-
-- PyPI publication makes `uv tool install systemap` available.
-  The workflow written by `init` can pin a released version.
-
-## 0.12.1
-
-- Paper text colours previously gave contrast ratios of 4.15 to 4.22 to 1 on raised surfaces.
-  Those surfaces are chips, the note block, and the wheel centre.
-  All twenty-one colours decreased approximately four per cent in lightness, with hue unchanged.
-  Contrast now exceeds 4.60 on the raised surface, 4.99 on the ground, and 5.58 on the panel.
-
-- A test rejects any readable colour below 4.5 to 1 on its lowest-contrast surface in every scheme.
-
-## 0.12.0
-
-The page adds three schemes and a header picker.
-Previously, the light scheme needed configuration.
-Theme tokens now control the page, so selection changes the root attributes without a redraw.
-
-- Warm is the new default.
-  It uses ink `#ece5d8`, a warm dark ground `#161310`, amber `#e5a84f`, and low-chroma layer hues.
-  Graphite is the unchanged 0.11 dark table. Paper is the unchanged 0.11 light table.
-  Each contains the same full token set.
-  Every text token exceeds 4.5:1 against its ground under WCAG 2.
-
-  `tests/test_theme.py` enforces measured ratios recorded in the commits.
-
-- The Scheme select is in the header.
-  All three tables are `:root[data-theme="..."]` blocks adjacent to the default table.
-  A head script sets the root before first paint.
-  It first selects the stored scheme. Without a stored scheme, it selects paper for a light system preference or the configured default.
-  Selection changes the root, stores the choice in `localStorage` when permitted, and applies to nested maps.
-
-  Refused storage does not change selection.
-  The favicon and logo keep their colours.
-  The Node driver's `theme` scenario has `--light`, `--stored NAME`, and `--no-storage`.
-  Tests exercise nine load conditions.
-
-- Every themed colour in the map SVG, panel, legend, controls, and scripts uses `var(--token)`.
-  Values are defined only in root blocks.
-  `theme.Palette` gives tokens for the page and literal values for exported figures.
-  `systemap figure` and README images stayed byte-identical.
-  Previously, SVG had 135 literal hex values and the legend had 14.
-  Nested-map previews also use tokens.
-
-- `[theme] scheme` selects `warm`, `graphite`, or `paper`.
-  The 0.11 names `dark` and `light` select graphite and paper.
-  A bare key overrides the default scheme. `[theme.paper]` overrides paper tokens.
-  Unknown scheme names are rejected with the three available names, instead of silently using a default.
-
-- `docs/screenshots/` contains `warm.png`, `graphite.png`, and `paper.png` at 1600 by 900.
-  `scripts/screenshots.py` writes them through the page's load path, with storage set for each scheme.
-  The tour uses warm.
-  The workflow can run manually through `workflow_dispatch`.
-
-## 0.11.2
-
-Four page changes improve selection framing, nested-map access, counts, and source-commit information.
-
-- Selection framing includes the selected component, its visible edges, and their other ends.
-  All and Structure include every edge because Structure has no edges of its own.
-  One layer table supplies dimming, tags, and framing.
-  The rectangle is centred in the visible map area: the map box clipped to the window, excluding the drawer column.
-  Geometry is measured on the next frame after drawer layout.
-  The selected set no longer sits under the panel or below the visible area.
-
-  A set larger than the area at minimum zoom is fitted fully, without cropping.
-  Further zoom-out does nothing instead of increasing zoom.
-  The frame follows window resizing during selection.
-  Sequence steps and regions use the same framing.
-  A selected wheel spoke shows its edge even in a layer that hides the edge.
-  `tests/test_framing.py` runs the page under Node with stub viewport, drawer box, and path `getBBox` values.
-
-  It independently calculates geometry from those values.
-  For six components in every layer, centres agree within one unit and all selected components and edges fit.
-  Tests use the sample and self-map at three window sizes.
-
-- A component with a nested map has an inert Structure preview and an Open the map inside button.
-  The preview is rendered into page data.
-  The button, component double-click, or second Enter on the focused component opens an overlay.
-  Its frame uses a relative path, compatible with Pages, `systemap serve`, and files.
-  A `demo > Gateway` breadcrumb and close control show the nested map.
-  Escape or the control closes the overlay and returns focus with selection kept.
-
-  The nested page keeps its upward link for direct access.
-  Check and screenshots use the same previews as refresh.
-  Escape inside the frame belongs to the nested page.
-  The parent overlay closes through its control or Escape with parent-page focus.
-
-- Header and strip counts now agree.
-  The header prints `15 components and 3 actors`.
-  The strip counts the layer's code components and gives actors independently when present.
-  Previously, the header excluded actors and the strip included them, giving 15 and 18 for the same map.
-
-- The header uses `Facts from <sha>` instead of `Built at`.
-  The SHA shows the tree read during extraction, before the commit that records the facts.
-  The footer and `built_at_commit` schema reference give the same meaning.
-
-## 0.11.1
-
-`place` now searches region orders.
-In two of four benchmark repositories, agents had written helpers to try orders with fewer bends and shorter routes.
-Previously, `place` used model order without comparison.
-ROADMAP gaps 4 and 6 give the four measured runs.
-
-- `systemap place` tries all region orders when there are at most six regions.
-  It includes every permutation within containers and every combination across containers, at most 720 orders.
-  Above six, it starts with the region with the most flows.
-  It then selects the region with most flows into placed regions.
-  Pairwise swaps continue while they improve the score.
-  Each full layout includes components and barycentre sweeps.
-
-  An estimate uses minimum edge bends and Manhattan length.
-  Facing components with no obstruction use a straight route.
-  A clear L-shaped route uses an L. Other routes use a Z.
-  Components and foreign regions are obstacles.
-  The twelve best estimates and the listed order use the real router and label pass.
-
-  Scores compare label collisions, foreign-region crossings, bends, and length, in that order.
-  The lowest score wins.
-  Ties use the first-listed order, preserving model order on equal scores.
-  `--keep-order` skips the search and uses listed order.
-
-- The two stages have measured costs.
-  Routing one order costs 156 ms on the 144-module fixture and 215 ms on the self-map.
-  Routing all 720 would take two minutes against a ten-second budget.
-  The estimate costs 0.75 ms per order.
-  Offline routing of all 720 found a minimum of 40 bends, compared with 43 in listed order.
-  The estimate ranked that order second. Search found it in 2.2 seconds.
-
-  On the five-region self-map (120 orders), search finds a minimum-bend order among all 120.
-  It is ten percent longer than the shortest minimum-bend order.
-  `tests/test_place.py` rejects fixture search times of ten seconds or more and recalculates the drawing score after placement.
-
-- `place` prints the selected order and score after writing, and with `--print`.
-  Recorded output is `region order: layout, contracts, gateway, orchestration, style, content; 40 bends, 7,909 units; 720 orders tried, 13 routed`.
-  `describe` prints the same form with `; as written` or the search counts when placement was temporary.
-
-- `schematic.geometry` supplies obstacles to both drawing and scoring.
-  These include component boxes, headers, and empty container walls where labels cannot sit.
-  The selected order is thus scored on the page's drawing.
-  Page output is byte-identical to 0.11.0.
-  The self-map adds three flows: Router and Schematic into Placer, and Placer into Describe.
-
-- Skill step 2 and `references/layout.md` state that order is searched and printed.
-  They prohibit a different order helper and give conditions for `--keep-order`.
-
-- ROADMAP gap 6 measured four repositories, three written by others.
-  All finished without intervention, with clean check and `judgement --strict` results.
-  Logs contained zero systemap crashes or usage errors.
-  Friction-item count was not measured because the harness used the user sentence without a friction-log instrument.
-  The substitute measure was helper scripts: three on one repository, four on another, and none on the other two.
-  Gap 4 compared four 0.9.0 first-map rows in `docs/benchmarks.md` with the unchanged 0.15 target.
-
-  Three passed and one cost 0.159.
-
-## 0.11.0
-
-This release completes ROADMAP gap 7 except publication.
-It exercises the package on three operating systems and plugin installation through the CLI workflow.
-It also adds light-scheme inspection, keyboard script tests, a referenced cost table, and a thirty-second tour.
-PyPI publication remains for the maintainer's 1.0 release with `scripts/publish.sh`.
-Official marketplace submission is planned after 1.0.
-
-- CI runs on Linux, macOS, and Windows with Python 3.11 and 3.13.
-  Each runs the suite, `mypy --strict`, `ruff check`, and `ruff format --check`.
-  Each platform also builds a wheel and installs it with pip into an empty virtual environment.
-  That job copies the self-map adjacent to the checkout, without `.git` or source on the path, and without runtime uv.
-  It runs `init`, `extract`, `refresh`, `check`, `judgement --strict`, `render --check`, and `describe`.
-  Check follows refresh because an unrendered page is rejected.
-
-  A copy without `.git` cannot reproduce the committed page's source-commit value.
-
-- Every writer uses LF on every platform with `newline="\n"`.
-  This includes pages, facts, figures, placement edits, skill files, and scaffolds.
-  Pages thus render byte-identically across platforms and `render --check` compares written bytes.
-  Printed and recorded paths use forward slashes through `Config.rel`, module `file` values, and the skill path.
-  `.gitattributes` uses LF for text checkouts.
-  The plugin skill-tree comparison now uses POSIX path keys.
-
-  The `bench/run.sh` test skips Windows with a reason: Windows PATH `bash` is the WSL launcher.
-  `git archive` in delta and the loopback server in serve needed no change and pass the Windows suite.
-
-- The plugin job runs `claude plugin marketplace add ./`, installs `systemap@systemap`, and lists plugins in a different configuration directory.
-  The list must show the plugin enabled.
-  Login is not necessary for these commands, measured with empty `CLAUDE_CONFIG_DIR` on the pinned CLI locally and on the runner.
-  Failure of any command fails the job.
-
-- Headless Chrome screenshots examine the light page, All and Control flow layers, a component drawer and spoke, a sequence step, index, and invariants.
-  No readability defect was found, so tokens stayed unchanged.
-  `docs/screenshots/light.png` and `dark.png` are 1600 by 900 and appear in README.
-  `scripts/screenshots.py` writes both.
-
-- Components are written in row order, left to right, so Tab follows reading order.
-  Enter or Space opens a focused component's wheel.
-  Escape closes it, restores the view, and returns focus.
-  Left and right arrows cycle layers through All, or move sequence steps during a sequence.
-  The sequence select keeps its own arrows.
-  Focus rings use the scheme accent on components, spokes, and controls.
-
-  Index buttons disable smooth scrolling with `prefers-reduced-motion`.
-  That preference already disabled transitions and framing animation.
-  Page hints give these controls.
-
-- `tests/page_driver.js` loads a rendered page into a custom DOM without a library.
-  It includes a tag parser, selector matcher, bubbling events, focus, animation frames, and a fake clock.
-  It executes the page scripts, presses keys, and gives results.
-  `tests/test_keyboard.py` examines layer arrows, Tab order, Enter, Escape, sequence controls, and immediate framing under reduced motion.
-  Tests use the sample and committed self-map.
-  They use Node when it is on PATH, as on every runner. Without Node, they skip with a reason.
-
-- README states Python-only scope in its first paragraph.
-  Cost links to the result table instead of copying rows.
-  `docs/screenshots/tour.gif` is a thirty-second tour with twelve page states at two and a half seconds each.
-  States include each layer, All, a component wheel, a spoke, sequence stepping, and a component in Control flow.
-  Headless screenshots were combined with ffmpeg into a 1.7 MB GIF.
-  Every state was operable headlessly.
-
-## 0.10.1
-
-The fourth headless run was the first with `place`.
-It used the same repository as runs 1 to 3, systemap 0.8.0.
-It finished without intervention, with clean check and `judgement --strict` 0.
-This release addresses ten friction items and the measurement for ROADMAP gap 1.
-
-- Run 4 had 21 check-and-refresh calls against a target of 11. Run 3 had 22.
-  ROADMAP keeps the target and marks it missed.
-  Calls to first clean layout were 2 and 3, with one refusal each.
-  Work from first model write to that layout was 6 tool uses over 8 turns, then 5 over 7.
-  Full costs were 168 turns and 17.30 dollars, then 232 turns and 25.49 dollars.
-
-  Manual placement was already cheap by run 3, and `place` could not repeat full layout.
-  The new placement acceptance claim is a clean layout from an unpositioned first draft with at most one refusal using `place --all`.
-  It is to be measured on the next run.
-  Gaps 3, 4, and 5 distinguish implemented work from unmeasured work.
-  Gap 4 records 0.177 dollars per module against 0.15.
-
-- `place --all` and `Component.pinned` permit repeated layout.
-  Previously, all components had positions after first placement, so a later component needed manual edits when no slot was free.
-  `pinned: bool = False` marks positions selected by a person.
-  Plain `place` positions only components without positions and keeps the others.
-  `place --all` places all unpinned components again.
-  With no pins, it also changes boxes and canvas.
-
-  The no-free-slots refusal names `place --all`.
-  `describe` counts pins from the flag, for example `positions: 1 pinned, 17 placed`.
-  The skill uses `place --all` after additions or removals. Layout.md gives pinning conditions.
-  `Component.positioned` replaces the old `pinned` property. `Placement.kept` replaces `Placement.pinned`.
-
-- Facts views show formatted records instead of JSON.
-  `facts --module NAME` includes docstring, public names and kinds, re-export modules, imports, importers, external imports, and test count.
-  It does not include test names.
-  `--modules` adds each module docstring's first sentence before counts.
-  `--docstrings` prints module and first sentence only. `--names NAME` gives public names and kinds.
-  `--entry-points` adds targets so `python -m pkg` and `main()` can share one sequence.
-
-  SKILL.md gives each view's contents.
-
-- Two components can claim a shared module through symbol claims.
-  They cannot have an import between them, so their flow previously stayed declared.
-  The shared module now gives observed evidence, and the panel prints `observed: shared module`.
-  layers.md gives this rule.
-
-- The starter import has `# type: ignore[import-not-found, unused-ignore]` and an explanation.
-  Without this ignore, strict mypy rejected repositories without a systemap dependency, the recommended installation structure.
-  The second ignore prevents an unused-ignore error where systemap is installed.
-  The package adds `py.typed`.
-  `init` gives a mypy/deptry note with `[tool.deptry.per_rule_ignores]`, `DEP001 = ["systemap"]`, and `DEP003 = ["systemap"]`.
-  pitfalls.md instructs the agent to run every repository CI command, not only pre-commit.
-
-- Crossing-import findings group by ordered component pair and give a module count.
-  For example, `crossing import: Page imports Model in 16 modules and no flow joins them` replaces per-import findings.
-  `--verbose` lists imports below each finding.
-  `--kind KIND` filters output, but the header and `--strict` count all open findings.
-  `delta` matches answers to the grouped finding.
-  Old `item` answers become stale.
-
-  Answers must use `crossing`, `crossing_into`, `crossing_from`, or quote the new finding.
-  second-pass.md gives all seven answer forms, the new finding, and both flags.
-
-- pitfalls.md instructs the agent to keep scratch scripts outside the repository, for example `/tmp`.
-
-- The anonymised fixture adds a pinned tool component with a symbol claim in its agent module and a tool flow.
-  It exercises `place --all`, pinning, and shared-module evidence.
-  Each decision above has a test.
-
-## 0.10.0
-
-ROADMAP gap 5 showed two limits: one map was difficult to use beyond sixty components, and checks assumed one canvas.
-This release adds nested maps.
-
-- `Component.map` names a model file relative to the parent model.
-  Like other models, it exports `MODEL` and `MEANING`.
-  Its components claim only the parent component's modules, each once.
-  Symbol claims are permitted. Empty package markers are excluded as in coverage.
-  Its actors are parent-map components adjacent to the parent component.
-
-  This gives outside flows destinations without duplicate coverage claims.
-  An actor cannot open a nested map.
-  Missing files and files above the parent directory are rejected with exit 2.
-  A nested identifier can be `Gateway/Routes`.
-
-- `systemap.nest` loads the top map, then sub-maps depth-first in parent component order.
-  Every model-reading command uses that tree.
-
-- `check` applies every rule to every map.
-  Nesting checks show extra, missing, and duplicate module claims, and actors missing from the parent map.
-  Coverage applies only to the top map.
-  Sub-map findings include a prefix such as `Gateway: map layout: clean ...`.
-  Fixes name the sub-map file, and stale checks include every page.
-
-- `refresh` and `render` write one page per map.
-  The top page is `index.html`. Nested pages are `<card>/index.html` under the output directory.
-  A nested-map component has a second-component mark on the page and figures, with a legend entry.
-  Its panel prints `opens: Gateway (5 cards)` with a link.
-  The header lists nested maps.
-
-  A sub-page names its parent component, links upwards, and lists its own layers and sequences.
-
-- `figure --map ID` selects a nested map. `[[figures]]` accepts `map`.
-  `place` writes positions to every map file.
-  `describe` prefixes sub-map output with its identifier.
-
-- `judgement` runs on every map with sub-map prefixes.
-  `item` answers quote the printed finding. Bulk forms cover every map.
-  Entry-point and model SDK questions occur once, on the deepest claiming map, using sequences from every map.
-
-- `delta` compares sub-maps over parent-component modules at each commit.
-  A move or removal names the component and file on every map containing it.
-  A new module without a sub-component claim shows the exact-parent-claim requirement.
-
-- `suggest` reads the tree for maps with components.
-  Above forty components, it proposes the largest components for nested maps.
-  A component above ten modules is shown on any map.
-
-- `schema.md` documents `map`. `layout.md` gives nested-map conditions and construction.
-  `pitfalls.md` adds the sixty-component limit. `second-pass.md` applies its pass to every map.
-  The loop stays unchanged.
-
-- Tests use a top map with two nested maps.
-  They cover exact claims, actors, single coverage counts, pages, links, `figure --map`, and sub-map placement.
-  They also cover judgement/describe prefixes, delta names, and suggest output.
-  The self-map is not nested because its 18 components are below the threshold.
-
-## 0.9.0
-
-ROADMAP gaps 3 and 4 added a maintenance process and repeatable cost measurements.
-Previously, maintenance had no documented process and cost had only two manual measurements on one repository.
-
-`systemap delta --base REF [--head REF]` adds these behaviors:
-
-- Facts come from two Git commits through `git archive` into temporary directories, followed by extraction.
-  They never come from the working copy.
-  The base is the refs' merge base, excluding changes caused only by base-branch progression.
-  Comparison uses the on-disk map's component assignments.
-  Moves first use the same content. Without a content match, they use the same public names.
-
-  Additions and removals name their components. Unclaimed additions show lost coverage.
-  Entry and interface names missing since the base use the check's interface rule.
-  New boundary-crossing imports show missing flows and missing `[judgement]` answers.
-  Flows with base import evidence but no evidence for the stored source snapshot are also shown.
-
-- Each finding names a fix under `needs a person` or `changed, nothing to do`.
-  Exit 0 means no person is needed. Exit 1 means action is needed.
-  The last line gives the next command.
-  A component needing a module rename or removal is not also asked about public names.
-  A new path in the map counts as a claim of its previous path at the base, giving one pending-rename finding.
-
-  Reports affecting more than approximately a third of components show that scope.
-
-- `--format markdown` gives a pull-request comment with a marker and both finding groups.
-  It embeds the committed full-map figure at the head through a blob URL with `?raw=true`.
-  This follows GitHub's image guidance. GitHub removes `data:` URIs.
-  The change map depends on the base and is not committed.
-  The comment gives its drawing command.
-
-- Unknown refs are rejected with exit 2 and a fix.
-
-The maintenance process adds these instructions and gates:
-
-- SKILL.md adds "When the code changed" and `references/maintenance.md`.
-  The process is `delta --base <the base branch>`, necessary finding fixes, `refresh`, then `check && judgement --strict`.
-  It prohibits redrawing a map for a small change.
-  Above approximately a third of components, it states the scope and uses the full loop.
-  The agent instruction is "The code changed. Update the map with systemap: follow the systemap skill's maintenance path, with base <ref>."
-  The budget is 15 turns.
-
-- Step budgets are extract 2, draft 10, place/check 15, judgement 10, and second pass 20.
-  These are reported overrun budgets, not limits.
-  SKILL.md's ceiling increases from 200 to 230 lines.
-
-- The generated workflow adds a pull-request delta job.
-  It runs `delta --base <base sha> --head <head sha> --format markdown`, with both SHAs in environment variables.
-  It creates or updates one comment found through its marker with `gh api`.
-  It rejects the run while a finding needs a person's action.
-  Top-level permission is `contents: read`. Only this job has `pull-requests: write`, with a reason.
-
-  Every action is pinned to a commit, and zizmor is clean.
-  A fork's read-only token changes comment publication to a warning.
-  The repository workflow has the same job.
-
-The benchmark harness adds these measurements:
-
-- `bench/run.sh <repo-url-or-path> <first-map|maintenance> [--ref REF] [--base REF] [--from SPEC] [--model NAME] [--max-turns N]` accepts paths or URLs.
-  It makes a worktree for a path or clone for a URL under `bench/scratch/`.
-  It installs systemap into a different tool directory from this checkout version's release tag, unless `--from` overrides the source.
-  It runs `systemap init` and the documented sentence, with `--base` for maintenance.
-  The headless agent uses acceptEdits and the recipe's tools: Skill, Read, Edit, Write, Glob, Grep, TodoWrite, and Bash.
-  Permitted Bash commands are systemap, uv, uvx, python3, git, ls, cat, grep, rg, find, head, tail, sed, wc, and mkdir.
-
-  A streamed JSON session goes to a log.
-  Afterwards, it runs `check`, `judgement --strict`, and module counting.
-  `bench/summary.py` adds a row to `bench/results.jsonl`.
-  The row contains model, turns, minutes, dollars, finish/cutoff state, and if the first call was the required systemap skill.
-  Values come from the session and result event. Missing values are null, without estimates.
-
-- `bench/table.py` renders one row per repository/mode from `bench/results.jsonl` into `docs/benchmarks.md`.
-  Rows name model and systemap version. First-map rows include dollars per module.
-  A test compares the committed file with that render.
-  At this release, the table is empty because no harness measurements exist.
-  README Cost shows that table as the measurement source.
-
-- Tests cover synthetic stream-JSON parsing, the table, script usage, recipe, workflow text, and every delta finding in a synthetic two-commit repository.
-
-The shared interface and self-map also change:
-
-- `interface_problem` supplies both check findings and delta's two-commit comparison.
-
-- ChangeDetector claims the delta module.
-  The self-map adds the interface-rule flow from Check, rewrites the refactor sequence as maintenance, and answers the new crossing import.
-
-## 0.8.0
-
-ROADMAP gaps 1 and 2 change both model and check.
-They add automatic layout and flow evidence.
-
-`systemap place` adds these behaviors:
-
-- It deterministically gives a first position to every unpositioned component using only the standard library.
-  Regions use a two-column container grid in model order.
-  `references/layout.md` specifies 48 units between region columns and 36 between rows.
-  Component columns are 190 apart and rows 92 apart, with three rows before a second column.
-  Barycentre sweeps place connected parts together.
-  Region boxes follow component counts. Container boxes follow regions.
-
-  Actors use an adjacent column, aligned with their connected parts.
-
-- Schema `x` and `y` become optional.
-  A component with both values is pinned and never moved.
-  With any pin, boxes and canvas stay unchanged and unpinned components use free slots in their boxes.
-  Without pins, the full model is placed.
-  Check rejects missing positions until placement writes them.
-  Other check behavior stays unchanged.
-
-- Placement edits only `x=`, `y=`, `box=` tuples, and canvas values in the model file.
-  Other bytes stay unchanged.
-  `--print` gives values without writing.
-  The model is read back and compared after writing.
-
-- With all positions removed, the anonymised 144-module fixture gets a clean geometry check without manual moves in approximately a millisecond.
-  The test rejects times of ten seconds or more.
-  Repeated placement changes nothing, pins stay fixed, and the position-stripped self-map also becomes clean.
-
-- The starter has no positions or position tables.
-  The skill drafts components and flows, runs `place`, then checks.
-  `describe` gives pinned and temporary-placement counts.
-  layout.md keeps decisions about component regions, region order, pins, and `describe` output.
-
-Every flow gains calculated evidence:
-
-- At render and check time, facts determine evidence without an authored state.
-  `observed` means an import connects component modules in either direction.
-  `external` means an actor endpoint. Without import evidence or an actor, the state is `declared`.
-  Declared edges are dashed on pages, figures, and wheels.
-  Panels print `declared: no import behind it`, `observed: an import joins them`, or `external: outside the code`.
-
-  The legend gives the dash meaning.
-
-- `judgement` prints `declared flow: A -> B (artifact): no import joins them; find the evidence, name the mechanism in the sentence, or remove it`.
-  Bulk answers accept `kind = "declared flow"`.
-  second-pass.md examines this kind after crossing imports.
-
-- `[flows] observed_by = ["subprocess", "queue", ...]` names non-import connection mechanisms.
-  A whole-word, case-insensitive mechanism in the flow sentence or artifact makes that flow observed and solid.
-  The panel prints `observed by: queue`.
-
-- On the self-map, two flows were initially declared.
-  The facts file connects extractor to schematic through `observed_by = ["facts file"]` and its sentence.
-  The CLI connects the change map to the page through a configuration answer.
-
-Other changes:
-
-- The generated workflow pins `uvx --from "git+https://github.com/0xfauzi/systemap@v<version>"` before PyPI publication.
-  Version 1.0 will use PyPI.
-
-- The self-map adds Placer, makes Model the owner of evidence, and changes invariant 5 to "written once by systemap place or by hand".
-
-- Five plain words and one container `sub` in the fixture exceeded 0.7.0 text limits and were shortened.
-  Two low containers moved clear of headers.
-  The manually placed fixture now passes geometry checks.
-
-## 0.7.0
-
-A third headless run mapped a real repository using the skill and found twenty-one items.
-It finished without intervention, with clean check and answered judgement results.
-Each item has a fix and test.
-The anonymised fixture adds interface and re-export cases.
-
-Schema-reference defects are corrected:
-
-- The panel now prints `interface` as the component signature, `entry` as `entry: name (module)`, and `note` as a caution.
-  A note gives the component a top-corner dot on the page and figures.
-  schema.md gives each field's display location.
-
-- Interface leading identifiers must exist in component modules, including re-exports.
-  The token ends at `(`, `.`, `->`, or whitespace. Both identifiers in `Class.method` are examined.
-  Rejection gives the closest defined name.
-  Sixteen of twenty-one interface lines in a real map were incorrect under the earlier unchecked behavior.
-  `interface` stays optional.
-
-- Refresh now states `already current: the page matches the model's rendered fields and the facts`.
-
-Check defects are corrected:
-
-- Component text must fit without truncation.
-  Names fit approximately 20 characters. Component, agent, and tool CamelCase names can wrap over two lines.
-  Plain words fit approximately 26 characters per available line.
-  Rejection gives the limit, such as `actor cards fit about 26 characters on one line; this one has 34`.
-  The drawing no longer adds ellipses.
-
-- Duplicate invariant numbers are rejected with both rules.
-
-- An `__init__` without public names or imports is an empty package marker.
-  Extraction lists it once, and coverage excludes it.
-  Ignores naming only such markers are rejected as unnecessary.
-  Nine files previously needed nine ignores.
-  The reference documents `module = "pkg.sub.*"`.
-  Coverage prints `144 of 144 modules mapped, 5 of them ignored with a reason, 9 of them empty package markers`.
-
-Facts gain these views and fields:
-
-- `systemap facts` reads one formatted view at a time.
-  `--modules` gives names, public names, imports, and tests. Other views are `--module NAME`, `--entry-points`, `--external`, and `--imports NAME`.
-  Skill step 1 uses these views instead of the 451 KB JSON for a 144-module tree.
-  pitfalls.md gives the same instruction.
-
-- A package `__init__` records imported names from its own modules in `names`.
-  It includes `reexport_of` and the defining module's kind.
-  `entry` and `interface` accept re-exports.
-  Facts format becomes 2. `extract --check` marks older files stale.
-
-- Extraction summary uses documented `functions`, `classes`, `errors`, and `tests` field names.
-  schema.md maps those words.
-
-Judgement and layout change:
-
-- `crossing_into = "Card"` covers incoming crossing imports. `crossing_from = "Card"` covers outgoing ones.
-  `crossing` accepts two or more IDs and covers each pair.
-  Each form has an example.
-
-- Every loop round runs `systemap check && systemap judgement --strict`.
-  Dropping an edge for layout can reopen findings, which judgement then finds in that round.
-
-- `describe` and label diagnosis show gutters by neighbours and coordinates.
-  Example output is `between the row of Orchestrator, Telemetry and the row of RosterClient (y 160 to 226)`.
-
-- layout.md treats pitch as a starting value.
-  Dense regions can increase row pitch, and regions in one grid row can have different heights.
-  Diagnosis prints `raise the row pitch of region X`.
-
-- The skill targets three to ten modules per component, or N/10 to N/3 components for N modules.
-  Judgement findings show groups above and below useful sizes.
-  `systemap suggest` gives package/import-based groups as a starting proposal, not the final answer.
-
-Agentic behavior changes:
-
-- `Component.calls_model` marks a single-shot model call site.
-  Context and tool flows accept an agent or a `calls_model` component at the agent end.
-  Context and Tools layers show these flows. Agents shows only agents.
-  The flag answers `model sdk` findings and is listed with the four outcomes in second-pass.md.
-
-- `entry` is optional for `store` and `context` kinds.
-  The panel prints `entry: none (a namespace)`.
-
-Documentation and scaffold changes:
-
-- schema.md and duplicate-pair errors specify one flow per ordered pair.
-  The author must select the relevant artifact or use a different reverse-direction flow.
-
-- The starter uses only `# ruff: noqa: E501`.
-  Every schema name is imported and used, so F401 and RUF100 do not fire.
-  `# fmt: off` and `# fmt: on` protect position tables, with a reason.
-
-- The second pass rereads newcomer documents once: README, AGENTS.md, CLAUDE.md, docs index, or first-level docs/.
-  It stops when new rules apply only to parts outside the tree.
-
-- SKILL.md step 4 lists each answer form and constraint independently.
-  A table gives all seven finding kinds, assignment-error meaning, and actions.
-
-- SKILL.md instructs the agent to extract if `systemap.toml` exists but facts do not.
-  schema.md documents `state`, where `built` is the only displayed value, and defines wheel counts.
-
-The self-map adds correct interface lines and a Scaffold note.
-FactsExtractor claims `facts`. Judgement claims `suggest`.
-Plain words now fit component boxes.
-
-## 0.6.0
-
-A second new agent mapped a real repository from the sentence printed by `init`.
-It found ten items, all different from the first run's twenty-two.
-Repository pre-commit hooks found three more.
-Each item has a fix and test.
-
-Layout used a third of session turns, so its instructions change:
-
-- `references/layout.md` is linked from the draft step.
-  Edges cannot cross foreign regions, so region boxes cannot fill a container without corridors.
-  A 2xN grid connects every pair through crossing corridors. More than two full-width bands does not.
-  Region-column gaps are 48 units and row gaps are 36.
-  Frequently connected parts use adjacent regions. Long routes get an empty component column.
-
-- The starter uses a 2x2 region grid with corridors.
-  It is ruff-formatted at 88 and 100 columns and imports every schema name, including `Layer`.
-  A test fills all four corners and routes every pair cleanly.
-
-- Label collisions give fixes from router seat counts.
-  Examples are `gutter between rows 2 and 3 holds 3 of 3 seats: move a card or widen the row pitch`.
-  Another is `label is 41 units wider than its seat: shorten the artifact`.
-  Artifact labels must be noun phrases of one to three words, not sentences.
-  The second gutter seat moves from 51 to 53 units to give two seats per side.
-
-- `systemap describe` gives information an agent would obtain by looking at the picture.
-  It gives components per region, edge bends and lengths worst-first, label gutters, gutter seat usage, and components/edges per layer.
-  The render step runs it and opens the page when possible.
-
-Judgement changes:
-
-- `ignored:` lines do not print because they are not questions.
-  The coverage reason is their answer.
-
-- Bulk answers use one `[judgement] answered` table per reason.
-  `crossing = ["A", "B"]` covers both directions. `kind = "single module"` covers that kind.
-  `module_sdk = "google.adk"` covers that SDK import.
-  `item` and `items` stay available.
-  An answer without a matching finding is printed as stale under its original form.
-  `references/second-pass.md` gives all forms and examples.
-
-- The fourth model SDK outcome is a deliberate single model call outside the repository's definition of an agent.
-  Repository definitions take precedence over the SDK prompt.
-  Built-in SDK names match import prefixes.
-  `[facts] model_sdks` can remove a built-in name with `"-google.adk"`.
-  Removal of an unlisted name is rejected.
-
-- `systemap judgement --strict` exits 1 for unanswered findings.
-  The generated CI workflow runs it after check.
-
-Symbol claims become available:
-
-- `implemented_by` accepts `"pkg.mod:name"` for a part inside another component's module, such as an agent's tool.
-  Symbol claims do not count in module coverage and do not conflict with module claims.
-  Entry checks reject missing modules, undefined symbols, and symbols in unclaimed modules.
-  `references/layers.md` gives the example.
-
-Command and documentation changes:
-
-- The skill accepts `systemap` or `uv run systemap` after tool installation.
-  It selects the form that answers `systemap --version`.
-
-- Extraction summary shows its counts as change-detector facts, which do not appear on the map.
-
-- Model-load `NameError` and `ImportError` failures give one fix line and exit 2 without a traceback.
-  The form is `map/model.py failed to import: ...; add the missing name to the import from systemap`.
-
-- Coverage prints `140 of 144 modules mapped, 4 ignored with a reason`, agreeing with the extraction total.
-
-- `figure --out` is relative to `out_dir`, as `[[figures]] out` is.
-  Absolute paths stay absolute.
-
-- Model source is compiled and executed directly.
-  The previous import loader could reuse stale bytecode after a same-size edit within one second.
-
-Repository-hook changes:
-
-- Facts use no indentation, sorted keys, one module record per line, and no per-symbol docstrings.
-  On the same trees, the 17-module self-map decreased from 87 KB to 59 KB.
-  A 111-module tree decreased from 428 KB to 304 KB.
-  The 144-module session tree was 635 KB but unavailable for another measurement.
-  Its approximately 450 KB prediction used the measured ratio, not a new measurement.
-  That prediction was below the 500 KB hook, so the symbol table was not split.
-
-- The generated workflow pins every action to a commit with its version.
-  It declares `permissions: contents: read` and sets checkout `persist-credentials: false`.
-  Zizmor gives no findings, and tests enforce all three properties.
-
-- `references/pitfalls.md` instructs the agent to format `map/model.py` before check and keep scratch scripts outside the repository root.
-
-The self-map adds `Describe` and uses bulk judgement answers.
-
-## 0.5.0
-
-A new agent mapped a real repository with only README instructions and found twenty-two defects.
-Each has a fix and test.
-
-Judgement changes:
-
-- `possible mis-fold` previously compared component ID with the final module-path segment, giving 112 findings on 27 components.
-  It now compares dotted-path words with component ID, `does`, plain word, and `interface`.
-  It applies only to multi-module components when the module's package contains none of the other modules and is not one of them.
-  `tests/fixture_workspace.py` has two packages, 144 modules, 27 components, and four agents.
-  Its findings decrease from 112 to 0.
-
-- `[judgement] answered` records each `item` or `items` answer with its reason in `systemap.toml`.
-  Answered findings are hidden and counted in the header.
-  Answers for missing findings are stale. Answers without reasons are configuration errors.
-  Skill step 4 and hand-back instructions show these repository records as the answers.
-
-- The new finding is `model sdk: module X imports <sdk> and its component P is not an agent`.
-  A built-in SDK/framework list extended by `[facts] model_sdks` supplies the agentic-layer prompt.
-
-- `note: ... sits on a shorter segment` is removed from clean check output because it was not a rule.
-
-Facts change:
-
-- Module records add `external` for third-party dotted imports and `names` for public module-level names.
-  Kinds are function, class, error, constant, and object.
-  `entry` accepts any public name, including `app` and `root_agent`.
-
-- `tests_dir` accepts one directory or a list.
-  Without configuration, extraction reads every root-relative directory named `tests` or `test`.
-  Facts record `tests_dirs`.
-  If no test imports a module, the summary states that result and names searched directories.
-
-- Package roots are found under each `[tool.uv.workspace]` member.
-  If none exist, the error lists all directories with `__init__.py` up to four levels deep.
-
-- `name` defaults to `[project] name`, then the main Git checkout's directory name, then the directory name.
-  Worktrees use the main checkout for the Git default.
-
-- `extract.FIELDS` defines every written facts field.
-  `references/schema.md` is rendered from that table.
-  A test compares the reference and build output with the table.
-
-Check changes:
-
-- `wheel of X: label Y leaves the drawing` is removed because wheel size follows labels.
-  Wheel checks prevent centre/label overlap.
-
-- A label collision names both labels by artifact and edge.
-  Collisions in the 2-unit gap no longer give an empty list.
-
-- Container and region headers join label checks.
-  `sub` can wrap over two lines but is rejected beyond that.
-  Labels wider than their boxes and headers touching components are also rejected.
-
-- `refresh` checks written output and exits 1 on failure.
-
-- `--root` is accepted before or after the subcommand.
-
-`init` changes:
-
-- It configures bare `figures/structure.svg` and `figures/system.svg` instead of `system.html`.
-
-- The starter has no components or TOML ignore.
-  Check gives only "the model has no components yet; see the skill".
-
-- Skill output is one line: "wrote .claude/skills/systemap/ (SKILL.md and 6 references)".
-
-- The workflow runs `uvx --from "systemap==<the version that wrote it>" systemap ...` without a project dependency.
-  PyPI publication is necessary but has not happened at this release. README states that limit.
-
-- The starter opens with `# ruff: noqa: E501` and an explanation.
-  Every rendered file ends with a newline.
-
-Skill and README changes:
-
-- The draft reads repository README, AGENTS.md, CLAUDE.md, and docs/.
-
-- `systemap serve [--port 8765]` serves output over loopback HTTP and prints the URL.
-  At this release, documentation states that page scripts do not run from `file://` and instructs use of serve.
-
-- The second pass uses bulk answers, examines model SDK findings, and examines `figures/structure.svg` then `figures/system.svg`.
-
-Agentic rendering changes:
-
-- Context highlights context components, Tools highlights tools, and Agents highlights agents.
-  Single-layer figures use layer-coloured subject strokes and dim components untouched by that layer's edges.
-  The page uses the same strokes and dimming.
-
-The self-map is rendered again with new facts fields.
-Its top row moves clear of the region header caught by the new rule.
-Its sixteen remaining judgement findings are answered in `systemap.toml`.
-
-## 0.4.1
-
-A single-layer figure lets a document show one map question without every arrow.
-
-- `systemap figure --layer ID` draws only the selected layer's edges.
-  Kind layers use their flows. Derived layers use the page's derived edges.
-  `structure` has none. `system` uses boundary-crossing edges in its layer colour.
-  All components stay present, the legend uses only that layer, and title/caption give its question.
-  Unknown IDs exit 2 with available layers.
-
-- `[[figures]]` adds optional `layer`.
-  Refresh writes and check compares these figures as usual.
-
-- `systemap.model.reading` selects layer edges through `edge_in_layer` and subjects through `subject_of_layer`.
-  Browser scripts read `_meta.readings` and each layer's `derived` field from detail JSON instead of recalculating selection.
-  Thus, page and figure use one selection rule.
-  Every generated SVG adds a `<title>`.
-
-- The self-map adds `figures/structure.svg` and `figures/control.svg` adjacent to `figures/system.svg`.
-  README opens with Structure and then Control flow.
-  It no longer embeds all layers together.
-
-## 0.4.0
-
-The map shows current implementation in standard layers.
-A second pass improves the first draft.
-
-Breaking removals:
-
-- `Component.tracker`, `planned`, and `partial` build states are removed.
-  The change also removes ghost rendering, Today / End toggle, figure end-state checkbox, planned legend, tracker chips, and panel issue links.
-  `build_state` gives only `built`.
-  Missing modules or entries fail the `entry` check.
-  Findings include "X names module Y which is not in the facts", "X names entry Z which none of its modules defines", and "X names no module".
-  The `tracker` rule is removed.
-
-- `issue_url` is removed and rejected as an unknown key.
-
-- `Meaning.layers` no longer declares standard layers.
-  Reserved IDs are `structure`, `system`, `data`, `control`, `agents`, `context`, `tools`, and `all`.
-  Custom use of a reserved ID fails meaning checks.
-  `layers`, `layer_of_kind`, and `relations` become optional.
-
-- Unknown flow kinds missing from standard kinds and `flow_kinds` fail placement checks with available kinds.
-
-- `theme.resolve`, `schematic.layer_rows`, `check.run`, and `schematic.render` change signatures.
-  Theme resolution uses `systemap.all_layers(model, meaning)`.
-  `layer_rows` accepts the model, and `issue_url` arguments are removed.
-
-- Theme constants become `GRAPHITE`, `INK`, `AMBER`, `STEEL`, `PAPER`, and `INK_ON_PAPER`.
-  `TEAL`, `PANEL`, `SLATE`, and `MUTED` are removed.
-  Scheme `layers` tables name every standard layer. `[theme.layers]` overrides by ID.
-
-Additions:
-
-- Structure and System context are derived without author definitions.
-  Structure shows positioned components without edges.
-  System context shows actors and boundary-crossing edges, with internal edges dimmed.
-  Standard `data` and `control` kinds add Data flow and Control flow with their own verbs.
-  Page order is Structure, System context, Data flow, Control flow, custom layers, then All.
-  Structure is the initial view.
-
-- `Component.kind` adds `agent`, `tool`, and `context`.
-  Standard `context` flows enter agent context windows. `tool` flows invoke tools.
-  Agents, Context, and Tools layers appear only with an agent.
-  Check rejects context/tool flows without an agent at the agent end.
-  Component marks come from theme `marks`: ring, notch, and dotted, without a colour distinction.
-  The legend names them.
-
-- Facts `entry_points` include console scripts, `__main__` modules, `main` functions, literal argparse subcommands, and public package-root functions.
-  Facts drift checks compare them.
-
-- Judgement adds "entry point X has no journey" and "crossing import: module A (component P) imports module B (component Q) and no flow joins P and Q".
-  Thin-layer findings include standard kind layers.
-
-- The palette uses cool graphite, muted amber, and low-chroma layer hues.
-  Every light-scheme text hue is measured above 4.5:1.
-  The supplied accent `#a8722a` measured 3.68:1 and is shown in the palette commit.
-
-- The skill becomes a directory.
-  SKILL.md has 129 lines for use conditions, loop, model contents, commands, hand-back, rules, and reference index.
-  References are `schema.md`, `example.md`, `layers.md`, `journeys-and-invariants.md`, `second-pass.md`, and `pitfalls.md`.
-  `skill` and `init` install the full directory and remove obsolete references.
-  A test compares plugin and package trees.
-
-- The self-map uses standard kinds and one sequence per entry point.
-  Invariants cite README, a guard clause, and a test.
-  All judgement findings are answered in the commit.
-
-## 0.3.0
-
-A coding agent writes the map, check rejects incomplete or stale output, and a person examines judgement findings.
-
-- `assets/` adds a logo mark and hero image.
-  Default colours use ink ground, panel surfaces, paper text, amber selection, and teal for connected parts.
-  `scheme = "light"` under `[theme]` selects a derived light scheme.
-  Token names stay unchanged, so existing overrides work.
-
-- The primary instructions are `systemap/skill/SKILL.md` in the package.
-  `init` installs them by default. `skill` reinstalls them. `--print` writes to stdout.
-  They include the full schema, a worked example of each part, step commands, and hand-back instructions.
-  A test runs the real check on the example.
-  `init --no-ci` does not include the workflow and ends with the agent instruction.
-
-- `systemap judgement` prints maintainer questions from model and facts.
-  They concern single-module components, module/component name disagreement, flows without sentences, thin layers, and ignored modules with reasons.
-  It is a report with exit 0, not a gate.
-
-- Check adds `entry`, `tracker`, and `stale` rules.
-  Entry checks defined names. Tracker checks the building item for planned components.
-  Stale compares facts with extraction, page with rendering, and configured figures with generation in one command.
-  Each failure gives its fix under the rule.
-  Refresh no longer says "already current" when check fails.
-
-- An `out` ending in `.svg` writes a bare drawing on its ground for image embedding.
-
-- The repository maps itself through `map/model.py` and `docs/map/`, with page and README figure.
-  `docs/index.html` and `docs/.nojekyll` serve GitHub Pages.
-  The generated workflow also runs on this repository.
-
-- README adds the hero, agent/script rationale, quick start, check-rule table, one-screen model, commands, and configuration.
-
-- The repository is a Claude Code plugin and marketplace.
-  Files are `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `skills/systemap/SKILL.md`.
-  A test keeps the skill byte-identical to the package file and checks manifest/package versions.
-  Installation uses `/plugin marketplace add 0xfauzi/systemap` then `/plugin install systemap@systemap`.
-  Skill front matter adds `license` and `compatibility`. The description gives trigger phrases.
-
-  Workflow validation checks both manifests and the skill in strict mode.
-
-## 0.2.0
-
-- Breaking: the package uses the term "map".
-  Defaults become `model = "map/model.py"` and `out_dir = "docs/map"`. Facts stay in `map.json`.
-  Init writes those model/output paths, and README, scaffold, and workflow use "map".
-  Projects using earlier defaults must configure `model` and `out_dir` to keep their paths.
-
-- `systemap check` rejects incomplete coverage.
-  Every facts module must have one component `implemented_by` claim, without duplicates.
-  Unmapped and duplicate claims print individually with exit 1.
-  Success prints `coverage: N/N modules mapped`.
-  Optional `[coverage] ignore = [{ module = "pkg.mod", reason = "..." }]` gives justified exclusions.
-  Missing reasons are configuration errors with exit 2.
-
-  Ignores for missing modules are shown. Missing facts fail closed.
-
-- An `implemented_by` package with `.*` claims that package and all descendants.
-  Build state, drift, change map, and coverage use this same convention.
-
-- `systemap skill [--dir PATH]` writes SKILL.md, by default under `.claude/skills/systemap/`.
-  The skill drafts the model in order and gives the maintainer judgement decisions to confirm.
-  README distinguishes mechanical extraction, agent drafts, person inspection, and incomplete-map rejection.
-
-- The example project is removed. Tests keep their sample system.
-  A later release will use the self-map as the package example.
-
-## 0.1.0
-
-The first release ports an earlier repository tool, replacing project literals with configuration.
-The original map is byte-identical inside the SVG view group.
-
-- Frozen schema dataclasses are `Container`, `Region`, `Component`, `Flow`, `Invariant`, `Journey`, `Step`, `Layer`, `Model`, and `Meaning`.
-  `build_state` derives built, partial, or planned from facts.
-  `Model.layout_problems` and `meaning_problems` examine the model.
-
-- Configuration uses `systemap.toml` or `[tool.systemap]` in `pyproject.toml`.
-  Package roots are found unless configured. Unknown keys are rejected.
-
-- The engine includes `ast` extraction, orthogonal component-grid routes, label placement, SVG scene and interaction script, page, change map, lesson figures, and layout checks.
-
-- The default theme is neutral dark.
-  Every token can be overridden. Layer colours use ID-specific values or ordered palette values.
-
-- CLI commands are `init`, `extract`, `render`, `check`, `figure`, and `refresh`.
-  Exit codes are 0 for current, 1 for stale/failed, and 2 for configuration errors.
-
-- `examples/` contains a full model of one project.
+  The `command` option sets the command that starts systemap. The `autostart` option is false by default.
+
+- `systemap convert` writes each refused model file again with literal values only.
+
+- `systemap review COMPONENT` writes the current `source_review` digest of one component into the model file.
+  `systemap review --flow ID` and `systemap review --flow 'SRC->DST'` write the `review_digest` of one flow.
+  The command writes one target for each call, because a person or an agent must examine each claim.
+  It does not examine the claims. It keeps the comments and the format of the model file.
+
+- `systemap judgement --json` writes one JSON object for programs. The schema version is 3.
+  The object gives each open line with its kind, its detail lines, its `cause`, and its `sources`.
+  It also gives the evidence digest that an exact answer must have.
+  It also gives the answers, the stale answers, the source review counts, and the counts for each kind.
+  The exit codes are the same as in the text mode.
+
+- `systemap decisions pending`, `systemap decisions submit FILE`, and `systemap decisions status` give the claims of the map to a coding agent.
+  The agent examines each claim and sends a verdict: `supported`, `contradicted`, or `insufficient_evidence`.
+  Each verdict gives citations: the file, the line span, and the SHA-256 digest of the current file.
+  systemap examines each citation. Then it records each `supported` verdict as a review digest or as an exact answer.
+
+  These commands send no request to a model.
+  At `[decisions] max_contradicted` verdicts of `contradicted` for one target, the decision request becomes unknown.
+  The default limit is 3. A change of the map does not set the count to zero. A change of a source file of the target does.
+
+- A model can contain import rules (`ImportRule`). The `kind` values are `forbid_import`, `allow_imports`, and `forbid_cycle`.
+  The result of a rule is `pass`, `fail`, or `unknown`.
+  `unknown` occurs if a module did not parse, or if the facts possibly do not contain all its imports.
+  `systemap check` and `systemap refresh` exit 1 for a `fail` result. `systemap rules [--json]` gives the result of each rule.
+  With `[rules] unknown = "fail"`, these commands also exit 1 for an `unknown` result.
+
+- `systemap judgement --order-by-drift` sends one Jev question for each open `stale source review` line.
+  The answer is the drift score: the probability that the claims of the component agree with its changed source.
+  The report puts the stale lines in sequence from the lowest score.
+  The score does not close a line, and it does not change the exit code.
+  No measurement gives a threshold for the score. Thus the option has no threshold.
+
+- OpenAI Decisions is a second decision provider (`POST /v1/decisions`, model `gpt-6-luna`).
+  To select it, give `--provider openai`, or set `[decisions] provider = "openai"`. Set `OPENAI_API_KEY` too.
+  A key alone does not select OpenAI.
+
+  The thresholds come from the Jev bench rows: five development maps and three holdout maps of Python repositories.
+  A question kind is available only if each holdout figure is 10 points or less from its development figure.
+  The available kinds are `decision owner`, `decision sentence`, `decision flow`, and `decision governs`.
+
+  | kind | threshold | development | holdout |
+  |---|---|---|---|
+  | `decision owner` | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
+  | `decision sentence` | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
+  | `decision flow` | P < 0.02 | 27 of 80 incorrect claims found (33.8%), 2 of 80 incorrect findings (2.5%) | 18 of 48 found (37.5%), 3 of 48 incorrect findings (6.2%) |
+  | `decision governs` | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
+
+  The other kinds are not available for OpenAI. The command sends no question for them and gives the cause.
+  `decision mis-fold` found 82.1% of incorrect component assignments on development, and 61.5% on holdout.
+  `triage` put the correct component first in 82.5% on development and 69.2% on holdout.
+  `plan` included 0.73 of the changed components on development and 0.39 on holdout.
+  The pair question of `suggest --decide` and the move question of `delta --decide` have no holdout rows.
+
+  The `decision flow` threshold of OpenAI comes from a measurement with the context from the `call_sites` fact. The command uses the same context.
+  On the same development rows, Jev found 48 of 80 incorrect claims (60.0%) at its threshold P < 0.2.
+  The 1,636 bench requests used 1,211,893 input tokens and cost 0.12 dollars.
+  The 256 requests of the flow measurement used 213,942 input tokens and cost 0.02 dollars.
+
+- A flow can have an `id`. Two or more flows can then connect one pair of components, for example `submit-order` and `cancel-order`.
+  Each of these flows has its own sentence, review digest, and judgement lines, and the map shows each one as a different line.
+  A sequence step can name a flow with `flow="ID"`. A step can also have `source_refs`, which `judgement` validates.
+  A model without ids keeps its finding lines and digests.
+
+- Each language adapter writes a `call_sites` fact. The Python adapter uses `ast`, and the TypeScript adapter uses tree-sitter.
+  The fact gives the lines that use an imported name.
+  It also gives the lines that use a local name that gets its value from an imported name, such as `ledger.record(parts)`.
+
+  The `decision flow` question gets its source lines from this fact.
+  On the Jev bench rows at P < 0.2, it found 48 of 80 incorrect claims on development. It gave a finding for 2 of 80 correct claims.
+  On holdout, it found 25 of 48 incorrect claims, and it gave a finding for 1 of 48 correct claims.
+  This result satisfies the acceptance value. The earlier context did not satisfy the same value.
+
+  `decision flow` stays out of the default kinds of `audit`, because no TypeScript row set is available.
+
+- A source module or a test file that the parser cannot read or parse is a not-known record. It does not reject the map.
+  A parser can refuse correct source, and systemap is not a syntax checker.
+  `check` and `refresh` print the module or the test file in the `source inventory unresolved` group, with its cause and its `fix:` line.
+  Each result that reads such a module is not known: the component gets no source review digest, and an import rule gives `unknown`.
+
+- A finding line contains only the parts that identify the finding: no line number, source excerpt, parser version, or time.
+  The judgement report gives these values in the `at:`, `excerpt:`, and `parser version:` rows below the line.
+  Thus a recorded answer stays applicable when a line is added above the cited statement. A change of the statement opens it again.
+
+- `[delta] page_url` gives the URL of the map page that the repository publishes for each pull request.
+  With this value, `systemap delta --comment FILE --pr N` writes one comment with a link to the Changes view.
+  The workflow from `init` posts that comment, and changes it after each push, for a pull request from a branch of the same repository.
+
+- The Changes view lists the components, flows, sequences, and rules that a change added, removed, or changed in the model.
+  The map page has a Find dialog (Ctrl+K, Cmd+K, or /), the Ink and Paper themes, and a Details panel.
+
+- The website at <https://0xfauzi.github.io/systemap/> has a landing page, eight guide pages, the reference, and the benchmarks.
+  The pages make no requests to other sites.
+
+- Output files get the mode of a usual write with the umask. An existing file keeps its mode.
+
+- A name that systemap cannot know is "not known", and it gives no missing-name error.
+  Examples are an interface method of a re-export with an unknown definition, and an entry of a module with unknown names.
+  A link loop in a Python or TypeScript repository is a module that could not be read. It does not stop extraction.
+
+### Security repairs
+
+- systemap reads a repository file only if it is a regular file in the repository.
+  The facts, the configuration, and the model can give an absolute path, a path with a `..` part, or a symbolic link.
+  During development, such a path could make `audit` read a file that is not in the repository and send its text to Jev.
+  The readers refuse these paths. Extraction records a link to a file that is not in the repository as a module that did not parse.
+  In 44 tests, no request body contains a marker from a file that is not in the repository.
+
+- A model value or a Git ref cannot be an option of `git`.
+  A `source_review` value must be a 64-character hexadecimal digest before it goes to `git grep`.
+  `git grep` gets the commit after `--end-of-options`. The ref resolution of `delta` also uses `--end-of-options`.
+
+- Each file read and each file write stays in the repository or in its specified root.
+  A cache file or an output file is read, written, and locked only in its root.
+  A link at the cache folder or at a parent folder is refused. A write replaces a link, and it does not write to the target of the link.
+  A refused source file gives its cause in the decision request and in the evidence state, not "missing source".
+
+  A guard test, `tests/test_read_guard.py`, reads the syntax tree of each module in `src/systemap`.
+  It gives a failure for each file read or write that is not in an allow-list. Each allow-list entry gives its cause.
+  When the test was added, it found 47 reads and writes. 19 of them were defects.
+
+- `systemap serve` and `systemap live` answer only a request whose Host header is `127.0.0.1` or `localhost` with the server port.
+  A web page that makes its own domain name point at 127.0.0.1 cannot read the map.
+
+### Language repairs
+
+The two language adapters write facts with the same meaning. Shared code reads only these neutral facts.
+One `LanguageAdapter` protocol gives the language operations.
+A test, `test_no_shared_module_tests_a_language`, finds no language test in the shared modules.
+
+During development, a search found 14 locations in shared code that gave an incorrect result for one language.
+Each repair has a Python test and a TypeScript test. These are examples:
+
+- TypeScript entry points showed as empty lines on the page.
+- The schematic gave `.py` paths for TypeScript files.
+- A dot in a TypeScript file name, such as `user.service.ts`, made a package.
+- The TypeScript adapter recorded interfaces, enums, and type aliases in `classes`. The `types` fact holds them.
+- `judgement` read a dot in an npm package name as a separator. Each adapter gives its import separator.
+- `systemap live` watched `package.json` and `tsconfig.json` in a Python repository. It watches the configuration files of the configured adapter.
+
+### Trials on open-source repositories
+
+Four trials operated systemap on open-source repositories before this release.
+For each problem, a test showed the failure before the repair.
+
+| trial | repositories | problems | not repaired |
+|---|---|---|---|
+| 1 | pallets/click, encode/httpx, sindresorhus/ky, vitejs/vite | 20: 16 that the source shows, and 4 that are not sure | 2 |
+| 2 | the same four repositories | 6 | 0 |
+| 3 | sindresorhus/ky, vitejs/vite | 8 | 0 |
+| 4 | the same four repositories | 2 | 0 |
+
+The most important repairs:
+
+- A source module or a test file that the parser cannot read is not known. It does not reject the map. Before the repair, `check` always gave exit 1 on vite.
+- Each unknown record has a cause and a `fix:` line that the user can do.
+- A recorded answer stays applicable when lines move above the cited statement.
+- TypeScript self-name imports and `#` subpath imports are internal imports. `init` selects the package root from the `tsconfig.json` `include` entries.
+- Python overloads give one public name, and one CLI function gives one entry point.
+- Output files had mode 0600, and a web server that operates as a different user could not read the page. Output files now get the usual mode.
+
+Two problems of trial 1 are not repaired:
+
+- A comment on a constant can become a TypeScript module description. A measurement is necessary before a change.
+- A name that is not in a literal `__all__` stays a public name, because the modules of the package import such names.
+
+### Repairs from the code review
+
+A Codex code review (`gpt-6.1-sol`, high reasoning, read-only) examined the code at d4b1514, before this release.
+It gave 101 results: 9 high, 79 moderate, and 13 low.
+For each result, a test showed the failure before the repair, and the same test passed after the repair.
+
+| area | results | examples of repairs |
+|---|---|---|
+| language adapters | 28 | TypeScript resolution agrees with `tsc` for `.mjs`, `.cjs`, failed relative imports, and project selection. Re-exports keep their defining module. Python star re-exports and decorators are recorded. |
+| model, evidence, and judgement | 14 | Interface names can contain Unicode letters. An empty relation sentence is a finding. A model value with an incorrect type gives a configuration error. |
+| change detection, delta, sequences, plans, and caches | 25 | A file that a side cannot read is not known, not removed. A sequence ID that the map uses is refused. The Jev cache keeps the entries of two writers. |
+| commands | 16 | `place` restores the model file after an incorrect write. `refresh` examines the import rules. `live`, `init`, and `skill` write only in their directories. |
+| page | 10 | A flow artifact with the name `constructor` does not stop the page script. A removed sequence or flow gives no selection after a live load. |
+| schematic | 8 | Theme keys, layer IDs, and component IDs that are not safe are refused. The inline JSON escapes `<!--`. |
+
+These are the Windows repairs:
+
+- The agent runner sends and reads UTF-8 bytes.
+- A cache read holds the lock of its cache.
+- `place` and `review` write LF line ends.
+- Messages give paths with forward slashes.
+
+A second Codex code review examined the code for four types of defect:
+a crash, an unsafe access, a silent incorrect result, and a defect that stops a real repository at `systemap check`.
+It examined six parts at 13a7f45, and the page and the schematic at dd05bee.
+It gave 66 results. For each result, a test showed the failure before the repair, and the same test passed after the repair.
+
+| area | results | examples of repairs |
+|---|---|---|
+| Python adapter and shared facts | 14 | A link loop is a module that could not be read. An empty `__all__` gives no star names. |
+| TypeScript adapter | 14 | A `paths` alias names its first target file that is available, as in `tsc`. Each test of a file gets a different identity. |
+| model, evidence, and judgement | 9 | A layer list in place of a tuple does not stop `check`. Two flows with one default identifier give a finding. |
+| decision requests | 5 | The claim of a source review request contains each claim of its digest. A result file that is not UTF-8 gives a command error. |
+| change detection, sequences, agents, and plans | 10 | Each revision resolves its test imports with its own files. `journeys` reads the changed model before it writes. |
+| commands | 6 | `serve` and `figure --out` stay in the repository. A route does not go through an unrelated region when a corridor is available. |
+| page | 5 | A child map link encodes the component ID, so model text cannot operate as code. An actor named `constructor` does not stop the page script. Entry-point coverage uses the modules of its map. |
+| schematic | 3 | A theme value that rendering cannot use is a configuration error, not a crash. A layer named `__proto__` shows its flows. |
+
+On macOS, a lock open relative to a folder can fail with ENOENT. In a test of 8 processes, 429 of 2400 opens failed.
+The lock open tries again after ENOENT. The same test then gave 2400 of 2400 correct opens.
+
+#### Security repairs from the code review
+
+- systemap reads `package.json`, `systemap.toml`, `pyproject.toml`, and each `tsconfig.json` target only in the repository. The live watcher does not watch a path that is not in the repository.
+- The Git tree reader refuses a committed path with a backslash, a colon, a `..` part, or a `.git` part.
+  It also refuses a link that goes out of the tree. `delta` and the Changes view give each refused path as not known.
+- `history` resolves `--ref` to a commit before it calls `git log`. A pull request value that starts with `-` does not go to `gh`. The facts cache accepts only a full commit SHA.
+- `live`, `init`, and `skill` write no file through a symbolic link that goes out of their directory. `serve` and `live` answer 404 for a symbolic link to a file that is not in the served directory.
+- The figure gives captions, layer names, and model text as text, not as HTML. Theme values, theme keys, layer IDs, and SVG IDs cannot add HTML or CSS.
+- The agent runner stops an agent that writes more than 200,000 bytes to stdout.
+
+#### Performance
+
+Each repair below had an acceptance value before the change. `bench/jev/README.md` gives the method and each run.
+The times are medians on one macOS computer. The fixtures have 40,000 files in `node_modules` where the table says so.
+
+| measurement | before | after | acceptance value |
+|---|---|---|---|
+| TypeScript `extract.build`, time with `node_modules` divided by time without | 11.251 to 12.536 | 1.008 to 1.019 | 1.2 or less |
+| TypeScript language detection, the same ratio for four calls | 2582.20 to 3911.65 | 1.005 to 1.029 | 1.2 or less |
+| Python file list, the same ratio for three calls | 438.81 to 4472.93 for the two calls that read `node_modules` | 0.773 to 1.094 | 1.2 or less |
+| Python test file list, the same ratio | 377.36 and 519.63 | 1.001 to 1.012 | 1.2 or less |
+| Git tree reader, memory increase for a 256 MiB file, compared with 20 modules | 887 to 898 MiB | 2.0 to 4.1 MiB | 64 MiB or less |
+| Git tree reader, time for 2000 modules (4 runs) | 1562 to 2028 ms | 1551 to 1819 ms, a ratio of 1.05 for the medians | a ratio of 1.2 or less |
+| render with 5 nested maps, time divided by the time for 1 map | 4.91 | 1.19 and 1.00 | 1.5 or less |
+| page label script with sequence marks in a pan, time divided by the time before the mark boxes | 1.80 (first repair) | 0.95 and 0.96 | 1.2 or less |
+| live watcher scan on this repository | 1.44 ms | 1.74 and 1.75 ms | 2 times the earlier time or less |
+
+The label script measurement has a small margin when the computer has a high load. A second measurement gave 1.19 and 0.88.

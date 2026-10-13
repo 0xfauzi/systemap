@@ -13,7 +13,7 @@ The workflow from `systemap init` compares the map with the source in CI. On a p
 | `link` | If `delta` wrote a comment | Posts or changes one comment with a link to the Changes view. |
 
 The workflow runs `uvx --from "systemap==<version>"` with the version that wrote the file.
-It does not set `TYPESAFE_API_KEY`, so no question goes to Jev.
+It does not set `TYPESAFE_API_KEY` or `OPENAI_API_KEY`, and it does not give `--decide`. Thus no question goes to a decision provider.
 When you install a new systemap version, change the version in the workflow file.
 
 ## Advisory and strict
@@ -46,7 +46,30 @@ The exit code is 1 while the map needs an update.
 After the agent did the four actions, the exit code was 0.
 
 `systemap explain "<kind>"` gives the meaning and the action of a line kind.
-The [reference](reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev) gives the options.
+The [reference](reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide) gives the options.
+
+`delta` sends questions to a decision provider only with `--decide` or `[jev] enabled = true`. A key alone sends no request.
+The answers are suggestions under their own heading. They do not change the delta lines or the exit code.
+
+## Changes that the upgrade from 1.2.0 makes in CI
+
+These changes can change the result of a CI job after you install 2.0.0:
+
+- The workflow from 1.2.0 uses `systemap delta --format markdown`, which 2.0.0 does not have. [Upgrade a workflow from 1.2.0](#upgrade-a-workflow-from-1-2-0) gives the steps.
+- systemap reads the model file as data. A model file that needs code stops each command. Run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
+- The facts format is 12. A facts file of an earlier format is stale, so `extract --check` and `check` exit 1. Run `systemap refresh`, and commit the facts file.
+- Each exact answer that is not for a `crossing import` line is pending one time. `judgement` prints the new digest. Examine the source again, and write the digest in `evidence`.
+- The `jev ...` finding kinds are now `decision ...` kinds. Some `unknown surface` and `entry point` lines have a new form. The earlier names and lines give a warning for one release.
+- `judgement --strict` exits 1 for a model without components. `judgement --json` has schema version 3.
+- A configured cache path, `out_dir`, or `model` that is absolute or has a `..` part is a configuration error.
+- With `[judgement] require_reviews = true`, a component without a `source_review` digest is a finding, and `judgement --strict` exits 1.
+- An import rule with the result `fail` makes `check` and `refresh` exit 1.
+- A flow from a component to itself is a `check` error.
+- A source module or a test file that the parser cannot read does not make `check` exit 1. `check` gives it as not known, with its cause.
+- A component `source_review` digest that is not current is a `stale source review` finding, and `judgement --strict` exits 1.
+- A configuration file or a `package.json` file that is not a regular file in the repository gives a configuration error.
+
+[CHANGELOG.md](../../CHANGELOG.md) gives each change and its steps.
 
 ## The Changes view
 
@@ -82,7 +105,7 @@ It runs only for a pull request from a branch of the same repository. [Trust and
 ## Upgrade a workflow from 1.2.0
 
 A workflow from `systemap init` 1.2.0 or earlier runs `systemap delta --format markdown`.
-Version 2.0.0 removed this option, so with 2.0.0 or later the delta job fails with exit code 2:
+Version 2.0.0 does not have this option, so the delta job fails with exit code 2:
 
 ```text
 $ systemap delta --base main --format markdown
@@ -96,4 +119,4 @@ systemap: error: unrecognized arguments: --format markdown
 2. Run `systemap init`. It keeps your configuration and your model.
 3. If you changed the old workflow, compare it with the new file.
 
-In a workflow from 2.0.0, each map finding makes the job fail. For the advisory mode, do the same steps.
+The new workflow is advisory. For a workflow that fails on a map finding, run `systemap init --strict-ci` in step 2.

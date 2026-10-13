@@ -17,7 +17,7 @@ The command exits 1 if a rule rejects the map.
 | entry | A component claims no module or an absent module. Its modules do not define its entry name. An entry can also be the name or label of an entry point of its modules that does not start one public name. Stores and context components can have an empty `entry`. A component can also have an empty `entry` if its modules define no public name and start no entry point. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
 | interface | The first identifier of an `interface` is absent from the component's public names and re-exports. An identifier can contain Unicode letters. It ends at the first character that an identifier cannot contain, such as `(`, `.`, `-`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
 | nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |
-| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id. |
+| placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. A flow has the same component at the two ends. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id. |
 | routes | A route crosses an unrelated component or an unrelated region. |
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
@@ -222,9 +222,9 @@ Migration: the full evidence of a model file that imports other model files chan
 The evidence of each `entry point` line also changed.
 Thus each of these exact answers is pending one time after the update.
 
-Migration from systemap 3.0.0: the earlier evidence digest of a line that is not a `crossing import` contained the full model file and all modules.
-Thus each of these exact answers is pending one time after the update.
-The digests of `crossing import` answers do not change.
+Migration from systemap 1.2.0: an exact answer in 1.2.0 had no `evidence` digest.
+Thus each exact answer from 1.2.0 is pending until you write its digest.
+A family answer from 1.2.0 must also get `policy = true`.
 
 `judgement` prints the new digest in the `pending answer` line.
 Examine the source again. Then write the new digest in `evidence`.
@@ -266,9 +266,15 @@ The data contains module names, docstrings, public names, internal imports, comp
 sentences, invariants, and source lines at connections between components.
 With a key, the dry run gets the model list to count cached answers. It sends no map data.
 
-A `decision flow` question gets the source lines that use a name from the other component.
-For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
-For TypeScript, it compares the last part of the import path with the file name of the target module.
+A `decision flow` question gets its source lines from the `call_sites` fact of the modules at the two ends of the flow.
+The fact has the same form for Python and TypeScript. The context has these lines, in this sequence, until it has 60 lines:
+
+1. The import lines and the lines that use a name from the other component.
+2. The lines that read a property of a local name that gets its value from an imported name, such as `ledger.record(parts)` after `ledger = Ledger()`.
+3. The line of the function or method that contains each of these lines.
+
+Then the context gives at most 12 lines from the facts of the target modules.
+These lines are the signature of each imported function, class, or method that a selected line uses, and the first sentence of each module description.
 A flow without such lines gets no question. The report gives the count of these flows.
 
 Each Jev answer must agree with its question: a choice from the offered options,
@@ -374,7 +380,7 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 | decision mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
 | decision owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
 | decision sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
-| decision flow | P < 0.02 (only with `--kind "decision flow"`) | 33.8% of incorrect claims found, 2.5% incorrect findings | 37.5% found, 6.2% incorrect findings |
+| decision flow | P < 0.02 (only with `--kind "decision flow"`) | 27 of 80 incorrect claims found (33.8%). 2 of 80 correct claims gave incorrect findings (2.5%). | 18 of 48 found (37.5%). 3 of 48 correct claims gave incorrect findings (6.2%). |
 | decision governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
 | triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
 | plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
@@ -647,7 +653,7 @@ when each name in it is written out. Move a part of a larger map into a nested m
 
 If you know that the code in a repository is safe, set `SYSTEMAP_TRUST_MODEL_CODE=1`
 in the environment of the command. Then systemap runs each model file as Python code,
-as version 2.0 did. Only the value `1` gives this permission.
+as version 1.2.0 did. Only the value `1` gives this permission.
 systemap does not read this permission from `systemap.toml`, because the repository controls that file.
 To write a model file with code again as literal values, use `systemap convert`.
 
@@ -736,6 +742,36 @@ Module records contain public surface, public names, internal imports, external
 imports, test references, and entry points.
 Package `__init__` records include re-exports.
 The other commands read this file.
+
+Each language adapter also writes these facts with the same meaning for Python and TypeScript:
+
+- `package`: the folder package of the module. A dot in a file name does not make a package.
+- `completeness`: `parsed`, `line`, `reason`, and `unresolved_imports`.
+  If the module did not parse, `unresolved_imports` is null, because the value is not known.
+  A component with a module that did not parse gets no source review digest. An import rule for that module gives `unknown`.
+- `call_sites`: the lines that use each imported name, and the lines that use a local name that gets its value from an imported name.
+  The `decision flow` question reads this fact.
+- `classes` and `types`: `classes` holds only class declarations.
+  `types` holds each other type declaration, with its name, its category (`interface`, `enum`, or `type_alias`), and its methods.
+- `defined_in` and `defined_as` on each re-export: the module and the symbol that define it.
+- `same_as` on each entry point: the identity of a different entry point with the same start, or an empty string.
+  A missing value is not known. Then the entry point must have its own sequence.
+- `symbol` on each entry point: the name in its module that the entry point starts, or an empty string.
+
+- `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
+
+The facts file has a format number in its `version` key. The current format is 12.
+A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
+After an upgrade of systemap, run `systemap refresh`.
+
+A test file that systemap cannot read or parse gives a `test_file_issues` record, for Python and for TypeScript.
+The record is not known. It does not reject the map. `check` and `refresh` print it with its cause and its `fix:` line.
+
+systemap reads `systemap.toml`, `pyproject.toml`, `package.json`, and each `tsconfig.json` file only in the repository.
+A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
+The error gives the path and the cause.
+A missing configuration file gives an empty table, as before.
+A `tsconfig.json` target in the `node_modules` folder of the repository stays permitted.
 
 - `--check` exits 1 if stored facts differ from the source tree.
   The facts file includes a digest of the values that extraction reads from each configuration file.
@@ -1050,7 +1086,7 @@ The `ok` value of `--json` agrees with the exit code. Missing facts are an item 
   It also has `imports` (`source`, `target`) and `unknown` (`module`, `cause`, `detail`).
   The `cause` values are `no_facts`, `no_read_state`, `not_parsed`, `unresolved_not_known`, `unresolved_imports`, and `no_component`.
 
-### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]`
+### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]`
 
 Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
@@ -1104,13 +1140,15 @@ than one-third of the map.
 
 - `--no-decide` sends nothing.
 
-- `--jev` and `--no-jev` are the previous names of `--decide` and `--no-decide`. They stay for one release.
+- `--jev` and `--no-jev` are aliases: the previous names of `--decide` and `--no-decide`. They stay for one release.
 
 - `--provider jev|openai` selects the decision provider of `--decide`.
   With `openai`, `[jev] enabled = true` must have `OPENAI_API_KEY`.
   OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
 
-- The Jev cost goes to stderr.
+- `--brief` prints the lines without the explanation rows. `systemap explain KIND` gives the full explanation.
+
+- The cost of the decision provider goes to stderr.
 
 ### `systemap describe`
 
@@ -1133,7 +1171,8 @@ The finding kinds are `decision mis-fold`, `decision owner`, `decision sentence`
 `--kind` also accepts the previous `jev` names for one release, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.
-Set `TYPESAFE_API_KEY` before you run the command.
+
+Set `TYPESAFE_API_KEY` for Jev, or `OPENAI_API_KEY` for OpenAI, before you run the command.
 
 - Use `--kind KIND` again to select another question kind.
 
@@ -1141,6 +1180,8 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--provider jev|openai` selects the decision provider.
   With `openai`, the command does not send the `decision mis-fold` questions and gives the cause.
+
+- `--brief` prints the findings without the explanation rows.
 
 ### `systemap plan "<task>" [--check ID] [--base REF]`
 

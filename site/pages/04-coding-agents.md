@@ -18,10 +18,30 @@ The skill tells the agent to:
 - act on each `judgement` line, or record an answer with a reason,
 - continue until no check fails and `judgement --strict` exits 0,
 - examine the module assignments, crossing imports, declared flows, and entry points against the source in a second pass,
+- record each source review with `systemap review` or `systemap decisions`, and not by a change of the model file,
 - give the maintainer a completion report: the check results, the recorded answers, the open questions, and the uncertain claims.
 
-With `TYPESAFE_API_KEY`, the agent also uses `systemap suggest --jev` and `systemap audit`.
+With `TYPESAFE_API_KEY`, the agent also uses `systemap suggest --decide` and `systemap audit`.
+`--decide` replaces `--jev`, which stays for one release.
 For a map that is already in use, the agent starts with [`systemap delta`](pull-requests-and-ci.html#systemap-delta).
+
+## Source reviews and verdicts
+
+A source review is a recorded examination of the source that supports a claim.
+`systemap review ID` writes the current `source_review` digest of one component. `systemap review --flow ID` writes the `review_digest` of one flow.
+The command writes one target for each call, because the agent must examine each claim.
+
+`systemap decisions` gives the open claims to the agent in its current session, with no request to a model:
+
+1. `systemap decisions pending --json` gives each decision request with its claim and its source files.
+2. The agent examines the source. Then it writes a verdict for each request: `supported`, `contradicted`, or `insufficient_evidence`.
+3. `systemap decisions submit FILE` examines each citation: the file, the line span, and the SHA-256 digest of the current file.
+4. The command records each `supported` verdict as a review digest or as an exact answer.
+
+After one `insufficient_evidence` verdict, the decision request becomes unknown.
+After 3 `contradicted` verdicts for one target, it also becomes unknown. `[decisions] max_contradicted` sets this limit.
+The agent gives each unknown decision request to the maintainer. An unknown request does not show that the claim is correct.
+The [reference](reference.html#systemap-decisions-pending-submit-file-status) gives the fields of each request and verdict.
 
 ## The Claude Code plugin
 

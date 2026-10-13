@@ -59,10 +59,27 @@ Give the agent the instruction from <code>init</code>:</p>
 <li>act on each <code>judgement</code> line, or record an answer with a reason,</li>
 <li>continue until no check fails and <code>judgement --strict</code> exits 0,</li>
 <li>examine the module assignments, crossing imports, declared flows, and entry points against the source in a second pass,</li>
+<li>record each source review with <code>systemap review</code> or <code>systemap decisions</code>, and not by a change of the model file,</li>
 <li>give the maintainer a completion report: the check results, the recorded answers, the open questions, and the uncertain claims.</li>
 </ul>
-<p>With <code>TYPESAFE_API_KEY</code>, the agent also uses <code>systemap suggest --jev</code> and <code>systemap audit</code>.
+<p>With <code>TYPESAFE_API_KEY</code>, the agent also uses <code>systemap suggest --decide</code> and <code>systemap audit</code>.
+<code>--decide</code> replaces <code>--jev</code>, which stays for one release.
 For a map that is already in use, the agent starts with <a href="pull-requests-and-ci.html#systemap-delta"><code>systemap delta</code></a>.</p>
+<h2 id="source-reviews-and-verdicts">Source reviews and verdicts</h2>
+<p>A source review is a recorded examination of the source that supports a claim.
+<code>systemap review ID</code> writes the current <code>source_review</code> digest of one component. <code>systemap review --flow ID</code> writes the <code>review_digest</code> of one flow.
+The command writes one target for each call, because the agent must examine each claim.</p>
+<p><code>systemap decisions</code> gives the open claims to the agent in its current session, with no request to a model:</p>
+<ol>
+<li><code>systemap decisions pending --json</code> gives each decision request with its claim and its source files.</li>
+<li>The agent examines the source. Then it writes a verdict for each request: <code>supported</code>, <code>contradicted</code>, or <code>insufficient_evidence</code>.</li>
+<li><code>systemap decisions submit FILE</code> examines each citation: the file, the line span, and the SHA-256 digest of the current file.</li>
+<li>The command records each <code>supported</code> verdict as a review digest or as an exact answer.</li>
+</ol>
+<p>After one <code>insufficient_evidence</code> verdict, the decision request becomes unknown.
+After 3 <code>contradicted</code> verdicts for one target, it also becomes unknown. <code>[decisions] max_contradicted</code> sets this limit.
+The agent gives each unknown decision request to the maintainer. An unknown request does not show that the claim is correct.
+The <a href="reference.html#systemap-decisions-pending-submit-file-status">reference</a> gives the fields of each request and verdict.</p>
 <h2 id="the-claude-code-plugin">The Claude Code plugin</h2>
 <p><a href="getting-started.html#install-systemap">Install systemap</a> first, because the plugin runs the <code>systemap</code> command.
 Then, in Claude Code, type:</p>
@@ -165,12 +182,12 @@ The skill gives the rules in <code>references/language.md</code>. Set the profil
 </div>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="reading-the-map.html" rel="prev"><span class="kicker">Previous</span><span>Read the map</span></a><a class="pager__a pager__next" href="pull-requests-and-ci.html" rel="next"><span class="kicker">Next</span><span>Pull requests and CI</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-skill">The skill</a></li><li class="toc__l2"><a href="#the-claude-code-plugin">The Claude Code plugin</a></li><li class="toc__l2"><a href="#the-live-map-in-claude-code">The live map in Claude Code</a></li><li class="toc__l2"><a href="#plugin-options">Plugin options</a></li><li class="toc__l2"><a href="#other-agents">Other agents</a></li><li class="toc__l2"><a href="#the-writing-profile">The writing profile</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-skill">The skill</a></li><li class="toc__l2"><a href="#source-reviews-and-verdicts">Source reviews and verdicts</a></li><li class="toc__l2"><a href="#the-claude-code-plugin">The Claude Code plugin</a></li><li class="toc__l2"><a href="#the-live-map-in-claude-code">The live map in Claude Code</a></li><li class="toc__l2"><a href="#plugin-options">Plugin options</a></li><li class="toc__l2"><a href="#other-agents">Other agents</a></li><li class="toc__l2"><a href="#the-writing-profile">The writing profile</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>2.0.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>
