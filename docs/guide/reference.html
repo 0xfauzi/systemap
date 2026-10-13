@@ -366,9 +366,9 @@ Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.
 The evidence of each <code>entry point</code> line also changed.
 Thus each of these exact answers is pending one time after the update.</p>
-<p>Migration to systemap 3.1.0: the earlier evidence digest of a line that is not a <code>crossing import</code> contained the full model file and all modules.
-Thus each of these exact answers is pending one time after the update.
-The digests of <code>crossing import</code> answers do not change.</p>
+<p>Migration from systemap 1.2.0: an exact answer in 1.2.0 had no <code>evidence</code> digest.
+Thus each exact answer from 1.2.0 is pending until you write its digest.
+A family answer from 1.2.0 must also get <code>policy = true</code>.</p>
 <p><code>judgement</code> prints the new digest in the <code>pending answer</code> line.
 Examine the source again. Then write the new digest in <code>evidence</code>.</p>
 <p>A family answer is a policy for a family of lines and must have <code>policy = true</code>.
@@ -892,7 +892,7 @@ The message gives the file, the line, and the refused syntax.</p>
 when each name in it is written out. Move a part of a larger map into a nested map.</p>
 <p>If you know that the code in a repository is safe, set <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>
 in the environment of the command. Then systemap runs each model file as Python code,
-as version 2.0 did. Only the value <code>1</code> gives this permission.
+as version 1.2.0 did. Only the value <code>1</code> gives this permission.
 systemap does not read this permission from <code>systemap.toml</code>, because the repository controls that file.
 To write a model file with code again as literal values, use <code>systemap convert</code>.</p>
 <p>The page and the figures use some model names as CSS names and SVG IDs.
@@ -1000,7 +1000,7 @@ A missing value is not known. Then the entry point must have its own sequence.</
 <p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
 </li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 11.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 12.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
@@ -1012,6 +1012,10 @@ A missing configuration file gives an empty table, as before.
 A <code>tsconfig.json</code> target in the <code>node_modules</code> folder of the repository stays permitted.</p>
 <ul>
 <li><code>--check</code> exits 1 if stored facts differ from the source tree.
+The facts file includes a digest of the values that extraction reads from each configuration file.
+Thus a change to such a value is also a difference.
+A comment, the text format, or a value that extraction does not read is not a difference.
+A file in an installed package folder, for example <code>node_modules</code>, is a difference only if it is on this computer.
 It also exits 1 if a model claim names a module that the source tree does not have.
 The report gives the two problem groups separately.
 For stale facts, run <code>systemap extract</code>.
@@ -2328,7 +2332,7 @@ Each unknown record must have a correction or accepted answer under
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.1.0</code></span>
+<span class="foot__v">Version <code>2.0.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

@@ -16,7 +16,9 @@ from systemap import repo_files, unknown_causes
 # interpreter version, the parser packages, and the compiler settings that installed npm
 # packages supply. A difference in these values is a change only if the facts change.
 # The other drift comparisons find a change of the facts.
-LOCAL_INPUTS = ("parser", "compiler")
+# The digests of the configuration files in an installed package folder.
+INSTALLED = "installed"
+LOCAL_INPUTS = ("parser", "compiler", INSTALLED)
 
 
 def decode(data: bytes) -> str:
@@ -65,8 +67,21 @@ def text_digest(data: bytes) -> str:
 
 
 def inputs_changed(stored: object, fresh: object) -> bool:
-    """This function compares two provenance records without the values of one computer."""
-    return _shared(stored) != _shared(fresh)
+    """This function compares two provenance records without the values of one computer.
+
+    An installed configuration file that this computer has is an input: a new file or a
+    different digest is a change. An installed file that this computer does not have is
+    not a change, because a clone without the installed packages can give the same facts.
+    """
+    stored_installed = _installed(stored)
+    return _shared(stored) != _shared(fresh) or any(
+        stored_installed.get(path) != digest for path, digest in _installed(fresh).items()
+    )
+
+
+def _installed(provenance: object) -> dict[str, object]:
+    value = provenance.get(INSTALLED) if isinstance(provenance, dict) else None
+    return value if isinstance(value, dict) else {}
 
 
 def _shared(provenance: object) -> object:

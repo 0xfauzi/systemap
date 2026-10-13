@@ -128,13 +128,21 @@ def typescript_name(root: Path) -> str:
     return name.strip().removeprefix("@").replace("/", ".").replace("-", "_")
 
 
+def installed_major(root: Path) -> int | None:
+    """This function gets the major version of the installed TypeScript package, or None."""
+    installed = package_json(root / "node_modules" / "typescript", root).get("version")
+    if isinstance(installed, str) and (match := re.match(r"\d+", installed)):
+        return int(match.group())
+    return None
+
+
 def typescript_major(root: Path) -> int | None:
     """This function gets the installed TypeScript major version, or the package.json
     version range if no package is installed.
     """
-    installed = package_json(root / "node_modules" / "typescript", root).get("version")
-    if isinstance(installed, str) and (match := re.match(r"\d+", installed)):
-        return int(match.group())
+    installed = installed_major(root)
+    if installed is not None:
+        return installed
     package = package_json(root)
     for key in ("devDependencies", "dependencies"):
         dependencies = package.get(key)

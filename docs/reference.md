@@ -222,9 +222,9 @@ Migration: the full evidence of a model file that imports other model files chan
 The evidence of each `entry point` line also changed.
 Thus each of these exact answers is pending one time after the update.
 
-Migration to systemap 3.1.0: the earlier evidence digest of a line that is not a `crossing import` contained the full model file and all modules.
-Thus each of these exact answers is pending one time after the update.
-The digests of `crossing import` answers do not change.
+Migration from systemap 1.2.0: an exact answer in 1.2.0 had no `evidence` digest.
+Thus each exact answer from 1.2.0 is pending until you write its digest.
+A family answer from 1.2.0 must also get `policy = true`.
 
 `judgement` prints the new digest in the `pending answer` line.
 Examine the source again. Then write the new digest in `evidence`.
@@ -653,7 +653,7 @@ when each name in it is written out. Move a part of a larger map into a nested m
 
 If you know that the code in a repository is safe, set `SYSTEMAP_TRUST_MODEL_CODE=1`
 in the environment of the command. Then systemap runs each model file as Python code,
-as version 2.0 did. Only the value `1` gives this permission.
+as version 1.2.0 did. Only the value `1` gives this permission.
 systemap does not read this permission from `systemap.toml`, because the repository controls that file.
 To write a model file with code again as literal values, use `systemap convert`.
 
@@ -760,7 +760,7 @@ Each language adapter also writes these facts with the same meaning for Python a
 
 - `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
 
-The facts file has a format number in its `version` key. The current format is 11.
+The facts file has a format number in its `version` key. The current format is 12.
 A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
 After an upgrade of systemap, run `systemap refresh`.
 
@@ -774,6 +774,10 @@ A missing configuration file gives an empty table, as before.
 A `tsconfig.json` target in the `node_modules` folder of the repository stays permitted.
 
 - `--check` exits 1 if stored facts differ from the source tree.
+  The facts file includes a digest of the values that extraction reads from each configuration file.
+  Thus a change to such a value is also a difference.
+  A comment, the text format, or a value that extraction does not read is not a difference.
+  A file in an installed package folder, for example `node_modules`, is a difference only if it is on this computer.
   It also exits 1 if a model claim names a module that the source tree does not have.
   The report gives the two problem groups separately.
   For stale facts, run `systemap extract`.

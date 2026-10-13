@@ -123,10 +123,12 @@ After the agent did the four actions, the exit code was 0.</p>
 The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide">reference</a> gives the options.</p>
 <p><code>delta</code> sends questions to a decision provider only with <code>--decide</code> or <code>[jev] enabled = true</code>. A key alone sends no request.
 The answers are suggestions under their own heading. They do not change the delta lines or the exit code.</p>
-<h2 id="changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</h2>
-<p>These changes can change the result of a CI job after you install 3.1.0:</p>
+<h2 id="changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</h2>
+<p>These changes can change the result of a CI job after you install 2.0.0:</p>
 <ul>
-<li>The facts format is 11. A facts file of an earlier format is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code>, and commit the facts file.</li>
+<li>The workflow from 1.2.0 uses <code>systemap delta --format markdown</code>, which 2.0.0 does not have. <a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a> gives the steps.</li>
+<li>systemap reads the model file as data. A model file that needs code stops each command. Run <code>SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert</code> one time.</li>
+<li>The facts format is 12. A facts file of an earlier format is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code>, and commit the facts file.</li>
 <li>Each exact answer that is not for a <code>crossing import</code> line is pending one time. <code>judgement</code> prints the new digest. Examine the source again, and write the digest in <code>evidence</code>.</li>
 <li>The <code>jev ...</code> finding kinds are now <code>decision ...</code> kinds. Some <code>unknown surface</code> and <code>entry point</code> lines have a new form. The earlier names and lines give a warning for one release.</li>
 <li><code>judgement --strict</code> exits 1 for a model without components. <code>judgement --json</code> has schema version 3.</li>
@@ -134,7 +136,8 @@ The answers are suggestions under their own heading. They do not change the delt
 <li>With <code>[judgement] require_reviews = true</code>, a component without a <code>source_review</code> digest is a finding, and <code>judgement --strict</code> exits 1.</li>
 <li>An import rule with the result <code>fail</code> makes <code>check</code> and <code>refresh</code> exit 1.</li>
 <li>A flow from a component to itself is a <code>check</code> error.</li>
-<li>A source module or a test file that the parser cannot read does not make <code>check</code> exit 1. In 3.0.0, a source module that did not parse made <code>check</code> exit 1.</li>
+<li>A source module or a test file that the parser cannot read does not make <code>check</code> exit 1. <code>check</code> gives it as not known, with its cause.</li>
+<li>A component <code>source_review</code> digest that is not current is a <code>stale source review</code> finding, and <code>judgement --strict</code> exits 1.</li>
 <li>A configuration file or a <code>package.json</code> file that is not a regular file in the repository gives a configuration error.</li>
 </ul>
 <p><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">CHANGELOG.md</a> gives each change and its steps.</p>
@@ -159,7 +162,7 @@ The <code>link</code> job posts the comment, and changes the same comment after 
 It runs only for a pull request from a branch of the same repository. <a href="trust-and-security.html#the-ci-link-job">Trust and security</a> tells why.</p>
 <h2 id="upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</h2>
 <p>A workflow from <code>systemap init</code> 1.2.0 or earlier runs <code>systemap delta --format markdown</code>.
-Version 2.0.0 removed this option, so with 2.0.0 or later the delta job fails with exit code 2:</p>
+Version 2.0.0 does not have this option, so the delta job fails with exit code 2:</p>
 <pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> delta <span class="a">--base</span> main <span class="a">--format</span> markdown</span>
 <span class="ln" style="--i:0"><span class="l">usage:</span> systemap [-h] [--version] [--root ROOT] command ...</span>
 <span class="ln" style="--i:0"><span class="l">systemap:</span> error: unrecognized arguments: --format markdown</span></code></pre>
@@ -169,15 +172,15 @@ Version 2.0.0 removed this option, so with 2.0.0 or later the delta job fails wi
 <li>Run <code>systemap init</code>. It keeps your configuration and your model.</li>
 <li>If you changed the old workflow, compare it with the new file.</li>
 </ol>
-<p>In a workflow from 2.0.0, each map finding makes the job fail. For the advisory mode, do the same steps.</p>
+<p>The new workflow is advisory. For a workflow that fails on a map finding, run <code>systemap init --strict-ci</code> in step 2.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="coding-agents.html" rel="prev"><span class="kicker">Previous</span><span>Coding agents</span></a><a class="pager__a pager__next" href="live-map.html" rel="next"><span class="kicker">Next</span><span>The live map</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-link-comment">The link comment</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-link-comment">The link comment</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.1.0</code></span>
+<span class="foot__v">Version <code>2.0.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

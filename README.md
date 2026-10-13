@@ -516,7 +516,7 @@ the line, and the necessary change.
 
 If you know that the code in a repository is safe, you can set
 `SYSTEMAP_TRUST_MODEL_CODE=1` in the environment of the command.
-Then systemap runs the model files as Python code, as version 2.0 did.
+Then systemap runs the model files as Python code, as version 1.2.0 did.
 The repository cannot give this permission. systemap does not read it from `systemap.toml`
 or from another file in the repository.
 
