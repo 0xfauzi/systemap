@@ -122,7 +122,7 @@ def test_serve_refuses_an_output_directory_out_of_the_repository(
     assert run("--root", str(repo), "serve", "--port", "0") == 1
     assert started == []
     err = capsys.readouterr().err
-    assert "docs/map" in err and "is not in" in err, err
+    assert str(Path("docs/map")) in err and "is not in" in err, err
 
 
 # ---- cli-18: the router and the regions ---------------------------------------------------
