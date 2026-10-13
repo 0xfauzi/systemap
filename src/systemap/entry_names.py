@@ -41,8 +41,9 @@ def missing_entry(
 ) -> list[str]:
     """Give the check line for a component with an empty entry, or no line.
 
-    The caller excludes the kinds that can have an empty entry."""
-    if nothing_to_name(modules, len(symbols), facts):
+    The caller excludes the kinds that can have an empty entry. If the names are not
+    known (`names_not_known`), the result is not known and gives no line."""
+    if nothing_to_name(modules, len(symbols), facts) or names_not_known(modules, symbols, facts):
         return []
     return [f"{card} has no entry. Its modules are {', '.join(modules + symbols)}"]
 
@@ -65,3 +66,20 @@ def nothing_to_name(modules: Collection[str], symbols: int, facts: Mapping[str, 
 
 def _names_nothing(record: Mapping[str, Any]) -> bool:
     return source_parsed(record) and not public_names(record) and not record.get("unknown")
+
+
+def names_not_known(modules: Collection[str], symbols: list[str], facts: Mapping[str, Any]) -> bool:
+    """True when the modules give no known name to start, and a module has unknown names.
+
+    A module has unknown names if it did not parse fully or has an unknown public surface.
+    Then an empty entry is not a pass and not a failure. The `source inventory
+    unresolved` group or the `unknown surface` group gives the module and the cause."""
+    points = facts.get("entry_points")
+    if symbols or not modules or not isinstance(points, list):
+        return False
+    if any(point.get("module") in modules for point in points):
+        return False
+    records = [facts.get("components", {}).get(module, {}) for module in modules]
+    if any(public_names(record) for record in records):
+        return False
+    return any(not source_parsed(record) or record.get("unknown") for record in records)

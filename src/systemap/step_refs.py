@@ -4,7 +4,8 @@ A step can have `source_refs` in the same `module[:symbol]@digest` form as a flo
 flow procedure `evidence.check_refs` examines them. Each record must resolve at the
 current source snapshot. Each record must also be in a module of an acting or measured
 component of the step. A flow must have one record in an endpoint module, but a step
-must have each record in a module of its components.
+must have each record in a module of its components. If no acting or measured component
+has a module claim, each record is in no module of the step components.
 """
 
 from __future__ import annotations
@@ -27,6 +28,11 @@ def reasons(refs: tuple[str, ...], cards: Iterable[Component], facts: dict[str, 
         f"cites {_location(ref)}, which does not resolve in the current source"
         for ref in unresolved
     ]
+    if not named:
+        return out + [
+            f"cites {_location(ref)}, but no acting or measured component has a module claim"
+            for ref in refs
+        ]
     out += [f"cites {_location(ref)}, which is in no module of {named}" for ref in outside]
     return out
 

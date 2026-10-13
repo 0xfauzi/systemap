@@ -6,6 +6,10 @@ can stop with an AttributeError after the model loads. The check uses the types 
 model classes give for their fields. It accepts a list where the type is a tuple,
 because the model file reader accepts the two forms. It does not examine a type that it
 does not know.
+
+After the check, `checked` puts a tuple in place of each list in a field of tuple type.
+Thus a command can join a loaded field to a tuple, as it can join a field of a model
+that Python code makes.
 """
 
 from __future__ import annotations
@@ -16,6 +20,9 @@ import types
 import typing
 from collections.abc import Mapping
 from typing import Any
+
+from systemap import model_names
+from systemap.model import Meaning, Model
 
 PLAIN = {str: "a string", bool: "true or false", int: "an integer", float: "a number"}
 
@@ -32,6 +39,55 @@ def problem(value: Any, hint: Any, where: str) -> str:
     if origin in (Mapping, dict):
         return _mapping(value, typing.get_args(hint), where)
     return _plain(value, hint, where)
+
+
+def checked(model: Model, meaning: Meaning) -> tuple[str, Model, Meaning]:
+    """Give the first problem of the loaded MODEL and MEANING values, and the two values.
+
+    If there is no problem, each list in a field of tuple type is a tuple in the values.
+    A name that the page cannot use (`model_names`) is also a problem."""
+    found = problem(model, Model, "MODEL") or problem(meaning, Meaning, "MEANING")
+    found = found or model_names.problem(model, meaning)
+    if found:
+        return found, model, meaning
+    return "", _tuples(model, Model), _tuples(meaning, Meaning)
+
+
+def _tuples(value: Any, hint: Any) -> Any:
+    """Give the value with a tuple in place of each list of a tuple type.
+
+    The value must agree with its type (`problem`). A value without a list is the same
+    object."""
+    if isinstance(hint, type) and dataclasses.is_dataclass(hint):
+        return _record_tuples(value, hint)
+    origin, args = typing.get_origin(hint), typing.get_args(hint)
+    if origin in (typing.Union, types.UnionType):
+        return next((_tuples(value, a) for a in args if not problem(value, a, "")), value)
+    if origin is tuple:
+        return _tuple_tuples(value, args)
+    if origin in (Mapping, dict) and len(args) == 2:
+        return _mapping_tuples(value, args[1])
+    return value
+
+
+def _mapping_tuples(value: Any, hint: Any) -> Any:
+    items = {key: _tuples(item, hint) for key, item in value.items()}
+    return value if all(items[key] is item for key, item in value.items()) else items
+
+
+def _record_tuples(value: Any, cls: type) -> Any:
+    hints = _hints(cls)
+    old = {item.name: getattr(value, item.name) for item in dataclasses.fields(cls)}
+    new = {name: _tuples(item, hints[name]) for name, item in old.items()}
+    changed = {name: item for name, item in new.items() if item is not old[name]}
+    return dataclasses.replace(value, **changed) if changed else value
+
+
+def _tuple_tuples(value: Any, args: tuple[Any, ...]) -> Any:
+    members = [args[0]] * len(value) if args[1:] == (Ellipsis,) else list(args)
+    items = tuple(_tuples(item, hint) for item, hint in zip(value, members, strict=True))
+    same = isinstance(value, tuple) and all(a is b for a, b in zip(items, value, strict=True))
+    return value if same else items
 
 
 def _record(value: Any, cls: type, where: str) -> str:
