@@ -14,35 +14,36 @@ from __future__ import annotations
 import ast
 import contextlib
 import hashlib
-import importlib.metadata
 import json
 import re
-import subprocess
 import sys
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import repo_files, source_text, ways_in
+from systemap import python_entry, python_repo, repo_files
 from systemap.completeness import parse_state
-from systemap.config import Config, ConfigError
-from systemap.language import LanguageAdapter
-from systemap.model import Model, is_symbol, module_matches, public_names, source_parsed
-from systemap.python_imports import python_unresolved, relative_source
-from systemap.reexports import resolve_reexports
 
-# A stored file of an older facts format is reported as stale.
-FORMAT = 5
-TESTS_KEPT = 25
+# The shared extraction steps are in `extraction`. These names stay for the callers of
+# the earlier interface.
+from systemap.extraction import FORMAT as FORMAT
+from systemap.extraction import build as build
+from systemap.extraction import drift as drift
+from systemap.extraction import language_for as language_for
+from systemap.extraction import mapping_drift as mapping_drift
+from systemap.model import public_names
+from systemap.python_imports import python_unresolved, relative_source
+from systemap.python_repo import PythonRepository
+from systemap.source_facts import WHOLE_MODULE, empty_markers, standard_label
+
 CONSTANTS_KEPT = 14
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
+PACKAGE_MODULE = "__init__.py"
 
 
-class PythonLanguage:
+class PythonLanguage(PythonRepository):
     """Read Python syntax through the language adapter interface."""
-
-    name = "python"
 
     def source_paths(
         self,
@@ -52,7 +53,7 @@ class PythonLanguage:
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
         del repo, tests_dirs, test_patterns
-        return source_text.python_paths(root)
+        return python_repo.python_paths(root)
 
     def context(
         self,
@@ -66,6 +67,39 @@ class PythonLanguage:
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         return module_of(path, root, name)
+
+    def package_of(self, path: Path, root: Path, name: str) -> str:
+        """Give the parent package of the module. An `__init__.py` module is in the parent
+        package of its own package. A package root gives its own name."""
+        module = module_of(path, root, name)
+        return module.rpartition(".")[0] or module
+
+    def is_package_module(self, path: Path) -> bool:
+        return path.name == PACKAGE_MODULE
+
+    def empty_marker(self, record: Mapping[str, Any], raw: str) -> bool:
+        """Find an `__init__.py` file without public names, internal imports, external
+        imports, parse errors, unknown records, or top-level calls.
+
+        A root that re-exports names or imports modules is not empty."""
+        del raw
+        if not str(record.get("file", "")).endswith(PACKAGE_MODULE):
+            return False
+        if record.get("parse_error") or record.get("unknown") or record.get("executes"):
+            return False
+        return not public_names(record) and not record.get("imports") and not record.get("external")
+
+    def entry_label(self, point: Mapping[str, str]) -> str:
+        return standard_label(point)
+
+    def compiler_record(self, context: Any, repo: Path) -> dict[str, str]:
+        del context, repo
+        return {}
+
+    def extra_facts(self, context: Any, entry_issues: list[dict[str, str]]) -> dict[str, Any]:
+        """Give the issue lists. An empty list of entry point issues is not written."""
+        del context
+        return {"entry_point_issues": entry_issues} if entry_issues else {}
 
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         if not path.endswith(".py"):
@@ -114,7 +148,7 @@ class PythonLanguage:
         context: Any,
     ) -> list[str]:
         del repo, context
-        is_package = paths[module].name == "__init__.py"
+        is_package = self.is_package_module(paths[module])
         return python_unresolved(raw, prefixes, known, module, is_package)
 
     def external_imports(
@@ -152,9 +186,9 @@ class PythonLanguage:
         issues = [
             issue
             for module, source in sources.items()
-            for issue in ways_in.registration_candidates(module, source)
+            for issue in python_entry.registration_candidates(module, source)
         ]
-        return entry_points(repo, prefixes, components, sources), issues
+        return python_entry.entry_points(repo, prefixes, components, sources), issues
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
         return parse_surface(raw)
@@ -174,24 +208,6 @@ class PythonLanguage:
 PYTHON = PythonLanguage()
 
 
-def language_for(cfg: Config) -> LanguageAdapter:
-    """Select the configured source-language adapter for this repository."""
-    if cfg.language == PYTHON.name:
-        return PYTHON
-    if cfg.language == "typescript":
-        try:
-            from systemap.typescript import TYPESCRIPT
-        except ModuleNotFoundError as exc:
-            if exc.name not in {"tree_sitter", "tree_sitter_typescript"}:
-                raise
-            raise ConfigError(
-                "TypeScript adapter is not installed. Install systemap[typescript]"
-            ) from exc
-
-        return TYPESCRIPT
-    raise ValueError(f"unsupported language: {cfg.language}")
-
-
 # Every field the extractor writes: (scope, field, what it holds). The
 # scopes are the file itself, each module record under `components`, and
 # each record under `entry_points`. `facts_doc` renders this table for the
@@ -201,8 +217,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 5, with portable syntax hashes, compiler provenance, and "
-        "module completeness. `extract --check` marks older formats stale",
+        "The facts format is 6, with portable syntax hashes, compiler provenance, "
+        "module completeness, and the folder package in `package`. `extract --check` "
+        "marks older formats stale",
     ),
     (
         "facts",
@@ -248,7 +265,13 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     ("facts", "components", "One module record for each dotted name, with the fields below"),
     ("module", "id", "The dotted module name"),
     ("module", "file", "The root-relative source path"),
-    ("module", "package", "The first module-name segment"),
+    (
+        "module",
+        "package",
+        "The dotted name of the package that contains the module. The language adapter "
+        "writes it. A dot in a file name does not change it. A Python `__init__` module "
+        "is in the parent package of its own package. A package root gives its own name",
+    ),
     ("module", "plane", "The second module-name segment if `planes` includes it, or `core`"),
     ("module", "loc", "The file line count"),
     (
@@ -266,7 +289,13 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "syntax_sha",
         "The parsed-syntax digest for source review. Comments and text format do not change it",
     ),
-    ("module", "docstring", "The first module-docstring paragraph, with a length limit"),
+    (
+        "module",
+        "docstring",
+        "The first paragraph of the module description, with a length limit. The Python "
+        "adapter reads the module docstring. The TypeScript adapter reads the first "
+        "documentation comment",
+    ),
     ("module", "functions", "Public functions with `name` and `signature`"),
     (
         "module",
@@ -287,8 +316,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "`error`, `constant` (UPPER_CASE), or `object` (other assignments such as "
         "`app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` "
         "includes local re-exports, with `reexport_of` and the kind in their source module. A "
-        "full-module import uses kind `module`. `entry` and `interface` can use these "
-        "names",
+        "full-module import uses kind `module`. A `*` re-export of the module does not "
+        "give a name that has `star_export` set to `false`. The TypeScript adapter sets it "
+        "for `default`. `entry` and `interface` can use these names",
     ),
     (
         "module",
@@ -298,6 +328,13 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "callable bodies",
     ),
     ("module", "executes", "Python-only: a top-level call makes a package initializer nonempty"),
+    (
+        "module",
+        "empty_marker",
+        "`true` for a module that only marks a package and holds no code: a Python "
+        "`__init__.py` file or a TypeScript `index` file without names, imports, or "
+        "statements. Coverage does not include these modules",
+    ),
     (
         "module",
         "unknown",
@@ -351,19 +388,27 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "entry point",
         "kind",
-        "`console_script`, `main_module`, `main_function`, `subcommand`, or `public_function`",
+        "`console_script`, `main_module`, `main_function`, `subcommand`, `public_function`, "
+        "`route`, `command`, `task`, or `plugin`",
     ),
     (
         "entry point",
         "name",
-        "The script name, `python -m` command, `main`, subcommand name, or function name",
+        "The script name, `python -m` command, `main`, subcommand name, route, command "
+        "name, plugin hook, or function name",
     ),
     ("entry point", "module", "The module that defines the entry point"),
     (
         "entry point",
         "target",
-        "The console-script function, or the console script for a subcommand. It is "
-        "empty for other kinds",
+        "The console-script function, the console script for a subcommand, or the "
+        "registered function. It is empty for other kinds",
+    ),
+    (
+        "entry point",
+        "label",
+        "The display name that the language adapter gives to the entry point. A sequence "
+        "can name it in `starts`",
     ),
 )
 
@@ -400,8 +445,8 @@ def facts_doc() -> str:
         "`tests` gives the sum of `tests_total`. The count for test files with the module",
         "name gives the sum of `tests_primary`.",
         "",
-        "`empty package markers` counts `__init__` records without public `names`,",
-        "`imports`, or `external` entries. Coverage automatically excludes these records.",
+        "`empty package markers` counts the records with `empty_marker` set to true.",
+        "Coverage automatically excludes these records.",
     ]
     return "\n".join(out) + "\n"
 
@@ -410,14 +455,6 @@ def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str:
     rel = path.relative_to(pkg_dir).with_suffix("")
     parts = [p for p in rel.parts if p != "__init__"]
     return ".".join([pkg_name, *parts]) if parts else pkg_name
-
-
-def plane_of(module: str, planes: tuple[str, ...]) -> str:
-    """Get the module plane from its dotted path."""
-    parts = module.split(".")
-    if len(parts) > 2 and parts[1] in planes:
-        return parts[1]
-    return "core"
 
 
 def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
@@ -774,11 +811,6 @@ def collect_module(
     return record
 
 
-# In a `uses` mapping, this marks "the whole module": `import m` gives access
-# to every name in m, so no list of names would be honest.
-WHOLE_MODULE = "*"
-
-
 def internal_uses(
     raw: str,
     prefixes: set[str],
@@ -914,7 +946,7 @@ def collect_tests(
         if not rel or not test_dir.is_dir():
             continue
         for path in sorted(test_dir.rglob("test_*.py")):
-            if path in seen or source_text.skipped(path, test_dir, source_text.PYTHON_SKIP):
+            if path in seen or python_repo.skipped(path, test_dir, python_repo.PYTHON_SKIP):
                 continue
             seen.add(path)
             files.append(path)
@@ -938,508 +970,6 @@ def collect_tests(
                     {"name": f"{path.relative_to(repo).as_posix()}::{name}", "primary": primary}
                 )
     return guards
-
-
-def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]:
-    if not spec_path:
-        return []
-    path = repo / spec_path
-    if not path.is_file():
-        return []
-    out: list[dict[str, str]] = []
-    try:
-        text = repo_files.read_text(repo, spec_path)
-    except (OSError, UnicodeError):
-        return []
-    for match in re.finditer(r"^(#{2,4})\s+(.+)$", text, re.M):
-        out.append({"level": str(len(match.group(1))), "title": match.group(2).strip()})
-    return out
-
-
-# ---- entry points: where a run of the system starts ----------------------------
-
-
-def subcommands(raw: str) -> list[str]:
-    """Read argparse subcommand names from one module.
-
-    A call `<anything>.add_parser("name", ...)` with a literal first argument
-    specifies a subcommand. The parser does not find names made from variables.
-    Judgement can give findings only for names in the syntax tree.
-    """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
-        return []
-    out: list[str] = []
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "add_parser"
-            and node.args
-            and isinstance(node.args[0], ast.Constant)
-            and isinstance(node.args[0].value, str)
-        ):
-            out.append(node.args[0].value)
-    return out
-
-
-def console_scripts(repo: Path) -> dict[str, tuple[str, str]]:
-    """Map `[project.scripts]` names to module and function targets."""
-    data = ways_in.read_pyproject(repo)
-    scripts = data.get("project", {}).get("scripts", {})
-    out: dict[str, tuple[str, str]] = {}
-    if isinstance(scripts, dict):
-        for name, target in scripts.items():
-            if isinstance(target, str) and ":" in target:
-                module, func = target.split(":", 1)
-                out[str(name)] = (module.strip(), func.strip())
-    return out
-
-
-def _plain_ways(module: str, record: dict[str, Any], is_root: bool) -> list[dict[str, str]]:
-    """Get entry points from `__main__`, `main`, and public package-root names."""
-    out: list[dict[str, str]] = []
-    if module.endswith(".__main__"):
-        pkg = module[: -len(".__main__")]
-        out.append(
-            {"kind": "main_module", "name": f"python -m {pkg}", "module": module, "target": ""}
-        )
-    if any(f["name"] == "main" for f in record["functions"]):
-        out.append({"kind": "main_function", "name": "main", "module": module, "target": "main"})
-    if is_root:
-        out += [
-            {"kind": "public_function", "name": f["name"], "module": module, "target": ""}
-            for f in record["functions"]
-        ]
-    return out
-
-
-def entry_points(
-    repo: Path, prefixes: set[str], components: dict[str, Any], sources: dict[str, str]
-) -> list[dict[str, str]]:
-    """Read entry points from the source tree.
-
-    Include console scripts, `__main__`, `main`, literal argparse subcommands, and
-    public package-root functions. `systemap.ways_in` adds framework routes, click,
-    typer, cleo, Django commands, tasks, and plugin hooks.
-
-    Judgement gives findings for entry points without examined sequences.
-    A subcommand records its console script so the display can use the typed command.
-    """
-    scripts = {
-        name: (module, func)
-        for name, (module, func) in sorted(console_scripts(repo).items())
-        if module in components
-    }
-    script_of_module = {module: name for name, (module, _f) in scripts.items()}
-    out: list[dict[str, str]] = []
-    for name, (module, func) in scripts.items():
-        out.append({"kind": "console_script", "name": name, "module": module, "target": func})
-    for module, record in sorted(components.items()):
-        out += _plain_ways(module, record, module in prefixes)
-        out += [
-            {
-                "kind": "subcommand",
-                "name": sub,
-                "module": module,
-                "target": script_of_module.get(module, ""),
-            }
-            for sub in subcommands(sources.get(module, ""))
-        ]
-        out += ways_in.in_source(module, sources.get(module, ""))
-    out += ways_in.in_pyproject(ways_in.read_pyproject(repo), components)
-    return _once_each(out)
-
-
-def _once_each(points: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Keep each entry point one time when source readers find identical records."""
-    seen: set[tuple[str, str, str, str]] = set()
-    kept = []
-    for point in points:
-        key = (point["kind"], point["name"], point["module"], point["target"])
-        if key not in seen:
-            seen.add(key)
-            kept.append(point)
-    return kept
-
-
-def entry_label(point: dict[str, str]) -> str:
-    """Give the entry point a display name for the reader."""
-    kind, name, module, target = point["kind"], point["name"], point["module"], point["target"]
-    if kind == "console_script":
-        return f"{name} (console script)"
-    if kind == "main_module":
-        return name
-    if kind == "main_function":
-        return f"main() in {module}"
-    if kind == "subcommand":
-        return f"{target} {name} (subcommand)" if target else f"{name} (subcommand in {module})"
-    return ways_in.label(point) or f"{name}() in {module}"
-
-
-def entry_identity(point: dict[str, str]) -> str:
-    """Get an entry-point identity that is separate from its display name."""
-    return json.dumps(
-        [point["kind"], point["module"], point.get("target", ""), point["name"]],
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
-
-
-def unknown_fact_lines(facts: dict[str, Any]) -> list[str]:
-    """The TypeScript facts this extractor could not fully read or connect."""
-    out: list[str] = []
-    for module, record in sorted(facts.get("components", {}).items()):
-        file = record.get("file", module)
-        if issue := record.get("parse_error"):
-            location = f"{file}:{issue['line']}" if issue.get("line") else file
-            out.append(
-                f"unknown surface: module {module} ({location}): {issue['reason']} "
-                f"under Python {issue['parser']}"
-            )
-        for issue in record.get("unknown", []):
-            line = issue.get("line", 0)
-            location = f"{file}:{line}" if line else file
-            out.append(f"unknown surface: module {module} ({location}): {issue['reason']}")
-    for issue in facts.get("entry_point_issues", []):
-        out.append(
-            f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
-            f"{issue['reason']}"
-        )
-    for issue in facts.get("test_file_issues", []):
-        problem = issue["problem"]
-        out.append(
-            f"unknown surface: test file {issue['file']}:{problem.get('line', 0)}: "
-            f"{problem['reason']}"
-        )
-    for issue in facts.get("config_issues", []):
-        out.append(
-            f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
-            "the npm tsconfig package could not be read"
-        )
-    return out
-
-
-def inventory_issue_lines(facts: dict[str, Any]) -> list[str]:
-    """List files with an unresolved source inventory."""
-    out: list[str] = []
-    for module, record in sorted(facts.get("components", {}).items()):
-        if not source_parsed(record):
-            out.append(f"source inventory unresolved: {module} ({record['file']})")
-    for issue in facts.get("test_file_issues", []):
-        out.append(f"source inventory unresolved: test file {issue['file']}")
-    return out
-
-
-def _source_paths(cfg: Config, language: LanguageAdapter) -> dict[str, Path]:
-    repo = cfg.root
-    paths: dict[str, Path] = {}
-    for pkg_dir, pkg_name in cfg.roots:
-        for path in language.source_paths(pkg_dir, repo, cfg.test_dirs, cfg.test_patterns):
-            module = language.module_of(path, pkg_dir, pkg_name)
-            if module in paths and paths[module] != path:
-                first = paths[module].relative_to(repo).as_posix()
-                second = path.relative_to(repo).as_posix()
-                raise ConfigError(
-                    f"module id {module} is shared by {first} and {second}. Rename one file"
-                )
-            paths[module] = path
-    return paths
-
-
-def _module_facts(
-    cfg: Config,
-    language: LanguageAdapter,
-    module: str,
-    path: Path,
-    prefixes: set[str],
-    known: set[str],
-    paths: dict[str, Path],
-    context: Any,
-) -> tuple[dict[str, Any], str, set[str]] | None:
-    record = language.collect_module(
-        path, cfg.root, module, frozenset(prefixes), known, paths, context
-    )
-    if record is None:
-        return None
-    record["id"] = module
-    record["package"] = module.split(".")[0]
-    record["plane"] = plane_of(module, cfg.planes)
-    try:
-        raw = repo_files.read_text(cfg.root, repo_files.relative(cfg.root, path), "utf-8-sig")
-    except (OSError, UnicodeError):
-        raw = ""
-    uses = language.internal_uses(
-        raw,
-        prefixes,
-        known,
-        module=module,
-        is_package=path.name == "__init__.py",
-        repo=cfg.root,
-        paths=paths,
-        context=context,
-    )
-    uses.pop(module, None)
-    record["uses"] = {
-        target: [WHOLE_MODULE] if WHOLE_MODULE in names else sorted(names)
-        for target, names in sorted(uses.items())
-    }
-    record["external"] = language.external_imports(
-        raw, prefixes, module=module, repo=cfg.root, paths=paths, context=context
-    )
-    # Source that did not parse can hide imports: the list is then not known (None).
-    record["completeness"]["unresolved_imports"] = (
-        language.unresolved_imports(raw, prefixes, known, module, cfg.root, paths, context)
-        if record["completeness"]["parsed"]
-        else None
-    )
-    return record, raw, set(uses)
-
-
-def _collect_modules(
-    cfg: Config,
-    language: LanguageAdapter,
-    paths: dict[str, Path],
-    prefixes: set[str],
-    context: Any,
-) -> tuple[dict[str, Any], dict[str, set[str]], dict[str, str]]:
-    known = set(paths)
-    components: dict[str, Any] = {}
-    imports: dict[str, set[str]] = {}
-    sources: dict[str, str] = {}
-    for module, path in sorted(paths.items()):
-        facts = _module_facts(cfg, language, module, path, prefixes, known, paths, context)
-        if facts is None:
-            continue
-        record, raw, uses = facts
-        sources[module] = raw
-        imports[module] = uses
-        components[module] = record
-    return components, imports, sources
-
-
-def _link_importers(components: dict[str, Any], imports: dict[str, set[str]]) -> None:
-    importers: dict[str, set[str]] = defaultdict(set)
-    for module, deps in imports.items():
-        for dep in deps:
-            importers[dep].add(module)
-    for module, record in components.items():
-        record["imports"] = sorted(imports.get(module, set()))
-        record["imported_by"] = sorted(importers.get(module, set()))
-
-
-def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[str, Any]]]) -> None:
-    for module, record in components.items():
-        seen: set[str] = set()
-        unique: list[dict[str, Any]] = []
-        for item in guards.get(module, []):
-            if item["name"] in seen:
-                continue
-            seen.add(item["name"])
-            unique.append(item)
-        unique.sort(key=lambda t: (not t["primary"], t["name"]))
-        record["tests_total"] = len(unique)
-        record["tests_primary"] = sum(1 for t in unique if t["primary"])
-        record["tests_digest"] = hashlib.sha256(
-            json.dumps(sorted(t["name"] for t in unique)).encode("utf-8")
-        ).hexdigest()
-        # The full list is recoverable from the tree; the map keeps a sample so
-        # a committed file that changes on every merge stays diffable by eye.
-        # Names only: the sentence is derived where it is displayed.
-        record["tests"] = [t["name"] for t in unique[:TESTS_KEPT]]
-
-
-def _provenance(cfg: Config, context: Any) -> dict[str, Any]:
-    compiler = getattr(context, "compiler", None)
-    settings = {
-        "language": cfg.language,
-        "roots": cfg.package_roots,
-        "tests_dirs": cfg.test_dirs,
-        "test_patterns": cfg.test_patterns,
-        "planes": cfg.planes,
-        "spec_path": cfg.spec_path,
-        # Installed npm packages can change the compiler settings: a separate record.
-        "compiler": None,
-    }
-    files: dict[str, str] = {}
-    for relative in ("pyproject.toml", "package.json", "tsconfig.json"):
-        path = cfg.root / relative
-        if path.is_file():
-            files[relative] = source_text.text_digest(path.read_bytes())
-    # CPython patch releases share a grammar. A minor release can change the
-    # AST. The drift comparison finds a change of the facts that it gives.
-    parser = f"{sys.version_info.major}.{sys.version_info.minor}"
-    if cfg.language == "typescript":
-        parser = ", ".join(
-            f"{package} {importlib.metadata.version(package)}"
-            for package in ("tree-sitter", "tree-sitter-typescript")
-        )
-    return {
-        "parser": parser,
-        "settings": hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest(),
-        "files": files,
-        **source_text.compiler_record(compiler, cfg.root),
-    }
-
-
-def _facts_file(
-    cfg: Config,
-    prefixes: set[str],
-    components: dict[str, Any],
-    tests_dirs: tuple[str, ...],
-    points: list[dict[str, str]],
-    entry_issues: list[dict[str, str]],
-    context: Any,
-) -> dict[str, Any]:
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=cfg.root, capture_output=True, text=True
-    )
-    facts = {
-        "version": FORMAT,
-        "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
-        "packages": sorted(prefixes),
-        "provenance": _provenance(cfg, context),
-        "tests_dirs": list(tests_dirs),
-        "spec_sections": spec_sections(cfg.root, cfg.spec_path),
-        "entry_points": points,
-        "components": components,
-    }
-    if entry_issues:
-        facts["entry_point_issues"] = entry_issues
-    test_issues = getattr(context, "test_issues", [])
-    if cfg.language == "typescript":
-        facts["entry_point_issues"] = entry_issues
-        facts["test_file_issues"] = test_issues
-        facts["config_issues"] = [
-            {"file": file, "reference": reference} for file, reference in context.compiler.issues
-        ]
-    return facts
-
-
-def build(cfg: Config) -> dict[str, Any]:
-    """Make facts for the tree at `cfg.root`, ready for JSON output."""
-    repo = cfg.root
-    language = language_for(cfg)
-    roots = cfg.roots
-    prefixes = {name for _, name in roots}
-    paths = _source_paths(cfg, language)
-    context = language.context(repo, paths, cfg.test_dirs, cfg.test_patterns)
-    components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context)
-    # Re-export kinds require every defining module to have been parsed.
-    resolve_reexports(components)
-    _link_importers(components, imports)
-    guards = language.collect_tests(repo, cfg.test_dirs, prefixes, paths, context)
-    _attach_test_facts(components, guards)
-    points, issues = language.entry_points(repo, prefixes, components, sources, context)
-    return _facts_file(cfg, prefixes, components, cfg.test_dirs, points, issues, context)
-
-
-def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
-    """Compare stored facts with extracted facts. An empty list means no differences."""
-    out: list[str] = []
-    new_c, old_c = fresh["components"], (stored or {}).get("components", {})
-    # A file written by an older extractor records less than this one
-    # reads (a re-export, say), whatever the tree did since.
-    if stored and stored.get("version") != fresh.get("version"):
-        out.append(
-            f"facts format {stored.get('version')} is older than the extractor's "
-            f"{fresh.get('version')}; the file records less than the extractor reads"
-        )
-    # The parser and compiler records can be different on another computer.
-    # The comparisons below find a change of the facts that they give.
-    if stored and source_text.inputs_changed(stored.get("provenance"), fresh.get("provenance")):
-        out.append("extraction inputs changed since the map was built")
-    out.extend(_entry_drift(fresh, stored))
-    added = sorted(set(new_c) - set(old_c))
-    gone = sorted(set(old_c) - set(new_c))
-    moved = sorted(m for m in set(new_c) & set(old_c) if new_c[m]["sha"] != old_c[m]["sha"])
-    # A source module's hash says nothing about the TESTS that guard it. A new
-    # test file changes what the system guarantees without touching a single
-    # module, and comparing only shas would let that pass as current. `fresh`
-    # is a full rebuild, so the attribution is authoritative here.
-    guards_changed = sorted(
-        m
-        for m in set(new_c) & set(old_c)
-        if new_c[m].get("tests_digest") != old_c[m].get("tests_digest")
-    )
-    for m in added:
-        out.append(f"missing from the map: {m}")
-    for m in gone:
-        out.append(f"in the map but gone from the tree: {m}")
-    for m in moved:
-        out.append(f"code changed since the map was built: {m}")
-    out.extend(_component_drift(new_c, old_c, moved, guards_changed))
-    return out
-
-
-def _entry_drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
-    """Compare entry points separately because a pyproject edit has no module hash."""
-    new_entries = fresh.get("entry_points", [])
-    old_entries = (stored or {}).get("entry_points", [])
-    new_e = {entry_label(e) for e in new_entries}
-    old_e = {entry_label(e) for e in old_entries}
-    out = [f"entry point not in the map: {label}" for label in sorted(new_e - old_e)]
-    out += [
-        f"entry point in the map but gone from the tree: {label}" for label in sorted(old_e - new_e)
-    ]
-    if {json.dumps(e, sort_keys=True) for e in new_entries} != {
-        json.dumps(e, sort_keys=True) for e in old_entries
-    } and new_e == old_e:
-        out.append("entry point targets changed since the map was built")
-    return out
-
-
-def _component_drift(
-    new_c: dict[str, Any], old_c: dict[str, Any], moved: list[str], guards_changed: list[str]
-) -> list[str]:
-    """Compare derived module facts and test references after source changes."""
-    out: list[str] = []
-    derived = (
-        "uses",
-        "imports",
-        "imported_by",
-        "external",
-        "names",
-        "functions",
-        "classes",
-        "errors",
-        "constants",
-        "unknown",
-        "parse_error",
-        "completeness",
-    )
-    for m in sorted(set(new_c) & set(old_c) - set(moved)):
-        if any(new_c[m].get(key) != old_c[m].get(key) for key in derived):
-            out.append(f"derived facts changed since the map was built: {m}")
-    for m in guards_changed:
-        was = (old_c[m] or {}).get("tests_total", 0)
-        now = new_c[m].get("tests_total", 0)
-        out.append(f"tests guarding it changed ({was} -> {now}): {m}")
-    return out
-
-
-def mapping_drift(fresh: dict[str, Any], model: Model, prefixes: set[str]) -> list[str]:
-    """Find claimed modules absent from the source tree.
-
-    Component module claims are authored input. A rename can leave a claim for an
-    absent module. This function finds that difference and also examines layout.
-    """
-    known = set(fresh["components"])
-    out: list[str] = []
-    for c in model.components:
-        for m in c.implemented_by:
-            # A symbol claim names its module before the colon; the name
-            # itself is the entry rule's business.
-            module = m.partition(":")[0] if is_symbol(m) else m
-            if module.split(".")[0] in prefixes and not any(
-                module_matches(module, k) for k in known
-            ):
-                out.append(
-                    f"{c.id} has a module claim for {module}, which is missing from the facts."
-                )
-    out.extend(f"layout: {p}" for p in model.layout_problems())
-    return out
 
 
 def read_facts(path: Path) -> dict[str, Any]:
@@ -1486,27 +1016,6 @@ def write_facts(path: Path, facts: dict[str, Any]) -> None:
     path.write_text(dumps(facts), encoding="utf-8", newline="\n")
 
 
-def is_empty_marker(record: Mapping[str, Any]) -> bool:
-    """Determine whether a record is an empty package marker.
-
-    The file must be `__init__.py`, without public names, internal imports, external
-    imports, parse errors, unknown records, or top-level calls.
-    Coverage excludes these markers, and the extraction summary lists them.
-    A root that re-exports names or imports modules is not empty.
-    The summary and coverage rule use this same definition.
-    """
-    if not str(record.get("file", "")).endswith("__init__.py"):
-        return False
-    if record.get("parse_error") or record.get("unknown") or record.get("executes"):
-        return False
-    return not public_names(record) and not record.get("imports") and not record.get("external")
-
-
-def empty_markers(facts: Mapping[str, Any]) -> list[str]:
-    """List each empty package marker by module name."""
-    return sorted(m for m, r in facts.get("components", {}).items() if is_empty_marker(r))
-
-
 def summary(facts: dict[str, Any]) -> list[str]:
     """Give extraction counts with their source fields.
 
@@ -1538,7 +1047,7 @@ def summary(facts: dict[str, Any]) -> list[str]:
     markers = empty_markers(facts)
     if markers:
         out.append(
-            f"  empty package markers: {len(markers)} ({', '.join(markers)}). Each is an "
-            "__init__ with no public names and no imports. The coverage rule omits them."
+            f"  empty package markers: {len(markers)} ({', '.join(markers)}). Each only marks a "
+            "package and holds no code. The coverage rule omits them."
         )
     return out

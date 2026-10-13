@@ -11,7 +11,7 @@ import fixture_workspace
 import pytest
 from conftest import Sample, init_two_cards, sample_model, write_tree
 
-from systemap import config, extract, judgement, nest
+from systemap import config, extract, judgement, nest, source_facts
 from systemap.cli import main
 from systemap.config import Answer
 from systemap.model import Component, Flow, Journey, Layer, Meaning, Model, Region, Step
@@ -81,7 +81,13 @@ def _claims(*modules: str, does: str = "Keeps every record ever written.") -> Mo
 
 
 def _facts(*modules: str) -> dict[str, Any]:
-    return {"components": {m: {"functions": [], "classes": [], "uses": {}} for m in modules}}
+    """Give facts as the Python adapter writes them, with the parent package of each module."""
+    return {
+        "components": {
+            m: {"functions": [], "classes": [], "uses": {}, "package": m.rpartition(".")[0] or m}
+            for m in modules
+        }
+    }
 
 
 def test_mis_fold_fires_only_on_a_stranger_in_a_foreign_package() -> None:
@@ -109,11 +115,13 @@ def test_mis_fold_fires_only_on_a_stranger_in_a_foreign_package() -> None:
     # A subpackage's own root, claimed beside its children, sits with them.
     modules = ("pkg.util", "pkg.util.retry")
     assert judgement.mis_folds(_claims(*modules), meaning, _facts(*modules)) == []
-    assert judgement.package_of("pkg") == "pkg"
-    assert judgement.package_of("pkg.util.retry") == "pkg.util"
-    assert judgement.share_a_package("pkg.util", "pkg.util.retry")
-    assert judgement.share_a_package("pkg.a", "pkg.b")
-    assert not judgement.share_a_package("pkg.a.x", "pkg.b.y")
+    facts = _facts("pkg", "pkg.util", "pkg.util.retry", "pkg.a", "pkg.b", "pkg.a.x", "pkg.b.y")
+    comps = facts["components"]
+    assert source_facts.package_of("pkg", comps) == "pkg"
+    assert source_facts.package_of("pkg.util.retry", comps) == "pkg.util"
+    assert judgement.share_a_package("pkg.util", "pkg.util.retry", comps)
+    assert judgement.share_a_package("pkg.a", "pkg.b", comps)
+    assert not judgement.share_a_package("pkg.a.x", "pkg.b.y", comps)
 
 
 def test_mis_fold_count_on_the_workspace_fixture() -> None:
@@ -519,7 +527,7 @@ def entry_model() -> tuple[Model, Meaning]:
 
 
 def test_entry_points_without_journey() -> None:
-    from systemap.extract import entry_identity
+    from systemap.source_facts import entry_identity
 
     model, meaning = entry_model()
     lines = judgement.entry_points_without_journey(model, meaning, entry_facts())

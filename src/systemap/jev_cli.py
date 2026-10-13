@@ -28,6 +28,7 @@ from systemap import (
     delta,
     evidence,
     extract,
+    extraction,
     history,
     jev,
     journeys,
@@ -35,6 +36,7 @@ from systemap import (
     model_write,
     nest,
     providers,
+    source_facts,
 )
 from systemap import plan as plan_mod
 from systemap.decision import (
@@ -404,7 +406,7 @@ def pair_candidates(facts: dict[str, Any], mods: list[str]) -> list[tuple[str, s
     known = set(mods)
     by_package: dict[str, list[str]] = {}
     for m in mods:
-        by_package.setdefault(m.rsplit(".", 1)[0], []).append(m)
+        by_package.setdefault(source_facts.package_of(m, facts["components"]), []).append(m)
     pairs = {(a, b) for ms in by_package.values() for a, b in zip(ms, ms[1:], strict=False)}
     for a in mods:
         for b in facts["components"][a].get("imports", []):
@@ -448,7 +450,7 @@ def suggest_groups(
 ) -> list[str]:
     """Give the module groups. A refusal gives no pair. The output gives the count of refusals."""
     comps = facts["components"]
-    mods = sorted(m for m in comps if not extract.is_empty_marker(comps[m]))
+    mods = sorted(m for m in comps if not source_facts.is_empty_marker(comps[m]))
     questions = [same_question(cfg, facts, a, b) for a, b in pair_candidates(facts, mods)]
     same_at = decision.value(decision.thresholds(provider.name), "same_at")
     answers = provider.decide(questions)
@@ -579,7 +581,7 @@ def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
 def _plan_facts(cfg: config.Config, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """Get base facts and working-tree facts for plan comparison."""
     sha = delta.merge_base(cfg.root, base, "HEAD")
-    return history.facts_at(cfg, sha), extract.build(cfg)
+    return history.facts_at(cfg, sha), extraction.build(cfg)
 
 
 def _check_lines(

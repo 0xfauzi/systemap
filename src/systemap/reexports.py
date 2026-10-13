@@ -1,12 +1,16 @@
 """The re-export resolver gives each re-exported public name the kind of its definition.
 
-It reads the module records of one extraction. Python and TypeScript use the same rules.
+It reads the module records of one extraction. The rules are the same for each language.
+The adapter writes the language rules into the records: `star` marks a `*` re-export, and
+`star_export` set to `false` marks a name that a `*` re-export does not give.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any
+
+from systemap.source_facts import package_of
 
 
 def resolve_reexports(components: dict[str, Any]) -> None:
@@ -94,10 +98,13 @@ def _resolve_named_reexport(entry: dict[str, Any], components: dict[str, Any]) -
 def _submodule(source: str, name: str, components: dict[str, Any]) -> bool:
     """This function tells if `source.name` is a module that the name refers to.
 
-    A TypeScript file name such as `logger.config.ts` gives a module id that looks like
-    a child of `logger`. A name that the source module defines is not that module.
+    The module must be in the package `source`, as its `package` fact gives. A file
+    name with a dot gives a module id that looks like a child of another module, but
+    its package is its folder. A name that the source module defines is not that module.
     """
-    return f"{source}.{name}" in components and _definition(source, name, components) is None
+    child = f"{source}.{name}"
+    in_package = child in components and package_of(child, components) == source
+    return in_package and _definition(source, name, components) is None
 
 
 def _definition(source: str, name: str, components: dict[str, Any]) -> dict[str, Any] | None:
@@ -119,7 +126,7 @@ def _defined_kind(
         return "unknown"
     item = _definition(source, name, components)
     if item is None:
-        return "module" if f"{source}.{name}" in components else "unknown"
+        return "module" if _submodule(source, name, components) else "unknown"
     if item["kind"] == "reexport":
         return _defined_kind(
             item["reexport_of"],
@@ -131,13 +138,16 @@ def _defined_kind(
 
 
 def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
-    """The public names reached through local `export *` statements."""
+    """The public names reached through local `*` re-exports.
+
+    A name with `star_export` set to `false` is not in a `*` re-export. A name without the
+    field is in it."""
     if module not in components or module in visited:
         return []
     out: list[dict[str, Any]] = []
     for entry in components[module].get("names", []):
         if entry.get("star"):
             out.extend(_star_names(entry["reexport_of"], components, visited | {module}))
-        elif entry.get("name") != "default":
+        elif entry.get("star_export", True) is not False:
             out.append(entry)
     return out

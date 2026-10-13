@@ -146,7 +146,7 @@ def agent_model() -> tuple[Model, Meaning]:
 @pytest.fixture
 def agentic(tmp_path: Path) -> Sample:
     write_tree(tmp_path, AGENT_TREE)
-    cfg = Config(root=tmp_path, name="bot", package_roots=(("bot", "bot"),))
+    cfg = Config(root=tmp_path, name="bot", package_roots=(("bot", "bot"),), language="python")
     model, meaning = agent_model()
     facts = build_facts(cfg)
     return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)

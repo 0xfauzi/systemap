@@ -204,9 +204,13 @@ def test_symbol_claims_in_the_model_helpers() -> None:
     }
     assert defines_entry(tool, facts)
     assert not defines_entry(dataclasses.replace(tool, entry="other"), facts)
-    assert lives_in(["bot.agent:search"]) == "bot/agent.py:search"
-    assert lives_in(["bot.agent", "bot.agent:search"]) == "bot/agent.py, bot/agent.py:search"
-    assert lives_in(["a.b.c:x", "a.b.d", "a.b.e", "a.b.f"]) == "a/b/ (4 modules)"
+    files = {m: {"file": m.replace(".", "/") + ".py"} for m in ("bot.agent", "a.b.c", "a.b.d")}
+    files |= {m: {"file": m.replace(".", "/") + ".py"} for m in ("a.b.e", "a.b.f")}
+    assert lives_in(["bot.agent:search"], files) == "bot/agent.py:search"
+    assert lives_in(["bot.agent", "bot.agent:search"], files) == (
+        "bot/agent.py, bot/agent.py:search"
+    )
+    assert lives_in(["a.b.c:x", "a.b.d", "a.b.e", "a.b.f"], files) == "a/b/ (4 modules)"
     # The judgement's single-module line reads modules, not symbols, without facts.
     model = Model(
         canvas=(1, 1), containers=(), regions=(), components=(tool,), flows=(), flow_kinds=()

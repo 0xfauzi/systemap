@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import config, extract, skill
+from systemap import config, extract, extraction, python_repo, skill, source_facts
 from systemap.cli import main
 
 
@@ -68,15 +68,15 @@ def test_python_provenance_tracks_minor_version_not_patch(
 
     def provenance(major: int, minor: int, micro: int) -> dict[str, object]:
         version_info = SimpleNamespace(major=major, minor=minor, micro=micro)
-        monkeypatch.setattr(extract, "sys", SimpleNamespace(version_info=version_info))
-        return extract._provenance(cfg, None)
+        monkeypatch.setattr(python_repo, "sys", SimpleNamespace(version_info=version_info))
+        return extraction._provenance(cfg, extract.PYTHON, None)
 
     try:
         first = provenance(3, 11, 10)
         patch_release = provenance(3, 11, 16)
         next_minor = provenance(3, 12, 0)
     finally:
-        monkeypatch.setattr(extract, "sys", original_sys)
+        monkeypatch.setattr(python_repo, "sys", original_sys)
 
     assert first == patch_release
     assert first["parser"] == "3.11"
@@ -144,17 +144,59 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
     write_tree(tmp_path, ENTRY_TREE)
     facts = extract.build(config.load(tmp_path))
     assert facts["entry_points"] == [
-        {"kind": "console_script", "name": "pkg", "module": "pkg.cli", "target": "main"},
-        {"kind": "public_function", "name": "open_thing", "module": "pkg", "target": ""},
-        {"kind": "main_module", "name": "python -m pkg", "module": "pkg.__main__", "target": ""},
-        {"kind": "main_function", "name": "main", "module": "pkg.cli", "target": "main"},
-        {"kind": "subcommand", "name": "init", "module": "pkg.cli", "target": "pkg"},
-        {"kind": "subcommand", "name": "check", "module": "pkg.cli", "target": "pkg"},
-        {"kind": "main_function", "name": "main", "module": "pkg.worker", "target": "main"},
+        {
+            "kind": "console_script",
+            "name": "pkg",
+            "module": "pkg.cli",
+            "target": "main",
+            "label": "pkg (console script)",
+        },
+        {
+            "kind": "public_function",
+            "name": "open_thing",
+            "module": "pkg",
+            "target": "",
+            "label": "open_thing() in pkg",
+        },
+        {
+            "kind": "main_module",
+            "name": "python -m pkg",
+            "module": "pkg.__main__",
+            "target": "",
+            "label": "python -m pkg",
+        },
+        {
+            "kind": "main_function",
+            "name": "main",
+            "module": "pkg.cli",
+            "target": "main",
+            "label": "main() in pkg.cli",
+        },
+        {
+            "kind": "subcommand",
+            "name": "init",
+            "module": "pkg.cli",
+            "target": "pkg",
+            "label": "pkg init (subcommand)",
+        },
+        {
+            "kind": "subcommand",
+            "name": "check",
+            "module": "pkg.cli",
+            "target": "pkg",
+            "label": "pkg check (subcommand)",
+        },
+        {
+            "kind": "main_function",
+            "name": "main",
+            "module": "pkg.worker",
+            "target": "main",
+            "label": "main() in pkg.worker",
+        },
     ]
     # A script pointing outside the package is not this package's entry
     # point; a subcommand built from a variable is not detected.
-    labels = [extract.entry_label(e) for e in facts["entry_points"]]
+    labels = [source_facts.entry_label(e) for e in facts["entry_points"]]
     assert labels == [
         "pkg (console script)",
         "open_thing() in pkg",
@@ -165,7 +207,9 @@ def test_extract_records_entry_points(tmp_path: Path) -> None:
         "main() in pkg.worker",
     ]
     assert (
-        extract.entry_label({"kind": "subcommand", "name": "go", "module": "p.m", "target": ""})
+        source_facts.entry_label(
+            {"kind": "subcommand", "name": "go", "module": "p.m", "target": ""}
+        )
         == "go (subcommand in p.m)"
     )
 
@@ -326,7 +370,7 @@ def test_workspace_roots_and_tests_directories_are_discovered(tmp_path: Path) ->
         ("packages/beta/beta", "beta"),
     )
     assert cfg.name == "wharf", "[project] name comes before the directory name"
-    assert config.discover_tests(tmp_path) == [
+    assert config.discover_tests(tmp_path, python_repo.package_dir) == [
         "tests",
         "packages/alpha/tests",
         "packages/beta/test",
@@ -388,10 +432,10 @@ def test_no_roots_names_the_candidate_directories(
             "MODEL = Model((1, 1), (), (), (), (), ())\nMEANING = Meaning(plain={})\n",
         },
     )
-    assert config.discover_roots(tmp_path) == []
+    assert python_repo.discover_roots(tmp_path) == []
     # Depth four: services/api/app/deep is listed if it holds an __init__.py (it does
     # not), and six deep is past the search.
-    assert config.candidate_packages(tmp_path) == ["lib/x", "services/api/app"]
+    assert python_repo.candidate_packages(tmp_path) == ["lib/x", "services/api/app"]
     assert main(["--root", str(tmp_path), "extract"]) == 2
     err = capsys.readouterr().err
     assert "No package roots are available" in err
@@ -432,7 +476,9 @@ def test_name_defaults_to_pyproject_then_the_repository_directory(tmp_path: Path
     assert config.load(main_dir).name == "main"
     worktree = tmp_path / "feature-branch-worktree"
     git("worktree", "add", "-q", str(worktree), "-b", "feature")
-    assert config.default_name(worktree) == "main", "a worktree is named after its checkout"
+    assert config.default_name(worktree, "python") == "main", (
+        "a worktree is named after its checkout"
+    )
     write_tree(worktree, {"pyproject.toml": '[project]\nname = "wharf"\n'})
     assert config.load(worktree).name == "wharf"
     plain = tmp_path / "plain-dir"

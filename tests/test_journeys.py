@@ -19,7 +19,8 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import agent, extract, journeys, nest, scaffold
+from systemap import agent, journeys, nest, scaffold, source_facts
+from systemap import language as languages
 from systemap.cli import main
 from systemap.config import Config, load
 from systemap.jev_cli import cmd_journeys
@@ -75,7 +76,7 @@ def test_a_way_in_a_journey_explicitly_covers_is_not_asked_about() -> None:
         label="read one",
         steps=(WALK_STEP,),
         starts="GET /a",
-        covers=(extract.entry_identity(route("GET /a")),),
+        covers=(source_facts.entry_identity(route("GET /a")),),
     )
     left = journeys.uncovered(Meaning(plain={}, journeys=(walk,)), facts)
     assert [p["name"] for p in left] == ["GET /b"]
@@ -86,7 +87,7 @@ def test_the_agent_is_told_the_cards_the_flows_and_where_to_read(sample: Any) ->
     told = journeys.context(sample.model, sample.meaning, facts_with([where]), alone(where))
     assert told["way_in"] == {
         "named": "GET /a (route)",
-        "identity": extract.entry_identity(where),
+        "identity": source_facts.entry_identity(where),
         "kind": "route",
         "module": "pkg.reader",
         "file": "pkg/reader.py",
@@ -173,7 +174,9 @@ def test_the_walk_is_written_into_the_model_where_its_journeys_are_named() -> No
 def test_the_walk_is_written_into_the_annotated_list_of_the_initial_model() -> None:
     draft = read(ANSWER)
     assert draft.journey is not None
-    source = scaffold.files("demo", "pkg", [("pkg", "pkg")])["map/model.py"]
+    source = scaffold.files(
+        "demo", "pkg", [("pkg", "pkg")], language=languages.repository("python")
+    )["map/model.py"]
     assert "JOURNEYS: tuple[Journey, ...] = ()\n" in source
     grown = journeys.add_to_source(source, draft.journey)
     assert grown is not None
@@ -288,7 +291,7 @@ def test_a_way_in_the_extractor_finds_is_the_one_the_agent_is_asked_about(
     two_cards: Config,
 ) -> None:
     facts = json.loads(two_cards.facts_path.read_text(encoding="utf-8"))
-    points = [extract.entry_label(p) for p in facts["entry_points"]]
+    points = [source_facts.entry_label(p) for p in facts["entry_points"]]
     assert "GET /read (route)" in points
 
 
@@ -342,7 +345,11 @@ def test_entry_identity_separates_modules_and_kinds() -> None:
     task = {**first, "kind": "task"}
     facts = facts_with([first, second, task])
     walk = Journey(
-        "read", "Read", (WALK_STEP,), starts="GET /read", covers=(extract.entry_identity(first),)
+        "read",
+        "Read",
+        (WALK_STEP,),
+        starts="GET /read",
+        covers=(source_facts.entry_identity(first),),
     )
     left = journeys.uncovered(Meaning(plain={}, journeys=(walk,)), facts)
     assert left == [second, task]
@@ -357,7 +364,7 @@ def test_legacy_words_are_candidates_and_empty_walks_fail_validation() -> None:
     meaning = Meaning(plain={"Reader": "reader", "Writer": "writer"}, journeys=(legacy,))
     assert journeys.uncovered(meaning, facts) == [point]
     assert any("Then set covers=" in line for line in judgement.journey_problems(meaning, facts))
-    empty = Journey("empty", "Empty", (), covers=(extract.entry_identity(point),))
+    empty = Journey("empty", "Empty", (), covers=(source_facts.entry_identity(point),))
     invalid = Meaning(plain=meaning.plain, journeys=(empty,))
     assert journeys.uncovered(invalid, facts) == [point]
     assert "journey empty has no steps" in "\n".join(meaning_problems(two_card_model(), invalid))
@@ -398,7 +405,7 @@ def test_the_agent_is_shown_the_crowd_and_a_sample_of_it(sample: Any) -> None:
 
 def test_a_card_start_does_not_claim_new_routes(sample: Any) -> None:
     facts = crowd(9)
-    covers = tuple(extract.entry_identity(point) for point in facts["entry_points"][:8])
+    covers = tuple(source_facts.entry_identity(point) for point in facts["entry_points"][:8])
     walks = Meaning(
         plain={},
         journeys=(Journey(id="a", label="in", steps=(WALK_STEP,), starts="Reader", covers=covers),),
@@ -437,7 +444,7 @@ def test_describe_and_judgement_agree_that_a_crowd_is_walked(sample: Any) -> Non
                 label="in",
                 steps=(WALK_STEP,),
                 starts="Reader",
-                covers=tuple(extract.entry_identity(point) for point in facts["entry_points"]),
+                covers=tuple(source_facts.entry_identity(point) for point in facts["entry_points"]),
             ),
         ),
     )

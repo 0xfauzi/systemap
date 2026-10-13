@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import extract, nest
+from systemap import extraction, nest
 from systemap.config import Config, ConfigError
 
 # Git tree entry modes that this reader writes.
@@ -134,7 +134,7 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="systemap-delta-") as tmp:
         into = Path(tmp).resolve()
         write_tree(cfg.root, sha, into)
-        facts = extract.build(dataclasses.replace(cfg, root=into))
+        facts = extraction.build(dataclasses.replace(cfg, root=into))
     facts["built_at_commit"] = sha
     return facts
 

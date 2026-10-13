@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,8 +22,8 @@ from systemap.model import (
     Meaning,
     Model,
     claimed,
+    covers,
     is_symbol,
-    module_matches,
     source_parsed,
     symbol_claims,
 )
@@ -123,7 +123,12 @@ def _review(
     refs = tuple(flow.source_refs)
     changed = bool(refs) and flow.review_digest != flow_claim_digest(flow, meaning)
     unresolved = tuple(ref for ref in refs if not _resolves(ref, facts))
-    return refs, unresolved, changed, bool(refs) and not cites_an_endpoint(flow, model)
+    return (
+        refs,
+        unresolved,
+        changed,
+        bool(refs) and not cites_an_endpoint(flow, model, facts.get("components", {})),
+    )
 
 
 def ref_module(ref: str) -> str:
@@ -132,11 +137,14 @@ def ref_module(ref: str) -> str:
     return location.partition(":")[0]
 
 
-def _covers(pattern: str, module: str) -> bool:
-    """This function finds whether one implemented_by value puts the component in the module."""
+def _covers(pattern: str, module: str, components: Mapping[str, Any] | None) -> bool:
+    """This function finds whether one implemented_by value puts the component in the module.
+
+    The `package` fact of the module record gives its package. Without the records, the
+    dotted module name gives the package."""
     if is_symbol(pattern):
         return pattern.partition(":")[0] == module
-    return module_matches(pattern, module)
+    return covers(pattern, module, components)
 
 
 def endpoint_claims(flow: Flow, model: Model) -> tuple[str, ...]:
@@ -147,7 +155,9 @@ def endpoint_claims(flow: Flow, model: Model) -> tuple[str, ...]:
     return tuple(p for c in model.components if c.id in flow.edge for p in c.implemented_by)
 
 
-def cites_an_endpoint(flow: Flow, model: Model) -> bool:
+def cites_an_endpoint(
+    flow: Flow, model: Model, components: Mapping[str, Any] | None = None
+) -> bool:
     """This function finds whether a source record of the flow is in a module of an endpoint.
 
     A symbol claim puts its component in the module of the symbol. If no endpoint has a
@@ -155,7 +165,7 @@ def cites_an_endpoint(flow: Flow, model: Model) -> bool:
     """
     patterns = endpoint_claims(flow, model)
     modules = {ref_module(ref) for ref in flow.source_refs}
-    return not patterns or any(_covers(p, m) for p in patterns for m in modules)
+    return not patterns or any(_covers(p, m, components) for p in patterns for m in modules)
 
 
 def mentioned(name: str, text: str) -> bool:

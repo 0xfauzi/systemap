@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from systemap import card_review, delta, evidence, extract, history, journey_coverage
+from systemap import card_review, delta, evidence, extract, extraction, history, journey_coverage
 from systemap.config import Config
 from systemap.model import Component, Flow, Journey, Meaning, Model, Step
 
@@ -28,7 +28,7 @@ def _pending(
     model: Model, meaning: Meaning, base: dict[str, Any], head: dict[str, Any]
 ) -> list[delta.Line]:
     return delta._evidence_review_lines(
-        Config(Path("."), "Example", ()),
+        Config(Path("."), "Example", (), "python"),
         model,
         meaning,
         base,
@@ -82,16 +82,16 @@ def test_historical_cache_discards_pre_portability_hashes(
     ):
         subprocess.run(["git", "-C", str(tmp_path), *arguments], check=True)
     sha = delta.resolve(tmp_path, "HEAD")
-    cfg = Config(tmp_path, "Example", (("pkg", "pkg"),))
-    current_format = extract.FORMAT
-    monkeypatch.setattr(extract, "FORMAT", 3)
+    cfg = Config(tmp_path, "Example", (("pkg", "pkg"),), "python")
+    current_format = extraction.FORMAT
+    monkeypatch.setattr(extraction, "FORMAT", 3)
     old = history.facts_at(cfg, sha)
     old["components"]["pkg.reader"]["syntax_sha"] = "obsolete-python-313-hash"
     cache = next(history.cache_dir(cfg).glob("*.json"))
     cache.write_text(json.dumps(old), encoding="utf-8")
-    monkeypatch.setattr(extract, "FORMAT", current_format)
+    monkeypatch.setattr(extraction, "FORMAT", current_format)
     fresh = history.facts_at(cfg, sha)
-    assert fresh["version"] == 5
+    assert fresh["version"] == 6
     assert fresh["components"]["pkg.reader"]["syntax_sha"] != "obsolete-python-313-hash"
 
 

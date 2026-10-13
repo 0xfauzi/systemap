@@ -36,11 +36,22 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from systemap import change, config, delta, explain, extract, figure, history, nest, page, page_live
+from systemap import (
+    change,
+    config,
+    delta,
+    explain,
+    extraction,
+    figure,
+    history,
+    model_load,
+    nest,
+    page,
+    page_live,
+)
+from systemap import language as languages
 from systemap.config import ArgumentError, Config, ConfigError
 from systemap.model import problems as model_problems
-from systemap.source_text import PYTHON_SKIP
-from systemap.typescript_config import SOURCE_SKIP, SOURCE_SUFFIXES
 
 DEFAULT_PORT = 8765
 # Without --base, the first of these refs that has a merge base with HEAD is the
@@ -125,7 +136,7 @@ def render_tree(root: Path, base: str) -> Rendered:
     cfg = config.load(root)
     tree = nest.load(cfg)
     _no_problems(tree)
-    facts = extract.build(cfg)
+    facts = extraction.build(cfg)
     compared = {m.id: _compare(cfg, m, base, facts) for m in tree.maps}
     files = {
         m.page_path(cfg).relative_to(cfg.out_path).as_posix(): page.build(
@@ -500,19 +511,22 @@ def watched(root: Path, models: Iterable[Path] = ()) -> list[Path]:
         cfg = config.load(root)
     except ConfigError:
         return found
-    suffixes = (".py",) if cfg.language == extract.PYTHON.name else SOURCE_SUFFIXES
     for folder in {cfg.model_path.parent, *(path.parent for path in models)}:
-        found += sorted(folder.glob("*.py"))
+        found += sorted(folder.glob(model_load.MODEL_FILES))
+    if not cfg.language:
+        return found
+    adapter = languages.repository(cfg.language)
     tests = [root / rel for rel in cfg.test_dirs if rel]
     folders = [package for package, _name in cfg.roots] + tests
+    # Output folders hold no source of the project, for each language.
+    skip = adapter.skip_dirs | config.OUTPUT_DIRS
     for folder in folders:
-        found += _files(folder, suffixes)
+        found += _files(folder, adapter.source_suffixes, skip)
     return found
 
 
-def _files(folder: Path, suffixes: tuple[str, ...]) -> Iterator[Path]:
+def _files(folder: Path, suffixes: tuple[str, ...], skip: frozenset[str]) -> Iterator[Path]:
     """Give the files with the suffixes below the folder. Skip the folders without source."""
-    skip = PYTHON_SKIP | SOURCE_SKIP
     for here, folders, names in os.walk(folder):
         folders[:] = [name for name in folders if name not in skip]
         yield from (Path(here) / name for name in names if name.endswith(suffixes))

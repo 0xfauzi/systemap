@@ -23,7 +23,7 @@ from typing import Any
 
 from conftest import write_tree
 
-from systemap import card_review, config, evidence, extract, python_imports
+from systemap import card_review, config, evidence, extract, python_imports, source_facts
 from systemap.model import Component, Meaning, Model, source_parsed
 
 COMPLETE = {"parsed": True, "line": 0, "reason": "", "unresolved_imports": []}
@@ -80,7 +80,7 @@ def test_typescript_module_that_does_not_parse_gets_no_review_digest(tmp_path: P
     assert facts["components"]["web.ok"]["completeness"] == COMPLETE
     assert _states("web.ok", facts)[0] is not None
     assert "source inventory unresolved: web.broken (src/broken.ts)" in (
-        extract.inventory_issue_lines(facts)
+        source_facts.inventory_issue_lines(facts)
     )
     ref = f"web.broken@{broken['source_sha256']}"
     assert not evidence._resolves(ref, facts)

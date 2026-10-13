@@ -45,7 +45,7 @@ def with_call_site(tmp_path: Path) -> tuple[Config, dict, dict]:  # type: ignore
             "bot/prompt.py": "SYSTEM_PROMPT = 'be brief'\n\n\ndef render() -> str:\n    return SYSTEM_PROMPT\n",
         },
     )
-    cfg = Config(root=tmp_path, name="bot", package_roots=(("bot", "bot"),))
+    cfg = Config(root=tmp_path, name="bot", package_roots=(("bot", "bot"),), language="python")
     model, meaning = agent_model()
     model = dataclasses.replace(
         model,

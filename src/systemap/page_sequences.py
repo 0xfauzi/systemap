@@ -11,10 +11,10 @@ from __future__ import annotations
 import html
 from typing import Any
 
-from systemap.extract import entry_identity, entry_label
 from systemap.journey_coverage import ways_in_without_journey
 from systemap.model import Box, Journey, Meaning, Model
 from systemap.page_icons import icon
+from systemap.source_facts import entry_identity, entry_label
 
 # The region map in each row of the sequence list: 56 x 40 pixels.
 GLYPH_W, GLYPH_H = 72.0, 52.0

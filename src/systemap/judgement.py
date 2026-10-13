@@ -23,9 +23,9 @@ from pathlib import Path
 from typing import Any
 
 from systemap import card_review, evidence, explain, judgement_evidence, nest
+from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
 from systemap.evidence import mentioned, owners
-from systemap.extract import unknown_fact_lines
 from systemap.journey_coverage import (
     TOGETHER_AT as TOGETHER_AT,
 )
@@ -39,39 +39,20 @@ from systemap.journey_coverage import (
     crowd_label as crowd_label,
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
+from systemap.source_facts import package_of, unknown_fact_lines
 from systemap.source_text import text_digest
 
 __all__ = ["mentioned"]
 
 MIN_STEM = 4
-# Import names that mark a module as calling a model or running an agent
-# framework. Dotted where the namespace is shared. A cloud SDK that also
-# reaches a model (boto3) is too coarse to list. Each matches as a prefix
-# of the import written, so a framework fires for its non-model parts too;
+# The model SDK names of all language adapters. A command with a configuration
+# uses the list of the configured adapter (`sdk_list`). Each name matches as a
+# prefix of the import written, so a framework fires for its non-model parts too.
 # `[facts] model_sdks` removes one with a leading `-`.
-MODEL_SDKS: tuple[str, ...] = (
-    "anthropic",
-    "openai",
-    "google.generativeai",
-    "google.adk",
-    "litellm",
-    "langchain",
-    "langgraph",
-    "llama_index",
-    "mistralai",
-    "cohere",
-    "typesafe_sdk",
-    "vertexai",
-    # npm package names for TypeScript. A scope such as `@ai-sdk` matches each
-    # package in that scope.
-    "@anthropic-ai/sdk",
-    "@google/genai",
-    "@google/generative-ai",
-    "@mistralai/mistralai",
-    "@langchain",
-    "@ai-sdk",
-    "ai",
-    "cohere-ai",
+MODEL_SDKS: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        sdk for name in languages.names() for sdk in languages.repository(name).model_sdks
+    )
 )
 
 
@@ -121,17 +102,12 @@ def single_module(model: Model, facts: dict[str, Any]) -> list[str]:
     return out
 
 
-def package_of(module: str) -> str:
-    """This function gives the parent package, or the module itself if it has no parent."""
-    head, _, _ = module.rpartition(".")
-    return head or module
-
-
-def share_a_package(a: str, b: str) -> bool:
+def share_a_package(a: str, b: str, components: Mapping[str, Any]) -> bool:
     """This function finds whether two modules have the same package or one is the package
-    of the other.
+    of the other. The `package` facts of the adapter give the packages.
     """
-    return package_of(a) == package_of(b) or a == package_of(b) or b == package_of(a)
+    pa, pb = package_of(a, components), package_of(b, components)
+    return pa == pb or a == pb or b == pa
 
 
 def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
@@ -142,6 +118,7 @@ def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str
     same package with the selected module.
     """
     out: list[str] = []
+    components = facts.get("components", {})
     for c in model.components:
         modules = _modules_of(c, facts)
         if len(modules) < 2:
@@ -150,11 +127,12 @@ def mis_folds(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str
         for module in modules:
             if share_a_word(words(module), own):
                 continue
-            if any(share_a_package(module, m) for m in modules if m != module):
+            if any(share_a_package(module, m, components) for m in modules if m != module):
                 continue
             out.append(
                 f"possible mis-fold: {c.id} has the module claim {module} (no same word with "
-                f"the component, and no other component module in {package_of(module)})"
+                f"the component, and no other component module in "
+                f"{package_of(module, components)})"
             )
     return out
 
@@ -344,13 +322,13 @@ def model_sdk_imports(
     return out
 
 
-def sdk_list(configured: Iterable[str]) -> tuple[str, ...]:
-    """This function updates the built-in SDK list from configuration.
+def sdk_list(configured: Iterable[str], base: Iterable[str] = MODEL_SDKS) -> tuple[str, ...]:
+    """This function updates the SDK list of the language adapter from configuration.
 
     A name adds an SDK. A name with a leading hyphen removes an SDK. An attempt to
     remove a missing name gives a configuration error.
     """
-    out = list(MODEL_SDKS)
+    out = list(base)
     for entry in configured:
         if entry.startswith("-"):
             name = entry[1:]
@@ -393,7 +371,7 @@ def run(
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + flow_review(model, meaning, facts, observed_by)
-        + no_endpoint_source(model)
+        + no_endpoint_source(model, facts.get("components", {}))
         + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip)
         + unknown_fact_lines(facts)
@@ -419,7 +397,7 @@ def flow_review(
     ]
 
 
-def no_endpoint_source(model: Model) -> list[str]:
+def no_endpoint_source(model: Model, components: Mapping[str, Any] | None = None) -> list[str]:
     """This function finds flows with source records in no module of their endpoints.
 
     The evidence state of such a flow is not `observed`. An actor has no modules, so a
@@ -427,7 +405,7 @@ def no_endpoint_source(model: Model) -> list[str]:
     """
     out: list[str] = []
     for flow in model.flows:
-        if not flow.source_refs or evidence.cites_an_endpoint(flow, model):
+        if not flow.source_refs or evidence.cites_an_endpoint(flow, model, components):
             continue
         ends = " or ".join(c.id for c in model.components if c.id in flow.edge and c.implemented_by)
         out.append(

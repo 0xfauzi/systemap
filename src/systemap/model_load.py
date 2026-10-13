@@ -34,6 +34,9 @@ from typing import Any
 from systemap import model as schema
 
 TRUST = "SYSTEMAP_TRUST_MODEL_CODE"
+# A model file is Python text for each source language. The pattern finds model files.
+MODEL_SUFFIX = ".py"
+MODEL_FILES = f"*{MODEL_SUFFIX}"
 # The limits for one load. A file of MAX_BYTES with the most syntax nodes for its size
 # takes about 260 MB to parse (bench/jev/README.md). The self-map files contain 72 KB.
 # MAX_NODES limits the values that the check examines and that the reader makes.

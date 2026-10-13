@@ -23,9 +23,9 @@ from systemap import (
     delta_git,
     delta_report,
     evidence,
-    extract,
     graph,
     nest,
+    source_facts,
 )
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem
@@ -37,9 +37,9 @@ from systemap.model import (
     Meaning,
     Model,
     claimed,
+    covers,
     defines_entry,
     is_symbol,
-    module_matches,
     symbol_claims,
 )
 
@@ -196,9 +196,11 @@ def compute(
     owner_head = evidence.owners(head_model, head)
     owner_base = evidence.owners(base_model, base)
     ignores = [i.module for i in cfg.coverage_ignore]
+    # The head record gives the package of a module that is in the two commits.
+    records = {**b, **h}
 
     def ignored(module: str) -> bool:
-        return any(module_matches(i, module) for i in ignores)
+        return any(covers(i, module, records) for i in ignores)
 
     lines: list[Line] = []
 
@@ -239,7 +241,7 @@ def compute(
         elif (
             claimed_by is None
             and not ignored(new_name)
-            and not extract.is_empty_marker(h[new_name])
+            and not source_facts.is_empty_marker(h[new_name])
         ):
             was = owner_base.get(old)
             lines.append(
@@ -279,7 +281,7 @@ def compute(
             lines.append(
                 Line("added", f"added: {module}, with a claim in {claimed_by}", (claimed_by,))
             )
-        elif extract.is_empty_marker(h[module]):
+        elif source_facts.is_empty_marker(h[module]):
             lines.append(Line("added", f"added: {module}, an empty package marker"))
         elif ignored(module) and not within:
             lines.append(Line("added", f"added: {module}, ignored in [coverage]"))

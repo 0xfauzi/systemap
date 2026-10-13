@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import nest
-from systemap.extract import empty_markers, is_empty_marker
 from systemap.model import claimed
+from systemap.source_facts import empty_markers, is_empty_marker, package_of
 
 # Past this many modules a proposal is more than one thing a reader would
 # name; the skill's target is three to ten.
@@ -40,14 +40,13 @@ class Proposal:
     modules: tuple[str, ...]
 
 
-def package_of(module: str, record: dict[str, Any]) -> str:
-    """This function selects the module parent package, or the module itself for
-    __init__.py.
+def group_of(module: str, components: dict[str, Any], packages: set[str]) -> str:
+    """This function selects the group of a module: the module itself if it is the
+    module of a package, or else the package that the adapter wrote.
+
+    A module is the module of a package if another module has it as its package.
     """
-    if str(record.get("file", "")).endswith("__init__.py"):
-        return module
-    head, _, _ = module.rpartition(".")
-    return head or module
+    return module if module in packages else package_of(module, components)
 
 
 def camel(dotted: str, whole: bool = False) -> str:
@@ -68,11 +67,11 @@ def proposals(facts: dict[str, Any]) -> tuple[list[Proposal], list[str]]:
     """
     components: dict[str, Any] = facts.get("components", {})
     by_package: dict[str, list[str]] = {}
+    packages = {package_of(m, components) for m in components}
     for module in sorted(components):
-        record = components[module]
-        if is_empty_marker(record):
+        if is_empty_marker(components[module]):
             continue
-        by_package.setdefault(package_of(module, record), []).append(module)
+        by_package.setdefault(group_of(module, components, packages), []).append(module)
     ids: dict[str, str] = {}
     short = {pkg: camel(pkg) for pkg in by_package}
     counts: dict[str, int] = {}

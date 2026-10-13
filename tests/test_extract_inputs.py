@@ -15,7 +15,16 @@ from pathlib import Path
 import pytest
 from conftest import STARTER_MODULES, TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import check, config, extract, judgement, judgement_evidence, nest, typescript_config
+from systemap import (
+    check,
+    config,
+    extract,
+    judgement,
+    judgement_evidence,
+    nest,
+    source_facts,
+    typescript_config,
+)
 from systemap.cli import main
 
 LATIN_1 = "# -*- coding: latin-1 -*-\nNAME = '\xe9t\xe9'\n".encode("latin-1")
@@ -301,7 +310,7 @@ def test_python_module_that_is_not_utf8_keeps_a_read_problem(tmp_path: Path) -> 
     assert problem["reason"] == "source could not be read: UnicodeDecodeError"
     assert facts["components"]["pkg.reader"]["tests_total"] == 1
     assert "source inventory unresolved: pkg.latin (pkg/latin.py)" in (
-        extract.inventory_issue_lines(facts)
+        source_facts.inventory_issue_lines(facts)
     )
 
 
@@ -327,7 +336,7 @@ def test_typescript_files_that_are_not_utf8_keep_a_read_problem(tmp_path: Path) 
     ]
     assert facts["components"]["web.service"]["tests_total"] == 1
     assert f"unknown surface: module web.latin (src/latin.ts): {reason}" in (
-        extract.unknown_fact_lines(facts)
+        source_facts.unknown_fact_lines(facts)
     )
 
 

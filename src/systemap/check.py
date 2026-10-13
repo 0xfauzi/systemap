@@ -20,16 +20,17 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, figure, nest, page
+from systemap import explain, extract, extraction, figure, nest, page, source_facts
+from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
     Component,
     Meaning,
     Model,
     claimed,
+    covers,
     defines_entry,
     is_symbol,
-    module_matches,
     public_names,
     symbol_claims,
 )
@@ -171,11 +172,11 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
         return Coverage(False, 0, 0, 0, ("No facts are available for the coverage check.",))
     components = facts.get("components", {})
     modules = sorted(components)
-    markers = {m for m in modules if extract.is_empty_marker(components[m])}
+    markers = {m for m in modules if source_facts.is_empty_marker(components[m])}
     ignore_list = list(ignores)
     problems: list[str] = []
     for ignore in ignore_list:
-        matched = [m for m in modules if module_matches(ignore.module, m)]
+        matched = [m for m in modules if covers(ignore.module, m, components)]
         if not matched:
             problems.append(f"ignore specifies a module missing from the facts: {ignore.module}")
         elif all(m in markers for m in matched):
@@ -183,12 +184,14 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
                 f"ignore is not necessary: {ignore.module} is an empty package marker. The "
                 f"coverage rule omits it automatically. Remove the ignore entry."
             )
-    problems += _claimed_ignores(model, modules, markers, ignore_list)
-    ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
+    problems += _claimed_ignores(model, components, markers, ignore_list)
+    ignored = {m for m in modules if any(covers(i.module, m, components) for i in ignore_list)}
     mapped = n_ignored = n_markers = 0
     for m in modules:
         owners = [
-            c.id for c in model.components if any(module_matches(p, m) for p in c.implemented_by)
+            c.id
+            for c in model.components
+            if any(covers(p, m, components) for p in c.implemented_by)
         ]
         if len(owners) > 1:
             times = "twice" if len(owners) == 2 else f"{len(owners)} times"
@@ -207,14 +210,14 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
 
 
 def _claimed_ignores(
-    model: Model, modules: list[str], markers: set[str], ignores: list[Ignore]
+    model: Model, modules: Mapping[str, Any], markers: set[str], ignores: list[Ignore]
 ) -> list[str]:
     """This function finds an ignore entry whose modules all have a component claim."""
     claims = [p for c in model.components for p in c.implemented_by]
     out = []
     for ignore in ignores:
-        matched = [m for m in modules if module_matches(ignore.module, m) and m not in markers]
-        if matched and all(any(module_matches(p, m) for p in claims) for m in matched):
+        matched = [m for m in modules if covers(ignore.module, m, modules) and m not in markers]
+        if matched and all(any(covers(p, m, modules) for p in claims) for m in matched):
             out.append(
                 f"ignore is not necessary: {ignore.module} has a component claim. "
                 f"Remove the ignore entry."
@@ -253,7 +256,7 @@ def check_nesting(
     components = facts.get("components", {})
     if not components:
         return out
-    markers = {m for m in components if extract.is_empty_marker(components[m])}
+    markers = {m for m in components if source_facts.is_empty_marker(components[m])}
     wanted = [m for m in claimed(card, components) if m not in markers]
     have: dict[str, list[str]] = {}
     for c in sub.components:
@@ -313,7 +316,7 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
         for pattern in c.implemented_by:
             if is_symbol(pattern):
                 continue
-            if not any(module_matches(pattern, m) for m in components):
+            if not any(covers(pattern, m, components) for m in components):
                 out.append(
                     f"{c.id} has a module claim for {pattern}, which is missing from the facts."
                 )
@@ -357,16 +360,9 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
 # ---- interface: the signature names something the modules define ------------------
 
 # The leading identifier of an interface line, and the method after a dot
-# when the line reads `Class.method`. The token ends at `(`, `.`, `->`,
-# whitespace or anything else that is not part of a name.
-INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?")
-# The method name in a recorded method header. A Python header starts with
-# `def`. A TypeScript header starts with optional modifiers and an optional `*`.
-PYTHON_METHOD = re.compile(r"(?:async )?def (\w+)\(")
-TYPESCRIPT_METHOD = re.compile(
-    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    r"\*?\s*([A-Za-z_$][\w$]*)\s*[?!]?\s*[<(]"
-)
+# when the line reads `Class.method`. A name can contain `$`, as a TypeScript
+# name can. The token ends at `(`, `.`, `->`, whitespace or any other character.
+INTERFACE_HEAD = re.compile(r"\s*([A-Za-z_$][\w$]*)(?:\.([A-Za-z_$][\w$]*))?")
 
 
 def interface_head(text: str) -> tuple[str, str] | None:
@@ -380,17 +376,22 @@ def interface_head(text: str) -> tuple[str, str] | None:
 
 
 def method_names(record: Mapping[str, Any], class_name: str) -> set[str]:
-    """This function gives public class methods from recorded signatures."""
-    out: set[str] = set()
-    for group in ("classes", "errors"):
-        for cls in record.get(group, []):
-            if cls.get("name") != class_name:
-                continue
-            for sig in cls.get("methods", []):
-                found = PYTHON_METHOD.match(sig) or TYPESCRIPT_METHOD.match(sig)
-                if found:
-                    out.add(found.group(1))
-    return out
+    """This function gives public class methods from recorded signatures.
+
+    The first language adapter that reads a name from the signature gives the name."""
+    signatures = [
+        sig
+        for group in ("classes", "errors")
+        for cls in record.get(group, [])
+        if cls.get("name") == class_name
+        for sig in cls.get("methods", [])
+    ]
+    return {name for name in map(_method_name, signatures) if name}
+
+
+def _method_name(signature: str) -> str:
+    adapters = (languages.repository(name) for name in languages.names())
+    return next((found for a in adapters if (found := a.method_name(signature))), "")
 
 
 def _reexport_sources(record: Mapping[str, Any], name: str) -> list[str]:
@@ -510,9 +511,9 @@ def stale_facts(
     source modules.
     """
     problems = (
-        extract.drift(fresh, stored)
-        + extract.mapping_drift(fresh, model, prefixes)
-        + extract.inventory_issue_lines(fresh)
+        extraction.drift(fresh, stored)
+        + extraction.mapping_drift(fresh, model, prefixes)
+        + source_facts.inventory_issue_lines(fresh)
     )
     if not stored:
         problems.insert(0, "No extracted facts are available.")
@@ -527,14 +528,14 @@ def stale(
     """This function compares saved facts, pages, and configured figures with fresh
     generated output.
     """
-    fresh = fresh if fresh is not None else extract.build(cfg)
+    fresh = fresh if fresh is not None else extraction.build(cfg)
     stored = extract.read_facts(cfg.facts_path)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not
     # have is the entry rule's finding, and a placement problem is the
     # placement rule's, so neither is reported twice.
-    out = [f"facts: {line}" for line in extract.drift(fresh, stored)]
+    out = [f"facts: {line}" for line in extraction.drift(fresh, stored)]
     for m in tree.maps:
         if model_problems(m.model, m.meaning):
             continue
@@ -633,8 +634,8 @@ def run(
         counted,
         entry=check_entry(model, facts),
         interface=check_interface(model, facts),
-        unknown_surface=extract.unknown_fact_lines(facts) if coverage else [],
-        inventory_issues=extract.inventory_issue_lines(facts) if coverage else [],
+        unknown_surface=source_facts.unknown_fact_lines(facts) if coverage else [],
+        inventory_issues=source_facts.inventory_issue_lines(facts) if coverage else [],
     )
 
 
@@ -792,7 +793,7 @@ def _unknown_surface_report(findings: list[str]) -> list[str]:
         f"unknown surface: {_plural(len(findings), 'finding')}",
         *(f"  {line.removeprefix('unknown surface: ')}" for line in findings),
         (
-            "  fix: Add parser support for this TypeScript syntax, write the file as UTF-8 "
+            "  fix: Add parser support for this syntax, write the file as UTF-8 "
             "text, or restore the missing source mapping."
         ),
     ]

@@ -38,7 +38,9 @@ def _source_hash(root: Path, record: dict[str, Any]) -> str:
 
 
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
-    """This function removes parser-specific fingerprints from the evidence state."""
+    """This function removes the parser-specific syntax fingerprints from the evidence
+    state.
+    """
     stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}
     stable["api"] = [
         {key: value for key, value in item.items() if key != "fingerprint"}

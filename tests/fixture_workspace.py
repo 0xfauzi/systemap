@@ -180,7 +180,8 @@ def facts() -> dict[str, Any]:
 
     A module that has submodules is a package `__init__`, and its `file`
     says so; with no names and no imports recorded, every one is an empty
-    package marker, as the real tree's mostly were. The completer's module
+    package marker, as the real tree's mostly were. The Python adapter writes
+    `package` and `empty_marker` with these values. The completer's module
     records the one name the CropPicker card claims by symbol, so the
     symbol rule and the shared-module evidence have something to read.
     """
@@ -196,6 +197,8 @@ def facts() -> dict[str, Any]:
         "components": {
             m: {
                 "file": file_of(m),
+                "package": m.rpartition(".")[0] or m,
+                "empty_marker": m in packages,
                 "functions": [],
                 "classes": [],
                 "errors": [],

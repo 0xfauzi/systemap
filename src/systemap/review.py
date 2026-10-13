@@ -29,7 +29,7 @@ from systemap import (
     card_review,
     config,
     evidence,
-    extract,
+    extraction,
     model_edit,
     model_load,
     model_write,
@@ -107,7 +107,7 @@ def review(
     """
     m = _map(cfg, map_id)
     model, meaning = _data(m)
-    facts = facts if facts is not None else extract.build(cfg)
+    facts = facts if facts is not None else extraction.build(cfg)
     digest = _digest(m, model, meaning, facts, target)
     path, source, call = _definition(m, target)
     rel = cfg.rel(path)

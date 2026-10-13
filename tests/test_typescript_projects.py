@@ -111,9 +111,13 @@ def test_monorepo_packages_give_their_own_tsconfig_and_bin(tmp_path: Path, solut
     main = facts["components"]["mono.api.main"]
     assert main["uses"] == {"mono.api.lib.log": ["log"], "mono.core.index": ["hash"]}
     assert main["external"] == []
-    assert {"kind": "console_script", "name": "api", "module": "mono.api.main", "target": ""} in (
-        facts["entry_points"]
-    )
+    assert {
+        "kind": "console_script",
+        "name": "api",
+        "module": "mono.api.main",
+        "target": "",
+        "label": "api (console script)",
+    } in (facts["entry_points"])
     assert facts["entry_point_issues"] == [
         {
             "kind": "package_bin",
@@ -288,6 +292,10 @@ def test_tsconfig_inputs_and_source_paths_use_the_same_skip_rule(tmp_path: Path)
     assert inputs == ["src/build/compile.ts", "src/dist/pack.ts", "src/main/cli.ts"]
     facts = build(tmp_path)
     assert sorted(facts["components"]) == ["app.build.compile", "app.dist.pack", "app.main.cli"]
-    assert {"kind": "console_script", "name": "tool", "module": "app.main.cli", "target": ""} in (
-        facts["entry_points"]
-    )
+    assert {
+        "kind": "console_script",
+        "name": "tool",
+        "module": "app.main.cli",
+        "target": "",
+        "label": "tool (console script)",
+    } in (facts["entry_points"])

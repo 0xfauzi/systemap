@@ -78,14 +78,16 @@ def test_two_packages_that_shorten_to_one_id_keep_their_path() -> None:
         "components": {
             "a.gateway": {
                 "file": "a/gateway/__init__.py",
+                "package": "a",
                 "names": [{"name": "x", "kind": "object"}],
             },
-            "a.gateway.app": {"file": "a/gateway/app.py"},
+            "a.gateway.app": {"file": "a/gateway/app.py", "package": "a.gateway"},
             "b.gateway": {
                 "file": "b/gateway/__init__.py",
+                "package": "b",
                 "names": [{"name": "y", "kind": "object"}],
             },
-            "b.gateway.app": {"file": "b/gateway/app.py"},
+            "b.gateway.app": {"file": "b/gateway/app.py", "package": "b.gateway"},
         }
     }
     groups, alone = suggest.proposals(facts)

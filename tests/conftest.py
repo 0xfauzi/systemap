@@ -312,7 +312,7 @@ def sample(tmp_path: Path) -> Sample:
     write_tree(tmp_path, SAMPLE_TREE)
     # The package root is an empty package marker: the coverage rule leaves
     # it out on its own, so nothing is ignored.
-    cfg = Config(root=tmp_path, name="sample", package_roots=(("pkg", "pkg"),))
+    cfg = Config(root=tmp_path, name="sample", package_roots=(("pkg", "pkg"),), language="python")
     model, meaning = sample_model()
     facts = extract.build(cfg)
     return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)

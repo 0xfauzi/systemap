@@ -1619,12 +1619,12 @@ Unknown keys are rejected.</p>
 <tbody>
 <tr>
 <td><code>language</code></td>
-<td><code>python</code></td>
-<td>The source language. Select <code>python</code> or <code>typescript</code>. The <code>[writing]</code> table sets the writing rules for map text. <code>init</code> detects an unambiguous TypeScript repository. TypeScript must have the <code>systemap[typescript]</code> extra.</td>
+<td>found from the source</td>
+<td>The source language. Select <code>python</code> or <code>typescript</code>. Without the key, the language adapters examine the configured package roots, or they find their own package roots. If the source of both languages is available, the configuration stops and tells you to set this key. If no source of a known language is available, each command that reads source stops with the same instruction. The <code>[writing]</code> table sets the writing rules for map text. TypeScript must have the <code>systemap[typescript]</code> extra.</td>
 </tr>
 <tr>
 <td><code>name</code></td>
-<td><code>[project] name</code>, Git repository directory, then directory name</td>
+<td>the package name (<code>[project] name</code> in pyproject.toml for Python, <code>name</code> in package.json for TypeScript), Git repository directory, then directory name</td>
 <td>The page title.</td>
 </tr>
 <tr>
@@ -1680,7 +1680,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[facts]</code></td>
 <td>none</td>
-<td><code>model_sdks = [...]</code> adds import names to the built-in SDK list. A <code>-</code> at the start removes a built-in name (<code>&quot;-google.adk&quot;</code>).</td>
+<td><code>model_sdks = [...]</code> adds import names to the SDK list of the language adapter. A <code>-</code> at the start removes a name of that list (<code>&quot;-google.adk&quot;</code>). The Python list contains Python import names, and the TypeScript list contains npm package names.</td>
 </tr>
 <tr>
 <td><code>[flows]</code></td>

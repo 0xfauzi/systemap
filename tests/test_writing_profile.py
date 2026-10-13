@@ -17,6 +17,7 @@ import pytest
 from conftest import write_tree
 
 from systemap import agent, config, scaffold
+from systemap import language as languages
 from systemap.cli import main
 from systemap.config import ConfigError
 
@@ -91,9 +92,9 @@ def test_this_repository_uses_the_asd_ste100_profile() -> None:
 
 @pytest.mark.parametrize("language", ["python", "typescript"])
 def test_the_template_writes_the_plain_profile_with_both_values_explained(language: str) -> None:
-    text = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci=False, language=language)[
-        "systemap.toml"
-    ]
+    text = scaffold.files(
+        "demo", "pkg", [("pkg", "pkg")], ci=False, language=languages.repository(language)
+    )["systemap.toml"]
     assert tomllib.loads(text)["writing"] == {"profile": "plain"}
     head = text[: text.index("[writing]")]
     comment = head[head.rindex("\n\n") :]
@@ -114,7 +115,9 @@ def test_init_writes_a_configuration_that_gives_the_plain_profile(tmp_path: Path
 
 
 def test_the_template_model_names_the_profile_not_one_standard() -> None:
-    model = scaffold.files("demo", "pkg", [("pkg", "pkg")], ci=False)["map/model.py"]
+    model = scaffold.files(
+        "demo", "pkg", [("pkg", "pkg")], ci=False, language=languages.repository("python")
+    )["map/model.py"]
     assert "ASD-STE100 Issue 9" not in model
     assert "[writing] profile" in model
 
