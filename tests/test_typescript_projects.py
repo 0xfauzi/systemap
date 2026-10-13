@@ -129,6 +129,7 @@ def test_monorepo_packages_give_their_own_tsconfig_and_bin(tmp_path: Path, solut
             "reason": (
                 "The parser could not resolve the package.json bin target to a TypeScript module."
             ),
+            "cause": "target",
         }
     ]
 

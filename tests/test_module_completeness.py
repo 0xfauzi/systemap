@@ -96,6 +96,7 @@ def test_python_module_that_does_not_parse_keeps_its_result(tmp_path: Path) -> N
         "parsed": False,
         "line": 1,
         "reason": "source could not be parsed: SyntaxError",
+        "cause": "syntax",
         "unresolved_imports": None,
     }
     digest, state, reviewed_state = _states("pkg.bad", facts)

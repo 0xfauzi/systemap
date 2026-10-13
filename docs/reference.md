@@ -14,16 +14,29 @@ The command exits 1 if a rule rejects the map.
 | Rule | Rejected condition |
 |---|---|
 | coverage | No component claims a module, or two components claim it. An ignore identifies no module or only empty package markers. An empty marker is a Python `__init__.py` file or a TypeScript `index` file that holds no code. The rule automatically excludes these markers. |
-| entry | A component claims no module or an absent module. Its modules do not define its entry name. Stores and context components can have an empty `entry`. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
+| entry | A component claims no module or an absent module. Its modules do not define its entry name. An entry can also be the name or label of an entry point of its modules that does not start one public name. Stores and context components can have an empty `entry`. A component can also have an empty `entry` if its modules define no public name and start no entry point. A symbol claim (`"pkg.mod:name"`) identifies an absent module or name, or a module with no owner. |
 | interface | The first identifier of an `interface` is absent from the component's public names and re-exports. An identifier can contain Unicode letters. It ends at the first character that an identifier cannot contain, such as `(`, `.`, `-`, or whitespace. Both parts of `Class.method` must be available. The finding gives the nearest defined name. |
 | nesting | A nested map claims an extra module, omits a parent claim, or claims a module twice. Its actor is absent from the parent map. An actor opens a map. |
 | placement | A component is outside its region, or components have an overlap. A flow kind is neither standard nor declared. Two flows have the same ordered pair, and one of them has no `id`. Two flows have the same `id`, or an `id` contains a character other than a letter, a digit, `_`, `.`, or `-`. A context or tool flow has an incorrect agent endpoint. That endpoint must be an agent or a `calls_model` component. A flow or invariant identifies an absent item. Two invariants have the same number. Two regions or two containers have the same id, or a region and a container have the same id. |
 | routes | A route crosses an unrelated component or an unrelated region. |
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
-| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. |
-| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. |
+| meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. The heading of these findings is `map meaning`. |
+| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. The heading of these rule findings is `import rule fields`. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
+
+A source module or test file that the extractor cannot read or parse does not reject the map.
+systemap is not a syntax checker, and a parser limit must not stop `check` for correct source.
+`check` prints such a module in the `source inventory unresolved` group, with the fix line of its cause.
+Each result that reads the module is not known, and not a pass:
+
+- The component that claims the module has no source review digest. Thus `judgement` gives a `stale source review` line for it.
+- An import rule that reads the module gives `unknown`.
+- A missing entry, interface, or symbol name of the component is not known. `check` and `delta` do not report it.
+
+A meaning error, an import rule field error, or a placement error stops the check before it renders the map.
+Then the `map layout` line says that the check did not render the map.
+The `map layout` heading contains only the findings of positions, routes, labels, and text size.
 
 An import rule can also have the result `unknown`.
 This result occurs if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
@@ -421,6 +434,22 @@ Two other `unknown surface` lines also have a new form for the same cause:
 
 The same rule applies to these two lines.
 
+The `entry point` line for a group of entry points gave the kind identifier, for example
+`entry point 7 public_functions into Api have no sequence (component Api)`.
+The new line gives the `kind` value with a space in place of each `_`: `entry point 7 public functions into Api have no sequence (component Api)`.
+The same rule applies to this line. A kind without `_`, for example `route`, does not change.
+
+The `unknown surface` line for a TypeScript parse error also changed.
+Its source excerpt is the line of the error and the line before it, because the error can be one token, such as `','`.
+The line also ends with the parser version, as the Python line does.
+An answer item in the earlier form applies to a current line if its text up to `The parser could not parse the source syntax.` agrees with one current line.
+The evidence digest must agree.
+
+The parser can also refuse correct syntax.
+tree-sitter-typescript 0.23.2 refuses a generic function call with a `typeof import()` type argument and a comma after the last argument.
+For example, `f<typeof import('./a')>(g(),)` is correct TypeScript.
+At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.
+
 `judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
@@ -629,8 +658,33 @@ If systemap cannot run (exit code 2 or more), the job fails with both values.
 
 If the repository has no Python package and a directory has a `tsconfig.json` file,
 `init` selects TypeScript.
-If the repository root has no `tsconfig.json` file, `init` writes no package roots.
-Then set `[package_roots]` for each application package.
+For TypeScript, `init` selects the package root with this rule, in this sequence:
+
+1. The repository root must have a `tsconfig.json` file.
+2. If each `include` entry of `tsconfig.json` names a folder, and one of these folders has source, that folder is the root.
+   An entry such as `source/**/*` names the folder `source`.
+   A test folder or a type-test folder does not count.
+   An entry that names a file, such as `vite.config.ts`, stops this step.
+3. Then the root is `src` if it has source, then the repository root.
+
+For example, the ky repository has `"include": ["source"]`. Thus `init` writes `"source" = "ky"`.
+A configuration without `[package_roots]` uses the same rule.
+
+If the rule selects no root, `init` writes no package roots and prints the cause.
+It also prints the `[package_roots]` table to write in `systemap.toml`.
+The table has one line for each folder with a `tsconfig.json` file, with the same rule in that folder.
+Keep only the lines of the packages of the system.
+`extract` and the other commands print the same text until you set the table.
+
+`init` also writes `test_patterns` for the TypeScript type tests that it finds.
+A type test is a file that only `tsc` examines, for example with tsd or `expectTypeOf`.
+These files are test files, not modules of the map:
+
+- A folder with the name `test-d`, the default folder of tsd, or the folder in the `tsd.directory` key of `package.json`.
+- A folder with a name such as `__tests_dts__`: `__test` or `__tests`, more text, and `__`.
+- A file with a name that ends in `.test-d.ts` or `.spec-d.ts`, as tsd and Vitest typecheck use.
+
+The `test_patterns` key shows the rule in the configuration. You can change it there.
 
 ### `systemap extract [--check]`
 
@@ -667,6 +721,13 @@ With no option, it prints the extraction summary.
 - `--external` prints third-party imports and their importers.
 
 - `--imports NAME` prints imports and importers for one module.
+
+The module description is the first paragraph of the Python module docstring, or of the first TypeScript comment before the first statement.
+A license notice is not a description.
+A text is a notice if it starts with `Copyright`, `©`, `(c)`, `SPDX-`, `Licensed under`, `@license`, or `@preserve`, in capital or small letters.
+For TypeScript, a comment that starts with `/*!` or `//!` is also a notice.
+The `//` comments directly below a notice are part of the notice.
+Then the next TypeScript comment can give the description.
 
 ### `systemap place [--all] [--print] [--keep-order]`
 
@@ -706,6 +767,8 @@ The procedure is deterministic and uses only the standard library.
 ### `systemap render [--check] [--base REF]`
 
 Writes the page from the facts and model.
+Without facts and without package roots, `render`, `facts`, and `figure` give the package-root error of `extract` and exit 2.
+Thus they do not tell you to use `systemap extract` when `extract` cannot operate.
 
 - `--check` exits 1 if the page is stale.
   It renders the page with the same options and compares the two pages.
@@ -732,8 +795,26 @@ Executes all rules on all maps.
 A rejected map causes exit 1.
 Each finding gives a correction.
 Two rows below a rejected rule give its effect and the necessary action.
+Each condition that rejects the map prints its lines.
 
 - `--brief` does not include these two rows.
+
+The `unknown surface` group gives the records that the extractor could not read or connect.
+These records do not reject the map.
+The adapter writes the cause of each record in the `cause` field.
+The group gives one `fix:` line for each cause that occurs:
+
+| Cause | Condition |
+|---|---|
+| `read` | systemap could not read the file, or the repository rules refused it. |
+| `encoding` | The file is not UTF-8 text. |
+| `syntax` | The parser could not parse the source. |
+| `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
+| `target` | A reference has a target that is not a module in the facts. An example is a package bin that is a `.js` file. |
+| `package` | A configuration file extends a configuration package that systemap could not read. |
+| `binding` | The framework binding of a registration is not known. |
+| `reexport` | The names that a re-export gives are not known. |
+| `not known` | The record has no cause, because the facts have an older format. |
 
 ### `systemap figure --out FILE`
 
@@ -762,6 +843,10 @@ in dependency order. Then it does a check of the written outputs.
 A result without changes prints
 `map: The page agrees with the rendered model fields and the facts.`
 A rejected check causes exit 1, and the command renders nothing.
+The last line gives the necessary action. If a second refresh gives the same result, the action is not `refresh`.
+If an output is stale after the command wrote it, the heading is `stale after refresh`.
+An example is a configured figure with the path of the page.
+After a check without errors, the command prints the `source inventory unresolved` group and the `unknown surface` group, as `systemap check` does.
 After a check without errors, the command examines the import rules, as `systemap check` does.
 It prints the rule results. A rule with the result `fail` causes exit 1.
 With `[rules] unknown = "fail"`, a rule with the result `unknown` also causes exit 1.
@@ -795,6 +880,7 @@ Accepted answers under `[judgement] answered` suppress findings.
 The first finding of each kind has rows about its effect and necessary action.
 
 - `--strict` exits 1 while a finding is open. If not, the exit code is 0.
+  A model without components also gives exit 1 with `--strict`, as `systemap check` does.
 
 - `--kind KIND` prints one kind.
 
@@ -812,7 +898,8 @@ The first finding of each kind has rows about its effect and necessary action.
   Notices for a person go to stderr.
 
 - With `--json`, `--kind KIND` selects the rows of `open`. The counts include all kinds.
-  For a model without components, the lists are empty and the exit code is 0.
+  For a model without components, the lists are empty.
+  The exit code is 1 with `--strict`, and 0 without it.
 
 - `--order-by-drift` sends one Jev question for each open `stale source review` line.
   The answer is the drift score: the probability that the claims of the component agree with its changed source.
@@ -901,6 +988,8 @@ Delta does not write a committed path that contains `..`, a backslash, or a colo
 Thus the facts at a commit are the same on each platform.
 Before the report, delta gives each refused path and its cause under `Not in this comparison`.
 The changes of a refused path are not known. A refused module is not a removed module.
+
+The first line gives the module counts. Then `N of M components have changes` gives the quantity of components that the delta lines name.
 
 Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
@@ -1342,9 +1431,9 @@ Unknown keys are rejected.
 |---|---|---|
 | `language` | found from the source | The source language. Select `python` or `typescript`. Without the key, the language adapters examine the configured package roots, or they find their own package roots. If the source of both languages is available, the configuration stops and tells you to set this key. If no source of a known language is available, each command that reads source stops with the same instruction. The `[writing]` table sets the writing rules for map text. TypeScript must have the `systemap[typescript]` extra. |
 | `name` | the package name (`[project] name` in pyproject.toml for Python, `name` in package.json for TypeScript), Git repository directory, then directory name | The page title. |
-| `[package_roots]` | Python packages, or `src` then repository root for TypeScript | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory in the repository. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
+| `[package_roots]` | Python packages, or for TypeScript the one source folder of the `tsconfig.json` `include` entries, then `src`, then the repository root (see `systemap init`) | `"path" = "module name"`. Discovery includes a directory with the name `build` or `dist` if it has an `__init__.py` file. Each configured path must be a directory in the repository. A key after the `[package_roots]` line is part of this table, so put the top-level keys above it. |
 | `tests_dir` | All directories with the name `tests` or `test` | One directory or a list. Import references associate tests with modules. |
-| `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. |
+| `test_patterns` | none | Additional repository-relative test globs. Extraction and `delta` use the same patterns. For TypeScript, `init` writes the type-test folders and files that it finds (see `systemap init`). |
 | `model` | `map/model.py` | The model file that gives `MODEL` and `MEANING`. systemap reads it as data and does not run it. A file in the same directory can contain sequences or flows (`import journeys`). [What does a model contain?](#what-does-a-model-contain) gives the permitted syntax. |
 | `out_dir` | `docs/map` | The directory for facts, pages, and figures. |
 | `facts_file` | `map.json` | The facts filename inside `out_dir`. A path that is not in `out_dir` gives exit code 2. |
@@ -1377,6 +1466,25 @@ The environment of a command can set three values. A repository file cannot set 
 
 TypeScript discovery does not include `.d.ts`, `.d.mts`, and `.d.cts` declaration files.
 The `external` imports do not include Node.js built-in modules, such as `node:fs` and `path`.
+
+Two types of import name a file of the same package through `package.json`. Thus they are internal imports:
+
+- A self-name import names the package, as `import ky from "ky"` in the ky package.
+  The nearest `package.json` above the file must have this `name` and an `exports` key.
+- A subpath import starts with `#`, as `#types/hot`. The `imports` key of the nearest `package.json` gives the file.
+  A target that names an npm package gives that package in `external`.
+
+systemap uses the rules of Node.js and TypeScript for these imports:
+[Self-referencing a package using its name](https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name),
+[Subpath imports](https://nodejs.org/api/packages.html#subpath-imports), and
+[package.json "imports" and self-name imports](https://www.typescriptlang.org/docs/handbook/modules/reference.html).
+
+The conditions are `types`, `node`, `import`, and `default`. A `.cts` file uses `require` and not `import`.
+systemap does not read `moduleResolution` or `customConditions`.
+
+A target in `outDir` maps to its source file, as for a package entry point.
+A declaration file has no module. Thus an import with a declaration file as its target is an unresolved local import.
+An import without a target, for example a `#` name that `imports` does not have, is also an unresolved local import.
 
 The suffix of an import selects the source suffix, as in `tsc`.
 `.js` selects `.ts` or `.tsx`, `.mjs` selects `.mts`, and `.cjs` selects `.cts`.

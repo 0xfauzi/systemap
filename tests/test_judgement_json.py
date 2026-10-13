@@ -195,11 +195,12 @@ def test_without_facts_the_output_is_still_one_object(
 def test_a_model_without_components_gives_an_empty_object(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The starter model has no components. The exit code is 0, as in the text mode."""
+    """The starter model has no components. With `--strict`, the exit code is 1, as in the
+    text mode and in `check` (trial-15)."""
     write_tree(tmp_path, SOURCE)
     assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 0
     capsys.readouterr()
-    assert main(["--root", str(tmp_path), "judgement", "--json", "--strict"]) == 0
+    assert main(["--root", str(tmp_path), "judgement", "--json", "--strict"]) == 1
     captured = capsys.readouterr()
     assert json.loads(captured.out) == judgement_json.empty()
     assert judgement_json.empty()["open"] == []

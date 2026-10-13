@@ -370,6 +370,7 @@ def test_unreadable_test_file_gives_a_test_file_issue(tmp_path: Path, unreadable
                 "line": 0,
                 "reason": "source could not be read: PermissionError",
                 "source": "",
+                "cause": "read",
             },
         }
     ]

@@ -24,6 +24,8 @@ from systemap import (
     answer_migrations,
     change,
     check,
+    check_actions,
+    check_report,
     config,
     decisions_cli,
     delta,
@@ -60,7 +62,7 @@ from systemap import (
 from systemap import facts as facts_mod
 from systemap import language as languages
 from systemap import suggest as suggest_mod
-from systemap.config import CONFIG_FILE, ArgumentError, Config, ConfigError
+from systemap.config import ArgumentError, Config, ConfigError
 from systemap.journey_coverage import outside_map, reviewed_entries
 from systemap.model import Meaning, Model, import_rule_problems
 from systemap.model import problems as model_problems
@@ -219,6 +221,9 @@ def cmd_facts(args: argparse.Namespace) -> int:
 def _facts_or_stale(p: Project) -> dict[str, Any] | None:
     facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
+        # Without package roots, `extract` also stops. Give its error, not a command
+        # that fails.
+        _require_roots(p)
         say(f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}", "run: systemap extract")
         return None
     return facts
@@ -305,56 +310,30 @@ def _empty(p: Project) -> bool:
 
 
 def _fix_line(p: Project, results: dict[str, check.Result]) -> str:
-    """Give the action for the check error with the highest priority.
-
-    Model errors come first, then facts, combined checks, and outputs. The top map comes
-    before nested maps.
-    """
-    for m in p.tree.maps:
-        if results[m.id].problems:
-            return f"Correct {m.rel}. Then use systemap check."
-    top = results[p.tree.top.id]
-    if not top.coverage.checked:
-        return "run: systemap extract"
-    coverage = _coverage_fix(p, top)
-    if coverage:
-        return coverage
-    for m in p.tree.maps:
-        result = results[m.id]
-        if result.entry or result.interface or result.nesting:
-            return f"Correct {m.rel}. Then use systemap check."
-    return "run: systemap refresh"
-
-
-def _coverage_fix(p: Project, top: check.Result) -> str:
-    """Give the action for facts without modules or for coverage errors, or no action.
-
-    Facts without modules and a model with source components need new package roots."""
-    if top.coverage.total == 0 and top.entry:
-        return (
-            f"Set [package_roots] in {p.cfg.source or CONFIG_FILE} to the directories that "
-            f"contain the source files. Then use systemap check."
-        )
-    if top.coverage.problems:
-        return (
-            f"Give each module a component in {p.cfg.model}, or give a reason to ignore it "
-            f"in [coverage]. Then use systemap check."
-        )
-    return ""
+    return check_actions.fix_line(p.tree, p.cfg, results)
 
 
 def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
     return check.run_tree(p.tree, facts, p.cfg.coverage_ignore, p.cfg.observed_by)
 
 
+def _unknown_report(p: Project, results: dict[str, check.Result]) -> list[str]:
+    """Give the not-known records of a check that passed. They do not reject the map."""
+    return [m.prefix + line for m in p.tree.maps for line in check_report.not_known(results[m.id])]
+
+
 def _report_tree(
-    p: Project, results: dict[str, check.Result], stale: list[str], teach: bool = True
+    p: Project,
+    results: dict[str, check.Result],
+    stale: list[str],
+    teach: bool = True,
+    after_refresh: bool = False,
 ) -> list[str]:
     """Give each map report in tree order, then the stale output report."""
     out: list[str] = []
     for m in p.tree.maps:
         out += check.report(m.model, results[m.id], m.rel, m.prefix, teach)
-    return out + check.report_stale(stale, teach)
+    return out + check.report_stale(stale, teach, after_refresh)
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -474,9 +453,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     p = _project(args)
     quiet = bool(args.quiet)
 
-    def note(line: str) -> None:
+    def note(*lines: str) -> None:
         if not quiet:
-            say(line)
+            say(*lines)
 
     _require_roots(p)
     if _empty(p):
@@ -488,17 +467,35 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     stale_lines = check.stale(p.cfg, p.tree, fresh)
     results = _check_tree(p, fresh)
     if not stale_lines and check.tree_ok(results):
-        note(ALREADY_CURRENT)
+        note(ALREADY_CURRENT, *_unknown_report(p, results))
         return _rules_check(p, fresh, True)
 
     note("map: The refresh uses the working tree.")
     facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh)
-    written = [p.cfg.rel(p.cfg.facts_path)]
     if not check.tree_ok(results):
         say(*_report_tree(p, results, []))
         fix = _fix_line(p, results).replace("systemap check", "systemap refresh")
         say(f"map: The check found an error. {fix}")
         return STALE
+    written = [p.cfg.rel(p.cfg.facts_path), *_write_outputs(p, fresh)]
+    # What was written is checked as `systemap check` would check it. A
+    # refresh that leaves the check failing is not a refresh, whatever it
+    # wrote; the exit code says so.
+    after = _check_tree(p, fresh)
+    if _failed_after_refresh(p, fresh, after):
+        return STALE
+    note(
+        f"map: The command updated {', '.join(written)}",
+        f"map: Commit {p.cfg.out_dir}/ to record this system state.",
+        *_unknown_report(p, after),
+    )
+    # The command examines the import rules and gives the exit code as systemap check does.
+    return _rules_check(p, fresh, True)
+
+
+def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
+    """Write the page of each map and each configured figure. Give the written paths."""
+    written: list[str] = []
     for m in p.tree.maps:
         html = _render_page(p, m, fresh, argparse.Namespace())
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
@@ -513,22 +510,27 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8", newline="\n")
         written.append(p.cfg.rel(out))
-    # What was written is checked as `systemap check` would check it. A
-    # refresh that leaves the check failing is not a refresh, whatever it
-    # wrote; the exit code says so.
-    after = _check_tree(p, fresh)
+    return written
+
+
+def _failed_after_refresh(
+    p: Project, fresh: dict[str, Any], after: dict[str, check.Result]
+) -> bool:
+    """Print the report of a check that fails after the refresh wrote its outputs.
+
+    A second refresh writes the same outputs. Thus the action for a stale output is not
+    a refresh."""
     stale_after = check.stale(p.cfg, p.tree, fresh)
-    if not check.tree_ok(after) or stale_after:
-        say(*_report_tree(p, after, stale_after))
-        fix = (
-            _fix_line(p, after) if not check.tree_ok(after) else "run: systemap refresh"
-        ).replace("systemap check", "systemap refresh")
-        say(f"map: The check found an error after the refresh. {fix}")
-        return STALE
-    note(f"map: The command updated {', '.join(written)}")
-    note(f"map: Commit {p.cfg.out_dir}/ to record this system state.")
-    # The command examines the import rules and gives the exit code as systemap check does.
-    return _rules_check(p, fresh, True)
+    if check.tree_ok(after) and not stale_after:
+        return False
+    say(*_report_tree(p, after, stale_after, after_refresh=True))
+    fix = (
+        _fix_line(p, after).replace("systemap check", "systemap refresh")
+        if not check.tree_ok(after)
+        else check_actions.STALE_AFTER_REFRESH
+    )
+    say(f"map: The check found an error after the refresh. {fix}")
+    return True
 
 
 # ---- judgement -------------------------------------------------------------
@@ -557,9 +559,11 @@ STRICT_ACTION = (
 
 
 def _judgement_text(p: Project, args: argparse.Namespace) -> int:
-    """Print the judgement report as text for a person."""
+    """Print the judgement report as text for a person.
+
+    With `--strict`, a model without components gives exit code 1, as `check` does."""
     if _empty(p):
-        return OK
+        return STALE if args.strict else OK
     facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         say(_no_facts(p))
@@ -584,7 +588,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     if not p.model.components:
         warn(NO_COMPONENTS)
         say(json.dumps(judgement_json.empty(p.cfg.require_reviews), indent=2))
-        return OK
+        return STALE if args.strict else OK
     facts = facts_file.read_facts(p.cfg.facts_path)
     if not facts:
         warn(_no_facts(p))
@@ -667,6 +671,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         return STALE
     # A Git error gives DeltaError. `failures.run` gives its message and exit code 2.
     shas = history.sample(p.cfg.root, args.since, args.every, args.ref)
+    say(*history.shallow_note(p.cfg.root, shas))
     if len(shas) < 2:
         say(history.too_few(len(shas), args.since))
         return OK

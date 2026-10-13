@@ -17,6 +17,7 @@ from conftest import write_tree
 
 from systemap import (
     check,
+    check_report,
     config,
     explain,
     extract,
@@ -171,7 +172,8 @@ def test_the_unknown_surface_text_names_no_language(
         _cfg, facts = _facts(tmp_path / name, tree)
         lines = source_facts.unknown_fact_lines(facts)
         assert lines, name
-        report = check._unknown_surface_report(lines)
+        causes = [cause for _line, cause in source_facts.unknown_fact_causes(facts)]
+        report = check_report.unknown_surface_report(lines, causes)
         assert "TypeScript" not in report[-1]
     lesson = explain.lesson("unknown surface")
     assert lesson is not None and "TypeScript" not in lesson.means
@@ -311,6 +313,8 @@ ADAPTERS = {
     "typescript_config_files.py": "The TypeScript configuration files for the live watcher.",
     "typescript_entry.py": "The TypeScript entry point reader.",
     "typescript_imports.py": "The TypeScript import reader.",
+    "typescript_package_imports.py": "The TypeScript self-name and subpath import reader.",
+    "typescript_roots.py": "The TypeScript package root and type-test reader.",
     "typescript_calls.py": "The TypeScript call-site reader.",
     "typescript_projects.py": "The TypeScript project reader.",
     "typescript_surface.py": "The TypeScript public surface reader.",

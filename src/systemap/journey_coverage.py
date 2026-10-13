@@ -85,8 +85,18 @@ def _same_code(p: dict[str, str], identities: set[str]) -> bool:
 def crowd_label(how_many: int, kind: str, card: str) -> str:
     """This function gives a label for a group of entry points, such as 190 routes into
     HttpApi.
+
+    The kind is an identifier, such as `public_function`. The label gives it as words:
+    "7 public functions into Api". `answer_migrations` reads the earlier form of the
+    `entry point` line, which gave the identifier.
     """
-    return f"{how_many} {kind}s into {card}"
+    return f"{how_many} {kind_words(kind)}s into {card}"
+
+
+def kind_words(kind: str) -> str:
+    """Give an entry point kind as words for a reader: `public_function` is "public
+    function"."""
+    return kind.replace("_", " ")
 
 
 def _entry_lines(points: list[dict[str, str]], owner: dict[str, str]) -> list[str]:

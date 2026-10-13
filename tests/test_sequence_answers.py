@@ -119,6 +119,6 @@ def test_the_check_refuses_a_model_with_two_sequences_of_one_id(
     assert main(["--root", str(tmp_path), "refresh"]) == 1
     out = capsys.readouterr().out
     assert (
-        "meaning: journey input-to-output is the id of two sequences. "
-        "Give each sequence its own id" in out
+        "\n  journey input-to-output is the id of two sequences. "
+        "Give each sequence its own id\n" in out
     )

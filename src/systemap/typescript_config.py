@@ -146,18 +146,6 @@ def typescript_major(root: Path) -> int | None:
     return None
 
 
-def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
-    """This function finds the standard TypeScript source root for a project."""
-    if not (root / "tsconfig.json").is_file():
-        return []
-    for candidate in (root / "src", root):
-        # The walk does not enter node_modules and the other SOURCE_SKIP folders.
-        sources = (path for path in source_files(candidate, SOURCE_SKIP) if path.is_file())
-        if next(sources, None) is not None:
-            return [(candidate.relative_to(root).as_posix() or ".", typescript_name(root))]
-    return []
-
-
 def _strip_jsonc(text: str) -> str:
     """This function removes JSONC comments and trailing commas without changing string
     values.

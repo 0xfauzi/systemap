@@ -244,7 +244,7 @@ def test_explain_lists_every_kind_and_prints_one_whole(
 
 
 def test_a_failing_check_group_is_taught_and_a_passing_one_is_not() -> None:
-    from systemap import check as check_mod
+    from systemap import check_report as check_mod
 
     clean = ["map routes: 0 edges through a card they do not connect"]
     assert check_mod._taught(clean) == clean, "a rule that passed is one line"
