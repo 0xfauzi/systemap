@@ -72,7 +72,8 @@ class _Resolver:
             for name in given:
                 if not rebinds and name in explicit:
                     continue
-                _bind(module, out, {**self._entry(name, source, name), "via_star": True}, rebinds)
+                found = self._entry(name, source, name, bool(entry.get("type_only")))
+                _bind(module, out, {**found, "via_star": True}, rebinds)
         return self._without_duplicates(module, out)
 
     def _resolved(self, module: str, entry: dict[str, Any]) -> dict[str, Any]:
@@ -93,17 +94,23 @@ class _Resolver:
             **self._entry(entry["name"], source, entry.get("defined_as", entry["name"])),
         }
 
-    def _entry(self, name: str, source: str, symbol: str) -> dict[str, Any]:
+    def _entry(
+        self, name: str, source: str, symbol: str, type_only: bool = False
+    ) -> dict[str, Any]:
+        """Give the resolved record. A type-only link in the chain makes it type-only."""
         kind, defined_in, defined_as = self.hop(source, symbol, frozenset())
-        if kind == "module" and defined_in == f"{source}.{symbol}":
-            source = defined_in
-        return {
+        found = {
             "name": name,
             "kind": kind,
             "reexport_of": source,
             "defined_in": defined_in,
             "defined_as": defined_as,
         }
+        if kind == "module" and defined_in == f"{source}.{symbol}":
+            found["reexport_of"] = defined_in
+        if type_only or self.type_only(source, symbol, frozenset()):
+            found["type_only"] = True
+        return found
 
     def hop(self, source: str, symbol: str, visited: frozenset[tuple[str, str]]) -> Definition:
         """This function follows one re-export to the symbol that defines `symbol` of
@@ -127,6 +134,38 @@ class _Resolver:
             return explicit[0]
         definitions = {d for _star, d in found}
         return definitions.pop() if len(definitions) == 1 else NOT_KNOWN
+
+    def type_only(self, module: str, name: str, visited: frozenset[tuple[str, str]]) -> bool:
+        """Tell if the binding of `name` in `module` is type-only at a link of its chain.
+
+        The selected binding follows the rules of `lookup`. A type-only name has no value
+        in the emitted code, so it is not an entry point.
+        """
+        if (module, name) in visited or module not in self.raw:
+            return False
+        visited = visited | {(module, name)}
+        found = [
+            (bool(e.get("star")), self._type_only_link(e, name, visited))
+            for e in self._bindings(module, name)
+        ]
+        if not found:
+            return False
+        if _rebinds(self.raw[module]):
+            return found[-1][1]
+        explicit = [only for star, only in found if not star]
+        return explicit[0] if explicit else all(only for _star, only in found)
+
+    def _type_only_link(
+        self, entry: dict[str, Any], name: str, visited: frozenset[tuple[str, str]]
+    ) -> bool:
+        if entry.get("type_only"):
+            return True
+        source = entry.get("reexport_of")
+        if entry.get("star"):
+            return self.type_only(str(source), name, visited)
+        if source and entry.get("kind") == "reexport":
+            return self.type_only(str(source), str(entry.get("defined_as", name)), visited)
+        return False
 
     def _bindings(self, module: str, name: str) -> list[dict[str, Any]]:
         """This function gives the records in `module` that can bind `name`, in source order."""

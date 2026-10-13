@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping
@@ -13,6 +12,7 @@ from typing import Any
 from systemap import repo_files, typescript_calls, typescript_entry
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
+from systemap.pattern_match import matches_test_pattern
 from systemap.source_facts import standard_label
 from systemap.source_text import read_problems
 from systemap.typescript_config import (
@@ -160,11 +160,7 @@ def _test_file(path: str, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]
         return True
     if _test_name(PurePosixPath(path)):
         return True
-    return any(
-        fnmatch.fnmatchcase(relative, pattern)
-        or fnmatch.fnmatchcase(relative, pattern.replace("**/", ""))
-        for pattern in patterns
-    )
+    return matches_test_pattern(relative, patterns)
 
 
 def _test_name(path: PurePosixPath) -> bool:

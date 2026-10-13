@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 from conftest import write_tree
 
 from systemap import change, check, config, extract
@@ -193,3 +194,52 @@ def test_adapters_13_local_constant_has_the_kind_of_a_declared_export() -> None:
     declared = surface("export const MAX = 3;\n")
     assert kinds(local) == kinds(declared) == [("MAX", "constant")]
     assert local["constants"] == declared["constants"] == [{"name": "MAX", "value": "3"}]
+
+
+SERVICE = "export function serve(): void {}\n"
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"src/index.ts": 'export type * from "./service";\n'},
+        {
+            "src/index.ts": 'export * from "./barrel";\n',
+            "src/barrel.ts": 'export type * from "./service";\n',
+        },
+        {
+            "src/index.ts": 'export type * from "./barrel";\n',
+            "src/barrel.ts": 'export * from "./service";\n',
+        },
+    ],
+)
+def test_a_type_only_star_reexport_stays_type_only_after_resolution(
+    tmp_path: Path, files: dict[str, str]
+) -> None:
+    """Acceptance: `export type * from "./service"`, through one barrel or through a chain
+    of two, gives the resolved name `serve` with `type_only` set to true, and no `serve`
+    entry point in `app.index`.
+    """
+    facts = build(tmp_path, {**files, "src/service.ts": SERVICE})
+    names = facts["components"]["app.index"]["names"]
+    assert [(n["name"], n.get("type_only", False)) for n in names] == [("serve", True)]
+    points = {p["name"] for p in facts["entry_points"] if p["module"] == "app.index"}
+    assert "serve" not in points
+
+
+def test_a_named_reexport_of_a_type_only_link_is_type_only(tmp_path: Path) -> None:
+    """Acceptance: a named re-export whose chain has a type-only link has `type_only` set
+    to true, and `app.index` has no `serve` entry point.
+    """
+    facts = build(
+        tmp_path,
+        {
+            "src/index.ts": 'export { serve } from "./barrel";\n',
+            "src/barrel.ts": 'export type { serve } from "./service";\n',
+            "src/service.ts": SERVICE,
+        },
+    )
+    (entry,) = facts["components"]["app.index"]["names"]
+    assert entry["name"] == "serve" and entry.get("type_only") is True
+    points = {p["name"] for p in facts["entry_points"] if p["module"] == "app.index"}
+    assert "serve" not in points

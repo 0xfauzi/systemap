@@ -272,3 +272,13 @@ def test_the_check_reports_a_python_test_file_that_cannot_be_parsed(
     assert main(["--root", str(tmp_path), "check"]) == 1
     out = capsys.readouterr().out
     assert out.count("test file tests/test_x.py:1: source could not be parsed: SyntaxError") == 2
+
+
+def test_one_module_holds_the_test_pattern_rule() -> None:
+    """Acceptance: the `test_patterns` rule (`**/` also matches at the repository root) is
+    in `pattern_match.py` only. Each adapter calls `matches_test_pattern`.
+    """
+    source = Path(__file__).resolve().parents[1] / "src" / "systemap"
+    rule = 'pattern.replace("**/", "")'
+    holders = sorted(p.name for p in source.glob("*.py") if rule in p.read_text(encoding="utf-8"))
+    assert holders == ["pattern_match.py"]

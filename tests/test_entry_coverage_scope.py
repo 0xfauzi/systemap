@@ -195,3 +195,43 @@ def test_describe_gives_the_coverage_of_each_nested_map(
     assert "without a sequence" not in out
     main(["--root", str(tmp_path), "judgement"])
     assert "has no sequence" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("tree", "names", "extra"),
+    [
+        (PYTHON_TREE, PYTHON_NAMES, {"pkg/extra.py": "def main() -> None:\n    return None\n"}),
+        (
+            TYPESCRIPT_TREE,
+            TYPESCRIPT_NAMES,
+            {
+                "package.json": (
+                    '{"name":"web","bin":{"web":"src/cli.ts","tool":"src/inner/tool.ts",'
+                    '"extra":"src/extra.ts"}}'
+                ),
+                "src/extra.ts": "export function main(): void {}\n",
+            },
+        ),
+    ],
+    ids=["python", "typescript"],
+)
+def test_journeys_uses_the_scope_of_judgement(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    tree: dict[str, str],
+    names: dict[str, str],
+    extra: dict[str, str],
+) -> None:
+    """Acceptance: an entry point in a module that no component claims has no sequence.
+    `systemap judgement` gives one line for it, and `systemap journeys --dry-run` lists
+    one entry point. Before the repair, `journeys` used its own scope and listed none.
+    """
+    top = TOP.format(cli=names["cli"], inner=names["inner"], start=names["top"])
+    inner = INNER.format(tool=names["tool"], start=names["nested"])
+    write_tree(tmp_path, {**tree, **extra, "map/model.py": top, "map/inner.py": inner})
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    main(["--root", str(tmp_path), "judgement"])
+    assert capsys.readouterr().out.count("has no sequence") == 1
+    assert main(["--root", str(tmp_path), "journeys", "--dry-run"]) == 0
+    assert "journeys: 1 entry point without a sequence" in capsys.readouterr().out

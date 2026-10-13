@@ -28,7 +28,6 @@ from systemap import (
     decision_kinds,
     delta,
     delta_git,
-    evidence,
     extraction,
     facts_file,
     history,
@@ -270,21 +269,16 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     if facts is None:
         return STALE
     tree = nest.load(cfg)
-    from systemap.journey_coverage import reviewed_entries
-    from systemap.model import claimed
+    from systemap.journey_coverage import outside_map, reviewed_entries
 
     covered = reviewed_entries(m.meaning for m in tree.maps)
     components = facts.get("components", {})
     left: list[tuple[nest.Map, journeys.Group]] = []
     for current in tree.maps:
-        owned = set(evidence.owners(current.model, facts))
-        opened = {module for card in current.model.opening for module in claimed(card, components)}
+        # The same scope as judgement: each map has the entry points of its own modules.
+        scope = set(components) - outside_map(current.model, current.top, facts)
         groups = journeys.gather(
-            current.model,
-            current.meaning,
-            facts,
-            modules=owned - opened,
-            covered=covered,
+            current.model, current.meaning, facts, modules=scope, covered=covered
         )
         left.extend((current, group) for group in groups)
     if not left:
