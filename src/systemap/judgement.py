@@ -371,7 +371,7 @@ def run(
         + crossing_imports_without_flow(model, facts)
         + declared_flows(model, meaning, facts, observed_by)
         + flow_review(model, meaning, facts, observed_by)
-        + no_endpoint_source(model)
+        + no_endpoint_source(model, facts.get("components", {}))
         + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip)
         + unknown_fact_lines(facts)
@@ -397,7 +397,7 @@ def flow_review(
     ]
 
 
-def no_endpoint_source(model: Model) -> list[str]:
+def no_endpoint_source(model: Model, components: Mapping[str, Any] | None = None) -> list[str]:
     """This function finds flows with source records in no module of their endpoints.
 
     The evidence state of such a flow is not `observed`. An actor has no modules, so a
@@ -405,7 +405,7 @@ def no_endpoint_source(model: Model) -> list[str]:
     """
     out: list[str] = []
     for flow in model.flows:
-        if not flow.source_refs or evidence.cites_an_endpoint(flow, model):
+        if not flow.source_refs or evidence.cites_an_endpoint(flow, model, components):
             continue
         ends = " or ".join(c.id for c in model.components if c.id in flow.edge and c.implemented_by)
         out.append(

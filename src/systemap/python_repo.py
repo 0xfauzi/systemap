@@ -158,6 +158,7 @@ class PythonRepository:
     source_suffixes: tuple[str, ...] = (".py",)
     skip_dirs = PYTHON_SKIP
     model_sdks = MODEL_SDKS
+    config_files: tuple[str, ...] = ("pyproject.toml",)
     install_extra = ""
     roots_note = (
         '# Package roots use "path" = "import name".\n'

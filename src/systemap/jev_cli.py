@@ -28,6 +28,7 @@ from systemap import (
     delta,
     evidence,
     extract,
+    extraction,
     history,
     jev,
     journeys,
@@ -580,7 +581,7 @@ def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
 def _plan_facts(cfg: config.Config, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """Get base facts and working-tree facts for plan comparison."""
     sha = delta.merge_base(cfg.root, base, "HEAD")
-    return history.facts_at(cfg, sha), extract.build(cfg)
+    return history.facts_at(cfg, sha), extraction.build(cfg)
 
 
 def _check_lines(

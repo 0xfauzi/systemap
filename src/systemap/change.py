@@ -17,10 +17,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from systemap import delta_model, extract, history, nest, repo_files
+from systemap import delta_model, extraction, history, nest, repo_files
 from systemap.config import Config
 from systemap.language import LanguageAdapter
-from systemap.model import Model, module_matches, symbol_claims
+from systemap.model import Model, covers, symbol_claims
 from systemap.source_facts import WHOLE_MODULE
 
 # `gained` carries only the buckets the schematic's segmented bar draws
@@ -358,6 +358,25 @@ def _changed_test_deltas(
     return tests_added, tests_removed
 
 
+def _package_records(
+    cfg: Config, language: LanguageAdapter, files: list[str], facts: dict[str, Any]
+) -> dict[str, Any]:
+    """This function gives the module records that a claim match reads.
+
+    The facts give the `package` fact of each module that they contain. A new or removed
+    file is not in the facts. For such a file, the adapter gives the package from the
+    path, as the extraction does. A claim match then does not read a dot in a file name
+    as a package.
+    """
+    records: dict[str, Any] = dict(facts.get("components", {}))
+    for path in files:
+        module = language.module_for_path(cfg.root, path, cfg.roots)
+        if module and module not in records:
+            package = extraction.package_for(cfg, language, module, cfg.root / path)
+            records[module] = {"package": package}
+    return records
+
+
 def compute(
     cfg: Config,
     model: Model,
@@ -377,7 +396,7 @@ def compute(
     """
     repo = cfg.root
     roots = cfg.roots
-    language = extract.language_for(cfg)
+    language = extraction.language_for(cfg)
     if artifact_owner is None:
         artifact_owner = {}
 
@@ -404,6 +423,7 @@ def compute(
     if not files:
         return empty
     snapshot_facts = side.facts()
+    records = _package_records(cfg, language, files, snapshot_facts)
 
     # Each changed source module: its surface delta, from the two git blobs.
     deltas: dict[str, dict[str, Any]] = {}
@@ -434,7 +454,7 @@ def compute(
         owned = sorted(
             m
             for m in modules | set(tests_added) | set(tests_removed)
-            if any(module_matches(p, m) for p in module_ids)
+            if any(covers(p, m, records) for p in module_ids)
             or any(sym_module == m for sym_module, _name in symbol_claims(c))
         )
         hit = sorted(m for m in owned if m in modules)
@@ -489,7 +509,7 @@ def compute(
     # Reach: every component with a module that imports a changed module.
     def owner_of(module_id: str) -> str:
         for c in model.components:
-            if any(module_matches(p, module_id) for p in c.implemented_by if "/" not in p):
+            if any(covers(p, module_id, records) for p in c.implemented_by if "/" not in p):
                 return c.id
         return ""
 

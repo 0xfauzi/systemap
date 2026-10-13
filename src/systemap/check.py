@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from systemap import explain, extract, figure, nest, page, source_facts
+from systemap import explain, extract, extraction, figure, nest, page, source_facts
 from systemap import language as languages
 from systemap.config import Config, Ignore
 from systemap.model import (
@@ -28,9 +28,9 @@ from systemap.model import (
     Meaning,
     Model,
     claimed,
+    covers,
     defines_entry,
     is_symbol,
-    module_matches,
     public_names,
     symbol_claims,
 )
@@ -176,7 +176,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     ignore_list = list(ignores)
     problems: list[str] = []
     for ignore in ignore_list:
-        matched = [m for m in modules if module_matches(ignore.module, m)]
+        matched = [m for m in modules if covers(ignore.module, m, components)]
         if not matched:
             problems.append(f"ignore specifies a module missing from the facts: {ignore.module}")
         elif all(m in markers for m in matched):
@@ -184,12 +184,14 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
                 f"ignore is not necessary: {ignore.module} is an empty package marker. The "
                 f"coverage rule omits it automatically. Remove the ignore entry."
             )
-    problems += _claimed_ignores(model, modules, markers, ignore_list)
-    ignored = {m for m in modules if any(module_matches(i.module, m) for i in ignore_list)}
+    problems += _claimed_ignores(model, components, markers, ignore_list)
+    ignored = {m for m in modules if any(covers(i.module, m, components) for i in ignore_list)}
     mapped = n_ignored = n_markers = 0
     for m in modules:
         owners = [
-            c.id for c in model.components if any(module_matches(p, m) for p in c.implemented_by)
+            c.id
+            for c in model.components
+            if any(covers(p, m, components) for p in c.implemented_by)
         ]
         if len(owners) > 1:
             times = "twice" if len(owners) == 2 else f"{len(owners)} times"
@@ -208,14 +210,14 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
 
 
 def _claimed_ignores(
-    model: Model, modules: list[str], markers: set[str], ignores: list[Ignore]
+    model: Model, modules: Mapping[str, Any], markers: set[str], ignores: list[Ignore]
 ) -> list[str]:
     """This function finds an ignore entry whose modules all have a component claim."""
     claims = [p for c in model.components for p in c.implemented_by]
     out = []
     for ignore in ignores:
-        matched = [m for m in modules if module_matches(ignore.module, m) and m not in markers]
-        if matched and all(any(module_matches(p, m) for p in claims) for m in matched):
+        matched = [m for m in modules if covers(ignore.module, m, modules) and m not in markers]
+        if matched and all(any(covers(p, m, modules) for p in claims) for m in matched):
             out.append(
                 f"ignore is not necessary: {ignore.module} has a component claim. "
                 f"Remove the ignore entry."
@@ -314,7 +316,7 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
         for pattern in c.implemented_by:
             if is_symbol(pattern):
                 continue
-            if not any(module_matches(pattern, m) for m in components):
+            if not any(covers(pattern, m, components) for m in components):
                 out.append(
                     f"{c.id} has a module claim for {pattern}, which is missing from the facts."
                 )
@@ -509,8 +511,8 @@ def stale_facts(
     source modules.
     """
     problems = (
-        extract.drift(fresh, stored)
-        + extract.mapping_drift(fresh, model, prefixes)
+        extraction.drift(fresh, stored)
+        + extraction.mapping_drift(fresh, model, prefixes)
         + source_facts.inventory_issue_lines(fresh)
     )
     if not stored:
@@ -526,14 +528,14 @@ def stale(
     """This function compares saved facts, pages, and configured figures with fresh
     generated output.
     """
-    fresh = fresh if fresh is not None else extract.build(cfg)
+    fresh = fresh if fresh is not None else extraction.build(cfg)
     stored = extract.read_facts(cfg.facts_path)
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not
     # have is the entry rule's finding, and a placement problem is the
     # placement rule's, so neither is reported twice.
-    out = [f"facts: {line}" for line in extract.drift(fresh, stored)]
+    out = [f"facts: {line}" for line in extraction.drift(fresh, stored)]
     for m in tree.maps:
         if model_problems(m.model, m.meaning):
             continue

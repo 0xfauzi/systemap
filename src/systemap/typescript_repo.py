@@ -142,6 +142,7 @@ class TypeScriptRepository:
     source_suffixes: tuple[str, ...] = SOURCE_SUFFIXES
     skip_dirs = SOURCE_SKIP
     model_sdks = MODEL_SDKS
+    config_files: tuple[str, ...] = ("package.json", "tsconfig.json")
     install_extra = "typescript"
     roots_note = (
         '# Package roots use "path" = "module name".\n'

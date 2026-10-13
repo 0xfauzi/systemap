@@ -41,7 +41,7 @@ from systemap import (
     config,
     delta,
     explain,
-    extract,
+    extraction,
     figure,
     history,
     model_load,
@@ -136,7 +136,7 @@ def render_tree(root: Path, base: str) -> Rendered:
     cfg = config.load(root)
     tree = nest.load(cfg)
     _no_problems(tree)
-    facts = extract.build(cfg)
+    facts = extraction.build(cfg)
     compared = {m.id: _compare(cfg, m, base, facts) for m in tree.maps}
     files = {
         m.page_path(cfg).relative_to(cfg.out_path).as_posix(): page.build(

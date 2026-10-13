@@ -56,7 +56,7 @@ from systemap.decision import (
 )
 from systemap.evidence import owners
 from systemap.language import RepositoryAdapter
-from systemap.model import Meaning, Model, module_matches
+from systemap.model import Meaning, Model, covers
 from systemap.source_facts import is_empty_marker
 
 # The thresholds of each provider are in `systemap.decision.THRESHOLDS`.
@@ -170,7 +170,7 @@ def unclaimed(model: Model, facts: dict[str, Any], ignores: Iterable[str]) -> li
         for m in sorted(comps)
         if m not in owned
         and not is_empty_marker(comps[m])
-        and not any(module_matches(p, m) for p in patterns)
+        and not any(covers(p, m, comps) for p in patterns)
     ]
 
 

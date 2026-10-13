@@ -18,7 +18,7 @@ from systemap.model import (
     Model,
     Region,
     all_layers,
-    module_matches,
+    covers,
 )
 from systemap.source_facts import module_file
 from systemap.theme import Palette
@@ -375,7 +375,7 @@ def card_sizes(cards: list[tuple[str, str, str]]) -> tuple[float, float]:
 def _claimed_files(claim: str, components: Mapping[str, Any]) -> list[str]:
     """Give the source files of the modules that a claim covers, from the `file` facts."""
     pattern = claim.partition(":")[0]
-    files = [module_file(m, components) for m in components if module_matches(pattern, m)]
+    files = [module_file(m, components) for m in components if covers(pattern, m, components)]
     return sorted(file for file in files if file)
 
 

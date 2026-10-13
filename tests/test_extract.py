@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import config, extract, python_repo, skill, source_facts
+from systemap import config, extract, extraction, python_repo, skill, source_facts
 from systemap.cli import main
 
 
@@ -69,7 +69,7 @@ def test_python_provenance_tracks_minor_version_not_patch(
     def provenance(major: int, minor: int, micro: int) -> dict[str, object]:
         version_info = SimpleNamespace(major=major, minor=minor, micro=micro)
         monkeypatch.setattr(python_repo, "sys", SimpleNamespace(version_info=version_info))
-        return extract._provenance(cfg, extract.PYTHON, None)
+        return extraction._provenance(cfg, extract.PYTHON, None)
 
     try:
         first = provenance(3, 11, 10)

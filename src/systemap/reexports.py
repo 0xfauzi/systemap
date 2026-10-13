@@ -1,6 +1,8 @@
 """The re-export resolver gives each re-exported public name the kind of its definition.
 
-It reads the module records of one extraction. Python and TypeScript use the same rules.
+It reads the module records of one extraction. The rules are the same for each language.
+The adapter writes the language rules into the records: `star` marks a `*` re-export, and
+`star_export` set to false marks a name that a `*` re-export does not give.
 """
 
 from __future__ import annotations
@@ -136,13 +138,16 @@ def _defined_kind(
 
 
 def _star_names(module: str, components: dict[str, Any], visited: set[str]) -> list[dict[str, Any]]:
-    """The public names reached through local `export *` statements."""
+    """The public names reached through local `*` re-exports.
+
+    A name with `star_export` set to false is not in a `*` re-export. A name without the
+    field is in it."""
     if module not in components or module in visited:
         return []
     out: list[dict[str, Any]] = []
     for entry in components[module].get("names", []):
         if entry.get("star"):
             out.extend(_star_names(entry["reexport_of"], components, visited | {module}))
-        elif entry.get("name") != "default":
+        elif entry.get("star_export", True) is not False:
             out.append(entry)
     return out

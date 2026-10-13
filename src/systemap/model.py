@@ -668,25 +668,51 @@ def symbol_claims(component: Component) -> list[tuple[str, str]]:
     return out
 
 
-def module_matches(pattern: str, module: str) -> bool:
+def module_matches(pattern: str, module: str, package: str | None = None) -> bool:
     """True when an implemented_by pattern covers a module.
 
     An exact module name covers that module only.
-    A package name with .* covers the package and its descendant modules.
+    A package name with .* covers the module with that name, and each module in that
+    package or in a package below it. The `package` argument is the `package` fact of the
+    module. The adapter writes it, so a dot in a file name (`user.service.ts`) does not
+    make a package. Without the fact (None), the dotted module name gives the package.
+    For a Python module, the two results are the same.
     A symbol claim covers a public name, not the containing module.
     Coverage, source change, and map checks use this same procedure."""
     if is_symbol(pattern):
         return False
     if pattern.endswith(".*"):
         head = pattern[:-2]
-        return module == head or module.startswith(head + ".")
+        if module == head:
+            return True
+        if package is None:
+            return module.startswith(head + ".")
+        return package == head or package.startswith(head + ".")
     return module == pattern
 
 
+def package_fact(module: str, records: object) -> str | None:
+    """Give the `package` fact of the module, or None when it is not known.
+
+    The records are the module records of the facts (`facts["components"]`). A list of
+    module names, a missing record, or a record of an older extraction gives None."""
+    record = records.get(module) if isinstance(records, Mapping) else None
+    package = record.get("package") if isinstance(record, Mapping) else None
+    return package if isinstance(package, str) and package else None
+
+
+def covers(pattern: str, module: str, records: object) -> bool:
+    """True when the pattern covers the module, with the `package` fact of its record."""
+    return module_matches(pattern, module, package_fact(module, records))
+
+
 def claimed(component: Component, modules: Iterable[str]) -> list[str]:
-    """Select the modules that the component implemented_by patterns cover."""
+    """Select the modules that the component implemented_by patterns cover.
+
+    With the module records (a mapping), the `package` fact of each record gives its
+    package. With module names only, the dotted names give the packages."""
     patterns = component.implemented_by
-    return [m for m in modules if any(module_matches(p, m) for p in patterns)]
+    return [m for m in modules if any(covers(p, m, modules) for p in patterns)]
 
 
 BUILT = "built"

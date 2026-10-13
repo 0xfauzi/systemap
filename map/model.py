@@ -144,6 +144,7 @@ COMPONENTS = (
         implemented_by=(
             "systemap.extract",
             "systemap.completeness",
+            "systemap.extraction",
             "systemap.facts",
             "systemap.language",
             "systemap.python_imports",

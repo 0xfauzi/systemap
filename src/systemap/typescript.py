@@ -440,6 +440,16 @@ def _problem(line: int, reason: str, source: str) -> dict[str, Any]:
     return {"line": line, "reason": reason, "source": source[:120]}
 
 
+def _mark_star_exports(names: list[dict[str, Any]]) -> None:
+    """This function marks the names that `export * from` does not give.
+
+    An `export *` statement does not re-export the default export of its module. The
+    shared re-export resolver reads `star_export` and does not examine the name."""
+    for entry in names:
+        if entry.get("name") == "default":
+            entry["star_export"] = False
+
+
 def _resolve_reexports(
     surface: dict[str, Any],
     path: Path,
@@ -648,6 +658,7 @@ class TypeScriptLanguage(TypeScriptRepository):
             }
         surface["unknown"].extend(_problem(0, reason, "") for reason in problems)
         _resolve_reexports(surface, path, module, known, paths, context)
+        _mark_star_exports(surface["names"])
         return {
             "file": path.relative_to(repo).as_posix(),
             "loc": len(raw.splitlines()),

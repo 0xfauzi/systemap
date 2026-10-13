@@ -37,9 +37,9 @@ from systemap.model import (
     Meaning,
     Model,
     claimed,
+    covers,
     defines_entry,
     is_symbol,
-    module_matches,
     symbol_claims,
 )
 
@@ -196,9 +196,11 @@ def compute(
     owner_head = evidence.owners(head_model, head)
     owner_base = evidence.owners(base_model, base)
     ignores = [i.module for i in cfg.coverage_ignore]
+    # The head record gives the package of a module that is in the two commits.
+    records = {**b, **h}
 
     def ignored(module: str) -> bool:
-        return any(module_matches(i, module) for i in ignores)
+        return any(covers(i, module, records) for i in ignores)
 
     lines: list[Line] = []
 

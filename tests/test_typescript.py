@@ -468,7 +468,12 @@ def test_typescript_fixture_resolves_aliases_tsx_and_runs_end_to_end(
     ]
     assert facts["components"]["acme.web.index"]["names"] == [
         {"name": "serve", "kind": "function", "reexport_of": "acme.web.service"},
-        {"name": "default", "kind": "function", "reexport_of": "acme.web.service"},
+        {
+            "name": "default",
+            "kind": "function",
+            "reexport_of": "acme.web.service",
+            "star_export": False,
+        },
         {"name": "UserView", "kind": "function", "reexport_of": "acme.web.view"},
     ]
 

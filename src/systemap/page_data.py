@@ -11,7 +11,7 @@ from systemap.model import (
     Component,
     Model,
     claimed,
-    module_matches,
+    covers,
     public_names,
     symbol_claims,
 )
@@ -47,7 +47,7 @@ def _unresolved_claims(component: Component, modules: dict[str, Any]) -> list[st
         for claim in component.implemented_by
         if "/" not in claim
         and claim not in symbols
-        and not any(module_matches(claim, module) for module in resolved)
+        and not any(covers(claim, module, modules) for module in resolved)
     ]
 
 

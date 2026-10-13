@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import check, config, extract, skill, source_facts
+from systemap import check, config, extract, reexports, skill, source_facts
 from systemap import facts as facts_mod
 from systemap.cli import main
 from systemap.model import Component, Model, defines_entry, public_names
@@ -109,7 +109,7 @@ def test_reexport_resolution_and_relative_sources() -> None:
         "pkg.x": {"names": [{"name": "e", "kind": "error"}]},
         "pkg.y": {"names": [{"name": "gone", "kind": "reexport", "reexport_of": "pkg.nowhere"}]},
     }
-    extract.resolve_reexports(components)
+    reexports.resolve_reexports(components)
     assert components["pkg"]["names"][0]["kind"] == "error"
     assert components["pkg.y"]["names"][0] == {
         "name": "gone",
@@ -118,14 +118,14 @@ def test_reexport_resolution_and_relative_sources() -> None:
     }
 
 
-def test_facts_format_is_5_and_an_older_file_is_stale(tmp_path: Path) -> None:
+def test_facts_format_is_6_and_an_older_file_is_stale(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     fresh = extract.build(cfg)
-    assert fresh["version"] == extract.FORMAT == 5
+    assert fresh["version"] == extract.FORMAT == 6
     older = {**fresh, "version": 1}
     assert extract.drift(fresh, older) == [
-        "facts format 1 is older than the extractor's 5; the file records less than the "
+        "facts format 1 is older than the extractor's 6; the file records less than the "
         "extractor reads"
     ]
     assert extract.drift(fresh, fresh) == []

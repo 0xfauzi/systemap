@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from systemap import check, extract, nest
+from systemap import check, extraction, nest
 
 # More lines than this in one group give a count line in their place.
 SHOWN = 25
@@ -42,7 +42,7 @@ def problems(
     stale: dict[str, str] = {}
     model: dict[str, list[str]] = {}
     for m in tree.maps:
-        claims = set(extract.mapping_drift(fresh, m.model, prefixes))
+        claims = set(extraction.mapping_drift(fresh, m.model, prefixes))
         for line in check.stale_facts(fresh, stored, m.model, prefixes):
             if line in claims:
                 model.setdefault(m.rel, []).append(m.prefix + line)

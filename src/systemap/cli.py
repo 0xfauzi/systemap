@@ -33,6 +33,7 @@ from systemap import (
     explain,
     extract,
     extract_check,
+    extraction,
     failures,
     figure,
     history,
@@ -153,7 +154,7 @@ def _missing_roots_error(project: Project) -> ConfigError:
 def cmd_extract(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
-    fresh = extract.build(p.cfg)
+    fresh = extraction.build(p.cfg)
     stored = extract.read_facts(p.cfg.facts_path)
     if args.check:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
@@ -162,7 +163,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
     extract.write_facts(p.cfg.facts_path, fresh)
     say(*extract.summary(fresh))
     for m in p.tree.maps:
-        for line in extract.mapping_drift(fresh, m.model, p.cfg.prefixes):
+        for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
             say(f"  warning: {m.prefix}{line}")
     say(f"The command wrote {p.cfg.rel(p.cfg.facts_path)}")
     return OK
@@ -466,7 +467,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     _require_roots(p)
     if _empty(p):
         return STALE
-    fresh = extract.build(p.cfg)
+    fresh = extraction.build(p.cfg)
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.

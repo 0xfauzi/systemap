@@ -32,6 +32,7 @@ from systemap import (
     decisions,
     decisions_store,
     extract,
+    extraction,
     judgement_json,
     nest,
     review,
@@ -78,7 +79,7 @@ def snapshot(cfg: config.Config) -> Snapshot:
             f"No facts are available at {cfg.rel(cfg.facts_path)}. Do systemap refresh. "
             "Then do this command again."
         )
-    drift = extract.drift(extract.build(cfg), saved)
+    drift = extraction.drift(extraction.build(cfg), saved)
     if drift:
         raise DecisionError(
             f"The facts at {cfg.rel(cfg.facts_path)} do not agree with the source: "
