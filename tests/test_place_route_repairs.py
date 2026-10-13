@@ -96,6 +96,9 @@ def test_place_restores_the_model_file_when_the_reload_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = _unplaced(tmp_path)
+    # The command writes LF line ends. On Windows the helper writes CRLF, so the file is
+    # made LF first. Otherwise the written file is smaller and the reader accepts it.
+    path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
     # The model file is a few bytes below the limit of the model reader. Thus the reader
     # refuses the file after the command adds the x and y values.
     size = len(path.read_bytes())

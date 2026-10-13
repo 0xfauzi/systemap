@@ -98,7 +98,7 @@ def _assert_confined(repo: Path, outside: Path, cause: str, target: Path) -> Non
         problems.append("the watcher gives a path outside the repository")
     if [path for path in opened if Path(path).resolve() == outside.resolve()]:
         problems.append("the watcher opened the file outside the repository")
-    if cause not in error or str(target.resolve()) not in error:
+    if cause not in error or target.resolve().as_posix() not in error:
         problems.append(f"extraction did not give the path and the cause: {error!r}")
     assert problems == []
 
