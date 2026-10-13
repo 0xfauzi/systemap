@@ -434,7 +434,8 @@ def test_without_the_reviewed_commit_the_source_part_is_the_text_up_to_the_limit
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = stale_project(tmp_path, "python", capsys)
-    shutil.rmtree(root / ".git")
+    # A rename, not rmtree: Git object files are read-only, and Windows refuses to remove them.
+    (root / ".git").rename(tmp_path / "git-gone")
     change(root, {"pkg/reader.py": "\n# " + "x" * (drift_order.CAP + 10) + "\n"})
     cfg, tree, facts, lines = loaded(root)
     asked = Fixed(dict(PY_SCORES))
