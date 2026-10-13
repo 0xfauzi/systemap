@@ -5,6 +5,8 @@ Dashed card borders identify actors outside the source code. Flow lines
 show artifacts and use the color of their flow kind. Selection shows connections
 and shows their explanation in the inspector. Nodes carry `data-id`
 and kind values. Flow lines carry artifact labels and `data-layer`.
+The groups of the drawing use `data-part`, not `data-layer`. Thus a layer ID cannot
+have the same attribute value as a group.
 
 Flow evidence states come from evidence.py. `observed` means that source
 references resolve and the source review digest agrees with the claim.
@@ -106,10 +108,11 @@ from systemap.schematic_change import (
     change_flow,
     change_marks,
     change_meta,
+    change_style,
     change_tag,
 )
 from systemap.schematic_script import interactive_script as interactive_script
-from systemap.schematic_style import _defs, _svg_style
+from systemap.schematic_style import _defs, _svg_style, layer_marker
 from systemap.schematic_style import panel_css as panel_css
 from systemap.theme import Palette
 
@@ -349,7 +352,7 @@ def render(
             notes.append(f"{model.flows[i].name}: {route.fallback}")
         # A line keeps the color of its kind in every layer. A derived layer
         # (structure, system, agents) selects lines and does not color them.
-        colour, marker = LAYER_COLOUR[own], own
+        colour, marker = LAYER_COLOUR[own], layer_marker(own)
         look = change_flow(P, marks, i, colour, marker, artifact in hot_artifacts)
         fid = f"{svg_id}-f{i}"
         ev = backed.of(model.flows[i])
@@ -362,9 +365,9 @@ def render(
             evidence.STRUCTURAL: ' stroke-dasharray="3 4"',
         }.get(ev.state, "")
         flow_parts.append(
-            f'<path id="{fid}" class="flow {kind}" data-edge="{i}" data-from="{esc(src)}" '
+            f'<path id="{fid}" class="flow" data-edge="{i}" data-from="{esc(src)}" '
             f'data-to="{esc(dst)}" data-art="{esc(artifact)}" '
-            f'data-kind="{esc(kind)}" data-layer="{own}" data-evidence="{ev.state}" '
+            f'data-kind="{esc(kind)}" data-layer="{esc(own)}" data-evidence="{ev.state}" '
             f'role="button" tabindex="0" aria-pressed="false" '
             f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
             f'{esc(own)}, {esc(evidence_label)}" '
@@ -384,8 +387,8 @@ def render(
             )
         lx, ly = lbox[0] + lbox[2] / 2, lbox[1] + LABEL_H - 3
         label_parts[i] = (
-            f'<g class="flowlbl {kind}" data-edge="{i}" '
-            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{own}"'
+            f'<g class="flowlbl" data-edge="{i}" '
+            f'data-from="{esc(src)}" data-to="{esc(dst)}" data-layer="{esc(own)}"'
             f"{look.shown} "
             f'role="button" tabindex="-1" aria-pressed="false" '
             f'aria-label="Examine {esc(artifact)}: {esc(src)} to {esc(dst)}, '
@@ -432,7 +435,7 @@ def render(
         g: list[str] = [
             f'<g class="node {state_class}'
             f'{" subject" if subject else ""}{" quiet" if quiet else ""}" '
-            f'data-id="{esc(cid)}" data-kind="{kind}" data-state="{state}" '
+            f'data-id="{esc(cid)}" data-kind="{esc(kind)}" data-state="{state}" '
             f'data-region="{esc(c.home)}"{marked.attrs} '
             f'role="button" '
             f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(marked.label)}">'
@@ -494,7 +497,7 @@ def render(
         # The plain word under the code name. The name and the plain word
         # are centred in the card.
         g.append(
-            '<g data-layer="job">'
+            '<g data-part="job">'
             + "".join(
                 L(x + 10 + inset, y + dy, line, sizes[1], P["ink_2"], "400", False, "start")
                 for dy, inset, line in plain_rows
@@ -666,20 +669,18 @@ def render(
         f'aria-label="{esc(what)}">'
         f"<title>{esc(title)}</title>",
         _defs(svg_id, P) + change_defs(svg_id, P, marks),
-        _svg_style(svg_id, P),
+        _svg_style(svg_id, P) + change_style(svg_id, marks),
     ]
     # Everything drawn sits in one group the script pans and zooms with a
     # transform; the viewBox never changes, so every coordinate read back from
     # the figure (card boxes, edge paths) stays in drawing units.
     p.append('<g class="view">')
     p.extend(floor)
-    p.append(f'<g data-layer="zones">{"".join(zones)}</g>')
-    p.append(f'<g data-layer="flow">{"".join(flow_parts)}</g>')
+    p.append(f'<g data-part="zones">{"".join(zones)}</g>')
+    p.append(f'<g data-part="flow">{"".join(flow_parts)}</g>')
     p.extend(cards)
-    p.append(
-        '<g data-layer="flow">' + "".join(label_parts[i] for i in sorted(label_parts)) + "</g>"
-    )
-    p.append('<g data-layer="tags"></g>')
+    p.append('<g data-part="flow">' + "".join(label_parts[i] for i in sorted(label_parts)) + "</g>")
+    p.append('<g data-part="tags"></g>')
     p.append("</g>")
     # Text classes are known only once everything is drawn, so their style
     # block goes in last; the renderer does not care where a style sits.

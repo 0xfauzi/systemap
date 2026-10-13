@@ -66,8 +66,8 @@ def in_c_locale(code: str) -> object:
 
 def test_a_file_at_a_revision_is_read_as_utf8(repo: Path) -> None:
     code = (
-        "import json, pathlib; from systemap import change; "
-        f"print(json.dumps(change._show(pathlib.Path({str(repo)!r}), 'HEAD', 'pkg/reader.py')))"
+        "import json, pathlib; from systemap import change_text; "
+        f"print(json.dumps(change_text.at(pathlib.Path({str(repo)!r}), 'HEAD', ['pkg/reader.py'])['pkg/reader.py'].raw))"
     )
     assert in_c_locale(code) == SOURCE
 

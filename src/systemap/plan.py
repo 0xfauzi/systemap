@@ -4,20 +4,28 @@ change.
 A decision provider gives component weights from the task and component descriptions.
 The context includes connected flows, sequences, and invariants. A later comparison
 identifies unplanned changes and planned components without changes.
+
+A plan ID has three parts: the date, a digest of the full task, and the first four
+words of the task. The same task on the same date gives the same ID. A save does not
+replace the plan file of a different task.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import graph
+from systemap import evidence, graph
+from systemap.audit import NONE
 from systemap.config import Config
 from systemap.model import Meaning, Model
 
+# The hex characters of the task digest in a plan ID.
+DIGEST_CHARS = 12
 # The cut of each provider is `plan_cut` in `systemap.decision.THRESHOLDS`.
 # The text is cut here, as triage cuts an issue: a question with a whole
 # design document in it is a question about the document, not the work.
@@ -26,6 +34,10 @@ PLAN_Q = (
     "`task` gives the planned work on this system. Which component has the largest "
     "probability of a change from this task?"
 )
+
+
+class PlanError(Exception):
+    """A plan cannot be saved. The message gives the cause."""
 
 
 @dataclass(frozen=True)
@@ -70,10 +82,10 @@ class Projection:
 
 def named(probabilities: dict[str, float], cut: float) -> list[str]:
     """This function selects components with a probability at or above the cut, with the
-    largest probabilities first.
+    largest probabilities first. The option "none of these" is not a component.
     """
     ranked = sorted(probabilities.items(), key=lambda kv: -kv[1])
-    return [cid for cid, p in ranked if p >= cut and not cid.startswith("none")]
+    return [cid for cid, p in ranked if p >= cut and cid != NONE]
 
 
 def around(model: Model, meaning: Meaning, card: str) -> Around:
@@ -111,10 +123,13 @@ def project(
 
 
 def plan_id(task: str) -> str:
-    """This function makes a short plan ID from the task words and date."""
+    """This function makes a plan ID: the date, a digest of the full task, and the first
+    four words of the task.
+    """
     words = [w for w in "".join(c if c.isalnum() else " " for c in task).split()[:4] if w]
     stem = "-".join(w.lower() for w in words) or "plan"
-    return f"{time.strftime('%Y%m%d')}-{stem}"
+    digest = hashlib.sha256(task.encode("utf-8")).hexdigest()[:DIGEST_CHARS]
+    return f"{time.strftime('%Y%m%d')}-{digest}-{stem}"
 
 
 def path_of(cfg: Config, plan: str) -> Path:
@@ -122,9 +137,21 @@ def path_of(cfg: Config, plan: str) -> Path:
 
 
 def save(cfg: Config, projection: Projection) -> Path:
+    """This function writes the projection. If the plan file of the ID has a different task,
+    or if it is not a plan, the function gives PlanError and does not change the file.
+    """
     path = path_of(cfg, projection.id)
+    if path.exists():
+        held = load(cfg, projection.id)
+        if held is None or held.get("task") != projection.task:
+            raise PlanError(
+                f"{cfg.rel(path)} does not contain this task, and systemap did not replace it. "
+                "The file has a different task, or it is not a plan"
+            )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(projection.as_json(), indent=1) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(projection.as_json(), indent=1) + "\n", encoding="utf-8", newline="\n"
+    )
     return path
 
 
@@ -143,6 +170,23 @@ def saved(cfg: Config) -> list[str]:
     """This function lists stored plans in name order."""
     folder = cfg.root / ".systemap/plans"
     return sorted(p.stem for p in folder.glob("*.json")) if folder.is_dir() else []
+
+
+def owners(
+    head: Model, base: Model | None, base_facts: dict[str, Any], head_facts: dict[str, Any]
+) -> dict[str, str]:
+    """This function gives the component of each module in the two snapshots.
+
+    The head model and the head facts give the first owner. The head model and the base
+    facts give the owner of a removed module. If the head model does not claim a removed
+    module, the base model gives its owner.
+    """
+    owner: dict[str, str] = {}
+    for model, facts in ((head, head_facts), (head, base_facts), (base, base_facts)):
+        if model is not None:
+            for module, card in evidence.owners(model, facts).items():
+                owner.setdefault(module, card)
+    return owner
 
 
 def touched(base: dict[str, Any], head: dict[str, Any], owner: dict[str, str]) -> set[str]:

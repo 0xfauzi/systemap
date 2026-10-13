@@ -7,21 +7,33 @@ component, the evidence has the module facts and the digest of the source file. 
 to a different component, or to a `source_review` value, does not change the evidence.
 
 A line that names no component and no module has the full evidence: the digest of the
-model file, and the facts and source of all modules. A crossing-import line has the
-imports between the two components and the source of the two modules of each import.
+model files (`model_digest`), and the facts and source of all modules. A crossing-import
+line has the imports between the two components and the source of the two modules of
+each import.
 
-This module uses only language-neutral facts: the module records and their `file` fields.
+An `entry point` line also has the entry point records of its modules, or all records
+if it has the full evidence. A record gives the kind, the module, the target, and the
+name. Thus a new target of an entry point changes the evidence.
+
+This module uses only language-neutral facts: the module records, their `file` fields,
+and the entry point records.
 """
 
 from __future__ import annotations
 
+import json
 import re
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, nest, repo_files
+from systemap import card_review, model_load, nest, repo_files
 from systemap.model import Component, claimed, is_symbol
+from systemap.source_facts import entry_identity
 from systemap.source_text import text_digest
+
+# The start of an entry point line, after the map prefix (`journey_coverage`).
+ENTRY_LINE = "entry point "
 
 
 def _source_hash(root: Path, record: dict[str, Any]) -> str:
@@ -82,15 +94,56 @@ def line_modules(m: nest.Map, line: str, facts: dict[str, Any]) -> list[str]:
     return modules
 
 
-def full_state(components: dict[str, Any], root: Path, model_hash: str) -> Any:
-    """Give the evidence of a line that names nothing: the model file and all modules."""
-    return {
+def model_digest(m: nest.Map) -> str:
+    """Give the digest of the model file and each model file that it imports.
+
+    A model file without imports keeps the digest of its text, as before. If the data
+    reader refuses the model files, the digest is the digest of the loaded MODEL and
+    MEANING values. This occurs only for model code with SYSTEMAP_TRUST_MODEL_CODE=1.
+    """
+    try:
+        paths = model_load.files(m.path, m.rel)
+    except model_load.ModelFileError:
+        return text_digest(repr((m.model, m.meaning)).encode())
+    if len(paths) == 1:
+        return text_digest(paths[0].read_bytes())
+    files = sorted((path.name, text_digest(path.read_bytes())) for path in paths)
+    return text_digest(json.dumps(files).encode())
+
+
+def entry_points(
+    m: nest.Map, facts: dict[str, Any], line: str, modules: Collection[str] | None = None
+) -> list[str] | None:
+    """Give the entry point records of an `entry point` line, or None for other lines.
+
+    The records are the records of the modules, or all records if `modules` is None.
+    """
+    if not line[len(m.prefix) :].startswith(ENTRY_LINE):
+        return None
+    return [
+        entry_identity(point)
+        for point in facts.get("entry_points", [])
+        if modules is None or point.get("module") in modules
+    ]
+
+
+def full_state(
+    components: dict[str, Any], root: Path, model_hash: str, points: list[str] | None = None
+) -> Any:
+    """Give the evidence of a line that names nothing: the model files and all modules.
+
+    For an `entry point` line, `points` gives all entry point records.
+    """
+    state = {
         "model": model_hash,
         "facts": [
             (name, _answer_facts(record), _source_hash(root, record))
             for name, record in sorted(components.items())
         ],
     }
+    if points is not None:
+        state["entry_points"] = points
+    return state
 
 
 def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any:
@@ -103,7 +156,7 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
     modules = sorted(set(line_modules(m, line, facts)))
     if not cards and not modules:
         return None
-    return {
+    state = {
         "claims": [
             (card.id, card_review.claims(card, m.model, m.meaning))
             for card in sorted(cards, key=lambda card: card.id)
@@ -117,6 +170,10 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
             for module in modules
         ],
     }
+    points = entry_points(m, facts, line, set(modules))
+    if points is not None:
+        state["entry_points"] = points
+    return state
 
 
 def answer_state(

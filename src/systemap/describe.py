@@ -8,7 +8,7 @@ agent can read these measurements without a browser.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from typing import Any
 
 from systemap import journeys as journeys_mod
@@ -23,6 +23,9 @@ from systemap.schematic import render as render_schematic
 from systemap.source_facts import entry_label
 
 Box = tuple[float, float, float, float]
+# The entry point identities in `covers` of all maps (None: of this map only), and the
+# modules of the other maps.
+Scope = tuple[Collection[str] | None, Collection[str]]
 
 
 def bends(points: list[list[float]]) -> int:
@@ -114,9 +117,16 @@ def drawn_score(meta: dict[str, Any], flows: int) -> Score:
 
 
 def journey_lines(
-    model: Model, meaning: Meaning, facts: dict[str, Any], observed_by: Iterable[str] = ()
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    observed_by: Iterable[str] = (),
+    scope: Scope = (None, ()),
 ) -> list[str]:
-    """This function gives sequences and entry point coverage."""
+    """This function gives sequences and entry point coverage.
+
+    `scope` gives the entry point identities in `covers` of all maps, and the modules of
+    the other maps. The default is the sequences of this map and all modules."""
     if not meaning.journeys:
         return [
             (
@@ -128,7 +138,7 @@ def journey_lines(
     out = ["sequences: These steps give the system operations."]
     for j in meaning.journeys:
         out += _walk_lines(j, states, model.flows)
-    return out + _ways_in_lines(model, meaning, facts)
+    return out + _ways_in_lines(model, meaning, facts, scope)
 
 
 def _walk_lines(j: Journey, states: ByFlow, flows: tuple[Flow, ...]) -> list[str]:
@@ -150,12 +160,16 @@ def _walk_lines(j: Journey, states: ByFlow, flows: tuple[Flow, ...]) -> list[str
     return out
 
 
-def _ways_in_lines(model: Model, meaning: Meaning, facts: dict[str, Any]) -> list[str]:
+def _ways_in_lines(
+    model: Model, meaning: Meaning, facts: dict[str, Any], scope: Scope
+) -> list[str]:
     """This function gives entry point coverage and entry points without sequences."""
-    ways = len(facts.get("entry_points", []))
+    covered, skip = scope
+    ways = sum(1 for p in facts.get("entry_points", []) if p["module"] not in skip)
     if not ways:
-        return ["  entry points: The facts contain none. No sequence is necessary."]
-    left = journeys_mod.uncovered(meaning, facts, owners(model, facts))
+        where = " for this map" if skip else ""
+        return [f"  entry points: The facts contain none{where}. No sequence is necessary."]
+    left = journeys_mod.uncovered(meaning, facts, owners(model, facts), covered, skip)
     out = [f"  entry points: {ways - len(left)} of {ways} have sequence coverage"]
     if left:
         named = ", ".join(entry_label(p) for p in left[:5])
@@ -281,14 +295,15 @@ def run(
     observed_by: Iterable[str] = (),
     placed: Iterable[str] = (),
     searched: tuple[int, int] | None = None,
+    scope: Scope = (None, ()),
 ) -> list[str]:
     """This function renders the map once with the page generator and gives its
-    measurements.
+    measurements. `scope` is the same as in `journey_lines`.
     """
     _svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
     meta = json.loads(detail)["_meta"]
     out = lines(model, meaning, meta, placed, searched)
-    walks = journey_lines(model, meaning, facts, observed_by)
+    walks = journey_lines(model, meaning, facts, observed_by, scope)
     # What the check refuses stays the last line: it is the one that names a fix.
     if out and out[-1].startswith("check errors"):
         return out[:-1] + walks + out[-1:]

@@ -38,12 +38,15 @@ COMPONENT_FIELDS = {
     "map": "inner map",
 }
 FLOW_FIELDS = {
+    "edge": "endpoints",
     "artifact": "artifact",
     "kind": "kind",
     "source_refs": "source records",
     "relation": "sentence",
 }
 SEQUENCE_FIELDS = {"label": "name", "starts": "entry point", "steps": "steps"}
+# The position of an identity in `covers` is not a change.
+COVERAGE = "coverage"
 INVARIANT_FIELDS = {"text": "text", "governs": "components"}
 EMPTY = Model(canvas=(0, 0), containers=(), regions=(), components=(), flows=(), flow_kinds=())
 NO_MEANING = Meaning(plain={})
@@ -124,7 +127,8 @@ def _cited(f: Flow) -> set[str]:
 
 
 def _flow_fields(old: Flow, f: Flow, bm: Meaning, hm: Meaning) -> tuple[str, ...]:
-    words = _differ(old, f, {"artifact": "artifact", "kind": "kind"})
+    """Give the changed fields of one flow. A flow with an id keeps it on new endpoints."""
+    words = _differ(old, f, {"edge": "endpoints", "artifact": "artifact", "kind": "kind"})
     if _cited(old) != _cited(f):
         words.append(FLOW_FIELDS["source_refs"])
     if bm.relation(old) != hm.relation(f):
@@ -152,12 +156,19 @@ def _sequences(bm: Meaning, hm: Meaning) -> tuple[Item, ...]:
     out: list[Item] = []
     for k, j in enumerate(hm.journeys):
         old = before.get(j.id)
-        words = () if old is None else tuple(_differ(old, j, SEQUENCE_FIELDS))
+        words = () if old is None else _sequence_fields(old, j)
         if old is None or words:
             out.append(Item(ADDED if old is None else CHANGED, j.label, words, go=k))
     after = {j.id for j in hm.journeys}
     out += [Item(REMOVED, j.label) for j in bm.journeys if j.id not in after]
     return tuple(out)
+
+
+def _sequence_fields(old: Journey, j: Journey) -> tuple[str, ...]:
+    words = _differ(old, j, SEQUENCE_FIELDS)
+    if set(old.covers) != set(j.covers):
+        words.append(COVERAGE)
+    return tuple(words)
 
 
 def _governs(i: Invariant) -> Invariant:

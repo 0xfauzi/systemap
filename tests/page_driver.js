@@ -45,6 +45,35 @@ let focused = null;
 let rafQueue = [];
 let rafCalls = 0;
 let scrolls = [];
+// The mutation observers of the page. Each change to an attribute or to the children of
+// an element gives a record to each observer of that element or of an ancestor, with
+// `subtree`. The page reads the records with takeRecords, or in a microtask.
+const OBSERVERS = [];
+function noteMutation(target, type) {
+  OBSERVERS.forEach((o) => o.note(target, type));
+}
+class MutationObserverImpl {
+  constructor(callback) { this.callback = callback; this.targets = []; this.records = []; }
+  observe(target, options) {
+    this.targets.push({target, options: options || {}});
+    if (!OBSERVERS.includes(this)) OBSERVERS.push(this);
+  }
+  disconnect() {
+    this.targets = []; this.records = [];
+    const i = OBSERVERS.indexOf(this);
+    if (i >= 0) OBSERVERS.splice(i, 1);
+  }
+  takeRecords() { const out = this.records; this.records = []; return out; }
+  note(target, type) {
+    const seen = this.targets.some(({target: t, options}) => !!options[type]
+      && (t === target || (options.subtree && t.contains(target))));
+    if (!seen) return;
+    this.records.push({type, target});
+    if (this.records.length === 1) {
+      Promise.resolve().then(() => { const r = this.takeRecords(); if (r.length) this.callback(r, this); });
+    }
+  }
+}
 const REPORT = {replaceStates: []};
 const DRAWER_W = 380;
 const DRAWER_MARGIN = 10;
@@ -89,8 +118,8 @@ class Element {
   _setClasses(s) { this.setAttribute('class', Array.from(s).join(' ')); }
   get className() { return this.getAttribute('class') || ''; }
   getAttribute(n) { return this.attrs.has(n) ? this.attrs.get(n) : null; }
-  setAttribute(n, v) { this.attrs.set(n, String(v)); }
-  removeAttribute(n) { this.attrs.delete(n); }
+  setAttribute(n, v) { this.attrs.set(n, String(v)); noteMutation(this, 'attributes'); }
+  removeAttribute(n) { this.attrs.delete(n); noteMutation(this, 'attributes'); }
   hasAttribute(n) { return this.attrs.has(n); }
   get hidden() { return this.hasAttribute('hidden'); }
   set hidden(v) { if (v) this.setAttribute('hidden', ''); else this.removeAttribute('hidden'); }
@@ -113,17 +142,20 @@ class Element {
     this.childNodes.forEach((c) => { c.parentNode = null; });
     this.childNodes = [];
     if (v !== '' && v !== null && v !== undefined) this.appendChild(new Text(String(v)));
+    noteMutation(this, 'childList');
   }
   get innerHTML() { return this.childNodes.map(serialize).join(''); }
   set innerHTML(html) {
     this.childNodes.forEach((c) => { c.parentNode = null; });
     this.childNodes = [];
     parseInto(String(html), this, this.inSvg);
+    noteMutation(this, 'childList');
   }
   appendChild(node) {
     if (node.parentNode) node.parentNode.removeChild(node);
     node.parentNode = this;
     this.childNodes.push(node);
+    noteMutation(this, 'childList');
     return node;
   }
   insertBefore(node, reference) {
@@ -133,11 +165,12 @@ class Element {
     if (node.parentNode) node.parentNode.removeChild(node);
     node.parentNode = this;
     this.childNodes.splice(this.childNodes.indexOf(reference), 0, node);
+    noteMutation(this, 'childList');
     return node;
   }
   removeChild(node) {
     const i = this.childNodes.indexOf(node);
-    if (i >= 0) { this.childNodes.splice(i, 1); node.parentNode = null; }
+    if (i >= 0) { this.childNodes.splice(i, 1); node.parentNode = null; noteMutation(this, 'childList'); }
     return node;
   }
   contains(node) {
@@ -491,6 +524,7 @@ function load(html, reducedMotion, viewport, prefs) {
     CustomEvent: CustomEventImpl,
     KeyboardEvent: KeyboardEventImpl,
     DOMPoint: DOMPointImpl,
+    MutationObserver: MutationObserverImpl,
     console,
     Math, JSON, Object, Array, String, Number, parseInt, parseFloat, isNaN, Infinity, NaN,
     decodeURIComponent, encodeURIComponent, setTimeout: (cb) => { cb(); return 0; }, clearTimeout() {},

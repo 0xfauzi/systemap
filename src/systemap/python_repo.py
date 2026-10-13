@@ -6,22 +6,25 @@ reads the name of a recorded method.
 
 from __future__ import annotations
 
+import fnmatch
+import os
 import re
 import sys
 import tomllib
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config
+from systemap import config, config_walk, identifier
 from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 
 # Below a Python package root or test directory, these folders hold no source of the
 # project. The folders above the root are not examined.
 PYTHON_SKIP = frozenset({".git", ".venv", "node_modules", "__pycache__", "build", "dist"})
 PACKAGE_MARKER = "__init__.py"
-# The method name in a recorded method header, such as `async def save(self)`.
-METHOD = re.compile(r"(?:async )?def (\w+)\(")
+# The method name in a recorded method header, such as `async def save(self)`. The
+# name can contain Unicode letters and marks (`identifier.complete`).
+METHOD = re.compile(r"(?:async )?def ([^\s(]+)\(")
 
 # Import names that mark a module as calling a model or running an agent framework.
 # Dotted where the namespace is shared. A cloud SDK that also reaches a model (boto3)
@@ -47,9 +50,18 @@ def skipped(path: Path, base: Path, names: frozenset[str]) -> bool:
     return any(part in names for part in path.relative_to(base).parts)
 
 
-def python_paths(root: Path) -> Iterator[Path]:
-    """List the Python files below a package root, except skipped folders."""
-    return (path for path in root.rglob("*.py") if not skipped(path, root, PYTHON_SKIP))
+def python_paths(root: Path, pattern: str = "*.py") -> Iterator[Path]:
+    """List the Python files below a folder that match the file name pattern, in a stable
+    order.
+
+    The walk does not go into a folder whose name is in PYTHON_SKIP (result
+    `followup-python-paths`). `fnmatch` gives the same case rule as `rglob`: on Windows,
+    the name match ignores case."""
+    for current, names, files in os.walk(root):
+        names[:] = sorted(name for name in names if name not in PYTHON_SKIP)
+        for name in sorted(files):
+            if fnmatch.fnmatch(name, pattern):
+                yield Path(current, name)
 
 
 def package_dir(directory: Path) -> bool:
@@ -126,6 +138,8 @@ class PythonRepository:
     source_suffixes: tuple[str, ...] = (".py",)
     skip_dirs = PYTHON_SKIP
     model_sdks = MODEL_SDKS
+    # A Python import name continues after a dot: `google.adk.tools` is in `google.adk`.
+    import_separator = "."
     config_files: tuple[str, ...] = ("pyproject.toml",)
     install_extra = ""
     roots_note = (
@@ -154,6 +168,13 @@ class PythonRepository:
 
     def package_dir(self, directory: Path) -> bool:
         return package_dir(directory)
+
+    def config_paths(self, root: Path, folders: Sequence[Path]) -> list[Path]:
+        """Give pyproject.toml at the root, below each folder, and between each folder and
+        the root."""
+        return config_walk.nearby(
+            root, folders, self.config_files, PYTHON_SKIP | config.OUTPUT_DIRS
+        )
 
     def root_name_problem(self, rel: str, name: str) -> str:
         if "/" not in name:
@@ -187,7 +208,7 @@ class PythonRepository:
 
     def method_name(self, signature: str) -> str:
         found = METHOD.match(signature)
-        return found.group(1) if found else ""
+        return found.group(1) if found and identifier.complete(found.group(1)) else ""
 
 
 PYTHON_REPOSITORY = PythonRepository()

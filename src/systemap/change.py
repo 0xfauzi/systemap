@@ -11,13 +11,13 @@ import gives importer scope but cannot identify an artifact.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import subprocess
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from systemap import delta_model, extraction, history, nest, repo_files
+from systemap import change_text, delta_git, delta_model, extraction, history, nest, repo_files
 from systemap.config import Config
 from systemap.language import LanguageAdapter
 from systemap.model import Model, covers, symbol_claims
@@ -50,18 +50,14 @@ def _run(args: list[str], cwd: Path) -> str:
     return proc.stdout if proc.returncode == 0 else ""
 
 
-def _show(repo: Path, ref: str, path: str) -> str:
-    """This function reads a file at a Git ref, or gives an empty string if the file is
-    missing.
-    """
-    return _run(["git", "show", f"{ref}:{path}"], repo)
-
-
 def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
     """This function gets a pull request title and counts, or an empty record if gh gives
     no usable answer.
+
+    A value that starts with "-" is not a pull request number, URL, or branch. The function
+    does not give such a value to gh, because gh can read it as an option.
     """
-    if not pr:
+    if not pr or pr.startswith("-"):
         return {}
     raw = _run(
         [
@@ -148,8 +144,8 @@ class _Commit:
     def facts(self) -> dict[str, Any]:
         return history.facts_at(self.cfg, self.revision)
 
-    def text(self, path: str) -> str:
-        return _show(self.cfg.root, self.revision, path)
+    def texts(self, paths: list[str]) -> dict[str, change_text.Text]:
+        return change_text.at(self.cfg.root, self.revision, paths)
 
 
 class _WorkingTree:
@@ -169,11 +165,8 @@ class _WorkingTree:
     def facts(self) -> dict[str, Any]:
         return self._facts
 
-    def text(self, path: str) -> str:
-        try:
-            return repo_files.read_text(self.cfg.root, path, errors="replace")
-        except OSError:
-            return ""
+    def texts(self, paths: list[str]) -> dict[str, change_text.Text]:
+        return {path: change_text.on_disk(self.cfg.root, path) for path in paths}
 
 
 def _sides(
@@ -191,7 +184,7 @@ def _sides(
 
 
 def _empty_surface() -> dict[str, Any]:
-    return {"functions": [], "classes": [], "errors": [], "constants": []}
+    return {"functions": [], "classes": [], "errors": [], "types": [], "constants": []}
 
 
 def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
@@ -206,10 +199,36 @@ def _identity(surface: dict[str, Any]) -> dict[str, dict[str, str]]:
         }
     return {
         "operations": {f["name"]: f["signature"] for f in surface["functions"]},
-        "types": {c["name"]: ",".join(c["methods"]) for c in surface["classes"]},
+        "types": {
+            c["name"]: ",".join(c["methods"]) for c in surface["classes"] + surface.get("types", [])
+        },
         "refusals": {e["name"]: ",".join(e["methods"]) for e in surface["errors"]},
         "constants": {c["name"]: c["value"] for c in surface["constants"]},
     }
+
+
+def _type_categories(surface: dict[str, Any]) -> dict[str, list[str]]:
+    """Give the source category of each type name: `class` from the `classes` fact, or
+    the category in the `types` fact. A name without a category in the facts is not in
+    the result, because its category is not known."""
+    out: dict[str, set[str]] = {}
+    for c in surface.get("classes", []):
+        out.setdefault(c["name"], set()).add("class")
+    for t in surface.get("types", []):
+        if t.get("category"):
+            out.setdefault(t["name"], set()).add(str(t["category"]))
+    return {name: sorted(found) for name, found in out.items()}
+
+
+def _changed_categories(
+    delta: dict[str, Any], base: dict[str, Any], head: dict[str, Any]
+) -> dict[str, list[str]]:
+    """Give the category of each changed type. A removed type gets it from the base."""
+    before, after = _type_categories(base), _type_categories(head)
+    out = {n: before[n] for n in delta["removed"]["types"] if n in before}
+    for part in ("added", "changed"):
+        out |= {n: after[n] for n in delta[part]["types"] if n in after}
+    return out
 
 
 def surface_delta(
@@ -234,6 +253,7 @@ def surface_delta(
         delta["added"][bucket] = sorted(set(a) - set(b))
         delta["removed"][bucket] = sorted(set(b) - set(a))
         delta["changed"][bucket] = sorted(n for n in set(a) & set(b) if a[n] != b[n])
+    delta["categories"] = _changed_categories(delta, base, head)
     if base.get("unknown") or head.get("unknown"):
         delta["unknown"] = {
             "base": base.get("unknown", []),
@@ -254,14 +274,18 @@ def _component_surface(
         part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
     }
     unknown: dict[str, Any] = {}
+    categories: dict[str, list[str]] = {}
     for module in hit:
         delta = deltas.get(module)
         if delta is None:
             continue
         for part in ("added", "removed", "changed"):
             _merge_names(surface[part], delta[part])
+        for name, found in delta.get("categories", {}).items():
+            categories[name] = sorted(set(categories.get(name, [])) | set(found))
         if "unknown" in delta:
             unknown[module] = delta["unknown"]
+    surface["categories"] = categories
     return surface, unknown
 
 
@@ -296,15 +320,13 @@ def _test_file_changes(
     cfg: Config,
     language: LanguageAdapter,
     path: str,
-    base: str,
-    head: Callable[[str], str],
+    texts: tuple[str, str],
     prefixes: set[str],
     known: set[str],
     paths: dict[str, Path],
     context: Any,
 ) -> tuple[set[str], set[str], set[str]] | None:
-    base_raw = _show(cfg.root, base, path)
-    head_raw = head(path)
+    base_raw, head_raw = texts
     before = {f"{path}::{name}" for name in language.test_names(base_raw, path)}
     after = {f"{path}::{name}" for name in language.test_names(head_raw, path)}
     added, removed = after - before, before - after
@@ -334,20 +356,30 @@ def _changed_test_deltas(
     files: list[str],
     facts: dict[str, Any],
     modules: set[str],
-    base: str,
-    head: Callable[[str], str],
-) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    texts: _Sides,
+) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str]]:
+    """This function gives the added and removed tests of each target module.
+
+    A test file that a side cannot read is in the third list, with its problem. Its test
+    changes are not known.
+    """
     prefixes = set(facts.get("packages", []))
     known = set(facts.get("components", {})) | modules
     paths = _paths_for_change(cfg, language, files, facts)
     context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
     tests_added: dict[str, set[str]] = {}
     tests_removed: dict[str, set[str]] = {}
+    unread: list[str] = []
     for path in files:
         if not language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
             continue
+        before, after = texts.base[path], texts.head[path]
+        problem = before.problem or after.problem
+        if problem:
+            unread.append(f"{path}: {problem}")
+            continue
         changes = _test_file_changes(
-            cfg, language, path, base, head, prefixes, known, paths, context
+            cfg, language, path, (before.raw, after.raw), prefixes, known, paths, context
         )
         if changes is None:
             continue
@@ -355,7 +387,7 @@ def _changed_test_deltas(
         for target in targets:
             tests_added.setdefault(target, set()).update(added)
             tests_removed.setdefault(target, set()).update(removed)
-    return tests_added, tests_removed
+    return tests_added, tests_removed, unread
 
 
 def _package_records(
@@ -377,6 +409,154 @@ def _package_records(
     return records
 
 
+@dataclasses.dataclass(frozen=True)
+class _Sides:
+    """The text of each changed file at the merge base and at the head."""
+
+    base: dict[str, change_text.Text]
+    head: dict[str, change_text.Text]
+
+
+def _unread_delta(before: change_text.Text, after: change_text.Text) -> dict[str, Any]:
+    """This function gives the surface delta of a source file that a side cannot read.
+
+    The delta has no names. Its `unknown` record gives the read problem of each side.
+    """
+    delta: dict[str, Any] = {
+        part: {bucket: [] for bucket in BUCKETS} for part in ("added", "removed", "changed")
+    }
+    delta["unknown"] = {
+        side: [{"line": 0, "reason": text.problem}] if text.problem else []
+        for side, text in (("base", before), ("head", after))
+    }
+    return delta
+
+
+def _source_deltas(
+    language: LanguageAdapter, sources: dict[str, str], texts: _Sides
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """This function gives the surface delta of each changed source module.
+
+    A module whose source a side cannot read, or whose source does not parse, is in the
+    second list. Its changes are not known.
+    """
+    deltas: dict[str, dict[str, Any]] = {}
+    unparsed: list[str] = []
+    for path, module in sources.items():
+        before, after = texts.base[path], texts.head[path]
+        if before.problem or after.problem:
+            unparsed.append(module)
+            deltas[module] = _unread_delta(before, after)
+            continue
+        delta = surface_delta(before.raw, after.raw, language, path)
+        if delta is None:
+            unparsed.append(module)
+            continue
+        deltas[module] = delta
+    return deltas, unparsed
+
+
+@dataclasses.dataclass(frozen=True)
+class SourceChange:
+    """The source comparison of one base and one head.
+
+    The comparison does not use a model. Thus each map of one render can use the same
+    comparison, and systemap reads and parses each changed file one time.
+    """
+
+    base: str
+    head: str
+    base_revision: str
+    head_revision: str
+    merge_base: str
+    files: tuple[str, ...] = ()
+    facts: dict[str, Any] = dataclasses.field(default_factory=dict)
+    records: dict[str, Any] = dataclasses.field(default_factory=dict)
+    deltas: dict[str, dict[str, Any]] = dataclasses.field(default_factory=dict)
+    unparsed: tuple[str, ...] = ()
+    tests_added: dict[str, set[str]] = dataclasses.field(default_factory=dict)
+    tests_removed: dict[str, set[str]] = dataclasses.field(default_factory=dict)
+    unread_tests: tuple[str, ...] = ()
+    refused_paths: tuple[str, ...] = ()
+
+
+def source_change(
+    cfg: Config, base: str, facts: dict[str, Any], head: str = "HEAD"
+) -> SourceChange:
+    """This function compares the changed source files of a Git ref and a head.
+
+    With the head `WORKING_TREE`, `facts` are the facts of the working tree. For a commit
+    head, the facts come from the commit.
+    """
+    language = extraction.language_for(cfg)
+    base_revision, head_revision, merge_base, side = _sides(cfg, base, head, facts)
+    found = SourceChange(base, head, base_revision, head_revision, merge_base)
+    files = side.files(merge_base)
+    if not files:
+        return found
+    snapshot_facts = side.facts()
+    tests = [p for p in files if language.is_test_file(p, cfg.test_dirs, cfg.test_patterns)]
+    sources = {
+        path: module
+        for path in files
+        if path not in tests
+        for module in [language.module_for_path(cfg.root, path, cfg.roots)]
+        if module
+    }
+    wanted = [*sources, *tests]
+    refused = _refusals(files)
+    texts = _Sides(
+        _refused(change_text.at(cfg.root, merge_base, wanted), refused),
+        _refused(side.texts(wanted), refused),
+    )
+    deltas, unparsed = _source_deltas(language, sources, texts)
+    tests_added, tests_removed, unread = _changed_test_deltas(
+        cfg, language, files, snapshot_facts, set(deltas) | set(unparsed), texts
+    )
+    return dataclasses.replace(
+        found,
+        files=tuple(files),
+        facts=snapshot_facts,
+        records=_package_records(cfg, language, files, snapshot_facts),
+        deltas=deltas,
+        unparsed=tuple(sorted(unparsed)),
+        tests_added=tests_added,
+        tests_removed=tests_removed,
+        unread_tests=tuple(sorted(unread)),
+        refused_paths=_refused_lines(refused, snapshot_facts),
+    )
+
+
+def _refusals(files: list[str]) -> dict[str, str]:
+    """This function gives each changed path that the tree reader refuses, with its cause."""
+    return {path: cause for path in files for cause in [delta_git.refusal(path)] if cause}
+
+
+def _refused(
+    texts: dict[str, change_text.Text], refused: dict[str, str]
+) -> dict[str, change_text.Text]:
+    """This function gives a read problem for each path that the tree reader refuses.
+
+    The facts at a commit have no record for such a path. Thus its changes are not known
+    on each side, also if Git or the disk can give its text.
+    """
+    return {
+        path: change_text.Text(problem=f"the tree reader refuses the path: {refused[path]}")
+        if path in refused
+        else text
+        for path, text in texts.items()
+    }
+
+
+def _refused_lines(refused: dict[str, str], facts: dict[str, Any]) -> tuple[str, ...]:
+    """This function gives each refused path and its cause: the changed paths, and the
+    paths that the facts of a commit head did not record."""
+    found = dict(refused)
+    for record in facts.get("refused_paths", []):
+        found.setdefault(record["path"], record["reason"])
+    return tuple(f"{path}: {cause}" for path, cause in sorted(found.items()))
+
+
 def compute(
     cfg: Config,
     model: Model,
@@ -384,6 +564,7 @@ def compute(
     facts: dict[str, Any],
     head: str = "HEAD",
     artifact_owner: dict[str, str] | None = None,
+    source: SourceChange | None = None,
 ) -> dict[str, Any]:
     """This function gives the change-view data for a Git ref and a head.
 
@@ -392,15 +573,17 @@ def compute(
     edits that are not in a commit and the untracked files, and `facts` are the facts of
     the working tree. The `artifact_owner` table assigns flow artifacts to their
     defining modules. Without this table, public-name changes do not highlight flow
-    artifacts.
+    artifacts. A `source` from `source_change` with the same base and head replaces the
+    source comparison.
     """
-    repo = cfg.root
-    roots = cfg.roots
-    language = extraction.language_for(cfg)
+    if source is None:
+        source = source_change(cfg, base, facts, head)
+    if (source.base, source.head) != (base, head):
+        raise ValueError(
+            f"The source comparison is {source.base}..{source.head}, not {base}..{head}."
+        )
     if artifact_owner is None:
         artifact_owner = {}
-
-    base_revision, head_revision, merge_base, side = _sides(cfg, base, head, facts)
     empty: dict[str, Any] = {
         "has_change": False,
         "comparison_requested": True,
@@ -413,35 +596,20 @@ def compute(
         "files": 0,
         "base": base,
         "head": head,
-        "base_revision": base_revision,
-        "head_revision": head_revision,
-        "comparison_base": merge_base,
+        "base_revision": source.base_revision,
+        "head_revision": source.head_revision,
+        "comparison_base": source.merge_base,
         "reach_known": True,
         "unparsed": [],
+        "unread_tests": [],
+        "refused_paths": [],
     }
-    files = side.files(merge_base)
-    if not files:
+    if not source.files:
         return empty
-    snapshot_facts = side.facts()
-    records = _package_records(cfg, language, files, snapshot_facts)
-
-    # Each changed source module: its surface delta, from the two git blobs.
-    deltas: dict[str, dict[str, Any]] = {}
-    unparsed: list[str] = []
-    for path in files:
-        module = language.module_for_path(repo, path, roots)
-        if not module or language.is_test_file(path, cfg.test_dirs, cfg.test_patterns):
-            continue
-        delta = surface_delta(_show(repo, merge_base, path), side.text(path), language, path)
-        if delta is None:
-            unparsed.append(module)
-            continue
-        deltas[module] = delta
+    files, snapshot_facts, records = list(source.files), source.facts, source.records
+    deltas, unparsed = source.deltas, list(source.unparsed)
+    tests_added, tests_removed = source.tests_added, source.tests_removed
     modules = set(deltas) | set(unparsed)
-
-    tests_added, tests_removed = _changed_test_deltas(
-        cfg, language, files, snapshot_facts, modules, merge_base, side.text
-    )
 
     direct: set[str] = set()
     per_component: dict[str, dict[str, Any]] = {}
@@ -524,8 +692,8 @@ def compute(
     adjacent -= direct
 
     return {
+        **empty,
         "has_change": True,
-        "comparison_requested": True,
         "direct": direct,
         "adjacent": adjacent,
         "modules": modules,
@@ -533,24 +701,26 @@ def compute(
         "flow_artifacts": flow_artifacts,
         "per_component": per_component,
         "files": len(files),
-        "base": base,
-        "head": head,
-        "base_revision": base_revision,
-        "head_revision": head_revision,
-        "comparison_base": merge_base,
         "reach_known": reach_known,
         "unparsed": sorted(unparsed),
+        "unread_tests": list(source.unread_tests),
+        "refused_paths": list(source.refused_paths),
     }
 
 
 def for_page(
-    cfg: Config, m: nest.Map, base: str, facts: dict[str, Any], head: str = "HEAD"
+    cfg: Config,
+    m: nest.Map,
+    base: str,
+    facts: dict[str, Any],
+    head: str = "HEAD",
+    source: SourceChange | None = None,
 ) -> dict[str, Any]:
     """This function gives the change-view data of one map page, with its map changes.
 
     The map changes compare the committed model at the comparison base with the model
-    of the page.
+    of the page. A render of several maps gives the same `source` to each map.
     """
-    ch = compute(cfg, m.model, base, facts, head)
+    ch = compute(cfg, m.model, base, facts, head, source=source)
     ch["map"] = delta_model.for_page(cfg, m.id, m.model, m.meaning, ch["comparison_base"])
     return ch

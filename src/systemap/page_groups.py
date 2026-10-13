@@ -80,7 +80,10 @@ SCRIPT = r"""
   var A = svg.systemap, P = svg.page, META = A.detail._meta || {};
   var view = svg.querySelector('.view');
   if(!view || !(META.regions || []).length){ return; }
-  var NS = 'http://www.w3.org/2000/svg', LIMIT = __LIMIT__, LAY = {};
+  // A table with keys from the model has no prototype. Then a name such as
+  // `constructor` is not a key of an empty table.
+  function table(){ return Object.create(null); }
+  var NS = 'http://www.w3.org/2000/svg', LIMIT = __LIMIT__, LAY = table();
   A.layers.forEach(function(l){ LAY[l.id] = l; });
   function all(sel, root){
     return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -99,7 +102,7 @@ SCRIPT = r"""
   function flat(lists){ return [].concat.apply([], lists); }
   function bucket(list, keyOf){
     // The items of a list by key, and the keys in the order of their first item.
-    var by = {}, order = [];
+    var by = table(), order = [];
     list.forEach(function(i){
       var k = keyOf(i);
       if(!by[k]){ by[k] = []; order.push(k); }
@@ -118,7 +121,8 @@ SCRIPT = r"""
   function grow(b, d){ return {x0:b.x0 - d, y0:b.y0 - d, x1:b.x1 + d, y1:b.y1 + d}; }
   function union(u, b){ return u ? {x0:Math.min(u.x0, b.x0), y0:Math.min(u.y0, b.y0),
     x1:Math.max(u.x1, b.x1), y1:Math.max(u.y1, b.y1)} : b; }
-  var HOME = {}, CARD = {}, ROUTES = all('path.flow[data-edge]', svg), LABELS = {};
+  var HOME = table(), CARD = table(), ROUTES = all('path.flow[data-edge]', svg);
+  var LABELS = table();
   all('.flowlbl[data-edge]', svg).forEach(function(l){ LABELS[l.dataset.edge] = l; });
   all('.node', svg).forEach(function(n){
     var r = n.querySelector('.node__box');
@@ -131,7 +135,7 @@ SCRIPT = r"""
   var REGION_BOXES = META.regions.map(function(r){ return HOME[r.id].box; });
   function homeOf(id){ var d = A.detail[id]; return (d && d.region) || ''; }
   (function(){
-    var frames = all(':scope > rect', view).map(rectOf), cards = {}, order = [];
+    var frames = all(':scope > rect', view).map(rectOf), cards = table(), order = [];
     Object.keys(CARD).forEach(function(id){
       var h = homeOf(id);
       if(HOME[h]){ return; }
@@ -198,7 +202,7 @@ SCRIPT = r"""
     });
     return within.length ? out.concat([inside(within)]) : out;
   }
-  var CACHE = {};
+  var CACHE = table();
   function info(L){
     if(!CACHE[L]){
       var list = edgesIn(L), groups = groupsOf(list);
@@ -433,7 +437,7 @@ SCRIPT = r"""
     // Larger groups first: they get the best space. A later line keeps away
     // from the lines and the badges that are on the map before it.
     if(I.geo){ return I.geo; }
-    var placed = [], geo = {}, taken = [], labels = [];
+    var placed = [], geo = table(), taken = [], labels = [];
     I.list.forEach(function(i){
       var hit = LABELS[i] && LABELS[i].querySelector('.flowlbl__hit');
       if(hit){ labels.push(rectOf(hit)); }
@@ -452,7 +456,7 @@ SCRIPT = r"""
   // The lines go under the routes and the cards. The badges go over the cards
   // and under the route labels, so a label stays readable.
   var LINES = el('g', {'class':'fg-lines'}), BADGES = el('g', {'class':'fg-badges'});
-  var flowLayers = all(':scope > g[data-layer="flow"]', view);
+  var flowLayers = all(':scope > g[data-part="flow"]', view);
   var labelLayer = flowLayers.filter(function(g){ return g.querySelector('.flowlbl'); })[0];
   view.insertBefore(LINES, flowLayers[0] || null);
   view.insertBefore(BADGES, labelLayer || null);
@@ -504,7 +508,7 @@ SCRIPT = r"""
   }
 
   // ---- the state ------------------------------------------------------------------
-  var S = {layer:null, open:'', routes:{}, hover:'', focus:null};
+  var S = {layer:null, open:'', routes:table(), hover:'', focus:null};
   function active(){
     var L = A.state.layer, m = P.mode ? P.mode() : 'understand';
     return info(L).on && !S.routes[L] && m === 'understand'
@@ -521,7 +525,8 @@ SCRIPT = r"""
   function apply(){
     var L = A.state.layer;
     if(L !== S.layer){ S.layer = L; S.open = ''; S.hover = ''; draw(L); }
-    var on = active(), I = info(L), g = on ? openGroup() : null, keep = {}, ends = {}, inL = {};
+    var on = active(), I = info(L), g = on ? openGroup() : null, keep = table(), ends = table();
+    var inL = table();
     I.list.forEach(function(i){ inL[i] = true; });
     shownEdges(I, g).forEach(function(i){ keep[i] = true; });
     (g ? g.edges : []).forEach(function(i){
@@ -711,7 +716,7 @@ SCRIPT = r"""
   }
   P.legendFor.push(function(){
     if(!active()){ return null; }
-    var g = openGroup(), kinds = {}, dashed = false;
+    var g = openGroup(), kinds = table(), dashed = false;
     shownEdges(info(A.state.layer), g).forEach(function(i){
       var e = A.edges[i];
       kinds[e.layer] = true;

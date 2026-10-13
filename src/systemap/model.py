@@ -30,7 +30,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import flow_ids
+from systemap import boundary_ids, flow_ids, sequence_ids
 
 Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
@@ -372,8 +372,9 @@ class Model:
         Flow endpoints and kinds must exist. Many flows on one ordered pair must each have an id.
         Context and tool flows must connect to an agent or a component with calls_model.
         Invariant numbers must have different values, and their component references must exist.
-        An actor must not open a nested map."""
-        out: list[str] = []
+        An actor must not open a nested map.
+        Each region and container id must identify one boundary."""
+        out = boundary_ids.problems(self.regions, self.containers)
         regions = {r.id: r.box for r in self.regions}
         containers = {c.id: c.box for c in self.containers}
         ids = self.ids
@@ -577,7 +578,7 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
         if own.id in RESERVED_LAYER_IDS:
             out.append(f"layer {own.id} is a standard layer. Do not declare it as a custom layer")
     for f in model.flows:
-        if flow_ids.lookup(meaning.relations, f) is None:
+        if not meaning.relation(f).strip():
             out.append(f"flow {f.name} has no sentence in relations")
         try:
             layer = meaning.layer_for(f, f.kind)
@@ -593,6 +594,7 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
     for cid in meaning.plain:
         if cid not in ids:
             out.append(f"plain has an unknown component: {cid}")
+    out += sequence_ids.problems(meaning)
     for j in meaning.journeys:
         out.extend(_journey_problems(j, ids, model.flows))
     return out
@@ -737,7 +739,7 @@ def public_names(record: Mapping[str, Any]) -> set[str]:
     if names is not None:
         return {n["name"] for n in names}
     return {f["name"] for f in record.get("functions", [])} | {
-        c["name"] for c in record.get("classes", [])
+        c["name"] for c in record.get("classes", []) + record.get("types", [])
     }
 
 

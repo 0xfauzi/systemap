@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping
@@ -13,6 +12,7 @@ from typing import Any
 from systemap import repo_files, typescript_calls, typescript_entry
 from systemap.completeness import parse_state
 from systemap.config import ConfigError
+from systemap.pattern_match import matches_test_pattern
 from systemap.source_facts import standard_label
 from systemap.source_text import read_problems
 from systemap.typescript_config import (
@@ -20,13 +20,17 @@ from systemap.typescript_config import (
     SOURCE_SKIP,
     TypeScriptConfig,
     alias_targets,
-    input_files,
     is_alias,
     load_typescript_config,
     root_candidates,
     source_files,
 )
-from systemap.typescript_projects import TypeScriptProjects, path_choices, without_script_suffix
+from systemap.typescript_projects import (
+    TypeScriptProjects,
+    existing_target,
+    path_choices,
+    without_script_suffix,
+)
 from systemap.typescript_repo import (
     TypeScriptRepository,
     compiler_record,
@@ -36,7 +40,7 @@ from systemap.typescript_repo import (
 )
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
-from systemap.typescript_syntax import syntax_tree
+from systemap.typescript_syntax import string_value, syntax_tree
 from systemap.typescript_tests import test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -114,8 +118,8 @@ def _test_file_guards(
 ) -> dict[str, list[dict[str, Any]]]:
     try:
         raw, problems = read_problems(path, repo)
-    except OSError:
-        return {}
+    except OSError as exc:
+        raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
     root = syntax_tree(raw, path.as_posix())
     if root.has_error:
         context.test_issues.append(
@@ -156,11 +160,7 @@ def _test_file(path: str, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]
         return True
     if _test_name(PurePosixPath(path)):
         return True
-    return any(
-        fnmatch.fnmatchcase(relative, pattern)
-        or fnmatch.fnmatchcase(relative, pattern.replace("**/", ""))
-        for pattern in patterns
-    )
+    return matches_test_pattern(relative, patterns)
 
 
 def _test_name(path: PurePosixPath) -> bool:
@@ -192,7 +192,9 @@ def _target_from_path(
 
 
 def _relative_targets(specifier: str, importer: Path, root_dirs: tuple[Path, ...]) -> list[Path]:
-    relative = (importer.parent / without_script_suffix(specifier)).resolve()
+    """Give the import paths of a relative specifier. The suffix stays, because it selects
+    the source suffixes (see `path_choices`)."""
+    relative = (importer.parent / specifier).resolve()
     targets = [relative]
     containing = [root for root in root_dirs if relative.is_relative_to(root)]
     if containing:
@@ -241,9 +243,9 @@ def _resolve(
 ) -> str | None:
     importer = paths.get(module)
     if importer is not None:
-        target = _target_from_path(specifier, importer, paths, context)
-        if target:
-            return target
+        # The file path gives the answer. A module id from the dotted name of the importer
+        # is not a tsc rule: `./c` in src/a.b.ts does not name src/a/c.ts.
+        return _target_from_path(specifier, importer, paths, context)
     return _known_module(_module_candidate(specifier, module), known)
 
 
@@ -305,13 +307,7 @@ def _syntax_tokens(node: Any) -> Iterator[str]:
 
 
 def _source(node: Any) -> str:
-    source = node.child_by_field_name("source")
-    if source is None or source.type != "string":
-        return ""
-    fragment = next(
-        (child for child in source.named_children if child.type == "string_fragment"), None
-    )
-    return (fragment.text or b"").decode("utf-8") if fragment is not None else ""
+    return string_value(node.child_by_field_name("source"))
 
 
 def _static_imports(root: Any) -> Iterator[tuple[str, set[str]]]:
@@ -365,11 +361,7 @@ def _dynamic_specifier(node: Any) -> str | None:
     first = arguments.named_children[0] if arguments and arguments.named_children else None
     if first is None or first.type != "string":
         return None
-    fragment = next(
-        (child for child in first.named_children if child.type == "string_fragment"),
-        None,
-    )
-    return _text(fragment) if fragment is not None else None
+    return string_value(first)
 
 
 def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
@@ -377,33 +369,9 @@ def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
     yield from _dynamic_imports(root)
 
 
-def _program_inputs(inputs: list[Path], compiler: TypeScriptConfig, repo: Path) -> list[Path]:
-    """This function adds source files from tsconfig inputs before it calculates the output
-    root.
-    """
-    seen = {path.resolve() for path in inputs}
-    queue = list(seen)
-    for path in queue:
-        for found in _program_dependencies(path, compiler, repo):
-            if found not in seen:
-                seen.add(found)
-                queue.append(found)
-    return queue
-
-
-def _first_existing_target(targets: list[Path]) -> Path | None:
-    return next(
-        (
-            choice.resolve()
-            for target in targets
-            for choice in path_choices(target)
-            if choice.is_file()
-        ),
-        None,
-    )
-
-
 def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) -> Iterator[Path]:
+    """Give the source files that one program file imports. The project index adds them to
+    the program, as tsc does, before it selects a project or an output root."""
     try:
         text = repo_files.read_text(repo, repo_files.relative(repo, path))
         root = syntax_tree(text, path.as_posix())
@@ -415,7 +383,7 @@ def _program_dependencies(path: Path, compiler: TypeScriptConfig, repo: Path) ->
             if specifier.startswith(".")
             else alias_targets(specifier, compiler, repo)
         )
-        found = _first_existing_target(targets)
+        found = existing_target(targets)
         if found is not None and not found.name.endswith(DECLARATION_SUFFIXES):
             yield found
 
@@ -425,7 +393,9 @@ def _projects(repo: Path, compiler: TypeScriptConfig, paths: dict[str, Path]) ->
 
     A tsconfig error then stops the extraction before the modules are read.
     """
-    projects = TypeScriptProjects(repo, compiler)
+    projects = TypeScriptProjects(
+        repo, compiler, lambda path, config: _program_dependencies(path, config, repo)
+    )
     for path in paths.values():
         projects.config_for(path)
     return projects
@@ -541,12 +511,11 @@ class TypeScriptLanguage(TypeScriptRepository):
         test_patterns: tuple[str, ...],
     ) -> Iterable[Path]:
         out_dir = configured_out_dir(repo, root)
+        # The walk does not enter node_modules and the other SOURCE_SKIP folders.
         return (
             path
-            for suffix in SOURCE_SUFFIXES
-            for path in root.rglob(f"*{suffix}")
+            for path in source_files(root, SOURCE_SKIP)
             if not ts_skipped(path, root, out_dir)
-            and not path.name.endswith(DECLARATION_SUFFIXES)
             and not _test_file(path.relative_to(repo).as_posix(), tests_dirs, test_patterns)
         )
 
@@ -568,9 +537,7 @@ class TypeScriptLanguage(TypeScriptRepository):
             compiler=projects.combined(),
             tests_dirs=tests_dirs,
             test_patterns=test_patterns,
-            source_roots=root_candidates(
-                compiler, _program_inputs(input_files(compiler), compiler, repo)
-            ),
+            source_roots=root_candidates(compiler, projects.lazy_program_files(compiler)),
             projects=projects,
         )
 
@@ -640,8 +607,9 @@ class TypeScriptLanguage(TypeScriptRepository):
             return None
         try:
             raw, problems = read_problems(path, repo)
-        except OSError:
-            return None
+        except OSError as exc:
+            # The module stays in the facts, with a read problem: its surface is not known.
+            raw, problems = "", [f"source could not be read: {repo_files.reason(exc)}"]
         surface = parse_surface(raw, path.as_posix())
         problem = _problem(0, problems[0], "") if problems else None
         if surface is None:
@@ -651,6 +619,7 @@ class TypeScriptLanguage(TypeScriptRepository):
                 "functions": [],
                 "classes": [],
                 "errors": [],
+                "types": [],
                 "constants": [],
                 "names": [],
                 "api": [],

@@ -28,7 +28,8 @@ def interactive_script(
     `svg.systemap.view` gives fit, 100%, step, back and framing data.
 
     The script contains the detail JSON. Escaping `</` prevents artifact
-    text from closing the script. With `variables`, colors use CSS tokens
+    text from closing the script. Escaping `<!--` prevents a change to the
+    end of the script by artifact text. With `variables`, colors use CSS tokens
     instead of literal values. The page uses `variables`, so the inspector
     then gives sequence buttons and leaves room for the drawer Clear button."""
     # The layout audit (label boxes, card boxes) is for checkers, not the
@@ -39,7 +40,8 @@ def interactive_script(
     meta.pop("cards", None)
     meta.pop("paths", None)
     parsed["_meta"] = meta
-    data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+    data = data.replace("</", "<\\/").replace("<!--", "\\u003c!--")
     palette = json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
     return (
         "<script>(function(){\n"

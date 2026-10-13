@@ -42,6 +42,7 @@ SCRIPT = r"""
     }
     return -1;
   }
+  function has(table, key){ return Object.prototype.hasOwnProperty.call(table, key); }
   function camera(map){ return map.view.isFit() ? null : map.view.snapshot(); }
   function journeyAt(id){
     for(var k = 0; k < A.journeys.length; k++){ if(A.journeys[k].id === id){ return k; } }
@@ -72,7 +73,10 @@ SCRIPT = r"""
     } else if(MODES.indexOf(v.mode) >= 0 && v.mode !== P.mode()){ P.setMode(v.mode); }
   }
   function putFocus(map, focus, edge){
-    if(focus && focus !== '_meta' && map.detail[focus]){ map.select(focus, edgeAt(map, edge)); }
+    // A saved flow that the new page does not have gives no selection, not its component.
+    var i = edgeAt(map, edge);
+    var known = !!focus && focus !== '_meta' && has(map.detail, focus);
+    if(known && (!edge || i >= 0)){ map.select(focus, i); }
     else if(map.state.focus){ map.clear(); }
   }
   function putCamera(map, view){
@@ -81,11 +85,14 @@ SCRIPT = r"""
   function restore(){
     var v = saved();
     if(!v || v.path !== location.pathname || !A || !P){ return; }
+    // A saved sequence that the new page does not have gives the Map view with no selection.
+    // The Sequences view always shows a sequence, so it cannot open without a selection.
+    var gone = v.mode === 'trace' && !!v.journey && journeyAt(v.journey.id) < 0;
     P.restoring(true);
     try {
-      if(v.layer === 'all' || A.detail._meta.readings[v.layer]){ P.setLayer(v.layer); }
-      putMode(v);
-      putFocus(A, v.focus, v.edge);
+      if(v.layer === 'all' || has(A.detail._meta.readings, v.layer)){ P.setLayer(v.layer); }
+      if(!gone){ putMode(v); }
+      putFocus(A, gone ? '' : v.focus, gone ? null : v.edge);
       if(M && v.change){ putFocus(M, v.change.focus, v.change.edge); }
     } finally { P.restoring(false); }
     // The page frames a selection in the next frame. The camera comes after that framing.

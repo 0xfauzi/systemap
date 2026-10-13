@@ -342,13 +342,16 @@ def _glyph(model: Model, journey: Journey) -> str:
 
 
 def short_entry(point: dict[str, str]) -> str:
-    """Give a short name for an entry point, for example systemap init."""
+    """Give a short name for an entry point, for example systemap init.
+
+    If the name is the name of the target function, the name alone does not identify the
+    entry point. Then the short name adds the module, for example main() in pkg.cli."""
     kind, name = point.get("kind", ""), point.get("name", "")
     module, target = point.get("module", ""), point.get("target", "")
     if kind == "subcommand":
         return f"{target} {name}" if target else f"{name} in {module}"
-    if kind == "main_function":
-        return f"main() in {module}"
+    if name and name == target:
+        return f"{name}() in {module}"
     return name
 
 
@@ -366,16 +369,20 @@ def _entry(journey: Journey, points: list[dict[str, str]]) -> str:
 
 
 def _coverage(meaning: Meaning, facts: dict[str, Any]) -> dict[str, Any]:
-    """Count the entry points that have a sequence. Give the names of the others."""
-    points = facts.get("entry_points")
-    if points is None:
+    """Count the entry points that have a sequence. Give the names of the others.
+
+    The total and the missing list use the same entry points: the coverage check
+    does not count an entry point that is another name for a counted one. With no
+    covered identities, the coverage check gives all the counted entry points."""
+    if facts.get("entry_points") is None:
         return {"known": False}
+    counted = ways_in_without_journey(meaning, facts, covered=())
     missing = ways_in_without_journey(meaning, facts)
     names = [short_entry(p) for p in missing]
     return {
         "known": True,
-        "total": len(points),
-        "covered": len(points) - len(missing),
+        "total": len(counted),
+        "covered": len(counted) - len(missing),
         "missing": names[:MISSING_SHOWN],
         "more": max(0, len(names) - MISSING_SHOWN),
     }
@@ -428,9 +435,9 @@ function mk(name, attrs, text){
   return e;
 }
 function empty(node){ while(node && node.firstChild){ node.removeChild(node.firstChild); } }
-var flowLayer = svg.querySelector('.view > g[data-layer="flow"]')
-  || svg.querySelector('g[data-layer="flow"]');
-var tagLayer = svg.querySelector('g[data-layer="tags"]') || svg.querySelector('.view');
+var flowLayer = svg.querySelector('.view > g[data-part="flow"]')
+  || svg.querySelector('g[data-part="flow"]');
+var tagLayer = svg.querySelector('g[data-part="tags"]') || svg.querySelector('.view');
 var lines = mk('g', {'class':'seq-lines', 'aria-hidden':'true'});
 var marks = mk('g', {'class':'seq-marks', 'aria-hidden':'true'});
 var gauge = mk('g', {visibility:'hidden', 'aria-hidden':'true'}), gaugeText = mk('text', {});

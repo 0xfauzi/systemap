@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import re
@@ -56,8 +57,22 @@ MARK = (
 )
 
 
+# A card ID with only these marks is a safe part of an HTML ID and a CSS selector.
+SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
+
+
 def esc(text: object) -> str:
     return html.escape(str(text), quote=True)
+
+
+def preview_id(card: str) -> str:
+    """Give the SVG ID of a child map preview.
+
+    The ID is in an HTML attribute and in CSS selectors. A card ID that is not a safe
+    token gives the digest of the card ID."""
+    if SAFE_ID.fullmatch(card):
+        return f"preview-{card}"
+    return f"preview-{hashlib.sha256(card.encode('utf-8')).hexdigest()[:16]}"
 
 
 def number_word(n: int) -> str:
@@ -124,7 +139,7 @@ def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
         m.meaning,
         m.theme,
         facts,
-        svg_id=f"preview-{m.card}",
+        svg_id=preview_id(m.card),
         layer="structure",
         observed_by=cfg.observed_by,
         variables=True,

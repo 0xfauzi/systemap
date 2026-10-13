@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 
 from systemap.typescript_config import (
     TypeScriptConfig,
-    input_files,
     package_json,
     root_candidates,
     source_targets,
@@ -55,7 +54,14 @@ def entry_points(
     for package in _packages(repo, context):
         root_modules.update(_package_entries(package, context, points, issues))
     points.extend(_public_functions(root_modules, components))
-    return _unique_points(points), issues
+    unique = _unique_points(points)
+    # A package bin starts the top-level code of its module. An exported function is a
+    # different entry point. Thus no entry point starts the same code as a different one.
+    # A bin starts no single name ("symbol" is empty). A public function starts its name.
+    for point in unique:
+        point["same_as"] = ""
+        point["symbol"] = point["name"] if point["kind"] == "public_function" else ""
+    return unique, issues
 
 
 def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:
@@ -68,9 +74,11 @@ def _packages(repo: Path, context: TypeScriptContext) -> Iterator[Package]:
         compiler = projects.config_for_directory(directory)
         yield Package(
             directory,
-            package_json(directory),
+            package_json(directory, context.repo),
             compiler,
-            root_candidates(compiler, input_files(compiler)),
+            # The imported files count, as in the top-level context: tsc 5 takes the
+            # common folder of all program files as the output root.
+            root_candidates(compiler, projects.lazy_program_files(compiler)),
             directory.relative_to(context.repo.resolve()).as_posix() + "/",
         )
 
@@ -186,11 +194,12 @@ def _entry_issue(kind: str, name: str, target: str, reason: str) -> dict[str, st
 
 
 def _public_functions(modules: set[str], components: dict[str, Any]) -> list[dict[str, str]]:
+    """A type-only export is not an entry point, because the emitted code has no value."""
     return [
         {"kind": "public_function", "name": function["name"], "module": module, "target": ""}
         for module in sorted(modules)
         for function in components.get(module, {}).get("names", [])
-        if function.get("kind") == "function"
+        if function.get("kind") == "function" and not function.get("type_only")
     ]
 
 

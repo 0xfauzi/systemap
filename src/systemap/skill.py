@@ -10,6 +10,9 @@ from __future__ import annotations
 from importlib import resources
 from pathlib import Path
 
+from systemap import repo_files
+from systemap.config import ConfigError
+
 DEFAULT_DIR = ".claude/skills/systemap"
 FILE_NAME = "SKILL.md"
 REFERENCES = "references"
@@ -33,12 +36,27 @@ def text() -> str:
     return files()[FILE_NAME]
 
 
-def write(directory: Path) -> Path:
+def check(directory: Path, root: Path) -> None:
+    """Give ConfigError if a symbolic link puts a skill file outside the directory `root`.
+
+    The command does this check before it writes a file."""
+    for rel in (*files(), REFERENCES):
+        path = directory / rel
+        if not repo_files.inside(root, path):
+            raise ConfigError(
+                f"The skill file {path} is not in {root}, because of a symbolic link. Remove "
+                f"the symbolic link, or give a different directory with systemap skill --dir."
+            )
+
+
+def write(directory: Path, root: Path | None = None) -> Path:
     """Write the packaged skill directory and return the SKILL.md path.
 
-    Remove obsolete Markdown files from references so the installed skill agrees with
-    the package.
+    Each file must be in `root` (the default is `directory`) after the resolution of
+    symbolic links. Remove obsolete Markdown files from references so the installed skill
+    agrees with the package.
     """
+    check(directory, directory if root is None else root)
     shipped = files()
     for rel, content in shipped.items():
         path = directory / rel

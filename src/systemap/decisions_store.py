@@ -60,7 +60,7 @@ def save(root: Path, records: dict[str, dict[str, Any]]) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps({"version": VERSION, "records": records}, indent=2, sort_keys=True)
     handle, temporary = tempfile.mkstemp(dir=target.parent, prefix=".decisions-", suffix=".json")
-    with os.fdopen(handle, "w", encoding="utf-8") as stream:
+    with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
         stream.write(text + "\n")
     os.replace(temporary, target)
 

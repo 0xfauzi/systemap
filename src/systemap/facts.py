@@ -77,6 +77,7 @@ def kinds(record: dict[str, Any]) -> list[tuple[str, str]]:
         [(f["name"], "function") for f in record.get("functions", [])]
         + [(c["name"], "class") for c in record.get("classes", [])]
         + [(e["name"], "error") for e in record.get("errors", [])]
+        + [(t["name"], "type") for t in record.get("types", [])]
         + [(k["name"], "constant") for k in record.get("constants", [])]
     )
 

@@ -391,7 +391,7 @@ def test_unknown_ref_is_refused(repo: Path, capsys: pytest.CaptureFixture[str]) 
     assert main(["--root", str(repo), "delta", "--base", "no-such-ref"]) == 2
     err = capsys.readouterr().err
     assert "unknown ref no-such-ref" in err
-    assert "Give delta a Git ref that Git can resolve" in err
+    assert "Give a Git ref that Git can resolve" in err
 
 
 def test_with_claims_renames_modules_and_symbols_and_keeps_patterns() -> None:

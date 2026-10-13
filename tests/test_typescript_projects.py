@@ -14,6 +14,7 @@ import pytest
 from conftest import write_tree
 
 from systemap import config, extract, typescript_config
+from systemap.cli import main
 
 ROOTS = 'language = "typescript"\n[package_roots]\n"src" = "web"\n'
 
@@ -116,6 +117,8 @@ def test_monorepo_packages_give_their_own_tsconfig_and_bin(tmp_path: Path, solut
         "name": "api",
         "module": "mono.api.main",
         "target": "",
+        "same_as": "",
+        "symbol": "",
         "label": "api (console script)",
     } in (facts["entry_points"])
     assert facts["entry_point_issues"] == [
@@ -287,7 +290,7 @@ def test_tsconfig_inputs_and_source_paths_use_the_same_skip_rule(tmp_path: Path)
     compiler = typescript_config.load_typescript_config(tmp_path)
     inputs = sorted(
         path.relative_to(tmp_path.resolve()).as_posix()
-        for path in typescript_config.input_files(compiler)
+        for path in typescript_config.input_files(compiler, tmp_path)
     )
     assert inputs == ["src/build/compile.ts", "src/dist/pack.ts", "src/main/cli.ts"]
     facts = build(tmp_path)
@@ -297,5 +300,23 @@ def test_tsconfig_inputs_and_source_paths_use_the_same_skip_rule(tmp_path: Path)
         "name": "tool",
         "module": "app.main.cli",
         "target": "",
+        "same_as": "",
+        "symbol": "",
         "label": "tool (console script)",
     } in (facts["entry_points"])
+
+
+def test_init_refuses_an_ambiguous_python_and_typescript_repository(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_tree(
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "package.json": '{"name":"web"}',
+            "tsconfig.json": '{"compilerOptions":{}}',
+            "src/index.ts": "export const app = 1;",
+        },
+    )
+    assert main(["--root", str(tmp_path), "init", "--no-ci"]) == 2
+    assert "The source contains python and typescript files" in capsys.readouterr().err

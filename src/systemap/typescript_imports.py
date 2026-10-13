@@ -8,15 +8,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from systemap.typescript_syntax import string_value
+
 # One local name: the record that an export of the name gives, without the public name.
-LocalNames = dict[str, dict[str, str]]
+LocalNames = dict[str, dict[str, Any]]
 
 
 def import_names(root: Any) -> LocalNames:
     """This function gives each local name of the top-level import statements.
 
     A named or default import is a re-export with `defined_as`. A namespace import or
-    `import name = require(...)` is an object with `reexport_of`.
+    `import name = require(...)` is an object with `reexport_of`. A type-only import
+    has `type_only` set to `true`.
     """
     out: LocalNames = {}
     for statement in root.named_children:
@@ -33,6 +36,9 @@ def _statement_names(statement: Any) -> LocalNames:
             out.update(_namespace(clause, _source(clause)))
         elif clause.type == "import_clause" and source:
             out.update(_clause_names(clause, source))
+    if any(child.type == "type" for child in statement.children):
+        for entry in out.values():
+            entry["type_only"] = True
     return out
 
 
@@ -55,6 +61,8 @@ def _named(named: Any, source: str) -> LocalNames:
         alias = _text(specifier.child_by_field_name("alias"))
         if name:
             out[alias or name] = _reexport(source, name)
+            if any(child.type == "type" for child in specifier.children):
+                out[alias or name]["type_only"] = True
     return out
 
 
@@ -65,18 +73,12 @@ def _namespace(node: Any, source: str) -> LocalNames:
     return {_text(name): {"kind": "object", "reexport_of": source}}
 
 
-def _reexport(source: str, name: str) -> dict[str, str]:
+def _reexport(source: str, name: str) -> dict[str, Any]:
     return {"kind": "reexport", "reexport_of": source, "defined_as": name}
 
 
 def _source(node: Any) -> str:
-    source = node.child_by_field_name("source")
-    if source is None or source.type != "string":
-        return ""
-    fragment = next(
-        (child for child in source.named_children if child.type == "string_fragment"), None
-    )
-    return _text(fragment)
+    return string_value(node.child_by_field_name("source"))
 
 
 def _text(node: Any | None) -> str:

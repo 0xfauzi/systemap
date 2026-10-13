@@ -37,7 +37,7 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (decisions_submit.DecisionError, "", STALE),
     (
         delta.DeltaError,
-        "Give delta a Git ref that Git can resolve. Then run the command again.",
+        "Give a Git ref that Git can resolve. Then run the command again.",
         BAD_CONFIG,
     ),
     (
