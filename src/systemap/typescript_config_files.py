@@ -36,30 +36,33 @@ def typescript_config_paths(root: Path, folders: Iterable[Path]) -> list[Path]:
     found = dict.fromkeys([*near, root / TYPESCRIPT_PACKAGE])
     base = root.resolve()
     for start in (path for path in near if path.name == "tsconfig.json" and path.is_file()):
-        for path in linked_configs(start):
-            found[root / path.relative_to(base) if path.is_relative_to(base) else path] = None
+        for path in linked_configs(start, root):
+            # The watcher does not watch a file outside the repository: extraction refuses it.
+            if path.is_relative_to(base):
+                found[root / path.relative_to(base)] = None
     return list(found)
 
 
-def linked_configs(start: Path) -> list[Path]:
+def linked_configs(start: Path, root: Path) -> list[Path]:
     """Give the start file, the tsconfig files that it names in `extends` or `references`,
     and the files that those files name. Each path is resolved and occurs one time.
 
     A file that cannot be read names no file. Thus a file that is not valid JSON, or a
-    cycle, does not stop the result.
+    cycle, does not stop the result. The function reads only regular files in the
+    repository. It does not open a file outside the repository or a FIFO.
     """
     found: dict[Path, None] = {}
     queue = [start.resolve()]
     for current in queue:
         if current not in found:
             found[current] = None
-            queue += _named(current)
+            queue += _named(current, root)
     return list(found)
 
 
-def _named(path: Path) -> list[Path]:
+def _named(path: Path, root: Path) -> list[Path]:
     try:
-        data = _read_config(path)
+        data = _read_config(path, root)
     except ValueError:
         return []
     return [*_extends_targets(data, path), *_reference_targets(data, path)]

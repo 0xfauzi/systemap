@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from systemap import repo_files
 from systemap.config import ConfigError
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -171,10 +172,17 @@ def _strip_jsonc(text: str) -> str:
     return _TRAILING_COMMA.sub(keep_string_remove_comma, without_comments)
 
 
-def _read_config(path: Path) -> dict[str, Any]:
+def _read_config(path: Path, repo: Path) -> dict[str, Any]:
+    """This function reads a tsconfig file only if it is a regular file in the repository.
+
+    A file outside the repository, a link to a file outside it, and a file that is not a
+    regular file give ValueError with the path and the cause. The function does not open
+    such a file. Thus a FIFO does not stop the reader.
+    """
     try:
-        value = json.loads(_strip_jsonc(path.read_text(encoding="utf-8")))
-    except (OSError, json.JSONDecodeError) as exc:
+        text = repo_files.read_text(repo, repo_files.relative(repo, path))
+        value = json.loads(_strip_jsonc(text))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"The parser could not read {path}: {exc}") from exc
     if not isinstance(value, dict):
         raise ValueError(f"{path} must contain an object.")
@@ -196,14 +204,30 @@ def _config_reference(parent: Path, reference: str) -> Path:
         if candidate.suffix != ".json":
             # tsc adds `.json` to the full name: `./tsconfig.base` is `tsconfig.base.json`.
             choices += [candidate.with_name(candidate.name + ".json"), candidate / "tsconfig.json"]
-        found = next((choice for choice in choices if choice.is_file()), None)
+        # A file that is not regular, such as a FIFO, is found, and the reader refuses it
+        # with its cause.
+        found = next((choice for choice in choices if _not_folder(choice)), None)
         if found is not None:
             return found.resolve()
     raise ValueError(f"The parser could not resolve tsconfig extends {reference!r} from {parent}")
 
 
+def _not_folder(path: Path) -> bool:
+    return path.exists() and not path.is_dir()
+
+
+def config_present(path: Path) -> bool:
+    """This function tells if a tsconfig path names an entry that is not a folder.
+
+    A link, a FIFO, and a link to a file outside the repository are present. Then the
+    reader refuses them with the cause, and the project does not silently lose them.
+    """
+    return os.path.lexists(path) and not path.is_dir()
+
+
 def _compiler_options(
     path: Path,
+    repo: Path,
     issues: list[tuple[Path, str]],
     inputs: Options,
     active: frozenset[Path] = frozenset(),
@@ -214,10 +238,10 @@ def _compiler_options(
     path = path.resolve()
     if path in active:
         raise ValueError(f"A circular tsconfig extends relation occurs at {path}")
-    data = _read_config(path)
+    data = _read_config(path, repo)
     options: Options = {}
     for reference in _extends_references(data, path):
-        options.update(_inherited_options(path, reference, issues, inputs, active))
+        options.update(_inherited_options(path, repo, reference, issues, inputs, active))
     compiler = data.get("compilerOptions", {})
     if isinstance(compiler, dict):
         options.update({name: (value, path.parent) for name, value in compiler.items()})
@@ -239,6 +263,7 @@ def _extends_references(data: dict[str, Any], path: Path) -> list[str]:
 
 def _inherited_options(
     path: Path,
+    repo: Path,
     reference: str,
     issues: list[tuple[Path, str]],
     inputs: Options,
@@ -251,7 +276,7 @@ def _inherited_options(
             raise
         issues.append((path, reference))
         return {}
-    return _compiler_options(inherited, issues, inputs, active | {path})
+    return _compiler_options(inherited, repo, issues, inputs, active | {path})
 
 
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
@@ -260,7 +285,7 @@ def load_typescript_config(repo: Path) -> TypeScriptConfig:
     The result also contains the configurations in `references`.
     """
     path = repo / "tsconfig.json"
-    if not path.is_file():
+    if not config_present(path):
         return TypeScriptConfig()
     return load_project_config(path, repo, typescript_major(repo))
 
@@ -272,7 +297,7 @@ def load_project_config(path: Path, repo: Path, major: int | None) -> TypeScript
     """
     issues: list[tuple[Path, str]] = []
     config = _project_config(path, repo, issues, major)
-    projects = tuple(_project_config(ref, repo, issues, major) for ref in _references(path))
+    projects = tuple(_project_config(ref, repo, issues, major) for ref in _references(path, repo))
     return replace(
         config,
         issues=tuple(
@@ -286,7 +311,7 @@ def _project_config(
     path: Path, repo: Path, issues: list[tuple[Path, str]], major: int | None
 ) -> TypeScriptConfig:
     inputs: Options = {}
-    options = _compiler_options(path, issues, inputs)
+    options = _compiler_options(path, repo, issues, inputs)
     config_dir = path.parent.resolve()
     return TypeScriptConfig(
         aliases=_configured_aliases(options, repo, config_dir),
@@ -301,26 +326,27 @@ def _project_config(
     )
 
 
-def _references(path: Path) -> list[Path]:
+def _references(path: Path, repo: Path) -> list[Path]:
     """This function gives the configurations that `references` names, and their own
     references, without repeats.
 
     A reference to a directory uses the tsconfig.json file in that directory, as in tsc.
-    A reference to a missing file has no effect.
+    A reference to a missing file has no effect. A reference to a file outside the
+    repository, or to a file that is not a regular file, gives ValueError.
     """
     start = path.resolve()
     found: dict[Path, None] = {}
     queue = [start]
     for current in queue:
-        for reference in _direct_references(current):
+        for reference in _direct_references(current, repo):
             if reference != start and reference not in found:
                 found[reference] = None
                 queue.append(reference)
     return list(found)
 
 
-def _direct_references(path: Path) -> list[Path]:
-    references = _read_config(path).get("references")
+def _direct_references(path: Path, repo: Path) -> list[Path]:
+    references = _read_config(path, repo).get("references")
     if not isinstance(references, list):
         return []
     out: list[Path] = []
@@ -331,7 +357,8 @@ def _direct_references(path: Path) -> list[Path]:
         target = path.parent / raw
         if not raw.endswith(".json"):
             target = target / "tsconfig.json"
-        if target.is_file():
+        # A FIFO or a link out of the repository is in the result. The reader refuses it.
+        if os.path.lexists(target):
             out.append(target.resolve())
     return out
 
