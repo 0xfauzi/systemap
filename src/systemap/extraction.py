@@ -40,7 +40,9 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # the public name. Format 11: a TypeScript parse record has a fixed reason, the excerpt in
 # `source`, and the parser version in `parser`, because a finding line must not contain
 # them. An indirect re-export without a module gives the record of a direct re-export.
-FORMAT = 11
+# Format 12: `provenance.files` has each configuration file that `config_paths` of the
+# adapter gives, and `provenance.installed` has such files in an installed package folder.
+FORMAT = 12
 TESTS_KEPT = 25
 
 
@@ -238,22 +240,33 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
         record["tests"] = [t["name"] for t in unique[:TESTS_KEPT]]
 
 
-def _config_digests(root: Path, names: tuple[str, ...]) -> dict[str, str]:
-    """Give the digest of each configuration file of the language that is present.
+def _config_digests(cfg: Config, language: LanguageAdapter) -> dict[str, dict[str, str]]:
+    """Give the digest of each configuration file that the adapter reads (`config_paths`)
+    and that is present.
 
-    The function reads only a regular file in the repository, with `repo_files`. A link
-    out of the repository and a FIFO give a ConfigError with the path and the cause.
+    `files` has the files of the repository. `installed` has the files in a folder that
+    the adapter skips, such as an installed package folder. A clone can be without such
+    a file. The function reads only a regular file in the repository, with `repo_files`.
+    A link out of the repository and a FIFO give a ConfigError with the path and the
+    cause.
     """
-    files: dict[str, str] = {}
-    for relative in names:
-        path = root / relative
+    root = cfg.root
+    folders = [package for package, _name in cfg.roots]
+    folders += [root / rel for rel in cfg.test_dirs if rel]
+    found: dict[str, dict[str, str]] = {"files": {}, source_text.INSTALLED: {}}
+    for path in language.config_paths(root, folders):
         if not repo_files.present(path):
             continue
+        relative = path.relative_to(root)
+        group = "files"
+        if language.skip_dirs.intersection(relative.parent.parts):
+            group = source_text.INSTALLED
         try:
-            files[relative] = source_text.text_digest(repo_files.read_bytes(root, relative))
+            digest = source_text.text_digest(repo_files.read_bytes(root, relative))
         except OSError as exc:
             raise ConfigError(f"The parser could not read {path}: {exc}") from exc
-    return files
+        found[group][relative.as_posix()] = digest
+    return {group: dict(sorted(files.items())) for group, files in found.items()}
 
 
 def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[str, Any]:
@@ -267,12 +280,11 @@ def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[st
         # Installed npm packages can change the compiler settings: a separate record.
         "compiler": None,
     }
-    files = _config_digests(cfg.root, language.config_files)
     # The drift comparison finds a change of the facts that a parser version gives.
     return {
         "parser": language.parser_version(),
         "settings": hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest(),
-        "files": files,
+        **_config_digests(cfg, language),
         **language.compiler_record(context, cfg.root),
     }
 

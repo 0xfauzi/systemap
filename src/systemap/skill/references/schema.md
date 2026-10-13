@@ -399,10 +399,10 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 11, with portable syntax hashes, compiler provenance, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
+- `version`: The facts format is 12, with portable syntax hashes, compiler provenance, the digests of the configuration files that the adapter reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
-- `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer.
+- `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer. `files` has the digest of each configuration file that the adapter reads. `installed` has the digest of each such file in an installed package folder, for example `node_modules`. A new or changed installed file is an input change. An installed file that is not on this computer is not a change.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory with the name `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record for each entry point, with the fields below.
